@@ -1,69 +1,76 @@
-<!-- navbar -->
-<nav class="glass-panel text-on-surface p-4 border-b border-white/10 sticky top-0 z-40">
-    <div class="container mx-auto flex items-center justify-between">
-        <!-- Logo à esquerda -->
-        <div class="flex items-center">
-            <a href="/" class="text-xl font-display font-bold flex items-center gap-2 transition-colors hover:text-accent">
-                <span class="w-7 h-7 rounded-md bg-accent flex items-center justify-center shadow-[0_0_15px_rgba(255,77,45,0.3)]">
-                    <svg
-                        class="w-4 h-4 text-white"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            clip-rule="evenodd"
-                            d="M5 4H19C19.5523 4 20 4.44771 20 5V19C20 19.5523 19.5523 20 19 20H5C4.44772 20 4 19.5523 4 19V5C4 4.44772 4.44771 4 5 4ZM2 5C2 3.34315 3.34315 2 5 2H19C20.6569 2 22 3.34315 22 5V19C22 20.6569 20.6569 22 19 22H5C3.34315 22 2 20.6569 2 19V5ZM12 12C9.23858 12 7 9.31371 7 6H9C9 8.56606 10.6691 10 12 10C13.3309 10 15 8.56606 15 6H17C17 9.31371 14.7614 12 12 12Z"
-                            fill="currentColor"
-                        />
-                    </svg>
-                </span>
-                ShopeeAutoVendas
-            </a>
-        </div>
+<!-- sidebar (desktop) -->
+<nav class="hidden md:flex h-screen w-64 fixed left-0 top-0 flex-col py-8 px-4 z-40 glass-panel border-r border-white/10">
+    <a href="/" class="flex items-center gap-3 mb-10 px-2 transition-colors hover:text-accent">
+        <span class="w-8 h-8 rounded-md bg-accent flex items-center justify-center shadow-[0_0_15px_rgba(255,77,45,0.3)] shrink-0">
+            <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M5 4H19C19.5523 4 20 4.44771 20 5V19C20 19.5523 19.5523 20 19 20H5C4.44772 20 4 19.5523 4 19V5C4 4.44772 4.44771 4 5 4ZM2 5C2 3.34315 3.34315 2 5 2H19C20.6569 2 22 3.34315 22 5V19C22 20.6569 20.6569 22 19 22H5C3.34315 22 2 20.6569 2 19V5ZM12 12C9.23858 12 7 9.31371 7 6H9C9 8.56606 10.6691 10 12 10C13.3309 10 15 8.56606 15 6H17C17 9.31371 14.7614 12 12 12Z" fill="currentColor"/>
+            </svg>
+        </span>
+        <span class="font-display text-[18px] font-bold text-on-surface leading-tight truncate">ShopeeAutoVendas</span>
+    </a>
+    <div class="flex-1 flex flex-col gap-1 overflow-y-auto">
+        {% for href, icon, label in [
+            ("/", "dashboard", "Dashboard"),
+            ("/products?limit=10", "inventory_2", "Produtos"),
+            ("/product-lists?limit=10", "list_alt", "Listas de Produtos"),
+            ("/posts?limit=20", "post_add", "Postagens"),
+            ("/activities?limit=20", "notifications_active", "Atividades"),
+        ] %}
+        {% set is_active = request.path == href.split('?')[0] %}
+        <a href="{{ href }}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group
+            {{ 'text-accent bg-accent/5 border-r-2 border-accent' if is_active else 'text-on-surface-variant hover:text-on-surface hover:bg-white/5' }}">
+            <span class="material-symbols-outlined {{ '' if is_active else 'group-hover:text-accent transition-colors' }}"{% if is_active %} style="font-variation-settings: 'FILL' 1;"{% endif %}>{{ icon }}</span>
+            <span class="text-body-sm font-medium">{{ label }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    <div class="mt-auto flex flex-col gap-1 border-t border-white/10 pt-4">
+        {% set panel_links = [("/panel/profile", "account_circle", "Painel"), ("/panel/credentials", "vpn_key", "Credenciais")] %}
+        {% if current_user.access == 'ADMIN' %}
+            {% set panel_links = panel_links + [("/users?limit=20", "group", "Usuários")] %}
+        {% endif %}
+        {% for href, icon, label in panel_links %}
+        {% set is_active = request.path == href %}
+        <a href="{{ href }}" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group
+            {{ 'text-accent bg-accent/5' if is_active else 'text-on-surface-variant hover:text-on-surface hover:bg-white/5' }}">
+            <span class="material-symbols-outlined {{ '' if is_active else 'group-hover:text-accent transition-colors' }}">{{ icon }}</span>
+            <span class="text-body-sm font-medium">{{ label }}</span>
+        </a>
+        {% endfor %}
+        <a href="/auth/logout" class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:text-danger hover:bg-white/5 transition-all duration-200 group">
+            <span class="material-symbols-outlined group-hover:text-danger transition-colors">logout</span>
+            <span class="text-body-sm font-medium">Sair</span>
+        </a>
+    </div>
+</nav>
 
-        <!-- Links e menu à direita -->
-        <div class="flex items-center space-x-6">
-            <!-- Links de páginas -->
-            <a href="/activities?limit=20" class="text-on-surface-variant hover:text-on-surface transition-colors hidden lg:block">Atividades</a>
-            <a href="/posts?limit=20" class="text-on-surface-variant hover:text-on-surface transition-colors hidden lg:block">Postagens</a>
-            <a href="/product-lists?limit=10" class="text-on-surface-variant hover:text-on-surface transition-colors hidden lg:block">Listas de Produtos</a>
-            <a href="/products?limit=10" class="text-on-surface-variant hover:text-on-surface transition-colors hidden lg:block">Produtos</a>
-
-            <!-- Links dropdown  -->
-            <div x-data="{ open: false }" class="z-10 relative">
-                <button
-                    @click="open = !open"
-                    class="text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none"
-                >
-                    <span class="material-symbols-rounded cursor-pointer">menu</span>
-                </button>
-
-                <!-- Dropdown -->
-                <div
-                    x-cloak
-                    x-show="open"
-                    @click.outside="open = false"
-                    class="absolute right-0 mt-2 w-fit bento-card py-1 text-on-surface"
-                    x-transition
-                >
-                    <a href="/activities?limit=20" class="block lg:hidden px-4 py-2 hover:bg-white/5 hover:text-accent transition-colors">Atividades</a>
-                    <a href="/posts?limit=20" class="block lg:hidden px-4 py-2 hover:bg-white/5 hover:text-accent transition-colors">Postagens</a>
-                    <a href="/product-lists?limit=10" class="block lg:hidden px-4 py-2 hover:bg-white/5 hover:text-accent transition-colors">Listas de Produtos</a>
-                    <a href="/products?limit=10" class="block lg:hidden px-4 py-2 hover:bg-white/5 hover:text-accent transition-colors">Produtos</a>
-                    <hr class="lg:hidden border-white/10">
-                    <a href="/panel/profile" class="block px-4 py-2 hover:bg-white/5 hover:text-accent transition-colors">Painel</a>
-                    {% if current_user.access == 'ADMIN' -%}
-                    <a href="/users?limit=20" class="block px-4 py-2 hover:bg-white/5 hover:text-accent transition-colors">
-                        Usuários
-                    </a>
-                    {%- endif %}
-                    <hr class="border-white/10">
-                    <a href="/auth/logout" class="block px-4 py-2 hover:bg-white/5 hover:text-accent transition-colors">Sair</a>
-                </div>
-            </div>
-        </div>
+<!-- top bar (mobile) -->
+<nav x-data="{ open: false }" class="md:hidden glass-panel border-b border-white/10 sticky top-0 z-40">
+    <div class="flex items-center justify-between p-4">
+        <a href="/" class="flex items-center gap-2 font-display font-bold text-on-surface">
+            <span class="w-7 h-7 rounded-md bg-accent flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-white text-[16px]">bolt</span>
+            </span>
+            ShopeeAutoVendas
+        </a>
+        <button @click="open = !open" class="text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none">
+            <span class="material-symbols-outlined" x-text="open ? 'close' : 'menu'"></span>
+        </button>
+    </div>
+    <div x-cloak x-show="open" x-transition class="px-4 pb-4 flex flex-col gap-1 border-t border-white/10 pt-2">
+        <a href="/" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Dashboard</a>
+        <a href="/products?limit=10" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Produtos</a>
+        <a href="/product-lists?limit=10" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Listas de Produtos</a>
+        <a href="/posts?limit=20" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Postagens</a>
+        <a href="/activities?limit=20" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Atividades</a>
+        <hr class="border-white/10 my-1">
+        <a href="/panel/profile" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Painel</a>
+        <a href="/panel/credentials" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Credenciais</a>
+        {% if current_user.access == 'ADMIN' -%}
+        <a href="/users?limit=20" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Usuários</a>
+        {%- endif %}
+        <hr class="border-white/10 my-1">
+        <a href="/auth/logout" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-danger hover:bg-white/5 transition-colors">Sair</a>
     </div>
 </nav>
 <!-- fim navbar -->

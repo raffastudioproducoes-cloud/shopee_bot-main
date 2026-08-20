@@ -29,7 +29,7 @@
     {% set category_color = 'bg-red-500' if category == 'error' else 'bg-green-500' if category == 'success' else 'bg-blue-500' %}
     <div id="toast" class="{{ base_class }} {{ category_color }}">
         <div class="flex items-center">
-            <span class="material-symbols-rounded mr-2">
+            <span class="material-symbols-outlined mr-2">
                 {% if category == 'error' %}
                     warning
                 {% else %}
