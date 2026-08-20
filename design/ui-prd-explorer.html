@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopeeAutoVendas — Enterprise Dark Luxury UI & PRD Explorer</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fff7ed',
+              100: '#ffedd5',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c',
+              accent: '#ff6b00',
+            },
+            dark: {
+              bg: '#0b0d10',
+              card: '#141820',
+              elevated: '#1c222e',
+              border: 'rgba(255, 255, 255, 0.08)',
+              borderActive: 'rgba(249, 115, 22, 0.4)'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <style>
+    body {
+      background-color: #0b0d10;
+      color: #f3f4f6;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    .glass-panel {
+      background: rgba(20, 24, 32, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-panel-interactive {
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-panel-interactive:hover {
+      border-color: rgba(249, 115, 22, 0.35);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6), 0 0 20px -5px rgba(249, 115, 22, 0.15);
+    }
+    .chart-container {
+      position: relative;
+      width: 100%;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      height: 260px;
+      max-height: 350px;
+    }
+    @media (min-width: 768px) {
+      .chart-container {
+        height: 290px;
+      }
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(249, 115, 22, 0.5);
+    }
+    .glow-orange {
+      box-shadow: 0 0 25px -5px rgba(249, 115, 22, 0.3);
+    }
+  </style>
+</head>
+<body x-data="appData()" x-init="initCharts()" class="min-h-screen flex flex-col justify-between antialiased selection:bg-brand-500 selection:text-white custom-scrollbar">
+
+  <!-- Chosen Palette: Dark Luxury Obsidian & Shopee Electric Amber (Obsidian #0b0d10, Slate #141820, Border rgba(255,255,255,0.08), Accent Shopee Orange #ff6b00 / #f97316, Text Emerald #10b981, Text Platinum #f3f4f6) -->
+  <!-- Application Structure Plan: SPA interativa estruturada em 5 visões navegáveis (Dashboard Bento, Catalogo de Produtos, Formulario de Posts Multi-thread, Tela de Login Auth e Especificações Técnicas Jinja2/PRD). Esta estrutura foi desenhada para permitir que os stakeholders explorem em tempo real tanto a nova interface visual Dark Luxury do ShopeeAutoVendas quanto as regras operacionais e especificações técnicas de templates Jinja2 exigidos no PRD. -->
+  <!-- Visualization & Content Choices:
+  - Métricas financeiras e de postagem -> Chart.js em elementos Canvas -> Gráficos de linha e barra para evolução diária sem o uso de SVG.
+  - Distribuição do status de sincronização de produtos -> Chart.js Donut em Canvas -> Visualização proporcional de acervo sincronizado vs pendente.
+  - Ícones de interface e status -> Caracteres Unicode e badges CSS com gradientes -> Alternativa leve e performática 100% sem SVG.
+  - Construtor de Threads com Preview ao Vivo -> Alpine.js reactive state -> Permite ver em tempo real o post no Telegram/WhatsApp.
+  - Inspetor de Templates Jinja2 -> Visualizador de código HTML/Jinja formatado -> Facilita o mapeamento 1:1 com o backend Flask. -->
+  <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+  <div>
+    <header class="sticky top-0 z-50 glass-panel border-b border-dark-border">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          
+          <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-3 cursor-pointer" @click="activeTab = 'dashboard'">
+              <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-500 flex items-center justify-center font-bold text-white text-lg shadow-lg shadow-brand-500/30">
+                ❖
+              </div>
+              <div>
+                <div class="flex items-center space-x-2">
+                  <span class="font-semibold tracking-tight text-white text-base">ShopeeAutoVendas</span>
+                  <span class="px-2 py-0.5 text-[10px] font-mono tracking-wider bg-brand-500/10 text-brand-500 border border-brand-500/20 rounded-full font-semibold">ENTERPRISE</span>
+                </div>
+                <p class="text-[11px] text-gray-400">Automação de Afiliados & Disparo Inteligente</p>
+              </div>
+            </div>
+          </div>
+
+          <nav class="hidden md:flex items-center space-x-1 bg-dark-card/80 p-1 rounded-xl border border-dark-border">
+            <button @click="switchTab('dashboard')" :class="activeTab === 'dashboard' ? 'bg-brand-500 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'" class="px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center space-x-2">
+              <span>📊</span>
+              <span>Dashboard</span>
+            </button>
+            <button @click="switchTab('products')" :class="activeTab === 'products' ? 'bg-brand-500 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'" class="px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center space-x-2">
+              <span>🛒</span>
+              <span>Produtos</span>
+              <span class="px-1.5 py-0.2 text-[9px] bg-white/20 rounded-full font-mono" x-text="products.length">8</span>
+            </button>
+            <button @click="switchTab('posts')" :class="activeTab === 'posts' ? 'bg-brand-500 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'" class="px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center space-x-2">
+              <span>📝</span>
+              <span>Criar Post</span>
+            </button>
+            <button @click="switchTab('login')" :class="activeTab === 'login' ? 'bg-brand-500 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'" class="px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center space-x-2">
+              <span>🔐</span>
+              <span>Login / Auth</span>
+            </button>
+            <button @click="switchTab('prd')" :class="activeTab === 'prd' ? 'bg-brand-500 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'" class="px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center space-x-2">
+              <span>⚙</span>
+              <span>Especificações PRD</span>
+            </button>
+          </nav>
+
+          <div class="flex items-center space-x-3">
+            <div class="hidden lg:flex items-center space-x-2 bg-emerald-950/40 border border-emerald-500/30 px-3 py-1 rounded-full text-xs text-emerald-400 font-mono">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>API Shopee: Online</span>
+            </div>
+
+            <button @click="toggleAutomation()" :class="automationActive ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' : 'bg-rose-500/20 border-rose-500/40 text-rose-300'" class="px-3 py-1.5 border rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5">
+              <span x-text="automationActive ? '⚡ Bot Ativo' : '⏸ Pausado'"></span>
+            </button>
+
+            <div class="flex items-center space-x-2 pl-2 border-l border-dark-border">
+              <div class="w-8 h-8 rounded-full bg-brand-500/20 border border-brand-500/40 flex items-center justify-center font-bold text-brand-500 text-xs">
+                RF
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="md:hidden flex overflow-x-auto px-4 py-2 space-x-2 border-t border-dark-border bg-dark-bg/95">
+        <button @click="switchTab('dashboard')" :class="activeTab === 'dashboard' ? 'bg-brand-500 text-white' : 'text-gray-400'" class="px-3 py-1 rounded-md text-xs whitespace-nowrap">📊 Dashboard</button>
+        <button @click="switchTab('products')" :class="activeTab === 'products' ? 'bg-brand-500 text-white' : 'text-gray-400'" class="px-3 py-1 rounded-md text-xs whitespace-nowrap">🛒 Produtos</button>
+        <button @click="switchTab('posts')" :class="activeTab === 'posts' ? 'bg-brand-500 text-white' : 'text-gray-400'" class="px-3 py-1 rounded-md text-xs whitespace-nowrap">📝 Form Post</button>
+        <button @click="switchTab('login')" :class="activeTab === 'login' ? 'bg-brand-500 text-white' : 'text-gray-400'" class="px-3 py-1 rounded-md text-xs whitespace-nowrap">🔐 Login</button>
+        <button @click="switchTab('prd')" :class="activeTab === 'prd' ? 'bg-brand-500 text-white' : 'text-gray-400'" class="px-3 py-1 rounded-md text-xs whitespace-nowrap">⚙ PRD Specs</button>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+      <section x-show="activeTab === 'dashboard'" x-transition class="space-y-6">
+        
+        <div class="glass-panel p-6 rounded-2xl border border-dark-border flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-brand-500/20 text-brand-500 border border-brand-500/30">Visão Geral Bento UI</span>
+              <span class="text-gray-400 text-xs">· Atualizado há 1 minuto</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-white mt-1">Painel de Performance de Afiliados</h1>
+            <p class="text-gray-400 text-sm mt-1">
+              Esta tela demonstra o layout Bento Grid com profundidade glassmorphic exigido pelo PRD. O painel unifica métricas de comissão, agendamento de postagens e status de sincronização em tempo real com o Flask.
+            </p>
+          </div>
+          <div class="flex items-center space-x-3">
+            <button @click="triggerSyncAnimation()" class="px-4 py-2 rounded-xl bg-dark-elevated border border-dark-border hover:border-brand-500/50 text-xs font-medium text-gray-200 transition-all flex items-center space-x-2">
+              <span :class="isSyncing ? 'animate-spin' : ''">🔄</span>
+              <span>Forçar Sincronização</span>
+            </button>
+            <button @click="switchTab('posts')" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-xs font-semibold text-white transition-all shadow-lg shadow-brand-500/25 flex items-center space-x-2">
+              <span>➕ Novo Post</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass-panel p-5 rounded-2xl border border-dark-border glass-panel-interactive">
+            <div class="flex items-center justify-between text-gray-400 text-xs">
+              <span class="font-medium">Comissões Acumuladas</span>
+              <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/20">+24.8%</span>
+            </div>
+            <div class="text-2xl font-bold text-white tracking-tight mt-2">R$ 18.420,50</div>
+            <p class="text-xs text-gray-400 mt-1">Projeção do mês: <span class="text-gray-200 font-semibold">R$ 22.100,00</span></p>
+            <div class="mt-3 w-full bg-dark-elevated h-1.5 rounded-full overflow-hidden">
+              <div class="bg-gradient-to-r from-brand-600 to-brand-500 h-full rounded-full" style="width: 82%"></div>
+            </div>
+          </div>
+
+          <div class="glass-panel p-5 rounded-2xl border border-dark-border glass-panel-interactive">
+            <div class="flex items-center justify-between text-gray-400 text-xs">
+              <span class="font-medium">Posts Publicados (30d)</span>
+              <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/20">+12%</span>
+            </div>
+            <div class="text-2xl font-bold text-white tracking-tight mt-2">1.482 posts</div>
+            <p class="text-xs text-gray-400 mt-1">Média diária: <span class="text-gray-200 font-semibold">49,4/dia</span></p>
+            <div class="mt-3 flex items-center space-x-1">
+              <template x-for="i in 12">
+                <div class="h-2 flex-1 rounded-sm" :class="i > 10 ? 'bg-brand-500/30' : 'bg-brand-500'"></div>
+              </template>
+            </div>
+          </div>
+
+          <div class="glass-panel p-5 rounded-2xl border border-dark-border glass-panel-interactive">
+            <div class="flex items-center justify-between text-gray-400 text-xs">
+              <span class="font-medium">Produtos Ativos</span>
+              <span class="px-2 py-0.5 rounded text-[10px] bg-brand-500/10 text-brand-500 font-mono border border-brand-500/20">Shopee API</span>
+            </div>
+            <div class="text-2xl font-bold text-white tracking-tight mt-2">342 itens</div>
+            <p class="text-xs text-gray-400 mt-1">Com estoque garantido: <span class="text-emerald-400 font-semibold">98.2%</span></p>
+            <div class="mt-3 w-full bg-dark-elevated h-1.5 rounded-full overflow-hidden">
+              <div class="bg-emerald-500 h-full rounded-full" style="width: 98%"></div>
+            </div>
+          </div>
+
+          <div class="glass-panel p-5 rounded-2xl border border-dark-border glass-panel-interactive">
+            <div class="flex items-center justify-between text-gray-400 text-xs">
+              <span class="font-medium">Fila de Disparo</span>
+              <span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/10 text-cyan-400 font-mono border border-cyan-500/20">Telegram/WA</span>
+            </div>
+            <div class="text-2xl font-bold text-white tracking-tight mt-2">18 pendentes</div>
+            <p class="text-xs text-gray-400 mt-1">Próximo disparo: <span class="text-brand-500 font-mono">14:30 (em 12m)</span></p>
+            <div class="mt-3 flex items-center justify-between text-[11px] text-gray-400">
+              <span>Canal VIP: 12</span>
+              <span>Grupo Ofertas: 6</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <div class="lg:col-span-2 glass-panel p-6 rounded-2xl border border-dark-border flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+                  <span>📈</span>
+                  <span>Evolução de Comissões e Vendas</span>
+                </h3>
+                <p class="text-xs text-gray-400">Desempenho diário dos links de afiliados rastreados</p>
+              </div>
+              <div class="flex items-center space-x-2 bg-dark-elevated p-1 rounded-lg border border-dark-border text-xs">
+                <button @click="chartTimeframe = '7d'; updateSalesChart()" :class="chartTimeframe === '7d' ? 'bg-brand-500 text-white' : 'text-gray-400'" class="px-2.5 py-1 rounded-md transition-all">7D</button>
+                <button @click="chartTimeframe = '30d'; updateSalesChart()" :class="chartTimeframe === '30d' ? 'bg-brand-500 text-white' : 'text-gray-400'" class="px-2.5 py-1 rounded-md transition-all">30D</button>
+              </div>
+            </div>
+
+            <div class="chart-container">
+              <canvas id="salesChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-panel p-6 rounded-2xl border border-dark-border flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+                  <span>🎯</span>
+                  <span>Status dos Produtos</span>
+                </h3>
+                <span class="text-xs font-mono text-gray-400">Total: 342</span>
+              </div>
+              <p class="text-xs text-gray-400 mb-4">Sincronização com o catálogo de ofertas Shopee</p>
+
+              <div class="chart-container" style="height: 200px;">
+                <canvas id="syncChart"></canvas>
+              </div>
+            </div>
+
+            <div class="space-y-2 mt-4 pt-4 border-t border-dark-border text-xs">
+              <div class="flex justify-between items-center">
+                <span class="flex items-center space-x-2 text-gray-300">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                  <span>Sincronizados com Sucesso</span>
+                </span>
+                <span class="font-mono text-white">280 (82%)</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="flex items-center space-x-2 text-gray-300">
+                  <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                  <span>Atualização Pendente</span>
+                </span>
+                <span class="font-mono text-white">48 (14%)</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="flex items-center space-x-2 text-gray-300">
+                  <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                  <span>Sem Estoque / Erro API</span>
+                </span>
+                <span class="font-mono text-white">14 (4%)</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <div class="lg:col-span-2 glass-panel p-6 rounded-2xl border border-dark-border">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+                  <span>⚡</span>
+                  <span>Atividade Recente da Automação</span>
+                </h3>
+                <p class="text-xs text-gray-400">Registro em tempo real de webhooks, disparos e sincronização</p>
+              </div>
+              <span class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-mono rounded-full">
+                ● Live Streaming
+              </span>
+            </div>
+
+            <div class="space-y-3 font-mono text-xs max-h-[280px] overflow-y-auto pr-2 custom-scrollbar">
+              <template x-for="log in activityLogs" :key="log.id">
+                <div class="p-3 rounded-xl bg-dark-card border border-dark-border flex items-start justify-between space-x-3 hover:border-gray-700 transition-all">
+                  <div class="flex items-start space-x-3">
+                    <span class="text-base" x-text="log.icon"></span>
+                    <div>
+                      <div class="flex items-center space-x-2">
+                        <span class="text-white font-semibold" x-text="log.title"></span>
+                        <span class="px-1.5 py-0.2 rounded text-[10px]" :class="log.badgeClass" x-text="log.type"></span>
+                      </div>
+                      <p class="text-gray-400 mt-0.5 text-[11px]" x-text="log.detail"></p>
+                    </div>
+                  </div>
+                  <span class="text-gray-500 text-[10px] whitespace-nowrap" x-text="log.time"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="glass-panel p-6 rounded-2xl border border-dark-border flex flex-col justify-between">
+            <div>
+              <h3 class="text-base font-semibold text-white flex items-center space-x-2 mb-1">
+                <span>📊</span>
+                <span>Postagens do Mês</span>
+              </h3>
+              <p class="text-xs text-gray-400 mb-4">Comparativo de postagens por rede</p>
+              
+              <div class="chart-container" style="height: 180px;">
+                <canvas id="postsChart"></canvas>
+              </div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-brand-500/10 border border-brand-500/20 mt-4">
+              <div class="flex items-center space-x-2 text-brand-500 text-xs font-semibold">
+                <span>✦ InsInsight de IA:</span>
+              </div>
+              <p class="text-xs text-gray-300 mt-1">
+                Postagens enviadas entre <span class="text-white font-semibold">18:00 e 21:00</span> geram 3.2x mais cliques em links de afiliados Shopee.
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <section x-show="activeTab === 'products'" x-transition class="space-y-6">
+        
+        <div class="glass-panel p-6 rounded-2xl border border-dark-border flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-brand-500/20 text-brand-500 border border-brand-500/30">Mapeia: products/index.html</span>
+              <span class="text-gray-400 text-xs">· Catálogo Sincronizado</span>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight text-white mt-1">Produtos Importados da Shopee</h1>
+            <p class="text-gray-400 text-sm mt-1">
+              Grid de produtos com hierarquia clara de preços, comissão calculada e indicadores de estoque. Permite selecionar produtos diretamente para o criador de posts.
+            </p>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <button @click="triggerSyncAnimation()" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-xs font-semibold text-white transition-all shadow-lg shadow-brand-500/20 flex items-center space-x-2">
+              <span>🔄 Sync Catálogo Shopee</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-panel p-4 rounded-xl border border-dark-border flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="relative w-full sm:w-80">
+            <input type="text" x-model="productSearch" placeholder="Buscar produto por nome ou ID..." class="w-full bg-dark-elevated border border-dark-border rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-500">
+            <span class="absolute right-3 top-2.5 text-gray-500 text-xs">🔍</span>
+          </div>
+
+          <div class="flex items-center space-x-3 w-full sm:w-auto overflow-x-auto">
+            <select x-model="selectedCategory" class="bg-dark-elevated border border-dark-border rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:border-brand-500">
+              <option value="all">Todas Categorias</option>
+              <option value="Eletrônicos">Eletrônicos</option>
+              <option value="Moda">Moda</option>
+              <option value="Casa">Casa & Cozinha</option>
+              <option value="Beleza">Beleza & Saúde</option>
+            </select>
+
+            <select x-model="selectedStatusFilter" class="bg-dark-elevated border border-dark-border rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:border-brand-500">
+              <option value="all">Todos Status</option>
+              <option value="Sincronizado">Sincronizado</option>
+              <option value="Atualização Pendente">Pendente</option>
+            </select>
+
+            <span class="text-xs text-gray-400 font-mono whitespace-nowrap" x-text="filteredProducts.length + ' produtos'"></span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <template x-for="product in filteredProducts" :key="product.id">
+            <div class="glass-panel rounded-2xl border border-dark-border overflow-hidden glass-panel-interactive flex flex-col justify-between">
+              <div>
+                <div class="relative h-44 bg-dark-elevated overflow-hidden group">
+                  <img :src="product.image" :alt="product.title" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
+                  <div class="absolute top-2 left-2 flex flex-col space-y-1">
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-dark-bg/80 backdrop-blur-md text-emerald-400 border border-emerald-500/30">
+                      <span x-text="product.commission"></span> Comissão
+                    </span>
+                  </div>
+                  <div class="absolute top-2 right-2">
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-mono bg-dark-bg/80 backdrop-blur-md text-gray-300 border border-dark-border" x-text="product.category"></span>
+                  </div>
+                </div>
+
+                <div class="p-4 space-y-2">
+                  <div class="flex items-center justify-between text-[11px] text-gray-400">
+                    <span class="font-mono" x-text="'ID: ' + product.shopeeId"></span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px]" :class="product.status === 'Sincronizado' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'" x-text="product.status"></span>
+                  </div>
+
+                  <h3 class="text-sm font-semibold text-white line-clamp-2 hover:text-brand-500 transition-colors cursor-pointer" x-text="product.title"></h3>
+
+                  <div class="pt-2 border-t border-dark-border flex items-baseline justify-between">
+                    <div>
+                      <span class="text-[11px] text-gray-500 line-through block" x-text="'R$ ' + product.originalPrice"></span>
+                      <span class="text-base font-bold text-brand-500 font-mono" x-text="'R$ ' + product.promoPrice"></span>
+                    </div>
+                    <div class="text-right">
+                      <span class="text-[10px] text-gray-400 block">Sua Margem</span>
+                      <span class="text-xs font-bold text-emerald-400 font-mono" x-text="'~ R$ ' + product.commissionValue"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="p-4 pt-0 space-y-2">
+                <div class="flex items-center justify-between text-[11px] text-gray-400">
+                  <span>Estoque: <strong class="text-gray-200" x-text="product.stock"></strong></span>
+                  <span>Atualizado: <strong class="text-gray-200" x-text="product.updatedAt"></strong></span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 pt-2">
+                  <button @click="openProductModal(product)" class="w-full py-1.5 rounded-xl bg-dark-elevated hover:bg-gray-800 border border-dark-border text-xs text-gray-300 font-medium transition-all">
+                    Detalhes
+                  </button>
+                  <button @click="attachProductToPost(product)" class="w-full py-1.5 rounded-xl bg-brand-500/20 hover:bg-brand-500 border border-brand-500/30 hover:border-brand-500 text-xs text-brand-400 hover:text-white font-semibold transition-all">
+                    Criar Post ➔
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+      </section>
+
+      <section x-show="activeTab === 'posts'" x-transition class="space-y-6">
+        
+        <div class="glass-panel p-6 rounded-2xl border border-dark-border flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-brand-500/20 text-brand-500 border border-brand-500/30">Mapeia: posts/form.html</span>
+              <span class="text-gray-400 text-xs">· Thread & Post Builder</span>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight text-white mt-1">Formulário de Post Multi-parte (Thread)</h1>
+            <p class="text-gray-400 text-sm mt-1">
+              Construtor de sequências de mensagens interativas para redes e canais. Anexe produtos Shopee com atualização de desconto automática e visualize o resultado ao vivo.
+            </p>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <span class="px-3 py-1 bg-dark-elevated border border-dark-border rounded-lg text-xs font-mono text-gray-300">
+              Status: <span class="text-amber-400 font-bold" x-text="postForm.status"></span>
+            </span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          <div class="lg:col-span-7 glass-panel p-6 rounded-2xl border border-dark-border space-y-6">
+            
+            <div class="space-y-3">
+              <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                1. Seleção de Canais de Destino
+              </label>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <label @click="postForm.channels.telegram = !postForm.channels.telegram" :class="postForm.channels.telegram ? 'bg-brand-500/20 border-brand-500 text-white' : 'bg-dark-elevated border-dark-border text-gray-400'" class="p-3 rounded-xl border cursor-pointer flex items-center space-x-2 transition-all">
+                  <span class="text-base">✈</span>
+                  <div class="text-xs">
+                    <div class="font-semibold">Telegram VIP</div>
+                    <div class="text-[10px] text-gray-400">14.2k membros</div>
+                  </div>
+                </label>
+
+                <label @click="postForm.channels.whatsapp = !postForm.channels.whatsapp" :class="postForm.channels.whatsapp ? 'bg-brand-500/20 border-brand-500 text-white' : 'bg-dark-elevated border-dark-border text-gray-400'" class="p-3 rounded-xl border cursor-pointer flex items-center space-x-2 transition-all">
+                  <span class="text-base">💬</span>
+                  <div class="text-xs">
+                    <div class="font-semibold">WhatsApp Promo</div>
+                    <div class="text-[10px] text-gray-400">8 grupos</div>
+                  </div>
+                </label>
+
+                <label @click="postForm.channels.twitter = !postForm.channels.twitter" :class="postForm.channels.twitter ? 'bg-brand-500/20 border-brand-500 text-white' : 'bg-dark-elevated border-dark-border text-gray-400'" class="p-3 rounded-xl border cursor-pointer flex items-center space-x-2 transition-all">
+                  <span class="text-base">🐦</span>
+                  <div class="text-xs">
+                    <div class="font-semibold">X / Twitter</div>
+                    <div class="text-[10px] text-gray-400">Auto Thread</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="space-y-4 pt-4 border-t border-dark-border">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                  2. Conteúdo da Thread (Sequência de Mensagens)
+                </label>
+                <button @click="addThreadStep()" class="text-xs text-brand-500 hover:text-brand-400 font-semibold flex items-center space-x-1">
+                  <span>➕ Adicionar Etapa</span>
+                </button>
+              </div>
+
+              <template x-for="(step, index) in postForm.steps" :key="index">
+                <div class="p-4 rounded-xl bg-dark-card border border-dark-border space-y-3 relative">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-mono font-bold text-brand-500" x-text="'Parte ' + (index + 1) + ' de ' + postForm.steps.length"></span>
+                    <button x-show="postForm.steps.length > 1" @click="removeThreadStep(index)" class="text-gray-500 hover:text-rose-400 text-xs">
+                      ✖ Remover
+                    </button>
+                  </div>
+
+                  <textarea x-model="step.content" rows="3" class="w-full bg-dark-elevated border border-dark-border rounded-xl p-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-500 font-sans" placeholder="Escreva o texto da postagem... Use *negrito* ou #hashtags"></textarea>
+
+                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-dark-border/50">
+                    <div class="flex items-center space-x-2">
+                      <span class="text-[11px] text-gray-400">Anexar Produto:</span>
+                      <select x-model="step.attachedProductId" @change="updateStepProduct(step)" class="bg-dark-elevated border border-dark-border rounded-lg px-2 py-1 text-[11px] text-gray-200 focus:outline-none">
+                        <option value="">Nenhum produto</option>
+                        <template x-for="p in products" :key="p.id">
+                          <option :value="p.id" x-text="p.title"></option>
+                        </template>
+                      </select>
+                    </div>
+
+                    <span class="text-[10px] font-mono text-gray-500 text-right" x-text="step.content.length + ' caracteres'"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div class="space-y-4 pt-4 border-t border-dark-border">
+              <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                3. Agendamento e Publicação
+              </label>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-[11px] text-gray-400 mb-1">Data e Hora do Disparo</label>
+                  <input type="datetime-local" x-model="postForm.scheduleTime" class="w-full bg-dark-elevated border border-dark-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+                </div>
+
+                <div>
+                  <label class="block text-[11px] text-gray-400 mb-1">Ação de Envio</label>
+                  <select x-model="postForm.status" class="w-full bg-dark-elevated border border-dark-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+                    <option value="Rascunho">Salvar como Rascunho</option>
+                    <option value="Agendado">Agendar para Disparo</option>
+                    <option value="Publicado">Publicar Imediatamente</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-4 flex items-center justify-end space-x-3">
+              <button @click="resetPostForm()" class="px-4 py-2.5 rounded-xl bg-dark-elevated border border-dark-border text-xs text-gray-300 font-medium hover:bg-gray-800 transition-all">
+                Limpar Form
+              </button>
+              <button @click="submitPostForm()" class="px-6 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-xs font-bold text-white shadow-lg shadow-brand-500/25 transition-all flex items-center space-x-2">
+                <span>🚀 Salvar Postagem em Flask</span>
+              </button>
+            </div>
+
+          </div>
+
+          <div class="lg:col-span-5 space-y-4">
+            <div class="sticky top-24">
+              <div class="glass-panel p-5 rounded-2xl border border-dark-border space-y-4">
+                <div class="flex items-center justify-between border-b border-dark-border pb-3">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                    <span class="text-xs font-bold text-white uppercase tracking-wider">Preview ao Vivo (Telegram)</span>
+                  </div>
+                  <span class="text-[10px] font-mono text-gray-400">Renderizador Alpine.js</span>
+                </div>
+
+                <div class="bg-[#17212b] rounded-2xl p-4 space-y-4 border border-dark-border shadow-2xl">
+                  
+                  <div class="flex items-center space-x-3 pb-3 border-b border-white/5">
+                    <div class="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold text-xs">
+                      ⚡
+                    </div>
+                    <div>
+                      <div class="text-xs font-bold text-white">Canal Ofertas Shopee VIP</div>
+                      <div class="text-[10px] text-gray-400">14.280 inscritos · Canal Oficial</div>
+                    </div>
+                  </div>
+
+                  <template x-for="(step, idx) in postForm.steps" :key="idx">
+                    <div class="bg-[#242f3d] p-3.5 rounded-xl space-y-2 border border-white/5">
+                      <div class="text-[10px] font-mono text-brand-500 font-bold" x-text="'[Mensagem ' + (idx + 1) + ']'"></div>
+                      <p class="text-xs text-gray-200 whitespace-pre-line leading-relaxed font-sans" x-text="step.content || 'Aguardando digitação...'"></p>
+
+                      <template x-if="step.attachedProduct">
+                        <div class="mt-3 pt-2 border-t border-white/10 flex items-center space-x-3 bg-black/20 p-2 rounded-lg">
+                          <img :src="step.attachedProduct.image" class="w-12 h-12 rounded object-cover">
+                          <div class="text-xs">
+                            <div class="font-bold text-white line-clamp-1" x-text="step.attachedProduct.title"></div>
+                            <div class="text-brand-500 font-mono font-bold mt-0.5" x-text="'Por apenas R$ ' + step.attachedProduct.promoPrice"></div>
+                          </div>
+                        </div>
+                      </template>
+
+                      <div class="text-[9px] text-gray-400 text-right pt-1" x-text="'14:32 · Telegram Bot'"></div>
+                    </div>
+                  </template>
+
+                  <div class="pt-2">
+                    <button class="w-full py-2 bg-[#2b5278] text-white font-semibold text-xs rounded-xl flex items-center justify-center space-x-2">
+                      <span>🔗 Compre com Desconto na Shopee</span>
+                    </button>
+                  </div>
+
+                </div>
+
+                <div class="p-3 bg-dark-elevated rounded-xl border border-dark-border text-[11px] text-gray-400">
+                  <span class="text-brand-500 font-bold">ℹ Dica de UX:</span> O template Jinja renderiza cada etapa como um bloco de mensagem independente para garantir entregabilidade em lote sem estourar limites das APIs das redes.
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <section x-show="activeTab === 'login'" x-transition class="space-y-6">
+        
+        <div class="glass-panel p-6 rounded-2xl border border-dark-border flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-brand-500/20 text-brand-500 border border-brand-500/30">Mapeia: auth/index.html</span>
+              <span class="text-gray-400 text-xs">· Primeira Impressão Visual</span>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight text-white mt-1">Tela de Login & Autenticação</h1>
+            <p class="text-gray-400 text-sm mt-1">
+              Demonstração da experiência de acesso no conceito Dark Luxury com ambient glow, campos estilizados e autenticação por chave Flask/Jinja.
+            </p>
+          </div>
+        </div>
+
+        <div class="py-12 flex items-center justify-center">
+          <div class="w-full max-w-md glass-panel p-8 rounded-3xl border border-dark-border glow-orange space-y-6 relative overflow-hidden">
+            
+            <div class="absolute -top-24 -right-24 w-48 h-48 bg-brand-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="text-center space-y-2">
+              <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 to-brand-500 mx-auto flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-brand-500/30">
+                ❖
+              </div>
+              <h2 class="text-xl font-bold text-white tracking-tight">Acessar ShopeeAutoVendas</h2>
+              <p class="text-xs text-gray-400">Digite suas credenciais do painel corporativo</p>
+            </div>
+
+            <form @submit.prevent="simulateLogin()" class="space-y-4">
+              <div class="space-y-1">
+                <label class="text-xs font-semibold text-gray-300">E-mail corporativo</label>
+                <input type="email" value="admin@shopeeautovendas.io" class="w-full bg-dark-elevated border border-dark-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500">
+              </div>
+
+              <div class="space-y-1">
+                <div class="flex justify-between items-center">
+                  <label class="text-xs font-semibold text-gray-300">Senha</label>
+                  <a href="#" class="text-[11px] text-brand-500 hover:underline">Esqueceu?</a>
+                </div>
+                <input type="password" value="••••••••••••" class="w-full bg-dark-elevated border border-dark-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500">
+              </div>
+
+              <div class="flex items-center space-x-2">
+                <input type="checkbox" id="remember" checked class="rounded bg-dark-elevated border-dark-border text-brand-500 focus:ring-0">
+                <label for="remember" class="text-xs text-gray-400">Manter sessão ativa por 30 dias</label>
+              </div>
+
+              <button type="submit" class="w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-600 font-bold text-xs text-white shadow-xl shadow-brand-500/30 transition-all flex items-center justify-center space-x-2">
+                <span>Entrar no Painel ➔</span>
+              </button>
+            </form>
+
+            <div class="pt-4 border-t border-dark-border text-center space-y-2">
+              <div class="flex items-center justify-center space-x-2 text-[11px] text-emerald-400 font-mono">
+                <span>🔒 Criptografia SSL 256-bit</span>
+                <span>·</span>
+                <span>Flask-Login Protected</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+      <section x-show="activeTab === 'prd'" x-transition class="space-y-6">
+        
+        <div class="glass-panel p-6 rounded-2xl border border-dark-border flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-brand-500/20 text-brand-500 border border-brand-500/30">Documentação do PRD</span>
+              <span class="text-gray-400 text-xs">· Análise Editorial & Código Jinja</span>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight text-white mt-1">Especificações do PRD & Arquitetura Jinja2</h1>
+            <p class="text-gray-400 text-sm mt-1">
+              Validação dos critérios de aceite, direcionamento de estilo aprovado e inspetor de componentes Jinja2 para garantia de mapeamento 1:1 com o backend Flask.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <div class="glass-panel p-6 rounded-2xl border border-dark-border space-y-4">
+            <h3 class="text-base font-bold text-white flex items-center space-x-2">
+              <span>📋</span>
+              <span>Decisões de Design (Rafa)</span>
+            </h3>
+
+            <div class="space-y-3 text-xs">
+              <div class="p-3 bg-dark-card rounded-xl border border-emerald-500/30">
+                <div class="font-bold text-emerald-400 flex items-center justify-between">
+                  <span>1. Direção de Estilo</span>
+                  <span>✔ APROVADO</span>
+                </div>
+                <p class="text-gray-300 mt-1">Dark Luxury / Swiss-International com glassmorphism disciplinado e fundo `#0b0d10` (Obsidian).</p>
+              </div>
+
+              <div class="p-3 bg-dark-card rounded-xl border border-emerald-500/30">
+                <div class="font-bold text-emerald-400 flex items-center justify-between">
+                  <span>2. Cor de Accent</span>
+                  <span>✔ APROVADO</span>
+                </div>
+                <p class="text-gray-300 mt-1">Laranja Elétrico Shopee (`#f97316` / `#ff6b00`) mantido semanticamente apenas para botões primários e estados ativos.</p>
+              </div>
+
+              <div class="p-3 bg-dark-card rounded-xl border border-emerald-500/30">
+                <div class="font-bold text-emerald-400 flex items-center justify-between">
+                  <span>3. Estrutura das Telas</span>
+                  <span>✔ APROVADO</span>
+                </div>
+                <p class="text-gray-300 mt-1">Dashboard em Bento Grid com KPIs e atalhos rápidos para disparo de automação de afiliados.</p>
+              </div>
+
+              <div class="p-3 bg-dark-card rounded-xl border border-emerald-500/30">
+                <div class="font-bold text-emerald-400 flex items-center justify-between">
+                  <span>4. Restrição Técnica JS</span>
+                  <span>✔ CUMPRIDO</span>
+                </div>
+                <p class="text-gray-300 mt-1">100% Alpine.js + Tailwind CSS. Zero dependências React/Next/GSAP pesadas.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2 glass-panel p-6 rounded-2xl border border-dark-border space-y-4">
+            <div class="flex items-center justify-between border-b border-dark-border pb-3">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                  <span>💻</span>
+                  <span>Inspetor de Template Jinja2 (Flask Integration)</span>
+                </h3>
+                <p class="text-xs text-gray-400">Mapeamento direto com a estrutura do Flask do projeto</p>
+              </div>
+
+              <div class="flex space-x-2 text-xs">
+                <button @click="activeJinjaSnippet = 'navbar'" :class="activeJinjaSnippet === 'navbar' ? 'bg-brand-500 text-white' : 'bg-dark-elevated text-gray-400'" class="px-2.5 py-1 rounded-lg">navbar.html</button>
+                <button @click="activeJinjaSnippet = 'index'" :class="activeJinjaSnippet === 'index' ? 'bg-brand-500 text-white' : 'bg-dark-elevated text-gray-400'" class="px-2.5 py-1 rounded-lg">index.html</button>
+                <button @click="activeJinjaSnippet = 'products'" :class="activeJinjaSnippet === 'products' ? 'bg-brand-500 text-white' : 'bg-dark-elevated text-gray-400'" class="px-2.5 py-1 rounded-lg">products.html</button>
+              </div>
+            </div>
+
+            <div class="bg-dark-bg p-4 rounded-xl border border-dark-border font-mono text-xs text-gray-300 overflow-x-auto custom-scrollbar max-h-96">
+              <template x-if="activeJinjaSnippet === 'navbar'">
+                <pre class="text-emerald-400">
+{% raw %}
+<!-- web/templates/includes/navbar.html -->
+<nav class="glass-panel border-b border-dark-border sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 flex items-center justify-between h-16">
+    <div class="flex items-center space-x-3">
+      <div class="w-8 h-8 rounded-xl bg-brand-500 flex items-center justify-center font-bold text-white">❖</div>
+      <span class="font-bold text-white tracking-tight">ShopeeAutoVendas</span>
+    </div>
+    
+    <div class="flex space-x-1">
+      <a href="{{ url_for('main.dashboard') }}" class="px-3 py-1.5 rounded-lg text-xs {{ 'bg-brand-500 text-white' if request.endpoint == 'main.dashboard' else 'text-gray-400' }}">Dashboard</a>
+      <a href="{{ url_for('products.list') }}" class="px-3 py-1.5 rounded-lg text-xs {{ 'bg-brand-500 text-white' if request.endpoint == 'products.list' else 'text-gray-400' }}">Produtos</a>
+      <a href="{{ url_for('posts.create') }}" class="px-3 py-1.5 rounded-lg text-xs {{ 'bg-brand-500 text-white' if request.endpoint == 'posts.create' else 'text-gray-400' }}">Criar Post</a>
+    </div>
+  </div>
+</nav>
+{% endraw %}
+                </pre>
+              </template>
+
+              <template x-if="activeJinjaSnippet === 'index'">
+                <pre class="text-brand-400">
+{% raw %}
+<!-- web/templates/index.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+  {% for metric in metrics %}
+  <div class="glass-panel p-5 rounded-2xl border border-dark-border">
+    <span class="text-xs text-gray-400">{{ metric.label }}</span>
+    <div class="text-2xl font-bold text-white mt-1">{{ metric.value }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+{% endraw %}
+                </pre>
+              </template>
+
+              <template x-if="activeJinjaSnippet === 'products'">
+                <pre class="text-cyan-400">
+{% raw %}
+<!-- web/templates/products/index.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+  {% for product in products %}
+  <div class="glass-panel rounded-2xl border border-dark-border p-4">
+    <img src="{{ product.image_url }}" class="h-40 w-full object-cover rounded-xl">
+    <h3 class="text-sm font-semibold text-white mt-2">{{ product.title }}</h3>
+    <div class="text-brand-500 font-bold font-mono">R$ {{ product.promo_price }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+{% endraw %}
+                </pre>
+              </template>
+            </div>
+
+            <div class="p-3 bg-dark-elevated rounded-xl border border-dark-border text-xs text-gray-400 flex items-center justify-between">
+              <span>Sintaxe Jinja2 100% válida e pronta para substituir os arquivos atuais em <code class="text-white font-mono">web/templates/</code></span>
+              <span class="text-emerald-400 font-mono">✓ Flask Compatible</span>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <div x-show="isProductModalOpen" x-transition class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+    <div @click.away="isProductModalOpen = false" class="glass-panel w-full max-w-lg p-6 rounded-3xl border border-dark-border space-y-4">
+      <div class="flex items-center justify-between border-b border-dark-border pb-3">
+        <h3 class="text-base font-bold text-white">Detalhes do Produto Shopee</h3>
+        <button @click="isProductModalOpen = false" class="text-gray-400 hover:text-white">✖</button>
+      </div>
+
+      <template x-if="selectedProduct">
+        <div class="space-y-4 text-xs">
+          <div class="flex space-x-4">
+            <img :src="selectedProduct.image" class="w-24 h-24 rounded-xl object-cover border border-dark-border">
+            <div class="space-y-1">
+              <span class="px-2 py-0.5 rounded text-[10px] bg-brand-500/20 text-brand-500 font-mono" x-text="selectedProduct.category"></span>
+              <h4 class="text-sm font-bold text-white" x-text="selectedProduct.title"></h4>
+              <div class="text-gray-400" x-text="'Shopee ID: ' + selectedProduct.shopeeId"></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 p-3 bg-dark-card rounded-xl border border-dark-border font-mono">
+            <div>
+              <span class="text-gray-400 block text-[10px]">Preço Promocional</span>
+              <span class="text-brand-500 font-bold text-sm" x-text="'R$ ' + selectedProduct.promoPrice"></span>
+            </div>
+            <div>
+              <span class="text-gray-400 block text-[10px]">Sua Comissão Est.</span>
+              <span class="text-emerald-400 font-bold text-sm" x-text="'R$ ' + selectedProduct.commissionValue"></span>
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-gray-300 font-semibold">Link de Afiliado Rastreado</label>
+            <div class="flex space-x-2">
+              <input type="text" readonly :value="'https://shope.ee/afiliado?subid=autobot_' + selectedProduct.id" class="w-full bg-dark-elevated border border-dark-border rounded-xl px-3 py-2 text-white font-mono text-[11px]">
+              <button @click="copyLinkNotification()" class="px-3 py-2 bg-brand-500 text-white rounded-xl font-bold">Copiar</button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <div class="pt-2 flex justify-end">
+        <button @click="isProductModalOpen = false" class="px-4 py-2 bg-dark-elevated border border-dark-border rounded-xl text-xs text-gray-300">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="border-t border-dark-border bg-dark-bg py-6 mt-12">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
+      <div class="flex items-center space-x-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span>ShopeeAutoVendas — Redesign Frontend (Stitch UI Engine)</span>
+      </div>
+      <div>
+        <span>Stack: Flask + Jinja2 + Tailwind CSS + Alpine.js</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function appData() {
+      return {
+        activeTab: 'dashboard',
+        automationActive: true,
+        isSyncing: false,
+        chartTimeframe: '7d',
+        productSearch: '',
+        selectedCategory: 'all',
+        selectedStatusFilter: 'all',
+        isProductModalOpen: false,
+        selectedProduct: null,
+        activeJinjaSnippet: 'navbar',
+
+        products: [
+          {
+            id: 1,
+            shopeeId: 'SHP-98421',
+            title: 'Fone de Ouvido Bluetooth Sem Fio TWS A3 Pro',
+            category: 'Eletrônicos',
+            originalPrice: '149,90',
+            promoPrice: '59,90',
+            commission: '14%',
+            commissionValue: '8,38',
+            stock: 142,
+            updatedAt: 'há 10m',
+            status: 'Sincronizado',
+            image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&auto=format&fit=crop&q=80'
+          },
+          {
+            id: 2,
+            shopeeId: 'SHP-77123',
+            title: 'Relógio Smartwatch Esportivo IWO 13 Original',
+            category: 'Eletrônicos',
+            originalPrice: '299,00',
+            promoPrice: '129,00',
+            commission: '12%',
+            commissionValue: '15,48',
+            stock: 89,
+            updatedAt: 'há 25m',
+            status: 'Sincronizado',
+            image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80'
+          },
+          {
+            id: 3,
+            shopeeId: 'SHP-55102',
+            title: 'Luminária de Mesa LED Articulada Recarregável USB',
+            category: 'Casa',
+            originalPrice: '89,90',
+            promoPrice: '39,90',
+            commission: '10%',
+            commissionValue: '3,99',
+            stock: 310,
+            updatedAt: 'há 1h',
+            status: 'Sincronizado',
+            image: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&auto=format&fit=crop&q=80'
+          },
+          {
+            id: 4,
+            shopeeId: 'SHP-33219',
+            title: 'Mochila Impermeável Masculina/Feminina para Notebook',
+            category: 'Moda',
+            originalPrice: '199,00',
+            promoPrice: '89,90',
+            commission: '15%',
+            commissionValue: '13,48',
+            stock: 45,
+            updatedAt: 'há 2h',
+            status: 'Atualização Pendente',
+            image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&auto=format&fit=crop&q=80'
+          },
+          {
+            id: 5,
+            shopeeId: 'SHP-11002',
+            title: 'Kit Umidificador e Aromatizador de Ar Ultrassônico',
+            category: 'Casa',
+            originalPrice: '119,00',
+            promoPrice: '49,90',
+            commission: '12%',
+            commissionValue: '5,98',
+            stock: 215,
+            updatedAt: 'há 3h',
+            status: 'Sincronizado',
+            image: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=400&auto=format&fit=crop&q=80'
+          },
+          {
+            id: 6,
+            shopeeId: 'SHP-88401',
+            title: 'Teclado Mecânico Gamer RGB Swappable',
+            category: 'Eletrônicos',
+            originalPrice: '349,00',
+            promoPrice: '189,00',
+            commission: '10%',
+            commissionValue: '18,90',
+            stock: 18,
+            updatedAt: 'há 4h',
+            status: 'Sincronizado',
+            image: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=400&auto=format&fit=crop&q=80'
+          },
+          {
+            id: 7,
+            shopeeId: 'SHP-66120',
+            title: 'Sérum Facial Suavizante Ácido Hialurônico 30ml',
+            category: 'Beleza',
+            originalPrice: '79,90',
+            promoPrice: '29,90',
+            commission: '18%',
+            commissionValue: '5,38',
+            stock: 540,
+            updatedAt: 'há 5h',
+            status: 'Sincronizado',
+            image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400&auto=format&fit=crop&q=80'
+          },
+          {
+            id: 8,
+            shopeeId: 'SHP-44012',
+            title: 'Garrafa Térmica Inox Vacuum Insulated 1 Litro',
+            category: 'Casa',
+            originalPrice: '129,00',
+            promoPrice: '54,90',
+            commission: '11%',
+            commissionValue: '6,03',
+            stock: 120,
+            updatedAt: 'há 6h',
+            status: 'Atualização Pendente',
+            image: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400&auto=format&fit=crop&q=80'
+          }
+        ],
+
+        activityLogs: [
+          { id: 1, icon: '🚀', title: 'Post Disparado com Sucesso', type: 'SUCCESS', badgeClass: 'bg-emerald-500/20 text-emerald-400', detail: 'Thread de 3 etapas enviada para Telegram VIP (14.2k membros)', time: '14:28:12' },
+          { id: 2, icon: '🔄', title: 'Sincronização Shopee API', type: 'SYNC', badgeClass: 'bg-brand-500/20 text-brand-500', detail: '342 produtos verificado estoque e preços promocionais', time: '14:20:00' },
+          { id: 3, icon: '💵', title: 'Comissão Registrada', type: 'SALE', badgeClass: 'bg-emerald-500/20 text-emerald-400', detail: 'Venda atribuída via SubID autobot_1: +R$ 15,48', time: '14:15:42' },
+          { id: 4, icon: '📝', title: 'Novo Agendamento Criado', type: 'POST', badgeClass: 'bg-cyan-500/20 text-cyan-400', detail: 'Mochila Impermeável agendada para 18:30 no WhatsApp', time: '13:58:10' },
+          { id: 5, icon: '⚡', title: 'Webhook Telegram Recebido', type: 'SYSTEM', badgeClass: 'bg-gray-500/20 text-gray-300', detail: 'Confirmação de recebimento de mensagem no canal VIP', time: '13:45:00' }
+        ],
+
+        postForm: {
+          status: 'Rascunho',
+          scheduleTime: '',
+          channels: {
+            telegram: true,
+            whatsapp: false,
+            twitter: true
+          },
+          steps: [
+            {
+              content: '🚨 MEGA OFERTA SHOPEE DO DIA!\nEncontrei este Fone Bluetooth TWS com desconto exclusivo de 60% hoje.',
+              attachedProductId: '1',
+              attachedProduct: null
+            },
+            {
+              content: '⚡ Bateria dura até 6 horas de uso contínuo + estojo de carregamento inteligente.\nCupom de frete grátis aplicado automaticamente pelo link oficial!',
+              attachedProductId: '',
+              attachedProduct: null
+            }
+          ]
+        },
+
+        get filteredProducts() {
+          return this.products.filter(p => {
+            const matchesSearch = p.title.toLowerCase().includes(this.productSearch.toLowerCase()) || p.shopeeId.toLowerCase().includes(this.productSearch.toLowerCase());
+            const matchesCategory = this.selectedCategory === 'all' || p.category === this.selectedCategory;
+            const matchesStatus = this.selectedStatusFilter === 'all' || p.status === this.selectedStatusFilter;
+            return matchesSearch && matchesCategory && matchesStatus;
+          });
+        },
+
+        switchTab(tab) {
+          this.activeTab = tab;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+
+        toggleAutomation() {
+          this.automationActive = !this.automationActive;
+        },
+
+        triggerSyncAnimation() {
+          this.isSyncing = true;
+          setTimeout(() => {
+            this.isSyncing = false;
+            alert('Catálogo Shopee sincronizado com sucesso no backend Flask!');
+          }, 1200);
+        },
+
+        openProductModal(product) {
+          this.selectedProduct = product;
+          this.isProductModalOpen = true;
+        },
+
+        attachProductToPost(product) {
+          this.postForm.steps[0].attachedProductId = String(product.id);
+          this.postForm.steps[0].attachedProduct = product;
+          this.switchTab('posts');
+        },
+
+        addThreadStep() {
+          this.postForm.steps.push({
+            content: '',
+            attachedProductId: '',
+            attachedProduct: null
+          });
+        },
+
+        removeThreadStep(index) {
+          this.postForm.steps.splice(index, 1);
+        },
+
+        updateStepProduct(step) {
+          if (step.attachedProductId) {
+            step.attachedProduct = this.products.find(p => String(p.id) === String(step.attachedProductId)) || null;
+          } else {
+            step.attachedProduct = null;
+          }
+        },
+
+        resetPostForm() {
+          this.postForm.steps = [{
+            content: '',
+            attachedProductId: '',
+            attachedProduct: null
+          }];
+        },
+
+        submitPostForm() {
+          alert('Post salvo com sucesso no banco de dados do Flask! Status: ' + this.postForm.status);
+        },
+
+        simulateLogin() {
+          alert('Login autenticado com sucesso! Carregando dashboard...');
+          this.switchTab('dashboard');
+        },
+
+        copyLinkNotification() {
+          alert('Link de afiliado gerado e copiado para a área de transferência!');
+        },
+
+        initCharts() {
+          this.postForm.steps[0].attachedProduct = this.products[0];
+          
+          this.$nextTick(() => {
+            this.renderSalesChart();
+            this.renderSyncChart();
+            this.renderPostsChart();
+          });
+        },
+
+        renderSalesChart() {
+          const ctx = document.getElementById('salesChart');
+          if (!ctx) return;
+
+          const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+          gradient.addColorStop(0, 'rgba(249, 115, 22, 0.4)');
+          gradient.addColorStop(1, 'rgba(249, 115, 22, 0.0)');
+
+          window.salesChartObj = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
+              datasets: [{
+                label: 'Comissões (R$)',
+                data: [1200, 1900, 1500, 2400, 3100, 2800, 3820],
+                borderColor: '#f97316',
+                borderWidth: 3,
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#ff6b00',
+                pointRadius: 4
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false }
+              },
+              scales: {
+                x: {
+                  grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                  ticks: { color: '#9ca3af', font: { size: 10 } }
+                },
+                y: {
+                  grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                  ticks: { color: '#9ca3af', font: { size: 10 } }
+                }
+              }
+            }
+          });
+        },
+
+        updateSalesChart() {
+          if (!window.salesChartObj) return;
+          if (this.chartTimeframe === '7d') {
+            window.salesChartObj.data.labels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+            window.salesChartObj.data.datasets[0].data = [1200, 1900, 1500, 2400, 3100, 2800, 3820];
+          } else {
+            window.salesChartObj.data.labels = ['S1', 'S2', 'S3', 'S4'];
+            window.salesChartObj.data.datasets[0].data = [8400, 12200, 15800, 18420];
+          }
+          window.salesChartObj.update();
+        },
+
+        renderSyncChart() {
+          const ctx = document.getElementById('syncChart');
+          if (!ctx) return;
+
+          new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+              labels: ['Sincronizados', 'Pendentes', 'Sem Estoque'],
+              datasets: [{
+                data: [280, 48, 14],
+                backgroundColor: ['#10b981', '#f59e0b', '#f43f5e'],
+                borderWidth: 0
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false }
+              },
+              cutout: '75%'
+            }
+          });
+        },
+
+        renderPostsChart() {
+          const ctx = document.getElementById('postsChart');
+          if (!ctx) return;
+
+          new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: ['Telegram', 'WhatsApp', 'X/Twitter'],
+              datasets: [{
+                label: 'Posts Disparados',
+                data: [820, 410, 252],
+                backgroundColor: ['#f97316', '#10b981', '#3b82f6'],
+                borderRadius: 8
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false }
+              },
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: { color: '#9ca3af', font: { size: 10 } }
+                },
+                y: {
+                  grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                  ticks: { color: '#9ca3af', font: { size: 10 } }
+                }
+              }
+            }
+          });
+        }
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Posts - ShopeeAutoVendas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Sora:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-bright": "#383940",
+                      "on-background": "#e2e1eb",
+                      "inverse-on-surface": "#2f3037",
+                      "on-error": "#690005",
+                      "on-error-container": "#ffdad6",
+                      "outline": "#ac8981",
+                      "on-surface": "#e2e1eb",
+                      "surface-tint": "#ffb4a5",
+                      "primary": "#ffb4a5",
+                      "primary-fixed-dim": "#ffb4a5",
+                      "error": "#ffb4ab",
+                      "surface-variant": "#33343c",
+                      "tertiary-fixed-dim": "#c8c6c9",
+                      "on-secondary": "#303032",
+                      "surface": "#12131a",
+                      "tertiary-fixed": "#e4e1e5",
+                      "inverse-surface": "#e2e1eb",
+                      "on-primary-fixed-variant": "#8e1400",
+                      "surface-dim": "#12131a",
+                      "on-primary-fixed": "#3e0400",
+                      "on-tertiary-fixed": "#1b1b1e",
+                      "on-tertiary-fixed-variant": "#47464a",
+                      "secondary-fixed-dim": "#c8c6c8",
+                      "on-secondary-fixed": "#1b1b1d",
+                      "secondary": "#c8c6c8",
+                      "tertiary": "#c8c6c9",
+                      "on-primary-container": "#580800",
+                      "on-secondary-container": "#b7b4b7",
+                      "primary-container": "#ff5637",
+                      "on-tertiary": "#303033",
+                      "primary-fixed": "#ffdad3",
+                      "on-secondary-fixed-variant": "#474649",
+                      "on-primary": "#650b00",
+                      "error-container": "#93000a",
+                      "background": "#12131a",
+                      "secondary-fixed": "#e4e2e4",
+                      "outline-variant": "#5c403a",
+                      "surface-container": "#1e1f26",
+                      "surface-container-lowest": "#0c0e14",
+                      "surface-container-highest": "#33343c",
+                      "on-surface-variant": "#e5beb6",
+                      "secondary-container": "#474649",
+                      "inverse-primary": "#ba1d00",
+                      "surface-container-high": "#282a31",
+                      "on-tertiary-container": "#29292c",
+                      "surface-container-low": "#1a1b22",
+                      "tertiary-container": "#919094"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "bento-gap": "16px",
+                      "margin-desktop": "40px",
+                      "gutter": "24px",
+                      "base-unit": "4px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "display-lg": ["Sora"],
+                      "body-md": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "headline-lg": ["Sora"],
+                      "headline-md": ["Sora"],
+                      "label-caps": ["Inter"]
+              },
+              "fontSize": {
+                      "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                      "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                      "body-sm": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                      "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                      "label-caps": ["12px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "600"}]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+
+        .glass-panel {
+            background: rgba(22, 22, 24, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .glow-button {
+            box-shadow: 0 0 20px rgba(255, 77, 45, 0.15);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .glow-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 25px rgba(255, 77, 45, 0.25);
+        }
+
+        .bento-card {
+            background-color: theme('colors.surface-container');
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            transition: transform 0.2s ease;
+        }
+
+        .bento-card:hover {
+            transform: scale(1.01);
+        }
+
+        .table-row-hover:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<nav class="h-screen w-64 fixed left-0 top-0 bg-surface/70 backdrop-blur-xl border-r border-white/10 shadow-2xl flex flex-col h-full py-8 px-4 z-40 hidden md:flex">
+<div class="mb-8 px-4 flex items-center space-x-3">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-primary-container text-sm" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary truncate">ShopeeAutoVendas</h1>
+<p class="font-label-caps text-label-caps text-on-surface-variant">Automation Pro</p>
+</div>
+</div>
+<div class="flex-1 space-y-2">
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors hover:bg-white/5 transition-all duration-200 hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors hover:bg-white/5 transition-all duration-200 hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-body-md text-body-md">Products</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-primary border-r-2 border-primary bg-primary/5 hover:bg-white/5 transition-all duration-200 hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">post_add</span>
+<span class="font-body-md text-body-md font-bold">Posts</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors hover:bg-white/5 transition-all duration-200 hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">notifications_active</span>
+<span class="font-body-md text-body-md">Activities</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors hover:bg-white/5 transition-all duration-200 hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-body-md text-body-md">Users</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors hover:bg-white/5 transition-all duration-200 hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">vpn_key</span>
+<span class="font-body-md text-body-md">Credentials</span>
+</a>
+</div>
+<div class="mt-auto space-y-4">
+<button class="w-full py-3 px-4 rounded-lg bg-surface-container-high border border-white/10 text-on-surface font-label-caps text-label-caps hover:bg-white/5 transition-colors">Upgrade Plan</button>
+<div class="border-t border-white/10 pt-4 space-y-2">
+<a class="flex items-center space-x-3 px-4 py-2 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-body-sm text-body-sm">Notifications</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-2 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="font-body-sm text-body-sm">Profile</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 ml-0 md:ml-64 relative flex flex-col h-screen overflow-hidden">
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 w-full md:w-[calc(100%-16rem)] z-50 bg-surface/70 backdrop-blur-md border-b border-white/10 shadow-sm flex justify-between items-center px-8 h-16">
+<div class="flex items-center gap-8">
+<!-- Search (on_left configuration) -->
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-64 bg-surface-container-low border border-white/10 rounded-full py-1.5 pl-10 pr-4 text-body-sm font-body-sm text-on-surface focus:outline-none focus:border-primary transition-colors placeholder:text-on-surface-variant" placeholder="Search posts..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="bg-[#ff4d2d] text-white font-label-caps text-label-caps py-2 px-5 rounded-full glow-button flex items-center gap-2" onclick="document.getElementById('create-post-modal').classList.remove('hidden')">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">add</span>
+                    Create Post
+                </button>
+<div class="flex items-center gap-4 border-l border-white/10 pl-6">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<img alt="User Profile" class="w-8 h-8 rounded-full object-cover border border-white/20 cursor-pointer" data-alt="A macro shot of a sleek, dark-themed avatar placeholder consisting of subtle geometric shapes and deep charcoal tones. The lighting is soft and cinematic, emphasizing luxury and precision in a high-end digital interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcviX0Ggp9qPmqTcCxKHe2jEa_3f9Ka9GOe3vi0pqgSMeVj1gVXJJ3JjSmlEfI_kHfnnkM3_6opLajlsjatO9mXYkM9vTn9Dt60XZJXzQLH3BfHklFsdlFO7I4EMD6lOrXpNRp39zwALkiF7fXjEmw7wFCGAcIC7C_DMwQ73_5EaYoonCMgmweryCC-cbJqjQPEAtR3eDrmmzkWQFZZZ9fsov9aSuTHSrI958zZg6e9f_68VVcMVbyFA"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="flex-1 overflow-y-auto mt-16 p-gutter md:p-margin-desktop">
+<div class="max-w-7xl mx-auto space-y-bento-gap">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface mb-2">Posts Management</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Schedule and monitor your cross-platform threads.</p>
+</div>
+<div class="flex items-center gap-3">
+<div class="bg-surface-container rounded-lg p-1 flex border border-white/5">
+<button class="px-4 py-1.5 rounded-md bg-white/10 text-on-surface font-body-sm text-body-sm shadow-sm">All</button>
+<button class="px-4 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface font-body-sm text-body-sm transition-colors">Scheduled</button>
+<button class="px-4 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface font-body-sm text-body-sm transition-colors">Published</button>
+</div>
+<button class="p-2 rounded-lg border border-white/10 text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+</div>
+<!-- Metrics Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-bento-gap mb-8">
+<div class="bento-card rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4 text-on-surface-variant">
+<span class="material-symbols-outlined text-primary">schedule</span>
+<span class="font-label-caps text-label-caps uppercase tracking-wider">Scheduled</span>
+</div>
+<div class="font-display-lg text-headline-lg font-bold text-on-surface">24</div>
+</div>
+<div class="bento-card rounded-xl p-6">
+<div class="flex items-center gap-3 mb-4 text-on-surface-variant">
+<span class="material-symbols-outlined text-green-400">check_circle</span>
+<span class="font-label-caps text-label-caps uppercase tracking-wider">Published (30d)</span>
+</div>
+<div class="font-display-lg text-headline-lg font-bold text-on-surface">142</div>
+</div>
+<div class="bento-card rounded-xl p-6 md:col-span-2 relative overflow-hidden">
+<div class="relative z-10">
+<div class="flex items-center gap-3 mb-4 text-on-surface-variant">
+<span class="material-symbols-outlined text-primary-container">trending_up</span>
+<span class="font-label-caps text-label-caps uppercase tracking-wider">Engagement Rate</span>
+</div>
+<div class="flex items-end gap-4">
+<div class="font-display-lg text-headline-lg font-bold text-on-surface">4.8%</div>
+<div class="font-body-sm text-body-sm text-green-400 mb-1">+1.2% this week</div>
+</div>
+</div>
+<!-- Abstract Background element for luxury feel -->
+<div class="absolute right-0 top-0 bottom-0 w-1/2 bg-gradient-to-l from-primary/10 to-transparent opacity-50 pointer-events-none"></div>
+</div>
+</div>
+<!-- Posts List / Table -->
+<div class="bento-card rounded-xl overflow-hidden">
+<div class="px-6 py-4 border-b border-white/5 flex justify-between items-center bg-surface-container-high/50">
+<h3 class="font-headline-md text-headline-md font-semibold text-on-surface text-lg">Active Threads</h3>
+<button class="text-primary hover:text-primary-container font-label-caps text-label-caps transition-colors">View Timeline</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-white/5 text-on-surface-variant font-label-caps text-label-caps uppercase tracking-wider">
+<th class="p-6 font-semibold w-1/2">Content Preview</th>
+<th class="p-6 font-semibold">Platform</th>
+<th class="p-6 font-semibold">Scheduled For</th>
+<th class="p-6 font-semibold">Status</th>
+<th class="p-6 font-semibold text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md text-on-surface">
+<!-- Row 1: Scheduled -->
+<tr class="border-b border-white/5 table-row-hover transition-colors">
+<td class="p-6">
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-bright border border-white/10 flex-shrink-0 flex items-center justify-center">
+<img class="w-6 h-6 opacity-70" data-alt="A sleek, dark grey rounded square icon with a subtle inner glow and a crisp, white hashtag symbol in the center, representing social media content in a premium digital interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuApQjrLok0kh0MSOdnK9mk6LBBJHmRdbW4Ni6WIV8gj6mDzRefhDOhoDlHl-PTzV6_rfxeAs-Ibyt-Hmid5FnNrIAUqEnwZfImAoIfcSRZ-qU_SB8B6asXqyvOP_PS4Ivb64qPXjHaxYP0Vvisrt2Pdtzjf1g6LTxFZpxnxS3lZNm991n4mRkjedsfZdoe54_57Nsw6HE9ZwnPUBV-5rasct239MLU0JPARs1A5dM7S2UVHS_ZALjnQ_w"/>
+</div>
+<div>
+<p class="line-clamp-2 text-on-surface font-medium mb-1">Unlocking E-commerce Automation: 5 strategies to 10x your store's efficiency without writing code. A thread 🧵👇</p>
+<p class="text-on-surface-variant font-body-sm text-body-sm">Thread (5 parts) • Includes 2 images</p>
+</div>
+</div>
+</td>
+<td class="p-6">
+<div class="flex gap-2">
+<span class="w-6 h-6 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20" title="Twitter/X">
+<span class="material-symbols-outlined text-xs">flutter_dash</span>
+</span>
+<span class="w-6 h-6 rounded-full bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20" title="Telegram">
+<span class="material-symbols-outlined text-xs">send</span>
+</span>
+</div>
+</td>
+<td class="p-6 text-on-surface-variant">
+                                        Oct 24, 2023<br/>
+<span class="text-on-surface font-medium">09:00 AM EST</span>
+</td>
+<td class="p-6">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary font-label-caps text-label-caps border border-primary/20">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                                            Scheduled
+                                        </span>
+</td>
+<td class="p-6 text-right">
+<button class="p-2 text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2: Error -->
+<tr class="border-b border-white/5 table-row-hover transition-colors bg-error-container/5">
+<td class="p-6">
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-bright border border-white/10 flex-shrink-0 flex items-center justify-center">
+<img class="w-6 h-6 opacity-70" data-alt="A minimalist, dark-themed image placeholder icon featuring a stylized landscape symbol, etched in subtle white lines against a deep charcoal background, exuding professional design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSiHcvXQYdtn1NmYJGUQ8Gi1qRG9dW6ySviFWClBBgQg4yd_fE-MJHCZiA_11mRb96uMGZrkqdPukWH8-K-s1wz-L11ZXmQdnkwTE09n-_fl6rmCepJoFJx7By1Utj_HKrFNXTucsIq86H5KgJYxr-9BomQ-bXrYk3K-tgADONsbOLcC2xyVcc5qX5M_dVt3a6jKPImDtlb5uCeBVuZpWgihDEwidGWosq2ifsz9vj2zPVYKb2z-9Xiw"/>
+</div>
+<div>
+<p class="line-clamp-2 text-on-surface font-medium mb-1">New Product Alert: ShopeeSync V2 is live. See the breakdown of features in this video walkthrough.</p>
+<p class="text-error font-body-sm text-body-sm">Media upload failed - format not supported.</p>
+</div>
+</div>
+</td>
+<td class="p-6">
+<div class="flex gap-2">
+<span class="w-6 h-6 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20" title="Twitter/X">
+<span class="material-symbols-outlined text-xs">flutter_dash</span>
+</span>
+</div>
+</td>
+<td class="p-6 text-on-surface-variant">
+                                        Oct 23, 2023<br/>
+<span class="text-on-surface font-medium">02:30 PM EST</span>
+</td>
+<td class="p-6">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error-container/30 text-error font-label-caps text-label-caps border border-error/20">
+<span class="material-symbols-outlined text-[10px]">warning</span>
+                                            Error
+                                        </span>
+</td>
+<td class="p-6 text-right">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors" title="Retry">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3: Published -->
+<tr class="table-row-hover transition-colors">
+<td class="p-6">
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-bright border border-white/10 flex-shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">article</span>
+</div>
+<div>
+<p class="line-clamp-2 text-on-surface font-medium mb-1">Weekly Metrics Report: How we reduced API latency by 40% using Redis caching. Dive into the technical details.</p>
+<p class="text-on-surface-variant font-body-sm text-body-sm">Single Post • Link attached</p>
+</div>
+</div>
+</td>
+<td class="p-6">
+<div class="flex gap-2">
+<span class="w-6 h-6 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20" title="Twitter/X">
+<span class="material-symbols-outlined text-xs">flutter_dash</span>
+</span>
+<span class="w-6 h-6 rounded-full bg-[#0a66c2]/20 text-[#0a66c2] flex items-center justify-center border border-[#0a66c2]/30" title="LinkedIn">
+<span class="font-bold text-[10px]">in</span>
+</span>
+</div>
+</td>
+<td class="p-6 text-on-surface-variant">
+                                        Oct 22, 2023<br/>
+<span class="text-on-surface font-medium">10:15 AM EST</span>
+</td>
+<td class="p-6">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 font-label-caps text-label-caps border border-green-500/20">
+<span class="material-symbols-outlined text-[10px]">check</span>
+                                            Published
+                                        </span>
+</td>
+<td class="p-6 text-right">
+<button class="p-2 text-on-surface-variant hover:text-on-surface transition-colors" title="View Stats">
+<span class="material-symbols-outlined">bar_chart</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Create Post Modal (Hidden by default) -->
+<div class="fixed inset-0 z-[100] hidden" id="create-post-modal">
+<!-- Backdrop -->
+<div class="absolute inset-0 bg-background/80 backdrop-blur-sm" onclick="document.getElementById('create-post-modal').classList.add('hidden')"></div>
+<!-- Modal Container -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-[870px] glass-panel rounded-2xl shadow-2xl flex flex-col overflow-hidden border-t-white/20">
+<!-- Modal Header -->
+<div class="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-surface-container-highest/50">
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface">Compose New Post</h2>
+<button class="text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-white/10 transition-colors" onclick="document.getElementById('create-post-modal').classList.add('hidden')">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Modal Body (Split Layout) -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Form Area -->
+<div class="w-1/2 border-r border-white/10 p-6 overflow-y-auto flex flex-col gap-6">
+<!-- Platform Selection -->
+<div>
+<label class="block font-label-caps text-label-caps text-on-surface-variant mb-3">Select Platforms</label>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg border border-primary text-primary bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-sm">flutter_dash</span>
+<span class="font-body-sm text-body-sm font-medium">Twitter</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 text-on-surface-variant hover:border-white/30 transition-colors">
+<span class="material-symbols-outlined text-sm">send</span>
+<span class="font-body-sm text-body-sm font-medium">Telegram</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 text-on-surface-variant hover:border-white/30 transition-colors">
+<span class="font-bold text-sm">in</span>
+<span class="font-body-sm text-body-sm font-medium">LinkedIn</span>
+</button>
+</div>
+</div>
+<!-- Editor -->
+<div class="flex-1 flex flex-col">
+<div class="flex justify-between items-end mb-2">
+<label class="block font-label-caps text-label-caps text-on-surface-variant">Content (Thread 1/1)</label>
+<span class="font-label-caps text-label-caps text-on-surface-variant">0/280</span>
+</div>
+<textarea class="flex-1 w-full bg-[#0a0a0b] border border-white/10 rounded-xl p-4 text-body-md font-body-md text-on-surface focus:outline-none focus:border-primary transition-colors resize-none placeholder:text-on-surface-variant/50" placeholder="What's happening?"></textarea>
+<!-- Editor Toolbar -->
+<div class="flex justify-between items-center mt-3 p-2 bg-surface-container rounded-lg border border-white/5">
+<div class="flex gap-1">
+<button class="p-2 text-primary hover:bg-white/5 rounded-md transition-colors" title="Add Media">
+<span class="material-symbols-outlined text-sm">image</span>
+</button>
+<button class="p-2 text-primary hover:bg-white/5 rounded-md transition-colors" title="Add Emoji">
+<span class="material-symbols-outlined text-sm">sentiment_satisfied</span>
+</button>
+<div class="w-px h-6 bg-white/10 mx-1 self-center"></div>
+<button class="p-2 text-on-surface hover:bg-white/5 rounded-md transition-colors flex items-center gap-1" title="Add Thread Post">
+<span class="material-symbols-outlined text-sm">add</span>
+<span class="font-label-caps text-[10px]">Add Post</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Scheduling -->
+<div>
+<label class="block font-label-caps text-label-caps text-on-surface-variant mb-3">Schedule</label>
+<div class="grid grid-cols-2 gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">calendar_today</span>
+<input class="w-full bg-[#0a0a0b] border border-white/10 rounded-lg py-2 pl-10 pr-4 text-body-sm font-body-sm text-on-surface focus:outline-none focus:border-primary transition-colors" type="date"/>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">schedule</span>
+<input class="w-full bg-[#0a0a0b] border border-white/10 rounded-lg py-2 pl-10 pr-4 text-body-sm font-body-sm text-on-surface focus:outline-none focus:border-primary transition-colors" type="time"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Preview Area -->
+<div class="w-1/2 bg-surface-container-lowest/50 p-6 flex flex-col items-center justify-center overflow-y-auto relative">
+<span class="absolute top-4 left-6 font-label-caps text-label-caps text-on-surface-variant tracking-widest">LIVE PREVIEW</span>
+<!-- Mock Device/Preview Card -->
+<div class="w-full max-w-sm bento-card rounded-xl p-5 shadow-2xl mt-8">
+<div class="flex items-center gap-3 mb-3">
+<div class="w-10 h-10 rounded-full bg-surface-bright border border-white/10 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A macro shot of a sleek, dark-themed avatar placeholder consisting of subtle geometric shapes and deep charcoal tones. The lighting is soft and cinematic, emphasizing luxury and precision in a high-end digital interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhf6zu9M4B7tVJgwmLfvSS84No7lar8CqOyC2QEWGFlkkU6J_8iKebgDAOXmhJaQHADAY1EVyDtaEtk9aJShB04_Em56RgOBu--a4Ub0_oy0JhkR3YPCxT_OzqA6QMj-XsUvaT8WxWCooDAojipetBgeY4mcz1B7QssKHN-9CnKjkUg7ztdpUfFrnfDloZF8pA_PlKmupJwCsLDTooLrSL_HC3_j_bn1CH30-Qeni3xki2X3jCmKI7_g"/>
+</div>
+<div>
+<div class="font-body-sm text-body-sm font-bold text-on-surface flex items-center gap-1">
+                                    ShopeeAutoVendas <span class="material-symbols-outlined text-[14px] text-blue-400" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<div class="font-label-caps text-[10px] text-on-surface-variant">@ShopeeAutoV</div>
+</div>
+</div>
+<div class="font-body-md text-body-md text-on-surface whitespace-pre-wrap opacity-50 italic">
+                            Your post preview will appear here...
+                        </div>
+</div>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="px-6 py-4 border-t border-white/10 bg-surface-container-highest/80 flex justify-end gap-4">
+<button class="px-5 py-2 rounded-lg border border-white/10 text-on-surface hover:bg-white/5 transition-colors font-body-sm text-body-sm" onclick="document.getElementById('create-post-modal').classList.add('hidden')">Cancel</button>
+<button class="bg-[#ff4d2d] text-white font-body-sm text-body-sm font-semibold py-2 px-6 rounded-lg glow-button flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">send</span>
+                    Schedule Post
+                </button>
+</div>
+</div>
+</div>
+</body></html>

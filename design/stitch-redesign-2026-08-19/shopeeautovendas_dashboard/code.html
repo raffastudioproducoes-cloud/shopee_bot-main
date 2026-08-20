@@ -1,0 +1,456 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Dashboard - ShopeeAutoVendas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Sora:wght@400;600;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-surface": "#e2e1eb",
+                      "surface-tint": "#ffb4a5",
+                      "tertiary-fixed": "#e4e1e5",
+                      "surface-container-highest": "#33343c",
+                      "on-surface-variant": "#e5beb6",
+                      "on-secondary-container": "#b7b4b7",
+                      "background": "#12131a",
+                      "on-secondary-fixed-variant": "#474649",
+                      "on-error-container": "#ffdad6",
+                      "primary-fixed-dim": "#ffb4a5",
+                      "error-container": "#93000a",
+                      "surface-bright": "#383940",
+                      "inverse-surface": "#e2e1eb",
+                      "secondary": "#c8c6c8",
+                      "on-tertiary-fixed-variant": "#47464a",
+                      "secondary-container": "#474649",
+                      "primary": "#ffb4a5",
+                      "on-primary": "#650b00",
+                      "on-error": "#690005",
+                      "secondary-fixed-dim": "#c8c6c8",
+                      "on-primary-container": "#580800",
+                      "on-tertiary-container": "#29292c",
+                      "surface": "#12131a",
+                      "on-background": "#e2e1eb",
+                      "outline-variant": "#5c403a",
+                      "primary-container": "#ff5637",
+                      "on-secondary": "#303032",
+                      "on-primary-fixed-variant": "#8e1400",
+                      "on-secondary-fixed": "#1b1b1d",
+                      "tertiary-fixed-dim": "#c8c6c9",
+                      "inverse-primary": "#ba1d00",
+                      "surface-container": "#1e1f26",
+                      "surface-variant": "#33343c",
+                      "inverse-on-surface": "#2f3037",
+                      "tertiary-container": "#919094",
+                      "surface-container-lowest": "#0c0e14",
+                      "on-tertiary": "#303033",
+                      "outline": "#ac8981",
+                      "surface-container-high": "#282a31",
+                      "on-primary-fixed": "#3e0400",
+                      "primary-fixed": "#ffdad3",
+                      "error": "#ffb4ab",
+                      "surface-dim": "#12131a",
+                      "on-tertiary-fixed": "#1b1b1e",
+                      "surface-container-low": "#1a1b22",
+                      "secondary-fixed": "#e4e2e4",
+                      "tertiary": "#c8c6c9"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "margin-desktop": "40px",
+                      "base-unit": "4px",
+                      "bento-gap": "16px",
+                      "gutter": "24px"
+              },
+              "fontFamily": {
+                      "headline-lg": [
+                              "Sora"
+                      ],
+                      "label-caps": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Sora"
+                      ],
+                      "display-lg": [
+                              "Sora"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-caps": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.0",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "1.1",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        body {
+            background-color: #12131a;
+            color: #e2e1eb;
+        }
+        .bento-card {
+            background-color: #161618;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-top: 1px solid rgba(255,255,255,0.12);
+            border-radius: 0.75rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .bento-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+        .primary-btn {
+            background-color: #ff4d2d;
+            color: white;
+            transition: all 0.2s ease;
+        }
+        .primary-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 20px rgba(255, 77, 45, 0.25);
+        }
+        .text-accent {
+            color: #ff4d2d;
+        }
+        .bg-accent {
+            background-color: #ff4d2d;
+        }
+        .border-accent {
+            border-color: #ff4d2d;
+        }
+        .glass-panel {
+            background: rgba(22, 22, 24, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        
+        /* Thin scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.02);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md antialiased min-h-screen flex selection:bg-primary-container selection:text-white">
+<!-- SideNavBar (Shared Component) -->
+<nav class="hidden md:flex h-screen w-64 fixed left-0 top-0 bg-surface/70 backdrop-blur-xl border-r border-white/10 shadow-2xl flex flex-col h-full py-8 px-4 z-50 glass-panel">
+<div class="flex items-center gap-3 mb-10 px-4">
+<div class="w-8 h-8 rounded-md bg-accent flex items-center justify-center shadow-[0_0_15px_rgba(255,77,45,0.3)]">
+<span class="material-symbols-outlined text-white text-sm" style="font-variation-settings: &quot;FILL&quot; 1;">bolt</span>
+</div>
+<div>
+<h1 class="font-headline-md text-[20px] font-bold text-primary leading-tight truncate max-w-[200px]">ShopeeAutoVendas</h1>
+<p class="font-label-caps text-label-caps text-on-secondary-container text-[10px]">Automation Pro</p>
+</div>
+</div>
+<div class="flex-1 flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary border-r-2 border-primary bg-primary/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1;">dashboard</span>
+<span class="font-body-sm text-body-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">inventory_2</span>
+<span class="font-body-sm text-body-sm font-medium">Products</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">post_add</span>
+<span class="font-body-sm text-body-sm font-medium">Posts</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">notifications_active</span>
+<span class="font-body-sm text-body-sm font-medium">Activities</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">group</span>
+<span class="font-body-sm text-body-sm font-medium">Users</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface hover:bg-white/5 transition-all duration-200 group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">vpn_key</span>
+<span class="font-body-sm text-body-sm font-medium">Credentials</span>
+</a>
+</div>
+<div class="mt-auto flex flex-col gap-4">
+<!-- Storage Metric in Sidebar -->
+<div class="px-4 py-3 rounded-lg bg-black/40 border border-white/5">
+<div class="flex justify-between items-center mb-2">
+<span class="font-label-caps text-label-caps text-on-secondary-container">STORAGE</span>
+<span class="font-label-caps text-label-caps text-on-surface">45%</span>
+</div>
+<div class="w-full h-1 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-accent rounded-full" style="width: 45%; box-shadow: 0 0 10px rgba(255,77,45,0.5);"></div>
+</div>
+<p class="text-[10px] text-on-surface-variant mt-2">4.5GB of 10GB used</p>
+</div>
+<button class="w-full py-3 px-4 rounded-lg font-body-sm text-body-sm font-medium primary-btn flex items-center justify-center gap-2">
+<span class="">Upgrade Plan</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+<div class="border-t border-white/10 pt-4 flex justify-around">
+<button class="p-2 text-on-secondary-container hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-secondary-container hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 ml-0 md:ml-64 p-margin-mobile md:p-margin-desktop min-h-screen flex flex-col relative overflow-hidden">
+<!-- Header -->
+<header class="flex justify-between items-center mb-8 relative z-10">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-1">Dashboard</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Overview of your Shopee affiliate automation.</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-secondary-container text-[18px]">search</span>
+<input class="w-64 bg-surface-container-low border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm text-on-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" placeholder="Search products..." type="text">
+</div>
+<button class="primary-btn px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-[0_0_15px_rgba(255,77,45,0.15)]">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                    New Campaign
+                </button>
+</div>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-bento-gap relative z-10">
+<!-- Top Section: Metric Cards -->
+<div class="md:col-span-3 bento-card p-6 flex flex-col justify-between group cursor-default">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">inventory_2</span>
+</div>
+<span class="px-2 py-1 rounded text-[10px] font-bold tracking-wider text-[#4ade80] bg-[#4ade80]/10 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">trending_up</span> +12%
+                    </span>
+</div>
+<div>
+<h3 class="font-label-caps text-label-caps text-on-secondary-container mb-1">TOTAL PRODUCTS</h3>
+<p class="font-display-lg text-display-lg text-on-surface">1,248</p>
+</div>
+</div>
+<div class="md:col-span-3 bento-card p-6 flex flex-col justify-between group cursor-default">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">schedule_send</span>
+</div>
+<span class="px-2 py-1 rounded text-[10px] font-bold tracking-wider text-accent bg-accent/10 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">trending_up</span> +5%
+                    </span>
+</div>
+<div>
+<h3 class="font-label-caps text-label-caps text-on-secondary-container mb-1">SCHEDULED POSTS</h3>
+<p class="font-display-lg text-display-lg text-on-surface">342</p>
+</div>
+</div>
+<div class="md:col-span-3 bento-card p-6 flex flex-col justify-between group cursor-default">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">payments</span>
+</div>
+<span class="px-2 py-1 rounded text-[10px] font-bold tracking-wider text-[#f87171] bg-[#f87171]/10 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">trending_down</span> -2%
+                    </span>
+</div>
+<div>
+<h3 class="font-label-caps text-label-caps text-on-secondary-container mb-1">EST. COMMISSIONS</h3>
+<p class="font-display-lg text-display-lg text-on-surface">R$ 4.2k</p>
+</div>
+</div>
+<div class="md:col-span-3 bento-card p-6 flex flex-col justify-between group cursor-default">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">model_training</span>
+</div>
+<span class="w-2 h-2 rounded-full bg-[#4ade80] shadow-[0_0_8px_rgba(74,222,128,0.8)] animate-pulse"></span>
+</div>
+<div>
+<h3 class="font-label-caps text-label-caps text-on-secondary-container mb-1">ACTIVE AUTOMATIONS</h3>
+<p class="font-display-lg text-display-lg text-on-surface">12</p>
+</div>
+</div>
+<!-- Middle Section: Main Content & Sidebar -->
+<!-- Upcoming Posts (Takes 8 columns) -->
+<div class="md:col-span-8 bento-card flex flex-col h-[500px]">
+<div class="p-6 border-b border-white/5 flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-on-surface text-[20px]">Upcoming Posts</h3>
+<button class="text-on-secondary-container hover:text-on-surface text-sm flex items-center gap-1 transition-colors">
+                        View All <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto p-2">
+<!-- Post Item 1 -->
+<div class="p-4 mx-2 my-2 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded bg-surface-container-high overflow-hidden flex-shrink-0 border border-white/10 relative">
+<img class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" data-alt="A high-quality, studio-lit product photograph of a modern smartphone, specifically resembling a Xiaomi Redmi Note 13. The device is angled slightly to show its sleek profile and camera module. The background is a dark, abstract gradient of charcoal and subtle crimson to match the 'Dark Luxury' UI aesthetic. Lighting is dramatic, highlighting the metallic edges." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBK7IgGbAf5fHjBZsvrlwRdjiljlf0gbooEw72552m6l4Hryib8uslvPkwEkK4GGgclH8hUSDLoJDDWSqs-M3XDZtGPs5rrj9yGMuJwGIO_TEdeNYqY35sSX1r4OWPBuvJlcUjZtoPooHF4pcQ7BASz1EgpGyAWZrdjzn9HD-eXwmw1y19PqNDyJLOUIJroWP77LC5j310vPB0VUdWv2F7wnXSvpzoniP4EUtjr2WIhKeQUUNB_XsF5nQ">
+</div>
+<div>
+<h4 class="font-body-md text-body-md text-on-surface font-medium truncate max-w-[200px] sm:max-w-[300px]">Xiaomi Redmi Note 13 Pro</h4>
+<div class="flex items-center gap-3 mt-1">
+<span class="text-xs text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">sell</span> R$ 1.549,00
+                                    </span>
+<span class="text-xs text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">schedule</span> Today, 14:30
+                                    </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold tracking-wider text-[#60a5fa] bg-[#60a5fa]/10 hidden sm:inline-block">QUEUED</span>
+<button class="w-8 h-8 rounded bg-surface-container-high border border-white/10 flex items-center justify-center text-on-secondary-container hover:text-white hover:border-white/30 transition-all opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+</div>
+</div>
+<!-- Post Item 2 -->
+<div class="p-4 mx-2 my-2 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded bg-surface-container-high overflow-hidden flex-shrink-0 border border-white/10 relative">
+<img class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" data-alt="A sleek, macro shot of premium wireless earbuds, resembling Apple AirPods Pro, resting on a dark, reflective surface. The scene uses 'Dark Luxury' lighting with stark contrasts, deep blacks, and a faint, thin edge-light to emphasize the curves of the pristine white charging case. The mood is minimalist and highly technological." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7cjcpCzHIz_zizSN_tuPZFM1sqAILGAUfiYoOuFcRUouXHz04XBSLMyin0HrLIRrhEYDAGekSa1X0IyNzTG3nSFmOqATeRzbdd-o2Bv28RYac-JadKwWQCId4HFZLm5eSNqVE314ufw1PtW5adOTBHtLlhIvQqpru7F_6U2ShNxZI0ms_oNKn0FvMF60BlKNeDHlzqrrc0sR9w8AHJ36jlgSC8yEi6brNM-CiG-CjKLexWiwbrKllig">
+</div>
+<div>
+<h4 class="font-body-md text-body-md text-on-surface font-medium truncate max-w-[200px] sm:max-w-[300px]">Apple AirPods Pro 2ª Geração</h4>
+<div class="flex items-center gap-3 mt-1">
+<span class="text-xs text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">sell</span> R$ 1.899,00
+                                    </span>
+<span class="text-xs text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">schedule</span> Today, 18:00
+                                    </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold tracking-wider text-[#60a5fa] bg-[#60a5fa]/10 hidden sm:inline-block">QUEUED</span>
+<button class="w-8 h-8 rounded bg-surface-container-high border border-white/10 flex items-center justify-center text-on-secondary-container hover:text-white hover:border-white/30 transition-all opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Activity (Takes 4 columns) -->
+<div class="md:col-span-4 bento-card flex flex-col h-[500px]">
+<div class="p-6 border-b border-white/5">
+<h3 class="font-headline-md text-headline-md text-on-surface text-[20px]">Activity Log</h3>
+</div>
+<div class="p-6 flex-1 overflow-y-auto relative">
+<!-- Timeline Line -->
+<div class="absolute left-8 top-6 bottom-6 w-px bg-white/10"></div>
+<div class="flex flex-col gap-6 relative">
+<!-- Activity 1 -->
+<div class="flex gap-4 relative">
+<div class="w-4 h-4 rounded-full bg-accent border-2 border-surface flex-shrink-0 z-10 mt-1 shadow-[0_0_10px_rgba(255,77,45,0.4)]"></div>
+<div>
+<p class="text-sm text-on-surface">Automation <span class="font-medium text-white">'Tech Promo'</span> triggered successfully.</p>
+<span class="text-xs text-on-secondary-container">10 mins ago</span>
+</div>
+</div>
+<!-- Activity 2 -->
+<div class="flex gap-4 relative">
+<div class="w-4 h-4 rounded-full bg-surface-container-high border-2 border-surface flex-shrink-0 z-10 mt-1"></div>
+<div>
+<p class="text-sm text-on-surface">New product link generated for <span class="font-medium text-white">'Samsung S24 Ultra'</span>.</p>
+<span class="text-xs text-on-secondary-container">2 hours ago</span>
+</div>
+</div>
+<!-- Activity 3 -->
+<div class="flex gap-4 relative">
+<div class="w-4 h-4 rounded-full bg-[#4ade80] border-2 border-surface flex-shrink-0 z-10 mt-1"></div>
+<div>
+<p class="text-sm text-on-surface">Sale confirmed! Commission: <span class="font-medium text-[#4ade80]">R$ 45,50</span></p>
+<span class="text-xs text-on-secondary-container">5 hours ago</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+
+
+</body></html>

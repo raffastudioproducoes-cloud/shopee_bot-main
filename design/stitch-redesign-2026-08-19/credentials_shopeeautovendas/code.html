@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Credentials - ShopeeAutoVendas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#383940",
+                        "on-background": "#e2e1eb",
+                        "inverse-on-surface": "#2f3037",
+                        "on-error": "#690005",
+                        "on-error-container": "#ffdad6",
+                        "outline": "#ac8981",
+                        "on-surface": "#e2e1eb",
+                        "surface-tint": "#ffb4a5",
+                        "primary": "#ffb4a5",
+                        "primary-fixed-dim": "#ffb4a5",
+                        "error": "#ffb4ab",
+                        "surface-variant": "#33343c",
+                        "tertiary-fixed-dim": "#c8c6c9",
+                        "on-secondary": "#303032",
+                        "surface": "#12131a",
+                        "tertiary-fixed": "#e4e1e5",
+                        "inverse-surface": "#e2e1eb",
+                        "on-primary-fixed-variant": "#8e1400",
+                        "surface-dim": "#12131a",
+                        "on-primary-fixed": "#3e0400",
+                        "on-tertiary-fixed": "#1b1b1e",
+                        "on-tertiary-fixed-variant": "#47464a",
+                        "secondary-fixed-dim": "#c8c6c8",
+                        "on-secondary-fixed": "#1b1b1d",
+                        "secondary": "#c8c6c8",
+                        "tertiary": "#c8c6c9",
+                        "on-primary-container": "#580800",
+                        "on-secondary-container": "#b7b4b7",
+                        "primary-container": "#ff5637",
+                        "on-tertiary": "#303033",
+                        "primary-fixed": "#ffdad3",
+                        "on-secondary-fixed-variant": "#474649",
+                        "on-primary": "#650b00",
+                        "error-container": "#93000a",
+                        "background": "#12131a",
+                        "secondary-fixed": "#e4e2e4",
+                        "outline-variant": "#5c403a",
+                        "surface-container": "#1e1f26",
+                        "surface-container-lowest": "#0c0e14",
+                        "surface-container-highest": "#33343c",
+                        "on-surface-variant": "#e5beb6",
+                        "secondary-container": "#474649",
+                        "inverse-primary": "#ba1d00",
+                        "surface-container-high": "#282a31",
+                        "on-tertiary-container": "#29292c",
+                        "surface-container-low": "#1a1b22",
+                        "tertiary-container": "#919094"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "bento-gap": "16px",
+                        "margin-desktop": "40px",
+                        "gutter": "24px",
+                        "base-unit": "4px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Sora"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-lg": ["Sora"],
+                        "headline-md": ["Sora"],
+                        "label-caps": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "body-sm": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "label-caps": ["12px", { "lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
+        .bento-card {
+            background-color: theme('colors.surface-container-low');
+            border: 1px solid theme('colors.surface-container-highest');
+            border-top-color: rgba(255,255,255,0.08);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .bento-card:hover {
+            transform: scale(1.01);
+            border-color: rgba(255,255,255,0.12);
+        }
+        .btn-primary {
+            background-color: #ff4d2d;
+            color: #ffffff;
+            box-shadow: 0 0 20px rgba(255, 77, 45, 0.15);
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 25px rgba(255, 77, 45, 0.3);
+        }
+        .btn-secondary {
+            background-color: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: theme('colors.on-surface');
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:hover {
+            border-color: rgba(255,255,255,0.4);
+            background-color: rgba(255,255,255,0.04);
+        }
+        .status-connected {
+            background-color: rgba(74, 222, 128, 0.1);
+            color: #4ade80;
+        }
+        .status-disconnected {
+            background-color: rgba(248, 113, 113, 0.1);
+            color: #f87171;
+        }
+        .input-dark {
+            background-color: #0a0a0b;
+            border: 1px solid theme('colors.surface-container-highest');
+            transition: border-color 0.2s ease;
+        }
+        .input-dark:focus {
+            border-color: #ff4d2d;
+            outline: none;
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
+<!-- SideNavBar -->
+<nav class="hidden md:flex h-screen w-64 fixed left-0 top-0 bg-surface/70 backdrop-blur-xl border-r border-white/10 shadow-2xl flex-col py-8 px-4 z-40">
+<div class="mb-10 px-4">
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tight">ShopeeAutoVendas</h1>
+<p class="font-label-caps text-label-caps text-on-surface-variant mt-1">Automation Pro</p>
+</div>
+<ul class="flex-1 space-y-2">
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors hover:bg-white/5 duration-200 hover:translate-x-1 transition-transform group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">dashboard</span>
+<span class="font-body-md text-body-md font-medium">Dashboard</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors hover:bg-white/5 duration-200 hover:translate-x-1 transition-transform group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">inventory_2</span>
+<span class="font-body-md text-body-md font-medium">Products</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors hover:bg-white/5 duration-200 hover:translate-x-1 transition-transform group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">post_add</span>
+<span class="font-body-md text-body-md font-medium">Posts</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors hover:bg-white/5 duration-200 hover:translate-x-1 transition-transform group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">notifications_active</span>
+<span class="font-body-md text-body-md font-medium">Activities</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-secondary-container hover:text-on-surface transition-colors hover:bg-white/5 duration-200 hover:translate-x-1 transition-transform group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">group</span>
+<span class="font-body-md text-body-md font-medium">Users</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary border-r-2 border-primary bg-primary/5 hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">vpn_key</span>
+<span class="font-body-md text-body-md font-medium">Credentials</span>
+</a>
+</li>
+</ul>
+<div class="mt-auto space-y-4">
+<button class="w-full btn-primary font-label-caps text-label-caps py-3 rounded-lg uppercase tracking-wider">
+                Upgrade Plan
+            </button>
+<div class="border-t border-white/10 pt-4 space-y-2">
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all" href="#">
+<span class="material-symbols-outlined text-lg">notifications</span>
+<span class="font-body-sm text-body-sm">Notifications</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all" href="#">
+<span class="material-symbols-outlined text-lg">account_circle</span>
+<span class="font-body-sm text-body-sm">Profile</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- TopNavBar -->
+<header class="hidden md:flex fixed top-0 right-0 w-[calc(100%-16rem)] z-50 bg-surface/70 backdrop-blur-md border-b border-white/10 shadow-sm justify-between items-center px-8 h-16">
+<div class="flex items-center gap-6">
+<!-- Search placeholder if on left as per JSON, but leaving structure clean for now -->
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">search</span>
+<input class="input-dark w-64 pl-10 pr-4 py-2 rounded-full font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:w-80 transition-all duration-300" placeholder="Search resources..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="btn-primary px-4 py-2 rounded-full font-label-caps text-label-caps uppercase flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span> Create Post
+            </button>
+<div class="flex items-center gap-4 border-l border-white/10 pl-6">
+<button class="text-on-surface-variant hover:text-primary transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-primary-container rounded-full shadow-[0_0_8px_#ff5637]"></span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high border border-white/10 overflow-hidden ml-2 cursor-pointer">
+<img class="w-full h-full object-cover" data-alt="A macro shot of a sleek, dark metallic security token with a glowing orange indicator light, resting on a matte black textured surface. The lighting is dramatic, highlighting the precision engineering and high-end materials. The atmosphere is secure, technical, and luxurious, matching a dark mode interface aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfKpJ0_7eIPkF1V4cdvf-mx-EiPjyeeh067MbwWmaVW7VyqNjdimq2jUmEZ2vBGeHH6G6Kc9tbh1vJm685sHqssfsZUNjnbHqriRt9T4hLtTg4aBPH25FX-tHX-S0dFmXkhRSsEHDReJ8FaZU8K5Vodx_brKgUAv-mtx4mUoCSxtEtqqaDbfDdRIf77Ki2tz6Nx7X_e63Io-YXG6IKPuiR_wEYrsfnKGi-vgVOpb9XE5FQ6q0AjN3t1g"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 ml-0 md:ml-64 mt-0 md:mt-16 overflow-y-auto p-4 md:p-margin-desktop bg-background relative">
+<!-- Ambient Background Glow -->
+<div class="absolute top-0 right-0 w-1/2 h-96 bg-primary-container/5 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="max-w-7xl mx-auto space-y-8 relative z-10">
+<header class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Credentials &amp; Integrations</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-2 max-w-2xl">Manage your API keys and external platform connections securely. Keep your tokens updated to ensure seamless automation.</p>
+</div>
+<button class="btn-secondary px-6 py-2.5 rounded-lg font-label-caps text-label-caps flex items-center gap-2 w-fit">
+<span class="material-symbols-outlined text-sm">key</span> Add New Key
+                </button>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-bento-gap">
+<!-- Core API Card (Takes 2/3 width on desktop) -->
+<div class="lg:col-span-8 bento-card rounded-xl p-8 flex flex-col justify-between">
+<div>
+<div class="flex items-start justify-between mb-6">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-surface flex items-center justify-center border border-white/5">
+<span class="material-symbols-outlined text-primary text-2xl" style="font-variation-settings: 'FILL' 1;">shopping_bag</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface text-xl">Shopee Open API</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Primary E-commerce connection</p>
+</div>
+</div>
+<span class="status-connected font-label-caps text-label-caps px-3 py-1 rounded-full border border-green-500/20 flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_6px_#4ade80]"></span> Connected
+                            </span>
+</div>
+<div class="space-y-4">
+<div class="bg-background rounded-lg p-4 border border-white/5">
+<label class="font-label-caps text-label-caps text-on-surface-variant block mb-2">Partner ID</label>
+<div class="flex items-center justify-between">
+<code class="font-mono text-body-sm text-on-surface">849201834</code>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-sm">content_copy</span></button>
+</div>
+</div>
+<div class="bg-background rounded-lg p-4 border border-white/5 relative group">
+<label class="font-label-caps text-label-caps text-on-surface-variant block mb-2">Partner Key</label>
+<div class="flex items-center justify-between">
+<code class="font-mono text-body-sm text-on-surface tracking-widest text-lg">••••••••••••••••••••••••••••</code>
+<div class="flex items-center gap-2">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-sm">visibility</span></button>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-sm">content_copy</span></button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">update</span> Last synced: 10 mins ago
+                        </p>
+<button class="btn-secondary px-4 py-2 rounded-lg font-label-caps text-label-caps">Manage</button>
+</div>
+</div>
+<!-- Bitly Integration Card (Takes 1/3 width) -->
+<div class="lg:col-span-4 bento-card rounded-xl p-6 flex flex-col">
+<div class="flex items-start justify-between mb-4">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center border border-white/5">
+<span class="material-symbols-outlined text-blue-400">link</span>
+</div>
+<span class="status-connected font-label-caps text-label-caps px-2 py-1 rounded-full border border-green-500/20 text-[10px]">Active</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface text-lg mb-1">Bitly API</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6 flex-1">URL shortening for automated social posts.</p>
+<div class="bg-background rounded-lg p-3 border border-white/5 mb-6">
+<div class="flex items-center justify-between">
+<code class="font-mono text-body-sm text-on-surface text-xs">••••••••••••••••</code>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[16px]">visibility</span></button>
+</div>
+</div>
+<button class="w-full btn-secondary py-2 rounded-lg font-label-caps text-label-caps border-white/10 hover:border-white/20">Configure</button>
+</div>
+<!-- Social Media Tokens (Full width row) -->
+<div class="lg:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-bento-gap">
+<!-- Facebook -->
+<div class="bento-card rounded-xl p-6 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl">thumb_up</span>
+</div>
+<div class="flex justify-between items-center mb-4 relative z-10">
+<h4 class="font-headline-md text-headline-md text-on-surface text-base">Facebook Page</h4>
+<span class="status-connected w-2 h-2 rounded-full shadow-[0_0_6px_#4ade80]"></span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6 relative z-10">Token valid until Oct 2024</p>
+<button class="text-primary font-label-caps text-label-caps flex items-center gap-1 hover:text-primary-container transition-colors relative z-10">
+                            Reconnect <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</button>
+</div>
+<!-- Instagram (Disconnected State) -->
+<div class="bento-card rounded-xl p-6 relative overflow-hidden border-red-500/30 bg-red-950/10">
+<div class="flex justify-between items-center mb-4 relative z-10">
+<h4 class="font-headline-md text-headline-md text-on-surface text-base flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-sm">warning</span> Instagram
+                            </h4>
+<span class="status-disconnected font-label-caps text-label-caps px-2 py-0.5 rounded-full border border-red-500/20 text-[10px]">Expired</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6 relative z-10 text-error/80">Token expired 2 days ago.</p>
+<button class="bg-error/10 text-error hover:bg-error/20 px-4 py-2 rounded-lg font-label-caps text-label-caps w-full transition-colors relative z-10">
+                            Re-authorize Now
+                        </button>
+</div>
+<!-- Twitter/X -->
+<div class="bento-card rounded-xl p-6 relative overflow-hidden group">
+<div class="flex justify-between items-center mb-4 relative z-10">
+<h4 class="font-headline-md text-headline-md text-on-surface text-base">X (Twitter) v2</h4>
+<span class="status-connected w-2 h-2 rounded-full shadow-[0_0_6px_#4ade80]"></span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6 relative z-10">Oauth 2.0 Connected</p>
+<button class="text-primary font-label-caps text-label-caps flex items-center gap-1 hover:text-primary-container transition-colors relative z-10">
+                            Manage App <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Simple toggle for API key visibility (visual only for mockup)
+        document.querySelectorAll('.material-symbols-outlined').forEach(icon => {
+            if(icon.textContent === 'visibility') {
+                icon.parentElement.addEventListener('click', function() {
+                    const codeBlock = this.parentElement.previousElementSibling;
+                    if(codeBlock && codeBlock.textContent.includes('•')) {
+                        codeBlock.textContent = 'sk_live_x8F92mN2938457bnC';
+                        codeBlock.classList.remove('tracking-widest', 'text-lg');
+                        this.querySelector('span').textContent = 'visibility_off';
+                    } else if (codeBlock) {
+                        codeBlock.textContent = '••••••••••••••••••••••••••••';
+                        codeBlock.classList.add('tracking-widest', 'text-lg');
+                        this.querySelector('span').textContent = 'visibility';
+                    }
+                });
+            }
+        });
+    </script>
+</body></html>
