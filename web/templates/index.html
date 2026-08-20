@@ -2,19 +2,105 @@
 
 {% block title %}Início{% endblock %}
 
-{%block navbar%} 
+{%block navbar%}
     {% include "includes/navbar.html" %}
 {% endblock %}
 
 {% block body %}
-    <div class="flex-grow flex flex-col justify-center items-center container mx-auto p-6">
-        <div>
-            <h1 class="text-5xl xl:text-8xl font-bold text-gray-800 mb-2 xl:mb-4">
-                Shopee Bot
-            </h1>
-            <h2 class="text-3xl xl:text-5xl text-gray-800">
-                Olá, {{ user.username|capitalize }}!
-            </h2>
+    <div class="flex-grow p-margin-mobile md:p-margin-desktop">
+        <header class="mb-8">
+            <h2 class="font-display text-headline-lg text-on-surface mb-1">Dashboard</h2>
+            <p class="text-body-sm text-on-surface-variant">Olá, {{ user.username|capitalize }}! Visão geral da sua automação.</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-bento-gap">
+            <!-- Metric cards -->
+            <div class="md:col-span-4 bento-card p-6 flex flex-col justify-between">
+                <div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-on-surface-variant">inventory_2</span>
+                </div>
+                <h3 class="text-label-caps text-on-surface-variant mb-1">PRODUTOS CADASTRADOS</h3>
+                <p class="font-display text-display-lg text-on-surface">{{ products_count }}</p>
+            </div>
+            <div class="md:col-span-4 bento-card p-6 flex flex-col justify-between">
+                <div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-on-surface-variant">post_add</span>
+                </div>
+                <h3 class="text-label-caps text-on-surface-variant mb-1">POSTAGENS CRIADAS</h3>
+                <p class="font-display text-display-lg text-on-surface">{{ posts_count }}</p>
+            </div>
+            <div class="md:col-span-4 bento-card p-6 flex flex-col justify-between">
+                <div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-on-surface-variant">list_alt</span>
+                </div>
+                <h3 class="text-label-caps text-on-surface-variant mb-1">LISTAS DE PRODUTOS</h3>
+                <p class="font-display text-display-lg text-on-surface">{{ product_lists_count }}</p>
+            </div>
+
+            <!-- Recent posts -->
+            <div class="md:col-span-7 bento-card flex flex-col">
+                <div class="p-6 border-b border-white/5 flex justify-between items-center">
+                    <h3 class="font-display text-headline-md text-[20px] text-on-surface">Postagens recentes</h3>
+                    <a href="/posts?limit=20" class="text-on-surface-variant hover:text-accent text-sm flex items-center gap-1 transition-colors">
+                        Ver todas <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    </a>
+                </div>
+                <div class="flex-1 overflow-y-auto p-2 max-h-96">
+                    {% for post in recent_posts %}
+                    <a href="/posts/{{ post.id }}" class="p-4 mx-2 my-2 rounded-lg hover:bg-white/5 transition-colors flex items-center justify-between group">
+                        <div class="min-w-0">
+                            <h4 class="text-body-md text-on-surface font-medium truncate max-w-[320px]">{{ post.text or "(sem texto)" }}</h4>
+                            <div class="flex items-center gap-3 mt-1 text-xs text-on-surface-variant">
+                                {% if post.scheduler and post.scheduler.id %}
+                                <span class="flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">schedule</span>
+                                    {% if post.scheduler.trigger == "date" %}{{ post.scheduler.run_date }}{% else %}{{ post.scheduler.time }}{% endif %}
+                                </span>
+                                {% else %}
+                                <span class="flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">edit_note</span> Rascunho
+                                </span>
+                                {% endif %}
+                                {% if post.children %}
+                                <span>+{{ post.children }} na thread</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <span class="px-2 py-1 rounded text-[10px] font-bold tracking-wider {{ 'text-accent bg-accent/10' if post.scheduler and post.scheduler.id else 'text-on-surface-variant bg-white/5' }} shrink-0">
+                            {{ 'AGENDADO' if post.scheduler and post.scheduler.id else 'RASCUNHO' }}
+                        </span>
+                    </a>
+                    {% else %}
+                    <p class="text-center text-on-surface-variant text-sm py-8">Nenhuma postagem ainda.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Recent activity -->
+            <div class="md:col-span-5 bento-card flex flex-col">
+                <div class="p-6 border-b border-white/5">
+                    <h3 class="font-display text-headline-md text-[20px] text-on-surface">Atividade recente</h3>
+                </div>
+                <div class="p-6 flex-1 overflow-y-auto max-h-96 relative">
+                    {% if recent_activities %}
+                    <div class="absolute left-8 top-6 bottom-6 w-px bg-white/10"></div>
+                    <div class="flex flex-col gap-6 relative">
+                        {% for activity in recent_activities %}
+                        <div class="flex gap-4 relative">
+                            <div class="w-4 h-4 rounded-full border-2 border-surface flex-shrink-0 z-10 mt-1
+                                {{ 'bg-danger' if 'failure' in activity.name else 'bg-success' }}"></div>
+                            <div>
+                                <p class="text-sm text-on-surface">{{ activity.description }}</p>
+                                <span class="text-xs text-on-surface-variant">{{ activity.localtime }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-center text-on-surface-variant text-sm py-8">Nenhuma atividade registrada ainda.</p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 {% endblock %}

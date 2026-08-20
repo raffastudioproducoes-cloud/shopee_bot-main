@@ -5,7 +5,8 @@ monkey.patch_all()
 
 import os
 from shopee_bot.web.user import User
-from shopee_bot.database import init as init_db, close_connection, users
+from shopee_bot.database import init as init_db, close_connection, users, \
+    products, posts, product_lists, activities
 from shopee_bot.scheduler import init as init_scheduler
 from shopee_bot.web.routes.posts import posts_bp
 from shopee_bot.web.routes.panel import panel_bp
@@ -91,7 +92,20 @@ def load_user(user_id):
 @app.get("/")
 @login_required
 def index():
-    return render_template("index.html", user=current_user)
+    recent_posts, _ = posts.query_paginated(current_user.id, None, 5)
+    recent_activities, _ = activities.query_activities_paginated(
+        current_user.id, None, 5
+    )
+
+    return render_template(
+        "index.html",
+        user=current_user,
+        products_count=products.count(current_user.id),
+        posts_count=posts.count(current_user.id),
+        product_lists_count=product_lists.count(current_user.id),
+        recent_posts=recent_posts,
+        recent_activities=recent_activities,
+    )
 
 
 # development only, production uses Nginx
