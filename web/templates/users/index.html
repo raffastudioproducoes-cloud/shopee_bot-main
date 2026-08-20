@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "macros/h1.html" import h1 %}
+{% from "macros/user-card.html" import open_user_card, close_user_card %}
+{% from "macros/link-button.html" import link_button %}
+{% from "macros/fetch-button.html" import fetch_button %}
+{% from "macros/pagination.html" import pagination with context %}
+{% from "macros/add-button.html" import add_button %}
+{% from "macros/item-options.html" import item_options %}
+
+{% block title %}Usuários{% endblock %}
+
+{% block navbar %}
+    {% include "includes/navbar.html" %}
+{% endblock %}
+
+{% block head %}
+<script>
+    function deleteUser(id) {
+        Alpine.store("confirmModal").set(
+            "Deseja remover o usuário?",
+            () => {
+                fetch(`${location.protocol}//${location.host}/users/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                })
+                .then(res => res.json())
+                .then(() => {
+                    window.location.reload();
+                });
+            },
+            () => {
+                //window.dispatchEvent(new CustomEvent('cancel-update'));
+            }
+        );
+    }
+
+    function sendCardEvent(userId) {
+        window.dispatchEvent(new CustomEvent("cancel-update"));
+        window.dispatchEvent(new CustomEvent("item-clicked", {
+            detail: userId,
+        }));
+    }
+</script>
+{% endblock %}
+
+{% block body %}
+    <div class="flex-grow container mx-auto p-6">
+        {{ h1("Usuários") }}
+        <div x-data class="max-w-6xl mx-auto">
+            <!-- Lista de Usuários -->
+            <div class="w-full mb-1 text-right text-sm text-gray-600">
+                Usuários: {{ count }}
+            </div>
+
+            <template
+                x-for="(user, users_index) in {{ users }}" :key="users_index"
+            >
+                {{ open_user_card() }}
+
+                {{ link_button(
+                    link="`/users/${user.id}`",
+                    material="edit",
+                    title="Editar usuário"
+                ) }}
+
+                {{ fetch_button(
+                    material="more_vert",
+                    title="Opções",
+                    func="sendCardEvent(user.id)",
+                    class="text-gray-400 hover:text-blue-500 cursor-pointer"
+                ) }}
+
+                {{ close_user_card() }}
+            </template>
+
+
+            {% if count == 0 %}
+            <div class="space-y-4">
+                <div class="bg-white p-4 rounded-lg shadow hover:shadow-md transition">
+                    <h2 class="text-lg font-semibold text-gray-800">
+                        {{ message }}
+                    </h2>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if count %}
+                {{ pagination("users.index") }}
+            {% endif %}
+        </div>
+    </div>
+
+    {{ add_button("/users/add") }}
+{% endblock %}
+
+{% block body_bottom %}
+    {% include "includes/confirm-modal.html" %}
+
+    {{ item_options ( [
+        {
+            "material": "delete",
+            "text": "Remover usuário",
+            "class": "bg-red-400 hover:bg-red-500",
+            "callback": "deleteUser(Alpine.store('itemOptions').id)"
+        }
+    ] ) }}
+{% endblock %}

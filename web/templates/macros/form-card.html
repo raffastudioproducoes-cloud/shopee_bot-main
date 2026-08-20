@@ -1,0 +1,43 @@
+{% from "macros/fetch-button.html" import fetch_button %}
+{% from "macros/submit-button.html" import submit_button %}
+
+{% macro form_card_opentag(title, action, status=none, delete=none) -%}
+<!-- start form-card -->
+<section class="w-full max-w-md bg-white rounded-md shadow-lg p-6 mt-6">
+    <div class="flex items-center justify-between">
+        <div class="relative flex">
+            <h2 class="text-lg font-bold text-gray-800 mb-1">
+                {{ title }}
+            </h2>
+
+            {% if status is not none %}
+            <span class="absolute top-0 right-0 mt-1 -mr-3 flex size-2">
+                <span
+                    class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 {{ 'bg-green-400' if status else 'bg-red-400' }}"
+                ></span>
+                <span
+                    class="relative inline-flex size-2 rounded-full {{ 'bg-green-500' if status else 'bg-red-500' }}">
+                </span>
+            </span>
+            {% endif %}
+        </div>
+        {% if delete is not none %}
+        {{ fetch_button(
+            "delete",
+            delete.title,
+            delete.function,
+            'opacity-70 text-gray-400' if not status else 'cursor-pointer text-gray-400 hover:text-red-500',
+        ) }}
+        {% endif %}
+    </div>
+    <hr class="opacity-25"/>
+    <form action="{{ action }}" method="POST" class="mt-2 xl:mt-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+{%- endmacro %}
+
+{% macro form_card_closetag(submit_button_text="Salvar") -%}
+        {{ submit_button(submit_button_text) }}
+    </form>
+</section>
+<!-- end form-card -->
+{%- endmacro %}

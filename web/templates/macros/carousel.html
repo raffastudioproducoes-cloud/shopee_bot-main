@@ -1,0 +1,56 @@
+{% macro carousel(images) -%}
+    <script>
+        function date_from_timestamp(image_path) {
+            const timestamp = parseInt(image_path.match(/\d+/)[0]);
+            const date = new Date(timestamp * 1000);
+            const locale = 'pt-BR';
+            const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
+            return `${date.toLocaleDateString(locale, options)} ${date.toLocaleTimeString()}`
+        }
+    </script>
+    <div x-data="{
+        currentIndex: 0,
+        images: {{ images }},
+        direction: 'next',
+        next() {
+            this.currentIndex = (this.currentIndex + 1) % this.images.length;
+        },
+        prev() {
+            this.currentIndex = (this.currentIndex - 1 + this.images.length) % this.images.length;
+        }
+    }" class="relative">
+        <!-- Imagem e legenda -->
+        <div class="overflow-hidden rounded-lg shadow-lg">
+            <template x-for="(image, index) in images" :key="index">
+                <div
+                    x-cloak
+                    x-show="currentIndex === index" 
+                    x-transition:enter="transition ease-out duration-500"
+                    x-transition:enter-start="opacity-0 (direction == 'next' ? 'translate-x-10' : '-translate-x-10')"
+                    x-transition:enter-end="opacity-100 (direction == 'next' ? 'translate-x-0' : '-translate-x-0')"
+                    class="w-full relative"
+                >
+                    <img loading="lazy" :src="image" alt="Carrossel Imagem" class="w-full h-64 xl:h-auto object-cover">
+                    <div class="absolute bottom-0 w-full bg-black opacity-30 text-white text-center py-2">
+                        <p x-text="date_from_timestamp(image)"></p>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Botões de navegação -->
+        <button @click="prev" class="absolute left-0 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white p-2 rounded-r-lg hover:bg-gray-700">
+            &larr;
+        </button>
+        <button @click="next" class="absolute right-0 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white p-2 rounded-l-lg hover:bg-gray-700">
+            &rarr;
+        </button>
+
+        <!-- Indicadores -->
+        <div class="flex justify-center mt-4 space-x-2">
+            <template x-for="(image, index) in images" :key="index">
+                <button @click="currentIndex = index" :class="currentIndex === index ? 'bg-gray-800' : 'bg-gray-400'" class="w-3 h-3 rounded-full"></button>
+            </template>
+        </div>
+    </div>
+{%- endmacro %}

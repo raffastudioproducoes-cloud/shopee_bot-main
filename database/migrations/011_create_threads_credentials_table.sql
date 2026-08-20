@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS threads_credentials (
+    id SERIAL PRIMARY KEY,
+    t_user_id TEXT DEFAULT NULL UNIQUE,
+    access_token TEXT DEFAULT NULL,
+    status BOOLEAN DEFAULT FALSE,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    user_id UUID NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

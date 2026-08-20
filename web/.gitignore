@@ -1,0 +1,8 @@
+data/*
+!data/.placeholder
+__pycache__/
+config.yml
+web/data/*
+web/static/*
+!web/static/input.css
+!web/static/style.css

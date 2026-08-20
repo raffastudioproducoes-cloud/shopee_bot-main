@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% from "macros/h1.html" import h1 %}
+{% from "macros/back-button.html" import back_button %}
+{% from "macros/input.html" import input, checkbox %}
+{% from "macros/new-product-card.html" import open_product_card, close_product_card, product_card_script %}
+{% from "macros/submit-button.html" import submit_button %}
+
+{% block title %}
+    {{ 'Adicionar' if operation == 'add' else 'Editar' }} Lista de Produtos
+{%- endblock %}
+
+{% block head %}
+{{ product_card_script(
+    order_by_ids=product_list.list if operation == 'edit' else []
+) }}
+<script>
+document.addEventListener("alpine:init", () => {
+    Alpine.store("productCard").getProducts();
+
+    Alpine.data('form', () => ({
+
+        {%- if operation == 'edit' %}
+        id: "{{ product_list.id }}",
+        {% endif -%}
+
+        name: `{{ product_list.name|safe if operation == 'edit' else '' }}`,
+        list: {{ product_list.list if operation == 'edit' else [] }},
+
+        productToggle(id) {
+            if (!this.list.includes(id)) {
+                this.list.push(id);
+            } else {
+                const index = this.list.indexOf(id);
+                if (index >= 0) {
+                    this.list.splice(index, 1);
+                }
+            }
+        },
+
+        selectAll() {
+            for (const product of Alpine.store("productCard").products) {
+                if (!this.list.includes(product.id)) {
+                    this.list.push(product.id)
+                }
+            }
+        },
+
+        deselectAll() {
+            this.list = [];
+        },
+
+        submitForm() {
+            // Criar o objeto com os dados do formulário
+            const formData = {
+
+                {%- if operation == 'edit' %}
+                id: this.id,
+                {% endif -%}
+
+                name: this.name
+            };
+
+            {# WTForms expect list as field-n #}
+            for(const [index, item] of this.list.entries()) {
+                formData[`list-${index}`] = item;
+            }
+
+            // Log para depuração (opcional)
+            console.log('Dados enviados:', formData);
+
+            // Enviar os dados para o backend via fetch
+            {%- if operation == 'add' %}
+            const url = `${location.protocol}//${location.host}/product-lists`;
+            {% else %}
+            const url = `${location.protocol}//${location.host}/product-lists/${this.id}`;
+            {% endif -%}
+            fetch(url, {
+                method: "{{ 'POST' if operation == 'add' else 'PUT' }}",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": "{{ csrf_token() }}"
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(async (response) => {
+                if (![200, 201].includes(response.status)) {
+                    window.location.reload();
+                } else {
+                    console.log('Sucesso:', await response.json());
+                    window.location.href = '/product-lists?limit=10';
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+            });
+        }
+    }));
+});
+</script>
+{% endblock %}
+
+{% block navbar %}
+    {% include "includes/navbar.html" %}
+{% endblock %}
+
+{% block body %}
+    <div class="flex-grow container mx-auto p-6 max-w-6xl">
+        {{ h1(("Adicionar" if operation == "add" else "Editar") + " Lista de Produtos") }}
+        <div class="mb-1">
+            {{ back_button() }}
+        </div>
+
+        <form
+            x-data="form"
+            class="bg-white p-6 rounded-lg shadow space-y-4"
+            @submit.prevent="submitForm"
+        >
+            {%- if operation == 'edit' %}
+            <input type="text" hidden x-model="id" value="{{ product_list.id }}">
+            {% endif -%}
+
+            <div class="flex justify-end gap-2">
+                <button
+                    type="button"
+                    class="px-3 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500 focus:outline-none focus:ring-gray-400 cursor-pointer transition-colors"
+                    @click.prevent="deselectAll"
+                >
+                    Desselecionar Todos
+                </button>
+                <button
+                    type="button"
+                    class="px-3 py-2 bg-blue-400 text-white rounded-md hover:bg-blue-500 focus:outline-none focus:ring-blue-400 cursor-pointer transition-colors"
+                    @click.prevent="selectAll"
+                >
+                    Selecionar Todos
+                </button>
+            </div>
+
+            <div class="">
+                {{ input(
+                    label='Nome',
+                    model='name',
+                    value=product_list.name if operation == 'edit' else '',
+                    placeholder='Nome da lista',
+                    required=True,
+                    errors=form.name if form else []
+                ) }}
+            </div>
+            <div class="flex flex-wrap">
+                <template x-for="product in $store.productCard.products">
+                    {{ open_product_card() }}
+                    <div class="absolute top-1 right-1">
+                        <input
+                            @click="productToggle(product.id)"
+                            type="checkbox"
+                            class="size-4 border border-gray-300 rounder-md focus:outline-noe focus:ring-blue-500 focus:border-blue-500 xl:cursor-pointer"
+                            :checked="list.includes(product.id)"
+                        >
+                    </div>
+                    {{ close_product_card() }}
+                </template>
+            </div>
+
+            <div class="flex justify-center gap-2 items-center mt-6">
+                <template x-if="$store.productCard.cursor">
+                <button
+                    @click.prevent="$store.productCard.onPreviousPage()"
+                    class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition cursor-pointer"
+                >
+                    Anterior
+                </button>
+                </template>
+
+                <template x-if="$store.productCard.nextCursor">
+                <button
+                    @click.prevent="$store.productCard.onNextPage()"
+                    class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition cursor-pointer"
+                >
+                    Próximo
+                </button>
+                </template>
+            </div>
+
+            <div class="xl:w-1/2 mx-auto mt-12 flex flex-col items-center">
+                {{ submit_button() }}
+                {{ back_button() }}
+            </div>
+        </form>
+    </div>
+{% endblock %}

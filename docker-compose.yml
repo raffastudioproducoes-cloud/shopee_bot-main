@@ -1,0 +1,94 @@
+services:
+  app:
+    container_name: shopee-bot-app
+    image: shopee-bot-app
+    environment:
+      - PYTHONPATH=/
+      - PYTHONUNBUFFERED=1
+      - POSTGRES_HOST=$POSTGRES_HOST
+      - POSTGRES_USER=$POSTGRES_USER
+      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+      - POSTGRES_DB=$POSTGRES_DB
+      - CLOUDINARY_NAME=$CLOUDINARY_NAME
+      - CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
+      - CLOUDINARY_SECRET=$CLOUDINARY_SECRET
+      - THREADS_APP_ID=$THREADS_APP_ID
+      - THREADS_SECRET=$THREADS_SECRET
+      - THREADS_PERMISSIONS=$THREADS_PERMISSIONS
+      - THREADS_CALLBACK_URL=$THREADS_CALLBACK_URL
+      - FLASK_SESSION_SECRET=$FLASK_SESSION_SECRET
+      - FLASK_UPLOAD_FOLDER=upload
+      - FLASK_MAX_CONTENT_LENGTH=$FLASK_MAX_CONTENT_LENGTH
+      - LOG_LEVEL=$LOG_LEVEL
+    volumes:
+      # pay attention, css won't be updated unless static volume is deleted
+      - static:/shopee_bot/web/static/
+      - user-data:/shopee_bot/web/media/
+    networks:
+      - shopee-network
+    depends_on:
+      - database
+
+  database:
+    container_name: shopee-bot-database
+    image: postgres:17-alpine
+    shm_size: 128mb
+    environment:
+      - POSTGRES_USER=$POSTGRES_USER
+      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+      - POSTGRES_DB=$POSTGRES_DB
+    command: ["postgres", "-c", "log_min_messages=DEBUG1", "-c", "log_statement=all"]
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        window: 5s
+    healthcheck:
+      test: pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+      interval: 1m
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - database:/var/lib/postgresql/data
+    networks:
+      - shopee-network
+
+  nginx:
+    container_name: shopee-bot-server
+    image: nginx:1.27-alpine
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        window: 5s
+    healthcheck:
+      test: curl -f localhost/health || exit 1
+      interval: 1m
+    volumes:
+      - static:/var/www/files/static/
+      - user-data:/var/www/files/media/
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./cert.pem:/etc/nginx/cert.pem:ro
+      - ./key.pem:/etc/nginx/key.pem:ro
+      # make logs accessible to fail2ban in host
+      # - /var/log/nginx:/var/log/nginx:rw
+    networks:
+      - shopee-network
+    ports:
+      - 2025:2025
+    depends_on:
+      - app
+
+networks:
+  shopee-network:
+    name: shopee-network
+    driver: bridge
+
+volumes:
+  static:
+    name: shopee-bot-static
+  user-data:
+    name: shopee-bot-user-data
+  database:
+    name: shopee-bot-database

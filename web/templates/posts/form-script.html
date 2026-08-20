@@ -1,0 +1,235 @@
+{#
+    include in posts/form.html
+    vars from route add: operation, product_ids, form(errors)
+    vars from route edit: operation, posts, form(errors)
+#}
+<script>
+document.addEventListener("alpine:init", () => {
+    Alpine.store("products", {
+        old_cursor: [],
+        cursor: null,
+        next_cursor: null,
+        count: null,
+        products: null,
+        product_ids: {{ posts|safe + '[0]["product_ids"]'|safe if operation == 'edit' else product_ids }},
+
+        init () {
+            this._get_products();
+        },
+
+        _get_products() {
+            const limit = 5;
+            const ids = this.product_ids ? this.product_ids.join() : null
+            const url = `
+                ${location.protocol}//${location.host}
+                /products.json?
+                limit=${limit}
+                ${this.cursor ? '&cursor=' + this.cursor : ''}
+                ${ids ? '&ids=' + ids : ''}
+            `.replaceAll('\n', '').replaceAll(' ', '');
+
+            fetch(url, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                this.next_cursor = data["next-cursor"];
+                this.count = data["count"];
+                this.products = data["products"];
+            });
+        },
+
+        on_next_page() {
+            this.old_cursor.push(this.cursor);
+            this.cursor = this.next_cursor;
+            this._get_products();
+        },
+
+        on_previous_page() {
+            this.cursor = this.old_cursor.pop() ?? null;
+            this._get_products();
+        }
+    });
+
+    Alpine.data('form', () => ({
+        {% if operation == 'edit' %}
+            init() {
+                const postToAdd = this.posts.length - 1;
+                for(let i = 0; i < postToAdd; i++) {
+                    this._addPost()
+                }
+            },
+
+            job_id: null,
+        {% endif %}
+
+        {# erros from validation #}
+        form: {{ form|safe if form else [] }},
+
+        {% set posts_default = "[{text: '', medias: []}]" %}
+        posts: {{ posts|safe if operation == 'edit' else posts_default|safe }},
+
+        {% set job_default = "{func: 'bot_post', trigger: 'date', run_date: null}" %}
+        job: {{ posts|safe + '[0]["scheduler"]'|safe if operation == 'edit' else job_default|safe }},
+
+        updateJobProperties() {
+            {% if operation == 'edit' %}
+            if (this.job_id == null) {
+                this.job_id = this.job.id;
+            }
+            {% endif %}
+
+            if (this.job.trigger == 'date') {
+                this.job = {{ job_default|safe }};
+                {% if operation == 'edit' %}
+                this.job = {...this.job, id: this.job_id};
+                {% endif %}
+            } else {
+                this.job = {
+                    {{ 'id: this.job_id,' if operation == 'edit' else '' }}
+                    func: 'bot_post',
+                    trigger: 'cron',
+                    time: null,
+                    day_of_week: 0,
+                    start_date: null
+                };
+            }
+        },
+
+        submitForm() {
+            // Criar o objeto com os dados do formulário
+            const formData = new FormData();
+
+            {# WTForms expect object as key-subkey #}
+            for(const key in this.job) {
+                if(this.job[key] == null) continue;
+
+                formData.append(`job-${key}`, this.job[key]);
+            }
+
+            {# WTForms expect list as field-n #}
+            const product_ids = Alpine.store('products').product_ids;
+            for(const [index, item] of product_ids.entries()) {
+                formData.append(`product_ids-${index}`, item);
+            }
+
+            for(const [index, post] of this.posts.entries()) {
+                for(const key in post) {
+                    if(key == 'medias') {
+                        // console.log(post[key].entries())
+                        for(const [j, media] of post[key].entries()) {
+                            for(const subkey in media) {
+                                formData.append(
+                                    `posts-${index}-${key}-${j}-${subkey}`,
+                                    media[subkey]
+                                );
+                            }
+                        }
+                    } else if(key == 'text' || key == 'id') {
+                        formData.append(`posts-${index}-${key}`, post[key]);
+                    }
+                }
+            }
+
+            const arr_files = Alpine.store('dropzone').files;
+            for(const [index, files] of arr_files.entries()) {
+                // set index to null
+                if(files.length == 0) {
+                    formData.append(`files-${index}-0`, null);
+                }
+                for(const [sub_index, file] of files.entries()) {
+                    formData.append(`files-${index}-${sub_index}`, file);
+                }
+            }
+
+            // Log para depuração (opcional)
+            console.log("Dados enviados:\n");
+            for(const [key, val] of formData.entries()) {
+                console.log(key, val);
+            }
+
+
+            // Enviar os dados para o backend via fetch
+            {%- if operation == 'add' %}
+            const url = `${location.protocol}//${location.host}/posts`;
+            {% else %}
+            const url = `${location.protocol}//${location.host}/posts/${this.id}`;
+            {% endif -%}
+            fetch(url, {
+                method: "{{ 'POST' if operation == 'add' else 'PUT' }}",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token() }}"
+                },
+                body: formData
+            })
+            .then(async (response) => {
+                if (![200, 201].includes(response.status)) {
+                    window.location.reload();
+                } else {
+                    console.log('Sucesso:', await response.json());
+                    window.location.href = '/posts?limit=10';
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+            });
+        },
+
+        dropzoneNewFile(e) {
+            const index = e.detail.post_index;
+            const media = e.detail.media;
+            this.posts[index].medias.push(media);
+        },
+
+        _reloadVideos() {
+            for (const videoElement of document.getElementsByTagName('video')) {
+                videoElement.load();
+                videoElement.play();
+            }
+        },
+
+        dropzoneRemoveFile(e) {
+            const index = e.detail.post_index;
+            const mediaIndex = e.detail.index;
+            this.posts[index].medias.splice(mediaIndex, 1);
+
+            // destroy and re-render
+            medias = this.posts[index].medias;
+            setTimeout(() => {
+                this.posts[index].medias = medias;
+            }, 100);
+            this.posts[index].medias = [];
+
+            this._reloadVideos();
+        },
+
+        {# use with init on edit #}
+        _addPost() {
+            Alpine.store('dropzone').totalSize.push(0);
+            Alpine.store('dropzone').files.push([]);
+            Alpine.store('dropzone').errors.push([]);
+        },
+
+        addPost() {
+            this._addPost();
+            this.posts.push({text: '', medias: []});
+        },
+
+        removePost(post_index) {
+            Alpine.store("confirmModal").set(
+                "Deseja remover o post?",
+                () => {
+                    Alpine.store('dropzone').totalSize.splice(post_index, 1);
+                    Alpine.store('dropzone').files.splice(post_index, 1);
+                    Alpine.store('dropzone').errors.splice(post_index, 1);
+                    this.posts.splice(post_index, 1);
+                    this._reloadVideos();
+                }
+            );
+        }
+    }));
+});
+</script>

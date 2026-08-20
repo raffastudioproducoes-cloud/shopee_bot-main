@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopee Bot - {% block title %}{% endblock %}</title>
+
+    <!-- Google fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
+
+    <!-- Tailwind + alpineJS -->
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+
+    <!-- specific from page -->
+    {%- block head %}{% endblock -%}
+</head>
+<body class="flex flex-col min-h-svh bg-gray-100 font-sans">
+    {% block navbar %}{% endblock%}
+    {% block body %}{% endblock %}
+    <footer class="flex flex-col items-center justify-center my-2">
+        <p class="text-xs text-center text-gray-400">
+            "Ponho sempre o Senhor diante dos olhos, pois ele está à minha direita; não vacilarei." Salmos 15,8
+        </p>
+    </footer>
+    {% include "includes/scroll-buttons.html"  %}
+    {% include "includes/toast.html" %}
+    {% include "includes/image-modal.html" %}
+    {% block body_bottom %}{% endblock %}
+</body>
+</html>

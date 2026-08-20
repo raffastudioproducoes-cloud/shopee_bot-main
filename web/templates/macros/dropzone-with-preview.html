@@ -1,0 +1,216 @@
+{#
+    needs "includes/confirm-modal.html" inclde to work
+
+    used in posts/form.html
+    medias_model obj[], obj = id, user_id, file_name, file_path, size, type
+#}
+{% macro dropzone_with_preview(accept=[], medias_model="", post_index="", size_limit=52428800) -%}
+{% set media_class = "h-96 w-64 min-w-64 object-cover rounded-lg shadow-md" %}
+<!-- dropzone-with-preview -->
+<div class="flex gap-4 overflow-x-auto pb-2">
+    <template x-for="(media, index) in {{ medias_model }}" :key="index">
+        <div
+            x-data="{
+                mediaSrc: media.id ? `/media/${post.id}/${media.file_name}` : media.file_path
+            }"
+            class="relative">
+            <img
+                x-show="media.type == 'IMAGE'"
+                @click="$store.imageModal.showImage(mediaSrc)"
+                :src="mediaSrc"
+                loading="lazy"
+                class="{{ media_class }}"
+            />
+
+            <video
+                x-show="media.type == 'VIDEO'"
+                autoplay
+                muted
+                controls
+                preload="none"
+                class="{{ media_class }}"
+            >
+                <source :src="mediaSrc">
+                Your browser does not support HTML5 video.
+            </video>
+
+            <button
+                @click.prevent="$store.dropzone.removeMedia(index, {{ post_index }})"
+                class="absolute top-2 right-2 bg-gray-200 hover:bg-red-400 text-gray-400 hover:text-white cursor-pointer rounded-full p-1 w-8 h-8"
+            >
+                <span class="material-symbols-rounded">
+                    delete
+                </span>
+            </button>
+        <div>
+    </template>
+</div>
+
+<div class="w-full" x-data>
+    <div
+        @dragover.prevent="$store.dropzone.dragOver = true"
+        @dragleave.prevent="$store.dropzone.dragOver = false"
+        @drop.prevent="$store.dropzone.handleDrop($event, {{ post_index }})"
+        class="border-2 border-dashed border-gray-400 rounded-lg p-6 bg-white text-center"
+        :class="{ 'border-blue-500 bg-blue-50': $store.dropzone.dragOver }"
+    >
+        <input
+            type="file"
+            multiple
+            {%- if accept|length > 0 %}
+                accept="{{ ",".join(accept)|safe }}"
+            {% endif -%}
+
+            @change="$store.dropzone.handleFileSelect($event, {{ post_index }})"
+            class="hidden"
+            x-ref="fileInput"
+        />
+        <div class="mb-4">
+            <span
+                class="material-symbols-rounded mx-auto !text-6xl text-gray-400"
+            >
+                upload_file
+            </span>
+            <p class="mt-1 text-sm text-gray-600">
+                <span class="font-medium text-blue-600 hover:underline cursor-pointer" @click="$refs.fileInput.click()">
+                    Clique para selecionar
+                </span>
+                ou arraste e solte seu arquivo aqui
+            </p>
+        </div>
+    </div>
+
+    <!-- Exibição do arquivo -->
+    <div
+        x-data="{files: $store.dropzone.files[{{ post_index }}]}"
+        x-cloak
+        x-show="files.length > 0"
+        class="mt-4"
+    >
+        <h3 class="text-lg font-medium text-gray-800 border-b border-gray-200">Arquivo selecionados:</h3>
+        <template x-for="(file, index) in files" :key="index">
+            <div class="py-1 flex justify-between items-center">
+                <span
+                    class="text-sm text-gray-600"
+                    x-text="file.name"
+                ></span>
+                <span
+                    class="text-sm text-gray-600"
+                    x-text="$store.dropzone.formatSize(file.size)"
+                ></span>
+            </div>
+        </template>
+        <div class="py-1 mt-1 border-t border-gray-200 flex justify-between items-center">
+            <span class="text-sm text-gray-800">Tamanho total:</span>
+            <span
+                x-text="$store.dropzone.formatSize($store.dropzone.totalSize[{{ post_index }}])"
+                class="text-sm text-gray-600"
+            ></span>
+        </div>
+    </div>
+
+     <!-- Mensagem de erro -->
+    <div
+        x-data="{errors: $store.dropzone.errors[{{ post_index }}]}"
+        x-cloak
+        x-show="errors.length > 0"
+        class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm"
+    >
+        <template x-for="error in errors">
+            <span x-text="error"></span>
+        </template>
+    </div>
+</div>
+<!-- fim dropzone-with-preview -->
+{%- endmacro %}
+
+{% macro dropzone_with_preview_script(accept=[], app_type=[]) -%}
+<!-- dropzone-with-preview_script -->
+<script>
+document.addEventListener("alpine:init", () => {
+    Alpine.store('dropzone', {
+        dragOver: false,
+        // every index is the real array for the post_index
+        totalSize: [0],
+        files: [[]],
+        errors: [[]],
+
+        _handler: function(files, post_index) {
+            this.errors[post_index] = [];
+
+            for (const file of files) {
+                const type = file.type;
+                const name = file.name;
+                const extension = name.substring(name.indexOf("."));
+
+                if ({{ app_type|safe }}.includes(type) || {{ accept|safe }}.includes(extension)) {
+                    this.files[post_index].push(file);
+                    this.send_new_file_event(file, post_index);
+                    this.totalSize[post_index] += file.size;
+                } else {
+                    this.errors[post_index].push('Por favor, selecione apenas arquivos {{ ", ".join(accept) }}.');
+                }
+            }
+        },
+
+        handleDrop: function(e, post_index) {
+            this.dragOver = false;
+            const droppedFiles = e.dataTransfer.files;
+            this._handler(droppedFiles, post_index);
+        },
+
+        handleFileSelect: function (e, post_index) {
+            const selectedFiles = e.target.files;
+            this._handler(selectedFiles, post_index);
+            // allows to select same file(s) again
+            e.target.value = '';
+        },
+
+        formatSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
+
+        send_new_file_event(selectedFile, post_index) {
+            const type = selectedFile.type.includes("image") ? "IMAGE" : "VIDEO";
+            window.dispatchEvent(new CustomEvent("dropzone-new-file", {
+                detail: {
+                    post_index: post_index,
+                    media: {
+                        type: type,
+                        file_path: URL.createObjectURL(selectedFile),
+                        file_name: selectedFile.name,
+                        size: selectedFile.size,
+                    }
+                }
+            }));
+        },
+
+        _send_remove_file_event(index, post_index) {
+            window.dispatchEvent(new CustomEvent("dropzone-remove-file", {
+                detail: {
+                    index: index,
+                    post_index: post_index
+                }
+            }));
+        },
+
+        removeMedia(index, post_index) {
+            Alpine.store("confirmModal").set(
+                "Deseja remover a mídia?",
+                () => {
+                    this._send_remove_file_event(index, post_index);
+                    const file = this.files[post_index].splice(index, 1)[0];
+                    const size = file.size;
+                    this.totalSize[post_index] -= size;
+                }
+            );
+        }
+    });
+});
+</script>
+<!-- fim dropzone-with-preview_script -->
+{%- endmacro %}

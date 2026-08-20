@@ -1,0 +1,77 @@
+import os
+from psycopg import rows, Connection
+from psycopg_pool import ConnectionPool
+from shopee_bot.database.migrations import run_migrations
+from shopee_bot.clogging import logger
+from dotenv import load_dotenv
+load_dotenv()
+
+HOST = os.environ.get("POSTGRES_HOST")
+DB = os.environ.get("POSTGRES_DB")
+USER = os.environ.get("POSTGRES_USER")
+PASSWORD = os.environ.get("POSTGRES_PASSWORD")
+
+_pool = None
+
+
+def get_conn() -> Connection:
+    global _pool
+
+    conn = _pool.getconn()
+    conn.set_autocommit(True)
+    conn.row_factory = rows.dict_row
+
+    return conn
+
+
+def put_conn(conn: Connection):
+    global _pool
+    _pool.putconn(conn)
+
+
+def query_db(query, args=(), one=False):
+    conn = get_conn()
+    with conn.cursor() as cur:
+        rv = cur.execute(query, args).fetchall()
+    put_conn(conn)
+    return (rv[0] if rv else None) if one else rv
+
+
+def execute_db(query, args=(), open_conn: Connection = None):
+    conn = open_conn if open_conn else get_conn()
+    last_id = None
+    with conn.cursor() as cur:
+        try:
+            rv = cur.execute(query, args).fetchone()
+            if rv:
+                last_id = rv["id"]
+        except Exception as err:
+            try:
+                logger.debug(err)
+                rv = cur.execute("SELECT LASTVAL()").fetchone()
+                last_id = rv["lastval"]
+            except Exception:
+                pass
+
+    if not open_conn:
+        put_conn(conn)
+    return last_id
+
+
+def close_connection(exception=None):
+    global _pool
+    if _pool is not None:
+        logger.debug("closing pool...")
+        _pool.close()
+
+
+def init():
+    global _pool
+    logger.debug("opening pool connection...")
+    logger.debug(f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}")
+    _pool = ConnectionPool(
+        f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}",
+        open=True,
+        check=ConnectionPool.check_connection,
+    )
+    run_migrations()

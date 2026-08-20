@@ -1,0 +1,17 @@
+{% macro  pagination(view)-%}
+<div class="flex justify-center gap-2 items-center mt-6">
+    {% if cursor %}
+    <a href="javascript:history.back()"
+       class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition">
+        Anterior
+    </a>
+    {% endif %}
+
+    {% if next_cursor %}
+    <a href="{{ url_for(view, limit=limit, cursor=next_cursor) }}"
+       class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition">
+        Próximo
+    </a>
+    {% endif %}
+</div>
+{%- endmacro %}

@@ -1,0 +1,180 @@
+{#
+    uses alpine data, needs image-modal include to work
+
+    product object:
+    - str id
+    - str image
+    - str original_link
+    - str name
+    - str price_min
+    - str price_max
+    - str commission
+    - str commission_link
+#}
+{% macro open_product_card() -%}
+<!-- product-card -->
+<div
+    x-data="{
+        async copy(data, ref) {
+            const iconElement = ref.getElementsByTagName('span')[0];
+            const textElement = ref.getElementsByTagName('p')[0];
+
+            await navigator.clipboard.writeText(data);
+            this.showCopyIndicator(iconElement, textElement);
+            setTimeout(
+                () => this.removeCopyIndicator(iconElement, textElement),
+                3_000
+            );
+        },
+
+        showCopyIndicator(iconElement, textElement) {
+            textElement.innerText = 'copiado!';
+            iconElement.innerText = 'check';
+            iconElement.classList.add('text-blue-500');
+            iconElement.classList.add('scale-125');
+            iconElement.classList.add('transition');
+        },
+
+        removeCopyIndicator(iconElement, textElement) {
+            textElement.innerText = textElement.dataset.text;
+            iconElement.innerText = iconElement.dataset.icon;
+            iconElement.classList.remove('text-blue-500');
+            iconElement.classList.remove('scale-125');
+            iconElement.classList.remove('transition');
+        }
+    }"
+    class="bg-white p-4 rounded-lg shadow hover:shadow-md transition w-86"
+>
+    <div class="flex flex-col">
+        <div class="relative mb-2">
+{%- endmacro %}
+
+{# use in between div.absolute #}
+
+{% macro close_product_card() -%}
+            <img
+                @click="$store.imageModal.showImage(product.image)"
+                :src="product.image"
+                loading="lazy"
+                alt="Imagem do produto"
+                class="w-full max-h-36 object-cover cursor-pointer"
+            >
+            <div
+                class="absolute bottom-0 right-0 text-sm text-white bg-blue-500 p-1"
+            >
+                <a
+                    :href="product.original_link"
+                    target="_blank"
+                    class="flex items-center gap-1"
+                >
+                    <span class="material-symbols-rounded">
+                        shopping_bag
+                    </span>
+                    ver produto
+                <a/>
+            </div>
+        </div>
+        <div class="w-full">
+            <div class="flex justify-between mb-2">
+                <h2 class="text-sm font-semibold text-gray-800 xl:w-11/12 xl:ml-2" x-text="product.name"></h2>
+            </div>
+            <div
+                @click="copy(`${product.price_min} – ${product.price_max}`, $el)"
+                class="flex text-sm text-gray-600 xl:cursor-pointer">
+                <span data-icon="payments" class="material-symbols-rounded">
+                    payments
+                </span>
+                <p
+                    x-text="`${product.price_min} – ${product.price_max}`"
+                    :data-text="`${product.price_min} – ${product.price_max}`"
+                    class="ml-1 xl:ml-2"
+                ></p>
+            </div>
+            <div
+                @click="copy(product.commission, $el)"
+                class="flex text-sm text-gray-600 xl:cursor-pointer"
+            >
+                <span data-icon="sell" class="material-symbols-rounded">
+                    sell
+                </span>
+                <p
+                    x-text="product.commission"
+                    :data-text="product.commission"
+                    class="ml-1 xl:ml-2"
+                ></p>
+            </div>
+            <div
+                @click="copy(product.commission_link, $el)"
+                class="flex text-sm text-gray-600 xl:cursor-pointer"
+            >
+                <span data-icon="link" class="material-symbols-rounded">
+                    link
+                </span>
+                <p
+                    x-text="product.commission_link"
+                    :data-text="product.commission_link"
+                    class="ml-1 xl:ml-2"
+                ></p>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- fim product-card -->
+{%- endmacro %}
+
+{% macro product_card_script(ids=[], limit=10, order_by_ids=[]) -%}
+<!-- product-card-script -->
+<script>
+document.addEventListener("alpine:init", () => {
+    Alpine.store("productCard", {
+        oldCursor: [],
+        cursor: null,
+        nextCursor: null,
+        count: null,
+        products: null,
+        ids: {{ ids|safe }},
+        orderByIds: {{ order_by_ids|safe }},
+
+        getProducts() {
+            const limit = {{ limit }};
+            const ids = this.ids ? this.ids.join() : null;
+            const orderByIds = this.orderByIds ? this.orderByIds.join() : null;
+            const url = `
+                ${location.protocol}//${location.host}
+                /products.json?
+                limit=${limit}
+                ${this.cursor ? '&cursor=' + this.cursor : ''}
+                ${ids ? '&ids=' + ids : ''}
+                ${orderByIds ? '&order-by-ids=' + this.orderByIds : ''}
+            `.replaceAll('\n', '').replaceAll(' ', '');
+
+            fetch(url, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                this.nextCursor = data["next-cursor"];
+                this.count = data["count"];
+                this.products = data["products"];
+            });
+        },
+
+        onNextPage() {
+            this.oldCursor.push(this.cursor);
+            this.cursor = this.nextCursor;
+            this.getProducts();
+        },
+
+        onPreviousPage() {
+            this.cursor = this.oldCursor.pop() ?? null;
+            this.getProducts();
+        }
+    });
+});
+</script>
+<!-- fim product-card-script -->
+{%- endmacro %}
+

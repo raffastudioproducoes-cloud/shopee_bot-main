@@ -1,0 +1,67 @@
+<!-- navbar -->
+<nav class="bg-gray-800 text-white p-4">
+    <div class="container mx-auto flex items-center justify-between">
+        <!-- Logo à esquerda -->
+        <div class="flex items-center">
+            <a href="/" class="text-xl font-bold flex items-center transition-colors hover:text-orange-300">
+                <svg
+                    class="w-6 h-6 text-orange-600 mr-1"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                >
+                    <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M5 4H19C19.5523 4 20 4.44771 20 5V19C20 19.5523 19.5523 20 19 20H5C4.44772 20 4 19.5523 4 19V5C4 4.44772 4.44771 4 5 4ZM2 5C2 3.34315 3.34315 2 5 2H19C20.6569 2 22 3.34315 22 5V19C22 20.6569 20.6569 22 19 22H5C3.34315 22 2 20.6569 2 19V5ZM12 12C9.23858 12 7 9.31371 7 6H9C9 8.56606 10.6691 10 12 10C13.3309 10 15 8.56606 15 6H17C17 9.31371 14.7614 12 12 12Z"
+                        fill="currentColor"
+                    />
+                </svg>
+                Shopee Bot
+            </a>
+        </div>
+
+        <!-- Links e menu à direita -->
+        <div class="flex items-center space-x-6">
+            <!-- Links de páginas -->
+            <a href="/activities?limit=20" class="hover:text-gray-300 hidden lg:block">Atividades</a>
+            <a href="/posts?limit=20" class="hover:text-gray-300 hidden lg:block">Postagens</a>
+            <a href="/product-lists?limit=10" class="hover:text-gray-300 hidden lg:block">Listas de Produtos</a>
+            <a href="/products?limit=10" class="hover:text-gray-300 hidden lg:block">Produtos</a>
+
+            <!-- Links dropdown  -->
+            <div x-data="{ open: false }" class="z-10 relative">
+                <button 
+                    @click="open = !open" 
+                    class="focus:outline-none hover:text-gray-300"
+                >
+                    <span class="material-symbols-rounded cursor-pointer">menu</span>
+                </button>
+
+                <!-- Dropdown -->
+                <div
+                    x-cloak
+                    x-show="open"
+                    @click.outside="open = false"
+                    class="absolute right-0 mt-2 w-fit bg-white rounded-md shadow-lg py-1 text-gray-700"
+                    x-transition
+                >
+                    <a href="/activities?limit=20" class="block lg:hidden px-4 py-2 hover:bg-gray-100">Atividades</a>
+                    <a href="/posts?limit=20" class="block lg:hidden px-4 py-2 hover:bg-gray-100">Postagens</a>
+                    <a href="/product-lists?limit=10" class="block lg:hidden px-4 py-2 hover:bg-gray-100">Listas de Produtos</a>
+                    <a href="/products?limit=10" class="block lg:hidden px-4 py-2 hover:bg-gray-100">Produtos</a>
+                    <hr class="lg:hidden opacity-25">
+                    <a href="/panel/profile" class="block px-4 py-2 hover:bg-gray-100">Painel</a>
+                    {% if current_user.access == 'ADMIN' -%}
+                    <a href="/users?limit=20" class="block px-4 py-2 hover:bg-gray-100">
+                        Usuários
+                    </a>
+                    {%- endif %}
+                    <hr class="opacity-25">
+                    <a href="/auth/logout" class="block px-4 py-2 hover:bg-gray-100">Sair</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+<!-- fim navbar -->

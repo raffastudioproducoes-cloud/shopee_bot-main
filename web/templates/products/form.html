@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% from "macros/h1.html" import h1 %}
+{% from "macros/back-button.html" import back_button %}
+{% from "macros/input.html" import input, input_copy %}
+{% from "macros/form-image-view.html" import form_image_view %}
+{% from "macros/submit-button.html" import submit_button %}
+
+{% block title -%}
+    {{ 'Adicionar' if operation == 'add' else 'Editar' }} Produto
+{%- endblock %}
+
+{% block head %}
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('form', () => ({
+
+        {%- if operation == 'edit' %}
+        id: "{{ product.id }}",
+        {% endif -%}
+
+        product_id: "{{ product.product_id }}",
+        name: "{{ product.name }}",
+        original_link: "{{ product.original_link }}",
+        commission_link: "{{ product.commission_link}}",
+        commission: "{{ product.commission }}",
+        image: "{{ product.image }}",
+        price_min: "{{ product.price_min }}",
+        price_max: "{{ product.price_max }}",
+
+        newImageUrl: "",
+
+        submitForm() {
+            const formData = new FormData();
+
+            {%- if operation == 'edit' %}
+            formData.append('id', this.id);
+            {% endif -%}
+
+            formData.append('name', this.name);
+            formData.append('product_id', this.product_id);
+            formData.append('original_link', this.original_link);
+            formData.append('commission_link', this.commission_link);
+            formData.append('commission', this.commission);
+            formData.append('image', this.image);
+            formData.append('price_min', this.price_min);
+            formData.append('price_max', this.price_max);
+
+            // Log para depuração (opcional)
+            console.log('Dados enviados:', formData);
+
+            // Enviar os dados para o backend via fetch
+            {%- if operation == 'add' %}
+            const url = `${location.protocol}//${location.host}/products`;
+            {% else %}
+            const url = `${location.protocol}//${location.host}/products/${this.id}`;
+            {% endif -%}
+
+            fetch(url, {
+                method: "{{ 'POST' if operation == 'add' else 'PUT' }}",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token() }}"
+                },
+                body: formData,
+            })
+            .then(response => {
+                if (![200, 201].includes(response.status)) {
+                    window.location.reload();
+                } else {
+                    console.log('Sucesso:', response.json());
+                    window.location.href = '/products?limit=10';
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+            });
+        }
+    }));
+});
+</script>
+{% endblock %}
+
+{%block navbar%}
+    {% include "includes/navbar.html" %}
+{% endblock %}
+
+{% block body %}
+    <div class="flex-grow container mx-auto p-6 max-w-6xl">
+        {{ h1(("Adicionar" if operation == "add" else "Editar") + " Produto") }}
+
+        <div class="mb-1">
+            {{ back_button () }}
+        </div>
+
+        <form
+            x-data="form"
+            class="bg-white p-6 rounded-lg shadow space-y-4"
+            @submit.prevent="submitForm"
+        >
+
+            {%- if operation == 'edit' %}
+            <input type="text" hidden x-model="id" value="{{ product.id }}"> 
+            {% endif -%}
+
+            {{ input(
+                label='ID',
+                model='product_id',
+                value=product.product_id,
+                placeholder="ID do Produto na Shopee",
+                type='number',
+                class='text-gray-400',
+                readonly=True,
+                required=True,
+                errors=form.product_id if form else []
+            ) }}
+
+            {{ input_copy(
+                label='Nome',
+                model='name',
+                value=product.name,
+                placeholder='Nome',
+                required=True,
+                errors=form.name if form else []
+            ) }}
+
+            {{ form_image_view(
+                label='Imagem',
+                model='image',
+                value=product.image,
+                required=True,
+                errors=form.image if form else []
+            ) }}
+
+            {{ input_copy(
+                label='Preço Máximo',
+                model='price_max',
+                value=product.price_max,
+                placeholder='Preço máximo',
+                class='text-gray-400',
+                readonly=True,
+                errors=form.price_max if form else []
+            ) }}
+
+            {{ input_copy(
+                label='Preço Mínimo',
+                model='price_min',
+                value=product.price_min,
+                placeholder='Preço mínimo',
+                class='text-gray-400',
+                readonly=True,
+                required=True,
+                errors=form.price_min if form else []
+            ) }}
+
+            {{ input(
+                label='Comissão',
+                model='commission',
+                value=product.commission,
+                placeholder="Valor da comissão",
+                class='text-gray-400',
+                readonly=True,
+                required=True,
+                errors=form.commission if form else []
+            ) }}
+
+            {{ input_copy(
+                label='Link Original',
+                model='original_link',
+                value=product.original_link,
+                placeholder='Link Original',
+                class='text-blue-400',
+                readonly=True,
+                required=True,
+                errors=form.original_link if form else []
+            ) }}
+
+            {{ input_copy(
+                label='Link de Comissão',
+                model='commission_link',
+                value=product.commission_link,
+                placeholder='Link de Comissão',
+                class='text-blue-400',
+                readonly=True,
+                required=True,
+                errors=form.commission_link if form else []
+            ) }}
+
+            <div class="xl:w-1/2 mx-auto mt-12 flex flex-col items-center">
+                {{ submit_button() }}
+                {{ back_button () }}
+            </div>
+        </form>
+    </div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% macro panel_tabs(items) -%}
+{% set base_class = "text-xl pb-2 px-1 mx-2 border-b-2 border-transparent" %}
+{% set normal_class = "text-gray-800/60 hover:text-gray-800/80 hover:border-b-2 hover:border-gray-400" %}
+{% set active_class = "text-gray-800 border-b-2 !border-gray-800"%}
+<!-- start panel_tabs -->
+<script>
+    function is_active(href) {
+        return !!window.location.pathname.match(href) 
+    }
+</script>
+
+<nav x-data class="hidden mt-8 mb-12 lg:flex justify-center">
+    {% for item in items %}
+        <a
+            href="{{ item.href }}"
+            class="{{ base_class }}"
+            :class="is_active(&quot;{{ item.href }}&quot;) ? &quot;{{ active_class }}&quot; : &quot;{{ normal_class}}&quot;"
+        >
+            {{ item.title }}
+        </a>
+    {% endfor %}
+</nav>
+<!-- end panel_tabs -->
+{%- endmacro %}
+
+{% macro panel_tabs_m(items) -%}
+{% set m_base_class = "py-2" %}
+{% set m_normal_class = "text-gray-800/60" %}
+{% set m_active_class = "text-gray-800"%}
+<!-- start panel_tabs -->
+<script>
+    function is_active(href) {
+        return !!window.location.pathname.match(href) 
+    }
+</script>
+
+<nav
+    x-data
+    class="lg:hidden z-10 sticky bottom-0 flex items-center justify-center gap-12 w-full bg-white rounded-t-lg shadow-[0_-5px_10px] shadow-zinc-400/40"
+>
+    {% for item in items %}
+    <a
+        href="{{ item.href }}"
+        class="{{ m_base_class }}"
+        :class="is_active(&quot;{{item.href}}&quot;) ? &quot;{{ m_active_class }}&quot; : &quot;{{ m_normal_class}}&quot;"
+    >
+        <span class="material-symbols-rounded !text-4xl">
+            {{ item.material }}
+        </span>
+    </a>
+    {% endfor %}
+</nav>
+<!-- end panel_tabs -->
+{%- endmacro %}

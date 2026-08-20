@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "macros/input.html" import input, password_input %}
+{% from "macros/submit-button.html" import submit_button %}
+
+{% block title %}Login{% endblock %}
+
+{% block head %}
+    <script>
+        window.addEventListener("load", () => {
+            const params = new URLSearchParams(window.location.search);
+            const next_input_el = document.querySelector('input[name="next"]');
+            next_input_el.value = params.get('next');
+        });
+    </script>
+{% endblock %}
+
+<!-- <body class="bg-gray-100 flex items-center justify-center min-h-screen"> -->
+
+{% block body %}
+<div class="bg-gray-100 flex-grow flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Login</h2>
+        <form action="/auth/login" method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input name="next" type="hidden" value="" />
+
+            {{ input(
+                label='Usuário',
+                model='username',
+                placeholder='Digite seu usuário',
+                autocomplete="username",
+                required=True,
+                errors=form.username.errors if form else []
+            ) }}
+
+            {{ password_input (
+                label="Senha",
+                name="password",
+                autocomplete="current-password",
+                required=True,
+                errors=form.password.errors if form else []
+            ) }}
+
+            <div>
+                {{ submit_button("Entrar") }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+CREATE TYPE mediaType AS ENUM ('IMAGE', 'VIDEO');
+
+CREATE TABLE IF NOT EXISTS medias (
+    id SERIAL PRIMARY KEY,
+    file_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    type mediaType NOT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+);

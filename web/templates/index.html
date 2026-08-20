@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Início{% endblock %}
+
+{%block navbar%} 
+    {% include "includes/navbar.html" %}
+{% endblock %}
+
+{% block body %}
+    <div class="flex-grow flex flex-col justify-center items-center container mx-auto p-6">
+        <div>
+            <h1 class="text-5xl xl:text-8xl font-bold text-gray-800 mb-2 xl:mb-4">
+                Shopee Bot
+            </h1>
+            <h2 class="text-3xl xl:text-5xl text-gray-800">
+                Olá, {{ user.username|capitalize }}!
+            </h2>
+        </div>
+    </div>
+{% endblock %}

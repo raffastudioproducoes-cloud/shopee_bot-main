@@ -1,0 +1,37 @@
+<!-- image-modal -->
+<script>
+document.addEventListener("alpine:init", () => {
+    Alpine.store("imageModal", {
+        selectedImage: null,
+        showImage(image) {
+            this.selectedImage = image;
+        },
+        closeModal() {
+            this.selectedImage = null;
+        }
+    });
+});
+</script>
+<template x-data x-if="$store.imageModal.selectedImage">
+    <div
+        class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-500/20"
+        @click="$store.imageModal.closeModal()"
+    >
+        <div
+            class="relative bg-white rounded-lg max-w-3xl w-full cursor-default"
+        >
+            <span
+                @click="$store.imageModal.closeModal()"
+                class="material-symbols-rounded absolute top-2 right-2 text-gray-400 hover:text-gray-500 lg:cursor-pointer">
+                close
+            </span>
+            <img
+                :src="$store.imageModal.selectedImage"
+                alt="Imagem ampliada"
+                class="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+            >
+        </div>
+    </div>
+</template>
+<!-- fim image-modal -->
+

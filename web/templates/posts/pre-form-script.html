@@ -1,0 +1,71 @@
+{# include in posts/pre-form.html #}
+<script>
+document.addEventListener("alpine:init", () => {
+    Alpine.data("origin", () => ({
+        selected: null,
+        productIds: [],
+        productListIds: [],
+
+        resetSelected() {
+            this.selected = null;
+            this.productIds = [];
+            this.productListIds = [];
+        },
+
+        selectProducts() {
+            this.resetSelected();
+            Alpine.store("productCard").getProducts();
+            this.selected = "products";
+        },
+
+        selectProductList() {
+            this.resetSelected();
+            Alpine.store("productListCard").getProductLists();
+            this.selected = "product-list";
+        },
+
+        productToggle(id) {
+            if (!this.productIds.includes(id)) {
+                this.productIds.push(id);
+            } else {
+                const index = this.productIds.indexOf(id);
+                if (index >= 0) {
+                    this.productIds.splice(index, 1);
+                }
+            }
+        },
+
+        productListToggle(id, productList) {
+            if (!this.productListIds.includes(id)) {
+                this.productListIds.push(id);
+                for (const product of productList) {
+                    this.productToggle(product["id"]);
+                }
+            } else {
+                const index = this.productListIds.indexOf(id);
+                if (index >= 0) {
+                    this.productListIds.splice(index, 1);
+                    for (const product of productList) {
+                        this.productToggle(product["id"]);
+                    }
+                }
+            }
+        },
+
+        submitForm() {
+            if (this.productIds.length == 0) {
+                alert("Escolha ao menos 1 produto");
+                return;
+            }
+
+            const ids = this.productIds.join();
+            const url = `
+                ${location.protocol}//${location.host}
+                /posts/add?
+                product-ids=${ids}
+            `.replaceAll('\n', '').replaceAll(' ', '');
+            window.location.href = url;
+        }
+    }));
+});
+</script>

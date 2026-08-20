@@ -1,0 +1,9 @@
+{% macro back_button() -%}
+<a
+    x-data
+    :href="document.referrer"
+    class="px-4 py-2 text-gray-400 hover:text-gray-800 transition-colors"
+>
+    Voltar
+</a>
+{%- endmacro %}

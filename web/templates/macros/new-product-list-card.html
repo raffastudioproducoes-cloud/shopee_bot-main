@@ -1,0 +1,217 @@
+{% from "macros/accordion.html" import open_accordion, close_accordion %}
+
+{#
+    uses alpine data, needs image-modal include to work
+
+    productList object:
+    - str id
+    - str name
+    - product[] list
+        product object
+        - str id
+        - str image
+        - str name
+        - str price_min
+        - str price_max
+        - str commission
+        - str commission_link
+#}
+{% macro open_product_list_card () -%}
+<!-- product-list-card -->
+<div
+    x-data="{
+        async copy(data, ref) {
+            const iconElement = ref.getElementsByTagName('span')[0];
+            const textElement = ref.getElementsByTagName('p')[0];
+
+            await navigator.clipboard.writeText(data);
+            this.showCopyIndicator(iconElement, textElement);
+            setTimeout(
+                () => this.removeCopyIndicator(iconElement, textElement),
+                3_000
+            );
+        },
+
+        showCopyIndicator(iconElement, textElement) {
+            textElement.innerText = 'copiado!';
+            iconElement.innerText = 'check';
+            iconElement.classList.add('text-blue-500');
+            iconElement.classList.add('scale-125');
+            iconElement.classList.add('transition');
+        },
+
+        removeCopyIndicator(iconElement, textElement) {
+            textElement.innerText = textElement.dataset.text;
+            iconElement.innerText = iconElement.dataset.icon;
+            iconElement.classList.remove('text-blue-500');
+            iconElement.classList.remove('scale-125');
+            iconElement.classList.remove('transition');
+        },
+
+        accordion: {
+            title: () => {
+                if (productList.list && productList.list.length > 0) {
+                    return `${productList.list.length} produtos`;
+                } else {
+                    return 'Nenhum produto';
+                }
+            }
+        }
+    }"
+    class="space-y-4 mb-2"
+>
+    <div class="bg-white p-4 rounded-lg shadow hover:shadow-md transition">
+        <div class="flex justify-between">
+            <h2
+                x-text="productList.name"
+                class="text-lg font-semibold text-gray-800"
+            ></h2>
+            <div class="flex items-center justify-center gap-2">
+{%- endmacro %}
+
+{# use in between #}
+
+{% macro close_product_list_card () -%}
+            </div>
+        </div>
+        {{ open_accordion() }}
+            {#
+                product object:
+                - str id
+                - str image
+                - str original_link
+                - str name
+                - str price_min
+                - str price_max
+                - str commission
+                - str commission_link
+            #}
+            <template x-for="product in productList.list" :key="product.id">
+                <div class="p-4 rounded-lg shadow hover:shadow-md transition">
+                    <div class="flex flex-col lg:flex-row lg:justify-center lg:items-center lg:gap-2">
+                        <div class="w-full lg:9/12">
+                            <div class="flex flex-col justify-between mb-2 lg:mb-0">
+                                <h2 class="text-sm font-semibold text-gray-800 lg:w-11/12" x-text="product.name"></h2>
+                                <div
+                                    @click="copy(`${product.price_min} – ${product.price_max}`, $el)"
+                                    class="flex text-sm text-gray-600 lg:cursor-pointer">
+                                    <span data-icon="payments" class="material-symbols-rounded">
+                                        payments
+                                    </span>
+                                    <p
+                                        x-text="`${product.price_min} – ${product.price_max}`"
+                                        :data-text="`${product.price_min} – ${product.price_max}`"
+                                        class="ml-1 lg:ml-2"
+                                    ></p>
+                                </div>
+                                <div
+                                    @click="copy(product.commission, $el)"
+                                    class="flex text-sm text-gray-600 lg:cursor-pointer"
+                                >
+                                    <span data-icon="sell" class="material-symbols-rounded">
+                                        sell
+                                    </span>
+                                    <p
+                                        x-text="product.commission"
+                                        :data-text="product.commission"
+                                        class="ml-1 lg:ml-2"
+                                    ></p>
+                                </div>
+                                <div
+                                    @click="copy(product.commission_link, $el)"
+                                    class="flex text-sm text-gray-600 lg:cursor-pointer"
+                                >
+                                    <span data-icon="link" class="material-symbols-rounded">
+                                        link
+                                    </span>
+                                    <p
+                                        x-text="product.commission_link"
+                                        :data-text="product.commission_link"
+                                        class="ml-1 lg:ml-2"
+                                    ></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="relative order-first lg:w-3/12 mb-2">
+                            <img
+                                @click="$store.imageModal.showImage(product.image)"
+                                :src="product.image"
+                                loading="lazy"
+                                alt="Imagem do produto"
+                                class="w-full h-24 lg:48 object-cover rounded-lg shadow cursor-pointer">
+                            <div
+                                class="absolute bottom-0 right-0 text-sm text-white bg-blue-500 p-1"
+                            >
+                                <a
+                                    :href="product.original_link"
+                                    target="_blank"
+                                    class="flex items-center gap-1"
+                                >
+                                    <span class="material-symbols-rounded">
+                                        shopping_bag
+                                    </span>
+                                    ver produto
+                                <a/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        {{ close_accordion() }}
+    </div>
+</div>
+<!-- fim product-list-card -->
+{%- endmacro%}
+
+{% macro product_list_card_script(ids=[], limit=10) -%}
+<!-- product-card-list-script -->
+<script>
+document.addEventListener("alpine:init", () => {
+    Alpine.store("productListCard", {
+        oldCursor: [],
+        cursor: null,
+        nextCursor: null,
+        count: null,
+        list: null,
+        ids: {{ ids|safe }},
+
+        getProductLists() {
+            const limit = {{ limit }};
+            const ids = this.ids ? this.ids.join() : null;
+            const url = `
+                ${window.location.protocol}//${window.location.host}
+                /product-lists.json?
+                limit=${limit}
+                ${this.cursor ? '&cursor=' + this.cursor : ''}
+                ${ids ? '&ids=' + ids : ''}
+            `.replaceAll('\n', '').replaceAll(' ', '');
+
+            fetch(url, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                this.nextCursor = data["next-cursor"];
+                this.count = data["count"];
+                this.list = data["product_lists"];
+            });
+        },
+
+        onNextPage() {
+            this.oldCursor.push(this.cursor);
+            this.cursor = this.nextCursor;
+            this.getProductLists();
+        },
+
+        onPreviousPage() {
+            this.cursor = this.oldCursor.pop() ?? null;
+            this.getProductLists();
+        }
+    });
+});
+</script>
+<!-- fim product-list-card-script -->
+{%- endmacro %}

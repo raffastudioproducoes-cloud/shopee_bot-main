@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% from "macros/h1.html" import h1 %}
+{% from "macros/back-button.html" import back_button %}
+{% from "macros/new-product-card.html" import open_product_card, close_product_card %}
+{% from "macros/input.html" import textarea %}
+{% from "macros/dropzone-with-preview.html" import dropzone_with_preview, dropzone_with_preview_script %}
+{% from "macros/select.html" import select %}
+{% from "macros/input.html" import input %}
+{% from "macros/submit-button.html" import submit_button %}
+
+{% block title %}
+    {{ 'Adicionar' if operation == 'add' else 'Editar' }} Postagem
+{%- endblock %}
+
+{% block head %}
+    {% include "posts/form-script.html" %}
+{% endblock %}
+
+{% block navbar %}
+    {% include "includes/navbar.html" %}
+{% endblock %}
+
+{% block body %}
+    <div class="flex-grow container mx-auto p-6 max-w-6xl">
+        {{ h1(("Adicionar" if operation == "add" else "Editar") + " Postagem") }}
+        <div class="mb-1">
+            {{ back_button() }}
+        </div>
+
+        <div x-data>
+            <div class="flex gap-2 pb-2 overflow-x-scroll">
+                <template x-for="product in $store.products.products">
+                    {{ open_product_card() }}
+                    {{ close_product_card() }}
+                </template>
+            </div>
+
+            <div class="flex justify-center gap-2 items-center mt-6">
+                <template x-if="$store.products.cursor">
+                    <button
+                        @click.prevent="$store.products.on_previous_page()"
+                        class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition cursor-pointer"
+                    >
+                        Anterior
+                    </button>
+                </template>
+
+                <template x-if="$store.products.next_cursor">
+                    <button
+                        @click.prevent="$store.products.on_next_page()"
+                        class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition cursor-pointer"
+                    >
+                        Próximo
+                    </button>
+                </template>
+            </div>
+        </div>
+
+        <form
+            x-data="form"
+            @submit.prevent="submitForm"
+            @dropzone-new-file.window="dropzoneNewFile"
+            @dropzone-remove-file.window="dropzoneRemoveFile"
+        >
+
+            {{ dropzone_with_preview_script(
+                accept=[
+                    ".mp4",
+                    ".jpeg",
+                    ".jpg",
+                    ".png",
+                    ".gif",
+                    ".webp"
+                ],
+                app_type=[
+                    "video/mp4",
+                    "image/jpeg",
+                    "image/png",
+                    "image/gif",
+                    "image/webp"
+                ],
+            ) }}
+
+            <template x-for="(post, post_index) in posts" :key="post_index">
+                <div
+                    class="relative bg-white p-6 rounded-lg shadow-md mb-4"
+                >
+                    {%- if operation == 'edit' %}
+                        <input
+                            type="hidden"
+                            x-model="posts[post_index].id"
+                        >
+                    {% endif -%}
+
+                    {{ textarea(
+                        label="Post",
+                        model="posts[post_index].text",
+                        placeholder="Conteúdo",
+                        errors="form && form['posts'] ? form['posts'][post_index]['text'] : null"
+                    ) }}
+
+                    {{ dropzone_with_preview(
+                        accept=[
+                            ".mp4",
+                            ".jpeg",
+                            ".jpg",
+                            ".png",
+                            ".gif",
+                            ".webp"
+                        ],
+                        medias_model="posts[post_index].medias",
+                        post_index="post_index"
+                    ) }}
+
+                    <button
+                        x-show="post_index > 0"
+                        @click.prevent="removePost(post_index)"
+                        class="absolute top-2 right-2 bg-gray-200 hover:bg-red-400 text-gray-400 hover:text-white cursor-pointer rounded-full p-1 w-8 h-8"
+                    >
+                        <span class="material-symbols-rounded">
+                            delete
+                        </span>
+                    </button>
+                </div>
+            </template>
+
+            <div class="w-full flex">
+                <button
+                    @click.prevent="addPost"
+                    class="xl:w-1/4 w-full px-4 py-2 ml-auto bg-blue-500 text-white rounded hover:bg-blue-600 xl:cursor-pointer"
+                >
+                    Adicionar ao fio
+                </button>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-md mt-8">
+                <h2 class="text-lg font-bold text-gray-800 mb-1">Agendamento</h2>
+                <hr class="opacity-25">
+                {{ select(
+                    label="Frequência",
+                    model="job.trigger",
+                    options=[
+                        {"value": "date", "label": "Única vez"},
+                        {"value": "cron", "label": "Recorrente"}
+                    ],
+                    change="updateJobProperties"
+                ) }}
+
+                <template x-if="job.trigger == 'cron'">
+                <div>
+                    {{ select(
+                        label="Dia da semana",
+                        model="job.day_of_week",
+                        options=[
+                            {"value": "0", "label": "Domingo"},
+                            {"value": "1", "label": "Segunda-Feira"},
+                            {"value": "2", "label": "Terça-Feira"},
+                            {"value": "3", "label": "Quarta-Feira"},
+                            {"value": "4", "label": "Quinta-Feira"},
+                            {"value": "5", "label": "Sexta-Feira"},
+                            {"value": "6", "label": "Sábado"}
+                        ],
+                        required=True,
+                    ) }}
+                    {{ input(
+                        label="Hora",
+                        model="job.time",
+                        type="time",
+                        min="06:00",
+                        max="23:00",
+                        required=True
+                    ) }}
+                    {{ input(
+                        label="A partir de (opcional)",
+                        model="job.start_date",
+                        type="datetime-local",
+                        onfocus="let d = new Date(); d.setHours(d.getHours() - 3); this.min = d.toISOString().slice(0, 16)"
+                    ) }}
+                </div>
+                </template>
+
+                <template x-if="job.trigger == 'date'">
+                {{ input(
+                    label="Data e Hora",
+                    model="job.run_date",
+                    type="datetime-local",
+                    required=True,
+                    onfocus="let d = new Date(); d.setHours(d.getHours() - 3); this.value = d.toISOString().slice(0, 16)"
+                ) }}
+                </template>
+            </div>
+
+
+            <div class="xl:w-1/2 mx-auto mt-12 flex flex-col items-center">
+                {{ submit_button() }}
+                {{ back_button() }}
+            </div>
+        </form>
+    </div>
+{% endblock %}
+
+{% block body_bottom %}
+    {% include "includes/confirm-modal.html" %}
+{% endblock %}

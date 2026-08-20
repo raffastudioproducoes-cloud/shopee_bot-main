@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% from "macros/h1.html" import h1 %}
+{% from "macros/new-product-list-card.html" import open_product_list_card, close_product_list_card, product_list_card_script %}
+{% from "macros/link-button.html" import link_button %}
+{% from "macros/fetch-button.html" import fetch_button %}
+{% from "macros/item-options.html" import item_options %}
+{% from "macros/add-button.html" import add_button %}
+{% from "macros/pagination.html" import pagination with context %}
+{% from "macros/panel-tabs.html" import panel_tabs_m %}
+
+{% block title %}Listas de Produtos{% endblock %}
+
+{% block navbar %}
+    {% include "includes/navbar.html" %}
+{% endblock %}
+
+{% block head %}
+<script>
+    function deleteProductList(id) {
+        Alpine.store("confirmModal").set(
+            "Deseja remover a lista de produtos selecionada?",
+            () => {
+                fetch(`${location.protocol}//${location.host}/product-lists/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                })
+                .then(res => res.json())
+                .then(() => {
+                    window.location.reload();
+                });
+            }
+        );
+    }
+
+    function deleteProductListWithProducts(id) {
+        Alpine.store("confirmModal").set(
+            "Deseja remover a lista de produtos selecionada <b>junto</b> com os produtos?",
+            () => {
+                fetch(`${location.protocol}//${location.host}/product-lists/${id}?with-products=true`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                })
+                .then(res => res.json())
+                .then(() => {
+                    window.location.reload();
+                });
+            }
+        );
+    }
+
+    function sendCardEvent(productListId) {
+        window.dispatchEvent(new CustomEvent("cancel-update"));
+        window.dispatchEvent(new CustomEvent("item-clicked", {
+            detail: productListId,
+        }));
+    }
+</script>
+{% endblock %}
+
+{% block body %}
+    <div class="flex-grow container mx-auto p-6">
+        {{ h1("Listas de Produtos") }}
+
+        <div x-data class="max-w-2xl mx-auto">
+            <!-- Lista de listas de produtos -->
+            <div class="w-full mb-1 text-right text-sm text-gray-600">
+                Listas de Produtos: {{ count }}
+            </div>
+
+            <template x-for="productList in {{ product_lists }}">
+                {{ open_product_list_card() }}
+
+                {{ link_button(
+                    link="`/product-lists/${productList.id}`",
+                    material="edit",
+                    title="Editar lista de produtos"
+                ) }}
+
+                {{ fetch_button(
+                    material="more_vert",
+                    title="Opções",
+                    func="sendCardEvent(productList.id)",
+                    class="text-gray-400 hover:text-blue-500 cursor-pointer"
+                ) }}
+
+                {{ close_product_list_card() }}
+            </template>
+
+            {% if count == 0 %}
+                <p>Nenhuma lista de produtos cadastrada.</p>
+            {% endif %}
+
+            {% if count %}
+                {{ pagination("product_lists.index") }}
+            {% endif %}
+        </div>
+    </div>
+
+    {{ add_button(
+        href="/product-lists/add",
+        class="hidden lg:flex"
+    ) }}
+{% endblock %}
+
+{% block body_bottom %}
+    {% include "includes/confirm-modal.html" %}
+
+    {{ item_options ( [
+        {
+            "material": "delete_forever",
+            "text": "Lista e Produtos",
+            "class": "border-2 border-red-400 !text-red-400 hover:border-red-500 hover:!text-red-500 bg-white",
+            "callback": "deleteProductListWithProducts(Alpine.store('itemOptions').id)"
+        },
+        {
+            "material": "delete",
+            "text": "Remover Lista",
+            "class": "bg-red-400 hover:bg-red-500",
+            "callback": "deleteProductList(Alpine.store('itemOptions').id)"
+        }
+    ] ) }}
+
+    {{ panel_tabs_m([
+        {"material": "add", "href": "/product-lists/add"}
+    ]) }}
+{% endblock %}

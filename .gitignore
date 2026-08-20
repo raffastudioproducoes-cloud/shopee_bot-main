@@ -1,0 +1,16 @@
+__pycache__/
+.venv/
+**/*.db
+**/config.yml
+!config.yml
+**/*.zip
+upload/
+cache/
+*.pem
+.env
+web/media/
+
+# tailwind
+node_modules/
+package*.json
+.claude/

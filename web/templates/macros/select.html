@@ -1,0 +1,46 @@
+{% macro select (label, model, value, placeholder=none, class='', readonly=False, required=False, autocomplete=False, options=[], errors=[], change=False, multiple=False) -%}
+{% set base_class = "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" %}
+{% set errors_class = "!border-red-400" if errors|length > 0 else "" %}
+<!-- start select -->
+<div class="w-full">
+    <label class="block text-md font-medium text-gray-700">{{ label }}</label>
+    <select
+        {{ '@change="{0}"'.format(change)|safe if change else '' }}
+        x-model="{{ model }}"
+        name="{{ model }}"
+        class="{{ class }} {{ base_class }} {{ errors_class }}"
+        {{ 'multiple' if multiple else '' }}
+        {{ 'autocomplete' if autocomplete else '' }}
+        {{ 'required' if required else '' }}
+    >
+        {% if placeholder is not none %}
+        <option value="" disabled selected> {{ placeholder }}</option>
+        {% endif %}
+
+        {% for option in options %}
+        {% if option.optgroup and option.optgroup.open %}
+        <optgroup label="{{ option.label }}">
+        {% elif option.optgroup and option.optgroup.close %}
+        </optgroup>
+        {% else %}
+        <option
+            value="{{ option.value }}"
+            {{ 'selected' if value == option.value else '' }}
+            {{ 'disabled' if readonly and value != option.value else '' }}
+        >
+            {{ option.label }}
+        </option>
+        {% endif %}
+        {% endfor %}
+    </select>
+    {% if errors %}
+    <ul class="mt-1">
+        {% for error in errors %}
+        <li class="text-xs text-red-400">{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+</div>
+<!-- end select -->
+{%- endmacro %}

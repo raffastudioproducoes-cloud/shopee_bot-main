@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% from "macros/h1.html" import h1 %}
+{% from "macros/new-product-card.html" import open_product_card, close_product_card, product_card_script %}
+{% from "macros/link-button.html" import link_button %}
+{% from "macros/fetch-button.html" import fetch_button %}
+{% from "macros/item-options.html" import item_options %}
+
+{% block title %}Produtos{% endblock %}
+
+{% block navbar %}
+    {% include "includes/navbar.html" %}
+{% endblock %}
+
+{% block head %}
+    {{ product_card_script() }}
+
+    <script>
+        document.addEventListener("alpine:init", () => {
+            Alpine.store("productCard").getProducts();
+        });
+    </script>
+
+    <script>
+        function deleteProduct(id) {
+            Alpine.store("confirmModal").set(
+                "Deseja remover o produto?",
+                () => {
+                    fetch(`${location.protocol}//${location.host}/products/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token() }}'
+                        },
+                    })
+                    .then(res => res.json())
+                    .then(() => {
+                        window.location.reload();
+                    });
+                },
+                () => {
+                     //window.dispatchEvent(new CustomEvent('cancel-update'));
+                }
+            );
+        }
+
+        function updateProduct(id) {
+            Alpine.store("confirmModal").set(
+                "Deseja atualizar o produto?",
+                () => {
+                    fetch(`${location.protocol}//${location.host}/products/${id}/update`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token() }}'
+                        },
+                    })
+                    .then(res => res.json())
+                    .then(() => {
+                        window.location.reload();
+                    });
+                },
+                () => {
+                    //window.dispatchEvent(new CustomEvent('cancel-update'));
+                }
+            );
+        }
+
+        function sendCardEvent(productId) {
+            window.dispatchEvent(new CustomEvent("cancel-update"));
+            window.dispatchEvent(new CustomEvent("item-clicked", {
+                detail: productId,
+            }));
+        }
+    </script>
+{% endblock %}
+
+{% block body %}
+    <div class="flex-grow container mx-auto p-6">
+        {{ h1("Produtos") }}
+
+        {% include "includes/product-add.html" %}
+
+        <div x-data class="max-w-6xl mx-auto">
+            <!-- Lista de Produtos -->
+            <div class="w-full mb-1 text-right text-sm text-gray-600">
+                Produtos: {{ count }}
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <template x-for="product in $store.productCard.products">
+                {{ open_product_card() }}
+                <div class="absolute top-1 right-1 flex gap-1">
+                    {{ link_button(
+                        link="`/products/${product.id}`",
+                        material="edit",
+                        title="Editar produto"
+                    ) }}
+
+                    {{ fetch_button(
+                        material="more_vert",
+                        title="Opções",
+                        func="sendCardEvent(product.id)",
+                        class="text-gray-400 hover:text-blue-500 cursor-pointer"
+                    ) }}
+                </div>
+                {{ close_product_card() }}
+                </template>
+            </div>
+
+            {% if count == 0 %}
+                <div class="space-y-4">
+                    <div class="bg-white p-4 rounded-lg shadow hover:shadow-md transition">
+                        <h2 class="text-lg font-semibold text-gray-800">
+                            Nenhum Produto
+                        </h2>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if count %}
+            <div class="flex justify-center gap-2 items-center mt-6">
+                <template x-if="$store.productCard.cursor">
+                <button
+                    @click.prevent="$store.productCard.onPreviousPage()"
+                    class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition cursor-pointer"
+                >
+                    Anterior
+                </button>
+                </template>
+
+                <template x-if="$store.productCard.nextCursor">
+                <button
+                    @click.prevent="$store.productCard.onNextPage()"
+                    class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition cursor-pointer"
+                >
+                    Próximo
+                </button>
+                </template>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block body_bottom %}
+    {% include "includes/confirm-modal.html" %}
+
+    {{ item_options ( [
+        {
+            "material": "sync",
+            "text": "Atualizar Produto",
+            "class": "border-2 border-emerald-400 !text-emerald-400 hover:border-emerald-500 hover:!text-emerald-500 bg-white",
+            "callback": "updateProduct(Alpine.store('itemOptions').id)"
+        },
+        {
+            "material": "delete",
+            "text": "Remover Produto",
+            "class": "bg-red-400 hover:bg-red-500",
+            "callback": "deleteProduct(Alpine.store('itemOptions').id)",
+        }
+    ] ) }}
+{% endblock %}

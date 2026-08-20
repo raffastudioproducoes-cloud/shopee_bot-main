@@ -1,0 +1,28 @@
+# Base image
+FROM python:3.13-slim
+
+# requirements
+RUN apt update && apt install locales tini -y
+
+# Set the locale
+RUN sed -i '/pt_BR.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen
+ENV LANG=pt_BR.UTF-8
+ENV LANGUAGE=pt_BR:pt:en
+ENV LC_ALL=pt_BR.UTF-8
+
+WORKDIR /shopee_bot
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy app code
+COPY . .
+
+EXPOSE 5000
+
+# Start Gunicorn
+ENTRYPOINT ["tini", "--"]
+CMD ["gunicorn", "web:app", "--config=gunicorn.conf.py"]
+

@@ -1,0 +1,75 @@
+<!-- Emoji Picker -->
+<div class="bg-white p-6 rounded-lg shadow-lg w-full" x-data="emojiPicker()">
+    <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Seletor de Emojis</h1>
+
+    <!-- Campo de texto para mostrar o emoji copiado -->
+    <input 
+        type="text" 
+        x-model="selectedEmoji" 
+        readonly 
+        class="w-full p-2 mb-4 text-center border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+        placeholder="Clique em um emoji para copiá-lo"
+    >
+
+    <!-- Grid de emojis -->
+    <div class="grid grid-cols-12 gap-1">
+        <template x-for="emoji in emojis" :key="emoji">
+            <button 
+                type="button"
+                @click="copyEmoji(emoji)"
+                class="p-1 hover:bg-gray-200 rounded transition-colors duration-200"
+                x-text="emoji"
+                title="Clique para copiar"
+            ></button>
+        </template>
+    </div>
+
+    <!-- Notificação de cópia -->
+    <div 
+        x-cloak
+        x-show="copied" 
+        x-transition
+        class="mt-4 p-2 bg-green-100 text-green-700 text-center rounded"
+    >
+        Emoji copiado para a área de transferência!
+    </div>
+</div>
+
+<script>
+    function emojiPicker() {
+        return {
+            emojis: [
+                // Common
+                '😀', '😌', '🤓', '🤑', '😎', '🥳', '🤯', '🤖', '😻', '🤩', '😍', '🥰',
+                '👉', '👇', '☝️', '🙏', '🙌', '✋', '👋', '👏', '🤌', '🤏', '🫶', '💪',
+                '🧑‍💻', '👷', '🐶', '🐱', '🔥', '🎉', '🛍️', '📏', '🎨', '🚀', '💵', '👀',
+
+                // Misc
+                '🏅', '⚽', '🎯', '⌛', '🧵', '💅', '🔋', '💊', '✅', '🎮', '🎲', '🎖️',
+
+                // products
+                '🎧', '📱', '📺', '💻', '📚',
+
+                // clothes
+                '👟', '👞', '🥾', '🩴', '👔', '👕', '👖', '🩳', '🧢', '🎒',
+                '🥿', '👡', '👠', '👚', '👗', '🧥', '🩱', '👒', '👜',
+                '🧦', '🕶️', '⌚', '💍', 
+            ],
+            selectedEmoji: '',
+            copied: false,
+
+            copyEmoji(emoji) {
+                this.selectedEmoji = emoji;
+                navigator.clipboard.writeText(emoji).then(() => {
+                    this.copied = true;
+                    setTimeout(() => {
+                        this.copied = false;
+                    }, 2000); // Esconde a notificação após 2 segundos
+                }).catch(err => {
+                    console.error('Erro ao copiar:', err);
+                });
+            }
+        }
+    }
+</script>
+<!-- fim Emoji Picker -->

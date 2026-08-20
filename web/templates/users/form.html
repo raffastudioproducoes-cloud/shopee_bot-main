@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "macros/h1.html" import h1 %}
+{% from "macros/back-button.html" import back_button %}
+{% from "macros/input.html" import input, password_input %}
+{% from "macros/select.html" import select %}
+{% from "macros/submit-button.html" import submit_button %}
+
+{% block title %}
+    {{ 'Adicionar' if operation == 'add' else 'Editar' }} Usuário
+{%- endblock %}
+
+{% block head %}
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('form', () => ({
+
+        {%- if operation == 'edit' %}
+        id: "{{ user.id }}",
+        {% endif -%}
+
+        username: "{{ user.username if operation == 'edit' else '' }}",
+
+        {%- if operation == 'add' %}
+        password: "",
+        {% endif -%}
+
+        access: "{{ user.access if operation == 'edit' else 'USER' }}",
+
+        submitForm() {
+            // Criar o objeto com os dados do formulário
+            const formData = {
+
+                {%- if operation == 'edit' %}
+                id: this.id,
+                {% endif -%}
+
+                username: this.username,
+
+                {%- if operation == 'add' %}
+                password: this.password,
+                {% endif -%}
+                access: this.access,
+            };
+
+            // Log para depuração (opcional)
+            console.log('Dados enviados:', formData);
+
+            // Enviar os dados para o backend via fetch
+            {%- if operation == 'add' %}
+            const url = `${location.protocol}//${location.host}/users`;
+            {% else %}
+            const url = `${location.protocol}//${location.host}/users/${this.id}`;
+            {% endif -%}
+
+            fetch(url, {
+                method: "{{ 'POST' if operation == 'add' else 'PUT' }}",
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => {
+                if(![200, 201].includes(response.status)) {
+                    window.location.reload();
+                } else {
+                    console.log('Sucesso:', response.json());
+                    window.location.href = '/users?limit=10';
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+            });
+        }
+    }));
+});
+</script>
+{% endblock %}
+
+{% block navbar %}
+    {% include "includes/navbar.html" %}
+{% endblock %}
+
+{% block body %}
+    <div class="flex-grow container mx-auto p-6 max-w-6xl">
+        {{ h1(("Adicionar" if operation == "add" else "Editar") + " Usuário") }}
+
+        <div class="mb-1">
+            {{ back_button() }}
+        </div>
+
+        <form 
+            x-data="form"
+            class="bg-white p-6 rounded-lg shadow space-y-4"
+            @submit.prevent="submitForm"
+        >
+            {%- if operation == 'edit' %}
+            <input type="text" hidden x-model="id" value="{{ user.id }}">
+            {% endif -%}
+
+            {{ input(
+                label='Usuário',
+                model='username',
+                value=user.username if operation == 'edit' else '',
+                placeholder='Usuário',
+                class='text-gray-400' if operation == 'edit' else '',
+                readonly=True if operation == 'edit' else False,
+                errors=form.username if form else []
+            ) }}
+
+            {%- if operation == 'add' %}
+            {{ password_input(
+                label='Senha',
+                model='password',
+                placeholder='Digite a senha inicial',
+                errors=form.password if form else []
+            ) }}
+            {% endif -%}
+
+            {{ select(
+                label="Acesso",
+                model="access",
+                value=user.access if operation == 'edit' else 'USER',
+                placeholder="Acesso do usuário",
+                options=[
+                    {"value": "USER", "label": "Comum"},
+                    {"value": "ADMIN", "label": "Administrador"},
+                ],
+                errors=form.access if form else []
+            ) }}
+
+            <div class="xl:w-1/2 mx-auto mt-12 flex flex-col items-center">
+                {{ submit_button() }}
+                {{ back_button() }}
+            </div>
+        </form>
+    </div>
+{% endblock %}

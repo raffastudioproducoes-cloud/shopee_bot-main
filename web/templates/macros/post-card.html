@@ -1,0 +1,141 @@
+{#
+    uses alpine data, needs image-modal include to work
+
+    post object:
+    - int id
+    - str text
+    - list medias
+        media object:
+        - int str
+        - str file_name
+        - str file_path
+        - int size
+        - "IMAGE"|"VIDEO" type
+    - int children
+    - object scheduler
+        - int id
+        - str func
+        - str trigger
+        - str time
+        - int day_of_week
+        - str start_date
+        - str run_date
+#}
+{% macro open_post_card() -%}
+
+<!-- post card -->
+<div
+    class="bg-white p-6 rounded-lg shadow hover:shadow:md transition mb-6"
+>
+    <div class="flex justify-between gap-2 mb-2">
+        <div
+            x-data="{
+                formatDate(dateString) {
+                    const options = {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                    };
+                    return new Date(dateString).toLocaleString('pt-BR', options);
+                }
+            }"
+            class="flex items-center gap-1 text-gray-400 xl:cursor-pointer"
+            title="Agendamento"
+        >
+            <span class="material-symbols-rounded">
+                calendar_clock
+            </span>
+            <template x-cloak x-if="post.scheduler.trigger == 'date'">
+                <span
+                    x-text="formatDate(post.scheduler.run_date)"
+                >
+                </span>
+            </template>
+            <template x-cloak x-if="post.scheduler.trigger == 'cron'">
+                <span
+                    x-data="{
+                        dayOfWeek(n) {
+                            switch (n) {
+                                case 0:
+                                    return 'Domingo';
+                                case 1:
+                                    return 'Segunda-Feira';
+                                case 2:
+                                    return 'Terça-Feira';
+                                case 3:
+                                    return 'Quarta-feira';
+                                case 4:
+                                    return 'Quinta-feira';
+                                case 5:
+                                    return 'Sexta-feira';
+                                case 6:
+                                    return 'Sábado';
+                            }
+                        }
+                    }"
+                    x-text="`${dayOfWeek(post.scheduler.day_of_week)} às ${post.scheduler.time.substr(0, 5)}`"
+                >
+                </span>
+            </template>
+            <span
+                x-cloak x-show="post.scheduler.start_date"
+                x-text="`| a partir de ${formatDate(post.scheduler.start_date)}`"
+            ></span>
+        </div>
+        <div class="flex items-center justify-start gap-2">
+{%- endmacro %}
+
+{# use in between #}
+
+{% macro close_post_card() %}
+{% set media_class = "h-96 w-64 min-w-64 object-cover rounded-lg shadow hover:shadow-md xl:cursor-pointer" %}
+        </div>
+    </div>
+    <p
+        x-html="post.text.replaceAll('\n', '<br/>')"
+        class="mb-2"
+    ></p>
+    <div class="flex gap-4 overflow-x-auto pb-2 mb-2">
+        <template x-for="(media, index) in post.medias" :key="index">
+            <div
+                x-data="{mediaSrc: `/media/${post.id}/${media.file_name}`}"
+                class="wrapper-div"
+            >
+            <img
+                x-show="media.type == 'IMAGE'"
+                @click="$store.imageModal.showImage(mediaSrc)"
+                :src="mediaSrc"
+                loading="lazy"
+                class="{{ media_class }}"
+            />
+
+            <video
+                x-show="media.type == 'VIDEO'"
+                autoplay
+                muted
+                controls
+                preload="none"
+                class="{{ media_class }}"
+            >
+                <source :src="mediaSrc">
+                Your browser does not support HTML5 video.
+            </video>
+            <div>
+        </template>
+    </div>
+    <div class="flex justify-between gap-2">
+        <div
+            class="flex items-center gap-1 text-gray-400 xl:cursor-pointer"
+            title="Posts"
+        >
+            <span class="material-symbols-rounded">
+                chat_bubble
+            </span>
+            <span x-text="post.children"></span>
+        </div>
+    </div>
+</div>
+<!-- fim post card -->
+{%- endmacro %}

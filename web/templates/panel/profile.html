@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "macros/input.html" import input, password_input%}
+{% from "macros/panel-tabs.html" import panel_tabs, panel_tabs_m %}
+{% from "macros/form-card.html" import form_card_opentag, form_card_closetag %}
+
+{% block title %}Perfil{% endblock %}
+
+{%block navbar%}
+    {% include "includes/navbar.html" %}
+{% endblock %}
+
+{% block body %}
+    <div class="flex-grow container mx-auto p-6">
+        {{ panel_tabs([
+            {"title": "Perfil", "href": "/panel/profile"},
+            {"title": "Credenciais", "href": "/panel/credentials"},
+        ]) }}
+
+        <div class="xl:max-w-6xl xl:mx-auto xl:flex xl:items-start xl:justify-center xl:gap-8">
+        {{ form_card_opentag(
+            title="Nova Senha",
+            action="/panel/profile/new-password"
+        ) }}
+            {{ input(
+                label='Usuário',
+                value=user.username,
+                placeholder='Usuário',
+                class='text-gray-400',
+                readonly=True
+            ) }}
+            <hr class="opacity-25 my-2" >
+
+            {{ password_input(
+                label='Senha atual',
+                name='current_password',
+                placeholder='Senha atual',
+                required=True,
+                errors=form.current_password if form else []
+            ) }}
+
+            {{ password_input(
+                label='Nova senha',
+                name='new_password',
+                placeholder='Nova senha',
+                required=True,
+                errors=form.new_password if form else []
+            ) }}
+
+            {{ password_input(
+                label='Confirmação',
+                name='confirm_password',
+                placeholder='Confirme sua nova senha',
+                required=True,
+                errors=form.confirm_password if form else []
+            ) }}
+
+        {{ form_card_closetag("Mudar Senha") }}
+
+        </div>
+    </div>
+{% endblock %}
+
+{% block body_bottom %}
+    {{ panel_tabs_m([
+        {"material": "person", "href": "/panel/profile"},
+        {"material": "key", "href": "/panel/credentials"},
+    ]) }}
+{% endblock %}

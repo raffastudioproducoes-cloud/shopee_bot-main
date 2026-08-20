@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "macros/h1.html" import h1 %}
+{% from "macros/pagination.html" import pagination with context %}
+
+{% block title %}Atividades{% endblock %}
+
+{% block navbar %}
+    {% include "includes/navbar.html" %}
+{% endblock %}
+
+{% block body %}
+    <div class="flex-grow container mx-auto p-6">
+        {{ h1("Atividades") }}
+
+        <table class="w-full xl:w-3/4 mx-auto">
+            <caption class="text-sm text-gray-600 text-right">
+                total: {{ count }}
+            </caption>
+            <thead class="border-b border-gray-800/50">
+                <tr>
+                    <th class="p-1 xl:p-2 text-left text-gray-800">Data e Hora</th>
+                    <th class="p-1 xl:p-2 text-left text-gray-800">Descrição</th>
+                    <th class="p-1 xl:p-2 text-left text-gray-800">Metadata</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for activity in activities %}
+                    <tr class="border-b border-gray-800/25">
+                        <td class="p-1 xl:p-4">{{ activity.localtime }}</td>
+                        <td class="p-1 xl:p-4">{{ activity.description }}</td>
+                        <td class="p-1 xl:p-4">{{ activity.metadata }}</td>
+                    </tr>
+                {% endfor %}
+
+                {% if count == 0 %}
+                    <tr>
+                        <td colspan="3" class="p-1 xl:p-4">
+                            Nenhum log para mostrar.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        {% if count %}
+            {{ pagination("activities.index") }}
+        {% endif %}
+    </div>
+{% endblock %}

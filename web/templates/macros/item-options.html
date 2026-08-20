@@ -1,0 +1,108 @@
+{#
+    obj
+    - str material
+    - str text
+    - str class
+    - str callback
+#}
+{% macro item_options(options=none) -%}
+{% if options %}
+<!-- item-options -->
+<style>
+    @keyframes slideUp {
+        from {
+            transform: translateY(0);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(-100%);
+            opacity: 1;
+        }
+    }
+    @keyframes slideDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 1;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 0;
+        }
+    }
+</style>
+
+<div
+    @click="hideItemOptions()"
+    x-data
+    x-cloak
+    x-show="$store.itemOptions.id != null"
+    class="fixed inset-0 z-50 bg-gray-500/20"
+>
+    <div class="absolute bottom-8 right-0 left-0 flex gap-2 justify-center">
+    {% for option in options %}
+    {% set base_class = "hidden flex items-center gap-1 text-white p-2 rounded-md shadow-lg lg:cursor-pointer" %}
+    <button
+        x-data
+        @click.stop="{{ option.callback }}"
+        class="item-option {{ base_class }} {{ option.class }}"
+    >
+        <span class="material-symbols-rounded">{{ option.material }}</span>
+        <span>{{ option.text }}</span>
+    </button>
+    {% endfor %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener("alpine:init", () => {
+        Alpine.store("itemOptions", {
+            id: null,
+            title: null,
+        });
+    });
+
+    window.addEventListener("confirm-modal-close", () => {
+        hideItemOptions();
+    });
+
+    window.addEventListener("item-clicked", (event) => {
+        const currentId = Alpine.store("itemOptions").id;
+        const idFromEvent = event.detail;
+
+        if (currentId == idFromEvent) {
+            hideItemOptions();
+            return;
+        }
+
+        Alpine.store("itemOptions").id = event.detail;
+        showItemOptions();
+    });
+
+    function showItemOptions() {
+        const els = document.getElementsByClassName("item-option");
+        if (!els) return;
+
+        for(const el of els) {
+            el.classList.remove("hidden");
+            el.style.animation = "slideUp 0.5s ease forwards";
+        }
+    }
+
+    function hideItemOptions() {
+        Alpine.store("itemOptions").id = null;
+        Alpine.store("itemOptions").title = null;
+
+        const els = document.getElementsByClassName("item-option");
+        if (!els) return;
+
+        for (const el of els) {
+            el.style.animation = "slideDown 0.5s ease forwards";
+            setTimeout(() => {
+                el.classList.add("hidden");
+            }, 500);
+        }
+    }
+</script>
+<!-- fim item-options -->
+{% endif %}
+{%- endmacro %}

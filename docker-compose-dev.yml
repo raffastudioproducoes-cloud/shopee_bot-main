@@ -1,0 +1,46 @@
+services:
+  database-dev:
+    container_name: database-dev
+    image: postgres:17-alpine
+    shm_size: 128mb
+    environment:
+      - POSTGRES_HOST=localhost
+      - POSTGRES_USER=dev
+      - POSTGRES_PASSWORD=dev
+      - POSTGRES_DB=dev
+    command: ["postgres", "-c", "log_min_messages=DEBUG1", "-c", "log_statement=all"]
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        window: 5s
+    healthcheck:
+      test: pg_isready -U dev -d dev
+      interval: 1m
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - database:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4_dev
+    restart: always
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: dev@dev.com
+      PGADMIN_DEFAULT_PASSWORD: dev
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    depends_on:
+      - database-dev
+
+volumes:
+  database:
+    name: database-dev
+  pgadmin:
+    name: pgadmin-dev

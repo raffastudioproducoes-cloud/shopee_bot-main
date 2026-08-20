@@ -1,0 +1,26 @@
+<!-- Container dos botões -->
+<div x-data="{ showButtons: false }" 
+     class="fixed bottom-5 right-5 flex flex-col gap-2 z-50"
+     @scroll.window="showButtons = (window.scrollY > 300)"
+     x-cloak
+     x-show="showButtons"
+     x-transition>
+
+    <!-- Botão Subir -->
+    <button @click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+            class="w-10 h-10 flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors shadow-md"
+            title="Subir para o topo">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+        </svg>
+    </button>
+
+    <!-- Botão Descer -->
+    <button @click="window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })"
+            class="w-10 h-10 flex items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors shadow-md"
+            title="Descer para o final">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+        </svg>
+    </button>
+</div>

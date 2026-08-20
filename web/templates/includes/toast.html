@@ -1,0 +1,72 @@
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<!-- start toast -->
+<style>
+    @keyframes slideIn {
+        from {
+            transform: translateY(0);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(100%);
+            opacity: 1;
+        }
+    }
+    @keyframes slideOut {
+        from {
+            transform: translateY(100%);
+            opacity: 1;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 0;
+        }
+    }
+</style>
+<div class="fixed top w-full flex justify-center pointer-events-none">
+{% for category, message in messages %}
+    {% set base_class = "hidden text-white p-4 rounded-md shadow-lg z-50" %}
+    {% set category_color = 'bg-red-500' if category == 'error' else 'bg-green-500' if category == 'success' else 'bg-blue-500' %}
+    <div id="toast" class="{{ base_class }} {{ category_color }}">
+        <div class="flex items-center">
+            <span class="material-symbols-rounded mr-2">
+                {% if category == 'error' %}
+                    warning
+                {% else %}
+                    info
+                {% endif %}
+            </span>
+            <span>{{ message }}</span>
+        </div>
+    </div>
+{% endfor %}
+</div>
+
+<script>
+    function showToast() {
+        const toast = document.getElementById('toast');
+
+        if (!toast) {
+            return;
+        }
+
+        // Mostra o toast
+        toast.classList.remove('hidden');
+        toast.style.animation = 'slideIn 0.5s ease forwards';
+
+        // Esconde o toast após 3 segundos
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.5s ease forwards';
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 500); // Tempo da animação de saída
+        }, 3000); // Tempo que o toast fica visível
+    }
+
+    showToast();
+</script>
+<!-- end toast -->
+{% endif %}
+{% endwith %}
+
+
