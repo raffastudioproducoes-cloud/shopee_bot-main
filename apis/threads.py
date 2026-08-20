@@ -3,6 +3,8 @@ import requests
 import time
 from enum import StrEnum
 
+from shopee_bot.utils import retry_with_backoff
+
 
 API_URL = "https://graph.threads.net"
 API_VERSION = "v1.0"
@@ -57,7 +59,7 @@ def _create_carousel_item(
     elif media_type == MediaType.VIDEO and video_url is not None:
         url += f"&video_url={video_url}"
 
-    res = requests.post(url)
+    res = retry_with_backoff(requests.post, url)
     if res.status_code not in [200, 201]:
         _raise_exception("Failed to Create Carousel Item", res, url)
 
@@ -87,7 +89,7 @@ def _create_carousel_container(
     if reply_to_id is not None:
         url += f"&reply_to_id={reply_to_id}"
 
-    res = requests.post(url)
+    res = retry_with_backoff(requests.post, url)
     if res.status_code not in [200, 201]:
         _raise_exception("Failed to Create Carousel Container", res, url)
 
@@ -122,7 +124,7 @@ def _create_media_container(
     if reply_to_id is not None:
         url += f"&reply_to_id={reply_to_id}"
 
-    res = requests.post(url)
+    res = retry_with_backoff(requests.post, url)
     if res.status_code not in [200, 201]:
         _raise_exception("Failed to Create Media Container", res, url)
 
@@ -142,7 +144,10 @@ def _publish_media_container(user_id, user_access_token, media_container_id):
 
     """.replace('\n', '').replace(' ', '')
 
-    res = requests.post(url)
+    # nota: retry aqui só cobre falha de rede/timeout (exceção antes de
+    # obter resposta) — status HTTP não-2xx NÃO é retentado, para não
+    # arriscar publicação duplicada em caso de sucesso silencioso.
+    res = retry_with_backoff(requests.post, url)
     if res.status_code not in [200, 201]:
         _raise_exception("Failed to Publish Media Container", res, url)
 
@@ -164,7 +169,7 @@ def _get_media_container_status(
         {user_access_token}
     """.replace('\n', '').replace(' ', '')
 
-    res = requests.get(url)
+    res = retry_with_backoff(requests.get, url)
     if res.status_code not in [200, 201]:
         _raise_exception("Failed to Get Media Container Status", res, url)
 

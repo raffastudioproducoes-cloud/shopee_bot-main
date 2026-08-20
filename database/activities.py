@@ -1,3 +1,4 @@
+from psycopg.types.json import Jsonb
 from shopee_bot.database import query_db, execute_db
 from shopee_bot.database.activity_types import ActivityType
 
@@ -81,7 +82,7 @@ def insert_activities(
         VALUES (%s, %s, %s)
     """
     args = (
-        activity["metadata"],
+        Jsonb(activity["metadata"]),
         activity_type_id.value,
         user_id
     )

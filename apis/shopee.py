@@ -3,7 +3,7 @@ import hashlib
 import time
 import json
 import re
-from shopee_bot.utils import format_product_from_shopee
+from shopee_bot.utils import format_product_from_shopee, retry_with_backoff
 from shopee_bot.returnable_thread import ReturnableThread as RT
 
 
@@ -29,7 +29,13 @@ def _query(app_id, secret, query):
         "Content-Type": "application/json",
         "Authorization": _gen_authorization(app_id, secret, payload)
     }
-    res = requests.post(SHOPEE_GRAPHQL_URL, payload, headers=headers)
+    res = retry_with_backoff(
+        requests.post,
+        SHOPEE_GRAPHQL_URL,
+        payload,
+        headers=headers,
+        exceptions=(requests.exceptions.RequestException,)
+    )
     if res.status_code == 200 and "data" in res.json():
         return res.json()["data"]
     else:

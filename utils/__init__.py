@@ -1,5 +1,6 @@
 import os
 import io
+import time
 import locale
 import requests
 from flask import Request
@@ -11,6 +12,37 @@ def get_cursor_limit_from_args(request: Request):
     cursor = request.args.get('cursor')
     limit = int(request.args.get('limit', 10))
     return cursor, limit
+
+
+def retry_with_backoff(
+    func,
+    *args,
+    attempts=3,
+    base_delay=1,
+    exceptions=(Exception,),
+    **kwargs
+):
+    """Chama func(*args, **kwargs), tentando novamente em falha.
+
+    Backoff exponencial simples (base_delay * 2^tentativa). Última falha
+    é relançada para o chamador decidir o que fazer.
+    """
+    last_err = None
+    for attempt in range(attempts):
+        try:
+            return func(*args, **kwargs)
+        except exceptions as err:
+            last_err = err
+            if attempt < attempts - 1:
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    "Tentativa {0}/{1} falhou para {2}: {3}. "
+                    "Retentando em {4}s...".format(
+                        attempt + 1, attempts, func.__name__, err, delay
+                    )
+                )
+                time.sleep(delay)
+    raise last_err
 
 
 def format_product_from_shopee(product):

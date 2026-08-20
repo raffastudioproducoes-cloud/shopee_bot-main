@@ -1,5 +1,9 @@
 from shopee_bot.apis import shopee as ShopeeAPI
 from shopee_bot.database import shopee_credentials, products
+from shopee_bot.database.activities import (
+    insert_activities, activity_metadata_wrapper
+)
+from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.clogging import logger
 
 
@@ -44,5 +48,14 @@ def update_products(user_id):
             )
         except Exception as err:
             logger.exception(f"Unexpected {err=}, {type(err)=}")
+            insert_activities(
+                user_id,
+                ActivityType.SCHEDULER_FAILURE,
+                activity_metadata_wrapper({
+                    "job": "update_products",
+                    "product_id": id,
+                    "error": str(err),
+                })
+            )
 
     logger.info(f"update_products job for {username} finished.")

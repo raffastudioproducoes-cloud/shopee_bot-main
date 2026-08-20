@@ -2,6 +2,11 @@ from shopee_bot.apis import threads as ThreadsAPI
 from shopee_bot.apis.cloudinary import cloudinary as CloudinaryAPI
 from shopee_bot.clogging import logger
 from shopee_bot.database import schedulers, threads_credentials, posts
+from shopee_bot.database.activities import (
+    insert_activities, activity_metadata_wrapper
+)
+from shopee_bot.database.activity_types import ActivityType
+from shopee_bot.utils import retry_with_backoff
 
 
 def _carousel_post(user_data, post, reply_to_id=None):
@@ -13,12 +18,14 @@ def _carousel_post(user_data, post, reply_to_id=None):
     for media in post["medias"]:
         res = None
         if media["type"] == "IMAGE":
-            res = CloudinaryAPI.uploader.upload(
+            res = retry_with_backoff(
+                CloudinaryAPI.uploader.upload,
                 media["file_path"],
                 format="jpg"
             )
         else:
-            res = CloudinaryAPI.uploader.upload(
+            res = retry_with_backoff(
+                CloudinaryAPI.uploader.upload,
                 media["file_path"],
                 resource_type="video"
             )
@@ -51,7 +58,8 @@ def _media_post(user_data, post, reply_to_id=None):
     item_id = None
     media = post["medias"][0]
     if media["type"] == "IMAGE":
-        res = CloudinaryAPI.uploader.upload(
+        res = retry_with_backoff(
+            CloudinaryAPI.uploader.upload,
             media["file_path"],
             format="jpg"
         )
@@ -65,7 +73,8 @@ def _media_post(user_data, post, reply_to_id=None):
             reply_to_id=reply_to_id
         )
     else:
-        res = CloudinaryAPI.uploader.upload(
+        res = retry_with_backoff(
+            CloudinaryAPI.uploader.upload,
             media["file_path"],
             resource_type="video"
         )
@@ -108,14 +117,45 @@ def bot_post(job_id):
 
     last_post_id = None
     post_data = posts.get(user_id, post_id)
-    for post in post_data:
-        if len(post["medias"]) > 1:
-            last_post_id = _carousel_post(user_data, post, last_post_id)
+    published_parts = 0
 
-        elif len(post["medias"]) > 0:
-            last_post_id = _media_post(user_data, post, last_post_id)
+    for part_index, post in enumerate(post_data):
+        try:
+            if len(post["medias"]) > 1:
+                last_post_id = _carousel_post(user_data, post, last_post_id)
+            elif len(post["medias"]) > 0:
+                last_post_id = _media_post(user_data, post, last_post_id)
+            else:
+                last_post_id = _text_post(user_data, post, last_post_id)
+            published_parts += 1
+        except Exception as err:
+            logger.exception(
+                f"job #{job_id} for {username} falhou na parte "
+                f"{part_index + 1}/{len(post_data)}: {err}"
+            )
+            insert_activities(
+                user_id,
+                ActivityType.BOT_POST_FAILURE,
+                activity_metadata_wrapper({
+                    "job_id": job_id,
+                    "post_id": post_id,
+                    "part_index": part_index,
+                    "total_parts": len(post_data),
+                    "published_parts": published_parts,
+                    "error": str(err),
+                })
+            )
+            # não continua a thread: partes seguintes seriam replies de
+            # um post que nunca saiu (reply_to_id inválido).
+            return
 
-        else:
-            last_post_id = _text_post(user_data, post, last_post_id)
-
+    insert_activities(
+        user_id,
+        ActivityType.BOT_POST_SUCCESS,
+        activity_metadata_wrapper({
+            "job_id": job_id,
+            "post_id": post_id,
+            "published_parts": published_parts,
+        })
+    )
     logger.info(f"bot_post job #{job_id} for {username} finished.")
