@@ -3,20 +3,20 @@
 
 {% macro form_card_opentag(title, action, status=none, delete=none) -%}
 <!-- start form-card -->
-<section class="w-full max-w-md bg-white rounded-md shadow-lg p-6 mt-6">
+<section class="w-full max-w-md bento-card p-6 mt-6">
     <div class="flex items-center justify-between">
         <div class="relative flex">
-            <h2 class="text-lg font-bold text-gray-800 mb-1">
+            <h2 class="font-display text-lg font-bold text-on-surface mb-1">
                 {{ title }}
             </h2>
 
             {% if status is not none %}
             <span class="absolute top-0 right-0 mt-1 -mr-3 flex size-2">
                 <span
-                    class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 {{ 'bg-green-400' if status else 'bg-red-400' }}"
+                    class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 {{ 'bg-success' if status else 'bg-danger' }}"
                 ></span>
                 <span
-                    class="relative inline-flex size-2 rounded-full {{ 'bg-green-500' if status else 'bg-red-500' }}">
+                    class="relative inline-flex size-2 rounded-full {{ 'bg-success' if status else 'bg-danger' }}">
                 </span>
             </span>
             {% endif %}
@@ -26,11 +26,11 @@
             "delete",
             delete.title,
             delete.function,
-            'opacity-70 text-gray-400' if not status else 'cursor-pointer text-gray-400 hover:text-red-500',
+            'opacity-70 text-on-surface-variant' if not status else 'cursor-pointer text-on-surface-variant hover:text-danger',
         ) }}
         {% endif %}
     </div>
-    <hr class="opacity-25"/>
+    <hr class="border-white/10"/>
     <form action="{{ action }}" method="POST" class="mt-2 xl:mt-4">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 {%- endmacro %}

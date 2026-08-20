@@ -5,9 +5,9 @@
     :href="{{ link }}"
     title="{{ title }}"
     {% if not material %}
-        class="w-full xl:w-1/2 text-center px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-blue-500 {{ class }}"
+        class="w-full xl:w-1/2 text-center px-3 py-2 primary-btn rounded-lg focus:outline-none {{ class }}"
     {% else %}
-        class="text-gray-400 hover:text-blue-400 cursor-pointer {{ class }}"
+        class="text-on-surface-variant hover:text-accent transition-colors cursor-pointer {{ class }}"
     {% endif %}
     :class="{ 'opacity-70 cursor-none': isSending }"
     :disabled="isSending"

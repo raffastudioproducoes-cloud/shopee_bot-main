@@ -5,12 +5,12 @@
             name="product_url"
             type="text"
             placeholder="Cole aqui a url do produto..."
-            class="w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            class="w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-l-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors"
         >
         <a
             @click="isSending= true"
             :href="'/products/add?product_url=' + encodeURIComponent(product_url)"
-            class="inline-flex items-center px-3 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-blue-500"
+            class="inline-flex items-center px-3 py-2 primary-btn rounded-r-lg focus:outline-none"
             :class="{ 'w-24 pointer-events-none opacity-70': product_url === '' || isSending }"
             :disabled="product_url === '' || isSending"
         >

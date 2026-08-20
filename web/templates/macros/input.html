@@ -1,9 +1,9 @@
 <!-- input básico -->
 {% macro input(label, model, value, type='text', placeholder='', class='', readonly=False, required=False, autocomplete='', errors=[], min=none, max=none, onfocus=False) -%}
-{% set base_input_class = "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" %}
-{% set errors_class = "!border-red-400" if errors|length > 0 else "" %}
+{% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
+{% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div>
-    <label class="block text-md font-medium text-gray-700">{{ label }}</label>
+    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <input
         {{ 'onfocus="{0}"'.format(onfocus)|safe if onfocus else '' }}
         x-model="{{ model }}"
@@ -21,7 +21,7 @@
     {% if errors %}
     <ul class="mt-1">
         {% for error in errors %}
-        <li class="text-xs text-red-400">{{ error }}</li>
+        <li class="text-xs text-danger">{{ error }}</li>
         {% endfor %}
     </ul>
     {% endif %}
@@ -31,11 +31,11 @@
 
 <!-- input com botão de cópia -->
 {% macro input_copy(label, model, value, type='text', placeholder='', class='', readonly=False, required=False, autocomplete='', errors=[]) -%}
-{% set base_input_class = "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" %}
-{% set button_class = "px-2 py-0.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-blue-500 cursor-pointer" %}
-{% set errors_class = "!border-red-400" if errors|length > 0 else "" %}
+{% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
+{% set button_class = "px-2 py-0.5 bg-accent text-white rounded-lg hover:brightness-110 focus:outline-none cursor-pointer" %}
+{% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div x-data="{ copied: false }">
-    <label class="block text-md font-medium text-gray-700">{{ label }}</label>
+    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <div class="flex items-center space-x-2 mt-1">
         <input
             x-model="{{ model }}"
@@ -52,18 +52,18 @@
             type="button"
             @click="navigator.clipboard.writeText({{ model }}).then(() => { copied = true; setTimeout(() => copied = false, 2000) })"
             class="{{ button_class }}"
-            :class="{ 'bg-green-600 hover:bg-green-600': copied }"
+            :class="{ 'bg-success hover:bg-success': copied }"
         >
             <span class="material-symbols-outlined pt-1">
                 content_copy
             </span>
         </button>
     </div>
-    <p x-cloak x-show="copied" class="text-gray-800 mt-2 text-sm">Texto copiado para a área de transferência!</p>
+    <p x-cloak x-show="copied" class="text-on-surface mt-2 text-sm">Texto copiado para a área de transferência!</p>
     {% if errors %}
     <ul class="mt-1">
         {% for error in errors %}
-        <li class="text-xs text-red-400">{{ error }}</li>
+        <li class="text-xs text-danger">{{ error }}</li>
         {% endfor %}
     </ul>
     {% endif %}
@@ -72,10 +72,10 @@
 <!-- fim de input com botão de cópia -->
 
 {% macro input_range(label, model, value, min, max, step, class='', readonly=False, required=False, errors=[]) -%}
-{% set base_input_class = "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" %}
-{% set errors_class = "!border-red-400" if errors|length > 0 else "" %}
+{% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
+{% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div>
-    <label class="block text-md font-medium text-gray-700">{{ label }}</label>
+    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <input
         x-model="{{ model }}"
         name="{{ model }}"
@@ -91,7 +91,7 @@
     {% if errors %}
     <ul class="mt-1">
         {% for error in errors %}
-        <li class="text-xs text-red-400">{{ error }}</li>
+        <li class="text-xs text-danger">{{ error }}</li>
         {% endfor %}
     </ul>
     {% endif %}
@@ -100,10 +100,10 @@
 
 <!-- input para password -->
 {% macro password_input(label, name='', model=None, placeholder="Digite sua senha", required=False, autocomplete='', errors=[]) -%}
-{% set base_input_class = "w-full px-3 pr-10 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" %}
-{% set errors_class = "!border-red-400" if errors|length > 0 else "" %}
+{% set base_input_class = "w-full px-3 pr-10 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
+{% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div x-data="{ showPassword: false }">
-    <label class="block text-md font-medium text-gray-700">{{ label }}</label>
+    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <div class="relative mt-1">
         <input 
             :type="showPassword ? 'text' : 'password'"
@@ -117,7 +117,7 @@
         <button
             type="button" 
             @click="showPassword = !showPassword" 
-            class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
+            class="absolute inset-y-0 right-0 pr-3 flex items-center text-on-surface-variant hover:text-on-surface cursor-pointer"
         >
             <span 
                 x-cloak 
@@ -138,7 +138,7 @@
     {% if errors %}
     <ul class="mt-1">
         {% for error in errors %}
-        <li class="text-xs text-red-400">{{ error }}</li>
+        <li class="text-xs text-danger">{{ error }}</li>
         {% endfor %}
     </ul>
     {% endif %}
@@ -148,12 +148,12 @@
 
 <!-- input para secrets -->
 {% macro secret_input(label, name, value, placeholder="Digite o secret", class='', readonly='', required=False, errors=[]) -%}
-{% set base_input_class = "w-full px-3 pr-10 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" %}
-{% set errors_class = "!border-red-400" if errors|length > 0 else "" %}
+{% set base_input_class = "w-full px-3 pr-10 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
+{% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div
     x-data="{ showSecret: false }"
 >
-    <label for="{{ name }}" class="block text-sm font-medium text-gray-700">{{ label }}</label>
+    <label for="{{ name }}" class="block text-sm font-medium text-on-surface-variant">{{ label }}</label>
     <div class="relative mt-1">
         <input
             :type="showSecret ? 'text' : 'password'"
@@ -168,7 +168,7 @@
         <button 
             type="button"
             @click="showSecret = !showSecret" 
-            class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
+            class="absolute inset-y-0 right-0 pr-3 flex items-center text-on-surface-variant hover:text-on-surface cursor-pointer"
         >
             <span x-show="!showSecret" class="material-symbols-outlined">visibility</span>
             <span x-show="showSecret" class="material-symbols-outlined">visibility_off</span>
@@ -177,7 +177,7 @@
     {% if errors %}
     <ul class="mt-1">
         {% for error in errors %}
-        <li class="text-xs text-red-400">{{ error }}</li>
+        <li class="text-xs text-danger">{{ error }}</li>
         {% endfor %}
     </ul>
     {% endif %}
@@ -187,16 +187,16 @@
 
 <!-- textarea -->
 {% macro textarea(label, model, value, placeholder='', class='', readonly=False, required=False, errors="", max_chars=500) -%}
-{% set base_class = "w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" %}
+{% set base_class = "w-full px-3 py-2 bg-surface-container-low border rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
 <div x-data="{ max_chars: {{ max_chars }} }">
-    <label class="block text-md font-medium text-gray-700">{{ label }}</label>
+    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <textarea
         x-init="{{ model }} = {{ model }}.replaceAll('<br>', '\n').replaceAll('\r', '')"
         x-model="{{ model }}"
         :class="{
-            'border-gray-300': {{ model }}.length <= max_chars,
-            'border-red-500': {{ model }}.length > max_chars,
-            'border-red-400': {{ errors }} ? {{ errors}}.length > 0 : false
+            'border-white/10': {{ model }}.length <= max_chars,
+            'border-danger': {{ model }}.length > max_chars,
+            'border-danger': {{ errors }} ? {{ errors}}.length > 0 : false
         }"
         name="{{ model }}"
         rows="5"
@@ -209,14 +209,14 @@
     </textarea>
     <ul x-cloak x-show="{{ errors }}" class="mt-1">
         <template x-for="error in {{errors }}">
-        <li x-text="error" class="text-xs text-red-400"></li>
+        <li x-text="error" class="text-xs text-danger"></li>
         </template>
     </ul>
     <div 
         class="mt-2 text-sm" 
         :class="{
-            'text-gray-500': {{ model }}.length <= max_chars,
-            'text-red-500': {{ model }}.length > max_chars
+            'text-on-surface-variant': {{ model }}.length <= max_chars,
+            'text-danger': {{ model }}.length > max_chars
         }"
     >
         <span x-text="{{ model }}.length"></span> / <span x-text="max_chars"></span> caracteres
@@ -229,10 +229,10 @@
 
 <!--  checkbox -->
 {% macro checkbox(label, model, checked=False, class='', readonly=False, required=False, errors=[]) -%}
-{% set base_input_class = "w-fit h-8 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" %}
-{% set errors_class = "!border-red-400" if errors|length > 0 else "" %}
+{% set base_input_class = "w-fit h-8 px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm" %}
+{% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div class="flex flex-col justify-center items-center">
-    <label class="self-start block text-md font-medium text-gray-700">{{ label }}</label>
+    <label class="self-start block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <input
         x-model="{{ model}}"
         name="{{ model }}"
@@ -245,7 +245,7 @@
     {% if errors %}
     <ul class="mt-1">
         {% for error in errors %}
-        <li class="text-xs text-red-400">{{ error }}</li>
+        <li class="text-xs text-danger">{{ error }}</li>
         {% endfor %}
     </ul>
     {% endif %}
