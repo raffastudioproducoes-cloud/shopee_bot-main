@@ -14,15 +14,15 @@ document.addEventListener("alpine:init", () => {
 </script>
 <template x-data x-if="$store.imageModal.selectedImage">
     <div
-        class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-500/20"
+        class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
         @click="$store.imageModal.closeModal()"
     >
         <div
-            class="relative bg-white rounded-lg max-w-3xl w-full cursor-default"
+            class="relative bento-card p-2 max-w-3xl w-full cursor-default"
         >
             <span
                 @click="$store.imageModal.closeModal()"
-                class="material-symbols-outlined absolute top-2 right-2 text-gray-400 hover:text-gray-500 lg:cursor-pointer">
+                class="material-symbols-outlined absolute top-3 right-3 text-on-surface-variant hover:text-on-surface lg:cursor-pointer">
                 close
             </span>
             <img

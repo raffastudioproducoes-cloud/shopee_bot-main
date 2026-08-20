@@ -51,7 +51,7 @@
         {{ h1("Usuários") }}
         <div x-data class="max-w-6xl mx-auto">
             <!-- Lista de Usuários -->
-            <div class="w-full mb-1 text-right text-sm text-gray-600">
+            <div class="w-full mb-1 text-right text-sm text-on-surface-variant">
                 Usuários: {{ count }}
             </div>
 
@@ -70,7 +70,7 @@
                     material="more_vert",
                     title="Opções",
                     func="sendCardEvent(user.id)",
-                    class="text-gray-400 hover:text-blue-500 cursor-pointer"
+                    class="text-on-surface-variant hover:text-accent transition-colors cursor-pointer"
                 ) }}
 
                 {{ close_user_card() }}
@@ -79,8 +79,8 @@
 
             {% if count == 0 %}
             <div class="space-y-4">
-                <div class="bg-white p-4 rounded-lg shadow hover:shadow-md transition">
-                    <h2 class="text-lg font-semibold text-gray-800">
+                <div class="bento-card p-4">
+                    <h2 class="text-lg font-semibold text-on-surface">
                         {{ message }}
                     </h2>
                 </div>
@@ -103,7 +103,7 @@
         {
             "material": "delete",
             "text": "Remover usuário",
-            "class": "bg-red-400 hover:bg-red-500",
+            "class": "bg-danger hover:brightness-110",
             "callback": "deleteUser(Alpine.store('itemOptions').id)"
         }
     ] ) }}

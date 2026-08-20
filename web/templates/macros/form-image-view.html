@@ -1,16 +1,16 @@
 <!-- form-image-view -->
 {% macro form_image_view(label, model, value, class='', readonly=False, required=False, errors=[]) -%}
-{% set base_input_class = "mt-2 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"%}
-{% set errors_class = "!border-red-400" if errors|length > 0 else "" %}
+{% set base_input_class = "mt-2 w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors"%}
+{% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div>
-    <label class="block text-md font-medium text-gray-700">{{ label }}</label>
+    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <div class="space-y-4">
         <div class="relative group">
             <img
                 @click="$store.imageModal.showImage(image)"
                 :src="image"
                 alt="Imagem do produto"
-                class="w-full h-32 xl:h-64 object-cover rounded-lg shadow cursor-pointer">
+                class="w-full h-32 xl:h-64 object-cover rounded-lg cursor-pointer">
             <input
                 x-model="{{ model }}"
                 name={{ model }}
@@ -26,7 +26,7 @@
     {% if errors %}
     <ul class="mt-1">
         {% for error in errors %}
-        <li class="text-xs text-red-400">{{ error }}</li>
+        <li class="text-xs text-danger">{{ error }}</li>
         {% endfor %}
     </ul>
     {% endif %}

@@ -112,7 +112,7 @@ document.addEventListener("alpine:init", () => {
 
         <form
             x-data="form"
-            class="bg-white p-6 rounded-lg shadow space-y-4"
+            class="bento-card p-6 space-y-4"
             @submit.prevent="submitForm"
         >
             {%- if operation == 'edit' %}
@@ -122,14 +122,14 @@ document.addEventListener("alpine:init", () => {
             <div class="flex justify-end gap-2">
                 <button
                     type="button"
-                    class="px-3 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500 focus:outline-none focus:ring-gray-400 cursor-pointer transition-colors"
+                    class="px-3 py-2 bg-surface-container-high text-on-surface rounded-lg hover:bg-white/10 focus:outline-none cursor-pointer transition-colors"
                     @click.prevent="deselectAll"
                 >
                     Desselecionar Todos
                 </button>
                 <button
                     type="button"
-                    class="px-3 py-2 bg-blue-400 text-white rounded-md hover:bg-blue-500 focus:outline-none focus:ring-blue-400 cursor-pointer transition-colors"
+                    class="px-3 py-2 primary-btn rounded-lg focus:outline-none cursor-pointer"
                     @click.prevent="selectAll"
                 >
                     Selecionar Todos
@@ -153,7 +153,7 @@ document.addEventListener("alpine:init", () => {
                         <input
                             @click="productToggle(product.id)"
                             type="checkbox"
-                            class="size-4 border border-gray-300 rounder-md focus:outline-noe focus:ring-blue-500 focus:border-blue-500 xl:cursor-pointer"
+                            class="size-4 border border-white/20 rounded accent-accent xl:cursor-pointer"
                             :checked="list.includes(product.id)"
                         >
                     </div>
@@ -165,7 +165,7 @@ document.addEventListener("alpine:init", () => {
                 <template x-if="$store.productCard.cursor">
                 <button
                     @click.prevent="$store.productCard.onPreviousPage()"
-                    class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition cursor-pointer"
+                    class="primary-btn px-3 py-2 rounded-lg cursor-pointer"
                 >
                     Anterior
                 </button>
@@ -174,7 +174,7 @@ document.addEventListener("alpine:init", () => {
                 <template x-if="$store.productCard.nextCursor">
                 <button
                     @click.prevent="$store.productCard.onNextPage()"
-                    class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition cursor-pointer"
+                    class="primary-btn px-3 py-2 rounded-lg cursor-pointer"
                 >
                     Próximo
                 </button>

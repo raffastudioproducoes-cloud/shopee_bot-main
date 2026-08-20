@@ -12,11 +12,11 @@
 {% macro open_user_card() -%}
 <!-- user card -->
 <div class="space-y-4 mb-2">
-    <div class="bg-white p-4 rounded-lg shadow hover:shadow-md transition">
+    <div class="bento-card p-4">
         <div class="flex justify-between mb-2">
             <h2
                 x-text="user.username"
-                class="w-10/12 text-lg font-semibold text-gray-800 mb-2"
+                class="w-10/12 text-lg font-semibold text-on-surface mb-2"
             >
             </h2>
             <div class="flex items-center justify-start gap-2">
@@ -31,11 +31,11 @@
             <div>
                 <p
                     x-text="`ID: ${user.id}`"
-                    class="text-sm text-gray-600"
+                    class="text-sm text-on-surface-variant"
                 ></p>
                 <p
                     x-text="`Acesso: ${user.access}`"
-                    class="text-sm text-gray-600"
+                    class="text-sm text-on-surface-variant"
                 ></p>
             </div>
             <div class="order-first xl:mr-2">

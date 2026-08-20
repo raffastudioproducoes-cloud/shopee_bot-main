@@ -33,7 +33,7 @@
             <button
                 x-cloak x-show="selected != null"
                 @click="resetSelected()"
-                class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition cursor-pointer"
+                class="primary-btn px-3 py-2 rounded-lg cursor-pointer"
             >
                 Alterar Origem
             </button>
@@ -44,13 +44,13 @@
             class="w-full flex justify-center gap-2">
             <button
                 @click="selectProducts()"
-                class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition cursor-pointer"
+                class="primary-btn px-3 py-2 rounded-lg cursor-pointer"
             >
                 Produtos
             </button>
             <button
                 @click="selectProductList()"
-                 class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition cursor-pointer"
+                 class="primary-btn px-3 py-2 rounded-lg cursor-pointer"
             >
                 Lista de Produtos
             </button>
@@ -66,7 +66,7 @@
                 <input
                     @click="productToggle(product.id)"
                     type="checkbox"
-                    class="size-4 border border-gray-300 rounder-md focus:outline-noe focus:ring-blue-500 focus:border-blue-500 xl:cursor-pointer"
+                    class="size-4 border border-white/20 rounded accent-accent xl:cursor-pointer"
                     :checked="productIds.includes(product.id)"
                 >
             </div>
@@ -83,7 +83,7 @@
             <input
                 @click="productListToggle(productList.id, productList.list)"
                 type="checkbox"
-                class="size-4 border border-gray-300 rounder-md focus:outline-noe focus:ring-blue-500 focus:border-blue-500 xl:cursor-pointer"
+                class="size-4 border border-white/20 rounded accent-accent xl:cursor-pointer"
                 :checked="productListIds.includes(productList.id)"
             >
             {{ close_product_list_card() }}

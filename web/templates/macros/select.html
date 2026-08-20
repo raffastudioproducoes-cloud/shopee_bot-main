@@ -1,9 +1,9 @@
 {% macro select (label, model, value, placeholder=none, class='', readonly=False, required=False, autocomplete=False, options=[], errors=[], change=False, multiple=False) -%}
-{% set base_class = "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" %}
-{% set errors_class = "!border-red-400" if errors|length > 0 else "" %}
+{% set base_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
+{% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <!-- start select -->
 <div class="w-full">
-    <label class="block text-md font-medium text-gray-700">{{ label }}</label>
+    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <select
         {{ '@change="{0}"'.format(change)|safe if change else '' }}
         x-model="{{ model }}"
@@ -36,7 +36,7 @@
     {% if errors %}
     <ul class="mt-1">
         {% for error in errors %}
-        <li class="text-xs text-red-400">{{ error }}</li>
+        <li class="text-xs text-danger">{{ error }}</li>
         {% endfor %}
     </ul>
     {% endif %}

@@ -91,7 +91,7 @@ document.addEventListener('alpine:init', () => {
 
         <form 
             x-data="form"
-            class="bg-white p-6 rounded-lg shadow space-y-4"
+            class="bento-card p-6 space-y-4"
             @submit.prevent="submitForm"
         >
             {%- if operation == 'edit' %}
@@ -103,7 +103,7 @@ document.addEventListener('alpine:init', () => {
                 model='username',
                 value=user.username if operation == 'edit' else '',
                 placeholder='Usuário',
-                class='text-gray-400' if operation == 'edit' else '',
+                class='text-on-surface-variant' if operation == 'edit' else '',
                 readonly=True if operation == 'edit' else False,
                 errors=form.username if form else []
             ) }}

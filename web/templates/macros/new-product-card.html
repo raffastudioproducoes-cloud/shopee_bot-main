@@ -30,7 +30,7 @@
         showCopyIndicator(iconElement, textElement) {
             textElement.innerText = 'copiado!';
             iconElement.innerText = 'check';
-            iconElement.classList.add('text-blue-500');
+            iconElement.classList.add('text-accent');
             iconElement.classList.add('scale-125');
             iconElement.classList.add('transition');
         },
@@ -38,7 +38,7 @@
         removeCopyIndicator(iconElement, textElement) {
             textElement.innerText = textElement.dataset.text;
             iconElement.innerText = iconElement.dataset.icon;
-            iconElement.classList.remove('text-blue-500');
+            iconElement.classList.remove('text-accent');
             iconElement.classList.remove('scale-125');
             iconElement.classList.remove('transition');
         }

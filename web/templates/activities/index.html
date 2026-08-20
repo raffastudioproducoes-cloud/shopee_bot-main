@@ -12,35 +12,37 @@
     <div class="flex-grow container mx-auto p-6">
         {{ h1("Atividades") }}
 
-        <table class="w-full xl:w-3/4 mx-auto">
-            <caption class="text-sm text-gray-600 text-right">
+        <div class="bento-card overflow-x-auto max-w-4xl mx-auto">
+        <table class="w-full">
+            <caption class="text-sm text-on-surface-variant text-right p-4">
                 total: {{ count }}
             </caption>
-            <thead class="border-b border-gray-800/50">
+            <thead class="border-b border-white/10">
                 <tr>
-                    <th class="p-1 xl:p-2 text-left text-gray-800">Data e Hora</th>
-                    <th class="p-1 xl:p-2 text-left text-gray-800">Descrição</th>
-                    <th class="p-1 xl:p-2 text-left text-gray-800">Metadata</th>
+                    <th class="p-1 xl:p-4 text-left text-on-surface-variant text-label-caps">Data e Hora</th>
+                    <th class="p-1 xl:p-4 text-left text-on-surface-variant text-label-caps">Descrição</th>
+                    <th class="p-1 xl:p-4 text-left text-on-surface-variant text-label-caps">Metadata</th>
                 </tr>
             </thead>
             <tbody>
                 {% for activity in activities %}
-                    <tr class="border-b border-gray-800/25">
-                        <td class="p-1 xl:p-4">{{ activity.localtime }}</td>
-                        <td class="p-1 xl:p-4">{{ activity.description }}</td>
-                        <td class="p-1 xl:p-4">{{ activity.metadata }}</td>
+                    <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <td class="p-1 xl:p-4 text-on-surface-variant text-sm">{{ activity.localtime }}</td>
+                        <td class="p-1 xl:p-4 text-on-surface">{{ activity.description }}</td>
+                        <td class="p-1 xl:p-4 text-on-surface-variant text-sm">{{ activity.metadata }}</td>
                     </tr>
                 {% endfor %}
 
                 {% if count == 0 %}
                     <tr>
-                        <td colspan="3" class="p-1 xl:p-4">
+                        <td colspan="3" class="p-4 text-on-surface-variant text-center">
                             Nenhum log para mostrar.
                         </td>
                     </tr>
                 {% endif %}
             </tbody>
         </table>
+        </div>
 
         {% if count %}
             {{ pagination("activities.index") }}

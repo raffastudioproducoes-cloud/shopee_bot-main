@@ -1,7 +1,7 @@
 {% macro panel_tabs(items) -%}
-{% set base_class = "text-xl pb-2 px-1 mx-2 border-b-2 border-transparent" %}
-{% set normal_class = "text-gray-800/60 hover:text-gray-800/80 hover:border-b-2 hover:border-gray-400" %}
-{% set active_class = "text-gray-800 border-b-2 !border-gray-800"%}
+{% set base_class = "text-xl pb-2 px-1 mx-2 border-b-2 border-transparent transition-colors" %}
+{% set normal_class = "text-on-surface-variant hover:text-on-surface hover:border-b-2 hover:border-white/20" %}
+{% set active_class = "text-accent border-b-2 !border-accent"%}
 <!-- start panel_tabs -->
 <script>
     function is_active(href) {
@@ -25,8 +25,8 @@
 
 {% macro panel_tabs_m(items) -%}
 {% set m_base_class = "py-2" %}
-{% set m_normal_class = "text-gray-800/60" %}
-{% set m_active_class = "text-gray-800"%}
+{% set m_normal_class = "text-on-surface-variant" %}
+{% set m_active_class = "text-accent"%}
 <!-- start panel_tabs -->
 <script>
     function is_active(href) {
@@ -36,7 +36,7 @@
 
 <nav
     x-data
-    class="lg:hidden z-10 sticky bottom-0 flex items-center justify-center gap-12 w-full bg-white rounded-t-lg shadow-[0_-5px_10px] shadow-zinc-400/40"
+    class="lg:hidden z-10 sticky bottom-0 flex items-center justify-center gap-12 w-full glass-panel border-t border-white/10 rounded-t-lg"
 >
     {% for item in items %}
     <a

@@ -69,7 +69,7 @@
 
         <div x-data class="max-w-2xl mx-auto">
             <!-- Lista de listas de produtos -->
-            <div class="w-full mb-1 text-right text-sm text-gray-600">
+            <div class="w-full mb-1 text-right text-sm text-on-surface-variant">
                 Listas de Produtos: {{ count }}
             </div>
 
@@ -86,14 +86,14 @@
                     material="more_vert",
                     title="Opções",
                     func="sendCardEvent(productList.id)",
-                    class="text-gray-400 hover:text-blue-500 cursor-pointer"
+                    class="text-on-surface-variant hover:text-accent transition-colors cursor-pointer"
                 ) }}
 
                 {{ close_product_list_card() }}
             </template>
 
             {% if count == 0 %}
-                <p>Nenhuma lista de produtos cadastrada.</p>
+                <p class="text-on-surface-variant text-center">Nenhuma lista de produtos cadastrada.</p>
             {% endif %}
 
             {% if count %}
@@ -115,13 +115,13 @@
         {
             "material": "delete_forever",
             "text": "Lista e Produtos",
-            "class": "border-2 border-red-400 !text-red-400 hover:border-red-500 hover:!text-red-500 bg-white",
+            "class": "border-2 border-danger !text-danger hover:brightness-110 bg-surface-container",
             "callback": "deleteProductListWithProducts(Alpine.store('itemOptions').id)"
         },
         {
             "material": "delete",
             "text": "Remover Lista",
-            "class": "bg-red-400 hover:bg-red-500",
+            "class": "bg-danger hover:brightness-110",
             "callback": "deleteProductList(Alpine.store('itemOptions').id)"
         }
     ] ) }}

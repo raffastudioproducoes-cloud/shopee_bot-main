@@ -25,8 +25,8 @@
 </style>
 <div class="fixed top w-full flex justify-center pointer-events-none">
 {% for category, message in messages %}
-    {% set base_class = "hidden text-white p-4 rounded-md shadow-lg z-50" %}
-    {% set category_color = 'bg-red-500' if category == 'error' else 'bg-green-500' if category == 'success' else 'bg-blue-500' %}
+    {% set base_class = "hidden text-white p-4 rounded-lg shadow-lg z-50" %}
+    {% set category_color = 'bg-danger' if category == 'error' else 'bg-success' if category == 'success' else 'bg-accent' %}
     <div id="toast" class="{{ base_class }} {{ category_color }}">
         <div class="flex items-center">
             <span class="material-symbols-outlined mr-2">

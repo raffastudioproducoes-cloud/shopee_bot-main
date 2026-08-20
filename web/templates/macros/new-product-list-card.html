@@ -35,7 +35,7 @@
         showCopyIndicator(iconElement, textElement) {
             textElement.innerText = 'copiado!';
             iconElement.innerText = 'check';
-            iconElement.classList.add('text-blue-500');
+            iconElement.classList.add('text-accent');
             iconElement.classList.add('scale-125');
             iconElement.classList.add('transition');
         },
@@ -43,7 +43,7 @@
         removeCopyIndicator(iconElement, textElement) {
             textElement.innerText = textElement.dataset.text;
             iconElement.innerText = iconElement.dataset.icon;
-            iconElement.classList.remove('text-blue-500');
+            iconElement.classList.remove('text-accent');
             iconElement.classList.remove('scale-125');
             iconElement.classList.remove('transition');
         },
@@ -60,11 +60,11 @@
     }"
     class="space-y-4 mb-2"
 >
-    <div class="bg-white p-4 rounded-lg shadow hover:shadow-md transition">
+    <div class="bento-card p-4">
         <div class="flex justify-between">
             <h2
                 x-text="productList.name"
-                class="text-lg font-semibold text-gray-800"
+                class="text-lg font-semibold text-on-surface"
             ></h2>
             <div class="flex items-center justify-center gap-2">
 {%- endmacro %}
@@ -87,14 +87,14 @@
                 - str commission_link
             #}
             <template x-for="product in productList.list" :key="product.id">
-                <div class="p-4 rounded-lg shadow hover:shadow-md transition">
+                <div class="p-4 rounded-lg border border-white/5 hover:bg-white/5 transition-colors">
                     <div class="flex flex-col lg:flex-row lg:justify-center lg:items-center lg:gap-2">
                         <div class="w-full lg:9/12">
                             <div class="flex flex-col justify-between mb-2 lg:mb-0">
-                                <h2 class="text-sm font-semibold text-gray-800 lg:w-11/12" x-text="product.name"></h2>
+                                <h2 class="text-sm font-semibold text-on-surface lg:w-11/12" x-text="product.name"></h2>
                                 <div
                                     @click="copy(`${product.price_min} – ${product.price_max}`, $el)"
-                                    class="flex text-sm text-gray-600 lg:cursor-pointer">
+                                    class="flex text-sm text-on-surface-variant lg:cursor-pointer">
                                     <span data-icon="payments" class="material-symbols-outlined">
                                         payments
                                     </span>
@@ -106,7 +106,7 @@
                                 </div>
                                 <div
                                     @click="copy(product.commission, $el)"
-                                    class="flex text-sm text-gray-600 lg:cursor-pointer"
+                                    class="flex text-sm text-on-surface-variant lg:cursor-pointer"
                                 >
                                     <span data-icon="sell" class="material-symbols-outlined">
                                         sell
@@ -119,7 +119,7 @@
                                 </div>
                                 <div
                                     @click="copy(product.commission_link, $el)"
-                                    class="flex text-sm text-gray-600 lg:cursor-pointer"
+                                    class="flex text-sm text-on-surface-variant lg:cursor-pointer"
                                 >
                                     <span data-icon="link" class="material-symbols-outlined">
                                         link
@@ -138,9 +138,9 @@
                                 :src="product.image"
                                 loading="lazy"
                                 alt="Imagem do produto"
-                                class="w-full h-24 lg:48 object-cover rounded-lg shadow cursor-pointer">
+                                class="w-full h-24 lg:48 object-cover rounded-lg cursor-pointer">
                             <div
-                                class="absolute bottom-0 right-0 text-sm text-white bg-blue-500 p-1"
+                                class="absolute bottom-0 right-0 text-sm text-white bg-accent p-1 rounded-tl-lg"
                             >
                                 <a
                                     :href="product.original_link"

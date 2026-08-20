@@ -71,7 +71,7 @@
         {{ h1("Postagens") }}
 
         <div x-data class="max-w-2xl mx-auto">
-            <div class="w-full mb-1 text-right text-sm text-gray-600">
+            <div class="w-full mb-1 text-right text-sm text-on-surface-variant">
                 Postagens: {{ count }}
             </div>
 
@@ -90,14 +90,14 @@
                     material="more_vert",
                     title="Opções",
                     func="sendCardEvent(post.id)",
-                    class="text-gray-400 hover:text-blue-500 cursor-pointer"
+                    class="text-on-surface-variant hover:text-accent transition-colors cursor-pointer"
                 ) }}
 
                 {{ close_post_card() }}
             </template>
 
             {% if count == 0 %}
-                <p>Nenhuma postagem cadastrada.</p>
+                <p class="text-on-surface-variant text-center">Nenhuma postagem cadastrada.</p>
             {% endif %}
 
             {% if count %}
@@ -119,13 +119,13 @@
         {
             "material": "timer_play",
             "text": "Postar Agora",
-            "class": "border-2 border-blue-400 !text-blue-400 hover:border-blue-500 hover:!text-blue-500 bg-white",
+            "class": "border-2 border-accent !text-accent hover:brightness-110 bg-surface-container",
             "callback": "makePost(Alpine.store('itemOptions').id)"
         },
         {
             "material": "delete",
             "text": "Remover Lista",
-            "class": "bg-red-400 hover:bg-red-500",
+            "class": "bg-danger hover:brightness-110",
             "callback": "deletePost(Alpine.store('itemOptions').id)"
         }
     ] ) }}

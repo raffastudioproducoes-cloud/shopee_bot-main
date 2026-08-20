@@ -7,11 +7,11 @@
 <!-- start accordion -->
 <div x-data="{ open: false }">
     <div class="flex justify-between items-center text-left focus:outline-none">
-        <span class="font-medium" x-text="accordion.title"></span>
+        <span class="font-medium text-on-surface" x-text="accordion.title"></span>
         <span
             @click.stop="open = !open"
             :class="{ 'rotate-180': open }"
-            class="material-symbols-outlined transform transition-transform !text-4xl text-gray-400 hover:text-gray-500 cursor-pointer"
+            class="material-symbols-outlined transform transition-transform !text-4xl text-on-surface-variant hover:text-on-surface cursor-pointer"
         >
             keyboard_arrow_down
         </span>
