@@ -7,6 +7,7 @@
 
     <!-- Google fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
 
     <!-- Tailwind + alpineJS -->
     <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
@@ -15,11 +16,11 @@
     <!-- specific from page -->
     {%- block head %}{% endblock -%}
 </head>
-<body class="flex flex-col min-h-svh bg-gray-100 font-sans">
+<body class="flex flex-col min-h-svh bg-surface text-on-surface font-body">
     {% block navbar %}{% endblock%}
     {% block body %}{% endblock %}
     <footer class="flex flex-col items-center justify-center my-2">
-        <p class="text-xs text-center text-gray-400">
+        <p class="text-xs text-center text-on-surface-variant">
             "Ponho sempre o Senhor diante dos olhos, pois ele está à minha direita; não vacilarei." Salmos 15,8
         </p>
     </footer>
