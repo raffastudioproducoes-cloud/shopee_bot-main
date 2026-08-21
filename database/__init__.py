@@ -1,4 +1,5 @@
 import os
+import psycopg
 from psycopg import rows, Connection
 from psycopg_pool import ConnectionPool
 from shopee_bot.database.migrations import run_migrations
@@ -38,20 +39,24 @@ def query_db(query, args=(), one=False):
 
 
 def execute_db(query, args=(), open_conn: Connection = None):
+    """Executa INSERT/UPDATE/DELETE e devolve o id afetado, se houver.
+
+    `cur.execute()` roda fora do try — erro real de SQL (violação de
+    constraint, tipo não serializável, etc.) sobe pro chamador, não
+    fica escondido. Só a falta de RETURNING (ex.: INSERT sem
+    RETURNING) cai no fallback de LASTVAL().
+    """
     conn = open_conn if open_conn else get_conn()
     last_id = None
     with conn.cursor() as cur:
+        cur.execute(query, args)
         try:
-            rv = cur.execute(query, args).fetchone()
+            rv = cur.fetchone()
             if rv:
                 last_id = rv["id"]
-        except Exception as err:
-            try:
-                logger.debug(err)
-                rv = cur.execute("SELECT LASTVAL()").fetchone()
-                last_id = rv["lastval"]
-            except Exception:
-                pass
+        except psycopg.ProgrammingError:
+            rv = cur.execute("SELECT LASTVAL()").fetchone()
+            last_id = rv["lastval"]
 
     if not open_conn:
         put_conn(conn)

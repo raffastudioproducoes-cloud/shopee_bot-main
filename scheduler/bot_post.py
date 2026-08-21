@@ -137,7 +137,7 @@ def bot_post(job_id):
                 user_id,
                 ActivityType.BOT_POST_FAILURE,
                 activity_metadata_wrapper({
-                    "job_id": job_id,
+                    "job_id": str(job_id),
                     "post_id": post_id,
                     "part_index": part_index,
                     "total_parts": len(post_data),
@@ -153,7 +153,7 @@ def bot_post(job_id):
         user_id,
         ActivityType.BOT_POST_SUCCESS,
         activity_metadata_wrapper({
-            "job_id": job_id,
+            "job_id": str(job_id),
             "post_id": post_id,
             "published_parts": published_parts,
         })
