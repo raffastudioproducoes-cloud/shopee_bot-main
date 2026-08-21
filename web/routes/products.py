@@ -7,6 +7,7 @@ from shopee_bot.web.helpers import is_url_for
 from shopee_bot import utils
 from shopee_bot.database import products, shopee_credentials
 from shopee_bot.apis import shopee as ShopeeAPI
+from shopee_bot.scheduler.update_products import refresh_product
 from shopee_bot.web.forms.products import ProductForm
 
 products_bp = Blueprint("products", __name__)
@@ -161,11 +162,7 @@ def products_update(id):
         return {}, 400
 
     product = products.get(current_user.id, id)
-    updated_product = ShopeeAPI.query_product(
-        app_id, secret, product["original_link"]
-    )
-
-    products.update(current_user.id, id, updated_product)
+    refresh_product(current_user.id, product, app_id, secret)
     flash("Produto atualizado", "success")
     return {}, 200
 

@@ -7,6 +7,20 @@ from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.clogging import logger
 
 
+def refresh_product(user_id, product, app_id, secret):
+    """Consulta a Shopee API pro produto e persiste o resultado.
+
+    `product` precisa ter `id` e `original_link` (formato de
+    `products.get`/`products.gets`). Usado pela rota manual de
+    atualização e pelo job agendado — única implementação da regra.
+    """
+    updated_product = ShopeeAPI.query_product(
+        app_id, secret, product["original_link"]
+    )
+    products.update(user_id, product["id"], updated_product)
+    return updated_product
+
+
 def update_products(user_id):
     user_data = shopee_credentials.get_by_user_id(user_id)
     username = user_data["username"]
@@ -35,11 +49,7 @@ def update_products(user_id):
         id = product["id"]
 
         try:
-            updated_product = ShopeeAPI.query_product(
-                app_id, secret, product["original_link"]
-            )
-
-            products.update(user_id, id, updated_product)
+            updated_product = refresh_product(user_id, product, app_id, secret)
             logger.debug(
                 "Product {0} from {1} updated.".format(
                     updated_product["name"],
