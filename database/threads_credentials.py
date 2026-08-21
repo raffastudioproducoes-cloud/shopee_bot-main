@@ -1,6 +1,7 @@
 from datetime import datetime
 import pytz
 from shopee_bot.database import query_db, execute_db
+from shopee_bot.utils.crypto import encrypt, decrypt
 
 
 def get_by_user_id(user_id):
@@ -15,7 +16,12 @@ def get_by_user_id(user_id):
         WHERE u.id = %s
     """
     args = (user_id, )
-    return query_db(query, args, True)
+    result = query_db(query, args, True)
+    if result:
+        result["threads_access_token"] = decrypt(
+            result["threads_access_token"]
+        )
+    return result
 
 
 def insert(user_id, credential, open_conn=None):
@@ -27,7 +33,7 @@ def insert(user_id, credential, open_conn=None):
     args = (
         user_id,
         credential["t_user_id"],
-        credential["access_token"],
+        encrypt(credential["access_token"]),
         credential["status"]
     )
     return execute_db(query, args, open_conn)
@@ -47,7 +53,7 @@ def update(
     """
     args = (
         credential["t_user_id"],
-        credential["access_token"],
+        encrypt(credential["access_token"]),
         credential["status"],
         datetime.now(pytz.timezone('America/Sao_Paulo')),
         credential_id,

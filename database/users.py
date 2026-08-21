@@ -4,6 +4,7 @@ import bcrypt
 from datetime import datetime
 from shopee_bot.database import get_conn, put_conn, query_db, execute_db, \
     medias
+from shopee_bot.utils.crypto import decrypt
 
 
 def count():
@@ -52,7 +53,13 @@ def get_credentials(user_id):
         WHERE u.id = %s
     """
     args = (user_id, )
-    return query_db(query, args, True)
+    result = query_db(query, args, True)
+    if result:
+        result["shopee_secret"] = decrypt(result["shopee_secret"])
+        result["threads_access_token"] = decrypt(
+            result["threads_access_token"]
+        )
+    return result
 
 
 def query_paginated(cursor, limit):
