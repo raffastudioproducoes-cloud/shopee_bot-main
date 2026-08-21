@@ -7,6 +7,7 @@ from shopee_bot.database import users
 from shopee_bot.web.user import User
 from shopee_bot.web.forms.auth import LoginForm
 from shopee_bot.web.helpers import is_safe_url
+from shopee_bot.web.limiter import limiter
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -17,6 +18,7 @@ def login_get():
 
 
 @auth_bp.post("/auth/login")
+@limiter.limit("5 per minute")
 def login_post():
     next = request.form["next"]
     if next and not is_safe_url(next):

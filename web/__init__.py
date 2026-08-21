@@ -21,6 +21,7 @@ from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_login import LoginManager, login_required, current_user
 from flask_cors import CORS
+from shopee_bot.web.limiter import limiter
 from flask import Flask, render_template, send_from_directory
 from dotenv import load_dotenv
 load_dotenv()
@@ -43,6 +44,10 @@ app.wsgi_app = ProxyFix(
 
 # CSRF
 csrf = CSRFProtect(app)
+
+# rate limiting — limite padrão global (ver web/limiter.py) mais o
+# limite específico do login (ver web/routes/auth.py)
+limiter.init_app(app)
 
 # Babel for flask_wtf
 app.config['BABEL_DEFAULT_LOCALE'] = 'pt_BR'
