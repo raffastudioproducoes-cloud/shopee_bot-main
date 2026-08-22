@@ -2,7 +2,9 @@ import secrets
 from flask import Blueprint, redirect, url_for
 from shopee_bot.clogging import logger
 from shopee_bot.database import get_conn, put_conn, users, \
-    shopee_credentials, threads_credentials
+    shopee_credentials, threads_credentials, \
+    x_credentials, facebook_credentials, instagram_credentials, \
+    tiktok_credentials, kwai_credentials
 
 startup_bp = Blueprint("startup", __name__, url_prefix="/startup")
 
@@ -46,6 +48,23 @@ def index():
             },
             conn
         )
+
+        for credentials_module in (
+            x_credentials,
+            facebook_credentials,
+            instagram_credentials,
+            tiktok_credentials,
+            kwai_credentials,
+        ):
+            credentials_module.insert(
+                user_id,
+                {
+                    "app_id": None,
+                    "secret": None,
+                    "status": False,
+                },
+                conn
+            )
 
     put_conn(conn)
     logger.warning(

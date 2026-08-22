@@ -22,3 +22,28 @@ class ShopeeForm(FlaskForm):
 
 class ThreadsForm(FlaskForm):
     code = StringField('code', [DataRequired()])
+
+
+class XForm(FlaskForm):
+    app_id = StringField('app_id', [DataRequired()])
+    secret = StringField('secret', [DataRequired()])
+
+
+class FacebookForm(FlaskForm):
+    app_id = StringField('app_id', [DataRequired()])
+    secret = StringField('secret', [DataRequired()])
+
+
+class InstagramForm(FlaskForm):
+    app_id = StringField('app_id', [DataRequired()])
+    secret = StringField('secret', [DataRequired()])
+
+
+class TiktokForm(FlaskForm):
+    app_id = StringField('app_id', [DataRequired()])
+    secret = StringField('secret', [DataRequired()])
+
+
+class KwaiForm(FlaskForm):
+    app_id = StringField('app_id', [DataRequired()])
+    secret = StringField('secret', [DataRequired()])

@@ -46,10 +46,35 @@ def get_credentials(user_id):
             tc.id threads_id,
             tc.t_user_id AS threads_user_id,
             tc.access_token AS threads_access_token,
-            tc.status AS threads_status
+            tc.status AS threads_status,
+            xc.id x_id,
+            xc.app_id x_app_id,
+            xc.secret x_secret,
+            xc.status x_status,
+            fc.id facebook_id,
+            fc.app_id facebook_app_id,
+            fc.secret facebook_secret,
+            fc.status facebook_status,
+            ic.id instagram_id,
+            ic.app_id instagram_app_id,
+            ic.secret instagram_secret,
+            ic.status instagram_status,
+            tkc.id tiktok_id,
+            tkc.app_id tiktok_app_id,
+            tkc.secret tiktok_secret,
+            tkc.status tiktok_status,
+            kc.id kwai_id,
+            kc.app_id kwai_app_id,
+            kc.secret kwai_secret,
+            kc.status kwai_status
         FROM users u
         LEFT JOIN shopee_credentials sc ON sc.user_id = u.id
         LEFT JOIN threads_credentials tc ON tc.user_id = u.id
+        LEFT JOIN x_credentials xc ON xc.user_id = u.id
+        LEFT JOIN facebook_credentials fc ON fc.user_id = u.id
+        LEFT JOIN instagram_credentials ic ON ic.user_id = u.id
+        LEFT JOIN tiktok_credentials tkc ON tkc.user_id = u.id
+        LEFT JOIN kwai_credentials kc ON kc.user_id = u.id
         WHERE u.id = %s
     """
     args = (user_id, )
@@ -59,6 +84,11 @@ def get_credentials(user_id):
         result["threads_access_token"] = decrypt(
             result["threads_access_token"]
         )
+        result["x_secret"] = decrypt(result["x_secret"])
+        result["facebook_secret"] = decrypt(result["facebook_secret"])
+        result["instagram_secret"] = decrypt(result["instagram_secret"])
+        result["tiktok_secret"] = decrypt(result["tiktok_secret"])
+        result["kwai_secret"] = decrypt(result["kwai_secret"])
     return result
 
 

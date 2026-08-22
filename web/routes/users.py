@@ -4,7 +4,9 @@ from flask_login import login_required, current_user
 
 from shopee_bot import utils
 from shopee_bot.database import get_conn, put_conn, users, \
-    schedulers, shopee_credentials, threads_credentials
+    schedulers, shopee_credentials, threads_credentials, \
+    x_credentials, facebook_credentials, instagram_credentials, \
+    tiktok_credentials, kwai_credentials
 from shopee_bot.scheduler import remove_job
 from shopee_bot.web.forms.users import UserAddForm, UserEditForm
 
@@ -97,6 +99,23 @@ def save():
             },
             conn
         )
+
+        for credentials_module in (
+            x_credentials,
+            facebook_credentials,
+            instagram_credentials,
+            tiktok_credentials,
+            kwai_credentials,
+        ):
+            credentials_module.insert(
+                user_id,
+                {
+                    "app_id": None,
+                    "secret": None,
+                    "status": False,
+                },
+                conn
+            )
 
     put_conn(conn)
     flash("Usuário criado", "success")
