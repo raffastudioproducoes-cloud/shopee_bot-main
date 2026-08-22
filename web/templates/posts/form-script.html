@@ -11,7 +11,7 @@ document.addEventListener("alpine:init", () => {
         next_cursor: null,
         count: null,
         products: null,
-        product_ids: {{ posts|safe + '[0]["product_ids"]'|safe if operation == 'edit' else product_ids }},
+        product_ids: {{ posts|tojson + '[0]["product_ids"]' if operation == 'edit' else product_ids }},
 
         init () {
             this._get_products();
@@ -67,13 +67,13 @@ document.addEventListener("alpine:init", () => {
         {% endif %}
 
         {# erros from validation #}
-        form: {{ form|safe if form else [] }},
+        form: {{ form|tojson if form else [] }},
 
         {% set posts_default = "[{text: '', medias: []}]" %}
-        posts: {{ posts|safe if operation == 'edit' else posts_default|safe }},
+        posts: {{ posts|tojson if operation == 'edit' else posts_default|safe }},
 
         {% set job_default = "{func: 'bot_post', trigger: 'date', run_date: null}" %}
-        job: {{ posts|safe + '[0]["scheduler"]'|safe if operation == 'edit' else job_default|safe }},
+        job: {{ posts|tojson + '[0]["scheduler"]' if operation == 'edit' else job_default|safe }},
 
         updateJobProperties() {
             {% if operation == 'edit' %}

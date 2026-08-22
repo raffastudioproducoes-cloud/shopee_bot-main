@@ -14,7 +14,8 @@ BEGIN
     );
     RETURN NULL;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public;
 
 CREATE TRIGGER cleanup_medias
 AFTER DELETE ON posts_medias

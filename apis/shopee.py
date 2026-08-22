@@ -95,14 +95,14 @@ def _query_short_link(app_id, secret, product_url, product_id):
 mutation {{
   generateShortLink (
     input: {{
-      originUrl: "{0}"
-      subIds: ["{1}"]
+      originUrl: {0}
+      subIds: [{1}]
     }}
   ) {{
     shortLink
   }}
 }}
-""".replace("\n", "").format(product_url, product_id)
+""".replace("\n", "").format(json.dumps(product_url), json.dumps(product_id))
     query_res = _query(app_id, secret, query)
     if query_res:
         return query_res["generateShortLink"]["shortLink"]

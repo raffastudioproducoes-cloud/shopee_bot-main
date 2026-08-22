@@ -23,7 +23,7 @@ document.addEventListener("alpine:init", () => {
         id: "{{ product_list.id }}",
         {% endif -%}
 
-        name: `{{ product_list.name|safe if operation == 'edit' else '' }}`,
+        name: {{ product_list.name|tojson if operation == 'edit' else '""' }},
         list: {{ product_list.list if operation == 'edit' else [] }},
 
         productToggle(id) {

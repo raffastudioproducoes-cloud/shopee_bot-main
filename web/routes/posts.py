@@ -63,7 +63,7 @@ def edit(id):
     return render_template(
         "posts/form.html",
         operation="edit",
-        posts=json.dumps(result),
+        posts=result,
         form=session.pop("form", None)
     )
 

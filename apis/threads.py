@@ -2,6 +2,7 @@ import os
 import requests
 import time
 from enum import StrEnum
+from urllib.parse import quote
 
 from shopee_bot.utils import retry_with_backoff
 
@@ -55,9 +56,9 @@ def _create_carousel_item(
     """.replace('\n', '').replace(' ', '')
 
     if media_type == MediaType.IMAGE and image_url is not None:
-        url += f"&image_url={image_url}"
+        url += f"&image_url={quote(image_url, safe='')}"
     elif media_type == MediaType.VIDEO and video_url is not None:
-        url += f"&video_url={video_url}"
+        url += f"&video_url={quote(video_url, safe='')}"
 
     res = retry_with_backoff(requests.post, url)
     if res.status_code not in [200, 201]:
@@ -84,10 +85,10 @@ def _create_carousel_container(
         &access_token=
         {user_access_token}
     """.replace('\n', '').replace(' ', '')
-    url += f"&text={_remove_non_utf8(text)}"
+    url += f"&text={quote(_remove_non_utf8(text), safe='')}"
 
     if reply_to_id is not None:
-        url += f"&reply_to_id={reply_to_id}"
+        url += f"&reply_to_id={quote(str(reply_to_id), safe='')}"
 
     res = retry_with_backoff(requests.post, url)
     if res.status_code not in [200, 201]:
@@ -114,15 +115,15 @@ def _create_media_container(
         &access_token=
         {user_access_token}
     """.replace('\n', '').replace(' ', '')
-    url += f"&text={_remove_non_utf8(text)}"
+    url += f"&text={quote(_remove_non_utf8(text), safe='')}"
 
     if media_type == MediaType.IMAGE and image_url is not None:
-        url += f"&image_url={image_url}"
+        url += f"&image_url={quote(image_url, safe='')}"
     elif media_type == MediaType.VIDEO and video_url is not None:
-        url += f"&video_url={video_url}"
+        url += f"&video_url={quote(video_url, safe='')}"
 
     if reply_to_id is not None:
-        url += f"&reply_to_id={reply_to_id}"
+        url += f"&reply_to_id={quote(str(reply_to_id), safe='')}"
 
     res = retry_with_backoff(requests.post, url)
     if res.status_code not in [200, 201]:
@@ -328,7 +329,7 @@ def _get_user_short_lived_token(code):
         &grant_type=authorization_code
         &redirect_uri=
         {CALLBACK_URL}
-        &code={code}
+        &code={quote(code, safe='')}
     """.replace('\n', '').replace(' ', '')
 
     res = requests.get(url)
