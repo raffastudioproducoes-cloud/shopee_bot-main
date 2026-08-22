@@ -1,9 +1,9 @@
 {% from "macros/fetch-button.html" import fetch_button %}
 {% from "macros/submit-button.html" import submit_button %}
 
-{% macro form_card_opentag(title, action, status=none, delete=none) -%}
+{% macro form_card_opentag(title, action, status=none, delete=none, width_class='w-full max-w-md mt-6') -%}
 <!-- start form-card -->
-<section class="w-full max-w-md bento-card p-6 mt-6">
+<section class="{{ width_class }} bento-card p-6">
     <div class="flex items-center justify-between">
         <div class="relative flex">
             <h2 class="font-display text-lg font-bold text-on-surface mb-1">

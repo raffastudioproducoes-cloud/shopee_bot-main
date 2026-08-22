@@ -7,13 +7,13 @@
 {% endblock %}
 
 {% block body %}
-    <div class="flex-grow p-margin-mobile md:p-margin-desktop">
-        <header class="mb-8">
-            <h2 class="font-display text-headline-lg text-on-surface mb-1">Dashboard</h2>
+    <div class="flex-grow p-4 sm:p-6 lg:p-10 max-w-[1600px] mx-auto w-full">
+        <header class="mb-6 lg:mb-8">
+            <h2 class="font-display text-headline-lg text-on-surface mb-2">Dashboard</h2>
             <p class="text-body-sm text-on-surface-variant">Olá, {{ user.username|capitalize }}! Visão geral da sua automação.</p>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-bento-gap">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
             <!-- Metric cards -->
             <div class="md:col-span-4 bento-card p-6 flex flex-col justify-between">
                 <div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center mb-4">
