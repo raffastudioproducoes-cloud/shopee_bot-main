@@ -16,10 +16,10 @@ from shopee_bot.scheduler.bot_post import bot_post
 from shopee_bot.scheduler.update_products import update_products
 
 load_dotenv()
-HOST = os.environ.get("POSTGRES_HOST")
-DB = os.environ.get("POSTGRES_DB")
-USER = os.environ.get("POSTGRES_USER")
-PASSWORD = os.environ.get("POSTGRES_PASSWORD")
+HOST = os.environ.get("SHOPEE_PG_HOST")
+DB = os.environ.get("SHOPEE_PG_DB")
+USER = os.environ.get("SHOPEE_PG_USER")
+PASSWORD = os.environ.get("SHOPEE_PG_PASSWORD")
 REDIS_HOST = os.environ.get("REDIS_HOST")
 
 _scheduler = None
@@ -113,6 +113,17 @@ def add_job(user_id, job, open_conn=None):
         put_conn(conn)
 
 
+def _jobstore_dsn() -> str:
+    from urllib.parse import quote_plus
+    user = quote_plus(USER) if USER else ""
+    pwd = quote_plus(PASSWORD) if PASSWORD else ""
+    sslmode = os.environ.get("SHOPEE_PG_SSLMODE")
+    dsn = f"postgresql+psycopg://{user}:{pwd}@{HOST}/{DB}"
+    if sslmode:
+        dsn += f"?sslmode={sslmode}"
+    return dsn
+
+
 def init():
     global _scheduler
     logger.info("Scheduler initializing...")
@@ -120,7 +131,7 @@ def init():
     _scheduler = GeventScheduler(
         jobstores={
             "default": SQLAlchemyJobStore(
-                url=f"postgresql+psycopg://{USER}:{PASSWORD}@{HOST}/{DB}"
+                url=_jobstore_dsn()
             ),
             "on_demand": MemoryJobStore()
         },
