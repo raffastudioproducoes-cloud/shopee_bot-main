@@ -124,15 +124,28 @@ def credentials_shopee_del(id):
 @fresh_login_required
 @login_required
 def credentials_threads_save(id):
-    form = ThreadsForm()
+    # O OAuth do Threads redireciona de VOLTA com GET ?code=... (ou
+    # ?error=...), não via POST de formulário. Aceitamos ambos:
+    # GET (retorno do Meta) e POST (fluxo manual, se houver).
+    from flask import request as _request
 
-    if not form.validate():
-        session["form"] = {"threads": form.errors}
-        flash("Erro(s) de validação", "error")
+    code = _request.args.get("code") or _request.form.get("code")
+    error = _request.args.get("error")
+
+    if error:
+        flash(f"Threads: {error}", "error")
         return redirect(url_for("panel.credentials_index"))
 
+    if not code:
+        form = ThreadsForm()
+        if not form.validate():
+            session["form"] = {"threads": form.errors}
+            flash("Erro(s) de validação", "error")
+            return redirect(url_for("panel.credentials_index"))
+        code = form.code.data
+
     t_user_id, access_token = ThreadsAPI.get_user_auth_id_token(
-        form.code.data
+        code
     )
 
     threads_credentials.update(

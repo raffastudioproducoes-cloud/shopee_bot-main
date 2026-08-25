@@ -34,7 +34,7 @@ panel_bp.add_url_rule(
 panel_bp.add_url_rule(
     "credentials/threads/<id>",
     view_func=credentials_threads_save,
-    methods=["POST"]
+    methods=["GET", "POST"]
 )
 panel_bp.add_url_rule(
     "credentials/threads/<id>",
