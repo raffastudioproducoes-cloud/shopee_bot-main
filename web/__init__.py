@@ -35,6 +35,12 @@ DEBUG = bool(os.environ.get("FLASK_DEBUG"))
 app = Flask(__name__)
 CORS(app)
 
+# session cookie security
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_SESSION_COOKIE_SECURE", "False").lower() == "true"
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.secret_key = SESSION_SECRET
+
 # proxy fix
 # https://github.com/pallets-eco/flask-wtf/issues/455
 app.config['WTF_CSRF_SSL_STRICT'] = False
