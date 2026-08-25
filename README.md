@@ -1,59 +1,294 @@
-# Shopee Bot
-É uma plataforma de automação da divulgação de links de afiliado. Atualmente funciona apenas
-com a Shopee. O projeto é divido em módulos, porém para fins práticas basicamente há três módulos
-[Web](./web/), e [Scheduler](./scheduler/). O restante dos módulos existem como 
-dependências.
+<div align="center">
 
-## Web
-Interface da plataforma, é por ela que se cadastra usuários, produtos, lista de produtos, onde se
-configura os bots e coloca as credenciais. Implementado em Flask rodando num docker com gunicorn.
+# Shopee Auto Vendas
 
-## Scheduler
-A lógica das tarefas recorrentes ficam nele. Faz uso do banco de dados para atualizar que tarefas
-deve realizar e quando.
+### Automação de divulgação de links de afiliado da Shopee e redes sociais.
 
-## Estrutura do Projeto
-    apis/               <- wrapper simples para as APIs utilizadas
-    database/           <- wrapper de acesso ao banco de dados, cada
-                           arquivo representa uma tabela no BD.
-    nginx/              <- configuração do proxy reverso
-    scheduler/
-    utils/
-    web/
-    clogging.py         <- logger personalizado, compartilhado
-    gunicorn.conf.py    <- configuração de produção
+[![Stage](https://img.shields.io/badge/stage-MVP--Beta-2563EB)](https://huggingface.co/spaces)
+[![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![Flask](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com)
+[![APScheduler](https://img.shields.io/badge/APScheduler-3.11-FF6F00)](https://apscheduler.readthedocs.io)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-336791?logo=postgresql&logoColor=white)](https://supabase.com)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-Spaces-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co/spaces)
+[![Cloudinary](https://img.shields.io/badge/Cloudinary-Media-3448C5?logo=cloudinary&logoColor=white)](https://cloudinary.com)
+[![License](https://img.shields.io/badge/license-proprietary-0F172A)](#licen%C3%A7a)
 
-## Rodando Local
-Crie um ambiente virtual na pasta raiz ``python -m venv .venv``, instale os pacotes necessários
-``pip install -r requirements.txt`` e configure o ambiente ``cp .env-example .env`` alterando
-o que for necessário.
+</div>
 
-### Uso
-    source .venv/bin/active
-    flask --debug --app web run
+---
 
+## Sumário
 
-## Rodando em Produção
-Crie a imagem com ``COMPOSE_BAKE=true docker build --no-cache -t shopee-bot-app .``, gere os certificados
-para o Nginx ``openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 365 
--subj "/C=BR/ST=Rio de Janeiro/L=Rio de Janeiro/O=Bro Inc./OU=TI/CN=localhost"``.
+1. [Apresentação](#apresentação)
+2. [Objetivo](#objetivo)
+3. [Público-alvo](#público-alvo)
+4. [Funcionalidades principais](#funcionalidades-principais)
+5. [Tecnologias](#tecnologias)
+6. [Arquitetura e estrutura](#arquitetura-e-estrutura)
+7. [Configuração do ambiente](#configuração-do-ambiente)
+8. [Desenvolvimento e testes](#desenvolvimento-e-testes)
+9. [Build e distribuição](#build-e-distribuição)
+10. [Segurança e privacidade](#segurança-e-privacidade)
+11. [Integrações e redes sociais](#integrações-e-redes-sociais)
+12. [Documentação](#documentação)
+13. [Roadmap](#roadmap)
+14. [Licença](#licença)
+15. [Contato](#contato)
 
-Crie as [variáveis de ambiente](https://help.ubuntu.com/community/EnvironmentVariables#Session-wide_environment_variables)
-para a plataforma. Você pode usar o ``.env-example`` como referência.
+---
 
-- ``POSTGRES_HOST``
-- ``POSTGRES_USER``
-- ``POSTGRES_PASSOWRD``
-- ``POSTGRES_DB``
-- ``CLOUDINARY_NAME``
-- ``CLOUDINARY_API_KEY``
-- ``CLOUDINARY_SECRET``
-- ``THREADS_APP_ID``
-- ``THREADS_SECRET``
-- ``FLASK_SESSION_SECRET``
-- ``FLASK_UPLOAD_FOLDER``
-- ``FLASK_MAX_CONTENT_LENGTH``
-- ``LOG_LEVEL``
+## Apresentação
 
-### Uso
-    docker compose up -d
+**Shopee Auto Vendas** é uma plataforma web para automatizar a divulgação de
+links de afiliado da Shopee e de outras redes. O usuário cadastra produtos,
+monta listas e agenda posts; a aplicação publica nos canais conectados no
+horário programado, com tentativas e tratamento de erro.
+
+Atualmente a publicação automática está operacional para **Shopee** e
+**Threads**. As demais redes (X, Facebook, Instagram, TikTok, Kwai) já
+possuem armazenamento cifrado de credencial, mas aguardam a implementação do
+wrapper de API para publicação automática.
+
+Versão atual: **MVP / Beta** · Idioma: **Português Brasileiro** · Plataforma: **Web**
+
+## Objetivo
+
+Reduzir o trabalho manual de divulgação recorrente, permitindo ao usuário:
+
+- cadastrar produtos e listas de produtos da Shopee;
+- agendar posts (únicos ou recorrentes, por cron) para os canais conectados;
+- conectar credenciais de redes sociais de forma cifrada;
+- acompanhar atividades e histórico de publicação;
+- disparar posts sob demanda fora do agendamento.
+
+## Público-alvo
+
+- Afiliados da Shopee
+- Marketers de mídias sociais
+- Pequenos lojistas e criadores de conteúdo
+- Quem divulga links de afiliado em múltiplas redes
+- Operações que precisam de agendamento recorrente de posts
+
+## Funcionalidades principais
+
+| Módulo | Recursos |
+| --- | --- |
+| **Usuários** | Cadastro, login, alteração de senha, controle de acesso |
+| **Produtos** | Catálogo de produtos da Shopee e listas de produtos |
+| **Posts** | Criação, agendamento (cron/data) e execução sob demanda |
+| **Credenciais** | Shopee, Threads, X, Facebook, Instagram, TikTok e Kwai (cifradas) |
+| **Painel** | Visão consolidada de posts e atividades recentes |
+| **Scheduler** | APScheduler com jobstore em banco (sobrevive a reinícios) |
+| **Atividades** | Histórico de ações e publicações |
+| **Mídia** | Upload tratado e envio para Cloudinary |
+
+## Tecnologias
+
+- **Python 3.13**
+- **Flask 3.1** (blueprints, Flask-Login, Flask-WTF, Flask-Babel, Flask-Limiter)
+- **APScheduler 3.11** com executor gevent
+- **Gunicorn 23** (1 worker gevent; scheduler sobe no hook `on_starting`)
+- **PostgreSQL** via **Supabase** (psycopg 3 + pool de conexões)
+- **SQLAlchemy** (jobstore do scheduler) e migrations versionadas
+- **Cloudinary** para mídia
+- **cryptography** (Fernet) para cifrar credenciais em repouso
+- **Docker** / **docker-compose** para build e execução
+- **Hugging Face Spaces** como hospedagem free-tier (Docker)
+
+## Arquitetura e estrutura
+
+```text
+shopee_bot-main/
+├── apis/                   # wrappers de API (shopee, threads; demais pendentes)
+├── database/               # acesso ao BD: uma subclasse por tabela + migrations
+├── scheduler/              # APScheduler: bot_post, update_products
+├── utils/                  # helpers (crypto, formatação, retry com backoff)
+├── web/                    # Flask: rotas (blueprints), forms, templates, static
+│   ├── routes/
+│   │   ├── auth.py         # login/logout
+│   │   ├── panel/          # painel e credenciais (6 redes)
+│   │   ├── posts.py        # criação/agendamento de posts
+│   │   ├── products.py     # catálogo de produtos
+│   │   ├── product_lists.py
+│   │   ├── users.py
+│   │   ├── activities.py
+│   │   └── startup.py
+│   ├── templates/          # HTML (Jinja2)
+│   └── static/
+├── nginx/                  # proxy reverso (produção local)
+├── tests/                  # testes automatizados (pytest)
+├── clogging.py             # logger compartilhado
+├── gunicorn.conf.py        # produção: 1 worker gevent, on_starting -> scheduler
+├── Dockerfile              # imagem (web + scheduler no mesmo container)
+├── docker-compose.yml      # web + postgres + nginx
+├── requirements.txt
+└── README.md
+```
+
+Princípios adotados:
+
+- Web e scheduler no **mesmo processo** (o scheduler inicia no `on_starting`
+  do Gunicorn), simplificando hospedagem em containers únicos.
+- Jobstore do scheduler em **PostgreSQL**, então os agendamentos sobrevivem a
+  reinícios do container.
+- Credenciais sensíveis **cifradas em repouso** (`cryptography.fernet`); a chave
+  vem de variável de ambiente, nunca do código.
+- Segredos fornecidos apenas por variáveis de ambiente ou Secrets da
+  plataforma de hospedagem.
+- Migrations versionadas em `database/migrations/`.
+
+## Configuração do ambiente
+
+Requisitos:
+
+- Python 3.13
+- Acesso a um PostgreSQL (Supabase ou local)
+- Conta Cloudinary (para mídia)
+- Variáveis de ambiente conforme `.env-example`
+
+Clone o repositório:
+
+```bash
+git clone https://github.com/raffastudioproducoes-cloud/shopee_bot-main.git
+cd shopee_bot-main
+```
+
+Prepare o ambiente local:
+
+```bash
+python -m venv .venv
+# Windows (PowerShell):
+#   .venv\Scripts\activate.bat
+# Linux/macOS:
+#   source .venv/bin/activate
+pip install -r requirements.txt
+cp .env-example .env
+# edite .env com os dados reais (Postgres, Cloudinary, Threads, chaves)
+```
+
+O `.env` é ignorado pelo Git e nunca deve ser commitado.
+
+## Desenvolvimento e testes
+
+Execução em modo debug (desenvolvimento):
+
+```bash
+flask --debug --app web run
+```
+
+Testes automatizados (pytest):
+
+```bash
+pytest
+```
+
+Antes de publicar, revise o diff para garantir que nenhum arquivo local
+(`.env`, mídia, chaves) foi adicionado por engano.
+
+## Build e distribuição
+
+### Local / servidor próprio (docker-compose)
+
+Sobe web + PostgreSQL + nginx (proxy reverso com TLS):
+
+```bash
+docker compose up -d
+```
+
+### Hugging Face Spaces (hospedagem free-tier, sem cartão)
+
+O projeto inclui `Dockerfile.hfspaces` e `README.hfspaces.md` prontos para o
+Space. O deploy completo (Secrets, callback do Threads, UptimeRobot) está
+documentado em `24-Deploy-HuggingFace-Spaces.md` (repositório de documentação
+do projeto). Resumo:
+
+- Criar Space (SDK Docker, CPU Free);
+- Apontar o Space para este repositório GitHub;
+- Configurar os Secrets (POSTGRES_*, CLOUDINARY_*, THREADS_*, APP_ENCRYPTION_KEY,
+  FLASK_*);
+- Manter acordado com UptimeRobot (o Space dorme após 48h de inatividade).
+
+A imagem sobe com `gunicorn web:app --config=gunicorn.conf.py`; o scheduler
+inicializa junto no mesmo container.
+
+## Segurança e privacidade
+
+- Credenciais de redes sociais são **cifradas em repouso** (Fernet); a chave
+  (`APP_ENCRYPTION_KEY`) fica em variável de ambiente.
+- Segredos (banco, Cloudinary, Threads, chaves) **não estão no código**;
+  variáveis em `.env` (ignorado) ou Secrets da plataforma.
+- Correções de **XSS/injeção SQL** e `search_path` definido (commit
+  `b116f9d`).
+- **Rate limiting** global (Flask-Limiter) e proteção de força bruta no login.
+- **CSRF** (Flask-WTF) e `login_required` nas rotas protegidas.
+- `ProxyFix` habilita operação correta atrás de reverse proxy (nginx / HF).
+- Sem credenciais ou senhas padrão expostas no repositório.
+- Logs, issues e documentação não devem conter credenciais ou dados pessoais.
+
+Este projeto adota princípios da **LGPD**: minimização de dados, finalidade
+explícita, controle de acesso e transparência sobre tratamento e retenção.
+
+## Integrações e redes sociais
+
+| Rede | Estado | Detalhe |
+| --- | --- | --- |
+| **Shopee** | ✅ Operacional | Wrapper + validação de credencial (`query_auth_validate`) |
+| **Threads** | ✅ Operacional | Wrapper + OAuth (callback aceita `GET ?code=`) |
+| **X** | ⏸️ Pendente | Credencial cifrada salva; falta wrapper de publicação |
+| **Facebook** | ⏸️ Pendente | Credencial cifrada salva; falta wrapper de publicação |
+| **Instagram** | ⏸️ Pendente | Credencial cifrada salva; falta wrapper de publicação |
+| **TikTok** | ⏸️ Pendente | Credencial cifrada salva; falta wrapper de publicação |
+| **Kwai** | ⏸️ Pendente | Credencial cifrada salva; falta wrapper de publicação |
+
+As rotas de credencial das redes pendentes já gravam `app_id`/`secret`
+cifrados e marcam `status=True`, mas **não validam nem publicam** contra a API
+real — aguardando a implementação do wrapper seguindo o padrão de
+`apis/shopee.py` e `apis/threads.py`.
+
+## Documentação
+
+| Documento | Conteúdo |
+| --- | --- |
+| [README](README.md) | Visão geral, arquitetura, operação, segurança e roadmap |
+| `24-Deploy-HuggingFace-Spaces.md` | Deploy free-tier (HF Spaces), Secrets, OAuth do Threads |
+| `18-Roadmap-Mestre.md` | Roadmap mestre do produto (repositório de documentação) |
+
+Este projeto adota **Documentação Viva**: uma funcionalidade não é considerada
+concluída sem atualizar o README e a documentação técnica aplicável.
+
+## Roadmap
+
+Concluído:
+
+- Cadastro de usuários, produtos e listas (Sprints 0–2)
+- Senha padrão e criptografia de credenciais
+- Rate limiting e correções de XSS/injeção
+- Testes automatizados (login, criar produto, criar post, publicar)
+- Banco em Supabase e redesign de frontend (Stitch)
+- Scheduler com jobstore persistente
+
+Próximo:
+
+- Hospedagem em produção (HF Spaces — este deploy)
+- Beta fechado com usuários reais
+- OAuth do Threads em produção (callback corrigido; falta validação end-to-end)
+- Wrappers de API para X, Facebook, Instagram, TikTok e Kwai
+- Domínio próprio (HF Pro ou Cloudflare Worker) e monitoramento (UptimeRobot)
+- Publicação automática multicanal completa
+
+## Licença
+
+Software proprietário © Raffa Studio Produções — Shopee Auto Vendas.
+Uso, cópia, modificação ou distribuição somente com autorização expressa do
+titular.
+
+## Contato
+
+**Raffa Studio Produções**
+
+E-mail: **contato.raffasp@gmail.com**
+
+---
+
+Desenvolvido para automatizar quem vende no Brasil.
