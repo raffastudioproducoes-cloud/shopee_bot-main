@@ -92,15 +92,15 @@ def credentials_shopee_save(id):
         )
         return redirect(url_for("panel.credentials_index"))
 
-    shopee_credentials.update(
-        current_user.id,
-        id,
-        {
-            "app_id": form.app_id.data,
-            "secret": form.secret.data,
-            "status": True,
-        }
-    )
+    credential = {
+        "app_id": form.app_id.data,
+        "secret": form.secret.data,
+        "status": True,
+    }
+    if id is None:
+        shopee_credentials.insert(current_user.id, credential)
+    else:
+        shopee_credentials.update(current_user.id, id, credential)
     flash("Autenticação da Shopee atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -195,15 +195,18 @@ def credentials_x_save(id):
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    x_credentials.update(
-        current_user.id,
-        id,
-        {
+    if id is None:
+        x_credentials.insert(current_user.id, {
             "app_id": form.app_id.data,
             "secret": form.secret.data,
             "status": True,
-        }
-    )
+        })
+    else:
+        x_credentials.update(current_user.id, id, {
+            "app_id": form.app_id.data,
+            "secret": form.secret.data,
+            "status": True,
+        })
     flash("Autenticação do X atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -234,15 +237,18 @@ def credentials_facebook_save(id):
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    facebook_credentials.update(
-        current_user.id,
-        id,
-        {
+    if id is None:
+        facebook_credentials.insert(current_user.id, {
             "app_id": form.app_id.data,
             "secret": form.secret.data,
             "status": True,
-        }
-    )
+        })
+    else:
+        facebook_credentials.update(current_user.id, id, {
+            "app_id": form.app_id.data,
+            "secret": form.secret.data,
+            "status": True,
+        })
     flash("Autenticação do Facebook atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -273,15 +279,18 @@ def credentials_instagram_save(id):
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    instagram_credentials.update(
-        current_user.id,
-        id,
-        {
+    if id is None:
+        instagram_credentials.insert(current_user.id, {
             "app_id": form.app_id.data,
             "secret": form.secret.data,
             "status": True,
-        }
-    )
+        })
+    else:
+        instagram_credentials.update(current_user.id, id, {
+            "app_id": form.app_id.data,
+            "secret": form.secret.data,
+            "status": True,
+        })
     flash("Autenticação do Instagram atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -312,15 +321,18 @@ def credentials_tiktok_save(id):
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    tiktok_credentials.update(
-        current_user.id,
-        id,
-        {
+    if id is None:
+        tiktok_credentials.insert(current_user.id, {
             "app_id": form.app_id.data,
             "secret": form.secret.data,
             "status": True,
-        }
-    )
+        })
+    else:
+        tiktok_credentials.update(current_user.id, id, {
+            "app_id": form.app_id.data,
+            "secret": form.secret.data,
+            "status": True,
+        })
     flash("Autenticação do TikTok atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -351,15 +363,18 @@ def credentials_kwai_save(id):
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    kwai_credentials.update(
-        current_user.id,
-        id,
-        {
+    if id is None:
+        kwai_credentials.insert(current_user.id, {
             "app_id": form.app_id.data,
             "secret": form.secret.data,
             "status": True,
-        }
-    )
+        })
+    else:
+        kwai_credentials.update(current_user.id, id, {
+            "app_id": form.app_id.data,
+            "secret": form.secret.data,
+            "status": True,
+        })
     flash("Autenticação do Kwai atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
