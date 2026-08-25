@@ -12,10 +12,11 @@ PASSWORD = os.environ.get("POSTGRES_PASSWORD")
 SSLMODE = os.environ.get("POSTGRES_SSLMODE")
 MIGRATIONS_DIR = Path(f"{os.getcwd()}/database/migrations/")
 
-_dsn = (
-    f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}"
-    + (f"?sslmode={SSLMODE}" if SSLMODE else "")
-)
+def _dsn() -> str:
+    dsn = f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}"
+    if SSLMODE:
+        dsn += f"?sslmode={SSLMODE}"
+    return dsn
 
 
 def _get_applied_migrations(conn: Connection):
