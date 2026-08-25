@@ -1,28 +1,34 @@
-# Base image
+# Dockerfile para Hugging Face Spaces
+# Mantém o Dockerfile original (docker-compose + nginx) intacto.
+# No HF: copie este conteúdo para "Dockerfile" na raiz do repo do Space
+# e o README.hfspaces.md para "README.md".
 FROM python:3.13-slim
 
-# requirements
+# tini garante shutdown limpo; locales evita warning do pt_BR
 RUN apt update && apt install locales tini -y
 
-# Set the locale
 RUN sed -i '/pt_BR.UTF-8/s/^# //g' /etc/locale.gen && \
     locale-gen
 ENV LANG=pt_BR.UTF-8
 ENV LANGUAGE=pt_BR:pt:en
 ENV LC_ALL=pt_BR.UTF-8
 
+# HF Spaces: app escuta na porta definida em app_port (README do space = 5000)
 WORKDIR /shopee_bot
 
-# Install dependencies
+# Pacote shopee_bot resolve a partir da raiz (/)
+# (o docker-compose seta PYTHONPATH=/; sem isso o import shopee_bot quebra)
+ENV PYTHONPATH=/
+
+# Instala deps antes de copiar o codigo (cache de layer)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app code
+# Copia o app (a pasta raiz tem __init__.py -> vira o pacote shopee_bot)
 COPY . .
 
 EXPOSE 5000
 
-# Start Gunicorn
+# Scheduler sobe dentro do gunicorn (hook on_starting -> init_scheduler)
 ENTRYPOINT ["tini", "--"]
 CMD ["gunicorn", "web:app", "--config=gunicorn.conf.py"]
-
