@@ -11,8 +11,18 @@ HOST = os.environ.get("POSTGRES_HOST")
 DB = os.environ.get("POSTGRES_DB")
 USER = os.environ.get("POSTGRES_USER")
 PASSWORD = os.environ.get("POSTGRES_PASSWORD")
+# sslmode só é anexado quando definido (deploy externo exige require;
+# local sem var mantém comportamento anterior).
+SSLMODE = os.environ.get("POSTGRES_SSLMODE")
 
 _pool = None
+
+
+def _dsn() -> str:
+    dsn = f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}"
+    if SSLMODE:
+        dsn += f"?sslmode={SSLMODE}"
+    return dsn
 
 
 def get_conn() -> Connection:
@@ -75,7 +85,7 @@ def init():
     logger.debug("opening pool connection...")
     logger.debug(f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}")
     _pool = ConnectionPool(
-        f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}",
+        _dsn(),
         open=True,
         check=ConnectionPool.check_connection,
     )

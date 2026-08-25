@@ -29,9 +29,8 @@ package*.json
 
 # Docker
 docker-compose.yml
-Dockerfile
+docker-compose-dev.yml
 .docker
-.dockerignore
 
 # Byte-compiled / optimized / DLL files
 **/__pycache__/

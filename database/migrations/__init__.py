@@ -9,7 +9,13 @@ HOST = os.environ.get("POSTGRES_HOST")
 DB = os.environ.get("POSTGRES_DB")
 USER = os.environ.get("POSTGRES_USER")
 PASSWORD = os.environ.get("POSTGRES_PASSWORD")
+SSLMODE = os.environ.get("POSTGRES_SSLMODE")
 MIGRATIONS_DIR = Path(f"{os.getcwd()}/database/migrations/")
+
+_dsn = (
+    f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}"
+    + (f"?sslmode={SSLMODE}" if SSLMODE else "")
+)
 
 
 def _get_applied_migrations(conn: Connection):
@@ -53,7 +59,7 @@ def _apply_migration(conn: Connection, migration_file):
 
 def run_migrations():
     try:
-        with connect(f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}") as conn:
+        with connect(_dsn()) as conn:
             applied_migrations = _get_applied_migrations(conn)
             migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
 
@@ -63,8 +69,7 @@ def run_migrations():
                     _apply_migration(conn, migration_file)
                 else:
                     logger.info(
-                        f"Migração {
-                            migration_file.name} já aplicada, ignorando."
+                        f"Migração {migration_file.name} já aplicada, ignorando."
                     )
     except Error as err:
         logger.error(f"Erro na conexão com o banco de dados: {err}")
