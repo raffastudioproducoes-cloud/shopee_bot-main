@@ -7,19 +7,22 @@ from shopee_bot.clogging import logger
 from dotenv import load_dotenv
 load_dotenv()
 
-HOST = os.environ.get("POSTGRES_HOST")
-DB = os.environ.get("POSTGRES_DB")
-USER = os.environ.get("POSTGRES_USER")
-PASSWORD = os.environ.get("POSTGRES_PASSWORD")
+HOST = os.environ.get("SHOPEE_PG_HOST")
+DB = os.environ.get("SHOPEE_PG_DB")
+USER = os.environ.get("SHOPEE_PG_USER")
+PASSWORD = os.environ.get("SHOPEE_PG_PASSWORD")
 # sslmode só é anexado quando definido (deploy externo exige require;
 # local sem var mantém comportamento anterior).
-SSLMODE = os.environ.get("POSTGRES_SSLMODE")
+SSLMODE = os.environ.get("SHOPEE_PG_SSLMODE")
 
 _pool = None
 
 
 def _dsn() -> str:
-    dsn = f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}"
+    from urllib.parse import quote_plus
+    user = quote_plus(USER) if USER else ""
+    pwd = quote_plus(PASSWORD) if PASSWORD else ""
+    dsn = f"postgresql://{user}:{pwd}@{HOST}/{DB}"
     if SSLMODE:
         dsn += f"?sslmode={SSLMODE}"
     return dsn
