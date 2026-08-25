@@ -1,3 +1,16 @@
+# docker-compose.yml — livemy.app (Opção B: Supabase externo)
+#
+# ATENÇÃO: NÃO há senhas neste arquivo. O livemy.app deve injetar as
+# variáveis de ambiente em tempo de deploy (Settings do projeto ou MCP).
+# Se o livemy não injetar, o app crasha ao conectar no banco.
+#
+# Variáveis obrigatórias (fornecidas pelo livemy, NÃO commitadas):
+#   POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB,
+#   POSTGRES_SSLMODE, APP_ENCRYPTION_KEY, FLASK_SESSION_SECRET,
+#   FLASK_UPLOAD_FOLDER, FLASK_MAX_CONTENT_LENGTH, LOG_LEVEL,
+#   THREADS_PERMISSIONS, THREADS_CALLBACK_URL
+# Opcionais (vazias = inativo): CLOUDINARY_*, THREADS_APP_ID, THREADS_SECRET
+
 services:
   app:
     container_name: shopee-bot-app
@@ -5,56 +18,26 @@ services:
     environment:
       - PYTHONPATH=/
       - PYTHONUNBUFFERED=1
-      # Banco externo (Supabase) — Opção B
-      - POSTGRES_HOST=aws-0-us-east-1.pooler.supabase.com:5432
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=***
-      - POSTGRES_DB=postgres
-      - POSTGRES_SSLMODE=require
-      - APP_ENCRYPTION_KEY=mYQcBId_eAoXUodGwci_ywhDVG9IIs2iml8aAsHvyqE=
-      - FLASK_SESSION_SECRET=rafa-shopee-2026-prod-secret
+      - POSTGRES_HOST
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - POSTGRES_SSLMODE
+      - APP_ENCRYPTION_KEY
+      - FLASK_SESSION_SECRET
       - FLASK_UPLOAD_FOLDER=upload
       - FLASK_MAX_CONTENT_LENGTH=52428800
       - LOG_LEVEL=20
-      # Cloudinary (vazio = media inativo)
-      - CLOUDINARY_NAME=
-      - CLOUDINARY_API_KEY=
-      - CLOUDINARY_SECRET=
-      # Threads (vazio = publicação inativa)
-      - THREADS_APP_ID=
-      - THREADS_SECRET=
-      - THREADS_PERMISSIONS=threads_basic,threads_content_publish,threads_keyword_search,threads_manage_mentions,threads_manage_replies
-      - THREADS_CALLBACK_URL=https://vh-prod-shopee-bot-main-master-9c18c3-df590fa1.livemy.site/panel/credentials/threads/1
+      - CLOUDINARY_NAME
+      - CLOUDINARY_API_KEY
+      - CLOUDINARY_SECRET
+      - THREADS_APP_ID
+      - THREADS_SECRET
+      - THREADS_PERMISSIONS
+      - THREADS_CALLBACK_URL
     volumes:
       - static:/shopee_bot/web/static/
       - user-data:/shopee_bot/web/media/
-    networks:
-      - shopee-network
-    depends_on:
-      - database
-
-  database:
-    container_name: shopee-bot-database
-    image: postgres:17-alpine
-    shm_size: 128mb
-    environment:
-      - POSTGRES_USER=$POSTGRES_USER
-      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-      - POSTGRES_DB=$POSTGRES_DB
-    command: ["postgres", "-c", "log_min_messages=DEBUG1", "-c", "log_statement=all"]
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        window: 5s
-    healthcheck:
-      test: pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
-      interval: 1m
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    volumes:
-      - database:/var/lib/postgresql/data
     networks:
       - shopee-network
 
@@ -72,13 +55,11 @@ services:
     volumes:
       - static:/var/www/files/static/
       - user-data:/var/www/files/media/
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./cert.pem:/etc/nginx/cert.pem:ro
-      - ./key.pem:/etc/nginx/key.pem:ro
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - shopee-network
     ports:
-      - 2025:2025
+      - 80:80
     depends_on:
       - app
 
@@ -92,5 +73,3 @@ volumes:
     name: shopee-bot-static
   user-data:
     name: shopee-bot-user-data
-  database:
-    name: shopee-bot-database
