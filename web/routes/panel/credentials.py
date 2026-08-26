@@ -151,12 +151,20 @@ def credentials_threads_save(id):
 
     if token:
         # Token de testador colado manualmente: busca o user_id da conta
-        t_user_id = ThreadsAPI.get_user_id(token)
+        try:
+            t_user_id = ThreadsAPI.get_user_id(token)
+        except Exception as e:
+            flash(f"Threads: falha ao validar token ({e})", "error")
+            return redirect(url_for("panel.credentials_index"))
         access_token = token
     else:
-        t_user_id, access_token = ThreadsAPI.get_user_auth_id_token(
-            code
-        )
+        try:
+            t_user_id, access_token = ThreadsAPI.get_user_auth_id_token(
+                code
+            )
+        except Exception as e:
+            flash(f"Threads: falha no OAuth ({e})", "error")
+            return redirect(url_for("panel.credentials_index"))
 
     credential = {
         "t_user_id": t_user_id,
