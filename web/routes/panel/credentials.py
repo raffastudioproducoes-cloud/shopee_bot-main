@@ -124,6 +124,13 @@ def credentials_shopee_del(id):
 @fresh_login_required
 @login_required
 def credentials_threads_save(id):
+    # O parâmetro <id> na URL é o user_id (vem de current_user.id no
+    # template), NÃO o id da credencial. Buscamos o id real da
+    # credencial do Threads para este usuário.
+    from shopee_bot.database import users as _users
+    _cred = _users.get_credentials(current_user.id)
+    credential_id = _cred.get("threads_id")
+
     # O OAuth do Threads redireciona de VOLTA com GET ?code=... (ou
     # ?error=...), não via POST de formulário. Aceitamos ambos:
     # GET (retorno do Meta) e POST (fluxo manual, se houver).
@@ -171,10 +178,10 @@ def credentials_threads_save(id):
         "access_token": access_token,
         "status": True,
     }
-    if id is None:
+    if credential_id is None:
         threads_credentials.insert(current_user.id, credential)
     else:
-        threads_credentials.update(current_user.id, id, credential)
+        threads_credentials.update(current_user.id, credential_id, credential)
     flash("Autenticação do Threads atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
