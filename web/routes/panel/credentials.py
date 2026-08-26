@@ -127,36 +127,46 @@ def credentials_threads_save(id):
     # O OAuth do Threads redireciona de VOLTA com GET ?code=... (ou
     # ?error=...), não via POST de formulário. Aceitamos ambos:
     # GET (retorno do Meta) e POST (fluxo manual, se houver).
+    # Além disso, aceitamos um token de testador colado manualmente
+    # (campo "token") — útil quando o app ainda não publicou ou o
+    # callback do Meta não salva. Nesse caso buscamos o user_id via API.
     from flask import request as _request
 
     code = _request.args.get("code") or _request.form.get("code")
     error = _request.args.get("error")
+    token = _request.form.get("token")
 
     if error:
         flash(f"Threads: {error}", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    if not code:
+    if not code and not token:
         form = ThreadsForm()
         if not form.validate():
             session["form"] = {"threads": form.errors}
             flash("Erro(s) de validação", "error")
             return redirect(url_for("panel.credentials_index"))
-        code = form.code.data
+        flash("Informe o código do OAuth ou um token de acesso", "error")
+        return redirect(url_for("panel.credentials_index"))
 
-    t_user_id, access_token = ThreadsAPI.get_user_auth_id_token(
-        code
-    )
+    if token:
+        # Token de testador colado manualmente: busca o user_id da conta
+        t_user_id = ThreadsAPI.get_user_id(token)
+        access_token = token
+    else:
+        t_user_id, access_token = ThreadsAPI.get_user_auth_id_token(
+            code
+        )
 
-    threads_credentials.update(
-        current_user.id,
-        id,
-        {
-            "t_user_id": t_user_id,
-            "access_token": access_token,
-            "status": True
-        },
-    )
+    credential = {
+        "t_user_id": t_user_id,
+        "access_token": access_token,
+        "status": True,
+    }
+    if id is None:
+        threads_credentials.insert(current_user.id, credential)
+    else:
+        threads_credentials.update(current_user.id, id, credential)
     flash("Autenticação do Threads atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 

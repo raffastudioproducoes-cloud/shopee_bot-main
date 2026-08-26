@@ -21,7 +21,8 @@ class ShopeeForm(FlaskForm):
 
 
 class ThreadsForm(FlaskForm):
-    code = StringField('code', [DataRequired()])
+    code = StringField('code')
+    token = StringField('token')
 
 
 class XForm(FlaskForm):
