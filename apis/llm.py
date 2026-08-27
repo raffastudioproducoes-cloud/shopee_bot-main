@@ -5,7 +5,7 @@ import requests
 
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/"
-    "models/gemini-1.5-flash:generateContent"
+    "models/gemini-3.6-flash:generateContent"
 )
 
 # Tom de escrita por persona. Ajusta a voz do copy gerado.
