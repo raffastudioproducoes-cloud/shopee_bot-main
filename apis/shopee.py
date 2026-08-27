@@ -42,6 +42,47 @@ def _query(app_id, secret, query):
         return None
 
 
+def query_search(app_id, secret, keyword=None, product_cat_id=None,
+                 sort_type=1, limit=20, min_commission=None):
+    """Busca produtos na Shopee Affiliate API.
+
+    sort_type (Open API): 1=Relevância, 2=Vendas, 3=Preço↓,
+    4=Preço↑, 5=Comissão↓.
+    """
+    args = []
+    if product_cat_id:
+        args.append(f"productCatId: {product_cat_id}")
+    if keyword:
+        # GraphQL string com aspas duplas escapadas
+        safe_kw = keyword.replace('"', '\\"')
+        args.append(f'keyword: "{safe_kw}"')
+    args.append(f"sortType: {sort_type}")
+    args.append(f"limit: {limit}")
+    query = (
+        "{{"
+        "  productOfferV2({0}) {{"
+        "    nodes {{"
+        "      itemId"
+        "      offerLink"
+        "      productName"
+        "      productLink"
+        "      imageUrl"
+        "      priceMax"
+        "      priceMin"
+        "      commission"
+        "    }}"
+        "  }}"
+        "}}"
+    ).format(", ".join(args))
+    query_res = _query(app_id, secret, query)
+    if not query_res:
+        return []
+    nodes = query_res.get("productOfferV2", {}).get("nodes", [])
+    if min_commission is not None:
+        nodes = [n for n in nodes if float(n.get("commission") or 0) >= min_commission]
+    return nodes
+
+
 def query_products(app_id, secret, productCartId, sortType, limit=10):
     query = """
 {{

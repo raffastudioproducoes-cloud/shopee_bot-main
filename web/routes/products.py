@@ -188,3 +188,68 @@ def products_del(id):
     products.delete(current_user.id, id)
     flash("Produto removido", "success")
     return {}, 200
+
+
+@products_bp.get("/garimpo")
+@login_required
+def garimpo():
+    user_data = shopee_credentials.get_by_user_id(current_user.id)
+    status = user_data["shopee_status"]
+    categories = []
+    if status:
+        try:
+            categories = ShopeeAPI.get_category_list() or []
+        except Exception:
+            categories = []
+    return render_template(
+        "garimpo/index.html",
+        categories=json.dumps(categories),
+        has_credential=bool(status),
+    )
+
+
+@products_bp.get("/garimpo/search")
+@login_required
+def garimpo_search():
+    user_data = shopee_credentials.get_by_user_id(current_user.id)
+    app_id = user_data["shopee_app_id"]
+    secret = user_data["shopee_secret"]
+    status = user_data["shopee_status"]
+
+    if not app_id or not secret or status is False:
+        return jsonify({"error": "Cadastre uma chave da Shopee válida."}), 400
+
+    keyword = request.args.get("keyword", "").strip() or None
+    category_id = request.args.get("category_id") or None
+    if category_id:
+        try:
+            category_id = int(category_id)
+        except ValueError:
+            category_id = None
+    try:
+        sort_type = int(request.args.get("sort_type", "5"))
+    except ValueError:
+        sort_type = 5
+    try:
+        limit = min(int(request.args.get("limit", "20")), 50)
+    except ValueError:
+        limit = 20
+    try:
+        min_commission = float(request.args.get("min_commission", "")) \
+            if request.args.get("min_commission") else None
+    except ValueError:
+        min_commission = None
+
+    try:
+        nodes = ShopeeAPI.query_search(
+            app_id, secret,
+            keyword=keyword,
+            product_cat_id=category_id,
+            sort_type=sort_type,
+            limit=limit,
+            min_commission=min_commission,
+        )
+    except Exception as e:
+        return jsonify({"error": f"Falha na busca Shopee: {e}"}), 502
+
+    return jsonify({"products": nodes})

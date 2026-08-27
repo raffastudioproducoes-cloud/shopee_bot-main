@@ -12,6 +12,7 @@
         {% for href, icon, label in [
             ("/", "dashboard", "Dashboard"),
             ("/products?limit=10", "inventory_2", "Produtos"),
+            ("/garimpo", "travel_explore", "Garimpo"),
             ("/product-lists?limit=10", "list_alt", "Listas de Produtos"),
             ("/posts?limit=20", "post_add", "Postagens"),
             ("/activities?limit=20", "notifications_active", "Atividades"),
@@ -60,6 +61,7 @@
     <div x-cloak x-show="open" x-transition class="px-4 pb-4 flex flex-col gap-1 border-t border-white/10 pt-2">
         <a href="/" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Dashboard</a>
         <a href="/products?limit=10" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Produtos</a>
+        <a href="/garimpo" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Garimpo</a>
         <a href="/product-lists?limit=10" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Listas de Produtos</a>
         <a href="/posts?limit=20" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Postagens</a>
         <a href="/activities?limit=20" class="px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors">Atividades</a>

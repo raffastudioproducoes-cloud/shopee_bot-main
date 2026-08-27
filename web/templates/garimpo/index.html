@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% from "macros/h1.html" import h1 %}
+
+{% block title %}Garimpo{% endblock %}
+
+{% block navbar %}
+    {% include "includes/navbar.html" %}
+{% endblock %}
+
+{% block head %}
+    <script>
+        function fmtBRL(v) {
+            if (v == null) return "—";
+            return "R$ " + Number(v).toFixed(2).replace(".", ",");
+        }
+        function fmtComm(v) {
+            if (v == null) return "—";
+            return Number(v).toFixed(1) + "%";
+        }
+
+        document.addEventListener("alpine:init", () => {
+            Alpine.data("garimpo", () => ({
+                keyword: "",
+                categoryId: "",
+                sortType: "5",
+                minCommission: "",
+                loading: false,
+                error: "",
+                results: [],
+
+                get sortLabel() {
+                    const m = {
+                        "1": "Relevância",
+                        "2": "Mais vendidos",
+                        "3": "Maior preço",
+                        "4": "Menor preço",
+                        "5": "Maior comissão",
+                    };
+                    return m[this.sortType] || "Maior comissão";
+                },
+
+                search() {
+                    this.loading = true;
+                    this.error = "";
+                    this.results = [];
+                    const params = new URLSearchParams();
+                    if (this.keyword.trim()) params.set("keyword", this.keyword.trim());
+                    if (this.categoryId) params.set("category_id", this.categoryId);
+                    params.set("sort_type", this.sortType);
+                    if (this.minCommission.trim()) params.set("min_commission", this.minCommission.trim());
+                    params.set("limit", "20");
+
+                    fetch(`/garimpo/search?${params.toString()}`, {
+                        headers: { "Accept": "application/json" },
+                    })
+                        .then(r => r.json().then(d => ({ ok: r.ok, d })))
+                        .then(({ ok, d }) => {
+                            if (!ok) {
+                                this.error = d.error || "Falha na busca.";
+                            } else {
+                                this.results = d.products || [];
+                            }
+                        })
+                        .catch(e => { this.error = "Erro de rede: " + e; })
+                        .finally(() => { this.loading = false; });
+                },
+
+                addProduct(node) {
+                    // gera a URL do produto e redireciona para o form de adicionar
+                    const url = node.productLink || node.offerLink;
+                    if (!url) {
+                        this.error = "Sem link de produto para adicionar.";
+                        return;
+                    }
+                    window.location.href = `/products/add?product_url=${encodeURIComponent(url)}`;
+                },
+            }));
+        });
+    </script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8" x-data="garimpo">
+    {{ h1("Garimpo de Produtos") }}
+
+    {% if not has_credential %}
+        <div class="glass-panel rounded-xl p-6 mb-6 text-on-surface-variant">
+            Cadastre uma chave da Shopee válida em
+            <a href="/panel/credentials" class="text-accent underline">Credenciais</a>
+            para usar o garimpo.
+        </div>
+    {% else %}
+
+    <!-- Filtros -->
+    <div class="glass-panel rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="flex flex-col gap-1">
+            <label class="text-body-sm text-on-surface-variant">Palavra-chave</label>
+            <input type="text" x-model="keyword" placeholder="ex: fone bluetooth"
+                class="bg-black/20 rounded-lg px-3 py-2 text-on-surface border border-white/10 focus:border-accent outline-none" />
+        </div>
+        <div class="flex flex-col gap-1">
+            <label class="text-body-sm text-on-surface-variant">Categoria</label>
+            <select x-model="categoryId"
+                class="bg-black/20 rounded-lg px-3 py-2 text-on-surface border border-white/10 focus:border-accent outline-none">
+                <option value="">Todas</option>
+                <template x-for="cat in JSON.parse('{{ categories }}')" :key="cat.category_id">
+                    <option :value="cat.category_id" x-text="cat.name"></option>
+                </template>
+            </select>
+        </div>
+        <div class="flex flex-col gap-1">
+            <label class="text-body-sm text-on-surface-variant">Ordenar por</label>
+            <select x-model="sortType"
+                class="bg-black/20 rounded-lg px-3 py-2 text-on-surface border border-white/10 focus:border-accent outline-none">
+                <option value="1">Relevância</option>
+                <option value="2">Mais vendidos</option>
+                <option value="3">Maior preço</option>
+                <option value="4">Menor preço</option>
+                <option value="5">Maior comissão</option>
+            </select>
+        </div>
+        <div class="flex flex-col gap-1">
+            <label class="text-body-sm text-on-surface-variant">Comissão mín. (%)</label>
+            <input type="number" step="0.1" x-model="minCommission" placeholder="ex: 5"
+                class="bg-black/20 rounded-lg px-3 py-2 text-on-surface border border-white/10 focus:border-accent outline-none" />
+        </div>
+        <div class="md:col-span-4 flex justify-end">
+            <button @click="search()" :disabled="loading"
+                class="bg-accent text-white px-5 py-2 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 transition-opacity">
+                <span x-show="!loading">Garimpar</span>
+                <span x-show="loading">Buscando…</span>
+            </button>
+        </div>
+    </div>
+
+    <p class="text-body-sm text-on-surface-variant mb-3">
+        Ordenando por: <span class="text-accent" x-text="sortLabel"></span>
+    </p>
+
+    <!-- Erro -->
+    <template x-if="error">
+        <div class="glass-panel rounded-xl p-4 mb-4 text-danger" x-text="error"></div>
+    </template>
+
+    <!-- Resultados -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <template x-for="node in results" :key="node.itemId">
+            <div class="glass-panel rounded-xl overflow-hidden flex flex-col">
+                <img :src="node.imageUrl" alt="" class="w-full h-40 object-cover bg-black/30" />
+                <div class="p-4 flex flex-col gap-2 flex-1">
+                    <p class="text-body-sm font-medium line-clamp-2" x-text="node.productName"></p>
+                    <div class="flex items-center justify-between text-body-xs text-on-surface-variant">
+                        <span x-text="fmtBRL(node.priceMin) + (node.priceMax != node.priceMin ? ' – ' + fmtBRL(node.priceMax) : '')"></span>
+                        <span class="text-accent font-semibold" x-text="fmtComm(node.commission)"></span>
+                    </div>
+                    <button @click="addProduct(node)"
+                        class="mt-auto bg-white/10 hover:bg-accent/20 text-on-surface rounded-lg py-2 text-body-sm transition-colors">
+                        Adicionar
+                    </button>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <template x-if="!loading && results.length === 0 && !error">
+        <div class="text-on-surface-variant text-body-sm text-center py-10">
+            Use os filtros acima e clique em "Garimpar".
+        </div>
+    </template>
+
+    {% endif %}
+</div>
+{% endblock %}
