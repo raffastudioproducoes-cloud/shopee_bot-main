@@ -5,11 +5,34 @@ from flask_login import login_required, current_user
 
 from shopee_bot import utils
 from shopee_bot.database import get_conn, put_conn, query_db, \
-    posts, posts_medias, posts_products, medias, schedulers
+    posts, posts_medias, posts_products, medias, schedulers, products
 from shopee_bot.web.forms.posts import PostForm
 from shopee_bot.scheduler import add_job, remove_job, run_job
+from shopee_bot.apis import llm
 
 posts_bp = Blueprint("posts", __name__)
+
+
+@posts_bp.post("/posts/generate-copy")
+@login_required
+def generate_copy():
+    body = request.get_json(silent=True) or {}
+    product_id = body.get("product_id")
+    persona = body.get("persona") or "casual"
+
+    if product_id is None:
+        return {"error": "product_id é obrigatório."}, 400
+
+    product = products.get(current_user.id, int(product_id))
+    if not product:
+        return {"error": "Produto não encontrado."}, 404
+
+    try:
+        text = llm.generate_product_copy(product, persona)
+    except Exception as e:
+        return {"error": str(e)}, 400
+
+    return {"text": text}, 200
 
 
 @posts_bp.get("/posts")
