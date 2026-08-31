@@ -126,7 +126,7 @@ def data_view(name):
 
 
 # Gunicon Server Hooks
-def on_starting(server):
+def post_fork(server, worker):
     init_db()
     init_scheduler()
 

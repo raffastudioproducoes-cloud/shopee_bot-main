@@ -10,5 +10,6 @@ limiter = Limiter(
     # servidor de sobrecarga por excesso de requisição, não é
     # anti-brute-force (isso é o limite específico do login)
     default_limits=["200 per hour", "50 per minute"],
+    storage_uri="memory://"
 )
 

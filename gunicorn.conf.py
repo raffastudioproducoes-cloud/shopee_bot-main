@@ -1,6 +1,6 @@
 import os
 
-from shopee_bot.web import on_starting, on_exit
+from shopee_bot.web import post_fork, on_exit
 
 loglevel = "info"
 # Plataformas (livemy.app, Hugging Face Spaces) injetam a porta em $PORT.
@@ -12,5 +12,5 @@ timeout = 0
 
 
 # Server Hooks
-on_starting = on_starting
+post_fork = post_fork
 on_exit = on_exit
