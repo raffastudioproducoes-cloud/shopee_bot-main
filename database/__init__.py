@@ -89,6 +89,9 @@ def init():
     logger.debug(f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}")
     _pool = ConnectionPool(
         _dsn(),
+        min_size=1,
+        max_size=10,
+        timeout=30,
         open=True,
         check=ConnectionPool.check_connection,
     )
