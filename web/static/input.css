@@ -1,10 +1,13 @@
 @import "tailwindcss" source("../templates");
 [x-cloak] { display: none !important; }
 
-/* Tema "Obsidian Peak" (dark luxury) — gerado no Stitch, ver design/stitch-redesign-2026-08-19/obsidian_peak/DESIGN.md */
+/* Tema "Obsidian Peak" (dark luxury) — gerado no Stitch, ver design/stitch-redesign-2026-08-19/obsidian_peak/DESIGN.md
+   Camada "AIoT Telemetry" adicionada em 2026-08-22 (referência: dashboard estilo DeerFlow que
+   Rafa mandou) — fonte mono pra números, textura de pontos, glow de canto, animações de entrada. */
 @theme {
   --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
 
   --color-base: #0a0a0b;
   --color-surface: #12131a;
@@ -39,6 +42,8 @@
   border-top-color: rgba(255, 255, 255, 0.12);
   border-radius: 0.75rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 .bento-card:hover {
   transform: translateY(-2px);
@@ -53,4 +58,65 @@
 .primary-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 0 20px rgba(255, 77, 45, 0.25);
+}
+
+/* --- AIoT Telemetry: textura de pontos, glow, animações --- */
+
+/* halo quente no canto, tipo a referência DeerFlow */
+.telemetry-glow {
+  background-image: radial-gradient(
+    ellipse 800px 500px at 15% -10%,
+    rgba(255, 77, 45, 0.16),
+    transparent 60%
+  );
+}
+
+/* grade de pontos sutil no fundo dos cards de dado (halftone) */
+.dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+/* ponto de status pulsante (mesmo efeito já usado nos cards de credencial) */
+.status-dot {
+  position: relative;
+  display: inline-flex;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+}
+.status-dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  animation: status-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  background-color: inherit;
+  opacity: 0.75;
+}
+
+@keyframes status-ping {
+  75%, 100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* entrada escalonada dos cards (aplicar style="--stagger: N" por card) */
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.reveal-up {
+  animation: reveal-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--stagger, 0) * 60ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-up, .status-dot::before { animation: none; }
 }
