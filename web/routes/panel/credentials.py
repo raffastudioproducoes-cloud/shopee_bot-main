@@ -84,14 +84,19 @@ def credentials_shopee_save(id):
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    if not ShopeeAPI.query_auth_validate(
-        form.app_id.data,
-        form.secret.data
-    ):
-        flash(
-            "Não foi possível validar a autenticação da Shopee",
-            "error"
-        )
+    _credential_id_str = str(id).strip() if id else ""
+    try:
+        if not ShopeeAPI.query_auth_validate(
+            form.app_id.data,
+            form.secret.data
+        ):
+            flash(
+                "Não foi possível validar a autenticação da Shopee", "error"
+            )
+            return redirect(url_for("panel.credentials_index"))
+    except Exception as e:
+        # Log the error for debugging (in production, use proper logging)
+        flash("Erro ao validar a autenticação da Shopee. Tente novamente mais tarde.", "error")
         return redirect(url_for("panel.credentials_index"))
 
     credential = {
@@ -99,10 +104,19 @@ def credentials_shopee_save(id):
         "secret": form.secret.data,
         "status": True,
     }
-    if id is None or str(id).strip().lower() == "none" or str(id).strip() == "":
-        shopee_credentials.insert(current_user.id, credential)
+    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
+        try:
+            shopee_credentials.insert(current_user.id, credential)
+        except Exception as e:
+            flash("Erro ao salvar a autenticação da Shopee. Tente novamente mais tarde.", "error")
+            return redirect(url_for("panel.credentials_index"))
     else:
-        shopee_credentials.update(current_user.id, id, credential)
+        try:
+            shopee_credentials.update(current_user.id, id, credential)
+        except Exception as e:
+            flash("Erro ao atualizar a autenticação da Shopee. Tente novamente mais tarde.", "error")
+            return redirect(url_for("panel.credentials_index"))
+
     flash("Autenticação da Shopee atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -201,7 +215,6 @@ def credentials_threads_del(id):
             "status": False,
         },
     )
-
     flash("Token de acesso do Threads removido", "success")
     return {}, 200
 
@@ -212,6 +225,7 @@ def credentials_threads_del(id):
 # status=True — sem validar contra a API real da rede. Plugar a
 # validação (tipo ShopeeAPI.query_auth_validate) quando o wrapper de
 # cada rede for implementado.
+
 
 @fresh_login_required
 @login_required
