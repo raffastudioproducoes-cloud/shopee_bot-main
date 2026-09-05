@@ -9,12 +9,14 @@ from shopee_bot.database import get_conn, put_conn, query_db, \
 from shopee_bot.web.forms.posts import PostForm
 from shopee_bot.scheduler import add_job, remove_job, run_job
 from shopee_bot.apis import llm
+from shopee_bot.web.limiter import limiter
 
 posts_bp = Blueprint("posts", __name__)
 
 
 @posts_bp.post("/posts/generate-copy")
 @login_required
+@limiter.limit("10 per minute")
 def generate_copy():
     body = request.get_json(silent=True) or {}
     product_id = body.get("product_id")
@@ -68,7 +70,10 @@ def pre_add():
 def add():
     product_ids = request.args.get("product-ids", [])
     if product_ids and type(product_ids) is str:
-        product_ids = [int(id) for id in product_ids.split(',')]
+        try:
+            product_ids = [int(id) for id in product_ids.split(',') if id.strip().isdigit()]
+        except ValueError:
+            product_ids = []
 
     return render_template(
         "posts/form.html",

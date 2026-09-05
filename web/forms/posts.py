@@ -2,13 +2,13 @@ from flask_wtf import FlaskForm
 from flask_wtf.file import FileField
 from wtforms import StringField, IntegerField, SelectField, FieldList, \
     FormField, ValidationError, DateTimeLocalField, TimeField
-from wtforms.validators import DataRequired, Optional, NumberRange
+from wtforms.validators import DataRequired, Optional, NumberRange, Length
 
 
 class Media(FlaskForm):
     id = IntegerField("id", [Optional()])
-    file_name = StringField("file_name", [DataRequired()])
-    file_path = StringField("file_path", [DataRequired()])
+    file_name = StringField("file_name", [DataRequired(), Length(max=255)])
+    file_path = StringField("file_path", [DataRequired(), Length(max=2000)])
     size = IntegerField("size", [DataRequired()])
     type = SelectField(
         "type",
@@ -19,7 +19,7 @@ class Media(FlaskForm):
 
 class Post(FlaskForm):
     id = IntegerField("id", [Optional()])
-    text = StringField("text", [Optional()])
+    text = StringField("text", [Optional(), Length(max=5000)])
     medias = FieldList(FormField(Media))
 
     def validate(self, extra_validators=None):

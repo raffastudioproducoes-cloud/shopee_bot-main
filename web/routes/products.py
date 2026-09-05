@@ -9,6 +9,7 @@ from shopee_bot.database import products, shopee_credentials
 from shopee_bot.apis import shopee as ShopeeAPI
 from shopee_bot.scheduler.update_products import refresh_product
 from shopee_bot.web.forms.products import ProductForm
+from shopee_bot.web.limiter import limiter
 
 products_bp = Blueprint("products", __name__)
 
@@ -210,6 +211,7 @@ def garimpo():
 
 @products_bp.get("/garimpo/search")
 @login_required
+@limiter.limit("20 per minute")
 def garimpo_search():
     user_data = shopee_credentials.get_by_user_id(current_user.id)
     app_id = user_data["shopee_app_id"]
@@ -220,6 +222,8 @@ def garimpo_search():
         return jsonify({"error": "Cadastre uma chave da Shopee válida."}), 400
 
     keyword = request.args.get("keyword", "").strip() or None
+    if keyword and len(keyword) > 200:
+        keyword = keyword[:200]
     category_id = request.args.get("category_id") or None
     if category_id:
         try:
@@ -231,12 +235,14 @@ def garimpo_search():
     except ValueError:
         sort_type = 5
     try:
-        limit = min(int(request.args.get("limit", "20")), 50)
+        limit = max(1, min(int(request.args.get("limit", "20")), 50))
     except ValueError:
         limit = 20
     try:
         min_commission = float(request.args.get("min_commission", "")) \
             if request.args.get("min_commission") else None
+        if min_commission is not None:
+            min_commission = max(0.0, min(100.0, min_commission))
     except ValueError:
         min_commission = None
 
