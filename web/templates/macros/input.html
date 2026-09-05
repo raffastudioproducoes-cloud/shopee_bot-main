@@ -3,8 +3,9 @@
 {% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
 {% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div>
-    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
+    <label for="{{ model }}" class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <input
+        id="{{ model }}"
         {{ 'onfocus="{0}"'.format(onfocus)|safe if onfocus else '' }}
         x-model="{{ model }}"
         name="{{ model }}"
@@ -35,9 +36,10 @@
 {% set button_class = "px-2 py-0.5 bg-accent text-white rounded-lg hover:brightness-110 focus:outline-none cursor-pointer" %}
 {% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div x-data="{ copied: false }">
-    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
+    <label for="{{ model }}" class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <div class="flex items-center space-x-2 mt-1">
         <input
+            id="{{ model }}"
             x-model="{{ model }}"
             name="{{ model }}"
             type="{{ type }}"
@@ -75,8 +77,9 @@
 {% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
 {% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div>
-    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
+    <label for="{{ model }}" class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <input
+        id="{{ model }}"
         x-model="{{ model }}"
         name="{{ model }}"
         type="range"
@@ -99,15 +102,16 @@
 {%- endmacro %}
 
 <!-- input para password -->
-{% macro password_input(label, name='', model=None, placeholder="Digite sua senha", required=False, autocomplete='', errors=[]) -%}
+{% macro password_input(label, name='', model=None, placeholder=\"Digite sua senha\", required=False, autocomplete='', errors=[]) -%}
 {% set base_input_class = "w-full px-3 pr-10 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
 {% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div x-data="{ showPassword: false }">
-    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
+    <label for="{{ name if name else model }}" class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <div class="relative mt-1">
         <input 
             :type="showPassword ? 'text' : 'password'"
             {{ 'x-model='+model if model else '' }}
+            id="{{ name if name else model }}"
             name="{{ name }}"
             placeholder="{{ placeholder }}"
             {{ 'required' if required else '' }}
@@ -147,7 +151,7 @@
 <!-- fim input para password -->
 
 <!-- input para secrets -->
-{% macro secret_input(label, name, value, placeholder="Digite o secret", class='', readonly='', required=False, errors=[]) -%}
+{% macro secret_input(label, name, value, placeholder=\"Digite o secret\", class='', readonly='', required=False, errors=[]) -%}
 {% set base_input_class = "w-full px-3 pr-10 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
 {% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div
@@ -158,6 +162,7 @@
         <input
             :type="showSecret ? 'text' : 'password'"
             name="{{ name }}"
+            id="{{ name }}"
             placeholder="{{ placeholder }}"
             value="{{ value }}"
             {{ 'readonly' if readonly else '' }}
@@ -186,55 +191,56 @@
 <!-- fim de input para secrets -->
 
 <!-- textarea -->
-{% macro textarea(label, model, value, placeholder='', class='', readonly=False, required=False, errors="", max_chars=500) -%}
+{% macro textarea(label, model, value, placeholder='', class='', readonly=False, required=False, errors=\"\", max_chars=500) -%}
 {% set base_class = "w-full px-3 py-2 bg-surface-container-low border rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
 <div x-data="{ max_chars: {{ max_chars }} }">
-    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
+    <label for="{{ model }}" class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <textarea
-        x-init="{{ model }} = {{ model }}.replaceAll('<br>', '\n').replaceAll('\r', '')"
+        x-init="{{ model }} = {{ model }}.replaceAll('<br>', '\\n').replaceAll('\\r', '')"
         x-model="{{ model }}"
         :class="{
             'border-white/10': {{ model }}.length <= max_chars,
             'border-danger': {{ model }}.length > max_chars,
             'border-danger': {{ errors }} ? {{ errors}}.length > 0 : false
         }"
+        id="{{ model }}"
         name="{{ model }}"
-        rows="5"
-        placeholder="{{ placeholder }}"
+        rows=\"5\"
+        placeholder=\"{{ placeholder }}\"
         {{ 'readonly' if readonly else '' }}
         {{ 'required' if required else '' }}
-        class="{{ class }} {{ base_class }}"
+        class=\"{{ class }} {{ base_class }}\"
     >
         {{ value }}
     </textarea>
-    <ul x-cloak x-show="{{ errors }}" class="mt-1">
-        <template x-for="error in {{errors }}">
-        <li x-text="error" class="text-xs text-danger"></li>
+    <ul x-cloak x-show=\"{{ errors }}\" class=\"mt-1\">
+        <template x-for=\"error in {{errors }}\">
+            <li x-text=\"error\" class=\"text-xs text-danger\"></li>
         </template>
     </ul>
     <div 
-        class="mt-2 text-sm" 
-        :class="{
+        class=\"mt-2 text-sm\" 
+        :class=\"{
             'text-on-surface-variant': {{ model }}.length <= max_chars,
             'text-danger': {{ model }}.length > max_chars
-        }"
+        }\"
     >
-        <span x-text="{{ model }}.length"></span> / <span x-text="max_chars"></span> caracteres
-        <span x-show="{{ model }}.length > max_chars" class="font-medium"> - Limite excedido!</span>
+        <span x-text=\"{{ model }}.length\"></span> / <span x-text=\"max_chars\"></span> caracteres
+        <span x-show=\"{{ model }}.length > max_chars\" class=\"font-medium\"> - Limite excedido!</span>
     </div>
 </div>
 {%- endmacro %}
 <!-- fim textarea -->
-
 
 <!--  checkbox -->
 {% macro checkbox(label, model, checked=False, class='', readonly=False, required=False, errors=[]) -%}
 {% set base_input_class = "w-fit h-8 px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-accent sm:text-sm" %}
 {% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div class="flex flex-col justify-center items-center">
-    <label class="self-start block text-md font-medium text-on-surface-variant">{{ label }}</label>
+    <label for="{{ model }}" class="self-start block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <input
         x-model="{{ model}}"
+        id="{{ model }}"
         name="{{ model }}"
         type="checkbox"
         {{ 'checked' if checked else '' }}
@@ -252,4 +258,3 @@
 </div>
 {%- endmacro %}
 <!-- fim de checkbox -->
-
