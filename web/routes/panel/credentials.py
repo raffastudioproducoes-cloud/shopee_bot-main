@@ -57,6 +57,17 @@ def credentials_index():
         "secret": user_data["kwai_secret"] or "",
         "status": user_data["kwai_status"]
     }
+    # Forms state presets para cada rede (pré-preenche valores em caso de erro)
+    x_form = session.pop("x_form", {}) or {}
+    x_form_errors = session.pop("x_form_errors", {}) or {}
+    facebook_form = session.pop("facebook_form", {}) or {}
+    facebook_form_errors = session.pop("facebook_form_errors", {}) or {}
+    instagram_form = session.pop("instagram_form", {}) or {}
+    instagram_form_errors = session.pop("instagram_form_errors", {}) or {}
+    tiktok_form = session.pop("tiktok_form", {}) or {}
+    tiktok_form_errors = session.pop("tiktok_form_errors", {}) or {}
+    kwai_form = session.pop("kwai_form", {}) or {}
+    kwai_form_errors = session.pop("kwai_form_errors", {}) or {}
 
     return render_template(
         "panel/credentials.html",
@@ -69,7 +80,21 @@ def credentials_index():
         kwai=kwai,
         threads_user_auth_url=ThreadsAPI.get_user_auth_url(),
         # be aware it's only form.errors dict
-        form=session.pop("form", None)
+        form=session.pop("form", None),
+        shopee_form=shopee_form,
+        shopee_form_errors=shopee_form_errors,
+        threads_form=threads_form,
+        threads_form_errors=threads_form_errors,
+        x_form=x_form,
+        x_form_errors=x_form_errors,
+        facebook_form=facebook_form,
+        facebook_form_errors=facebook_form_errors,
+        instagram_form=instagram_form,
+        instagram_form_errors=instagram_form_errors,
+        tiktok_form=tiktok_form,
+        tiktok_form_errors=tiktok_form_errors,
+        kwai_form=kwai_form,
+        kwai_form_errors=kwai_form_errors,
     )
 
 
@@ -80,7 +105,14 @@ def credentials_shopee_save(id):
     form = ShopeeForm()
 
     if not form.validate():
-        session["form"] = form.errors
+        session["shopee_form"] = {
+            "app_id": form.app_id.data or "",
+            "secret": form.secret.data or "",
+        }
+        session["shopee_form_errors"] = {
+            "app_id": form.app_id.errors,
+            "secret": form.secret.errors,
+        }
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
@@ -90,12 +122,26 @@ def credentials_shopee_save(id):
             form.app_id.data,
             form.secret.data
         ):
-            flash(
-                "Não foi possível validar a autenticação da Shopee", "error"
-            )
+            session["shopee_form"] = {
+                "app_id": form.app_id.data or "",
+                "secret": form.secret.data or "",
+            }
+            session["shopee_form_errors"] = {
+                "app_id": ["Não foi possível validar a autenticação da Shopee"],
+                "secret": ["Não foi possível validar a autenticação da Shopee"],
+            }
+            flash("Não foi possível validar a autenticação da Shopee", "error")
             return redirect(url_for("panel.credentials_index"))
     except Exception as e:
         # Log the error for debugging (in production, use proper logging)
+        session["shopee_form"] = {
+            "app_id": form.app_id.data or "",
+            "secret": form.secret.data or "",
+        }
+        session["shopee_form_errors"] = {
+            "app_id": ["Erro ao validar a autenticação da Shopee"],
+            "secret": ["Erro ao validar a autenticação da Shopee"],
+        }
         flash("Erro ao validar a autenticação da Shopee. Tente novamente mais tarde.", "error")
         return redirect(url_for("panel.credentials_index"))
 
@@ -108,15 +154,33 @@ def credentials_shopee_save(id):
         try:
             shopee_credentials.insert(current_user.id, credential)
         except Exception as e:
+            session["shopee_form"] = {
+                "app_id": form.app_id.data or "",
+                "secret": form.secret.data or "",
+            }
+            session["shopee_form_errors"] = {
+                "app_id": ["Erro ao salvar a autenticação da Shopee"],
+                "secret": ["Erro ao salvar a autenticação da Shopee"],
+            }
             flash("Erro ao salvar a autenticação da Shopee. Tente novamente mais tarde.", "error")
             return redirect(url_for("panel.credentials_index"))
     else:
         try:
             shopee_credentials.update(current_user.id, id, credential)
         except Exception as e:
+            session["shopee_form"] = {
+                "app_id": form.app_id.data or "",
+                "secret": form.secret.data or "",
+            }
+            session["shopee_form_errors"] = {
+                "app_id": ["Erro ao atualizar a autenticação da Shopee"],
+                "secret": ["Erro ao atualizar a autenticação da Shopee"],
+            }
             flash("Erro ao atualizar a autenticação da Shopee. Tente novamente mais tarde.", "error")
             return redirect(url_for("panel.credentials_index"))
 
+    session.pop("shopee_form", None)
+    session.pop("shopee_form_errors", None)
     flash("Autenticação da Shopee atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -167,10 +231,21 @@ def credentials_threads_save(id):
     if not code and not token:
         form = ThreadsForm()
         if not form.validate():
-            session["form"] = {"threads": form.errors}
+            session["threads_form"] = {
+                "code": form.code.data or "",
+                "token": form.token.data or "",
+            }
+            session["threads_form_errors"] = {
+                "code": form.code.errors,
+                "token": form.token.errors,
+            }
             flash("Erro(s) de validação", "error")
             return redirect(url_for("panel.credentials_index"))
         flash("Informe o código do OAuth ou um token de acesso", "error")
+        session["threads_form"] = {
+            "code": form.code.data or "",
+            "token": form.token.data or "",
+        }
         return redirect(url_for("panel.credentials_index"))
 
     if token:
@@ -178,6 +253,14 @@ def credentials_threads_save(id):
         try:
             t_user_id = ThreadsAPI.get_user_id(token)
         except Exception as e:
+            session["threads_form"] = {
+                "code": code or "",
+                "token": token or "",
+            }
+            session["threads_form_errors"] = {
+                "code": [],
+                "token": [f"Threads: falha ao validar token ({e})"],
+            }
             flash(f"Threads: falha ao validar token ({e})", "error")
             return redirect(url_for("panel.credentials_index"))
         access_token = token
@@ -187,6 +270,14 @@ def credentials_threads_save(id):
                 code
             )
         except Exception as e:
+            session["threads_form"] = {
+                "code": code or "",
+                "token": token or "",
+            }
+            session["threads_form_errors"] = {
+                "code": [],
+                "token": [f"Threads: falha no OAuth ({e})"],
+            }
             flash(f"Threads: falha no OAuth ({e})", "error")
             return redirect(url_for("panel.credentials_index"))
 
@@ -199,6 +290,8 @@ def credentials_threads_save(id):
         threads_credentials.insert(current_user.id, credential)
     else:
         threads_credentials.update(current_user.id, credential_id, credential)
+    session.pop("threads_form", None)
+    session.pop("threads_form_errors", None)
     flash("Autenticação do Threads atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -233,23 +326,57 @@ def credentials_x_save(id):
     form = XForm()
 
     if not form.validate():
-        session["form"] = {"x": form.errors}
+        session["x_form"] = {
+            "app_id": form.app_id.data or "",
+            "secret": form.secret.data or "",
+        }
+        session["x_form_errors"] = {
+            "app_id": form.app_id.errors,
+            "secret": form.secret.errors,
+        }
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
     _credential_id_str = str(id).strip() if id else ""
     if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
-        x_credentials.insert(current_user.id, {
-            "app_id": form.app_id.data,
-            "secret": form.secret.data,
-            "status": True,
-        })
+        try:
+            x_credentials.insert(current_user.id, {
+                "app_id": form.app_id.data,
+                "secret": form.secret.data,
+                "status": True,
+            })
+        except Exception as e:
+            session["x_form"] = {
+                "app_id": form.app_id.data or "",
+                "secret": form.secret.data or "",
+            }
+            session["x_form_errors"] = {
+                "app_id": ["Erro ao salvar a autenticação do X"],
+                "secret": ["Erro ao salvar a autenticação do X"],
+            }
+            flash("Erro ao salvar a autenticação do X. Tente novamente mais tarde.", "error")
+            return redirect(url_for("panel.credentials_index"))
     else:
-        x_credentials.update(current_user.id, id, {
-            "app_id": form.app_id.data,
-            "secret": form.secret.data,
-            "status": True,
-        })
+        try:
+            x_credentials.update(current_user.id, id, {
+                "app_id": form.app_id.data,
+                "secret": form.secret.data,
+                "status": True,
+            })
+        except Exception as e:
+            session["x_form"] = {
+                "app_id": form.app_id.data or "",
+                "secret": form.secret.data or "",
+            }
+            session["x_form_errors"] = {
+                "app_id": ["Erro ao atualizar a autenticação do X"],
+                "secret": ["Erro ao atualizar a autenticação do X"],
+            }
+            flash("Erro ao atualizar a autenticação do X. Tente novamente mais tarde.", "error")
+            return redirect(url_for("panel.credentials_index"))
+
+    session.pop("x_form", None)
+    session.pop("x_form_errors", None)
     flash("Autenticação do X atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -276,23 +403,57 @@ def credentials_facebook_save(id):
     form = FacebookForm()
 
     if not form.validate():
-        session["form"] = {"facebook": form.errors}
+        session["facebook_form"] = {
+            "app_id": form.app_id.data or "",
+            "secret": form.secret.data or "",
+        }
+        session["facebook_form_errors"] = {
+            "app_id": form.app_id.errors,
+            "secret": form.secret.errors,
+        }
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
     _credential_id_str = str(id).strip() if id else ""
     if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
-        facebook_credentials.insert(current_user.id, {
-            "app_id": form.app_id.data,
-            "secret": form.secret.data,
-            "status": True,
-        })
+        try:
+            facebook_credentials.insert(current_user.id, {
+                "app_id": form.app_id.data,
+                "secret": form.secret.data,
+                "status": True,
+            })
+        except Exception as e:
+            session["facebook_form"] = {
+                "app_id": form.app_id.data or "",
+                "secret": form.secret.data or "",
+            }
+            session["facebook_form_errors"] = {
+                "app_id": ["Erro ao salvar a autenticação do Facebook"],
+                "secret": ["Erro ao salvar a autenticação do Facebook"],
+            }
+            flash("Erro ao salvar a autenticação do Facebook. Tente novamente mais tarde.", "error")
+            return redirect(url_for("panel.credentials_index"))
     else:
-        facebook_credentials.update(current_user.id, id, {
-            "app_id": form.app_id.data,
-            "secret": form.secret.data,
-            "status": True,
-        })
+        try:
+            facebook_credentials.update(current_user.id, id, {
+                "app_id": form.app_id.data,
+                "secret": form.secret.data,
+                "status": True,
+            })
+        except Exception as e:
+            session["facebook_form"] = {
+                "app_id": form.app_id.data or "",
+                "secret": form.secret.data or "",
+            }
+            session["facebook_form_errors"] = {
+                "app_id": ["Erro ao atualizar a autenticação do Facebook"],
+                "secret": ["Erro ao atualizar a autenticação do Facebook"],
+            }
+            flash("Erro ao atualizar a autenticação do Facebook. Tente novamente mais tarde.", "error")
+            return redirect(url_for("panel.credentials_index"))
+
+    session.pop("facebook_form", None)
+    session.pop("facebook_form_errors", None)
     flash("Autenticação do Facebook atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
