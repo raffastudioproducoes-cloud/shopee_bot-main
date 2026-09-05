@@ -1,6 +1,7 @@
 from flask import render_template, flash, redirect, \
     url_for, session
 from flask_login import login_required, fresh_login_required, current_user
+from shopee_bot.web.limiter import limiter
 
 from shopee_bot.database import users, shopee_credentials, \
     threads_credentials, x_credentials, facebook_credentials, \
@@ -74,6 +75,7 @@ def credentials_index():
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_shopee_save(id):
     form = ShopeeForm()
 
@@ -97,7 +99,7 @@ def credentials_shopee_save(id):
         "secret": form.secret.data,
         "status": True,
     }
-    if id is None:
+    if id is None or str(id).strip().lower() == "none" or str(id).strip() == "":
         shopee_credentials.insert(current_user.id, credential)
     else:
         shopee_credentials.update(current_user.id, id, credential)
@@ -123,6 +125,7 @@ def credentials_shopee_del(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_threads_save(id):
     # O parâmetro <id> na URL é o user_id (vem de current_user.id no
     # template), NÃO o id da credencial. Buscamos o id real da
@@ -220,7 +223,8 @@ def credentials_x_save(id):
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    if id is None:
+    _credential_id_str = str(id).strip() if id else ""
+    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
         x_credentials.insert(current_user.id, {
             "app_id": form.app_id.data,
             "secret": form.secret.data,
@@ -262,7 +266,8 @@ def credentials_facebook_save(id):
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    if id is None:
+    _credential_id_str = str(id).strip() if id else ""
+    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
         facebook_credentials.insert(current_user.id, {
             "app_id": form.app_id.data,
             "secret": form.secret.data,
@@ -304,7 +309,8 @@ def credentials_instagram_save(id):
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    if id is None:
+    _credential_id_str = str(id).strip() if id else ""
+    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
         instagram_credentials.insert(current_user.id, {
             "app_id": form.app_id.data,
             "secret": form.secret.data,
@@ -346,7 +352,8 @@ def credentials_tiktok_save(id):
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    if id is None:
+    _credential_id_str = str(id).strip() if id else ""
+    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
         tiktok_credentials.insert(current_user.id, {
             "app_id": form.app_id.data,
             "secret": form.secret.data,
@@ -388,7 +395,8 @@ def credentials_kwai_save(id):
         flash("Erro(s) de validação", "error")
         return redirect(url_for("panel.credentials_index"))
 
-    if id is None:
+    _credential_id_str = str(id).strip() if id else ""
+    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
         kwai_credentials.insert(current_user.id, {
             "app_id": form.app_id.data,
             "secret": form.secret.data,
