@@ -69,6 +69,11 @@ def credentials_index():
     kwai_form = session.pop("kwai_form", {}) or {}
     kwai_form_errors = session.pop("kwai_form_errors", {}) or {}
 
+    shopee_form = session.pop("shopee_form", {}) or {}
+    shopee_form_errors = session.pop("shopee_form_errors", {}) or {}
+    threads_form = session.pop("threads_form", {}) or {}
+    threads_form_errors = session.pop("threads_form_errors", {}) or {}
+
     return render_template(
         "panel/credentials.html",
         shopee=shopee,
