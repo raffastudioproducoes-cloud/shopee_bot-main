@@ -193,15 +193,19 @@ def credentials_shopee_save(id):
 @fresh_login_required
 @login_required
 def credentials_shopee_del(id):
-    shopee_credentials.update(
-        current_user.id,
-        id,
-        {
-            "app_id": None,
-            "secret": None,
-            "status": False
-        }
-    )
+    try:
+        shopee_credentials.update(
+            current_user.id,
+            id,
+            {
+                "app_id": None,
+                "secret": None,
+                "status": False
+            }
+        )
+    except Exception as e:
+        flash(f"Erro ao remover a autenticação da Shopee ({type(e).__name__}). Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
     flash("Autenticação da Shopee removida", "success")
     return {}, 200
 
@@ -291,10 +295,22 @@ def credentials_threads_save(id):
         "access_token": access_token,
         "status": True,
     }
-    if credential_id is None:
-        threads_credentials.insert(current_user.id, credential)
-    else:
-        threads_credentials.update(current_user.id, credential_id, credential)
+    try:
+        if credential_id is None:
+            threads_credentials.insert(current_user.id, credential)
+        else:
+            threads_credentials.update(current_user.id, credential_id, credential)
+    except Exception as e:
+        session["threads_form"] = {
+            "code": code or "",
+            "token": token or "",
+        }
+        session["threads_form_errors"] = {
+            "code": [],
+            "token": [f"Erro ao salvar a autenticação do Threads ({type(e).__name__})"],
+        }
+        flash("Erro ao salvar a autenticação do Threads. Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
     session.pop("threads_form", None)
     session.pop("threads_form_errors", None)
     flash("Autenticação do Threads atualizada", "success")
@@ -304,15 +320,19 @@ def credentials_threads_save(id):
 @fresh_login_required
 @login_required
 def credentials_threads_del(id):
-    threads_credentials.update(
-        current_user.id,
-        id,
-        {
-            "t_user_id": None,
-            "access_token": None,
-            "status": False,
-        },
-    )
+    try:
+        threads_credentials.update(
+            current_user.id,
+            id,
+            {
+                "t_user_id": None,
+                "access_token": None,
+                "status": False,
+            },
+        )
+    except Exception as e:
+        flash(f"Erro ao remover a autenticação do Threads ({type(e).__name__}). Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
     flash("Token de acesso do Threads removido", "success")
     return {}, 200
 
@@ -389,15 +409,19 @@ def credentials_x_save(id):
 @fresh_login_required
 @login_required
 def credentials_x_del(id):
-    x_credentials.update(
-        current_user.id,
-        id,
-        {
-            "app_id": None,
-            "secret": None,
-            "status": False
-        }
-    )
+    try:
+        x_credentials.update(
+            current_user.id,
+            id,
+            {
+                "app_id": None,
+                "secret": None,
+                "status": False
+            }
+        )
+    except Exception as e:
+        flash(f"Erro ao remover a autenticação do X ({type(e).__name__}). Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
     flash("Autenticação do X removida", "success")
     return {}, 200
 
@@ -466,15 +490,19 @@ def credentials_facebook_save(id):
 @fresh_login_required
 @login_required
 def credentials_facebook_del(id):
-    facebook_credentials.update(
-        current_user.id,
-        id,
-        {
-            "app_id": None,
-            "secret": None,
-            "status": False
-        }
-    )
+    try:
+        facebook_credentials.update(
+            current_user.id,
+            id,
+            {
+                "app_id": None,
+                "secret": None,
+                "status": False
+            }
+        )
+    except Exception as e:
+        flash(f"Erro ao remover a autenticação do Facebook ({type(e).__name__}). Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
     flash("Autenticação do Facebook removida", "success")
     return {}, 200
 
@@ -490,18 +518,32 @@ def credentials_instagram_save(id):
         return redirect(url_for("panel.credentials_index"))
 
     _credential_id_str = str(id).strip() if id else ""
-    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
-        instagram_credentials.insert(current_user.id, {
-            "app_id": form.app_id.data,
-            "secret": form.secret.data,
-            "status": True,
-        })
-    else:
-        instagram_credentials.update(current_user.id, id, {
-            "app_id": form.app_id.data,
-            "secret": form.secret.data,
-            "status": True,
-        })
+    try:
+        if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
+            instagram_credentials.insert(current_user.id, {
+                "app_id": form.app_id.data,
+                "secret": form.secret.data,
+                "status": True,
+            })
+        else:
+            instagram_credentials.update(current_user.id, id, {
+                "app_id": form.app_id.data,
+                "secret": form.secret.data,
+                "status": True,
+            })
+    except Exception as e:
+        session["instagram_form"] = {
+            "app_id": form.app_id.data or "",
+            "secret": form.secret.data or "",
+        }
+        session["instagram_form_errors"] = {
+            "app_id": [f"Erro ao salvar a autenticação do Instagram ({type(e).__name__})"],
+            "secret": [f"Erro ao salvar a autenticação do Instagram ({type(e).__name__})"],
+        }
+        flash("Erro ao salvar a autenticação do Instagram. Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
+    session.pop("instagram_form", None)
+    session.pop("instagram_form_errors", None)
     flash("Autenticação do Instagram atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -509,16 +551,40 @@ def credentials_instagram_save(id):
 @fresh_login_required
 @login_required
 def credentials_instagram_del(id):
-    instagram_credentials.update(
-        current_user.id,
-        id,
-        {
-            "app_id": None,
-            "secret": None,
-            "status": False
-        }
-    )
+    try:
+        instagram_credentials.update(
+            current_user.id,
+            id,
+            {
+                "app_id": None,
+                "secret": None,
+                "status": False
+            }
+        )
+    except Exception as e:
+        flash(f"Erro ao remover a autenticação do Instagram ({type(e).__name__}). Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
     flash("Autenticação do Instagram removida", "success")
+    return {}, 200
+
+
+@fresh_login_required
+@login_required
+def credentials_x_del(id):
+    try:
+        x_credentials.update(
+            current_user.id,
+            id,
+            {
+                "app_id": None,
+                "secret": None,
+                "status": False
+            }
+        )
+    except Exception as e:
+        flash(f"Erro ao remover a autenticação do X ({type(e).__name__}). Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
+    flash("Autenticação do X removida", "success")
     return {}, 200
 
 
@@ -533,18 +599,32 @@ def credentials_tiktok_save(id):
         return redirect(url_for("panel.credentials_index"))
 
     _credential_id_str = str(id).strip() if id else ""
-    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
-        tiktok_credentials.insert(current_user.id, {
-            "app_id": form.app_id.data,
-            "secret": form.secret.data,
-            "status": True,
-        })
-    else:
-        tiktok_credentials.update(current_user.id, id, {
-            "app_id": form.app_id.data,
-            "secret": form.secret.data,
-            "status": True,
-        })
+    try:
+        if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
+            tiktok_credentials.insert(current_user.id, {
+                "app_id": form.app_id.data,
+                "secret": form.secret.data,
+                "status": True,
+            })
+        else:
+            tiktok_credentials.update(current_user.id, id, {
+                "app_id": form.app_id.data,
+                "secret": form.secret.data,
+                "status": True,
+            })
+    except Exception as e:
+        session["tiktok_form"] = {
+            "app_id": form.app_id.data or "",
+            "secret": form.secret.data or "",
+        }
+        session["tiktok_form_errors"] = {
+            "app_id": [f"Erro ao salvar a autenticação do TikTok ({type(e).__name__})"],
+            "secret": [f"Erro ao salvar a autenticação do TikTok ({type(e).__name__})"],
+        }
+        flash("Erro ao salvar a autenticação do TikTok. Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
+    session.pop("tiktok_form", None)
+    session.pop("tiktok_form_errors", None)
     flash("Autenticação do TikTok atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -552,15 +632,19 @@ def credentials_tiktok_save(id):
 @fresh_login_required
 @login_required
 def credentials_tiktok_del(id):
-    tiktok_credentials.update(
-        current_user.id,
-        id,
-        {
-            "app_id": None,
-            "secret": None,
-            "status": False
-        }
-    )
+    try:
+        tiktok_credentials.update(
+            current_user.id,
+            id,
+            {
+                "app_id": None,
+                "secret": None,
+                "status": False
+            }
+        )
+    except Exception as e:
+        flash(f"Erro ao remover a autenticação do TikTok ({type(e).__name__}). Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
     flash("Autenticação do TikTok removida", "success")
     return {}, 200
 
@@ -576,18 +660,32 @@ def credentials_kwai_save(id):
         return redirect(url_for("panel.credentials_index"))
 
     _credential_id_str = str(id).strip() if id else ""
-    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
-        kwai_credentials.insert(current_user.id, {
-            "app_id": form.app_id.data,
-            "secret": form.secret.data,
-            "status": True,
-        })
-    else:
-        kwai_credentials.update(current_user.id, id, {
-            "app_id": form.app_id.data,
-            "secret": form.secret.data,
-            "status": True,
-        })
+    try:
+        if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
+            kwai_credentials.insert(current_user.id, {
+                "app_id": form.app_id.data,
+                "secret": form.secret.data,
+                "status": True,
+            })
+        else:
+            kwai_credentials.update(current_user.id, id, {
+                "app_id": form.app_id.data,
+                "secret": form.secret.data,
+                "status": True,
+            })
+    except Exception as e:
+        session["kwai_form"] = {
+            "app_id": form.app_id.data or "",
+            "secret": form.secret.data or "",
+        }
+        session["kwai_form_errors"] = {
+            "app_id": [f"Erro ao salvar a autenticação do Kwai ({type(e).__name__})"],
+            "secret": [f"Erro ao salvar a autenticação do Kwai ({type(e).__name__})"],
+        }
+        flash("Erro ao salvar a autenticação do Kwai. Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
+    session.pop("kwai_form", None)
+    session.pop("kwai_form_errors", None)
     flash("Autenticação do Kwai atualizada", "success")
     return redirect(url_for("panel.credentials_index"))
 
@@ -595,14 +693,18 @@ def credentials_kwai_save(id):
 @fresh_login_required
 @login_required
 def credentials_kwai_del(id):
-    kwai_credentials.update(
-        current_user.id,
-        id,
-        {
-            "app_id": None,
-            "secret": None,
-            "status": False
-        }
-    )
+    try:
+        kwai_credentials.update(
+            current_user.id,
+            id,
+            {
+                "app_id": None,
+                "secret": None,
+                "status": False
+            }
+        )
+    except Exception as e:
+        flash(f"Erro ao remover a autenticação do Kwai ({type(e).__name__}). Tente novamente mais tarde.", "error")
+        return redirect(url_for("panel.credentials_index"))
     flash("Autenticação do Kwai removida", "success")
     return {}, 200
