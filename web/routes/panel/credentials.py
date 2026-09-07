@@ -155,7 +155,7 @@ def credentials_shopee_save(id):
         "secret": form.secret.data,
         "status": True,
     }
-    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
+    if id is None or _credential_id_str.lower() in ("none", "new") or _credential_id_str == "":
         try:
             shopee_credentials.insert(current_user.id, credential)
         except Exception as e:
@@ -363,7 +363,7 @@ def credentials_x_save(id):
         return redirect(url_for("panel.credentials_index"))
 
     _credential_id_str = str(id).strip() if id else ""
-    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
+    if id is None or _credential_id_str.lower() in ("none", "new") or _credential_id_str == "":
         try:
             x_credentials.insert(current_user.id, {
                 "app_id": form.app_id.data,
@@ -444,7 +444,7 @@ def credentials_facebook_save(id):
         return redirect(url_for("panel.credentials_index"))
 
     _credential_id_str = str(id).strip() if id else ""
-    if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
+    if id is None or _credential_id_str.lower() in ("none", "new") or _credential_id_str == "":
         try:
             facebook_credentials.insert(current_user.id, {
                 "app_id": form.app_id.data,
@@ -519,7 +519,7 @@ def credentials_instagram_save(id):
 
     _credential_id_str = str(id).strip() if id else ""
     try:
-        if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
+        if id is None or _credential_id_str.lower() in ("none", "new") or _credential_id_str == "":
             instagram_credentials.insert(current_user.id, {
                 "app_id": form.app_id.data,
                 "secret": form.secret.data,
@@ -570,26 +570,6 @@ def credentials_instagram_del(id):
 
 @fresh_login_required
 @login_required
-def credentials_x_del(id):
-    try:
-        x_credentials.update(
-            current_user.id,
-            id,
-            {
-                "app_id": None,
-                "secret": None,
-                "status": False
-            }
-        )
-    except Exception as e:
-        flash(f"Erro ao remover a autenticação do X ({type(e).__name__}). Tente novamente mais tarde.", "error")
-        return redirect(url_for("panel.credentials_index"))
-    flash("Autenticação do X removida", "success")
-    return {}, 200
-
-
-@fresh_login_required
-@login_required
 def credentials_tiktok_save(id):
     form = TiktokForm()
 
@@ -600,7 +580,7 @@ def credentials_tiktok_save(id):
 
     _credential_id_str = str(id).strip() if id else ""
     try:
-        if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
+        if id is None or _credential_id_str.lower() in ("none", "new") or _credential_id_str == "":
             tiktok_credentials.insert(current_user.id, {
                 "app_id": form.app_id.data,
                 "secret": form.secret.data,
@@ -661,7 +641,7 @@ def credentials_kwai_save(id):
 
     _credential_id_str = str(id).strip() if id else ""
     try:
-        if id is None or _credential_id_str.lower() == "none" or _credential_id_str == "":
+        if id is None or _credential_id_str.lower() in ("none", "new") or _credential_id_str == "":
             kwai_credentials.insert(current_user.id, {
                 "app_id": form.app_id.data,
                 "secret": form.secret.data,
