@@ -18,9 +18,25 @@ class ActivityType(Enum):
     SCHEDULER_INFO = 10
 
 
-def query_activity_types(query, args=(), one=False):
-    result = query_db(query, args, one)
-    return result
+def query_activity_types_by_id(activity_type_id):
+    """Retorna um tipo de atividade pelo ID, ou None se não existir."""
+    query = """
+        SELECT id, name, description, created_at, updated_at
+        FROM activity_types
+        WHERE id = %s
+    """
+    args = (activity_type_id, )
+    return query_db(query, args, one=True)
+
+
+def query_activity_types_all():
+    """Retorna todos os tipos de atividade, ordenados por nome."""
+    query = """
+        SELECT id, name, description, created_at, updated_at
+        FROM activity_types
+        ORDER BY name
+    """
+    return query_db(query)
 
 
 def insert_activity_types(activity_type, open_conn=None):
@@ -44,18 +60,27 @@ def update_activity_types(activity_type_id, activity_type, open_conn=None):
     """
     args = (
         activity_type["name"],
-        activity_type_id["description"],
+        activity_type["description"],
         datetime.now(pytz.timezone('America/Sao_Paulo')),
         activity_type_id
     )
     return execute_db(query, args, open_conn)
 
 
-def delete_activity_types(activity_type_id):
+def delete_activity_types(activity_type_id, user_id=None):
+    """Deleta um tipo de atividade.
+
+    Args:
+        activity_type_id: ID do tipo de atividade no banco.
+        user_id: ID do usuário dono do registro. Obrigatório.
+            Sem esse parâmetro a função não deve ser chamada.
+    """
+    if user_id is None:
+        raise ValueError("user_id é obrigatório")
     query = """
         DELETE FROM activity_types
-        WHERE id = %s
+        WHERE id = %s AND user_id = %s
         RETURNING id
     """
-    args = (activity_type_id, )
+    args = (activity_type_id, user_id)
     execute_db(query, args)

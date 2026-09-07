@@ -51,6 +51,44 @@ app.wsgi_app = ProxyFix(
 # CSRF
 csrf = CSRFProtect(app)
 
+# security headers — aplicados em todas as respostas
+@app.after_request
+def set_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "font-src 'self' data:; "
+        "connect-src 'self' https://*.supabase.co https://graph.threads.net; "
+        "frame-ancestors 'none'"
+    )
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=()"
+    )
+    return response
+
+# tratamento genérico de exceções — evita information disclosure
+@app.errorhandler(Exception)
+def handle_unhandled_exception(e):
+    cls_name = type(e).__name__
+    # erro do CSRFProtect não deve vazar detalhes internos
+    if cls_name == "CSRFError":
+        return {"error": "Requisição inválida"}, 400
+    # no DEBUG, Flask ainda retorna o traceback padrão; em produção,
+    # o werkzeug error handler assume; aqui garantimos resposta JSON
+    # genérica para rotas que não foram tratadas pelo CSRF ou por
+    # handlers específicos
+    if not DEBUG:
+        return {"error": "Ocorreu um erro interno. Tente novamente."}, 500
+    return {"error": f"{cls_name}: {e}"}, 500
+
 # rate limiting — limite padrão global (ver web/limiter.py) mais o
 # limite específico do login (ver web/routes/auth.py)
 limiter.init_app(app)

@@ -1,11 +1,49 @@
-from psycopg.types.json import Jsonb
 from shopee_bot.database import query_db, execute_db
 from shopee_bot.database.activity_types import ActivityType
 
 
-def query_activities(query, args=(), one=False):
-    result = query_db(query, args, one)
-    return result
+def query_activities_by_id(activity_id, user_id):
+    """Retorna uma atividade pelo ID, restrita ao usuário dono."""
+    query = """
+        SELECT
+            act.id AS id,
+            act.metadata AS metadata,
+            to_char(
+                act.created_at - interval '3 hours',
+                'DD/MM/YY HH24:MI:SS'
+            ) AS localtime,
+            act.created_at AS created_at,
+            act_t.name AS name,
+            act_t.description AS description
+        FROM activities AS act
+        LEFT JOIN activity_types AS act_t ON act_t.id = act.activity_id
+        WHERE act.id = %s AND act.user_id = %s
+    """
+    args = (activity_id, user_id)
+    return query_db(query, args, one=True)
+
+
+def query_activities_all(user_id, limit=100):
+    """Retorna todas as atividades de um usuário, ordenadas por data."""
+    query = """
+        SELECT
+            act.id AS id,
+            act.metadata AS metadata,
+            to_char(
+                act.created_at - interval '3 hours',
+                'DD/MM/YY HH24:MI:SS'
+            ) AS localtime,
+            act.created_at AS created_at,
+            act_t.name AS name,
+            act_t.description AS description
+        FROM activities AS act
+        LEFT JOIN activity_types AS act_t ON act_t.id = act.activity_id
+        WHERE act.user_id = %s
+        ORDER BY act.created_at DESC
+        LIMIT %s
+    """
+    args = (user_id, limit)
+    return query_db(query, args)
 
 
 def query_activities_paginated(user_id, cursor, limit):
@@ -47,14 +85,14 @@ def query_activities_paginated(user_id, cursor, limit):
                 limit
             ]
         except ValueError:
-            # acitivities, next_cursor
+            # activities, next_cursor
             return [], None
     else:
         # Primeira página
         args = [None, None, None, None, user_id, limit]
 
     # Executa a query
-    activities = query_activities(query, args)
+    activities = query_db(query, args)
 
     # Determina o próximo cursor
     next_cursor = None

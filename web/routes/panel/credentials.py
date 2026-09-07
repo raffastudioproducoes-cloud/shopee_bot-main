@@ -192,6 +192,7 @@ def credentials_shopee_save(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_shopee_del(id):
     try:
         shopee_credentials.update(
@@ -319,6 +320,7 @@ def credentials_threads_save(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_threads_del(id):
     try:
         threads_credentials.update(
@@ -347,6 +349,7 @@ def credentials_threads_del(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_x_save(id):
     form = XForm()
 
@@ -408,6 +411,7 @@ def credentials_x_save(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_x_del(id):
     try:
         x_credentials.update(
@@ -428,6 +432,7 @@ def credentials_x_del(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_facebook_save(id):
     form = FacebookForm()
 
@@ -489,6 +494,7 @@ def credentials_facebook_save(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_facebook_del(id):
     try:
         facebook_credentials.update(
@@ -550,6 +556,7 @@ def credentials_instagram_save(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_instagram_del(id):
     try:
         instagram_credentials.update(
@@ -570,6 +577,7 @@ def credentials_instagram_del(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_tiktok_save(id):
     form = TiktokForm()
 
@@ -611,6 +619,7 @@ def credentials_tiktok_save(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_tiktok_del(id):
     try:
         tiktok_credentials.update(
@@ -631,6 +640,7 @@ def credentials_tiktok_del(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_kwai_save(id):
     form = KwaiForm()
 
@@ -672,6 +682,7 @@ def credentials_kwai_save(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_kwai_del(id):
     try:
         kwai_credentials.update(
