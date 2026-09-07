@@ -225,6 +225,18 @@ inicializa junto no mesmo container.
 - `ProxyFix` habilita operação correta atrás de reverse proxy (nginx / HF).
 - Sem credenciais ou senhas padrão expostas no repositório.
 - Logs, issues e documentação não devem conter credenciais ou dados pessoais.
+- Processamento de formulários de credenciais: **try/except padronizado em
+  todas as 7 redes** (Shopee, Threads, X, Facebook, Instagram, TikTok, Kwai),
+  com preservação dos valores digitados na sessão e mensagem de erro amigável
+  em vez de 500 genérico. Commit [`c9731c8`](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/commit/c9731c8).
+- Credenciais não usadas publicamente: função `public.rls_auto_enable()`
+  declarada `SECURITY DEFINER` teria sido acessível por `anon`/`authenticated`
+  via RPC; revoke `EXECUTE` para `anon`, `authenticated` e `public`.
+- Tabelas com RLS habilitado sem policies: criadas **policies de rejeição
+  explícitas** `block_all_api` em todas as 18 tabelas (`USING (false)
+  WITH CHECK (false)` para `anon, authenticated`), documentando que o acesso
+  externo via API está bloqueado por design — o backend usa conexão direta
+  com usuário admin que bypassa RLS; o frontend não usa Supabase JS client.
 
 Este projeto adota princípios da **LGPD**: minimização de dados, finalidade
 explícita, controle de acesso e transparência sobre tratamento e retenção.
@@ -235,16 +247,15 @@ explícita, controle de acesso e transparência sobre tratamento e retenção.
 | --- | --- | --- |
 | **Shopee** | ✅ Operacional | Wrapper + validação de credencial (`query_auth_validate`) |
 | **Threads** | ✅ Operacional | Wrapper + OAuth (callback aceita `GET ?code=`) |
-| **X** | ⏸️ Pendente | Credencial cifrada salva; falta wrapper de publicação |
-| **Facebook** | ⏸️ Pendente | Credencial cifrada salva; falta wrapper de publicação |
-| **Instagram** | ⏸️ Pendente | Credencial cifrada salva; falta wrapper de publicação |
-| **TikTok** | ⏸️ Pendente | Credencial cifrada salva; falta wrapper de publicação |
-| **Kwai** | ⏸️ Pendente | Credencial cifrada salva; falta wrapper de publicação |
+|| **X** | ⏸️ Pendente | Wrapper de API implementado (`apis/x.py`) com validação de Bearer Token (OAuth 2.0 Client Credentials) e postagem de texto/produto. Falta: (1) page_id ou user_id não é salvo na tabela (tabela só tem app_id/secret); (2) wrapper de scheduler para publicar automaticamente; (3) validação end-to-end com credentials reais. |
+|| **Facebook** | ⏸️ Pendente | Wrapper de API implementado (`apis/facebook.py`) com App Access Token, Page Access Token e postagem de texto/produto na Timeline. Falta: (1) page_id não é salvo na tabela (tabela só tem app_id/secret); (2) wrapper de scheduler; (3) validação end-to-end. |
+|| **Instagram** | ⏸️ Pendente | Wrapper de API implementado (`apis/instagram.py`) via Meta Graph API (Instagram Basic Display + Content Publish). Suporta postagem de texto via media container. **Pré-requisitos críticos**: (1) `user_access_token` com permissões `instagram_basic` e `instagram_content_publish` não é salvo na tabela (hoje só tem app_id/secret); (2) conta deve ser Business/Creator com Instagram Graph API habilitada; (3) wrapper de scheduler. |
+|| **TikTok** | ⏸️ Pendente | Wrapper de API implementado (`apis/tiktok.py`) definindo contrato. **Limitação da plataforma**: TikTok não publica texto puro via API — só vídeos. Wrapper atual levanta `NotImplementedError` para `post_text` e `validate_credentials` até que OAuth user flow e upload/publish de vídeo estejam implementados (documentação: https://developers.tiktok.com). |
+|| **Kwai** | ⏸️ Pendente | Wrapper de API implementado (`apis/kwai.py`) definindo contrato. **Limitação da plataforma**: Kwai não disponibiliza API pública documentada para postagem de conteúdo via programação (a plataforma funciona via app móvel; API de parceiros/Advertisers é restrita). Wrapper atual levanta `NotImplementedError` até que uma API pública seja disponibilizada ou um agregador com suporte seja usado. |
 
-As rotas de credencial das redes pendentes já gravam `app_id`/`secret`
-cifrados e marcam `status=True`, mas **não validam nem publicam** contra a API
-real — aguardando a implementação do wrapper seguindo o padrão de
-`apis/shopee.py` e `apis/threads.py`.
+Todas as wrappers implementadas seguem o padrão de `apis/shopee.py` e `apis/threads.py`.
+As redes X, Facebook e Instagram usam API pública documentada (X API v2, Meta Graph API v18.0).
+TikTok e Kwai não permitem publicação prática via API pública hoje; os wrappers definem o contrato e lançam `NotImplementedError` com documentação até que os pré-requisitos (OAuth user token, vídeo para TikTok, API pública para Kwai) estejam disponíveis.
 
 ## Documentação
 
@@ -273,8 +284,8 @@ Próximo:
 - Hospedagem em produção (HF Spaces — este deploy)
 - Beta fechado com usuários reais
 - OAuth do Threads em produção (callback corrigido; falta validação end-to-end)
-- Wrappers de API para X, Facebook, Instagram, TikTok e Kwai
-- Domínio próprio (HF Pro ou Cloudflare Worker) e monitoramento (UptimeRobot)
+- Wrappers de API para X, Facebook: implementados (validação + postagem de texto/produto, mas sem schedule nem page_id na tabela). Instagram: wrapper implementado, mas requer user_access_token (OAuth) e conta Business/Creator. TikTok e Kwai: wrappers com contrato — TikTok precisa de OAuth user flow e vídeo; Kwai não tem API pública de postagem.
+- Domínio próprio (HF Pro ou Cloudflare Worker) e monitoramento (UptimeRobot) — rota `/health` implementada para monitoramento externo.
 - Publicação automática multicanal completa
 
 ## Licença

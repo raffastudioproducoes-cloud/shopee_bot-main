@@ -84,6 +84,13 @@ login_manager.needs_refresh_message = "Para proteger a sua conta, refaça o logi
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
+# Health check endpoint for monitoring (UptimeRobot, etc.)
+# Public, no auth required, returns 200 OK when app is running.
+@app.get("/health")
+def health():
+    return {"status": "ok"}, 200
+
+
 # Verifica se a pasta de uploads existe, senão cria
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
