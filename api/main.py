@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .routers import auth_router
+from .routers.panel import router as panel_router
 
 app = FastAPI(
     title="Shopee Auto Vendas API",
@@ -27,6 +28,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(auth_router)
+app.include_router(panel_router)
 
 @app.get("/health")
 async def health():
