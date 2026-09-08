@@ -1,17 +1,129 @@
 <!-- input básico -->
-{% macro input(label, model, value, type='text', placeholder='', class='', readonly=False, required=False, autocomplete='', errors=[], min=none, max=none) -%}
+{% macro input(label, model, value, type='text', placeholder='', class='', readonly=False, required=False, autocomplete='', errors=[], min=none, max=none, onfocus=False) -%}
 {% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
 {% set errors_class = "!border-danger" if errors|length > 0 else "" %}
 <div>
-    <label class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
+    <label for="{{ model }}" class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
     <input
+        id="{{ model }}"
+        {{ 'onfocus="{0}"'.format(onfocus)|safe if onfocus else '' }}
         x-model="{{ model }}"
         name="{{ model }}"
         type="{{ type }}"
         placeholder="{{ placeholder }}"
         value="{{ value }}"
+        {{ 'min="{0}"'.format(min)|safe if min is not none else '' }}
+        {{ 'max="{0}"'.format(max)|safe if max is not none else '' }}
+        {{ 'readonly' if readonly else '' }}
+        {{ 'required' if required else '' }}
+        {{ 'autocomplete={0}'.format(autocomplete) if autocomplete else '' }}
+        class="{{ class }} {{ base_input_class }} {{ errors_class }}"
+    >
+    {% if errors %}
+    <ul class="mt-1">
+        {% for error in errors %}
+        <li class="text-xs text-danger">{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{%- endmacro %}
+<!-- fim de input básico -->
+
+<!-- input com botão de cópia -->
+{% macro input_copy(label, model, value, type='text', placeholder='', class='', readonly=False, required=False, autocomplete='', errors=[]) -%}
+{% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
+{% set button_class = "px-2 py-0.5 bg-accent text-white rounded-lg hover:brightness-110 focus:outline-none cursor-pointer shrink-0" %}
+{% set errors_class = "!border-danger" if errors|length > 0 else "" %}
+<div>
+    <label for="{{ model }}" class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
+    <div class="flex items-center space-x-2 mt-1">
+        <input
+            id="{{ model }}"
+            x-model="{{ model }}"
+            name="{{ model }}"
+            type="{{ type }}"
+            placeholder="{{ placeholder }}"
+            value="{{ value }}"
+            {{ 'readonly' if readonly else '' }}
+            {{ 'required' if required else '' }}
+            autocomplete="{{ autocomplete }}"
+            class="{{ class }} {{ base_input_class }} {{ errors_class }}"
+        >
+        <button
+            type="button"
+            @click="navigator.clipboard.writeText({{ model }}).then(() => { copied = true; setTimeout(() => copied = false, 2000) })"
+            class="{{ button_class }}"
+            :class="{ 'bg-success hover:bg-success': copied, 'text-white': !copied }"
+        >
+            {{ icon('content_copy', size='16') }}
+        </button>
+    </div>
+    <p x-cloak x-show="copied" class="text-on-surface mt-2 text-sm">Texto copiado para a área de transferência!</p>
+    {% if errors %}
+    <ul class="mt-1">
+        {% for error in errors %}
+        <li class="text-xs text-danger">{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{%- endmacro %}
+<!-- fim de input com botão de cópia -->
+
+{% macro input_range(label, model, value, min, max, step, class='', readonly=False, required=False, errors=[]) -%}
+{% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
+{% set errors_class = "!border-danger" if errors|length > 0 else "" %}
+<div>
+    <label for="{{ model }}" class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
+    <input
+        id="{{ model }}"
+        x-model="{{ model }}"
+        name="{{ model }}"
+        type="range"
         min="{{ min }}"
         max="{{ max }}"
-        {% if readonly %}readonly{% endif %}
-        {% if required %}required{% endif %}
+        step="{{ step }}"
+        value="{{ value }}"
+        {{ 'readonly' if readonly else '' }}
+        {{ 'required' if required else '' }}
+        class="{{ class }} {{ base_input_class }} {{ errors_class }}"
     >
+    {% if errors %}
+    <ul class="mt-1">
+        {% for error in errors %}
+        <li class="text-xs text-danger">{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{%- endmacro %}
+<!-- fim de input_range -->
+
+<!-- secret_input: nunca expõe valor em texto — type=password, value vazio -->
+{% macro secret_input(label, name, value, placeholder='', class='', required=False, errors=[], autocomplete='off') -%}
+{% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
+{% set errors_class = "!border-danger" if errors|length > 0 else "" %}
+<div>
+    <label for="{{ name }}" class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
+    <input
+        id="{{ name }}"
+        x-model="{{ name }}"
+        name="{{ name }}"
+        type="password"
+        placeholder="{{ placeholder }}"
+        value=""
+        {{ 'required' if required else '' }}
+        autocomplete="{{ autocomplete }}"
+        class="{{ class }} {{ base_input_class }} {{ errors_class }}"
+    >
+    {% if errors %}
+    <ul class="mt-1">
+        {% for error in errors %}
+        <li class="text-xs text-danger">{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{%- endmacro %}
+<!-- fim secret_input (valor NUNCA exposto em HTML) -->

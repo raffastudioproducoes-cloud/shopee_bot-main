@@ -46,7 +46,7 @@
         @click.stop="{{ option.callback }}"
         class="item-option {{ base_class }} {{ option.class }}"
     >
-        <span class="material-symbols-outlined">{{ option.material }}</span>
+        {{ icon(option.material, size='20') }}
         <span>{{ option.text }}</span>
     </button>
     {% endfor %}

@@ -147,9 +147,7 @@
                         @click.prevent="removePost(post_index)"
                         class="absolute top-2 right-2 bg-surface-container-high hover:bg-danger text-on-surface-variant hover:text-white cursor-pointer rounded-full p-1 w-8 h-8 transition-colors"
                     >
-                        <span class="material-symbols-outlined">
-                            delete
-                        </span>
+                        {{ icon('delete', size='20') }}
                     </button>
                 </div>
             </template>

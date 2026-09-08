@@ -1,3 +1,4 @@
+{% from "macros/_icon.html" import icon -%}
 {% macro fetch_button(material="", title="", func="", class="") -%}
 <button
     title="{{ title }}"
@@ -9,8 +10,8 @@
     @cancel-update.window="isSending = false"
     :disabled="isSending"
 >
-    <span x-show="!isSending" class="material-symbols-outlined">
-        {{ material }}
+    <span x-show="!isSending">
+        {{ icon(material, size='20') }}
     </span>
     <svg 
         x-cloak
