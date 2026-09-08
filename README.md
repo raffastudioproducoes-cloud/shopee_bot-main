@@ -1,305 +1,225 @@
-<div align="center">
-
 # Shopee Auto Vendas
 
-### Automação de divulgação de links de afiliado da Shopee e redes sociais.
+Automação de divulgação de links de afiliado da Shopee e redes sociais.
 
-[![Stage](https://img.shields.io/badge/stage-MVP--Beta-2563EB)](https://huggingface.co/spaces)
-[![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org)
-[![Flask](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com)
-[![APScheduler](https://img.shields.io/badge/APScheduler-3.11-FF6F00)](https://apscheduler.readthedocs.io)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-336791?logo=postgresql&logoColor=white)](https://supabase.com)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
-[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-Spaces-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co/spaces)
-[![Cloudinary](https://img.shields.io/badge/Cloudinary-Media-3448C5?logo=cloudinary&logoColor=white)](https://cloudinary.com)
-[![License](https://img.shields.io/badge/license-proprietary-0F172A)](#licen%C3%A7a)
+## Sobre
 
-</div>
+Plataforma para:
+- Cadastrar produtos e listas de produtos da Shopee
+- Agendar posts (cron/data) e publicar sob demanda
+- Conectar credenciais de redes sociais de forma cifrada
+- Acompanhar atividades e histórico
 
----
+Hospedado em **Render (Free)** em `https://shopee-bot-fj0w.onrender.com` com Supabase como banco.
 
-## Sumário
+## Stack em transição
 
-1. [Apresentação](#apresentação)
-2. [Objetivo](#objetivo)
-3. [Público-alvo](#público-alvo)
-4. [Funcionalidades principais](#funcionalidades-principais)
-5. [Tecnologias](#tecnologias)
-6. [Arquitetura e estrutura](#arquitetura-e-estrutura)
-7. [Configuração do ambiente](#configuração-do-ambiente)
-8. [Desenvolvimento e testes](#desenvolvimento-e-testes)
-9. [Build e distribuição](#build-e-distribuição)
-10. [Segurança e privacidade](#segurança-e-privacidade)
-11. [Integrações e redes sociais](#integrações-e-redes-sociais)
-12. [Documentação](#documentação)
-13. [Roadmap](#roadmap)
-14. [Licença](#licença)
-15. [Contato](#contato)
+**Frontend atual (Jinja2 + Alpine.js):**
+- Flask 3.x + Jinja2 templates + Alpine.js
+- Material Symbols (Google Fonts) para ícones — problemático no Render (CDN etc)
 
----
+**Nova stack (migração iniciada 2026-09-04):**
 
-## Apresentação
+| Camada | Tecnologia |
+|--------|------------|
+| Frontend | React 19 + TypeScript + TanStack Router + TanStack Query + Vite + Tailwind CSS + Zustand |
+| Backend API | Python 3.13 + FastAPI (nova API coexistindo com Flask durante migração) |
+| Banco | Supabase (estrutura de tabelas mantida) |
+| Deploy | Render (mantido) |
 
-**Shopee Auto Vendas** é uma plataforma web para automatizar a divulgação de
-links de afiliado da Shopee e de outras redes. O usuário cadastra produtos,
-monta listas e agenda posts; a aplicação publica nos canais conectados no
-horário programado, com tentativas e tratamento de erro.
+### Por que migrar
 
-Atualmente a publicação automática está operacional para **Shopee** e
-**Threads**. As demais redes (X, Facebook, Instagram, TikTok, Kwai) já
-possuem armazenamento cifrado de credencial, mas aguardam a implementação do
-wrapper de API para publicação automática.
+- Material Symbols via Google Fonts falha no Render (CDN externo) → ícones aparecem como texto
+- Jinja2 + Alpine.js limita manutenção, testes e escalabilidade
+- React + Vite + Tailwind entrega build consistente, hot reload, testes, deploy previsível
+- Nova API Python serve frontend React com JSON, mantendo Supabase estruturalmente inalterado
 
-Versão atual: **MVP / Beta** · Idioma: **Português Brasileiro** · Plataforma: **Web**
+## Migração (em andamento desde 2026-09-04)
 
-## Objetivo
+A migração será feita **por módulos**, testando cada um antes de avançar, com **rollback por módulo** (branch `migrate/<modulo>`).
 
-Reduzir o trabalho manual de divulgação recorrente, permitindo ao usuário:
+### Módulos (ordem)
 
-- cadastrar produtos e listas de produtos da Shopee;
-- agendar posts (únicos ou recorrentes, por cron) para os canais conectados;
-- conectar credenciais de redes sociais de forma cifrada;
-- acompanhar atividades e histórico de publicação;
-- disparar posts sob demanda fora do agendamento.
+1. **Auth** — login/logout, sessão
+2. **Painel/Dashboard** — cards com contagens, atividade
+3. **Produtos** — lista, cadastro, edição
+4. **Listas de produtos** — relação muitos-para-muitos
+5. **Posts** — criação, agendamento, execução, copywriter IA
+6. **Credenciais** — forms de credencial (inputs password sem expor valor)
+7. **Usuários** — listagem administrativa
+8. **Scheduler** — avaliar manter in-process (YAGNI ADR) ou externalizar
 
-## Público-alvo
+### Critérios de teste por módulo
 
-- Afiliados da Shopee
-- Marketers de mídias sociais
-- Pequenos lojistas e criadores de conteúdo
-- Quem divulga links de afiliado em múltiplas redes
-- Operações que precisam de agendamento recorrente de posts
+- Renderiza sem erros de console
+- Ícones aparecem corretamente (Lucide React, sem Material Symbols)
+- Credenciais não expostas nos inputs
+- Requisições à API Python funcionam e retornam JSON esperado
+- Persistência no Supabase não muda de comportamento
+- Deploy no Render mantém funcionamento
 
-## Funcionalidades principais
+### Rollback por módulo
 
-| Módulo | Recursos |
-| --- | --- |
-| **Usuários** | Cadastro, login, alteração de senha, controle de acesso |
-| **Produtos** | Catálogo de produtos da Shopee e listas de produtos |
-| **Posts** | Criação, agendamento (cron/data) e execução sob demanda |
-| **Credenciais** | Shopee, Threads, X, Facebook, Instagram, TikTok e Kwai (cifradas) |
-| **Painel** | Visão consolidada de posts e atividades recentes |
-| **Scheduler** | APScheduler com jobstore em banco (sobrevive a reinícios) |
-| **Atividades** | Histórico de ações e publicações |
-| **Mídia** | Upload tratado e envio para Cloudinary |
+Antes de cada módulo:
+1. `git checkout -b migrate/<modulo> master`
+2. Trabalhar no módulo
+3. Se ok: `git checkout master && git merge migrate/<modulo> && git push`
+4. Se falhar: `git checkout master && git branch -D migrate/<modulo>`
 
-## Tecnologias
+### Documentação da migração
 
-- **Python 3.13**
-- **Flask 3.1** (blueprints, Flask-Login, Flask-WTF, Flask-Babel, Flask-Limiter)
-- **APScheduler 3.11** com executor gevent
-- **Gunicorn 23** (1 worker gevent; scheduler sobe no hook `on_starting`)
-- **PostgreSQL** via **Supabase** (psycopg 3 + pool de conexões)
-- **SQLAlchemy** (jobstore do scheduler) e migrations versionadas
-- **Cloudinary** para mídia
-- **cryptography** (Fernet) para cifrar credenciais em repouso
-- **Docker** / **docker-compose** para build e execução
-- **Hugging Face Spaces** como hospedagem free-tier (Docker)
+- `docs/CHECKLIST_MIGRACAO.md` — checklist por módulo com critérios de teste
+- `docs/ROADMAP_MIGRACAO.md` — roadmap detalhado da migração
+- `api/README.md` — documentação da nova API Python (endpoints, stack, vars de ambiente, coexistência)
 
-## Arquitetura e estrutura
+## Estrutura do repositório (pós-migração)
 
-```text
+```
 shopee_bot-main/
-├── apis/                   # wrappers de API (shopee, threads; demais pendentes)
-├── database/               # acesso ao BD: uma subclasse por tabela + migrations
-├── scheduler/              # APScheduler: bot_post, update_products
-├── utils/                  # helpers (crypto, formatação, retry com backoff)
-├── web/                    # Flask: rotas (blueprints), forms, templates, static
+├── api/
+│   ├── README.md          # docs da nova API
+│   ├── main.py            # FastAPI app
+│   ├── config.py          # variáveis de ambiente
+│   ├── database.py        # conexão Supabase
+│   └── routers/
+│       ├── __init__.py
+│       ├── auth.py
+│       ├── users.py
+│       ├── products.py
+│       ├── posts.py
+│       └── credentials.py
+├── frontend/              # projeto Vite + React (criar na migração)
+│   ├── src/
+│   │   ├── main.tsx
+│   │   ├── App.tsx
+│   │   ├── routes/
+│   │   ├── components/
+│   │   ├── lib/
+│   │   └── stores/
+│   ├── index.html
+│   └── vite.config.ts
+├── docs/
+│   ├── CHECKLIST_MIGRACAO.md
+│   └── ROADMAP_MIGRACAO.md
+├── web/                   # Flask atual (até a migração completa)
 │   ├── routes/
-│   │   ├── auth.py         # login/logout
-│   │   ├── panel/          # painel e credenciais (6 redes)
-│   │   ├── posts.py        # criação/agendamento de posts
-│   │   ├── products.py     # catálogo de produtos
-│   │   ├── product_lists.py
-│   │   ├── users.py
-│   │   ├── activities.py
-│   │   └── startup.py
-│   ├── templates/          # HTML (Jinja2)
-│   └── static/
-├── nginx/                  # proxy reverso (produção local)
-├── tests/                  # testes automatizados (pytest)
-├── clogging.py             # logger compartilhado
-├── gunicorn.conf.py        # produção: 1 worker gevent, on_starting -> scheduler
-├── Dockerfile              # imagem (web + scheduler no mesmo container)
-├── docker-compose.yml      # web + postgres + nginx
-├── requirements.txt
-└── README.md
+│   ├── templates/
+│   ├── static/
+│   └── __init__.py
+├── apis/                  # wrappers de API de redes sociais (Shopee, Threads, etc)
+├── database/              # acesso ao BD (PostgreSQL/Supabase)
+├── scheduler/             # APScheduler (jobstore em Postgres)
+├── tests/
+└── scripts/               # scripts utilitários
 ```
 
-Princípios adotados:
+## API Python (nova)
 
-- Web e scheduler no **mesmo processo** (o scheduler inicia no `on_starting`
-  do Gunicorn), simplificando hospedagem em containers únicos.
-- Jobstore do scheduler em **PostgreSQL**, então os agendamentos sobrevivem a
-  reinícios do container.
-- Credenciais sensíveis **cifradas em repouso** (`cryptography.fernet`); a chave
-  vem de variável de ambiente, nunca do código.
-- Segredos fornecidos apenas por variáveis de ambiente ou Secrets da
-  plataforma de hospedagem.
-- Migrations versionadas em `database/migrations/`.
+Documentação completa em `api/README.md`. Endpoints:
 
-## Configuração do ambiente
+### Auth
+- `POST /auth/login`
+- `POST /auth/logout`
+- `GET /auth/me`
 
-Requisitos:
+### Health
+- `GET /health`
 
-- Python 3.13
-- Acesso a um PostgreSQL (Supabase ou local)
-- Conta Cloudinary (para mídia)
-- Variáveis de ambiente conforme `.env-example`
+### Users (admin)
+- `GET /users` (paginated)
+- `GET /users/{id}`
+- `POST /users`
+- `PUT /users/{id}`
+- `DELETE /users/{id}`
 
-Clone o repositório:
+### Products
+- `GET /products` (paginated)
+- `GET /products/{id}`
+- `POST /products`
+- `PUT /products/{id}`
+- `DELETE /products/{id}`
 
-```bash
-git clone https://github.com/raffastudioproducoes-cloud/shopee_bot-main.git
-cd shopee_bot-main
-```
+### Posts
+- `GET /posts` (paginated)
+- `GET /posts/{id}`
+- `POST /posts`
+- `PUT /posts/{id}`
+- `DELETE /posts/{id}`
+- `POST /posts/{id}/publish`
 
-Prepare o ambiente local:
+### Product Lists
+- `GET /product-lists`
+- `POST /product-lists`
 
-```bash
-python -m venv .venv
-# Windows (PowerShell):
-#   .venv\Scripts\activate.bat
-# Linux/macOS:
-#   source .venv/bin/activate
-pip install -r requirements.txt
-cp .env-example .env
-# edite .env com os dados reais (Postgres, Cloudinary, Threads, chaves)
-```
+### Credentials
+- `GET /credentials/{network}/{user_id}`
+- `PUT /credentials/{network}/{user_id}`
+- `DELETE /credentials/{network}/{user_id}`
 
-O `.env` é ignorado pelo Git e nunca deve ser commitado.
+## Supabase
 
-## Desenvolvimento e testes
+- Tabelas e RLS mantidos da migração existente
+- A API usará `service_role` key se precisar bypassar RLS, ou `anon` se RLS cobrir as operações
 
-Execução em modo debug (desenvolvimento):
+## Segurança
 
-```bash
-flask --debug --app web run
-```
+- CORS restrito à origem do frontend
+- Rate limiting (em avaliação)
+- CSRF protection (em avaliação)
+- Credenciais cifradas com Fernet (mantido da implementação anterior)
+- RLS do Supabase mantido
 
-Testes automatizados (pytest):
+## Deploy no Render
 
-```bash
-pytest
-```
+- Frontend React: Web Service (static ou Docker)
+- API Python: outro Web Service (ou monorepo com ambos)
+- Banco Supabase: externo (supabase project)
 
-Antes de publicar, revise o diff para garantir que nenhum arquivo local
-(`.env`, mídia, chaves) foi adicionado por engano.
+## Scripts
 
-## Build e distribuição
+- `scripts/dev.sh` — inicia API + frontend em dev mode com reload
+- `scripts/lint.sh` — lint da API e frontend
+- `scripts/test.sh` — pytest + vitest
+- `scripts/migrate.sh` — migrations do Supabase
 
-### Local / servidor próprio (docker-compose)
+## CI/CD
 
-Sobe web + PostgreSQL + nginx (proxy reverso com TLS):
+- `ci.yml` — pipeline de integração contínua: lint + test para API Python
+- `cd.yml` — pipeline de entrega contínua: deploy no Render (se houver integração)
 
-```bash
-docker compose up -d
-```
+Para saber mais, consulte [.github/workflows/README.md](.github/workflows/README.md).
 
-### Hugging Face Spaces (hospedagem free-tier, sem cartão)
-
-O projeto inclui `Dockerfile.hfspaces` e `README.hfspaces.md` prontos para o
-Space. O deploy completo (Secrets, callback do Threads, UptimeRobot) está
-documentado em `24-Deploy-HuggingFace-Spaces.md` (repositório de documentação
-do projeto). Resumo:
-
-- Criar Space (SDK Docker, CPU Free);
-- Apontar o Space para este repositório GitHub;
-- Configurar os Secrets (POSTGRES_*, CLOUDINARY_*, THREADS_*, APP_ENCRYPTION_KEY,
-  FLASK_*);
-- Manter acordado com UptimeRobot (o Space dorme após 48h de inatividade).
-
-A imagem sobe com `gunicorn web:app --config=gunicorn.conf.py`; o scheduler
-inicializa junto no mesmo container.
-
-## Segurança e privacidade
-
-- Credenciais de redes sociais são **cifradas em repouso** (Fernet); a chave
-  (`APP_ENCRYPTION_KEY`) fica em variável de ambiente.
-- Segredos (banco, Cloudinary, Threads, chaves) **não estão no código**;
-  variáveis em `.env` (ignorado) ou Secrets da plataforma.
-- Correções de **XSS/injeção SQL** e `search_path` definido (commit
-  `b116f9d`).
-- **Rate limiting** global (Flask-Limiter) e proteção de força bruta no login.
-- **CSRF** (Flask-WTF) e `login_required` nas rotas protegidas.
-- `ProxyFix` habilita operação correta atrás de reverse proxy (nginx / HF).
-- Sem credenciais ou senhas padrão expostas no repositório.
-- Logs, issues e documentação não devem conter credenciais ou dados pessoais.
-- Processamento de formulários de credenciais: **try/except padronizado em
-  todas as 7 redes** (Shopee, Threads, X, Facebook, Instagram, TikTok, Kwai),
-  com preservação dos valores digitados na sessão e mensagem de erro amigável
-  em vez de 500 genérico. Commit [`c9731c8`](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/commit/c9731c8).
-- Credenciais não usadas publicamente: função `public.rls_auto_enable()`
-  declarada `SECURITY DEFINER` teria sido acessível por `anon`/`authenticated`
-  via RPC; revoke `EXECUTE` para `anon`, `authenticated` e `public`.
-- Tabelas com RLS habilitado sem policies: criadas **policies de rejeição
-  explícitas** `block_all_api` em todas as 18 tabelas (`USING (false)
-  WITH CHECK (false)` para `anon, authenticated`), documentando que o acesso
-  externo via API está bloqueado por design — o backend usa conexão direta
-  com usuário admin que bypassa RLS; o frontend não usa Supabase JS client.
-
-Este projeto adota princípios da **LGPD**: minimização de dados, finalidade
-explícita, controle de acesso e transparência sobre tratamento e retenção.
-
-## Integrações e redes sociais
-
-| Rede | Estado | Detalhe |
-| --- | --- | --- |
-| **Shopee** | ✅ Operacional | Wrapper + validação de credencial (`query_auth_validate`) |
-| **Threads** | ✅ Operacional | Wrapper + OAuth (callback aceita `GET ?code=`) |
-|| **X** | ⏸️ Pendente | Wrapper de API implementado (`apis/x.py`) com validação de Bearer Token (OAuth 2.0 Client Credentials) e postagem de texto/produto. Falta: (1) page_id ou user_id não é salvo na tabela (tabela só tem app_id/secret); (2) wrapper de scheduler para publicar automaticamente; (3) validação end-to-end com credentials reais. |
-|| **Facebook** | ⏸️ Pendente | Wrapper de API implementado (`apis/facebook.py`) com App Access Token, Page Access Token e postagem de texto/produto na Timeline. Falta: (1) page_id não é salvo na tabela (tabela só tem app_id/secret); (2) wrapper de scheduler; (3) validação end-to-end. |
-|| **Instagram** | ⏸️ Pendente | Wrapper de API implementado (`apis/instagram.py`) via Meta Graph API (Instagram Basic Display + Content Publish). Suporta postagem de texto via media container. **Pré-requisitos críticos**: (1) `user_access_token` com permissões `instagram_basic` e `instagram_content_publish` não é salvo na tabela (hoje só tem app_id/secret); (2) conta deve ser Business/Creator com Instagram Graph API habilitada; (3) wrapper de scheduler. |
-|| **TikTok** | ⏸️ Pendente | Wrapper de API implementado (`apis/tiktok.py`) definindo contrato. **Limitação da plataforma**: TikTok não publica texto puro via API — só vídeos. Wrapper atual levanta `NotImplementedError` para `post_text` e `validate_credentials` até que OAuth user flow e upload/publish de vídeo estejam implementados (documentação: https://developers.tiktok.com). |
-|| **Kwai** | ⏸️ Pendente | Wrapper de API implementado (`apis/kwai.py`) definindo contrato. **Limitação da plataforma**: Kwai não disponibiliza API pública documentada para postagem de conteúdo via programação (a plataforma funciona via app móvel; API de parceiros/Advertisers é restrita). Wrapper atual levanta `NotImplementedError` até que uma API pública seja disponibilizada ou um agregador com suporte seja usado. |
-
-Todas as wrappers implementadas seguem o padrão de `apis/shopee.py` e `apis/threads.py`.
-As redes X, Facebook e Instagram usam API pública documentada (X API v2, Meta Graph API v18.0).
-TikTok e Kwai não permitem publicação prática via API pública hoje; os wrappers definem o contrato e lançam `NotImplementedError` com documentação até que os pré-requisitos (OAuth user token, vídeo para TikTok, API pública para Kwai) estejam disponíveis.
-
-## Documentação
-
-| Documento | Conteúdo |
-| --- | --- |
-| [README](README.md) | Visão geral, arquitetura, operação, segurança e roadmap |
-| `24-Deploy-HuggingFace-Spaces.md` | Deploy free-tier (HF Spaces), Secrets, OAuth do Threads |
-| `18-Roadmap-Mestre.md` | Roadmap mestre do produto (repositório de documentação) |
-
-Este projeto adota **Documentação Viva**: uma funcionalidade não é considerada
-concluída sem atualizar o README e a documentação técnica aplicável.
-
-## Roadmap
-
-Concluído:
-
-- Cadastro de usuários, produtos e listas (Sprints 0–2)
-- Senha padrão e criptografia de credenciais
-- Rate limiting e correções de XSS/injeção
-- Testes automatizados (login, criar produto, criar post, publicar)
-- Banco em Supabase e redesign de frontend (Stitch)
-- Scheduler com jobstore persistente
-
-Próximo:
-
-- Hospedagem em produção (HF Spaces — este deploy)
-- Beta fechado com usuários reais
-- OAuth do Threads em produção (callback corrigido; falta validação end-to-end)
-- Wrappers de API para X, Facebook: implementados (validação + postagem de texto/produto, mas sem schedule nem page_id na tabela). Instagram: wrapper implementado, mas requer user_access_token (OAuth) e conta Business/Creator. TikTok e Kwai: wrappers com contrato — TikTok precisa de OAuth user flow e vídeo; Kwai não tem API pública de postagem.
-- Domínio próprio (HF Pro ou Cloudflare Worker) e monitoramento (UptimeRobot) — rota `/health` implementada para monitoramento externo.
-- Publicação automática multicanal completa
-
-## Licença
-
-Software proprietário © Raffa Studio Produções — Shopee Auto Vendas.
-Uso, cópia, modificação ou distribuição somente com autorização expressa do
-titular.
+## Contato
 
 ## Contato
 
 **Raffa Studio Produções**
-
 E-mail: **contato.raffasp@gmail.com**
 
 ---
 
-Desenvolvido para automatizar quem vende no Brasil.
+# Documentação Viva
+
+Este README reflete o estado real do projeto. Uma funcionalidade só está completa quando:
+- O código está no repositório
+- Os docs (README, checklist, roadmap) estão atualizados
+- O Vault J.A.R.V.I.S tem o documento correspondente
+
+## Índice de documentos
+
+### Processo
+- [x] PRD — `00-Resumo-e-PRD.md` (Vault)
+
+### Migração (em andamento)
+- `docs/CHECKLIST_MIGRACAO.md` — checklist por módulo
+- `docs/ROADMAP_MIGRACAO.md` — roadmap de migração
+- `api/README.md` — documentação da nova API
+
+### Infra
+- Supabase: `15-Relatorio-Migracao-Supabase.md` (Vault)
+- Deploy Render: `26-Deploy-Render.md` (Vault)
+
+## Contato
+
+**Raffa Studio Produções**
+E-mail: **contato.raffasp@gmail.com**
