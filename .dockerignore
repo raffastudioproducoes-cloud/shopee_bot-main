@@ -8,6 +8,9 @@ database/database.db
 web/media/*
 web/static/*
 !web/static/style.css
+!web/static/sw.js
+!web/static/manifest.json
+!web/static/icons/
 upload/
 cache/
 *.pem
