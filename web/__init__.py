@@ -4,6 +4,7 @@ monkey.patch_all()
 # fmt: off
 
 from pathlib import Path
+import os
 from shopee_bot.web.user import User
 from shopee_bot.database import init as init_db, close_connection, users, \
     products, posts, product_lists, activities
@@ -34,10 +35,10 @@ DEBUG = bool(os.environ.get("FLASK_DEBUG"))
 # app — static_folder absoluto baseado na localização do módulo para
 # funcionar tanto em dev local quanto em Docker/livemy (onde o root
 # do app é /shopee_bot/web e os assets estão em ../static = web/static)
-_app_dir = os.path.dirname(os.path.abspath(__file__))
+_app_dir = Path(__file__).resolve().parent
 app = Flask(
     __name__,
-    static_folder=os.path.join(_app_dir, 'static'),
+    static_folder=_app_dir / 'static',
     static_url_path='/static'
 )
 CORS(app)

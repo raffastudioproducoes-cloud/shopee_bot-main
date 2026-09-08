@@ -515,6 +515,7 @@ def credentials_facebook_del(id):
 
 @fresh_login_required
 @login_required
+@limiter.limit("10 per minute")
 def credentials_instagram_save(id):
     form = InstagramForm()
 
