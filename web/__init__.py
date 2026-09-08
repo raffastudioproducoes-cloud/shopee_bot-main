@@ -3,7 +3,7 @@ from gevent import monkey
 monkey.patch_all()
 # fmt: off
 
-import os
+from pathlib import Path
 from shopee_bot.web.user import User
 from shopee_bot.database import init as init_db, close_connection, users, \
     products, posts, product_lists, activities
