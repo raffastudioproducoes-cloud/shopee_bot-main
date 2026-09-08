@@ -15,8 +15,9 @@ O diretorio `api/` contem:
   - `auth.py` — login, logout, perfil
   - `users.py` — CRUD de usuarios
   - `products.py` — CRUD de produtos
-  - `posts.py` — CRUD de posts, agendamento, publicação
+  - `posts.py` — CRUD de posts, agendamento, publicacao
   - `credentials.py` — credenciais cifradas
+  - `panel.py` — painel/dashboard com metricas e atividades recentes
 - `requirements.txt` — dependencias da API
 - `.env.example` — exemplo de variaveis de ambiente
 
@@ -44,7 +45,8 @@ uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 
 - `GET /health` — health check
 - `POST /auth/login` — login
-- `GET /panel` — métricas do painel (contagens + posts recentes + atividades recentes)
+- `POST /auth/logout` — logout
+- `GET /panel` — metricas do painel (contagens + posts recentes + atividades recentes)
 - `GET /auth/me` — usuario logado
 - `GET /users` — lista paginada
 - `POST /users` — cria usuario

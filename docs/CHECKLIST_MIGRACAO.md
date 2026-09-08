@@ -10,15 +10,15 @@
 | --- | --- | --- |
 | **0. Preparação** | ✅ Concluído | Estrutura de pastas, documentos criados, README atualizado, branch `migrate/auth` |
 | **1. Auth** | ✅ Concluído | `api/routers/auth.py` (login/logout/me), frontend de login, Zustand store, testes pytest ✅ (4 passed), commit `7c45aac` + push |
-
-## Módulos por fazer
+| **2. Painel/Dashboard** | ✅ Concluído | `api/routers/panel.py` (`GET /panel` com contagens de produtos/posts/listas + posts recentes + atividades recentes), frontend `PanelPage.tsx` com cards de métricas + lista de posts/atividades recentes, router TanStack com proteção de rota, CSS Tailwind v4 customizado via `@theme`, teste pytest ✅ (endpoint presente), commits `10aa73d` + `43b457e` + `aeff12f` + `8adeaac` + `7ba76bb` + push |
 
 ### 2. Painel/Dashboard
 
-- [ ] API Python: endpoints para contagens (produtos, posts, listas, atividades)
-- [ ] Frontend React: dashboard com cards, atividade recente
-- [ ] Ícones Lucide React
-- [ ] Testes básicos
+- [x] API Python: endpoint `GET /panel` com contagens (produtos, posts, listas) e listas recentes (posts e atividades)
+- [x] Frontend React: `PanelPage.tsx` com cards de métricas, lista de posts recentes e atividades
+- [x] Router TanStack com proteção de rota (redireciona para `/login` se não autenticado)
+- [x] CSS Tailwind v4 customizado via `@theme` (cores, fontes, spacing, bordas, sombras, transições)
+- [x] Testes básicos pytest ✅
 
 ### 3. Produtos
 
@@ -84,9 +84,17 @@
 - Testes: 4 testes pytest passaram (`test_api.py`)
 - **Atenção**: essa implementação de auth é temporária. Em próxima fase, substituir por solução mais segura (tokens não devem ficar em cookies/body no frontend).
 
+## Observações do Módulo Painel (concluído)
+
+- Endpoint: `GET /panel` — retorna contagens (products_count, posts_count, product_lists_count) + posts recentes (últimos 5) + atividades recentes (últimas 10)
+- Frontend: `PanelPage.tsx` usa `@tanstack/react-query` para buscar os dados e exibir cards de métricas + listas
+- Router: `router.ts` com rotas `/` (painel, protegido) e `/login`, redirecionamento automático se não autenticado
+- CSS: `index.css` com `@import "tailwindcss"` + `@theme` customizado (cores, fontes, spacing, bordas, sombras, transições)
+- **Nota**: ícones atualmente em SVG inline — Lucide React adicionado ao `package.json` mas não utilizado; pode ser ativado no módulo de produtos
+
 ## Próximo passo
 
-Após Auth concluído, o próximo módulo é **Painel/Dashboard** (módulo 2).
+Após Painel concluído, o próximo módulo é **Produtos** (módulo 3).
 
 ## Histórico de commits desta migração
 
@@ -94,3 +102,8 @@ Após Auth concluído, o próximo módulo é **Painel/Dashboard** (módulo 2).
 - `aa3b857` — `docs: README completo com padrão profissional, badges e documentacao viva`
 - `7b745f2` — `ci: GitHub Actions — CI lint+test e CD deploy no Render`
 - `9eed7b2` — `chore: estrutura inicial de migrcao React + API Python + Supabase`
+- `10aa73d` — `feat(panel): router /panel com métricas e atividades recentes + registro no main.py` (módulo 2 - backend)
+- `43b457e` — `feat(panel): página do painel com métricas, posts recentes e atividades (frontend React)` (módulo 2 - frontend página)
+- `aeff12f` — `feat(panel): router TanStack com rotas /login e / (painel protegido)` (módulo 2 - router)
+- `8adeaac` — `feat(panel): frontend completa — package.json, vite, tsconfig, index.html, main.tsx, App.tsx, index.css` (módulo 2 - estrutura frontend)
+- `7ba76bb` — `feat(panel): frontend completa — CSS Tailwind v4 customizado + main.tsx ajustado (entry point React)` (módulo 2 - finalização)
