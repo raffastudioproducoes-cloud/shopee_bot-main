@@ -44,7 +44,7 @@ uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 
 - `GET /health` — health check
 - `POST /auth/login` — login
-- `POST /auth/logout` — logout
+- `GET /panel` — métricas do painel (contagens + posts recentes + atividades recentes)
 - `GET /auth/me` — usuario logado
 - `GET /users` — lista paginada
 - `POST /users` — cria usuario
