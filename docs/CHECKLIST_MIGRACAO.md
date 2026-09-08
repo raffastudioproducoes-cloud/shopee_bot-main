@@ -1,74 +1,96 @@
-# API Python — Shopee Auto Vendas
+# Checklist de Migração — React + API Python + Supabase
 
-> API backend em Python (FastAPI) para o frontend React migrado.
-> Consome o Supabase existente.
+> Migração do ShopeeAutoVendas. Cada módulo deve ser testado e commitado separadamente.
+> Sempre: rollback antes, commit após, atualizar docs e checklist, e push.
+> Testar antes de avançar para o próximo módulo.
 
-## Estrutura
+## Estado atual (2026-09-04)
 
-```
-api/
-├── main.py         # FastAPI app
-├── config.py       # variáveis de ambiente
-├── database.py     # conexão com Supabase
-├── routers/
-│   ├── __init__.py
-│   ├── auth.py     # login, logout, me
-│   ├── users.py    # CRUD usuarios
-│   ├── products.py # CRUD produtos
-│   ├── posts.py    # CRUD posts, agendamento, publicação
-│   └── credentials.py # credenciais cifradas
-├── __init__.py
-└── requirements.txt
-```
+| Módulo | Status | Observações |
+| --- | --- | --- |
+| **0. Preparação** | ✅ Concluído | Estrutura de pastas, documentos criados, README atualizado, branch `migrate/auth` |
+| **1. Auth** | ✅ Concluído | `api/routers/auth.py` (login/logout/me), frontend de login, Zustand store, testes pytest ✅ (4 passed), commit `7c45aac` + push |
 
-## Instalação
+## Módulos por fazer
 
-```bash
-cd api
-pip install -r requirements.txt
-```
+### 2. Painel/Dashboard
 
-## Execução
+- [ ] API Python: endpoints para contagens (produtos, posts, listas, atividades)
+- [ ] Frontend React: dashboard com cards, atividade recente
+- [ ] Ícones Lucide React
+- [ ] Testes básicos
 
-```bash
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
-```
+### 3. Produtos
 
-## Variáveis de ambiente
+- [ ] API Python: CRUD de produtos
+- [ ] Frontend React: lista de produtos, form de cadastro/edição
+- [ ] Ícones Lucide React
+- [ ] Testes básicos
 
-- `SUPABASE_URL` — URL do projeto Supabase
-- `SUPABASE_KEY` — API key (service role ou anon)
-- `CORS_ORIGINS` — origens permitidas pelo CORS (padrão: frontend React)
+### 4. Listas de produtos
 
-## Endpoints principais
+- [ ] API Python: CRUD de listas de produtos
+- [ ] Frontend React: lista de listas, form de criação
+- [ ] Ícones Lucide React
+- [ ] Testes básicos
 
-- `GET /health` — health check
-- `POST /auth/login` — login
-- `POST /auth/logout` — logout
-- `GET /auth/me` — usuário logado
-- `GET /users` — lista paginada
-- `POST /users` — cria usuário
-- `PUT /users/{id}` — atualiza
-- `DELETE /users/{id}` — remove
-- `GET /products` — lista paginada
-- `POST /products` — cria produto
-- `PUT /products/{id}` — atualiza
-- `DELETE /products/{id}` — remove
-- `GET /posts` — lista paginada
-- `POST /posts` — cria post
-- `PUT /posts/{id}` — atualiza
-- `DELETE /posts/{id}` — remove
-- `POST /posts/{id}/publish` — publica agora
-- `GET /credentials/{network}/{user_id}` — ler credencial
-- `PUT /credentials/{network}/{user_id}` — salvar credencial cifrada
-- `DELETE /credentials/{network}/{user_id}` — remover
+### 5. Posts
 
-## Segurança
+- [ ] API Python: CRUD de posts, agendamento, publicação
+- [ ] Frontend React: lista de posts, form de criação/edição
+- [ ] Copywriter IA: integração com Gemini (ver `apis/llm.py` atual)
+- [ ] Ícones Lucide React
+- [ ] Testes básicos
 
-- CORS restrito à origem do frontend
-- Sessão via token JWT ou cookie seguro
-- Credentials cifradas com Fernet (se necessário)
+### 6. Credenciais
 
-## Coexistência com Flask
+- [ ] API Python: endpoints para salvar/ler/remover credenciais (cifradas)
+- [ ] Frontend React: forms de credencial para cada rede
+- [ ] Inputs type=password com value="" (nunca expor valor)
+- [ ] Ícones Lucide React
+- [ ] Testes básicos
 
-Durante a migração, a API Python roda em paralelo com o Flask atual (`web/`). O frontend React aponta para a nova API. O Flask continua sendo usado pelos templates Jinja2 remanescentes até a migração estar completa.
+### 7. Usuários
+
+- [ ] API Python: CRUD de usuários (admin)
+- [ ] Frontend React: lista de usuários, form de criação/edição
+- [ ] Ícones Lucide React
+- [ ] Testes básicos
+
+### 8. Scheduler (avaliação)
+
+- [ ] Decisão: manter in-process (YAGNI) ou externalizar?
+- [ ] Se externalizar: rodar como processo separado no Render
+
+## Regras de ouro
+
+1. **Sempre rollback antes** de começar um módulo (branch `migrate/<modulo>` a partir de `master`).
+2. **Sempre testar** antes de avançar (ritual de pytest básico + verificação manual quando possível).
+3. **Sempre commitar** e **push** ao final do módulo.
+4. **Sempre atualizar**:
+   - `README.md` (seções relevantes)
+   - `docs/CHECKLIST_MIGRACAO.md` (tabela de estado e módulos)
+   - `docs/ROADMAP_MIGRACAO.md` (se necessário)
+   - documentação no Vault (se houver)
+5. **Nunca pular** a etapa de teste e documentação antes de avançar.
+6. **Auth atual usa JWT simples em cookie httpOnly** — Isso é temporário. Tokens não devem ficar em cookies ou body no frontend. Revisar para auth mais seguro em próxima fase.
+   - Ver `api/routers/auth.py` e `docs/CHECKLIST_MIGRACAO.md`.
+
+## Observações do Módulo Auth (concluído)
+
+- Implementação: JWT HS256 em cookie httpOnly (secure, samesite=lax)
+- Endpoints: `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
+- Frontend: `LoginPage.tsx`, `authStore.ts` (Zustand), `auth.ts` (funções de API)
+- Testes: 4 testes pytest passaram (`test_api.py`)
+- **Atenção**: essa implementação de auth é temporária. Em próxima fase, substituir por solução mais segura (tokens não devem ficar em cookies/body no frontend).
+
+## Próximo passo
+
+Após Auth concluído, o próximo módulo é **Painel/Dashboard** (módulo 2).
+
+## Histórico de commits desta migração
+
+- `7c45aac` — `feat: auth router + frontend estrutura (login page, auth store, rotas protegidas)` (módulo 1)
+- `aa3b857` — `docs: README completo com padrão profissional, badges e documentacao viva`
+- `7b745f2` — `ci: GitHub Actions — CI lint+test e CD deploy no Render`
+- `9eed7b2` — `chore: estrutura inicial de migrcao React + API Python + Supabase`

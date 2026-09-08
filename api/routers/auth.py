@@ -12,7 +12,7 @@ Ver: docs/CHECKLIST_MIGRACAO.md — seção "Auth (futuro)".
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from ..config import settings
@@ -86,8 +86,8 @@ async def logout(response: Response):
 
 
 @router.get("/me")
-async def me(response: Response):
-    token = response.cookies.get("access_token")
+async def me(request: Request):
+    token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(status_code=401, detail="Não autenticado")
 

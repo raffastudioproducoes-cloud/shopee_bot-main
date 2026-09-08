@@ -13,9 +13,7 @@ class Settings(BaseSettings):
     cors_origins: List[str] = ["http://localhost:5173", "http://localhost:3000"]
     api_secret_key: str = ""
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = {"extra": "allow"}
 
 
 settings = Settings()
