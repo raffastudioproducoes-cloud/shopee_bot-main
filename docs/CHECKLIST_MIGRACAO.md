@@ -1,74 +1,56 @@
-# API Python — Shopee Auto Vendas
+# Checklist de Migração — React + API Python
 
-> API backend em Python (FastAPI) para o frontend React migrado.
-> Consome o Supabase existente.
+> Critério de teste por módulo. Detalhe de cada fase (o que foi feito, o que foi
+> simplificado e por quê) está em `docs/ROADMAP_MIGRACAO.md`. Atualizado em 2026-09-14.
 
-## Estrutura
+Critérios gerais aplicados a cada módulo abaixo:
 
-```
-api/
-├── main.py         # FastAPI app
-├── config.py       # variáveis de ambiente
-├── database.py     # conexão com Supabase
-├── routers/
-│   ├── __init__.py
-│   ├── auth.py     # login, logout, me
-│   ├── users.py    # CRUD usuarios
-│   ├── products.py # CRUD produtos
-│   ├── posts.py    # CRUD posts, agendamento, publicação
-│   └── credentials.py # credenciais cifradas
-├── __init__.py
-└── requirements.txt
-```
+- [ ] Renderiza sem erro de console
+- [ ] Ícones via Lucide React (sem Material Symbols/Google Fonts)
+- [ ] Credenciais nunca expostas de volta em nenhuma resposta da API
+- [ ] Requisição à API Python retorna o JSON esperado
+- [ ] Persistência no Supabase não muda de comportamento em relação ao Flask
+- [ ] `tsc --noEmit` e `vite build` limpos (frontend); `pytest tests/api` e `flake8 api/` limpos (backend)
 
-## Instalação
+## Fase 0 — Preparação
+- [x] Estrutura de pastas (`api/`, `frontend/`, `docs/`)
+- [x] `api/requirements.txt`
 
-```bash
-cd api
-pip install -r requirements.txt
-```
+## Fase 1 — Auth
+- [x] Login/logout via cookie httpOnly (JWT)
+- [x] Guard de rota autenticada (`PanelPage`)
 
-## Execução
+## Fase 2 — Painel/Dashboard
+- [x] Cards de contagem + ações rápidas
 
-```bash
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
-```
+## Fase 3 — Produtos
+- [x] CRUD completo, 13 testes (13/13 verde)
 
-## Variáveis de ambiente
+## Fase 4 — Listas de produtos
+- [x] CRUD completo, produtos associados
 
-- `SUPABASE_URL` — URL do projeto Supabase
-- `SUPABASE_KEY` — API key (service role ou anon)
-- `CORS_ORIGINS` — origens permitidas pelo CORS (padrão: frontend React)
+## Fase 5 — Posts
+- [x] CRUD de post único
+- [x] Copywriter IA (`/posts/generate-copy`)
+- [ ] Thread multi-parte (post encadeado) — não migrado
+- [ ] Upload de mídia — não migrado
+- [ ] Agendamento/publicação executável pela API nova — não migrado (ver Fase 8)
 
-## Endpoints principais
+## Fase 6 — Credenciais
+- [x] 6 redes simples (Shopee, X, Facebook, Instagram, TikTok, Kwai) + Threads
+- [x] Nunca reexibe valor salvo, só status
+- [ ] Validação ao vivo da credencial Shopee contra a API deles — não migrado (Flask ainda faz)
+- [ ] Fluxo OAuth do Threads (emitir token) — continua só no Flask
 
-- `GET /health` — health check
-- `POST /auth/login` — login
-- `POST /auth/logout` — logout
-- `GET /auth/me` — usuário logado
-- `GET /users` — lista paginada
-- `POST /users` — cria usuário
-- `PUT /users/{id}` — atualiza
-- `DELETE /users/{id}` — remove
-- `GET /products` — lista paginada
-- `POST /products` — cria produto
-- `PUT /products/{id}` — atualiza
-- `DELETE /products/{id}` — remove
-- `GET /posts` — lista paginada
-- `POST /posts` — cria post
-- `PUT /posts/{id}` — atualiza
-- `DELETE /posts/{id}` — remove
-- `POST /posts/{id}/publish` — publica agora
-- `GET /credentials/{network}/{user_id}` — ler credencial
-- `PUT /credentials/{network}/{user_id}` — salvar credencial cifrada
-- `DELETE /credentials/{network}/{user_id}` — remover
+## Fase 7 — Usuários
+- [x] CRUD admin-only
 
-## Segurança
+## Fase 8 — Scheduler
+- [x] Decisão tomada: manter in-process (ADR 19)
+- [x] Risco de dupla publicação identificado e documentado (dois processos com `_scheduler` ativo)
+- [ ] Caminho de consolidação implementado (expor `add_job`/`remove_job`/`run_job` via HTTP interno do Flask pra API nova chamar)
 
-- CORS restrito à origem do frontend
-- Sessão via token JWT ou cookie seguro
-- Credentials cifradas com Fernet (se necessário)
-
-## Coexistência com Flask
-
-Durante a migração, a API Python roda em paralelo com o Flask atual (`web/`). O frontend React aponta para a nova API. O Flask continua sendo usado pelos templates Jinja2 remanescentes até a migração estar completa.
+## Antes de aposentar o Flask (`web/`)
+- [ ] Fase 5 com paridade completa (thread, mídia, agendamento)
+- [ ] Fase 6 com validação Shopee e fluxo OAuth Threads migrados
+- [ ] Scheduler consolidado (Fase 8 pendente)

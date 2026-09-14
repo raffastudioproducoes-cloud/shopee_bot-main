@@ -257,11 +257,11 @@ Migração por módulos, testando cada um antes de avançar:
 - [x] **Fase 2** — Painel/Dashboard
 - [x] **Fase 3** — Produtos (CRUD completo, 13 testes)
 - [x] **Fase 4** — Listas de produtos
-- [ ] **Fase 5** — Posts (criação, agendamento, publicação, copywriter IA)
-- [ ] **Fase 6** — Credenciais (forms sem expor valor)
-- [ ] **Fase 7** — Usuários
-- [ ] **Fase 8** — Scheduler (decidir: manter in-process ou externalizar)
-- [ ] Aposentar o Flask (`web/`) depois que todas as fases acima estiverem no ar
+- [x] **Fase 5** — Posts (post único + copywriter IA — sem thread/mídia/agendamento, ver `docs/ROADMAP_MIGRACAO.md`)
+- [x] **Fase 6** — Credenciais (forms sem expor valor, 6 redes + Threads)
+- [x] **Fase 7** — Usuários (admin-only)
+- [x] **Fase 8** — Scheduler: decidido manter in-process; agendamento/publicação segue só no Flask até expor via HTTP interno (ver roadmap)
+- [ ] Aposentar o Flask (`web/`) — falta mover agendamento/publicação/mídia/thread pra API nova primeiro
 
 ## Licença
 

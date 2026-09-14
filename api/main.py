@@ -8,7 +8,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import init_db
-from .routers import auth_router, products_router, lists_router
+from .routers import (
+    auth_router,
+    products_router,
+    lists_router,
+    posts_router,
+    credentials_router,
+    users_router,
+)
 
 app = FastAPI(
     title="Shopee Auto Vendas API",
@@ -28,6 +35,9 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(products_router)
 app.include_router(lists_router)
+app.include_router(posts_router)
+app.include_router(credentials_router)
+app.include_router(users_router)
 
 
 # Health check

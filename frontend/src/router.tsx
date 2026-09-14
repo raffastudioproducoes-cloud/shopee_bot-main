@@ -4,6 +4,9 @@ import DashboardPage from "./pages/DashboardPage"
 import { PanelPage } from "./pages/PanelPage"
 import { ProductsPage } from "./pages/ProductsPage"
 import { ListasPage } from "./pages/ListasPage"
+import { PostsPage } from "./pages/PostsPage"
+import { CredentialsPage } from "./pages/CredentialsPage"
+import { UsersPage } from "./pages/UsersPage"
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -41,9 +44,34 @@ const listsRoute = createRoute({
   component: ListasPage,
 })
 
+const postsRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: "/posts",
+  component: PostsPage,
+})
+
+const credentialsRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: "/credentials",
+  component: CredentialsPage,
+})
+
+const usersRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: "/users",
+  component: UsersPage,
+})
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
-  panelRoute.addChildren([dashboardRoute, productsRoute, listsRoute]),
+  panelRoute.addChildren([
+    dashboardRoute,
+    productsRoute,
+    listsRoute,
+    postsRoute,
+    credentialsRoute,
+    usersRoute,
+  ]),
 ])
 
 export const router = createRouter({ routeTree })

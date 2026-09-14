@@ -1,10 +1,25 @@
 import os
 import io
+import sys
 import time
+import types
 import locale
 import requests
 from flask import Request
 from PIL import Image
+
+# O pacote "shopee_bot" só existe nativamente no layout do Docker
+# (WORKDIR /shopee_bot). Fora dele (dev local, processo da API nova em
+# api/), registra um alias apontando pra raiz do repo — mesmo truque
+# do conftest.py da raiz, necessário aqui pra "utils" ser importável
+# por qualquer processo (Flask ou FastAPI), não só pelo Flask.
+try:
+    import shopee_bot  # noqa: F401
+except ModuleNotFoundError:
+    _pkg = types.ModuleType("shopee_bot")
+    _pkg.__path__ = [os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]
+    sys.modules["shopee_bot"] = _pkg
+
 from shopee_bot.clogging import logger
 
 

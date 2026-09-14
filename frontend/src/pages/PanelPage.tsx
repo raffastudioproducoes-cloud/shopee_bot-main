@@ -2,13 +2,18 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link, Outlet } from '@tanstack/react-router'
 import { useAuthStore } from '../stores/authStore'
 import { authApi } from '../api/auth'
-import { LayoutDashboard, Package, List, LogOut, Menu, X, Bell, User } from 'lucide-react'
+import { LayoutDashboard, Package, List, FileText, KeyRound, Users, LogOut, Menu, X, Bell, User } from 'lucide-react'
 
-// skipped: item /posts (Fase 5, ainda não migrada)
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/products', label: 'Produtos', icon: Package },
   { href: '/lists', label: 'Listas', icon: List },
+  { href: '/posts', label: 'Posts', icon: FileText },
+  { href: '/credentials', label: 'Credenciais', icon: KeyRound },
+]
+
+const adminNavItems = [
+  { href: '/users', label: 'Usuários', icon: Users },
 ]
 
 export function PanelPage() {
@@ -67,6 +72,18 @@ export function PanelPage() {
                 <span className="font-medium">{item.label}</span>
               </Link>
             ))}
+            {user?.access === 'ADMIN' &&
+              adminNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-primary-light hover:text-primary rounded-lg transition"
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="font-medium">{item.label}</span>
+                </Link>
+              ))}
           </nav>
 
         </div>

@@ -105,7 +105,12 @@ export default function DashboardPage() {
                 <span className="font-medium">Adicionar Produto</span>
               </button>
             </Link>
-            {/* skipped: rota /posts (Fase 5, ainda não migrada) */}
+            <Link to="/posts" className="block">
+              <button className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition text-left">
+                <FileText className="w-5 h-5 text-green-500" />
+                <span className="font-medium">Criar Post</span>
+              </button>
+            </Link>
             <Link to="/lists" className="block">
               <button className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition text-left">
                 <List className="w-5 h-5 text-purple-500" />

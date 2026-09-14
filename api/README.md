@@ -1,74 +1,76 @@
 # API Python — Shopee Auto Vendas
 
 > API backend em Python (FastAPI) para o frontend React migrado.
-> Consome o Supabase existente.
+> Consome o Supabase existente. Coexiste com o Flask (`web/`) durante a migração.
 
-## Estrutura do diretorio
+## Estrutura do diretório
 
-O diretorio `api/` contem:
-
-- `main.py` — aplicacao FastAPI com CORS e health check
-- `config.py` — configuracoes via variaveis de ambiente
-- `database.py` — cliente Supabase
-- `routers/` — roteadores de recurso
-  - `__init__.py` — marca pacote
-  - `auth.py` — login, logout, perfil
-  - `users.py` — CRUD de usuarios
+- `main.py` — aplicação FastAPI, CORS, health check, registro dos routers
+- `config.py` — configurações via variáveis de ambiente (pydantic-settings)
+- `database.py` — cliente Supabase (`supabase-py`)
+- `routers/`
+  - `auth.py` — login/logout/perfil (JWT em cookie httpOnly)
   - `products.py` — CRUD de produtos
-  - `posts.py` — CRUD de posts, agendamento, publicação
-  - `credentials.py` — credenciais cifradas
-- `requirements.txt` — dependencias da API
-- `.env.example` — exemplo de variaveis de ambiente
+  - `lists.py` — CRUD de listas de produtos
+  - `posts.py` — CRUD de post único + copywriter IA (sem thread/mídia/agendamento — ver docstring do módulo e `docs/ROADMAP_MIGRACAO.md`)
+  - `credentials.py` — credenciais cifradas (6 redes simples + Threads)
+  - `users.py` — CRUD de usuários (admin-only)
+- `requirements.txt` — dependências da API
 
-## Instalacao
+## Instalação
 
 ```bash
-cd api
-pip install -r requirements.txt
+pip install -r api/requirements.txt
 ```
 
-## Execucao
+## Execução
 
 ```bash
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Variaveis de ambiente
+## Variáveis de ambiente
 
 - `SUPABASE_URL` — URL do projeto Supabase
 - `SUPABASE_KEY` — API key (service role ou anon)
-- `CORS_ORIGINS` — origens permitidas pelo CORS (padrao: frontend React)
-- `API_SECRET_KEY` — chave secreta da API (opcional, para assinatura de tokens)
+- `CORS_ORIGINS` — origens permitidas pelo CORS (padrão: frontend React em dev)
+- `API_SECRET_KEY` — assina o JWT do cookie de sessão
+- `APP_ENCRYPTION_KEY` — chave Fernet (mesma do Flask) usada por `utils.crypto` pra cifrar/decifrar credenciais
 
-## Endpoints principais
+## Endpoints
 
-- `GET /health` — health check
-- `POST /auth/login` — login
-- `POST /auth/logout` — logout
-- `GET /auth/me` — usuario logado
-- `GET /users` — lista paginada
-- `POST /users` — cria usuario
-- `PUT /users/{id}` — atualiza
-- `DELETE /users/{id}` — remove
-- `GET /products` — lista paginada
-- `POST /products` — cria produto
-- `PUT /products/{id}` — atualiza
-- `DELETE /products/{id}` — remove
-- `GET /posts` — lista paginada
-- `POST /posts` — cria post
-- `PUT /posts/{id}` — atualiza
-- `DELETE /posts/{id}` — remove
-- `POST /posts/{id}/publish` — publica agora
-- `GET /credentials/{network}/{user_id}` — ler credencial
-- `PUT /credentials/{network}/{user_id}` — salvar credencial cifrada
-- `DELETE /credentials/{network}/{user_id}` — remover
+- `GET /health`
+- `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
+- `GET|POST /products`, `GET|PUT|DELETE /products/{id}`
+- `GET|POST /lists`, `GET|PUT|DELETE /lists/{id}`
+- `GET|POST /posts`, `GET|PUT|DELETE /posts/{id}`, `POST /posts/generate-copy`
+- `GET /credentials` (status de todas as redes)
+- `PUT|DELETE /credentials/{network}` (`shopee`, `x`, `facebook`, `instagram`, `tiktok`, `kwai`)
+- `PUT|DELETE /credentials/threads` (rota literal — ver comentário no router sobre ordem de registro)
+- `GET|POST /users`, `GET|PUT|DELETE /users/{id}` (admin-only)
 
-## Seguranca
+Doc interativa: `/docs` (Swagger) e `/redoc` quando a API está rodando.
 
-- CORS restrito a origem do frontend
-- Sessao via token JWT ou cookie seguro
-- Credentials cifradas com Fernet (se necessario)
+## Segurança
 
-## Coexistencia com Flask
+- CORS restrito à origem do frontend
+- Sessão via JWT em cookie `httpOnly`
+- Credenciais cifradas com Fernet (`utils.crypto`, mesma chave do Flask)
+- `/credentials` nunca devolve o valor salvo — só `{"connected": bool}`
 
-Durante a migracao, a API Python roda em paralelo com o Flask atual (`web/`). O frontend React aponta para a nova API. O Flask continua sendo usado pelos templates Jinja2 remanescentes ate a migracao estar completa.
+## Import de `utils`/`apis` (pacotes na raiz do repo)
+
+`utils/__init__.py` e módulos de `apis/` fazem parte do código original do Flask e às
+vezes importam `shopee_bot.*` — um alias de pacote que só existe nativamente no layout
+do Docker (`WORKDIR /shopee_bot`). `utils/__init__.py` registra esse alias sozinho quando
+não existe (mesmo truque do `conftest.py` da raiz), então `utils.crypto` funciona tanto
+no Flask quanto na API nova. Módulos de `apis/` que dependem de `shopee_bot.*` diretamente
+(ex.: `apis/shopee.py`) **não** foram testados a partir da API nova — evite importá-los
+daqui sem verificar antes.
+
+## Coexistência com Flask
+
+O Flask continua sendo o site em produção (`web/`) e é quem chama `scheduler.init()` —
+agendamento e publicação de posts continuam só por ele. A API nova ainda não expõe isso
+(ver Fase 8 em `docs/ROADMAP_MIGRACAO.md`: rodar `scheduler.init()` em dois processos ao
+mesmo tempo arrisca publicar em duplicata).

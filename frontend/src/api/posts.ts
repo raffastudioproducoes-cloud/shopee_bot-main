@@ -1,0 +1,72 @@
+import { api, ApiError } from '../lib/api'
+
+export interface PostProduct {
+  id: number
+  product_id: string
+  name: string
+  image: string | null
+  price_min: number | null
+  price_max: number | null
+  commission: number | null
+}
+
+export interface Post {
+  id: number
+  text: string
+  post_id: number | null
+  user_id: number
+  created_at: string
+  updated_at: string | null
+  products: PostProduct[]
+}
+
+export interface PostCreate {
+  text: string
+  product_ids?: number[]
+}
+
+export interface PostUpdate {
+  text: string
+  product_ids?: number[]
+}
+
+export interface PostsResponse {
+  data: Post[]
+  next_cursor: string | null
+}
+
+export const postsApi = {
+  async list(params?: { cursor?: string; limit?: number }): Promise<PostsResponse> {
+    const searchParams = new URLSearchParams()
+    if (params?.cursor) searchParams.append('cursor', params.cursor)
+    if (params?.limit) searchParams.append('limit', String(params.limit))
+
+    const query = searchParams.toString()
+    return api.get<PostsResponse>(`/posts${query ? `?${query}` : ''}`)
+  },
+
+  async create(data: PostCreate): Promise<Post> {
+    return api.post<Post>('/posts', data)
+  },
+
+  async get(id: number): Promise<Post> {
+    return api.get<Post>(`/posts/${id}`)
+  },
+
+  async update(id: number, data: PostUpdate): Promise<Post> {
+    return api.put<Post>(`/posts/${id}`, data)
+  },
+
+  async delete(id: number): Promise<{ msg: string }> {
+    return api.delete<{ msg: string }>(`/posts/${id}`)
+  },
+
+  async generateCopy(productId: number, persona: string): Promise<{ text: string }> {
+    return api.post<{ text: string }>('/posts/generate-copy', {
+      product_id: productId,
+      persona,
+    })
+  },
+}
+
+export { ApiError }
