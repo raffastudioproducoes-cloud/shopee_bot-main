@@ -40,6 +40,8 @@ jobs:
 
       - name: Test API Python
         run: |
+          # -m pytest (não `pytest` puro) garante repo root no sys.path,
+          # senão "from api.main import app" quebra com ModuleNotFoundError.
           # --confcutdir isola do conftest.py raiz (Flask antigo, faz
           # monkey-patch do gevent que trava com o anyio/httpx do FastAPI)
-          pytest tests/api --confcutdir=tests/api -q
+          python -m pytest tests/api --confcutdir=tests/api -q

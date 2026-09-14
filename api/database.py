@@ -6,7 +6,6 @@ Coexists with Flask during migration.
 """
 
 from functools import lru_cache
-from typing import Optional
 
 from supabase import create_client, Client
 

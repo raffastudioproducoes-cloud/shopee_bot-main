@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .database import get_supabase, init_db
+from .database import init_db
 from .routers import auth_router, products_router, lists_router
 
 app = FastAPI(
@@ -28,6 +28,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(products_router)
 app.include_router(lists_router)
+
 
 # Health check
 @app.get("/health")

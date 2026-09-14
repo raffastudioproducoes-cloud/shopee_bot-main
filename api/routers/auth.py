@@ -13,7 +13,7 @@ Ver: docs/CHECKLIST_MIGRACAO.md — seção "Auth (futuro)".
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 from ..config import settings
