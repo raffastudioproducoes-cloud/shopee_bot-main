@@ -18,11 +18,21 @@ export interface Post {
   created_at: string
   updated_at: string | null
   products: PostProduct[]
+  scheduled: boolean
+}
+
+export interface PostSchedule {
+  trigger: 'date' | 'cron'
+  run_date?: string | null // ISO 8601, obrigatório se trigger=date
+  time?: string | null // "HH:MM", obrigatório se trigger=cron
+  day_of_week?: number | null // 0-6, obrigatório se trigger=cron
+  start_date?: string | null // ISO 8601, opcional em cron
 }
 
 export interface PostCreate {
   text: string
   product_ids?: number[]
+  schedule: PostSchedule
 }
 
 export interface PostUpdate {
@@ -66,6 +76,10 @@ export const postsApi = {
       product_id: productId,
       persona,
     })
+  },
+
+  async publishNow(id: number): Promise<{ msg: string }> {
+    return api.post<{ msg: string }>(`/posts/${id}/publish`, {})
   },
 }
 

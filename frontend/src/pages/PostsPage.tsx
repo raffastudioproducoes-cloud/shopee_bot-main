@@ -2,15 +2,25 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useCallback } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
-import { postsApi, type Post } from "../api/posts"
+import { postsApi, type Post, type PostSchedule } from "../api/posts"
 import { productsApi, type Product } from "../api/products"
-import { Plus, Trash2, Loader2, Sparkles } from "lucide-react"
+import { Plus, Trash2, Loader2, Sparkles, Send, Clock } from "lucide-react"
 
 const PERSONAS = [
   { value: "casual", label: "Casual" },
   { value: "profissional", label: "Profissional" },
   { value: "divertido", label: "Divertido" },
   { value: "persuasivo", label: "Persuasivo" },
+]
+
+const WEEKDAYS = [
+  { value: 0, label: "Domingo" },
+  { value: 1, label: "Segunda" },
+  { value: 2, label: "Terça" },
+  { value: 3, label: "Quarta" },
+  { value: 4, label: "Quinta" },
+  { value: 5, label: "Sexta" },
+  { value: 6, label: "Sábado" },
 ]
 
 export function PostsPage() {
@@ -38,7 +48,8 @@ export function PostsPage() {
   )
 
   const createMutation = useMutation({
-    mutationFn: (data: { text: string; product_ids: number[] }) => postsApi.create(data),
+    mutationFn: (data: { text: string; product_ids: number[]; schedule: PostSchedule }) =>
+      postsApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
       setModalOpen(false)
@@ -66,12 +77,18 @@ export function PostsPage() {
     onError: onAuthError,
   })
 
+  const publishMutation = useMutation({
+    mutationFn: (id: number) => postsApi.publishNow(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+    onError: onAuthError,
+  })
+
   const handleSave = useCallback(
-    (text: string, productIds: number[]) => {
+    (text: string, productIds: number[], schedule: PostSchedule) => {
       if (editingPost) {
         updateMutation.mutate({ id: editingPost.id, text, product_ids: productIds })
       } else {
-        createMutation.mutate({ text, product_ids: productIds })
+        createMutation.mutate({ text, product_ids: productIds, schedule })
       }
     },
     [editingPost, createMutation, updateMutation],
@@ -95,8 +112,8 @@ export function PostsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Posts</h1>
             <p className="text-gray-500 mt-1">
-              Criação de post com copy manual ou gerado por IA.{" "}
-              <span className="text-xs">(agendamento/mídia/thread ainda pelo painel Flask)</span>
+              Criação de post com copy manual ou gerado por IA, agendado ou publicado na hora.{" "}
+              <span className="text-xs">(thread multi-parte e mídia ainda pelo painel Flask)</span>
             </p>
           </div>
           <button
@@ -128,7 +145,9 @@ export function PostsPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
-                    <p className="text-gray-900 whitespace-pre-wrap line-clamp-3">{post.text}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-gray-900 whitespace-pre-wrap line-clamp-3 flex-1">{post.text}</p>
+                    </div>
                     {post.products.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {post.products.map((p) => (
@@ -141,21 +160,51 @@ export function PostsPage() {
                         ))}
                       </div>
                     )}
-                    <p className="text-gray-400 text-xs mt-2">
-                      {new Date(post.created_at).toLocaleString("pt-BR")}
-                    </p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <p className="text-gray-400 text-xs">
+                        {new Date(post.created_at).toLocaleString("pt-BR")}
+                      </p>
+                      {post.scheduled && (
+                        <span className="flex items-center gap-1 text-xs text-primary">
+                          <Clock className="w-3 h-3" />
+                          Agendado
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setDeleteConfirm(post.id)
-                    }}
-                    className="p-1.5 rounded hover:bg-red-50 transition-colors text-red-500 shrink-0"
-                    title="Remover post"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {post.scheduled && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          publishMutation.mutate(post.id)
+                        }}
+                        disabled={publishMutation.isPending}
+                        className="p-1.5 rounded hover:bg-primary-light transition-colors text-primary disabled:opacity-50"
+                        title="Publicar agora"
+                      >
+                        {publishMutation.isPending && publishMutation.variables === post.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeleteConfirm(post.id)
+                      }}
+                      className="p-1.5 rounded hover:bg-red-50 transition-colors text-red-500"
+                      title="Remover post"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
+                {publishMutation.isError && publishMutation.variables === post.id && (
+                  <p className="text-xs text-red-600 mt-2">{publishMutation.error.message}</p>
+                )}
               </div>
             ))}
           </div>
@@ -171,6 +220,7 @@ export function PostsPage() {
           }}
           onSave={handleSave}
           loading={createMutation.isPending || updateMutation.isPending}
+          error={createMutation.error?.message}
         />
       )}
 
@@ -208,16 +258,23 @@ export function PostsPage() {
 interface PostModalProps {
   post: Post | null
   onClose: () => void
-  onSave: (text: string, productIds: number[]) => void
+  onSave: (text: string, productIds: number[], schedule: PostSchedule) => void
   loading: boolean
+  error?: string
 }
 
-function PostModal({ post, onClose, onSave, loading }: PostModalProps) {
+type WhenOption = "now" | "date" | "cron"
+
+function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
   const [text, setText] = useState(post?.text ?? "")
   const [persona, setPersona] = useState("casual")
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>(
     post?.products.map((p) => p.id) ?? [],
   )
+  const [when, setWhen] = useState<WhenOption>("now")
+  const [runDate, setRunDate] = useState("")
+  const [cronTime, setCronTime] = useState("09:00")
+  const [cronDay, setCronDay] = useState(1)
 
   const { data: productsData } = useQuery({
     queryKey: ["products", ""],
@@ -236,11 +293,19 @@ function PostModal({ post, onClose, onSave, loading }: PostModalProps) {
     )
   }
 
+  const buildSchedule = (): PostSchedule => {
+    if (when === "cron") {
+      return { trigger: "cron", time: cronTime, day_of_week: cronDay }
+    }
+    const runAt = when === "now" ? new Date().toISOString() : new Date(runDate).toISOString()
+    return { trigger: "date", run_date: runAt }
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (text.trim()) {
-      onSave(text.trim(), selectedProductIds)
-    }
+    if (!text.trim()) return
+    if (when === "date" && !runDate) return
+    onSave(text.trim(), selectedProductIds, buildSchedule())
   }
 
   return (
@@ -317,6 +382,70 @@ function PostModal({ post, onClose, onSave, loading }: PostModalProps) {
             />
           </div>
 
+          {!post && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                Quando publicar? *
+              </label>
+              <div className="flex gap-2 mb-3">
+                {(
+                  [
+                    ["now", "Agora"],
+                    ["date", "Data específica"],
+                    ["cron", "Recorrente"],
+                  ] as [WhenOption, string][]
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setWhen(value)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                      when === value
+                        ? "bg-primary text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {when === "date" && (
+                <input
+                  type="datetime-local"
+                  value={runDate}
+                  onChange={(e) => setRunDate(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
+                />
+              )}
+
+              {when === "cron" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={cronDay}
+                    onChange={(e) => setCronDay(Number(e.target.value))}
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                  >
+                    {WEEKDAYS.map((d) => (
+                      <option key={d.value} value={d.value}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="time"
+                    value={cronTime}
+                    onChange={(e) => setCronTime(e.target.value)}
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {error && <p className="text-xs text-red-600">{error}</p>}
+
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
@@ -327,7 +456,7 @@ function PostModal({ post, onClose, onSave, loading }: PostModalProps) {
             </button>
             <button
               type="submit"
-              disabled={loading || !text.trim()}
+              disabled={loading || !text.trim() || (when === "date" && !runDate)}
               className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {loading ? "Salvando..." : post ? "Salvar" : "Criar"}

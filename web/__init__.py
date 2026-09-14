@@ -17,6 +17,7 @@ from shopee_bot.web.routes.users import users_bp
 from shopee_bot.web.routes.activities import activities_bp
 from shopee_bot.web.routes.auth import auth_bp
 from shopee_bot.web.routes.startup import startup_bp
+from shopee_bot.web.routes.internal import internal_bp
 from flask_babel import Babel
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -114,6 +115,10 @@ app.register_blueprint(products_bp)
 app.register_blueprint(product_lists_bp)
 app.register_blueprint(panel_bp)
 app.register_blueprint(posts_bp)
+# rotas internas (chamadas só pela API nova, via secret — não sessão de
+# browser) precisam ficar fora do CSRF, que exige token de sessão
+app.register_blueprint(internal_bp)
+csrf.exempt(internal_bp)
 
 
 # initialize flask-login

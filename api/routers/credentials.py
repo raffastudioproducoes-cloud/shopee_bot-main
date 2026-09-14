@@ -4,11 +4,13 @@ Credenciais Router — API Python (FastAPI)
 CRUD das credenciais de rede social/afiliado. Nunca retorna o valor
 cifrado de volta ao cliente — só status (conectado/desconectado).
 
-Simplificação desta fase: a Shopee valida a credencial ao vivo contra
-a API deles antes de salvar (`apis/shopee.py:query_auth_validate`) no
-Flask; aqui não — esse módulo depende do alias `shopee_bot.*` que só
-existe no processo Flask/Docker. Salva sem validar, igual às outras
-5 redes já fazem hoje.
+Shopee valida a credencial ao vivo contra a API deles antes de salvar
+(igual o Flask sempre fez) — via web/routes/internal.py, porque
+apis/shopee.py depende do alias de pacote shopee_bot.* que só existe
+no processo Flask. Se a chamada interna falhar (Flask fora do ar, ou
+FLASK_INTERNAL_URL/INTERNAL_API_SECRET não configurados), o save de
+Shopee falha com 502 em vez de salvar sem validar — melhor recusar do
+que gravar uma credencial nunca verificada.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +19,7 @@ from pydantic import BaseModel
 from .auth import get_current_user_id
 from ..database import supabase
 from ..crypto import encrypt
+from ..internal_client import validate_shopee_credential, InternalApiError
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
@@ -135,6 +138,18 @@ async def save_credential(
 ):
     """Cria ou atualiza a credencial (update-or-insert por user_id). Cifra o secret."""
     table = _simple_table(network)
+
+    if network == "shopee":
+        try:
+            valid = await validate_shopee_credential(body.app_id, body.secret)
+        except InternalApiError:
+            raise HTTPException(
+                status_code=502,
+                detail="Não foi possível validar a credencial da Shopee agora. Tente novamente.",
+            )
+        if not valid:
+            raise HTTPException(status_code=400, detail="Credencial da Shopee inválida")
+
     _upsert_by_user(table, user_id, {
         "app_id": body.app_id,
         "secret": encrypt(body.secret),

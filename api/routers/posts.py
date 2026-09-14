@@ -1,27 +1,58 @@
 """
 Posts Router — API Python (FastAPI)
 
-CRUD de posts + copywriter IA. Escopo desta fase (migração React):
-post único (sem encadeamento em thread) e sem upload de mídia — o
-Flask (`web/routes/posts.py`) ainda cobre thread multi-parte, mídia e
-publicação agendada/imediata (Cloudinary + Threads + APScheduler
-compartilhado com o Flask). Ver docs/ROADMAP_MIGRACAO.md.
+CRUD de posts + copywriter IA + agendamento/publicação. Escopo desta
+fase (migração React): post único (sem encadeamento em thread) e sem
+upload de mídia — o Flask (`web/routes/posts.py`) ainda cobre thread
+multi-parte e mídia. Agendamento/publicação passam pelo bridge interno
+(`api/internal_client.py` -> `web/routes/internal.py`) porque o
+APScheduler só roda de verdade no processo Flask — ver docstring de
+internal_client.py e Fase 8 em docs/ROADMAP_MIGRACAO.md.
+
+Publicação de verdade hoje só existe pra Threads (`func="bot_post"`,
+`scheduler/bot_post.py`) — as outras 5 redes têm credencial mas nenhum
+wrapper de publicação ligado ao scheduler ainda.
 """
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from .auth import get_current_user_id
 from ..database import supabase
+from ..internal_client import (
+    create_scheduler_job,
+    remove_scheduler_job,
+    run_scheduler_job,
+    InternalApiError,
+)
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 
 
 # ── Schemas ──────────────────────────────────────────────────────────────────────
 
+class PostSchedule(BaseModel):
+    trigger: Literal["cron", "date"]
+    time: str | None = None  # "HH:MM", obrigatório se trigger=cron
+    day_of_week: int | None = None  # 0-6, obrigatório se trigger=cron
+    start_date: str | None = None  # ISO 8601, opcional em cron
+    run_date: str | None = None  # ISO 8601, obrigatório se trigger=date
+
+    @model_validator(mode="after")
+    def _check_required_fields(self):
+        if self.trigger == "cron" and (self.time is None or self.day_of_week is None):
+            raise ValueError("time e day_of_week são obrigatórios para trigger 'cron'")
+        if self.trigger == "date" and self.run_date is None:
+            raise ValueError("run_date é obrigatório para trigger 'date'")
+        return self
+
+
 class PostCreate(BaseModel):
     text: str
     product_ids: list[int] = []
+    schedule: PostSchedule
 
 
 class PostUpdate(BaseModel):
@@ -75,6 +106,21 @@ def _set_post_products(post_id: int, product_ids: list[int]) -> None:
         ]).execute()
 
 
+def _get_scheduler_job(post_id: int) -> dict | None:
+    result = (
+        supabase.table("schedulers").select("id")
+        .eq("post_id", post_id).maybe_single().execute()
+    )
+    return result.data if result else None
+
+
+def _delete_post_cascade(post_id: int) -> None:
+    """Apaga post + associações (produtos). Usado tanto no DELETE quanto
+    pra desfazer a criação se o agendamento falhar (ver create_post)."""
+    supabase.table("posts_products").delete().eq("post_id", post_id).execute()
+    supabase.table("posts").delete().eq("id", post_id).execute()
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────────
 
 @router.post("/generate-copy")
@@ -126,9 +172,11 @@ async def list_posts(
 
     posts: list[dict] = []
     for item in result.data:
+        job = _get_scheduler_job(item["id"])
         posts.append({
             **item,
             "products": _get_post_products(item["id"]),
+            "scheduled": job is not None,
         })
 
     next_cursor = None
@@ -143,7 +191,9 @@ async def create_post(
     body: PostCreate,
     user_id: int = Depends(get_current_user_id),
 ):
-    """Cria um post (sem thread, sem mídia — ver docstring do módulo)."""
+    """Cria um post (sem thread, sem mídia — ver docstring do módulo) e
+    agenda a publicação. Se o agendamento falhar, desfaz a criação —
+    melhor não criar do que criar um post que nunca vai publicar."""
     result = (
         supabase.table("posts")
         .insert({"user_id": user_id, "text": body.text, "post_id": None})
@@ -154,7 +204,26 @@ async def create_post(
 
     post = result.data[0]
     _set_post_products(post["id"], body.product_ids)
-    return {**post, "products": _get_post_products(post["id"])}
+
+    try:
+        await create_scheduler_job(
+            user_id=user_id,
+            post_id=post["id"],
+            func="bot_post",
+            trigger=body.schedule.trigger,
+            time=body.schedule.time,
+            day_of_week=body.schedule.day_of_week,
+            start_date=body.schedule.start_date,
+            run_date=body.schedule.run_date,
+        )
+    except InternalApiError:
+        _delete_post_cascade(post["id"])
+        raise HTTPException(
+            status_code=502,
+            detail="Não foi possível agendar a publicação agora. Post não foi criado.",
+        )
+
+    return {**post, "products": _get_post_products(post["id"]), "scheduled": True}
 
 
 @router.get("/{post_id}")
@@ -163,7 +232,8 @@ async def get_post(
     user_id: int = Depends(get_current_user_id),
 ):
     post = _get_post(user_id, post_id)
-    return {**post, "products": _get_post_products(post_id)}
+    job = _get_scheduler_job(post_id)
+    return {**post, "products": _get_post_products(post_id), "scheduled": job is not None}
 
 
 @router.put("/{post_id}")
@@ -188,6 +258,25 @@ async def update_post(
     return {**result.data[0], "products": _get_post_products(post_id)}
 
 
+@router.post("/{post_id}/publish")
+async def publish_post_now(
+    post_id: int,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Força a publicação imediata de um post já agendado."""
+    _get_post(user_id, post_id)  # ownership check
+    job = _get_scheduler_job(post_id)
+    if not job:
+        raise HTTPException(status_code=409, detail="Post não tem agendamento — nada pra publicar")
+
+    try:
+        await run_scheduler_job(job["id"])
+    except InternalApiError:
+        raise HTTPException(status_code=502, detail="Não foi possível publicar agora. Tente novamente.")
+
+    return {"msg": "Publicação disparada"}
+
+
 @router.delete("/{post_id}")
 async def delete_post(
     post_id: int,
@@ -195,13 +284,15 @@ async def delete_post(
 ):
     _get_post(user_id, post_id)  # ownership check
 
-    result = (
-        supabase.table("posts")
-        .delete()
-        .eq("id", post_id)
-        .eq("user_id", user_id)
-        .execute()
-    )
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Post não encontrado")
+    job = _get_scheduler_job(post_id)
+    if job:
+        try:
+            await remove_scheduler_job(user_id, job["id"])
+        except InternalApiError:
+            raise HTTPException(
+                status_code=502,
+                detail="Não foi possível remover o agendamento agora. Post não foi removido.",
+            )
+
+    _delete_post_cascade(post_id)
     return {"msg": "Post removido"}

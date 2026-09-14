@@ -36,3 +36,7 @@ class TestPostsAuthRequirement:
     def test_generate_copy_requires_auth(self, client):
         res = client.post("/posts/generate-copy", json={"product_id": 1})
         assert res.status_code == 401
+
+    def test_publish_requires_auth(self, client):
+        res = client.post("/posts/9999/publish")
+        assert res.status_code == 401
