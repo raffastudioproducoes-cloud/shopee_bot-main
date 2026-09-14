@@ -1,3 +1,4 @@
+{% from "macros/_icon.html" import icon %}
 <!-- input básico -->
 {% macro input(label, model, value, type='text', placeholder='', class='', readonly=False, required=False, autocomplete='', errors=[], min=none, max=none, onfocus=False) -%}
 {% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
