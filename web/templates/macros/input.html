@@ -100,6 +100,35 @@
 {%- endmacro %}
 <!-- fim de input_range -->
 
+<!-- textarea básico -->
+{% macro textarea(label, model, value='', placeholder='', class='', rows=4, readonly=False, required=False, autocomplete='', errors=[]) -%}
+{% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
+{% set has_errors = errors is iterable and errors is not string and errors|length > 0 %}
+{% set errors_class = "!border-danger" if has_errors else "" %}
+<div>
+    <label for="{{ model }}" class="block text-md font-medium text-on-surface-variant">{{ label }}</label>
+    <textarea
+        id="{{ model }}"
+        x-model="{{ model }}"
+        name="{{ model }}"
+        rows="{{ rows }}"
+        placeholder="{{ placeholder }}"
+        {{ 'readonly' if readonly else '' }}
+        {{ 'required' if required else '' }}
+        {{ 'autocomplete={0}'.format(autocomplete) if autocomplete else '' }}
+        class="{{ class }} {{ base_input_class }} {{ errors_class }}"
+    >{{ value }}</textarea>
+    {% if has_errors %}
+    <ul class="mt-1">
+        {% for error in errors %}
+        <li class="text-xs text-danger">{{ error }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{%- endmacro %}
+<!-- fim de textarea básico -->
+
 <!-- secret_input: nunca expõe valor em texto — type=password, value vazio -->
 {% macro secret_input(label, name, value, placeholder='', class='', required=False, errors=[], autocomplete='off') -%}
 {% set base_input_class = "w-full px-3 py-2 bg-surface-container-low border border-white/10 rounded-lg text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent sm:text-sm transition-colors" %}
