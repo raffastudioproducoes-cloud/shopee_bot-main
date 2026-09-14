@@ -30,16 +30,15 @@ Critérios gerais aplicados a cada módulo abaixo:
 - [x] CRUD completo, produtos associados
 
 ## Fase 5 — Posts
-- [x] CRUD de post único
+- [x] CRUD de post com thread multi-parte
 - [x] Copywriter IA (`/posts/generate-copy`)
-- [ ] Thread multi-parte (post encadeado) — não migrado
-- [ ] Upload de mídia — não migrado
-- [ ] Agendamento/publicação executável pela API nova — não migrado (ver Fase 8)
+- [x] Upload de mídia (`/posts/{id}/media`) — só na head da thread
+- [x] Agendamento (cron/data) e publicação imediata via bridge interno (Fase 8)
 
 ## Fase 6 — Credenciais
 - [x] 6 redes simples (Shopee, X, Facebook, Instagram, TikTok, Kwai) + Threads
 - [x] Nunca reexibe valor salvo, só status
-- [ ] Validação ao vivo da credencial Shopee contra a API deles — não migrado (Flask ainda faz)
+- [x] Validação ao vivo da credencial Shopee contra a API deles, via bridge interno
 - [ ] Fluxo OAuth do Threads (emitir token) — continua só no Flask
 
 ## Fase 7 — Usuários
@@ -48,9 +47,11 @@ Critérios gerais aplicados a cada módulo abaixo:
 ## Fase 8 — Scheduler
 - [x] Decisão tomada: manter in-process (ADR 19)
 - [x] Risco de dupla publicação identificado e documentado (dois processos com `_scheduler` ativo)
-- [ ] Caminho de consolidação implementado (expor `add_job`/`remove_job`/`run_job` via HTTP interno do Flask pra API nova chamar)
+- [x] Bridge interno implementado (`web/routes/internal.py` + `api/internal_client.py`) —
+  `add_job`/`remove_job`/`run_job`/`query_auth_validate` expostos via HTTP, secret compartilhado
 
 ## Antes de aposentar o Flask (`web/`)
-- [ ] Fase 5 com paridade completa (thread, mídia, agendamento)
-- [ ] Fase 6 com validação Shopee e fluxo OAuth Threads migrados
-- [ ] Scheduler consolidado (Fase 8 pendente)
+- [ ] Decidir topologia de deploy da API nova em produção (mesmo container do Flask,
+  pra compartilhar filesystem/rede interna, ou Web Service separado no Render)
+- [ ] `FLASK_INTERNAL_URL`/`INTERNAL_API_SECRET` configurados em produção
+- [ ] Fluxo OAuth do Threads migrado (Fase 6, único item de credenciais que resta)

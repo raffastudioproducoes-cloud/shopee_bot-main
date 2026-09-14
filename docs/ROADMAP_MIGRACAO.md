@@ -1,7 +1,8 @@
 # Roadmap de Migração — React + API Python
 
-> Em andamento desde 2026-09-04. Atualizado em 2026-09-14 — Fases 0-7 concluídas
-> (Fase 5 com escopo simplificado, ver nota). Fase 8 decidida.
+> Em andamento desde 2026-09-04. Atualizado em 2026-09-14 — Fases 0-8 concluídas.
+> Único pendente real: rodar a API nova no mesmo processo/filesystem do
+> Flask em produção (ver Fase 8 e Fase 5, upload de mídia).
 
 ## Visão geral
 
@@ -43,35 +44,36 @@ Migrar o ShopeeAutoVendas do frontend Flask/Jinja2/Alpine.js para React + TanSta
 
 ### Fase 5 — Posts
 
-- [x] API Python: CRUD de post único (`api/routers/posts.py`)
+- [x] API Python: CRUD de post com thread multi-parte (`api/routers/posts.py`)
 - [x] Copywriter IA: integração com Gemini (`apis/llm.py`, endpoint `/posts/generate-copy`)
-- [x] Frontend React: lista de posts, modal de criação/edição, seleção de produtos, botão "Gerar texto com IA"
+- [x] Agendamento (cron/data) e publicação imediata via bridge interno (ver Fase 8)
+- [x] Upload de mídia (`POST /posts/{id}/media`, mesmo caminho `web/media/<post_id>/` do Flask)
+- [x] Frontend React: lista de posts, modal com partes de thread, upload/remoção de mídia,
+  seletor "Agora / Data específica / Recorrente", botão "publicar agora", "Gerar texto com IA"
 - [x] Ícones Lucide React
 
-**Escopo simplificado nesta fase** (ver `api/routers/posts.py` docstring):
-- **Sem encadeamento em thread** (o Flask permite post multi-parte via `posts.post_id`
-  auto-referenciado; a API nova cria só posts avulsos, `post_id` sempre `NULL`).
-- **Sem upload de mídia** (o Flask sobe pra `web/media/<post_id>/`, cifra pro Cloudinary
-  na publicação — não replicado).
-- **Sem agendamento/publicação executável pela API nova.** `add_job`/`remove_job`/`run_job`
-  (`scheduler/__init__.py`) dependem de um singleton `_scheduler` em memória, inicializado
-  uma vez por processo gunicorn (Flask). Rodar `scheduler.init()` também no processo FastAPI
-  arriscaria dois schedulers ativos ao mesmo tempo em produção → post publicado em duplicata.
-  Agendar/publicar continua exclusivamente pelo painel Flask até a Fase 8 decidir a
-  consolidação. Ver nota na Fase 8.
+**Simplificações restantes** (ver `api/routers/posts.py` docstring):
+- Upload de mídia só na head da thread, não em cada parte.
+- Publicação de verdade hoje só existe pra Threads (`func="bot_post"`) — as outras 5 redes
+  têm credencial mas nenhum wrapper de publicação ligado ao scheduler ainda (isso é
+  limitação do Flask original, não da migração).
+- Upload de mídia grava no filesystem local do processo da API nova — só funciona de
+  verdade em produção quando ela roda no mesmo container/filesystem que o Flask (ver
+  Fase 8; hoje só o Flask está deployado no Render).
 
 ### Fase 6 — Credenciais
 
 - [x] API Python: `api/routers/credentials.py` — salvar/ler status/remover, 5 redes simples
   (Shopee, X, Facebook, Instagram, TikTok, Kwai) + Threads (OAuth, formato próprio)
+- [x] Validação ao vivo da credencial Shopee contra a API deles antes de salvar, via bridge
+  interno (`web/routes/internal.py:validate_shopee`) — paridade com o Flask
 - [x] Frontend React: card por rede, nunca reexibe o valor salvo (só status conectado/desconectado)
-- [x] Secret cifrado com `utils.crypto.encrypt` (mesma chave/algoritmo do Flask — compatível)
+- [x] Secret cifrado com `api/crypto.py` (mesma chave/algoritmo Fernet do `utils/crypto.py`
+  do Flask — compatível; wrapper próprio pra não arrastar deps do Flask pro `api/requirements.txt`)
 - [x] Ícones Lucide React
 
-**Escopo simplificado**: a Shopee valida a credencial ao vivo contra a API deles antes de
-salvar (`apis/shopee.py:query_auth_validate`) no Flask; a API nova salva sem validar (igual
-já fazem as outras 5 redes hoje). Threads continua exigindo o fluxo OAuth do Flask pra emitir
-o token — o formulário novo só aceita colar um token já emitido.
+**Escopo simplificado que fica**: Threads continua exigindo o fluxo OAuth do Flask pra emitir
+o token (troca de código com a Meta) — o formulário novo só aceita colar um token já emitido.
 
 ### Fase 7 — Usuários
 
@@ -79,7 +81,7 @@ o token — o formulário novo só aceita colar um token já emitido.
 - [x] Frontend React: tabela de usuários, modal de criação/edição, item de nav só pra admin
 - [x] Ícones Lucide React
 
-### Fase 8 — Scheduler (decisão)
+### Fase 8 — Scheduler (decisão + consolidação)
 
 - [x] **Decisão: manter in-process** (reafirma o ADR `19-ADR-Scheduler-In-Process.md` —
   YAGNI, sem tráfego que justifique um worker externo).
@@ -87,12 +89,16 @@ o token — o formulário novo só aceita colar um token já emitido.
   FastAPI) simultaneamente arrisca dois `_scheduler` (APScheduler) ativos publicando o
   mesmo job — duplicata em produção. Enquanto os dois processos coexistirem, **só o Flask
   deve chamar `scheduler.init()`**.
-- [ ] **Pendente** (bloqueia aposentar o Flask): mover agendamento/publicação para a API
-  nova. Caminho mais simples — sem introduzir um segundo processo scheduler: expor
-  `add_job`/`remove_job`/`run_job` (que já são funções Python puras, não Flask-specific)
-  como endpoints HTTP internos no Flask, e o FastAPI chamá-los via HTTP em vez de importar
-  o módulo `scheduler` diretamente. Alternativa mais trabalhosa: migrar o processo Flask
-  inteiro pra rodar só como o "scheduler worker", sem servir páginas.
+- [x] **Consolidado via bridge interno**: `web/routes/internal.py` expõe
+  `add_job`/`remove_job`/`run_job` e `query_auth_validate` (Shopee) como endpoints HTTP
+  protegidos por segredo compartilhado (`X-Internal-Secret`, isento de CSRF); a API nova
+  chama por HTTP (`api/internal_client.py`) em vez de importar `scheduler`/`apis.shopee`
+  diretamente. `create_post`/`delete_post` na API nova já usam isso pra agendar/desagendar.
+- [ ] **Pendente real** (bloqueia aposentar o Flask): hoje só o Flask está deployado no
+  Render — a API nova (`api/`) ainda não tem processo próprio em produção, então
+  `FLASK_INTERNAL_URL`/`INTERNAL_API_SECRET` só existem em dev local. Falta decidir a
+  topologia de deploy (mesmo container? Web Service separado no Render?) antes do bridge
+  funcionar em produção. Mídia (Fase 5) tem a mesma dependência (filesystem compartilhado).
 
 ## Documentação criada nesta sessão
 

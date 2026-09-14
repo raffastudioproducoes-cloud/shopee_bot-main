@@ -257,11 +257,11 @@ Migração por módulos, testando cada um antes de avançar:
 - [x] **Fase 2** — Painel/Dashboard
 - [x] **Fase 3** — Produtos (CRUD completo, 13 testes)
 - [x] **Fase 4** — Listas de produtos
-- [x] **Fase 5** — Posts (post único + copywriter IA — sem thread/mídia/agendamento, ver `docs/ROADMAP_MIGRACAO.md`)
-- [x] **Fase 6** — Credenciais (forms sem expor valor, 6 redes + Threads)
+- [x] **Fase 5** — Posts (thread multi-parte, mídia, agendamento, publicação, copywriter IA)
+- [x] **Fase 6** — Credenciais (forms sem expor valor, 6 redes + Threads, validação Shopee ao vivo)
 - [x] **Fase 7** — Usuários (admin-only)
-- [x] **Fase 8** — Scheduler: decidido manter in-process; agendamento/publicação segue só no Flask até expor via HTTP interno (ver roadmap)
-- [ ] Aposentar o Flask (`web/`) — falta mover agendamento/publicação/mídia/thread pra API nova primeiro
+- [x] **Fase 8** — Scheduler: decidido manter in-process; consolidado via bridge HTTP interno (`web/routes/internal.py`) — ver `docs/ROADMAP_MIGRACAO.md`
+- [ ] Aposentar o Flask (`web/`) — falta decidir a topologia de deploy da API nova em produção (hoje só o Flask está no Render) e migrar o fluxo OAuth do Threads
 
 ## Licença
 
