@@ -48,7 +48,7 @@ export function PostsPage() {
   )
 
   const createMutation = useMutation({
-    mutationFn: (data: { text: string; product_ids: number[]; schedule: PostSchedule }) =>
+    mutationFn: (data: { texts: string[]; product_ids: number[]; schedule: PostSchedule }) =>
       postsApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
@@ -58,8 +58,8 @@ export function PostsPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, text, product_ids }: { id: number; text: string; product_ids: number[] }) =>
-      postsApi.update(id, { text, product_ids }),
+    mutationFn: ({ id, texts, product_ids }: { id: number; texts: string[]; product_ids: number[] }) =>
+      postsApi.update(id, { texts, product_ids }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
       setModalOpen(false)
@@ -84,11 +84,11 @@ export function PostsPage() {
   })
 
   const handleSave = useCallback(
-    (text: string, productIds: number[], schedule: PostSchedule) => {
+    (texts: string[], productIds: number[], schedule: PostSchedule) => {
       if (editingPost) {
-        updateMutation.mutate({ id: editingPost.id, text, product_ids: productIds })
+        updateMutation.mutate({ id: editingPost.id, texts, product_ids: productIds })
       } else {
-        createMutation.mutate({ text, product_ids: productIds, schedule })
+        createMutation.mutate({ texts, product_ids: productIds, schedule })
       }
     },
     [editingPost, createMutation, updateMutation],
@@ -112,8 +112,9 @@ export function PostsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Posts</h1>
             <p className="text-gray-500 mt-1">
-              Criação de post com copy manual ou gerado por IA, agendado ou publicado na hora.{" "}
-              <span className="text-xs">(thread multi-parte e mídia ainda pelo painel Flask)</span>
+              Criação de post (com thread multi-parte) com copy manual ou gerado por IA, agendado
+              ou publicado na hora.{" "}
+              <span className="text-xs">(mídia/anexo ainda pelo painel Flask)</span>
             </p>
           </div>
           <button
@@ -169,6 +170,9 @@ export function PostsPage() {
                           <Clock className="w-3 h-3" />
                           Agendado
                         </span>
+                      )}
+                      {!!post.parts_count && post.parts_count > 1 && (
+                        <span className="text-xs text-gray-400">{post.parts_count} partes</span>
                       )}
                     </div>
                   </div>
@@ -258,7 +262,7 @@ export function PostsPage() {
 interface PostModalProps {
   post: Post | null
   onClose: () => void
-  onSave: (text: string, productIds: number[], schedule: PostSchedule) => void
+  onSave: (texts: string[], productIds: number[], schedule: PostSchedule) => void
   loading: boolean
   error?: string
 }
@@ -266,7 +270,9 @@ interface PostModalProps {
 type WhenOption = "now" | "date" | "cron"
 
 function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
-  const [text, setText] = useState(post?.text ?? "")
+  const [texts, setTexts] = useState<string[]>(
+    post?.texts && post.texts.length > 0 ? post.texts : [""],
+  )
   const [persona, setPersona] = useState("casual")
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>(
     post?.products.map((p) => p.id) ?? [],
@@ -284,7 +290,7 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
 
   const generateMutation = useMutation({
     mutationFn: (productId: number) => postsApi.generateCopy(productId, persona),
-    onSuccess: (res) => setText(res.text),
+    onSuccess: (res) => setTexts((prev) => [res.text, ...prev.slice(1)]),
   })
 
   const toggleProduct = (id: number) => {
@@ -292,6 +298,13 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     )
   }
+
+  const setPartText = (index: number, value: string) => {
+    setTexts((prev) => prev.map((t, i) => (i === index ? value : t)))
+  }
+
+  const addPart = () => setTexts((prev) => [...prev, ""])
+  const removePart = (index: number) => setTexts((prev) => prev.filter((_, i) => i !== index))
 
   const buildSchedule = (): PostSchedule => {
     if (when === "cron") {
@@ -301,11 +314,13 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
     return { trigger: "date", run_date: runAt }
   }
 
+  const trimmedTexts = texts.map((t) => t.trim()).filter(Boolean)
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!text.trim()) return
+    if (trimmedTexts.length === 0) return
     if (when === "date" && !runDate) return
-    onSave(text.trim(), selectedProductIds, buildSchedule())
+    onSave(trimmedTexts, selectedProductIds, buildSchedule())
   }
 
   return (
@@ -369,17 +384,40 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
             <p className="text-xs text-red-600">{generateMutation.error.message}</p>
           )}
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-              Texto do post *
-            </label>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              required
-              rows={6}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-            />
+          <div className="space-y-3">
+            {texts.map((partText, index) => (
+              <div key={index}>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {index === 0 ? "Texto do post *" : `Parte ${index + 1} (resposta em thread)`}
+                  </label>
+                  {texts.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePart(index)}
+                      className="text-xs text-red-500 hover:text-red-700"
+                    >
+                      Remover parte
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  value={partText}
+                  onChange={(e) => setPartText(index, e.target.value)}
+                  required={index === 0}
+                  rows={index === 0 ? 6 : 3}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
+                />
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addPart}
+              className="text-sm text-primary hover:text-primary-hover font-medium flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Adicionar parte (thread)
+            </button>
           </div>
 
           {!post && (
@@ -456,7 +494,7 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
             </button>
             <button
               type="submit"
-              disabled={loading || !text.trim() || (when === "date" && !runDate)}
+              disabled={loading || trimmedTexts.length === 0 || (when === "date" && !runDate)}
               className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {loading ? "Salvando..." : post ? "Salvar" : "Criar"}

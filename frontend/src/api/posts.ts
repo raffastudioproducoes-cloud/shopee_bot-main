@@ -13,12 +13,14 @@ export interface PostProduct {
 export interface Post {
   id: number
   text: string
+  texts: string[]
   post_id: number | null
   user_id: number
   created_at: string
   updated_at: string | null
   products: PostProduct[]
   scheduled: boolean
+  parts_count?: number
 }
 
 export interface PostSchedule {
@@ -30,13 +32,13 @@ export interface PostSchedule {
 }
 
 export interface PostCreate {
-  text: string
+  texts: string[]
   product_ids?: number[]
   schedule: PostSchedule
 }
 
 export interface PostUpdate {
-  text: string
+  texts: string[]
   product_ids?: number[]
 }
 

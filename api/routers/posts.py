@@ -1,23 +1,28 @@
 """
 Posts Router — API Python (FastAPI)
 
-CRUD de posts + copywriter IA + agendamento/publicação. Escopo desta
-fase (migração React): post único (sem encadeamento em thread) e sem
-upload de mídia — o Flask (`web/routes/posts.py`) ainda cobre thread
-multi-parte e mídia. Agendamento/publicação passam pelo bridge interno
+CRUD de posts (thread multi-parte) + copywriter IA + agendamento/
+publicação. Agendamento/publicação passam pelo bridge interno
 (`api/internal_client.py` -> `web/routes/internal.py`) porque o
 APScheduler só roda de verdade no processo Flask — ver docstring de
 internal_client.py e Fase 8 em docs/ROADMAP_MIGRACAO.md.
 
-Publicação de verdade hoje só existe pra Threads (`func="bot_post"`,
-`scheduler/bot_post.py`) — as outras 5 redes têm credencial mas nenhum
-wrapper de publicação ligado ao scheduler ainda.
+Escopo simplificado: sem upload de mídia (o Flask ainda cobre isso —
+sobe pra `web/media/<post_id>/`, cifra pro Cloudinary na publicação).
+
+Modelo de thread: cada parte é uma linha em `posts`; a primeira
+("head", a única retornada por list_posts) tem `post_id IS NULL`; cada
+parte seguinte tem `post_id` apontando pra parte ANTERIOR (lista
+encadeada por trás pra frente, não por índice). Produtos e agendamento
+sempre grudam na head. Publicação de verdade hoje só existe pra Threads
+(`func="bot_post"`, `scheduler/bot_post.py`) — as outras 5 redes têm
+credencial mas nenhum wrapper de publicação ligado ao scheduler ainda.
 """
 
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, field_validator
 
 from .auth import get_current_user_id
 from ..database import supabase
@@ -50,14 +55,28 @@ class PostSchedule(BaseModel):
 
 
 class PostCreate(BaseModel):
-    text: str
+    texts: list[str]  # 1 item = post único; 2+ = thread encadeada
     product_ids: list[int] = []
     schedule: PostSchedule
 
+    @field_validator("texts")
+    @classmethod
+    def _texts_not_empty(cls, v):
+        if not v or not any(t.strip() for t in v):
+            raise ValueError("texts precisa ter ao menos um item com texto")
+        return v
+
 
 class PostUpdate(BaseModel):
-    text: str
+    texts: list[str]
     product_ids: list[int] = []
+
+    @field_validator("texts")
+    @classmethod
+    def _texts_not_empty(cls, v):
+        if not v or not any(t.strip() for t in v):
+            raise ValueError("texts precisa ter ao menos um item com texto")
+        return v
 
 
 class GenerateCopyBody(BaseModel):
@@ -114,11 +133,60 @@ def _get_scheduler_job(post_id: int) -> dict | None:
     return result.data if result else None
 
 
-def _delete_post_cascade(post_id: int) -> None:
-    """Apaga post + associações (produtos). Usado tanto no DELETE quanto
-    pra desfazer a criação se o agendamento falhar (ver create_post)."""
-    supabase.table("posts_products").delete().eq("post_id", post_id).execute()
-    supabase.table("posts").delete().eq("id", post_id).execute()
+def _get_thread_chain(head_id: int) -> list[dict]:
+    """Head primeiro, depois cada parte seguinte (post_id aponta pra
+    parte ANTERIOR — ver docstring do módulo). Bounded por MAX_PARTS
+    pra nunca entrar em loop infinito se o dado estiver corrompido."""
+    MAX_PARTS = 50
+    chain = [_get_post_by_id_only(head_id)]
+    current_id = head_id
+    for _ in range(MAX_PARTS):
+        next_result = (
+            supabase.table("posts").select("*")
+            .eq("post_id", current_id).maybe_single().execute()
+        )
+        if not next_result or not next_result.data:
+            break
+        chain.append(next_result.data)
+        current_id = next_result.data["id"]
+    return chain
+
+
+def _get_post_by_id_only(post_id: int) -> dict:
+    result = supabase.table("posts").select("*").eq("id", post_id).single().execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Post não encontrado")
+    return result.data
+
+
+def _create_thread(user_id: int, texts: list[str]) -> dict:
+    """Insere a thread inteira, encadeando post_id. Retorna a head."""
+    parent_id = None
+    head = None
+    for text in texts:
+        result = (
+            supabase.table("posts")
+            .insert({"user_id": user_id, "text": text, "post_id": parent_id})
+            .execute()
+        )
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Falha ao criar post")
+        row = result.data[0]
+        if head is None:
+            head = row
+        parent_id = row["id"]
+    return head
+
+
+def _delete_thread_cascade(head_id: int) -> None:
+    """Apaga a thread inteira (head + partes) + associações de produto.
+    Usado no DELETE e pra desfazer a criação se o agendamento falhar."""
+    chain = _get_thread_chain(head_id)
+    supabase.table("posts_products").delete().eq("post_id", head_id).execute()
+    # apaga de trás pra frente: cada parte tem post_id apontando pra
+    # anterior, então a anterior não pode sumir primeiro (FK)
+    for row in reversed(chain):
+        supabase.table("posts").delete().eq("id", row["id"]).execute()
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────────
@@ -173,10 +241,13 @@ async def list_posts(
     posts: list[dict] = []
     for item in result.data:
         job = _get_scheduler_job(item["id"])
+        chain = _get_thread_chain(item["id"])
         posts.append({
             **item,
+            "texts": [row["text"] for row in chain],
             "products": _get_post_products(item["id"]),
             "scheduled": job is not None,
+            "parts_count": len(chain),
         })
 
     next_cursor = None
@@ -191,24 +262,16 @@ async def create_post(
     body: PostCreate,
     user_id: int = Depends(get_current_user_id),
 ):
-    """Cria um post (sem thread, sem mídia — ver docstring do módulo) e
-    agenda a publicação. Se o agendamento falhar, desfaz a criação —
+    """Cria a thread (1+ partes, ver docstring do módulo) e agenda a
+    publicação. Se o agendamento falhar, desfaz a criação inteira —
     melhor não criar do que criar um post que nunca vai publicar."""
-    result = (
-        supabase.table("posts")
-        .insert({"user_id": user_id, "text": body.text, "post_id": None})
-        .execute()
-    )
-    if not result.data:
-        raise HTTPException(status_code=500, detail="Falha ao criar post")
-
-    post = result.data[0]
-    _set_post_products(post["id"], body.product_ids)
+    head = _create_thread(user_id, body.texts)
+    _set_post_products(head["id"], body.product_ids)
 
     try:
         await create_scheduler_job(
             user_id=user_id,
-            post_id=post["id"],
+            post_id=head["id"],
             func="bot_post",
             trigger=body.schedule.trigger,
             time=body.schedule.time,
@@ -217,13 +280,18 @@ async def create_post(
             run_date=body.schedule.run_date,
         )
     except InternalApiError:
-        _delete_post_cascade(post["id"])
+        _delete_thread_cascade(head["id"])
         raise HTTPException(
             status_code=502,
             detail="Não foi possível agendar a publicação agora. Post não foi criado.",
         )
 
-    return {**post, "products": _get_post_products(post["id"]), "scheduled": True}
+    return {
+        **head,
+        "texts": body.texts,
+        "products": _get_post_products(head["id"]),
+        "scheduled": True,
+    }
 
 
 @router.get("/{post_id}")
@@ -233,7 +301,13 @@ async def get_post(
 ):
     post = _get_post(user_id, post_id)
     job = _get_scheduler_job(post_id)
-    return {**post, "products": _get_post_products(post_id), "scheduled": job is not None}
+    chain = _get_thread_chain(post_id)
+    return {
+        **post,
+        "texts": [row["text"] for row in chain],
+        "products": _get_post_products(post_id),
+        "scheduled": job is not None,
+    }
 
 
 @router.put("/{post_id}")
@@ -242,11 +316,18 @@ async def update_post(
     body: PostUpdate,
     user_id: int = Depends(get_current_user_id),
 ):
+    """Atualiza a head (id fixo — mantém agendamento/produtos válidos)
+    e substitui as partes seguintes (apaga e recria — simplificação:
+    não tenta casar partes antigas com as novas por id)."""
     _get_post(user_id, post_id)  # ownership check
+
+    chain = _get_thread_chain(post_id)
+    for row in reversed(chain[1:]):
+        supabase.table("posts").delete().eq("id", row["id"]).execute()
 
     result = (
         supabase.table("posts")
-        .update({"text": body.text})
+        .update({"text": body.texts[0]})
         .eq("id", post_id)
         .eq("user_id", user_id)
         .execute()
@@ -254,8 +335,21 @@ async def update_post(
     if not result.data:
         raise HTTPException(status_code=404, detail="Post não encontrado")
 
+    parent_id = post_id
+    for text in body.texts[1:]:
+        row = (
+            supabase.table("posts")
+            .insert({"user_id": user_id, "text": text, "post_id": parent_id})
+            .execute()
+        )
+        parent_id = row.data[0]["id"]
+
     _set_post_products(post_id, body.product_ids)
-    return {**result.data[0], "products": _get_post_products(post_id)}
+    return {
+        **result.data[0],
+        "texts": body.texts,
+        "products": _get_post_products(post_id),
+    }
 
 
 @router.post("/{post_id}/publish")
@@ -294,5 +388,5 @@ async def delete_post(
                 detail="Não foi possível remover o agendamento agora. Post não foi removido.",
             )
 
-    _delete_post_cascade(post_id)
+    _delete_thread_cascade(post_id)
     return {"msg": "Post removido"}
