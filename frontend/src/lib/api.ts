@@ -42,4 +42,19 @@ export const api = {
     request<T>(endpoint, { method: 'PUT', body: JSON.stringify(data) }),
   delete: <T>(endpoint: string) =>
     request<T>(endpoint, { method: 'DELETE' }),
+  // multipart: sem Content-Type manual — o browser define com o boundary certo
+  upload: async <T>(endpoint: string, file: File): Promise<T> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Erro desconhecido' }))
+      throw new ApiError(response.status, error.detail || `HTTP ${response.status}`)
+    }
+    return response.json()
+  },
 }

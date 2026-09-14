@@ -7,8 +7,14 @@ publicação. Agendamento/publicação passam pelo bridge interno
 APScheduler só roda de verdade no processo Flask — ver docstring de
 internal_client.py e Fase 8 em docs/ROADMAP_MIGRACAO.md.
 
-Escopo simplificado: sem upload de mídia (o Flask ainda cobre isso —
-sobe pra `web/media/<post_id>/`, cifra pro Cloudinary na publicação).
+Upload de mídia (imagem/vídeo) grava em `web/media/<post_id>/`, o MESMO
+caminho relativo que o Flask usa — funciona de verdade quando os dois
+processos rodam a partir da mesma raiz de repositório (dev local hoje;
+em produção só funciona se um dia forem deployados compartilhando o
+mesmo filesystem, o que ainda não é o caso — só o Flask está no
+Render). Cifrado pro Cloudinary só acontece na publicação
+(`scheduler/bot_post.py`, roda no Flask). Simplificação: mídia só na
+head da thread, não em cada parte (mesma limitação de UI do form novo).
 
 Modelo de thread: cada parte é uma linha em `posts`; a primeira
 ("head", a única retornada por list_posts) tem `post_id IS NULL`; cada
@@ -19,9 +25,11 @@ sempre grudam na head. Publicação de verdade hoje só existe pra Threads
 credencial mas nenhum wrapper de publicação ligado ao scheduler ainda.
 """
 
+import os
+from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, model_validator, field_validator
 
 from .auth import get_current_user_id
@@ -32,6 +40,10 @@ from ..internal_client import (
     run_scheduler_job,
     InternalApiError,
 )
+
+MEDIA_ROOT = Path("web/media")
+ALLOWED_MEDIA_EXTS = {".webp", ".jpg", ".jpeg", ".png", ".gif", ".mp4"}
+MAX_MEDIA_BYTES = 50 * 1024 * 1024  # 50MB, mesmo teto do Flask (FLASK_MAX_CONTENT_LENGTH)
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 
@@ -116,6 +128,22 @@ def _get_post_products(post_id: int) -> list[dict]:
     return products
 
 
+def _get_post_medias(post_id: int) -> list[dict]:
+    result = (
+        supabase.table("posts_medias")
+        .select("display_order, medias(id, file_name, size, type)")
+        .eq("post_id", post_id)
+        .order("display_order")
+        .execute()
+    )
+    medias: list[dict] = []
+    for item in result.data or []:
+        media = item.get("medias")
+        if media:
+            medias.append(media)
+    return medias
+
+
 def _set_post_products(post_id: int, product_ids: list[int]) -> None:
     supabase.table("posts_products").delete().eq("post_id", post_id).execute()
     if product_ids:
@@ -179,9 +207,28 @@ def _create_thread(user_id: int, texts: list[str]) -> dict:
 
 
 def _delete_thread_cascade(head_id: int) -> None:
-    """Apaga a thread inteira (head + partes) + associações de produto.
-    Usado no DELETE e pra desfazer a criação se o agendamento falhar."""
+    """Apaga a thread inteira (head + partes) + associações de produto
+    e mídia (arquivo em disco + linhas). Usado no DELETE e pra desfazer
+    a criação se o agendamento falhar."""
     chain = _get_thread_chain(head_id)
+
+    media_rows = (
+        supabase.table("posts_medias")
+        .select("medias(id, file_path)")
+        .eq("post_id", head_id)
+        .execute()
+    )
+    for item in media_rows.data or []:
+        media = item.get("medias")
+        if media and media.get("file_path"):
+            try:
+                os.remove(media["file_path"])
+            except OSError:
+                pass  # arquivo já sumiu — não bloqueia a remoção do post
+        if media:
+            supabase.table("medias").delete().eq("id", media["id"]).execute()
+
+    supabase.table("posts_medias").delete().eq("post_id", head_id).execute()
     supabase.table("posts_products").delete().eq("post_id", head_id).execute()
     # apaga de trás pra frente: cada parte tem post_id apontando pra
     # anterior, então a anterior não pode sumir primeiro (FK)
@@ -246,6 +293,7 @@ async def list_posts(
             **item,
             "texts": [row["text"] for row in chain],
             "products": _get_post_products(item["id"]),
+            "medias": _get_post_medias(item["id"]),
             "scheduled": job is not None,
             "parts_count": len(chain),
         })
@@ -290,6 +338,7 @@ async def create_post(
         **head,
         "texts": body.texts,
         "products": _get_post_products(head["id"]),
+        "medias": [],
         "scheduled": True,
     }
 
@@ -306,6 +355,7 @@ async def get_post(
         **post,
         "texts": [row["text"] for row in chain],
         "products": _get_post_products(post_id),
+        "medias": _get_post_medias(post_id),
         "scheduled": job is not None,
     }
 
@@ -350,6 +400,89 @@ async def update_post(
         "texts": body.texts,
         "products": _get_post_products(post_id),
     }
+
+
+@router.post("/{post_id}/media", status_code=status.HTTP_201_CREATED)
+async def upload_media(
+    post_id: int,
+    file: UploadFile,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Anexa uma mídia à HEAD do post (não a partes de thread — ver
+    docstring do módulo). Grava em disco no mesmo caminho relativo que
+    o Flask usa (`web/media/<post_id>/`)."""
+    _get_post(user_id, post_id)  # ownership check
+
+    filename = file.filename or ""
+    ext = Path(filename).suffix.lower()
+    if ext not in ALLOWED_MEDIA_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Formato de arquivo inválido: {filename}. Permitidos: {sorted(ALLOWED_MEDIA_EXTS)}",
+        )
+
+    content = await file.read()
+    if len(content) > MAX_MEDIA_BYTES:
+        raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
+
+    post_dir = MEDIA_ROOT / str(post_id)
+    post_dir.mkdir(parents=True, exist_ok=True)
+    file_path = post_dir / filename
+    file_path.write_bytes(content)
+
+    media_type = "VIDEO" if ext == ".mp4" else "IMAGE"
+    media_result = (
+        supabase.table("medias")
+        .insert({
+            "user_id": user_id,
+            "file_name": filename,
+            "file_path": str(file_path),
+            "size": len(content),
+            "type": media_type,
+        })
+        .execute()
+    )
+    if not media_result.data:
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail="Falha ao salvar mídia")
+
+    media = media_result.data[0]
+    next_order = len(_get_post_medias(post_id))
+    supabase.table("posts_medias").insert({
+        "post_id": post_id,
+        "media_id": media["id"],
+        "display_order": next_order,
+    }).execute()
+
+    return media
+
+
+@router.delete("/{post_id}/media/{media_id}")
+async def delete_media(
+    post_id: int,
+    media_id: int,
+    user_id: int = Depends(get_current_user_id),
+):
+    _get_post(user_id, post_id)  # ownership check
+
+    media_result = (
+        supabase.table("medias").select("file_path")
+        .eq("id", media_id).eq("user_id", user_id).maybe_single().execute()
+    )
+    if not media_result or not media_result.data:
+        raise HTTPException(status_code=404, detail="Mídia não encontrada")
+
+    supabase.table("posts_medias").delete().eq("post_id", post_id).eq("media_id", media_id).execute()
+    supabase.table("medias").delete().eq("id", media_id).execute()
+
+    file_path = media_result.data.get("file_path")
+    if file_path:
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+
+    return {"msg": "Mídia removida"}
 
 
 @router.post("/{post_id}/publish")

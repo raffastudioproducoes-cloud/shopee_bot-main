@@ -48,8 +48,22 @@ export function PostsPage() {
   )
 
   const createMutation = useMutation({
-    mutationFn: (data: { texts: string[]; product_ids: number[]; schedule: PostSchedule }) =>
-      postsApi.create(data),
+    mutationFn: async (data: {
+      texts: string[]
+      product_ids: number[]
+      schedule: PostSchedule
+      files: File[]
+    }) => {
+      const created = await postsApi.create({
+        texts: data.texts,
+        product_ids: data.product_ids,
+        schedule: data.schedule,
+      })
+      for (const file of data.files) {
+        await postsApi.uploadMedia(created.id, file)
+      }
+      return created
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
       setModalOpen(false)
@@ -84,11 +98,11 @@ export function PostsPage() {
   })
 
   const handleSave = useCallback(
-    (texts: string[], productIds: number[], schedule: PostSchedule) => {
+    (texts: string[], productIds: number[], schedule: PostSchedule, files: File[]) => {
       if (editingPost) {
         updateMutation.mutate({ id: editingPost.id, texts, product_ids: productIds })
       } else {
-        createMutation.mutate({ texts, product_ids: productIds, schedule })
+        createMutation.mutate({ texts, product_ids: productIds, schedule, files })
       }
     },
     [editingPost, createMutation, updateMutation],
@@ -262,7 +276,7 @@ export function PostsPage() {
 interface PostModalProps {
   post: Post | null
   onClose: () => void
-  onSave: (texts: string[], productIds: number[], schedule: PostSchedule) => void
+  onSave: (texts: string[], productIds: number[], schedule: PostSchedule, files: File[]) => void
   loading: boolean
   error?: string
 }
@@ -270,6 +284,7 @@ interface PostModalProps {
 type WhenOption = "now" | "date" | "cron"
 
 function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
+  const queryClient = useQueryClient()
   const [texts, setTexts] = useState<string[]>(
     post?.texts && post.texts.length > 0 ? post.texts : [""],
   )
@@ -281,6 +296,7 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
   const [runDate, setRunDate] = useState("")
   const [cronTime, setCronTime] = useState("09:00")
   const [cronDay, setCronDay] = useState(1)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
 
   const { data: productsData } = useQuery({
     queryKey: ["products", ""],
@@ -291,6 +307,19 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
   const generateMutation = useMutation({
     mutationFn: (productId: number) => postsApi.generateCopy(productId, persona),
     onSuccess: (res) => setTexts((prev) => [res.text, ...prev.slice(1)]),
+  })
+
+  // upload/remoção de mídia num post já existente (edição) rodam na
+  // hora — o post_id já existe. Num post novo, os arquivos ficam em
+  // pendingFiles e sobem só depois que o post é criado (ver PostsPage).
+  const addMediaMutation = useMutation({
+    mutationFn: (file: File) => postsApi.uploadMedia(post!.id, file),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+  })
+
+  const deleteMediaMutation = useMutation({
+    mutationFn: (mediaId: number) => postsApi.deleteMedia(post!.id, mediaId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
   })
 
   const toggleProduct = (id: number) => {
@@ -320,7 +349,7 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
     e.preventDefault()
     if (trimmedTexts.length === 0) return
     if (when === "date" && !runDate) return
-    onSave(trimmedTexts, selectedProductIds, buildSchedule())
+    onSave(trimmedTexts, selectedProductIds, buildSchedule(), pendingFiles)
   }
 
   return (
@@ -418,6 +447,69 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
               <Plus className="w-3.5 h-3.5" />
               Adicionar parte (thread)
             </button>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+              Mídia (imagem/vídeo)
+            </label>
+            {post && post.medias.length > 0 && (
+              <ul className="space-y-1 mb-2">
+                {post.medias.map((media) => (
+                  <li
+                    key={media.id}
+                    className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-1.5"
+                  >
+                    <span className="truncate">{media.file_name}</span>
+                    <button
+                      type="button"
+                      onClick={() => deleteMediaMutation.mutate(media.id)}
+                      disabled={deleteMediaMutation.isPending}
+                      className="text-red-500 hover:text-red-700 text-xs shrink-0 ml-2"
+                    >
+                      Remover
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <input
+              type="file"
+              accept=".webp,.jpg,.jpeg,.png,.gif,.mp4"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                if (post) {
+                  addMediaMutation.mutate(file)
+                } else {
+                  setPendingFiles((prev) => [...prev, file])
+                }
+                e.target.value = ""
+              }}
+              className="text-sm"
+            />
+            {!post && pendingFiles.length > 0 && (
+              <ul className="space-y-1 mt-2">
+                {pendingFiles.map((file, index) => (
+                  <li
+                    key={index}
+                    className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-1.5"
+                  >
+                    <span className="truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== index))}
+                      className="text-red-500 hover:text-red-700 text-xs shrink-0 ml-2"
+                    >
+                      Remover
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {addMediaMutation.isError && (
+              <p className="text-xs text-red-600 mt-1">{addMediaMutation.error.message}</p>
+            )}
           </div>
 
           {!post && (

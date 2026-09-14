@@ -40,3 +40,14 @@ class TestPostsAuthRequirement:
     def test_publish_requires_auth(self, client):
         res = client.post("/posts/9999/publish")
         assert res.status_code == 401
+
+    def test_upload_media_requires_auth(self, client):
+        res = client.post(
+            "/posts/9999/media",
+            files={"file": ("foto.jpg", b"conteudo-fake", "image/jpeg")},
+        )
+        assert res.status_code == 401
+
+    def test_delete_media_requires_auth(self, client):
+        res = client.delete("/posts/9999/media/1")
+        assert res.status_code == 401

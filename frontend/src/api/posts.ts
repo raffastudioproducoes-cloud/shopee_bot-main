@@ -10,6 +10,13 @@ export interface PostProduct {
   commission: number | null
 }
 
+export interface PostMedia {
+  id: number
+  file_name: string
+  size: number
+  type: 'IMAGE' | 'VIDEO'
+}
+
 export interface Post {
   id: number
   text: string
@@ -19,6 +26,7 @@ export interface Post {
   created_at: string
   updated_at: string | null
   products: PostProduct[]
+  medias: PostMedia[]
   scheduled: boolean
   parts_count?: number
 }
@@ -82,6 +90,14 @@ export const postsApi = {
 
   async publishNow(id: number): Promise<{ msg: string }> {
     return api.post<{ msg: string }>(`/posts/${id}/publish`, {})
+  },
+
+  async uploadMedia(postId: number, file: File): Promise<PostMedia> {
+    return api.upload<PostMedia>(`/posts/${postId}/media`, file)
+  },
+
+  async deleteMedia(postId: number, mediaId: number): Promise<{ msg: string }> {
+    return api.delete<{ msg: string }>(`/posts/${postId}/media/${mediaId}`)
   },
 }
 
