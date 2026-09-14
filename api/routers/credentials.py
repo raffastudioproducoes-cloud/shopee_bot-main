@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from .auth import get_current_user_id
 from ..database import supabase
-from utils.crypto import encrypt
+from ..crypto import encrypt
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
