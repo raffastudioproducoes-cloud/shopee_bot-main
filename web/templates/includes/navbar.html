@@ -1,4 +1,107 @@
 {% import "macros/_icon.html" as _icon -%}
+{% set nav_items = [
+    ('index', 'dashboard', 'Dashboard'),
+    ('products.index', 'inventory_2', 'Produtos'),
+    ('products.garimpo', 'travel_explore', 'Garimpo'),
+    ('product_lists.index', 'list_alt', 'Listas'),
+    ('posts.index', 'post_add', 'Posts'),
+    ('activities.index', 'notifications_active', 'Atividades'),
+    ('panel.credentials_index', 'vpn_key', 'Credenciais'),
+] %}
+
+{% macro nav_links(close_attr='') -%}
+{% for endpoint, icon_name, label in nav_items %}
+<a
+    href="{{ url_for(endpoint) }}"
+    {{ close_attr|safe }}
+    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {{ 'bg-accent/15 text-accent' if request.endpoint == endpoint else 'text-on-surface-variant hover:bg-white/5 hover:text-on-surface' }}"
+>
+    {{ _icon.icon(icon_name, size='20') }}
+    {{ label }}
+</a>
+{% endfor %}
+{% if current_user.is_authenticated and current_user.access == 'ADMIN' %}
+<a
+    href="{{ url_for('users.index') }}"
+    {{ close_attr|safe }}
+    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {{ 'bg-accent/15 text-accent' if request.endpoint == 'users.index' else 'text-on-surface-variant hover:bg-white/5 hover:text-on-surface' }}"
+>
+    {{ _icon.icon('group', size='20') }}
+    Usuários
+</a>
+{% endif %}
+{%- endmacro %}
+
+{% macro nav_footer(close_attr='') -%}
+<a
+    href="{{ url_for('panel.profile_index') }}"
+    {{ close_attr|safe }}
+    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {{ 'bg-accent/15 text-accent' if request.endpoint == 'panel.profile_index' else 'text-on-surface-variant hover:bg-white/5 hover:text-on-surface' }}"
+>
+    {{ _icon.icon('account_circle', size='20') }}
+    {{ current_user.username if current_user.is_authenticated else 'Perfil' }}
+</a>
+<a
+    href="{{ url_for('auth.logout_view') }}"
+    class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors"
+>
+    {{ _icon.icon('logout', size='20') }}
+    Sair
+</a>
+{%- endmacro %}
+
 <!-- sidebar (desktop) -->
 <nav class="hidden md:flex h-screen w-64 fixed left-0 top-0 flex-col py-8 px-4 z-40 glass-panel border-r border-white/10">
-    <a ...[truncated]
+    <a href="{{ url_for('index') }}" class="flex items-center gap-2 px-2 mb-8">
+        <span class="w-8 h-8 rounded-md bg-accent flex items-center justify-center shadow-[0_0_15px_rgba(255,77,45,0.3)] shrink-0">
+            {{ _icon.icon('bolt', class='text-white', size='18') }}
+        </span>
+        <span class="font-display text-lg font-bold text-on-surface">Shopee Bot</span>
+    </a>
+    <div class="flex-1 flex flex-col gap-1 overflow-y-auto">
+        {{ nav_links() }}
+    </div>
+    <div class="flex flex-col gap-1 pt-4 border-t border-white/10">
+        {{ nav_footer() }}
+    </div>
+</nav>
+
+<!-- topbar + drawer (mobile) -->
+<div x-data="{ mobileNavOpen: false }" class="md:hidden">
+    <header class="flex items-center justify-between h-16 px-4 fixed top-0 left-0 right-0 z-40 glass-panel border-b border-white/10">
+        <a href="{{ url_for('index') }}" class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-md bg-accent flex items-center justify-center shrink-0">
+                {{ _icon.icon('bolt', class='text-white', size='18') }}
+            </span>
+            <span class="font-display text-lg font-bold text-on-surface">Shopee Bot</span>
+        </a>
+        <button
+            @click="mobileNavOpen = true"
+            class="p-2 text-on-surface-variant hover:text-on-surface"
+            aria-label="Abrir menu"
+        >
+            {{ _icon.icon('menu', size='24') }}
+        </button>
+    </header>
+
+    <div x-show="mobileNavOpen" x-cloak class="fixed inset-0 z-50" style="display:none">
+        <div class="fixed inset-0 bg-black/60" @click="mobileNavOpen = false"></div>
+        <div class="fixed inset-y-0 left-0 w-64 glass-panel border-r border-white/10 flex flex-col py-6 px-4">
+            <div class="flex items-center justify-between px-2 mb-6">
+                <span class="font-display text-lg font-bold text-on-surface">Shopee Bot</span>
+                <button @click="mobileNavOpen = false" class="p-1 text-on-surface-variant hover:text-on-surface" aria-label="Fechar menu">
+                    {{ _icon.icon('close', size="20") }}
+                </button>
+            </div>
+            <div class="flex-1 flex flex-col gap-1 overflow-y-auto">
+                {{ nav_links('@click="mobileNavOpen = false"') }}
+            </div>
+            <div class="flex flex-col gap-1 pt-4 border-t border-white/10">
+                {{ nav_footer('@click="mobileNavOpen = false"') }}
+            </div>
+        </div>
+    </div>
+
+    <!-- espaçador pra conteúdo não ficar embaixo da topbar fixa -->
+    <div class="h-16"></div>
+</div>
