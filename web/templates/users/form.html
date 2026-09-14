@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "macros/h1.html" import h1 %}
 {% from "macros/back-button.html" import back_button %}
-{% from "macros/input.html" import input, password_input %}
+{% from "macros/input.html" import input, secret_input %}
 {% from "macros/select.html" import select %}
 {% from "macros/submit-button.html" import submit_button %}
 
@@ -109,9 +109,10 @@ document.addEventListener('alpine:init', () => {
             ) }}
 
             {%- if operation == 'add' %}
-            {{ password_input(
+            {{ secret_input(
                 label='Senha',
-                model='password',
+                name='password',
+                value='',
                 placeholder='Digite a senha inicial',
                 errors=form.password if form else []
             ) }}

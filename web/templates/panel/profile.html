@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros/input.html" import input, password_input%}
+{% from "macros/input.html" import input, secret_input %}
 {% from "macros/panel-tabs.html" import panel_tabs, panel_tabs_m %}
 {% from "macros/form-card.html" import form_card_opentag, form_card_closetag %}
 
@@ -30,25 +30,28 @@
             ) }}
             <hr class="opacity-25 my-2" >
 
-            {{ password_input(
+            {{ secret_input(
                 label='Senha atual',
                 name='current_password',
+                value='',
                 placeholder='Senha atual',
                 required=True,
                 errors=form.current_password if form else []
             ) }}
 
-            {{ password_input(
+            {{ secret_input(
                 label='Nova senha',
                 name='new_password',
+                value='',
                 placeholder='Nova senha',
                 required=True,
                 errors=form.new_password if form else []
             ) }}
 
-            {{ password_input(
+            {{ secret_input(
                 label='Confirmação',
                 name='confirm_password',
+                value='',
                 placeholder='Confirme sua nova senha',
                 required=True,
                 errors=form.confirm_password if form else []

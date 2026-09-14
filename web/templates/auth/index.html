@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros/input.html" import input, password_input %}
+{% from "macros/input.html" import input, secret_input %}
 {% from "macros/submit-button.html" import submit_button %}
 
 {% block title %}Login{% endblock %}
@@ -38,9 +38,10 @@
                 errors=form.username.errors if form else []
             ) }}
 
-            {{ password_input (
+            {{ secret_input(
                 label="Senha",
                 name="password",
+                value="",
                 autocomplete="current-password",
                 required=True,
                 errors=form.password.errors if form else []
