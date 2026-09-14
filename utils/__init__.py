@@ -115,8 +115,7 @@ def download_image(url, save_path=None):
         return True
 
     except requests.exceptions.HTTPError as err:
-        logger.exception(f"Erro HTTP ao baixar a imagem: {
-            err.response.status_code} - {err}")
+        logger.exception(f"Erro HTTP ao baixar a imagem: {err.response.status_code} - {err}")
     except requests.exceptions.RequestException as err:
         logger.exception(f"Erro na requisição: {err}")
     except IOError as err:

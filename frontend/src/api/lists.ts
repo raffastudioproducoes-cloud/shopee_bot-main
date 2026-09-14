@@ -1,0 +1,64 @@
+import { api, ApiError } from '../lib/api'
+
+export interface ProductList {
+  id: number
+  name: string
+  created_at: string
+  updated_at: string | null
+  product_count: number
+  products?: Product[]
+}
+
+export interface Product {
+  id: number
+  product_id: string
+  name: string
+  image: string | null
+  price_min: number | null
+  price_max: number | null
+  commission: number | null
+  commission_link: string | null
+  original_link: string | null
+}
+
+export interface ProductListCreate {
+  name: string
+}
+
+export interface ProductListUpdate {
+  name: string
+}
+
+export interface ProductListsResponse {
+  data: ProductList[]
+  next_cursor: string | null
+}
+
+export const listsApi = {
+  async list(params?: { cursor?: string; limit?: number }): Promise<ProductListsResponse> {
+    const searchParams = new URLSearchParams()
+    if (params?.cursor) searchParams.append('cursor', params.cursor)
+    if (params?.limit) searchParams.append('limit', String(params.limit))
+
+    const query = searchParams.toString()
+    return api.get<ProductListsResponse>(`/lists${query ? `?${query}` : ''}`)
+  },
+
+  async create(data: ProductListCreate): Promise<ProductList> {
+    return api.post<ProductList>('/lists', data)
+  },
+
+  async get(id: number): Promise<ProductList> {
+    return api.get<ProductList>(`/lists/${id}`)
+  },
+
+  async update(id: number, data: ProductListUpdate): Promise<ProductList> {
+    return api.put<ProductList>(`/lists/${id}`, data)
+  },
+
+  async delete(id: number): Promise<{ msg: string }> {
+    return api.delete<{ msg: string }>(`/lists/${id}`)
+  },
+}
+
+export { ApiError }

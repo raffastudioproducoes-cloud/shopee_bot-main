@@ -37,3 +37,9 @@ jobs:
           python -m py_compile api/main.py
           python -m py_compile api/config.py
           python -m py_compile api/database.py
+
+      - name: Test API Python
+        run: |
+          # --confcutdir isola do conftest.py raiz (Flask antigo, faz
+          # monkey-patch do gevent que trava com o anyio/httpx do FastAPI)
+          pytest tests/api --confcutdir=tests/api -q

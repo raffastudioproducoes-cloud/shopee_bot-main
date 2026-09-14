@@ -10,7 +10,6 @@ cache/
 .env
 web/media/
 
-# tailwind
 node_modules/
-package*.json
+frontend/dist/
 .claude/

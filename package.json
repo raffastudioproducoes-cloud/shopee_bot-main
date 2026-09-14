@@ -1,0 +1,17 @@
+{
+  "name": "shopee_bot-main",
+  "version": "1.0.0",
+  "description": "É uma plataforma de automação da divulgação de links de afiliado. Atualmente funciona apenas com a Shopee. O projeto é divido em módulos, porém para fins práticas basicamente há três módulos [Web](./web/), e [Scheduler](./scheduler/). O restante dos módulos existem como  dependências.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
+  }
+}

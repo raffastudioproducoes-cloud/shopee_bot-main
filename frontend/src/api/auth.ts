@@ -1,0 +1,55 @@
+import { api, ApiError } from '../lib/api'
+
+export interface User {
+  id: number
+  username: string
+  access: string
+}
+
+export interface LoginResponse {
+  msg: string
+}
+
+export interface MeResponse {
+  id: number
+  username: string
+  access: string
+}
+
+export const authApi = {
+  async login(username: string, password: string): Promise<string> {
+    const formData = new FormData()
+    formData.append('username', username)
+    formData.append('password', password)
+
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Erro no login' }))
+      throw new ApiError(response.status, error.detail)
+    }
+
+    const data = await response.json()
+    return data.msg
+  },
+
+  async logout(): Promise<void> {
+    const response = await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Erro no logout' }))
+      throw new ApiError(response.status, error.detail)
+    }
+  },
+
+  async me(): Promise<MeResponse> {
+    return api.get<MeResponse>('/auth/me')
+  },
+}
