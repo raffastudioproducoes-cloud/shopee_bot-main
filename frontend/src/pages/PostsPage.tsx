@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useCallback } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
-import { postsApi, type Post, type PostSchedule } from "../api/posts"
+import { postsApi, type Post, type PostSchedule, type PostNetwork } from "../api/posts"
 import { productsApi, type Product } from "../api/products"
 import { Plus, Trash2, Loader2, Sparkles, Send, Clock } from "lucide-react"
 
@@ -11,6 +11,18 @@ const PERSONAS = [
   { value: "profissional", label: "Profissional" },
   { value: "divertido", label: "Divertido" },
   { value: "persuasivo", label: "Persuasivo" },
+]
+
+// Mesmo mapa network -> func do backend (api/routers/posts.py). Só
+// Threads publica de verdade hoje — as outras 4 já roteiam pro
+// scheduler certo, mas o wrapper de publicação ainda não existe
+// (ver NETWORK_FUNC_MAP). Kwai fica de fora, sem API pública ainda.
+const NETWORKS: { value: PostNetwork; label: string }[] = [
+  { value: "threads", label: "Threads" },
+  { value: "x", label: "X (Twitter)" },
+  { value: "facebook", label: "Facebook" },
+  { value: "instagram", label: "Instagram" },
+  { value: "tiktok", label: "TikTok" },
 ]
 
 const WEEKDAYS = [
@@ -52,12 +64,14 @@ export function PostsPage() {
       texts: string[]
       product_ids: number[]
       schedule: PostSchedule
+      network: PostNetwork
       files: File[]
     }) => {
       const created = await postsApi.create({
         texts: data.texts,
         product_ids: data.product_ids,
         schedule: data.schedule,
+        network: data.network,
       })
       for (const file of data.files) {
         await postsApi.uploadMedia(created.id, file)
@@ -98,11 +112,17 @@ export function PostsPage() {
   })
 
   const handleSave = useCallback(
-    (texts: string[], productIds: number[], schedule: PostSchedule, files: File[]) => {
+    (
+      texts: string[],
+      productIds: number[],
+      schedule: PostSchedule,
+      network: PostNetwork,
+      files: File[],
+    ) => {
       if (editingPost) {
         updateMutation.mutate({ id: editingPost.id, texts, product_ids: productIds })
       } else {
-        createMutation.mutate({ texts, product_ids: productIds, schedule, files })
+        createMutation.mutate({ texts, product_ids: productIds, schedule, network, files })
       }
     },
     [editingPost, createMutation, updateMutation],
@@ -276,7 +296,13 @@ export function PostsPage() {
 interface PostModalProps {
   post: Post | null
   onClose: () => void
-  onSave: (texts: string[], productIds: number[], schedule: PostSchedule, files: File[]) => void
+  onSave: (
+    texts: string[],
+    productIds: number[],
+    schedule: PostSchedule,
+    network: PostNetwork,
+    files: File[],
+  ) => void
   loading: boolean
   error?: string
 }
@@ -289,6 +315,7 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
     post?.texts && post.texts.length > 0 ? post.texts : [""],
   )
   const [persona, setPersona] = useState("casual")
+  const [network, setNetwork] = useState<PostNetwork>(post?.network ?? "threads")
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>(
     post?.products.map((p) => p.id) ?? [],
   )
@@ -349,7 +376,7 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
     e.preventDefault()
     if (trimmedTexts.length === 0) return
     if (when === "date" && !runDate) return
-    onSave(trimmedTexts, selectedProductIds, buildSchedule(), pendingFiles)
+    onSave(trimmedTexts, selectedProductIds, buildSchedule(), network, pendingFiles)
   }
 
   return (
@@ -511,6 +538,25 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
               <p className="text-xs text-red-600 mt-1">{addMediaMutation.error.message}</p>
             )}
           </div>
+
+          {!post && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                Rede social
+              </label>
+              <select
+                value={network}
+                onChange={(e) => setNetwork(e.target.value as PostNetwork)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+              >
+                {NETWORKS.map((n) => (
+                  <option key={n.value} value={n.value}>
+                    {n.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {!post && (
             <div>

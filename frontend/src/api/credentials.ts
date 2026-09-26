@@ -13,8 +13,19 @@ export const credentialsApi = {
     return api.get<CredentialsStatusMap>('/credentials')
   },
 
-  async save(network: SimpleNetwork, appId: string, secret: string): Promise<CredentialStatus> {
-    return api.put<CredentialStatus>(`/credentials/${network}`, { app_id: appId, secret })
+  async save(
+    network: SimpleNetwork,
+    appId: string,
+    secret: string,
+    pageId?: string,
+  ): Promise<CredentialStatus> {
+    // page_id só é relevante pro Facebook (Graph API precisa saber em
+    // qual Página publicar) — as outras redes ignoram o campo.
+    return api.put<CredentialStatus>(`/credentials/${network}`, {
+      app_id: appId,
+      secret,
+      ...(network === 'facebook' ? { page_id: pageId } : {}),
+    })
   },
 
   async delete(network: SimpleNetwork): Promise<CredentialStatus> {
@@ -30,6 +41,18 @@ export const credentialsApi = {
 
   async deleteThreads(): Promise<CredentialStatus> {
     return api.delete<CredentialStatus>('/credentials/threads')
+  },
+
+  async authorizeThreads(): Promise<{ url: string }> {
+    return api.get<{ url: string }>('/credentials/threads/authorize')
+  },
+
+  async authorizeTiktok(): Promise<{ url: string }> {
+    return api.get<{ url: string }>('/credentials/tiktok/authorize')
+  },
+
+  async authorizeInstagram(): Promise<{ url: string }> {
+    return api.get<{ url: string }>('/credentials/instagram/authorize')
   },
 }
 

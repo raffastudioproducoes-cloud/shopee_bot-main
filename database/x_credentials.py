@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 from shopee_bot.database import query_db, execute_db
 from shopee_bot.utils.crypto import encrypt, decrypt
@@ -10,7 +10,10 @@ def get_by_user_id(user_id):
             u.username username,
             xc.app_id x_app_id,
             xc.secret x_secret,
-            xc.status x_status
+            xc.status x_status,
+            xc.user_access_token x_access_token,
+            xc.user_refresh_token x_refresh_token,
+            xc.token_expires_at token_expires_at
         FROM users u
         LEFT JOIN x_credentials xc ON xc.user_id = u.id
         WHERE u.id = %s
@@ -19,6 +22,8 @@ def get_by_user_id(user_id):
     result = query_db(query, args, True)
     if result:
         result["x_secret"] = decrypt(result["x_secret"])
+        result["x_access_token"] = decrypt(result["x_access_token"])
+        result["x_refresh_token"] = decrypt(result["x_refresh_token"])
     return result
 
 
@@ -55,5 +60,29 @@ def update(
         datetime.now(pytz.timezone('America/Sao_Paulo')),
         credential_id,
         user_id
+    )
+    return execute_db(query, args, open_conn)
+
+
+def update_tokens(user_id, tokens, open_conn=None):
+    """Persiste access/refresh token de usuário renovados via
+    apis.x.refresh_access_token. Usado pelo scheduler (bot_post_x) antes
+    de publicar, quando token_expires_at já passou."""
+    query = """
+        UPDATE x_credentials
+        SET user_access_token = %s, user_refresh_token = %s,
+            token_expires_at = %s, updated_at = %s
+        WHERE user_id = %s
+        RETURNING id
+    """
+    expires_at = datetime.now(pytz.utc) + timedelta(
+        seconds=tokens.get("expires_in", 7200)
+    )
+    args = (
+        encrypt(tokens["access_token"]),
+        encrypt(tokens.get("refresh_token")),
+        expires_at,
+        datetime.now(pytz.timezone('America/Sao_Paulo')),
+        user_id,
     )
     return execute_db(query, args, open_conn)

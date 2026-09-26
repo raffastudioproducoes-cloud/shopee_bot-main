@@ -1,7 +1,7 @@
 # Checklist de Migração — React + API Python
 
 > Critério de teste por módulo. Detalhe de cada fase (o que foi feito, o que foi
-> simplificado e por quê) está em `docs/ROADMAP_MIGRACAO.md`. Atualizado em 2026-09-14.
+> simplificado e por quê) está em `docs/ROADMAP_MIGRACAO.md`. Atualizado em 2026-09-26.
 
 Critérios gerais aplicados a cada módulo abaixo:
 
@@ -55,3 +55,25 @@ Critérios gerais aplicados a cada módulo abaixo:
   pra compartilhar filesystem/rede interna, ou Web Service separado no Render)
 - [ ] `FLASK_INTERNAL_URL`/`INTERNAL_API_SECRET` configurados em produção
 - [ ] Fluxo OAuth do Threads migrado (Fase 6, único item de credenciais que resta)
+
+## Pendências reais (2026-09-26)
+
+### Não fazer ainda (validar em produção antes)
+- [ ] Aposentar rota legada `/credentials/threads/save?code=` do Flask (`web/routes/panel/credentials.py`
+  — usar novo endpoint `/credentials/threads/callback` e `api/threads_oauth.py` após validar em Render)
+
+### Validação em produção
+- [ ] Validar em Render que Dockerfile + dois processos (Flask + FastAPI) sobem corretamente
+  e se comunicam via bridge interno (`FLASK_INTERNAL_URL` + `INTERNAL_API_SECRET`)
+- [ ] Validar que `/api/<path>` proxy funciona em produção sem erros de conectividade interna
+
+### Em andamento (implementado por outros agentes em paralelo)
+- [ ] Wrappers de publicação real para X, Facebook, Instagram, TikTok
+  (Threads já está funcional; os outros 4 têm credencial mas nenhum wrapper ligado ao scheduler)
+
+### Issues conhecidas (não corrigido, é outra tarefa)
+- [ ] **Bug pré-existente**: `api/routers/posts.py` chama `supabase.table(...)` diretamente,
+  mas `supabase` em `api/database.py` é uma função (retorna a instância), não uma instância.
+  Isso quebraria em runtime em qualquer rota autenticada de posts.
+  **Fix**: renomear a função `supabase()` para algo como `get_supabase_client()` ou criar um 
+  singleton/cache se há overhead na chamada.

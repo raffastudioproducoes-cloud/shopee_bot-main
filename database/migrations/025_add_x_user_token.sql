@@ -1,0 +1,4 @@
+ALTER TABLE x_credentials
+    ADD COLUMN IF NOT EXISTS user_access_token TEXT DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS user_refresh_token TEXT DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS token_expires_at TIMESTAMP DEFAULT NULL;

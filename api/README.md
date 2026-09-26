@@ -1,83 +1,143 @@
-# API Python — Shopee Auto Vendas
+# API Python — ShopeeAutoVendas
 
-> API backend em Python (FastAPI) para o frontend React migrado.
-> Consome o Supabase existente. Coexiste com o Flask (`web/`) durante a migração.
+Nova camada de API em FastAPI (async) que roda em background no mesmo container do Flask, acessível via proxy transparente `/api/*` do Flask.
 
-## Estrutura do diretório
+## Arquitetura
 
-- `main.py` — aplicação FastAPI, CORS, health check, registro dos routers
-- `config.py` — configurações via variáveis de ambiente (pydantic-settings)
-- `database.py` — cliente Supabase (`supabase-py`)
-- `crypto.py` — wrapper Fernet próprio (mesma chave/algoritmo do `utils/crypto.py` do
-  Flask, sem importar o pacote `utils` — evita arrastar deps do Flask pro `api/requirements.txt`)
-- `internal_client.py` — cliente HTTP pro bridge interno do Flask (agendamento/
-  publicação/validação Shopee — ver `web/routes/internal.py` e Fase 8 do roadmap)
-- `routers/`
-  - `auth.py` — login/logout/perfil (JWT em cookie httpOnly)
-  - `products.py` — CRUD de produtos
-  - `lists.py` — CRUD de listas de produtos
-  - `posts.py` — CRUD de post com thread multi-parte, copywriter IA, upload de mídia,
-    agendamento/publicação (via bridge interno) — ver docstring do módulo
-  - `credentials.py` — credenciais cifradas (6 redes simples + Threads), valida Shopee
-    ao vivo via bridge interno
-  - `users.py` — CRUD de usuários (admin-only)
-- `requirements.txt` — dependências da API
+- **`api/main.py`** — aplicação FastAPI
+- **`api/routers/`** — endpoints organizados por domínio (auth, posts, products, credentials, users)
+- **`api/internal_client.py`** — cliente HTTP para chamar bridge interno do Flask (`/internal/*`)
+- **`api/database.py`** — acesso ao Supabase via cliente Python async
+- **`api/crypto.py`** — criptografia Fernet (compatível com o `utils/crypto.py` do Flask)
+- **`tests/api/`** — testes pytest (cobertura 80%+)
 
-## Instalação
+## Endpoints principais
 
-```bash
-pip install -r api/requirements.txt
+### Threads OAuth
+
+Fluxo de autorização com Meta para conectar conta Threads (nova implementação em 2026-09-26).
+
+#### `GET /credentials/threads/authorize`
+
+Inicia o fluxo OAuth com Meta.
+
+**Resposta**: Redirect HTTP para URL de consentimento da Meta.
+
+**Uso**: Frontend chama este endpoint que redireciona o usuário para autorizar a app no Meta.
+
+```
+GET /credentials/threads/authorize
+↓
+Redirect: https://www.threads.net/oauth/authorize?client_id=...&redirect_uri=...
 ```
 
-## Execução
+#### `GET /credentials/threads/callback`
 
-```bash
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+Callback do OAuth — Meta redireciona aqui com o `code` de autorização.
+
+**Parâmetros**:
+- `code` (query string) — código de autorização da Meta
+
+**Resposta**: JSON com resultado da troca de código por token ou erro.
+
+```json
+{
+  "status": "success",
+  "message": "Threads connected successfully",
+  "network": "threads"
+}
 ```
 
-## Variáveis de ambiente
+**Fluxo completo**:
+1. Frontend chama `/credentials/threads/authorize`
+2. Meta redireciona o usuário para `/credentials/threads/callback?code=...`
+3. Callback troca o código por token de acesso e salva no Supabase (criptografado)
+4. Usuário é redirecionado para `/panel/credentials` no Flask com sucesso
 
-- `SUPABASE_URL` — URL do projeto Supabase
-- `SUPABASE_KEY` — API key (service role ou anon)
-- `CORS_ORIGINS` — origens permitidas pelo CORS (padrão: frontend React em dev)
-- `API_SECRET_KEY` — assina o JWT do cookie de sessão
-- `APP_ENCRYPTION_KEY` — chave Fernet (mesma do Flask) usada por `crypto.py` pra cifrar/decifrar credenciais
-- `FLASK_INTERNAL_URL` — URL do Flask, do ponto de vista da API nova (bridge interno)
-- `INTERNAL_API_SECRET` — segredo compartilhado com o Flask pro bridge interno (mesmo valor nos dois processos)
+---
 
-## Endpoints
+### Proxy de API Transparente (`/api/<path>`)
 
-- `GET /health`
-- `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
-- `GET|POST /products`, `GET|PUT|DELETE /products/{id}`
-- `GET|POST /lists`, `GET|PUT|DELETE /lists/{id}`
-- `GET|POST /posts`, `GET|PUT|DELETE /posts/{id}`, `POST /posts/generate-copy`
-- `POST /posts/{id}/publish` (publicação imediata)
-- `POST /posts/{id}/media` (multipart), `DELETE /posts/{id}/media/{media_id}`
-- `GET /credentials` (status de todas as redes)
-- `PUT|DELETE /credentials/{network}` (`shopee`, `x`, `facebook`, `instagram`, `tiktok`, `kwai`)
-- `PUT|DELETE /credentials/threads` (rota literal — ver comentário no router sobre ordem de registro)
-- `GET|POST /users`, `GET|PUT|DELETE /users/{id}` (admin-only)
+O Flask expõe um proxy transparente em `/api/<path>` que repassa requisições para a API nova em `127.0.0.1:8001`.
 
-Doc interativa: `/docs` (Swagger) e `/redoc` quando a API está rodando.
+**Implementação**: `web/routes/api_proxy.py` + `web/__init__.py`
 
-## Segurança
+**Características**:
+- Bypass automático de CSRF (rotas `/api/*` estão isentas)
+- Roteamento transparente: cliente sempre fala com `http://localhost:5000/api/...`, Flask roteia internamente
+- Headers de autenticação (cookies httpOnly de JWT) são preservados
+- Resposta é retornada ao cliente como-é (passthrough)
 
-- CORS restrito à origem do frontend
-- Sessão via JWT em cookie `httpOnly`
-- Credenciais cifradas com Fernet (`crypto.py`, mesma chave do Flask)
-- `/credentials` nunca devolve o valor salvo — só `{"connected": bool}`
-- Chamadas ao Flask (bridge interno) autenticadas por segredo compartilhado, nunca por
-  sessão de browser
+**Exemplo**:
+```
+Client: POST http://localhost:5000/api/posts
+         ↓ (Flask proxy)
+         ↓
+FastAPI: POST http://127.0.0.1:8001/posts
+         ↓
+         → Resposta JSON retornada ao cliente
+```
 
-## Coexistência com Flask
+---
 
-O Flask continua sendo o site em produção (`web/`) e é quem chama `scheduler.init()` —
-agendamento e publicação de posts, e validação ao vivo da Shopee, passam por
-`web/routes/internal.py` (bridge HTTP, ver Fase 8 em `docs/ROADMAP_MIGRACAO.md`: rodar
-`scheduler.init()` em dois processos ao mesmo tempo arriscaria publicar em duplicata).
+## Deploy
 
-Upload de mídia grava em `web/media/<post_id>/` — o mesmo caminho relativo do Flask.
-Só funciona de verdade em produção quando os dois processos compartilham filesystem;
-hoje só o Flask está deployado no Render, então isso é dev-local-only até a topologia
-de deploy da API nova ser decidida.
+### Topologia (2026-09-26)
+
+Ambos os processos (Flask + FastAPI) rodam no **mesmo container Docker**:
+
+- **Gunicorn** (port 8000, 4 workers) serve o Flask
+- **Hook `on_starting` do gunicorn** lança uvicorn em background (port 8001)
+- **Hook `on_exit` do gunicorn** encerra uvicorn quando gunicorn sai
+
+**Arquivo**: `Dockerfile` + `gunicorn.conf.py`
+
+**Variáveis de ambiente** (necessárias em produção):
+```
+FLASK_INTERNAL_URL=http://127.0.0.1:8000
+INTERNAL_API_SECRET=<shared-secret>
+```
+
+O Flask usa `INTERNAL_API_SECRET` para autenticar chamadas HTTP internas do `api/internal_client.py`.
+
+### Topologia futura (pendente)
+
+Quando a API estiver totalmente madura:
+- Considerar mover FastAPI para um Web Service separado no Render
+- Exigirá compartilhamento de filesystem para mídia (ou storage externo tipo S3)
+- Decisão será tomada após validação em produção real
+
+---
+
+## Testing
+
+```bash
+# Testes da API
+pytest tests/api/
+
+# Cobertura esperada: 80%+
+pytest tests/api/ --cov=api --cov-report=term
+
+# Lint
+flake8 api/
+
+# Type check (se integrado)
+mypy api/
+```
+
+---
+
+## Compatibilidade
+
+- **Supabase**: mesmo banco do Flask, RLS mantido
+- **Criptografia**: mesma chave/algoritmo Fernet do Flask (`utils/crypto.py`)
+- **Scheduler**: chama bridge interno do Flask em vez de importar `scheduler` diretamente (evita dupla ativação)
+- **Mídia**: usa mesmo caminho local `web/media/<post_id>/` (requer filesystem compartilhado ou S3)
+
+---
+
+## Referências
+
+- `docs/ROADMAP_MIGRACAO.md` — Fases 0-8 da migração
+- `docs/CHECKLIST_MIGRACAO.md` — Checklist e pendências
+- `api/requirements.txt` — Dependências

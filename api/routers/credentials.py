@@ -13,12 +13,22 @@ Shopee falha com 502 em vez de salvar sem validar — melhor recusar do
 que gravar uma credencial nunca verificada.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+import secrets
+from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from .auth import get_current_user_id
+from .. import threads_oauth
+from .. import instagram_oauth
+from .. import tiktok_oauth
+from .. import x_oauth
+from ..config import settings
 from ..database import supabase
-from ..crypto import encrypt
+from ..crypto import encrypt, decrypt
 from ..internal_client import validate_shopee_credential, InternalApiError
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
@@ -37,6 +47,11 @@ SIMPLE_NETWORKS = {
 class SimpleCredentialBody(BaseModel):
     app_id: str
     secret: str
+    # Só usado pela rede "facebook" (Meta Graph API precisa saber em qual
+    # Página publicar via POST /{page-id}/feed). Ignorado pelas outras
+    # redes que reusam este mesmo schema — mantido opcional para não
+    # quebrá-las.
+    page_id: str | None = None
 
 
 class ThreadsCredentialBody(BaseModel):
@@ -74,6 +89,63 @@ def _upsert_by_user(table: str, user_id: int, data: dict) -> dict:
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao salvar credencial")
     return result.data[0]
+
+
+# Account-linking CSRF (Threads, Instagram, TikTok, X): não existe
+# mecanismo de estado efêmero (sessão de servidor) no resto da API —
+# cookie httponly assinado (JWT, mesma chave/lib do access_token de
+# auth.py) guardando o `state` (e, no caso do X, o code_verifier PKCE)
+# entre /authorize e /callback, 10 min de validade. Sem isso, um
+# atacante pode iniciar o próprio OAuth, pegar o `code` gerado pra
+# conta dele, e induzir a vítima logada a abrir esse link no
+# /callback — linkando a conta social do atacante ao usuário da
+# vítima. O `state` amarra o /callback ao /authorize que a MESMA
+# sessão (cookie httponly) iniciou.
+_X_OAUTH_COOKIE = "x_oauth_state"
+_THREADS_OAUTH_COOKIE = "threads_oauth_state"
+_INSTAGRAM_OAUTH_COOKIE = "instagram_oauth_state"
+_TIKTOK_OAUTH_COOKIE = "tiktok_oauth_state"
+
+
+def _sign_oauth_state(user_id: int, extra: dict | None = None) -> tuple[str, str]:
+    """Gera um `state` aleatório + cookie assinado (JWT) pra CSRF binding
+    do account-linking OAuth. Retorna (state, valor do cookie) — o
+    state vai na URL de autorização (ecoado pelo provedor no
+    /callback), o cookie guarda esse mesmo state (e `extra`, ex.
+    code_verifier do PKCE do X) até o /callback validar os dois
+    batendo."""
+    state = secrets.token_urlsafe(16)
+    payload = {
+        "uid": user_id,
+        "state": state,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
+        **(extra or {}),
+    }
+    import jwt
+
+    cookie_value = jwt.encode(payload, settings.api_secret_key, algorithm="HS256")
+    return state, cookie_value
+
+
+def _verify_oauth_state(
+    request: Request, cookie_name: str, state: str | None, user_id: int
+) -> dict | None:
+    """Valida o cookie assinado do /authorize contra o `state` da query
+    (CSRF) e o `user_id` da sessão atual. Retorna o payload decodificado
+    (com `code_verifier`, se houver) ou None se inválido/ausente/
+    expirado — o chamador trata None como falha de CSRF."""
+    token = request.cookies.get(cookie_name)
+    if not token or not state:
+        return None
+    import jwt
+
+    try:
+        payload = jwt.decode(token, settings.api_secret_key, algorithms=["HS256"])
+    except Exception:
+        return None
+    if payload.get("uid") != user_id or payload.get("state") != state:
+        return None
+    return payload
 
 
 @router.get("/")
@@ -130,6 +202,358 @@ async def delete_threads_credential(user_id: int = Depends(get_current_user_id))
     return {"connected": False}
 
 
+@router.get("/threads/authorize")
+async def threads_authorize(
+    response: Response,
+    user_id: int = Depends(get_current_user_id),
+):
+    """URL de autorização do OAuth do Threads (Meta) — o frontend redireciona
+    o usuário pra cá. Gera `state` + cookie httponly assinado (CSRF
+    binding do account-linking, 10 min) pro /callback validar."""
+    state, cookie_value = _sign_oauth_state(user_id)
+
+    response.set_cookie(
+        key=_THREADS_OAUTH_COOKIE,
+        value=cookie_value,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=600,
+    )
+    return {"url": threads_oauth.get_user_auth_url(state)}
+
+
+@router.get("/threads/callback")
+async def threads_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Callback do OAuth do Threads (Meta): ?code=&state= (sucesso) ou
+    ?error= (usuário negou autorização, ou outra falha do lado do
+    Meta) — mesma semântica de erro do fluxo antigo em
+    web/routes/panel/credentials.py::credentials_threads_save.
+
+    Valida o `state` contra o cookie assinado do /authorize (CSRF)
+    ANTES de trocar code por token — ver docstring de
+    _sign_oauth_state/_verify_oauth_state acima. Salva a credencial e
+    redireciona (307) pro frontend com um indicador de sucesso/erro na
+    query string — o frontend não recebe token nem detalhe de erro
+    sensível.
+    """
+    frontend_redirect = f"{settings.frontend_url}/credentials"
+
+    def _redirect(query: str) -> RedirectResponse:
+        res = RedirectResponse(f"{frontend_redirect}?{query}", status_code=307)
+        res.delete_cookie(_THREADS_OAUTH_COOKIE)
+        return res
+
+    if error:
+        return _redirect(f"threads=error&message={quote(error, safe='')}")
+
+    if not code:
+        return _redirect("threads=error&message=missing_code")
+
+    if not _verify_oauth_state(request, _THREADS_OAUTH_COOKIE, state, user_id):
+        return _redirect("threads=error&message=invalid_state")
+
+    try:
+        t_user_id, access_token = await threads_oauth.get_user_auth_id_token(code)
+    except threads_oauth.ThreadsOAuthError:
+        return _redirect("threads=error&message=oauth_failed")
+
+    _upsert_by_user("threads_credentials", user_id, {
+        "t_user_id": t_user_id,
+        "access_token": encrypt(access_token),
+        "status": True,
+    })
+
+    return _redirect("threads=success")
+
+
+@router.get("/instagram/authorize")
+async def instagram_authorize(
+    response: Response,
+    user_id: int = Depends(get_current_user_id),
+):
+    """URL de autorização do Facebook Login for Business — Instagram Graph
+    API não tem OAuth próprio, publica via conta Business/Creator vinculada
+    a uma Página do Facebook (ver api/instagram_oauth.py). Gera `state`
+    + cookie httponly assinado (CSRF binding do account-linking, 10
+    min) pro /callback validar."""
+    state, cookie_value = _sign_oauth_state(user_id)
+
+    response.set_cookie(
+        key=_INSTAGRAM_OAUTH_COOKIE,
+        value=cookie_value,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=600,
+    )
+    return {"url": instagram_oauth.get_user_auth_url(state)}
+
+
+@router.get("/instagram/callback")
+async def instagram_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Callback do Facebook Login for Business pro Instagram: ?code=&state=
+    (sucesso) ou ?error= (usuário negou autorização, ou outra falha do
+    lado do Meta). Mesma semântica do callback do Threads acima.
+
+    Valida o `state` contra o cookie assinado do /authorize (CSRF)
+    ANTES de trocar code por token. Troca code por user_access_token de
+    longa duração, resolve o ig_user_id (conta Instagram Business/
+    Creator vinculada a alguma Página do usuário) e salva os dois —
+    nunca expõe token/erro sensível pro frontend.
+    """
+    frontend_redirect = f"{settings.frontend_url}/credentials"
+
+    def _redirect(query: str) -> RedirectResponse:
+        res = RedirectResponse(f"{frontend_redirect}?{query}", status_code=307)
+        res.delete_cookie(_INSTAGRAM_OAUTH_COOKIE)
+        return res
+
+    if error:
+        return _redirect(f"instagram=error&message={quote(error, safe='')}")
+
+    if not code:
+        return _redirect("instagram=error&message=missing_code")
+
+    if not _verify_oauth_state(request, _INSTAGRAM_OAUTH_COOKIE, state, user_id):
+        return _redirect("instagram=error&message=invalid_state")
+
+    try:
+        ig_user_id, access_token = await instagram_oauth.get_user_auth_id_token(code)
+    except instagram_oauth.InstagramOAuthError:
+        return _redirect("instagram=error&message=oauth_failed")
+
+    _upsert_by_user("instagram_credentials", user_id, {
+        "ig_user_id": ig_user_id,
+        "user_access_token": encrypt(access_token),
+        "status": True,
+    })
+
+    return _redirect("instagram=success")
+
+
+def _get_tiktok_credentials_row(user_id: int) -> dict | None:
+    """Busca app_id/secret (Client Key/Secret) já salvos pelo usuário.
+
+    Isolado em função própria (em vez de chamar supabase.table(...)
+    direto dentro dos endpoints) pra dar pra mockar em teste sem
+    precisar de um Supabase de verdade — mesmo padrão de
+    `_upsert_by_user` usado nos testes do Threads.
+    """
+    row = (
+        supabase.table("tiktok_credentials").select("app_id, secret")
+        .eq("user_id", user_id).maybe_single().execute()
+    )
+    return row.data if row and row.data else None
+
+
+@router.get("/tiktok/authorize")
+async def tiktok_authorize(
+    response: Response,
+    user_id: int = Depends(get_current_user_id),
+):
+    """URL de autorização do TikTok Login Kit.
+
+    Diferente do Threads/Instagram: o Client Key não é um único app
+    global via env — cada usuário cadastra seu próprio app no TikTok
+    for Developers e salva Client Key/Secret via PUT /credentials/tiktok
+    (tabela tiktok_credentials, colunas app_id/secret) antes de poder
+    conectar. Ver docstring de api/tiktok_oauth.py.
+
+    Gera `state` + cookie httponly assinado (CSRF binding do
+    account-linking, 10 min) pro /callback validar.
+    """
+    creds = _get_tiktok_credentials_row(user_id)
+    app_id = creds.get("app_id") if creds else None
+    if not app_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Salve o Client Key/Secret da TikTok antes de conectar.",
+        )
+
+    state, cookie_value = _sign_oauth_state(user_id)
+
+    response.set_cookie(
+        key=_TIKTOK_OAUTH_COOKIE,
+        value=cookie_value,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=600,
+    )
+    return {"url": tiktok_oauth.get_user_auth_url(app_id, state)}
+
+
+@router.get("/tiktok/callback")
+async def tiktok_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Callback do OAuth do TikTok: ?code=&state= (sucesso) ou ?error=
+    (usuário negou autorização, ou outra falha do lado da TikTok).
+    Mesma semântica dos callbacks de Threads/Instagram acima.
+
+    Valida o `state` contra o cookie assinado do /authorize (CSRF)
+    ANTES de trocar code por token. Precisa do Client Key/Secret que o
+    usuário já salvou (PUT /credentials/tiktok) pra essa troca — nunca
+    expõe token nem detalhe de erro sensível pro frontend.
+    """
+    frontend_redirect = f"{settings.frontend_url}/credentials"
+
+    def _redirect(query: str) -> RedirectResponse:
+        res = RedirectResponse(f"{frontend_redirect}?{query}", status_code=307)
+        res.delete_cookie(_TIKTOK_OAUTH_COOKIE)
+        return res
+
+    if error:
+        return _redirect(f"tiktok=error&message={quote(error, safe='')}")
+
+    if not code:
+        return _redirect("tiktok=error&message=missing_code")
+
+    if not _verify_oauth_state(request, _TIKTOK_OAUTH_COOKIE, state, user_id):
+        return _redirect("tiktok=error&message=invalid_state")
+
+    creds = _get_tiktok_credentials_row(user_id)
+    if not creds or not creds.get("app_id") or not creds.get("secret"):
+        return _redirect("tiktok=error&message=missing_client_credentials")
+
+    try:
+        access_token, refresh_token, open_id = await tiktok_oauth.get_user_auth_id_token(
+            creds["app_id"], decrypt(creds["secret"]), code
+        )
+    except tiktok_oauth.TikTokOAuthError:
+        return _redirect("tiktok=error&message=oauth_failed")
+
+    _upsert_by_user("tiktok_credentials", user_id, {
+        "user_access_token": encrypt(access_token),
+        "refresh_token": encrypt(refresh_token) if refresh_token else None,
+        "open_id": open_id,
+        "status": True,
+    })
+
+    return _redirect("tiktok=success")
+
+
+@router.get("/x/authorize")
+async def x_authorize(
+    response: Response,
+    user_id: int = Depends(get_current_user_id),
+):
+    """URL de autorização OAuth 2.0 + PKCE do X.
+
+    Igual ao TikTok: o app_id/secret não é um único app global via env
+    — cada usuário cadastra seu próprio app no X Developer Portal e
+    salva via PUT /credentials/x (tabela x_credentials) antes de poder
+    conectar. PKCE exige guardar o code_verifier gerado aqui até o
+    /callback: vai num cookie httponly assinado (10 min).
+    """
+    row = (
+        supabase.table("x_credentials").select("app_id")
+        .eq("user_id", user_id).maybe_single().execute()
+    )
+    app_id = row.data.get("app_id") if row and row.data else None
+    if not app_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Salve o app_id/secret do X antes de conectar.",
+        )
+
+    code_verifier, code_challenge = x_oauth.generate_pkce_pair()
+    state, cookie_value = _sign_oauth_state(user_id, {"code_verifier": code_verifier})
+
+    response.set_cookie(
+        key=_X_OAUTH_COOKIE,
+        value=cookie_value,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=600,
+    )
+    return {"url": x_oauth.get_user_auth_url(app_id, code_challenge, state)}
+
+
+@router.get("/x/callback")
+async def x_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Callback do OAuth 2.0 + PKCE do X: ?code=&state= (sucesso) ou
+    ?error= (usuário negou autorização, ou outra falha do lado do X).
+    Mesma semântica de erro dos callbacks de Threads/Instagram/TikTok
+    acima.
+
+    Valida o `state` contra o cookie assinado do /authorize (CSRF) e usa
+    o code_verifier guardado nele pra trocar o code por
+    access_token/refresh_token — nunca expõe token nem detalhe de erro
+    sensível pro frontend.
+    """
+    frontend_redirect = f"{settings.frontend_url}/credentials"
+
+    def _redirect(query: str) -> RedirectResponse:
+        res = RedirectResponse(f"{frontend_redirect}?{query}", status_code=307)
+        res.delete_cookie(_X_OAUTH_COOKIE)
+        return res
+
+    if error:
+        return _redirect(f"x=error&message={quote(error, safe='')}")
+
+    if not code:
+        return _redirect("x=error&message=missing_code")
+
+    oauth_state = _verify_oauth_state(request, _X_OAUTH_COOKIE, state, user_id)
+    if not oauth_state:
+        return _redirect("x=error&message=invalid_state")
+
+    row = (
+        supabase.table("x_credentials").select("app_id, secret")
+        .eq("user_id", user_id).maybe_single().execute()
+    )
+    creds = row.data if row and row.data else None
+    if not creds or not creds.get("app_id") or not creds.get("secret"):
+        return _redirect("x=error&message=missing_client_credentials")
+
+    try:
+        token_data = await x_oauth.exchange_code_for_token(
+            creds["app_id"],
+            decrypt(creds["secret"]),
+            code,
+            oauth_state["code_verifier"],
+        )
+    except x_oauth.XOAuthError:
+        return _redirect("x=error&message=oauth_failed")
+
+    expires_in = token_data.get("expires_in", 7200)
+    _upsert_by_user("x_credentials", user_id, {
+        "user_access_token": encrypt(token_data["access_token"]),
+        "user_refresh_token": encrypt(token_data.get("refresh_token")),
+        "token_expires_at": (
+            datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        ).isoformat(),
+        "status": True,
+    })
+
+    return _redirect("x=success")
+
+
 @router.put("/{network}")
 async def save_credential(
     network: str,
@@ -150,11 +574,15 @@ async def save_credential(
         if not valid:
             raise HTTPException(status_code=400, detail="Credencial da Shopee inválida")
 
-    _upsert_by_user(table, user_id, {
+    data = {
         "app_id": body.app_id,
         "secret": encrypt(body.secret),
         "status": True,
-    })
+    }
+    if network == "facebook":
+        data["page_id"] = body.page_id
+
+    _upsert_by_user(table, user_id, data)
     return {"connected": True}
 
 
@@ -165,9 +593,12 @@ async def delete_credential(
 ):
     """Desconecta (zera app_id/secret, status=False) — não apaga a linha."""
     table = _simple_table(network)
+    update_data = {"app_id": None, "secret": None, "status": False}
+    if network == "facebook":
+        update_data["page_id"] = None
     result = (
         supabase.table(table)
-        .update({"app_id": None, "secret": None, "status": False})
+        .update(update_data)
         .eq("user_id", user_id)
         .execute()
     )

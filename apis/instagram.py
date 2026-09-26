@@ -13,12 +13,26 @@ Notas:
   - App Access Token só funciona para obter endpoints públicos e para
     publicar se o app estiver autorizado para o usuário Instagram via
     OAuth (user_access_token).
-  - A tabela instagram_credentials só tem app_id (IG App ID) e secret (IG App
-    Secret) → não há user_access_token salvo ainda.
+  - A tabela instagram_credentials tem user_access_token e ig_user_id
+    (colunas adicionadas na migration 024), preenchidas pelo fluxo OAuth
+    de Facebook Login for Business em api/instagram_oauth.py — ver
+    scheduler/bot_post_instagram.py pra onde esses valores são lidos e
+    passados pra post_text/post_product.
   - Para publicar TEXTO sem imagem/video, Instagram aceita media_type TEXT
     desde que o usuário tenha autorização.
   - Se a conta for Business/Creator com Instagram Graph API habilitada,
     publicação via Graph API funciona com o token de usuário longo.
+
+BLOQUEIO EXTERNO (App Review da Meta):
+  - Publicar de verdade (media_publish) exige a permissão
+    instagram_content_publish aprovada em App Review — processo manual e
+    separado, feito no mesmo Meta Developer Console do app. Sem essa
+    aprovação, a Graph API só publica para usuários cadastrados como
+    tester do app (Roles > Testers no console do app).
+  - Isso é bloqueio de processo externo (Meta), não desta implementação:
+    o código abaixo funciona normalmente pra quem é tester; para os
+    demais usuários, media_publish retorna erro de permissão até o App
+    Review ser aprovado. Não há workaround de código pra isso.
 
 Recomendação do README:
   - Hoje o wrapper implementa validação e postagem básica (TEXT),
@@ -181,24 +195,15 @@ def _publish_media_container(ig_user_id, user_access_token, creation_id):
         raise Exception(f"Instagram: resposta inesperada ao publicar: {data}")
     return media_id
 
-def post_text(app_id, secret, user_access_token, text):
-    """Posta um texto (caption) no Instagram via Graph API.
+def _resolve_ig_user_id(user_access_token, ig_user_id=None):
+    """Retorna o ig_user_id a usar: o salvo na credencial (vindo do OAuth
+    de Facebook Login for Business, ver api/instagram_oauth.py), ou, se
+    não fornecido, resolve na hora via /me + instagram_business_account
+    (fallback pra credenciais antigas sem a coluna preenchida)."""
+    if ig_user_id:
+        return ig_user_id
 
-    Pré-requisitos:
-      - user_access_token com permissões instagram_basic e
-        instagram_content_publish.
-      - Conta Business ou Creator com Instagram Graph API habilitada.
-    """
-    if not user_access_token:
-        raise NotImplementedError(
-            "Instagram: user_access_token é obrigatório para publicar. "
-            "Implemente OAuth ou salve o token na tabela/credential. "
-            "Ver: https://developers.facebook.com/docs/instagram-api"
-        )
-    app_token = _app_access_token(app_id, secret)
-    # Obtém o usuário Instagram conectado
     user_id = _user_id_from_token(user_access_token)
-    # Obtém o Instagram Business Account (node)
     url_ig = f"{API_BASE}/{user_id}"
     params_ig = {
         "access_token": user_access_token,
@@ -222,7 +227,30 @@ def post_text(app_id, secret, user_access_token, text):
             "Instagram Business/Creator (instagram_business_account ausente). "
             "Conecte uma conta Business ou use um user token com permissões."
         )
-    ig_user_id = ig_business["id"]
+    return ig_business["id"]
+
+def post_text(app_id, secret, user_access_token, text, ig_user_id=None):
+    """Posta um texto (caption) no Instagram via Graph API.
+
+    Pré-requisitos:
+      - user_access_token com permissões instagram_basic e
+        instagram_content_publish.
+      - Conta Business ou Creator com Instagram Graph API habilitada.
+      - ig_user_id: id da conta Instagram Business/Creator, salvo na
+        credencial pelo fluxo OAuth. Se omitido, é resolvido na hora
+        (fallback, mais lento — 1 chamada extra à Graph API).
+    """
+    if not user_access_token:
+        raise NotImplementedError(
+            "Instagram: user_access_token é obrigatório para publicar. "
+            "Implemente OAuth ou salve o token na tabela/credential. "
+            "Ver: https://developers.facebook.com/docs/instagram-api"
+        )
+    # app_token não é usado pra publicar (a Graph API usa o
+    # user_access_token pros endpoints de media/media_publish), só
+    # validado aqui pra falhar cedo se app_id/secret estiverem errados.
+    _app_access_token(app_id, secret)
+    ig_user_id = _resolve_ig_user_id(user_access_token, ig_user_id)
 
     creation_id = _create_text_media_container(
         ig_user_id, user_access_token, text
@@ -231,7 +259,7 @@ def post_text(app_id, secret, user_access_token, text):
     media_id = _publish_media_container(ig_user_id, user_access_token, creation_id)
     return media_id
 
-def post_product(app_id, secret, user_access_token, product):
+def post_product(app_id, secret, user_access_token, product, ig_user_id=None):
     """Posta texto com link de afiliado de produto Shopee no Instagram."""
     commission_link = (
         product.get("commission_link")
@@ -253,4 +281,4 @@ def post_product(app_id, secret, user_access_token, product):
     if commission_link:
         text += f"\n{commission_link}"
 
-    return post_text(app_id, secret, user_access_token, text)
+    return post_text(app_id, secret, user_access_token, text, ig_user_id)

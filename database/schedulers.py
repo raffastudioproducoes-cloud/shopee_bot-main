@@ -1,5 +1,19 @@
 from shopee_bot.database import execute_db, query_db
 
+# Rede social do post -> função de publicação chamada pelo scheduler
+# (ver scheduler/__init__.py, que resolve o nome via globals()).
+# Kwai fica de fora: sem API pública confirmada ainda. Os wrappers
+# bot_post_x/facebook/instagram/tiktok ainda não existem — apontar pra
+# eles é seguro, só falha se alguém agendar post com essa rede antes
+# do wrapper ser criado.
+NETWORK_FUNC_MAP = {
+    "threads": "bot_post",
+    "x": "bot_post_x",
+    "facebook": "bot_post_facebook",
+    "instagram": "bot_post_instagram",
+    "tiktok": "bot_post_tiktok",
+}
+
 
 def get_by_post_id(user_id, post_id):
     query = """

@@ -10,7 +10,10 @@ def get_by_user_id(user_id):
             u.username username,
             tc.app_id tiktok_app_id,
             tc.secret tiktok_secret,
-            tc.status tiktok_status
+            tc.status tiktok_status,
+            tc.user_access_token tiktok_user_access_token,
+            tc.refresh_token tiktok_refresh_token,
+            tc.open_id tiktok_open_id
         FROM users u
         LEFT JOIN tiktok_credentials tc ON tc.user_id = u.id
         WHERE u.id = %s
@@ -19,6 +22,14 @@ def get_by_user_id(user_id):
     result = query_db(query, args, True)
     if result:
         result["tiktok_secret"] = decrypt(result["tiktok_secret"])
+        # user_access_token/refresh_token são gravados pelo fluxo OAuth
+        # (api/routers/credentials.py::tiktok_callback, via API nova) —
+        # podem não existir ainda se o usuário só salvou Client Key/
+        # Secret e nunca completou a autorização.
+        result["tiktok_user_access_token"] = decrypt(
+            result["tiktok_user_access_token"]
+        )
+        result["tiktok_refresh_token"] = decrypt(result["tiktok_refresh_token"])
     return result
 
 

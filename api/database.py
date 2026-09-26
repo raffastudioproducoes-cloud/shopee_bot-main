@@ -27,9 +27,18 @@ def init_db() -> None:
     get_supabase()
 
 
-def supabase() -> Client:
-    """Delegated Supabase client — calls get_supabase() once.
+class _SupabaseProxy:
+    """Lazy proxy that behaves like a `Client` instance.
 
-    This is the function routers should import and use.
+    Routers do `from ..database import supabase` then call
+    `supabase.table(...)` directly (not `supabase().table(...)`), so
+    `supabase` must be an object, not a function. `__getattr__` forwards
+    every attribute access to `get_supabase()`, which keeps the existing
+    `lru_cache` singleton semantics (client built once, reused after).
     """
-    return get_supabase()
+
+    def __getattr__(self, name: str):
+        return getattr(get_supabase(), name)
+
+
+supabase = _SupabaseProxy()

@@ -10,6 +10,8 @@ def get_by_user_id(user_id):
             u.username username,
             ic.app_id instagram_app_id,
             ic.secret instagram_secret,
+            ic.user_access_token instagram_user_access_token,
+            ic.ig_user_id instagram_ig_user_id,
             ic.status instagram_status
         FROM users u
         LEFT JOIN instagram_credentials ic ON ic.user_id = u.id
@@ -19,6 +21,9 @@ def get_by_user_id(user_id):
     result = query_db(query, args, True)
     if result:
         result["instagram_secret"] = decrypt(result["instagram_secret"])
+        result["instagram_user_access_token"] = decrypt(
+            result["instagram_user_access_token"]
+        )
     return result
 
 

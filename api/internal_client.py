@@ -12,7 +12,9 @@ import os
 
 import httpx
 
-FLASK_INTERNAL_URL = os.environ.get("FLASK_INTERNAL_URL", "http://localhost:5000")
+FLASK_INTERNAL_URL = os.environ.get(
+    "FLASK_INTERNAL_URL", f"http://127.0.0.1:{os.environ.get('PORT', '5000')}"
+)
 INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET", "")
 
 

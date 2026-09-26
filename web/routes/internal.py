@@ -25,8 +25,16 @@ from flask import Blueprint, request, jsonify
 
 from shopee_bot.scheduler import add_job, remove_job, run_job
 from shopee_bot.apis import shopee as ShopeeAPI
+from shopee_bot.database.schedulers import NETWORK_FUNC_MAP
 
 internal_bp = Blueprint("internal", __name__, url_prefix="/internal")
+
+# Whitelist do `func` aceito por create_job: só os nomes que o
+# scheduler resolve via globals() (scheduler/__init__.py) — sem isso,
+# um `func` arbitrário na requisição (mesmo autenticada pelo segredo
+# interno) vira uma chamada arbitrária a qualquer símbolo importado
+# naquele módulo. Reusa NETWORK_FUNC_MAP em vez de duplicar a lista.
+ALLOWED_FUNCS = set(NETWORK_FUNC_MAP.values())
 
 
 def _require_internal_secret(fn):
@@ -58,9 +66,15 @@ def _parse_time(value):
 def create_job():
     body = request.get_json(force=True)
     user_id = body["user_id"]
+    func = body["func"]
+    if func not in ALLOWED_FUNCS:
+        # jsonify direto, não abort(): o errorhandler(Exception) global
+        # (web/__init__.py) engole HTTPException e devolve 500 genérico
+        # — mesmo padrão já usado em _require_internal_secret acima.
+        return jsonify({"error": f"func '{func}' não permitido"}), 400
     job = {
         "post_id": body["post_id"],
-        "func": body["func"],
+        "func": func,
         "trigger": body["trigger"],
         "time": _parse_time(body.get("time")),
         "day_of_week": body.get("day_of_week"),

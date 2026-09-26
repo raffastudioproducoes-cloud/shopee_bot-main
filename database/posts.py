@@ -222,14 +222,15 @@ def query_paginated(user_id, cursor, limit):
 
 def insert(user_id, post, open_conn=None):
     query = """
-        INSERT INTO posts(user_id, post_id, text)
-        VALUES(%s, %s, %s)
+        INSERT INTO posts(user_id, post_id, text, network)
+        VALUES(%s, %s, %s, %s)
         RETURNING id
     """
     args = (
         user_id,
         post["post_id"] if "post_id" in post else None,
-        post["text"]
+        post["text"],
+        post.get("network") or "threads"
     )
     return execute_db(query, args, open_conn)
 
@@ -237,7 +238,8 @@ def insert(user_id, post, open_conn=None):
 def update(user_id, post_id, post, open_conn=None):
     query = """
         UPDATE posts
-        SET post_id = %s, text = %s, updated_at = %s
+        SET post_id = %s, text = %s, updated_at = %s,
+            network = COALESCE(%s, network)
         WHERE id = %s AND user_id = %s
         RETURNING id
     """
@@ -245,6 +247,7 @@ def update(user_id, post_id, post, open_conn=None):
         post["post_id"] if "post_id" in post else None,
         post["text"],
         datetime.now(pytz.timezone('America/Sao_Paulo')),
+        post.get("network"),
         post_id,
         user_id
     )

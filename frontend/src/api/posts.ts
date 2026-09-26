@@ -17,6 +17,8 @@ export interface PostMedia {
   type: 'IMAGE' | 'VIDEO'
 }
 
+export type PostNetwork = 'threads' | 'x' | 'facebook' | 'instagram' | 'tiktok'
+
 export interface Post {
   id: number
   text: string
@@ -29,6 +31,7 @@ export interface Post {
   medias: PostMedia[]
   scheduled: boolean
   parts_count?: number
+  network?: PostNetwork
 }
 
 export interface PostSchedule {
@@ -43,6 +46,7 @@ export interface PostCreate {
   texts: string[]
   product_ids?: number[]
   schedule: PostSchedule
+  network?: PostNetwork
 }
 
 export interface PostUpdate {

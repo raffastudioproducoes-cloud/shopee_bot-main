@@ -21,14 +21,18 @@ WORKDIR /shopee_bot
 ENV PYTHONPATH=/
 
 # Instala deps antes de copiar o codigo (cache de layer)
+# api/requirements.txt vai no mesmo venv/layer do requirements.txt da raiz —
+# os dois processos (gunicorn/Flask + uvicorn/FastAPI) rodam no mesmo container.
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY api/requirements.txt api/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt -r api/requirements.txt
 
 # Copia o app (a pasta raiz tem __init__.py -> vira o pacote shopee_bot)
 COPY . .
 
 EXPOSE 5000
 
-# Scheduler sobe dentro do gunicorn (hook on_starting -> init_scheduler)
+# Scheduler sobe dentro do gunicorn (hook post_fork -> init_scheduler);
+# on_starting sobe o processo uvicorn da API FastAPI (ver gunicorn.conf.py)
 ENTRYPOINT ["tini", "--"]
 CMD ["gunicorn", "web:app", "--config=gunicorn.conf.py"]

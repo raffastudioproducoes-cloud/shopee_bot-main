@@ -4,6 +4,8 @@ from wtforms import StringField, IntegerField, SelectField, FieldList, \
     FormField, ValidationError, DateTimeLocalField, TimeField
 from wtforms.validators import DataRequired, Optional, NumberRange, Length
 
+from shopee_bot.database.schedulers import NETWORK_FUNC_MAP
+
 
 class Media(FlaskForm):
     id = IntegerField("id", [Optional()])
@@ -84,6 +86,12 @@ class PostForm(FlaskForm):
     )
     posts = FieldList(FormField(Post), min_entries=1)
     job = FormField(Job)
+    network = SelectField(
+        "network",
+        choices=[(key, key) for key in NETWORK_FUNC_MAP],
+        default="threads",
+        validators=[Optional()]
+    )
     files = FieldList(
         FieldList(FileField("files", [Optional()]))
     )

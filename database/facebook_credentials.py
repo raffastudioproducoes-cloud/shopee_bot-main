@@ -10,6 +10,7 @@ def get_by_user_id(user_id):
             u.username username,
             fc.app_id facebook_app_id,
             fc.secret facebook_secret,
+            fc.page_id facebook_page_id,
             fc.status facebook_status
         FROM users u
         LEFT JOIN facebook_credentials fc ON fc.user_id = u.id
@@ -24,13 +25,15 @@ def get_by_user_id(user_id):
 
 def insert(user_id, credential, open_conn=None):
     query = """
-        INSERT INTO facebook_credentials(user_id, app_id, secret, status)
-        VALUES(%s, %s, %s, %s)
+        INSERT INTO facebook_credentials(user_id, app_id, secret, page_id,
+            status)
+        VALUES(%s, %s, %s, %s, %s)
     """
     args = (
         user_id,
         credential["app_id"],
         encrypt(credential["secret"]),
+        credential.get("page_id"),
         credential["status"]
     )
     return execute_db(query, args, open_conn)
@@ -44,13 +47,15 @@ def update(
 ):
     query = """
         UPDATE facebook_credentials
-        SET app_id = %s, secret = %s, status = %s, updated_at = %s
+        SET app_id = %s, secret = %s, page_id = %s, status = %s,
+            updated_at = %s
         WHERE id = %s AND user_id = %s
         RETURNING id
     """
     args = (
         credential["app_id"],
         encrypt(credential["secret"]),
+        credential.get("page_id"),
         credential["status"],
         datetime.now(pytz.timezone('America/Sao_Paulo')),
         credential_id,

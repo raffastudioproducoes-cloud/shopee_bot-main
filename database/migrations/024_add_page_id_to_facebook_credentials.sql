@@ -1,0 +1,2 @@
+ALTER TABLE facebook_credentials
+    ADD COLUMN IF NOT EXISTS page_id TEXT DEFAULT NULL;

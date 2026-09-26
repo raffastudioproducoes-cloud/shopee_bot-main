@@ -13,6 +13,10 @@ from shopee_bot.database import get_conn, put_conn, schedulers
 from shopee_bot.clogging import logger
 # dynamic called functions | DO NOT REMOVE
 from shopee_bot.scheduler.bot_post import bot_post
+from shopee_bot.scheduler.bot_post_facebook import bot_post_facebook
+from shopee_bot.scheduler.bot_post_instagram import bot_post_instagram
+from shopee_bot.scheduler.bot_post_tiktok import bot_post_tiktok
+from shopee_bot.scheduler.bot_post_x import bot_post_x
 from shopee_bot.scheduler.update_products import update_products
 
 load_dotenv()

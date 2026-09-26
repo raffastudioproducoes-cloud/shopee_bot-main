@@ -1,8 +1,8 @@
 # Roadmap de Migração — React + API Python
 
-> Em andamento desde 2026-09-04. Atualizado em 2026-09-14 — Fases 0-8 concluídas.
-> Único pendente real: rodar a API nova no mesmo processo/filesystem do
-> Flask em produção (ver Fase 8 e Fase 5, upload de mídia).
+> Em andamento desde 2026-09-04. Atualizado em 2026-09-26 — Fases 0-8 concluídas.
+> Próxima etapa: validar deploy em produção (Render) e aposentar rota OAuth legada do Flask.
+> Wrappers de publicação das 5 redes sociais sendo implementados em paralelo.
 
 ## Visão geral
 
@@ -94,6 +94,43 @@ o token (troca de código com a Meta) — o formulário novo só aceita colar um
   protegidos por segredo compartilhado (`X-Internal-Secret`, isento de CSRF); a API nova
   chama por HTTP (`api/internal_client.py`) em vez de importar `scheduler`/`apis.shopee`
   diretamente. `create_post`/`delete_post` na API nova já usam isso pra agendar/desagendar.
+
+### Fase 8.1 — Consolidação final (2026-09-26)
+
+Implementadas as 5 mudanças finais para suportar a API nova em produção:
+
+- [x] **1. Dockerfile + gunicorn.conf.py + api/internal_client.py** (2026-09-26)
+  - FastAPI novo sobe como processo uvicorn em background no MESMO container Flask
+  - Hook `on_starting`/`on_exit` do gunicorn gerencia o ciclo de vida
+  - **Por quê**: evita precisar de um Web Service Render separado; reduz custos e complexidade de orquestração de dois serviços
+  - Status: Implementado e testado localmente (sem Docker disponível — validar em produção)
+
+- [x] **2. web/routes/api_proxy.py + web/__init__.py** (2026-09-26)
+  - Flask agora tem proxy transparente `/api/<path>` que repassa pro FastAPI interno (`127.0.0.1:8001`)
+  - Bypass automático de CSRF para endpoints `/api/*`
+  - **Por quê**: encapsula a topologia interna; cliente frontend sempre fala com Flask, Flask roteia
+  - Status: Implementado
+
+- [x] **3. api/threads_oauth.py + endpoints OAuth em api/routers/credentials.py** (2026-09-26)
+  - Fluxo OAuth do Threads agora existe na API nova (async)
+  - `GET /credentials/threads/authorize` → redirect pra Meta
+  - `GET /credentials/threads/callback` → troca código por token
+  - Testes em `tests/api/test_threads_oauth.py`
+  - **Por quê**: preparação para eventual aposentadoria do Flask; isola lógica OAuth numa camada
+  - Status: Implementado
+
+- [x] **4. Frontend React (frontend/src/pages/CredentialsPage.tsx)** (2026-09-26)
+  - Botão "Conectar Threads" chamando novo endpoint `/credentials/threads/authorize`
+  - **Por quê**: integração do frontend com a API nova
+  - Status: Implementado
+
+- [x] **5. database/migrations/023_add_network_to_posts.sql** (2026-09-26)
+  - Coluna `network` adicionada em `posts`
+  - Mapa `network→func` em `database/schedulers.py` e `api/routers/posts.py`
+  - Seletor de rede no form de criação de post (Flask legado e React)
+  - **Por quê**: suportar múltiplas redes sociais em paralelo; escolher qual publicar por post
+  - Status: Implementado
+
 - [ ] **Pendente real** (bloqueia aposentar o Flask): hoje só o Flask está deployado no
   Render — a API nova (`api/`) ainda não tem processo próprio em produção, então
   `FLASK_INTERNAL_URL`/`INTERNAL_API_SECRET` só existem em dev local. Falta decidir a

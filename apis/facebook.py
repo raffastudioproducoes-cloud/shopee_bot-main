@@ -1,3 +1,17 @@
+"""
+Facebook API wrapper (Meta Graph API).
+
+BLOQUEIO EXTERNO CONHECIDO — App Review da Meta:
+Publicar de fato em `POST /{page-id}/feed` exige a permissão
+`pages_manage_posts`, que só fica disponível em produção depois que o
+App Review da Meta aprova o app para essa permissão. Até isso acontecer,
+`post_text`/`post_product` só funcionam em páginas onde o usuário (ou o
+app registrado no Meta Developer Console) já é Admin/Tester — ou seja,
+páginas fora do modo de desenvolvimento do app vão falhar com erro de
+permissão da Graph API. Isso é uma limitação da Meta, não deste código;
+não há workaround client-side.
+"""
+
 import os
 import time
 import json

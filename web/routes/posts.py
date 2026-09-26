@@ -6,6 +6,7 @@ from flask_login import login_required, current_user
 from shopee_bot import utils
 from shopee_bot.database import get_conn, put_conn, query_db, \
     posts, posts_medias, posts_products, medias, schedulers, products
+from shopee_bot.database.schedulers import NETWORK_FUNC_MAP
 from shopee_bot.web.forms.posts import PostForm
 from shopee_bot.scheduler import add_job, remove_job, run_job
 from shopee_bot.apis import llm
@@ -125,6 +126,8 @@ def add_save():
                 "text": post["text"],
                 "post_id": parent_id
             }
+            if index == 0:
+                post_data["network"] = form.network.data
             post_id = posts.insert(current_user.id, post_data, conn)
             parent_id = post_id
 
@@ -175,6 +178,10 @@ def add_save():
         if form.job.data:
             job = {
                 **form.job.data,
+                # func vem da rede escolhida, não do que o cliente
+                # mandar em job.func — evita depender do default 'bot_post'
+                # fixo no JS (form-script.html) e destrava as outras redes.
+                "func": NETWORK_FUNC_MAP.get(form.network.data, "bot_post"),
                 "post_id": head_post_id,
             }
             add_job(current_user.id, job, conn)
@@ -205,6 +212,8 @@ def edit_save(id):
                 "text": post["text"],
                 "post_id": parent_id,
             }
+            if index == 0:
+                post_data["network"] = form.network.data
 
             post_id = None
             if "id" in post and post["id"] is not None:
@@ -326,6 +335,7 @@ def edit_save(id):
 
             job = {
                 **form.job.data,
+                "func": NETWORK_FUNC_MAP.get(form.network.data, "bot_post"),
                 "post_id": head_post_id,
             }
             add_job(current_user.id, job, conn)

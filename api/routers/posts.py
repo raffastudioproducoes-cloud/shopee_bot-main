@@ -19,10 +19,14 @@ head da thread, não em cada parte (mesma limitação de UI do form novo).
 Modelo de thread: cada parte é uma linha em `posts`; a primeira
 ("head", a única retornada por list_posts) tem `post_id IS NULL`; cada
 parte seguinte tem `post_id` apontando pra parte ANTERIOR (lista
-encadeada por trás pra frente, não por índice). Produtos e agendamento
-sempre grudam na head. Publicação de verdade hoje só existe pra Threads
-(`func="bot_post"`, `scheduler/bot_post.py`) — as outras 5 redes têm
-credencial mas nenhum wrapper de publicação ligado ao scheduler ainda.
+encadeada por trás pra frente, não por índice). Produtos, agendamento
+e `network` sempre grudam na head. `network` escolhe a função chamada
+pelo scheduler via `NETWORK_FUNC_MAP` (definido neste módulo).
+Publicação de verdade hoje só existe pra Threads (`func="bot_post"`,
+`scheduler/bot_post.py`) — as outras 4 redes do mapa (x, facebook,
+instagram, tiktok) já têm credencial e roteamento, mas nenhum wrapper
+de publicação ligado ao scheduler ainda (kwai fica de fora do mapa,
+sem API pública confirmada).
 """
 
 import os
@@ -40,6 +44,21 @@ from ..internal_client import (
     run_scheduler_job,
     InternalApiError,
 )
+
+# Rede social do post -> função de publicação chamada pelo scheduler
+# (mesmo mapa usado no painel Flask legado, ver database/schedulers.py
+# — duplicado aqui porque api/database.py é o client Supabase, um
+# módulo totalmente separado do database/ psycopg usado pelo Flask;
+# não vale a pena acoplar os dois runtimes por causa de um dict de 5
+# linhas). Kwai fica de fora: sem API pública confirmada ainda.
+NETWORK_FUNC_MAP = {
+    "threads": "bot_post",
+    "x": "bot_post_x",
+    "facebook": "bot_post_facebook",
+    "instagram": "bot_post_instagram",
+    "tiktok": "bot_post_tiktok",
+}
+NetworkLiteral = Literal[tuple(NETWORK_FUNC_MAP.keys())]
 
 MEDIA_ROOT = Path("web/media")
 ALLOWED_MEDIA_EXTS = {".webp", ".jpg", ".jpeg", ".png", ".gif", ".mp4"}
@@ -70,6 +89,7 @@ class PostCreate(BaseModel):
     texts: list[str]  # 1 item = post único; 2+ = thread encadeada
     product_ids: list[int] = []
     schedule: PostSchedule
+    network: NetworkLiteral = "threads"
 
     @field_validator("texts")
     @classmethod
@@ -187,14 +207,21 @@ def _get_post_by_id_only(post_id: int) -> dict:
     return result.data
 
 
-def _create_thread(user_id: int, texts: list[str]) -> dict:
-    """Insere a thread inteira, encadeando post_id. Retorna a head."""
+def _create_thread(user_id: int, texts: list[str], network: str = "threads") -> dict:
+    """Insere a thread inteira, encadeando post_id. Retorna a head.
+
+    `network` só é gravada na head (post_id IS NULL) — é lá que
+    agendamento e produtos vivem, mesma simplificação já usada pro
+    resto da thread (ver docstring do módulo)."""
     parent_id = None
     head = None
     for text in texts:
+        row_data = {"user_id": user_id, "text": text, "post_id": parent_id}
+        if parent_id is None:
+            row_data["network"] = network
         result = (
             supabase.table("posts")
-            .insert({"user_id": user_id, "text": text, "post_id": parent_id})
+            .insert(row_data)
             .execute()
         )
         if not result.data:
@@ -313,14 +340,14 @@ async def create_post(
     """Cria a thread (1+ partes, ver docstring do módulo) e agenda a
     publicação. Se o agendamento falhar, desfaz a criação inteira —
     melhor não criar do que criar um post que nunca vai publicar."""
-    head = _create_thread(user_id, body.texts)
+    head = _create_thread(user_id, body.texts, body.network)
     _set_post_products(head["id"], body.product_ids)
 
     try:
         await create_scheduler_job(
             user_id=user_id,
             post_id=head["id"],
-            func="bot_post",
+            func=NETWORK_FUNC_MAP[body.network],
             trigger=body.schedule.trigger,
             time=body.schedule.time,
             day_of_week=body.schedule.day_of_week,
