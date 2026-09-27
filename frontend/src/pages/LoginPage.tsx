@@ -13,7 +13,7 @@ import { Icon } from '../components/ui/Icon'
 // deste componente (imagem/formulário lado a lado no desktop, empilhados no mobile).
 const splitScreenStyles = `
   .login-split { display: flex; flex-direction: column; min-height: 100vh; }
-  .login-split__image { width: 100%; height: 38vh; }
+  .login-split__image { width: 100%; height: 38vh; position: relative; overflow: hidden; }
   .login-split__form { width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
   @media (min-width: 768px) {
     .login-split { flex-direction: row; }
@@ -39,6 +39,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [forgotOpen, setForgotOpen] = useState(false)
+  const [registerOpen, setRegisterOpen] = useState(false)
+  // ponytail: checagem única no mount, sem listener de mudança ao vivo — se o usuário
+  // alternar a preferência do SO com a tela aberta, precisaria recarregar a página.
+  const [prefersReducedMotion] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  )
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -73,17 +79,28 @@ export default function LoginPage() {
       <div
         className="login-split__image"
         style={{
+          // Camada de baixo: fica visível se o vídeo falhar ao carregar ou se o usuário
+          // preferir menos movimento — nunca sobra um buraco vazio/branco.
           background: 'linear-gradient(160deg, var(--surface-card) 0%, var(--bg-app) 100%)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
         }}
       >
-        {/* TODO: trocar por <img src="..." /> ou background-image quando a imagem for definida */}
-        <Icon name="image" size={40} style={{ color: 'var(--text-faint)' }} />
-        <span style={{ font: 'var(--text-role-label)', color: 'var(--text-faint)' }}>Imagem</span>
+        {!prefersReducedMotion && (
+          <video
+            src="/videos/login-bg.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center',
+            }}
+          />
+        )}
       </div>
 
       <div className="login-split__form" style={{ background: 'var(--bg-app-gradient)' }}>
@@ -185,21 +202,39 @@ export default function LoginPage() {
               )}
             </Button>
 
-            <button
-              type="button"
-              onClick={() => setForgotOpen(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
-                font: 'var(--text-role-body)',
-                textAlign: 'center',
-                cursor: 'pointer',
-                padding: 4,
-              }}
-            >
-              Esqueceu a senha?
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setForgotOpen(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  font: 'var(--text-role-body)',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  padding: 4,
+                }}
+              >
+                Esqueceu a senha?
+              </button>
+              <span style={{ color: 'var(--text-muted)' }}>·</span>
+              <button
+                type="button"
+                onClick={() => setRegisterOpen(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  font: 'var(--text-role-body)',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  padding: 4,
+                }}
+              >
+                Criar conta
+              </button>
+            </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>
               <div style={{ flex: 1, height: 1, background: 'var(--border-hairline)' }} />
@@ -228,6 +263,8 @@ export default function LoginPage() {
       {forgotOpen && (
         <ForgotPasswordModal initialUsername={username} onClose={() => setForgotOpen(false)} />
       )}
+
+      {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} />}
     </div>
   )
 }
@@ -310,6 +347,91 @@ function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalPr
           </Button>
           <Button type="submit" variant="primary" disabled={loading || !!success}>
             {loading ? 'Trocando...' : 'Trocar senha'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+// ── Modal "criar conta" ─────────────────────────────────────────────────────────
+
+interface RegisterModalProps {
+  onClose: () => void
+}
+
+function RegisterModal({ onClose }: RegisterModalProps) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem')
+      return
+    }
+
+    setLoading(true)
+    try {
+      await authApi.register(username, password)
+      setSuccess('Conta criada! Faça login.')
+      setTimeout(onClose, 1500)
+    } catch (err: unknown) {
+      if (err instanceof Error && 'status' in err) {
+        setError((err as { message: string }).message || 'Erro ao criar conta')
+      } else {
+        setError('Erro inesperado. Tente novamente.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Criar conta" width={400}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {error && <div style={bannerStyle(false)}>{error}</div>}
+        {success && <div style={bannerStyle(true)}>{success}</div>}
+
+        <TextInput
+          label="Usuário"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+          autoComplete="username"
+          disabled={!!success}
+        />
+        <TextInput
+          label="Senha"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoComplete="new-password"
+          disabled={!!success}
+        />
+        <TextInput
+          label="Confirmar senha"
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
+          autoComplete="new-password"
+          disabled={!!success}
+        />
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" disabled={loading || !!success}>
+            {loading ? 'Criando...' : 'Criar conta'}
           </Button>
         </div>
       </form>

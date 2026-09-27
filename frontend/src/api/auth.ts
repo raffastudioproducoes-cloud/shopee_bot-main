@@ -20,6 +20,12 @@ export interface ResetPasswordResponse {
   msg: string
 }
 
+export interface RegisterResponse {
+  id: number
+  username: string
+  access: string
+}
+
 export const authApi = {
   async login(username: string, password: string): Promise<string> {
     const formData = new FormData()
@@ -63,5 +69,9 @@ export const authApi = {
       new_password: newPassword,
     })
     return data.msg
+  },
+
+  async register(username: string, password: string): Promise<RegisterResponse> {
+    return api.post<RegisterResponse>('/auth/register', { username, password })
   },
 }

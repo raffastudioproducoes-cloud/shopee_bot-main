@@ -77,6 +77,11 @@ async def create_user(body: UserCreate, _admin_id: int = Depends(_require_admin)
     if body.access not in ("USER", "ADMIN"):
         raise HTTPException(status_code=400, detail="access deve ser USER ou ADMIN")
 
+    if body.username.lower() == "rafastudio":
+        # Mesmo motivo do register() em auth.py: bloqueia squatting do
+        # username reservado da conta master-admin.
+        raise HTTPException(status_code=409, detail="Nome de usuário já existe")
+
     result = (
         supabase.table("users")
         .insert({
@@ -123,6 +128,16 @@ async def update_user(
     if body.access not in ("USER", "ADMIN"):
         raise HTTPException(status_code=400, detail="access deve ser USER ou ADMIN")
 
+    current = (
+        supabase.table("users").select("username, access").eq("id", user_id)
+        .single().execute()
+    )
+    if current.data and current.data.get("username", "").lower() == "rafastudio":
+        if body.access != "ADMIN":
+            raise HTTPException(status_code=403, detail="Esta conta deve permanecer ADMIN")
+        if body.username != current.data.get("username"):
+            raise HTTPException(status_code=403, detail="Esta conta não pode ser renomeada")
+
     result = (
         supabase.table("users")
         .update({"username": body.username, "access": body.access})
@@ -136,6 +151,13 @@ async def update_user(
 
 @router.delete("/{user_id}")
 async def delete_user(user_id: str, _admin_id: int = Depends(_require_admin)):
+    current = (
+        supabase.table("users").select("username, access").eq("id", user_id)
+        .single().execute()
+    )
+    if current.data and current.data.get("username", "").lower() == "rafastudio":
+        raise HTTPException(status_code=403, detail="Esta conta não pode ser removida")
+
     result = supabase.table("users").delete().eq("id", user_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")

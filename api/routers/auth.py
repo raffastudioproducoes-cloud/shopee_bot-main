@@ -34,10 +34,45 @@ _DB_UNAVAILABLE_DETAIL = (
 _RESET_COOLDOWN_SECONDS = 60
 _last_reset_attempt: dict[str, float] = {}
 
+# Mesmo ponytail acima, agora por IP (cada registro tem username diferente,
+# então cooldown por username não protegeria contra spam de contas novas).
+_REGISTER_COOLDOWN_SECONDS = 30
+_last_register_attempt: dict[str, float] = {}
+
+# Duplicado de api/routers/users.py::NETWORK_TABLES — importar de lá criaria
+# import circular (users.py já importa get_current_user_id de auth.py).
+NETWORK_TABLES = [
+    "shopee_credentials",
+    "threads_credentials",
+    "x_credentials",
+    "facebook_credentials",
+    "instagram_credentials",
+    "tiktok_credentials",
+    "kwai_credentials",
+]
+
 
 class ResetPasswordRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     new_password: str
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    password: str
+
+
+def _validate_password_length(password: str) -> None:
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="A nova senha deve ter no mínimo 8 caracteres.",
+        )
+    if len(password) > 72:
+        raise HTTPException(
+            status_code=400,
+            detail="Senha não pode ter mais de 72 caracteres.",
+        )
 
 
 def get_current_user_id(request: Request) -> int:
@@ -177,16 +212,7 @@ async def reset_password(payload: ResetPasswordRequest):
             detail="Aguarde antes de tentar novamente.",
         )
 
-    if len(payload.new_password) < 8:
-        raise HTTPException(
-            status_code=400,
-            detail="A nova senha deve ter no mínimo 8 caracteres.",
-        )
-    if len(payload.new_password) > 72:
-        raise HTTPException(
-            status_code=400,
-            detail="Senha não pode ter mais de 72 caracteres.",
-        )
+    _validate_password_length(payload.new_password)
 
     generic_response = {"msg": "Se o usuário existir, a senha foi atualizada"}
 
@@ -209,3 +235,61 @@ async def reset_password(payload: ResetPasswordRequest):
     ).execute()
 
     return generic_response
+
+
+@router.post("/register", status_code=201)
+async def register(body: RegisterRequest, request: Request):
+    """Cadastro público. Sempre cria com access="USER" — o cliente não tem
+    como enviar ADMIN, o campo nem existe no schema de entrada."""
+    now = time.monotonic()
+    ip = request.client.host if request.client else "unknown"
+    last_attempt = _last_register_attempt.get(ip)
+    _last_register_attempt[ip] = now
+    if last_attempt is not None and (now - last_attempt) < _REGISTER_COOLDOWN_SECONDS:
+        raise HTTPException(
+            status_code=429,
+            detail="Aguarde antes de tentar novamente.",
+        )
+
+    _validate_password_length(body.password)
+
+    if body.username.lower() == "rafastudio":
+        # Nome reservado da conta master-admin — bloqueia squatting via
+        # cadastro público (ex: "RafaStudio", "RAFASTUDIO"). Checagem
+        # pontual só pra esse username, não unicidade case-insensitive geral.
+        raise HTTPException(status_code=409, detail="Nome de usuário já existe")
+
+    if _get_user_from_supabase(body.username):
+        raise HTTPException(status_code=409, detail="Nome de usuário já existe")
+
+    from passlib.context import CryptContext
+
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    try:
+        supabase = get_supabase()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail=_DB_UNAVAILABLE_DETAIL)
+
+    result = (
+        supabase.table("users")
+        .insert({
+            "username": body.username,
+            "password": pwd_context.hash(body.password),
+            "access": "USER",
+        })
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Falha ao criar usuário")
+
+    new_user = result.data[0]
+
+    for table in NETWORK_TABLES:
+        supabase.table(table).insert({"user_id": new_user["id"], "status": False}).execute()
+
+    return {
+        "id": new_user["id"],
+        "username": new_user["username"],
+        "access": "USER",
+    }
