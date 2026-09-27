@@ -70,3 +70,20 @@ async def validate_shopee_credential(app_id: str, secret: str) -> bool:
     if resp.status_code >= 400:
         raise InternalApiError(f"validate_shopee_credential falhou: {resp.status_code} {resp.text}")
     return bool(resp.json().get("valid"))
+
+
+async def validate_network_credential(network: str, payload: dict) -> dict:
+    """Chama o teste de conexão real (apis/*.py) via bridge interno pro
+    botão "Testar conexão" (admin-only). Retorna {"state": "ok"|"error",
+    "message": str} — nunca levanta por causa do RESULTADO do teste (uma
+    credencial inválida é 'error', não uma InternalApiError); só levanta se
+    o bridge em si falhar (Flask fora do ar, segredo errado)."""
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.post(
+            f"{FLASK_INTERNAL_URL}/internal/credentials/{network}/validate",
+            json=payload,
+            headers=_headers(),
+        )
+    if resp.status_code >= 400:
+        raise InternalApiError(f"validate_network_credential falhou: {resp.status_code} {resp.text}")
+    return resp.json()

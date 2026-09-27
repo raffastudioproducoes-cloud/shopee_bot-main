@@ -25,6 +25,11 @@ from flask import Blueprint, request, jsonify
 
 from shopee_bot.scheduler import add_job, remove_job, run_job
 from shopee_bot.apis import shopee as ShopeeAPI
+from shopee_bot.apis import x as XAPI
+from shopee_bot.apis import facebook as FacebookAPI
+from shopee_bot.apis import threads as ThreadsAPI
+from shopee_bot.apis import instagram as InstagramAPI
+from shopee_bot.apis import tiktok as TikTokAPI
 from shopee_bot.database.schedulers import NETWORK_FUNC_MAP
 
 internal_bp = Blueprint("internal", __name__, url_prefix="/internal")
@@ -109,3 +114,76 @@ def validate_shopee():
     except Exception as e:
         return jsonify({"valid": False, "error": str(e)}), 200
     return jsonify({"valid": bool(valid)}), 200
+
+
+# "Testar conexão" (luz verde/amarela do sinalizador em cada credencial) —
+# dispatcher genérico em vez de uma rota por rede: cada rede chama a API real
+# via apis/*.py (só existem "vivas" aqui, no processo Flask — ver docstring
+# do módulo) e traduz o resultado pro par (state, message) que a API nova
+# grava em credential_checks. Sempre 200 (menos rede desconhecida): erro de
+# validação é resultado esperado do teste, não falha da rota em si.
+@internal_bp.post("/credentials/<network>/validate")
+@_require_internal_secret
+def validate_credential(network):
+    body = request.get_json(force=True)
+
+    def ok(message):
+        return jsonify({"state": "ok", "message": message}), 200
+
+    def error(message):
+        return jsonify({"state": "error", "message": str(message)[:300]}), 200
+
+    try:
+        if network == "shopee":
+            valid = ShopeeAPI.query_auth_validate(body["app_id"], body["secret"])
+            return ok("Credencial válida") if valid else error("Credencial inválida")
+
+        if network == "x":
+            XAPI.validate_credentials(body["app_id"], body["secret"])
+            if not body.get("user_access_token"):
+                return error(
+                    "App ID/Secret válidos, mas falta autorizar via OAuth "
+                    "(Conectar X) — sem isso não é possível publicar."
+                )
+            return ok("Conectado")
+
+        if network == "facebook":
+            FacebookAPI.validate_credentials(
+                body["app_id"], body["secret"], body.get("page_id")
+            )
+            return ok("Conectado")
+
+        if network == "threads":
+            if not body.get("access_token"):
+                return error("Nenhum token salvo")
+            ThreadsAPI.get_user_id(body["access_token"])
+            return ok("Conectado")
+
+        if network == "instagram":
+            InstagramAPI.validate_credentials(
+                body["app_id"], body["secret"], body.get("user_access_token")
+            )
+            if not body.get("user_access_token"):
+                return error(
+                    "App ID/Secret válidos, mas falta autorizar via OAuth "
+                    "(Conectar Instagram) — sem isso não é possível publicar."
+                )
+            return ok("Conectado")
+
+        if network == "tiktok":
+            if not body.get("user_access_token"):
+                return error(
+                    "Client Key/Secret salvos, mas falta autorizar via OAuth "
+                    "(Conectar TikTok) — sem isso não é possível publicar."
+                )
+            TikTokAPI.get_user_info(body["user_access_token"])
+            return ok("Conectado")
+
+        if network == "kwai":
+            return error(
+                "Kwai não tem API pública documentada para validar credenciais."
+            )
+
+        return jsonify({"error": f"Rede '{network}' não suportada"}), 400
+    except Exception as e:
+        return error(e)

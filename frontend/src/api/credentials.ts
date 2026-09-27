@@ -2,11 +2,25 @@ import { api, ApiError } from '../lib/api'
 
 export type SimpleNetwork = 'shopee' | 'x' | 'facebook' | 'instagram' | 'tiktok' | 'kwai'
 
+export type ConnectionLight = 'green' | 'yellow' | 'red'
+
 export interface CredentialStatus {
   connected: boolean
 }
 
-export type CredentialsStatusMap = Record<SimpleNetwork | 'threads', CredentialStatus>
+export interface CredentialStatusWithLight extends CredentialStatus {
+  light: ConnectionLight
+  checked_at: string | null
+  check_message: string | null
+}
+
+export type CredentialsStatusMap = Record<SimpleNetwork | 'threads', CredentialStatusWithLight>
+
+export interface TestConnectionResult {
+  light: ConnectionLight
+  message: string
+  checked_at: string
+}
 
 export const credentialsApi = {
   async list(): Promise<CredentialsStatusMap> {
@@ -53,6 +67,11 @@ export const credentialsApi = {
 
   async authorizeInstagram(): Promise<{ url: string }> {
     return api.get<{ url: string }>('/credentials/instagram/authorize')
+  },
+
+  /** "Testar conexão" — admin-only no backend (403 pra quem não é ADMIN). */
+  async testConnection(network: SimpleNetwork | 'threads'): Promise<TestConnectionResult> {
+    return api.post<TestConnectionResult>(`/credentials/${network}/test`, undefined)
   },
 }
 

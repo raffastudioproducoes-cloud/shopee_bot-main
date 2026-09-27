@@ -2,11 +2,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
-import { credentialsApi, type SimpleNetwork } from "../api/credentials"
+import {
+  credentialsApi,
+  type SimpleNetwork,
+  type CredentialStatusWithLight,
+} from "../api/credentials"
 import { Panel, PanelHeader } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { TextInput } from "../components/ui/TextInput"
 import { StatusBadge } from "../components/ui/StatusBadge"
+import { ConnectionLight } from "../components/ui/ConnectionLight"
 
 const SIMPLE_NETWORKS: { key: SimpleNetwork; label: string }[] = [
   { key: "shopee", label: "Shopee" },
@@ -23,8 +28,16 @@ const FIELD_GRID = {
   gap: 12,
 } as const
 
+const EMPTY_STATUS: CredentialStatusWithLight = {
+  connected: false,
+  light: "red",
+  checked_at: null,
+  check_message: null,
+}
+
 export function CredentialsPage() {
-  const { logout } = useAuthStore()
+  const { logout, user } = useAuthStore()
+  const isAdmin = user?.access === "ADMIN"
   const queryClient = useQueryClient()
   const [banner, setBanner] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -127,7 +140,8 @@ export function CredentialsPage() {
             key={network.key}
             network={network.key}
             label={network.label}
-            connected={status?.[network.key]?.connected ?? false}
+            status={status?.[network.key] ?? EMPTY_STATUS}
+            isAdmin={isAdmin}
             onSaved={invalidate}
             onAuthError={onAuthError}
             setBanner={setBanner}
@@ -135,21 +149,24 @@ export function CredentialsPage() {
         ))}
 
         <ThreadsCredentialCard
-          connected={status?.threads?.connected ?? false}
+          status={status?.threads ?? EMPTY_STATUS}
+          isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
           setBanner={setBanner}
         />
 
         <TikTokCredentialCard
-          connected={status?.tiktok?.connected ?? false}
+          status={status?.tiktok ?? EMPTY_STATUS}
+          isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
           setBanner={setBanner}
         />
 
         <InstagramCredentialCard
-          connected={status?.instagram?.connected ?? false}
+          status={status?.instagram ?? EMPTY_STATUS}
+          isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
           setBanner={setBanner}
@@ -159,19 +176,73 @@ export function CredentialsPage() {
   )
 }
 
+// ── Sinalizador (luz, visível a todo mundo) + botão "Testar conexão"
+// (admin-only) compartilhados entre os 7 cards de rede. ─────────────────────
+
+function CredentialTrailing({
+  network,
+  label,
+  status,
+  isAdmin,
+  onSaved,
+  onAuthError,
+  setBanner,
+}: {
+  network: SimpleNetwork | "threads"
+  label: string
+  status: CredentialStatusWithLight
+  isAdmin: boolean
+  onSaved: () => void
+  onAuthError: (err: Error) => void
+  setBanner: (b: { ok: boolean; text: string } | null) => void
+}) {
+  const testMutation = useMutation({
+    mutationFn: () => credentialsApi.testConnection(network),
+    onSuccess: (result) => {
+      setBanner({
+        ok: result.light === "green",
+        text: `${label}: ${result.message || (result.light === "green" ? "conectado" : "problema encontrado")}`,
+      })
+      onSaved()
+    },
+    onError: onAuthError,
+  })
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: 10 }}>
+      <ConnectionLight state={status.light} title={status.check_message ?? undefined} />
+      <StatusBadge tone={status.connected ? "positive" : "neutral"} icon={status.connected ? "check-circle-2" : "x-circle"}>
+        {status.connected ? "Conectado" : "Desconectado"}
+      </StatusBadge>
+      {isAdmin && (
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={testMutation.isPending}
+          onClick={() => testMutation.mutate()}
+        >
+          {testMutation.isPending ? "Testando..." : "Testar conexão"}
+        </Button>
+      )}
+    </div>
+  )
+}
+
 // ── Card genérico (Shopee, X, Facebook, Kwai) ────────────────────────────────
 
 function SimpleCredentialCard({
   network,
   label,
-  connected,
+  status,
+  isAdmin,
   onSaved,
   onAuthError,
   setBanner,
 }: {
   network: SimpleNetwork
   label: string
-  connected: boolean
+  status: CredentialStatusWithLight
+  isAdmin: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
@@ -180,6 +251,7 @@ function SimpleCredentialCard({
   const [secret, setSecret] = useState("")
   const [pageId, setPageId] = useState("")
   const isFacebook = network === "facebook"
+  const connected = status.connected
 
   const saveMutation = useMutation({
     mutationFn: () => credentialsApi.save(network, appId, secret, isFacebook ? pageId : undefined),
@@ -207,9 +279,15 @@ function SimpleCredentialCard({
       <PanelHeader
         title={label}
         trailing={
-          <StatusBadge tone={connected ? "positive" : "neutral"} icon={connected ? "check-circle-2" : "x-circle"}>
-            {connected ? "Conectado" : "Desconectado"}
-          </StatusBadge>
+          <CredentialTrailing
+            network={network}
+            label={label}
+            status={status}
+            isAdmin={isAdmin}
+            onSaved={onSaved}
+            onAuthError={onAuthError}
+            setBanner={setBanner}
+          />
         }
       />
 
@@ -275,16 +353,19 @@ function SimpleCredentialCard({
 // ── Card do Threads (OAuth — cola token já emitido) ─────────────────────────────
 
 function ThreadsCredentialCard({
-  connected,
+  status,
+  isAdmin,
   onSaved,
   onAuthError,
   setBanner,
 }: {
-  connected: boolean
+  status: CredentialStatusWithLight
+  isAdmin: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
+  const connected = status.connected
   const [tUserId, setTUserId] = useState("")
   const [accessToken, setAccessToken] = useState("")
 
@@ -321,9 +402,15 @@ function ThreadsCredentialCard({
       <PanelHeader
         title="Threads"
         trailing={
-          <StatusBadge tone={connected ? "positive" : "neutral"} icon={connected ? "check-circle-2" : "x-circle"}>
-            {connected ? "Conectado" : "Desconectado"}
-          </StatusBadge>
+          <CredentialTrailing
+            network="threads"
+            label="Threads"
+            status={status}
+            isAdmin={isAdmin}
+            onSaved={onSaved}
+            onAuthError={onAuthError}
+            setBanner={setBanner}
+          />
         }
       />
 
@@ -396,16 +483,19 @@ function ThreadsCredentialCard({
 // ── Card do TikTok (Client Key/Secret + OAuth) ──────────────────────────────────
 
 function TikTokCredentialCard({
-  connected,
+  status,
+  isAdmin,
   onSaved,
   onAuthError,
   setBanner,
 }: {
-  connected: boolean
+  status: CredentialStatusWithLight
+  isAdmin: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
+  const connected = status.connected
   const [appId, setAppId] = useState("")
   const [secret, setSecret] = useState("")
 
@@ -442,9 +532,15 @@ function TikTokCredentialCard({
       <PanelHeader
         title="TikTok"
         trailing={
-          <StatusBadge tone={connected ? "positive" : "neutral"} icon={connected ? "check-circle-2" : "x-circle"}>
-            {connected ? "Conectado" : "Desconectado"}
-          </StatusBadge>
+          <CredentialTrailing
+            network="tiktok"
+            label="TikTok"
+            status={status}
+            isAdmin={isAdmin}
+            onSaved={onSaved}
+            onAuthError={onAuthError}
+            setBanner={setBanner}
+          />
         }
       />
 
@@ -513,16 +609,19 @@ function TikTokCredentialCard({
 // ── Card do Instagram (App ID/Secret + Facebook Login for Business) ────────────
 
 function InstagramCredentialCard({
-  connected,
+  status,
+  isAdmin,
   onSaved,
   onAuthError,
   setBanner,
 }: {
-  connected: boolean
+  status: CredentialStatusWithLight
+  isAdmin: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
+  const connected = status.connected
   const [appId, setAppId] = useState("")
   const [secret, setSecret] = useState("")
 
@@ -559,9 +658,15 @@ function InstagramCredentialCard({
       <PanelHeader
         title="Instagram"
         trailing={
-          <StatusBadge tone={connected ? "positive" : "neutral"} icon={connected ? "check-circle-2" : "x-circle"}>
-            {connected ? "Conectado" : "Desconectado"}
-          </StatusBadge>
+          <CredentialTrailing
+            network="instagram"
+            label="Instagram"
+            status={status}
+            isAdmin={isAdmin}
+            onSaved={onSaved}
+            onAuthError={onAuthError}
+            setBanner={setBanner}
+          />
         }
       />
 
