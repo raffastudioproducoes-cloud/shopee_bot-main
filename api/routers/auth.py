@@ -130,6 +130,7 @@ def _get_user_from_supabase(username: str):
 
 @router.post("/login")
 async def login(
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
     from passlib.context import CryptContext
@@ -145,7 +146,10 @@ async def login(
 
     token = _create_token({"sub": user["username"], "id": user["id"]})
 
-    response = Response()
+    # response injetado pelo FastAPI, não um Response() local — um Response()
+    # criado à mão é descartado quando a função retorna um dict (bug que
+    # fazia o cookie de sessão nunca ser enviado, login "funcionava" mas
+    # /me sempre voltava 401 logo em seguida).
     response.set_cookie(
         key="access_token",
         value=token,
