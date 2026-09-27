@@ -3,7 +3,13 @@ import { useState } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { usersApi, type AppUser, type UserAccess } from "../api/users"
-import { Plus, Trash2 } from "lucide-react"
+import { Panel } from "../components/ui/Panel"
+import { Button } from "../components/ui/Button"
+import { IconButton } from "../components/ui/IconButton"
+import { Badge } from "../components/ui/Badge"
+import { Modal } from "../components/ui/Modal"
+import { TextInput } from "../components/ui/TextInput"
+import { Select } from "../components/ui/Select"
 
 export function UsersPage() {
   const { user, logout } = useAuthStore()
@@ -58,21 +64,16 @@ export function UsersPage() {
 
   if (user?.access !== "ADMIN") {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto text-center py-12">
-          <p className="text-gray-500">Você não tem acesso a esta página.</p>
-        </div>
+      <div style={{ textAlign: "center", padding: "48px 0", color: "var(--text-muted)" }}>
+        Você não tem acesso a esta página.
       </div>
     )
   }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto animate-pulse space-y-4">
-          <div className="h-8 w-40 bg-gray-200 rounded" />
-          <div className="h-96 bg-gray-200 rounded" />
-        </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256, color: "var(--text-muted)" }}>
+        Carregando...
       </div>
     )
   }
@@ -80,79 +81,117 @@ export function UsersPage() {
   const users = data?.data ?? []
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <header className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Usuários</h1>
-            <p className="text-gray-500 mt-1">Administração de acesso.</p>
-          </div>
-          <button
-            onClick={() => {
-              setEditingUser(null)
-              setModalOpen(true)
-            }}
-            className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover transition flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Novo usuário
-          </button>
-        </header>
-
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-            {error.message}
-          </div>
-        )}
-
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">Usuário</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">Acesso</th>
-                <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                  <td className="py-3 px-4 text-gray-900 font-medium">{u.username}</td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        u.access === "ADMIN" ? "bg-primary-light text-primary" : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {u.access}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          setEditingUser(u)
-                          setModalOpen(true)
-                        }}
-                        className="text-xs text-gray-500 hover:text-gray-700 transition"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm(u.id)}
-                        className="p-1.5 rounded hover:bg-red-50 transition-colors text-red-500"
-                        title="Remover"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Usuários</h1>
+          <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Administração de acesso.</p>
         </div>
+        <Button
+          variant="primary"
+          icon="plus"
+          onClick={() => {
+            setEditingUser(null)
+            setModalOpen(true)
+          }}
+        >
+          Novo usuário
+        </Button>
       </div>
+
+      {error && (
+        <div
+          style={{
+            padding: "12px 16px",
+            borderRadius: "var(--r-md)",
+            font: "var(--fw-medium) var(--fs-body)/1.3 var(--font-sans)",
+            background: "var(--negative-on-glass)",
+            color: "var(--negative-ink)",
+          }}
+        >
+          {error.message}
+        </div>
+      )}
+
+      <Panel surface="dark">
+        <table style={{ width: "100%", borderCollapse: "collapse", font: "var(--text-role-body)" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--border-hairline)" }}>
+              <th
+                style={{
+                  textAlign: "left",
+                  font: "var(--text-role-label)",
+                  letterSpacing: "var(--ls-label)",
+                  textTransform: "uppercase",
+                  color: "var(--text-muted)",
+                  padding: "12px 16px",
+                }}
+              >
+                Usuário
+              </th>
+              <th
+                style={{
+                  textAlign: "left",
+                  font: "var(--text-role-label)",
+                  letterSpacing: "var(--ls-label)",
+                  textTransform: "uppercase",
+                  color: "var(--text-muted)",
+                  padding: "12px 16px",
+                }}
+              >
+                Acesso
+              </th>
+              <th
+                style={{
+                  textAlign: "right",
+                  font: "var(--text-role-label)",
+                  letterSpacing: "var(--ls-label)",
+                  textTransform: "uppercase",
+                  color: "var(--text-muted)",
+                  padding: "12px 16px",
+                }}
+              >
+                Ações
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.id} style={{ borderBottom: "1px solid var(--border-hairline)" }}>
+                <td style={{ padding: "12px 16px", color: "var(--text-body)", font: "var(--fw-medium) var(--fs-body)/1.3 var(--font-sans)" }}>
+                  {u.username}
+                </td>
+                <td style={{ padding: "12px 16px" }}>
+                  <Badge tone={u.access === "ADMIN" ? "mint" : "neutral"}>{u.access}</Badge>
+                </td>
+                <td style={{ padding: "12px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon="pencil"
+                      onClick={() => {
+                        setEditingUser(u)
+                        setModalOpen(true)
+                      }}
+                    >
+                      Editar
+                    </Button>
+                    <IconButton
+                      icon="trash-2"
+                      label="Remover"
+                      tone="plain"
+                      size={30}
+                      onClick={() => setDeleteConfirm(u.id)}
+                      style={{ color: "var(--red-300)" }}
+                    />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
 
       {modalOpen && (
         <UserModal
@@ -167,31 +206,24 @@ export function UsersPage() {
         />
       )}
 
-      {deleteConfirm != null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Confirmar remoção</h2>
-            <p className="text-gray-500 text-sm mb-6">
-              Tem certeza que deseja remover este usuário? Esta ação não pode ser desfeita.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate(deleteConfirm)}
-                disabled={deleteMutation.isPending}
-                className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 transition"
-              >
-                {deleteMutation.isPending ? "Removendo..." : "Remover"}
-              </button>
-            </div>
-          </div>
+      <Modal open={deleteConfirm != null} onClose={() => setDeleteConfirm(null)} title="Confirmar remoção" width={400}>
+        <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginTop: 0 }}>
+          Tem certeza que deseja remover este usuário? Esta ação não pode ser desfeita.
+        </p>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="primary"
+            disabled={deleteMutation.isPending}
+            onClick={() => deleteConfirm && deleteMutation.mutate(deleteConfirm)}
+            style={{ background: "var(--red-300)" }}
+          >
+            {deleteMutation.isPending ? "Removendo..." : "Remover"}
+          </Button>
         </div>
-      )}
+      </Modal>
     </div>
   )
 }
@@ -221,73 +253,49 @@ function UserModal({ user, onClose, onCreate, onUpdate, loading }: UserModalProp
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">
-          {user ? "Editar usuário" : "Novo usuário"}
-        </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-              Usuário *
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-            />
-          </div>
+    <Modal open onClose={onClose} title={user ? "Editar usuário" : "Novo usuário"} width={400}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <TextInput
+          label="Usuário *"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+        />
 
-          {!user && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                Senha inicial *
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-              />
-            </div>
-          )}
+        {!user && (
+          <TextInput
+            label="Senha inicial *"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="new-password"
+          />
+        )}
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-              Acesso
-            </label>
-            <select
-              value={access}
-              onChange={(e) => setAccess(e.target.value as UserAccess)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-            >
-              <option value="USER">USER</option>
-              <option value="ADMIN">ADMIN</option>
-            </select>
-          </div>
+        <Select
+          label="Acesso"
+          value={access}
+          onChange={(e) => setAccess(e.target.value as UserAccess)}
+          options={[
+            { value: "USER", label: "USER" },
+            { value: "ADMIN", label: "ADMIN" },
+          ]}
+        />
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !username.trim() || (!user && !password.trim())}
-              className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition"
-            >
-              {loading ? "Salvando..." : user ? "Salvar" : "Criar"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={loading || !username.trim() || (!user && !password.trim())}
+          >
+            {loading ? "Salvando..." : user ? "Salvar" : "Criar"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }

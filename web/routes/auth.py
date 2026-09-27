@@ -1,6 +1,6 @@
 import bcrypt
 from flask import Blueprint, abort, redirect, render_template, request, \
-    flash, url_for
+    flash
 from flask_login import login_required, login_user, logout_user
 
 from shopee_bot.database import users
@@ -45,7 +45,10 @@ def login_post():
     )
 
     flash("Logado", "success")
-    return redirect(next or url_for("index"))
+    # "/" em vez de url_for("index"): o endpoint "index" só existe com
+    # LEGACY_PANEL_ENABLED=true (ver web/__init__.py) — "/" sempre resolve,
+    # seja pro Jinja legado ou pro catch-all do SPA React
+    return redirect(next or "/")
 
 
 @auth_bp.get("/auth/logout")
@@ -53,4 +56,4 @@ def login_post():
 def logout_view():
     logout_user()
     flash("Você saiu da sessão", "success")
-    return redirect(url_for("index"))
+    return redirect("/")

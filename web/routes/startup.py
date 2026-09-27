@@ -1,5 +1,5 @@
 import secrets
-from flask import Blueprint, redirect, url_for
+from flask import Blueprint, redirect
 from shopee_bot.clogging import logger
 from shopee_bot.database import get_conn, put_conn, users, \
     shopee_credentials, threads_credentials, \
@@ -14,7 +14,9 @@ def index():
     count = users.count()
 
     if count != 0:
-        return redirect(url_for("index"))
+        # "/" em vez de url_for("index"): endpoint "index" só existe com
+        # LEGACY_PANEL_ENABLED=true (ver web/__init__.py)
+        return redirect("/")
 
     admin_password = secrets.token_urlsafe(12)
 
@@ -71,4 +73,4 @@ def index():
         "Usuario admin inicial criado. username=spoler password={0} "
         "-- troque a senha e nao reutilize este log.".format(admin_password)
     )
-    return redirect(url_for("index"))
+    return redirect("/")

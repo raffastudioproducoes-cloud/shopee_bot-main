@@ -2,6 +2,18 @@
 # Mantém o Dockerfile original (docker-compose + nginx) intacto.
 # No HF: copie este conteúdo para "Dockerfile" na raiz do repo do Space
 # e o README.hfspaces.md para "README.md".
+
+# Estágio 1: build do frontend React (frontend/, Vite). Node 22 exigido
+# pelo Vite 6 (^18.19 / ^20.11 / >=22) — usamos 22 direto, sem meio-termo.
+# Resultado (frontend/dist) é copiado pro estágio Python abaixo; nada de
+# Node sobra na imagem final.
+FROM node:22-slim AS frontend-build
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
 FROM python:3.13-slim
 
 # tini garante shutdown limpo; locales evita warning do pt_BR
@@ -29,6 +41,10 @@ RUN pip install --no-cache-dir -r requirements.txt -r api/requirements.txt
 
 # Copia o app (a pasta raiz tem __init__.py -> vira o pacote shopee_bot)
 COPY . .
+
+# Build do frontend (estágio Node acima) -> frontend/dist, servido pelo
+# Flask via web/routes/spa.py quando LEGACY_PANEL_ENABLED != true
+COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 EXPOSE 5000
 

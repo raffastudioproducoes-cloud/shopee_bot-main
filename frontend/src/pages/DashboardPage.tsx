@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { api } from '../lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { TrendingUp, Package, FileText, List, Loader2 } from 'lucide-react'
+import { StatCard } from '../components/ui/StatCard'
+import { Panel, PanelHeader } from '../components/ui/Panel'
+import { Button } from '../components/ui/Button'
 
 interface DashboardStats {
   products_count: number
@@ -15,21 +16,8 @@ async function fetchStats(): Promise<DashboardStats> {
   return api.get<DashboardStats>('/dashboard/stats')
 }
 
-function StatCard({ title, value, icon: Icon, color }: { title: string; value: number; icon: React.ComponentType<{ className?: string }>; color: string }) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-gray-500">{title}</CardTitle>
-        <Icon className={`w-5 h-5 ${color}`} />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-      </CardContent>
-    </Card>
-  )
-}
-
 export default function DashboardPage() {
+  const navigate = useNavigate()
   const { data: stats, isLoading, error } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchStats,
@@ -37,88 +25,63 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 256, color: 'var(--text-muted)' }}>
+        Carregando...
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="text-center py-8 text-red-600">
+      <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--negative)' }}>
         Erro ao carregar estatísticas
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-column)' }}>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1">Visão geral da sua conta</p>
+        <h1 style={{ font: 'var(--text-role-hero)', color: 'var(--text-display)', margin: 0 }}>Dashboard</h1>
+        <p style={{ color: 'var(--text-muted)', marginTop: 4 }}>Visão geral da sua conta</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Produtos"
-          value={stats?.products_count || 0}
-          icon={Package}
-          color="text-blue-500"
-        />
-        <StatCard
-          title="Posts"
-          value={stats?.posts_count || 0}
-          icon={FileText}
-          color="text-green-500"
-        />
-        <StatCard
-          title="Listas"
-          value={stats?.lists_count || 0}
-          icon={List}
-          color="text-purple-500"
-        />
-        <StatCard
-          title="Agendados"
-          value={stats?.scheduled_posts || 0}
-          icon={TrendingUp}
-          color="text-orange-500"
-        />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--gap-grid)' }}>
+        <StatCard name="Produtos Cadastrados" icon="briefcase" price={String(stats?.products_count ?? 0)} showSparkline={false} />
+        <StatCard name="Postagens Criadas" icon="file-text" price={String(stats?.posts_count ?? 0)} showSparkline={false} />
+        <StatCard name="Listas de Produtos" icon="sliders-horizontal" price={String(stats?.lists_count ?? 0)} showSparkline={false} />
+        <StatCard name="Agendados" icon="circle-dot" price={String(stats?.scheduled_posts ?? 0)} showSparkline={false} />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Atividade Recente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-500 text-sm">Nenhuma atividade recente</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Ações Rápidas</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Link to="/products" className="block">
-              <button className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition text-left">
-                <Package className="w-5 h-5 text-primary" />
-                <span className="font-medium">Adicionar Produto</span>
-              </button>
-            </Link>
-            <Link to="/posts" className="block">
-              <button className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition text-left">
-                <FileText className="w-5 h-5 text-green-500" />
-                <span className="font-medium">Criar Post</span>
-              </button>
-            </Link>
-            <Link to="/lists" className="block">
-              <button className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition text-left">
-                <List className="w-5 h-5 text-purple-500" />
-                <span className="font-medium">Nova Lista</span>
-              </button>
-            </Link>
-          </CardContent>
-        </Card>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--gap-grid)' }}>
+        <Panel surface="glass">
+          <PanelHeader title="Postagens recentes" />
+          <div style={{ padding: '0 16px 16px', color: 'var(--text-on-glass-muted)', font: 'var(--text-role-body)' }}>
+            Nenhuma postagem ainda.
+          </div>
+        </Panel>
+
+        <Panel surface="dark">
+          <PanelHeader title="Atividade recente" />
+          <div style={{ padding: '0 16px 16px', color: 'var(--text-muted)', font: 'var(--text-role-body)' }}>
+            Nenhuma atividade registrada ainda.
+          </div>
+        </Panel>
+
+        <Panel surface="dark">
+          <PanelHeader title="Ações Rápidas" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 16px 16px' }}>
+            <Button variant="secondary" icon="briefcase" fullWidth onClick={() => navigate({ to: '/products' })}>
+              Adicionar Produto
+            </Button>
+            <Button variant="secondary" icon="file-text" fullWidth onClick={() => navigate({ to: '/posts' })}>
+              Criar Post
+            </Button>
+            <Button variant="secondary" icon="sliders-horizontal" fullWidth onClick={() => navigate({ to: '/lists' })}>
+              Nova Lista
+            </Button>
+          </div>
+        </Panel>
       </div>
     </div>
   )

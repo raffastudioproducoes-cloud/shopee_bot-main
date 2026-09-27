@@ -1,0 +1,27 @@
+:root{
+  /* 4px base; 6 and 10 exist because the source uses them. */
+  --sp-1:4px;
+  --sp-2:6px;
+  --sp-3:8px;
+  --sp-4:10px;
+  --sp-5:12px;
+  --sp-6:16px;
+  --sp-7:20px;
+  --sp-8:24px;
+  --sp-9:32px;
+  --sp-10:40px;
+  --sp-11:56px;
+  --sp-12:80px;
+
+  --gap-grid:12px;        /* gap between dashboard cards        */
+  --gap-column:14px;      /* gap between main and aside columns */
+  --pad-card:14px;        /* dark stat card padding            */
+  --pad-panel:18px;       /* glass panel padding               */
+  --pad-row:12px 14px;    /* list row padding                  */
+  --rail-w:72px;          /* desktop side rail                 */
+  --topbar-h:56px;
+  --tabbar-h:64px;        /* mobile floating tab bar           */
+  --hit-min:44px;         /* minimum touch target              */
+  --shell-pad:18px;       /* app shell inner padding           */
+  --slide-margin:118px;   /* case-study page left margin       */
+}

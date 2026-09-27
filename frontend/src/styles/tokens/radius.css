@@ -1,0 +1,11 @@
+:root{
+  --r-xs:6px;
+  --r-sm:8px;
+  --r-md:12px;   /* stat cards, buttons, icon tiles */
+  --r-lg:16px;   /* glass panels, aside cards       */
+  --r-xl:20px;
+  --r-2xl:28px;  /* app shell / device canvas       */
+  --r-3xl:36px;
+  --r-pill:999px;
+  --r-token:50%; /* @kind radius */  /* circular coin badges           */
+}

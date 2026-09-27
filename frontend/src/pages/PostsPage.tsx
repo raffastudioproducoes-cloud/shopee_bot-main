@@ -4,7 +4,16 @@ import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { postsApi, type Post, type PostSchedule, type PostNetwork } from "../api/posts"
 import { productsApi, type Product } from "../api/products"
-import { Plus, Trash2, Loader2, Sparkles, Send, Clock } from "lucide-react"
+import { Panel, PanelHeader, Divider } from "../components/ui/Panel"
+import { Button } from "../components/ui/Button"
+import { IconButton } from "../components/ui/IconButton"
+import { Badge } from "../components/ui/Badge"
+import { StatusBadge } from "../components/ui/StatusBadge"
+import { Modal } from "../components/ui/Modal"
+import { TextInput } from "../components/ui/TextInput"
+import { Textarea } from "../components/ui/Textarea"
+import { Select } from "../components/ui/Select"
+import { SegmentedToggle } from "../components/ui/SegmentedToggle"
 
 const PERSONAS = [
   { value: "casual", label: "Casual" },
@@ -34,6 +43,20 @@ const WEEKDAYS = [
   { value: 5, label: "Sexta" },
   { value: 6, label: "Sábado" },
 ]
+
+const labelStyle = {
+  display: "block" as const,
+  font: "var(--text-role-label)",
+  letterSpacing: "var(--ls-label)",
+  textTransform: "uppercase" as const,
+  color: "var(--text-muted)",
+  marginBottom: 6,
+}
+
+const metaTextStyle = {
+  font: "var(--fw-regular) var(--fs-caption)/1 var(--font-sans)",
+  color: "var(--text-muted)",
+}
 
 export function PostsPage() {
   const { logout } = useAuthStore()
@@ -130,124 +153,151 @@ export function PostsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto animate-pulse space-y-4">
-          <div className="h-8 w-40 bg-gray-200 rounded" />
-          <div className="h-96 bg-gray-200 rounded" />
-        </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: 256,
+          color: "var(--text-muted)",
+        }}
+      >
+        Carregando...
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <header className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Posts</h1>
-            <p className="text-gray-500 mt-1">
-              Criação de post (com thread multi-parte) com copy manual ou gerado por IA, agendado
-              ou publicado na hora.{" "}
-              <span className="text-xs">(mídia/anexo ainda pelo painel Flask)</span>
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setEditingPost(null)
-              setModalOpen(true)
-            }}
-            className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover transition flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Novo post
-          </button>
-        </header>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+        }}
+      >
+        <div>
+          <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Posts</h1>
+          <p style={{ color: "var(--text-muted)", marginTop: 4, font: "var(--text-role-body)" }}>
+            Criação de post (com thread multi-parte) com copy manual ou gerado por IA, agendado
+            ou publicado na hora.{" "}
+            <span style={{ fontSize: "var(--fs-caption)" }}>(mídia/anexo ainda pelo painel Flask)</span>
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          icon="plus"
+          onClick={() => {
+            setEditingPost(null)
+            setModalOpen(true)
+          }}
+        >
+          Novo post
+        </Button>
+      </div>
 
-        {posts.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <p className="text-gray-500 text-sm">Nenhum post criado.</p>
+      {posts.length === 0 ? (
+        <Panel surface="dark">
+          <div style={{ padding: 48, textAlign: "center", color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+            Nenhum post criado.
           </div>
-        ) : (
-          <div className="space-y-3">
-            {posts.map((post) => (
+        </Panel>
+      ) : (
+        <Panel surface="dark">
+          <PanelHeader title="Posts" />
+          {posts.map((post, index) => (
+            <div key={post.id}>
+              {index > 0 && <Divider />}
               <div
-                key={post.id}
-                className="bg-white rounded-xl border border-gray-200 p-4 hover:border-gray-300 transition-colors cursor-pointer"
                 onClick={() => {
                   setEditingPost(post)
                   setModalOpen(true)
                 }}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 16,
+                  padding: "12px 16px",
+                  cursor: "pointer",
+                }}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-gray-900 whitespace-pre-wrap line-clamp-3 flex-1">{post.text}</p>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      font: "var(--text-role-body)",
+                      color: "var(--text-body)",
+                      whiteSpace: "pre-wrap",
+                      overflow: "hidden",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: "vertical",
+                    }}
+                  >
+                    {post.text}
+                  </p>
+                  {post.products.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                      {post.products.map((p) => (
+                        <Badge key={p.id} tone="outline">
+                          {p.name}
+                        </Badge>
+                      ))}
                     </div>
-                    {post.products.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {post.products.map((p) => (
-                          <span
-                            key={p.id}
-                            className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded-full"
-                          >
-                            {p.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3 mt-2">
-                      <p className="text-gray-400 text-xs">
-                        {new Date(post.created_at).toLocaleString("pt-BR")}
-                      </p>
-                      {post.scheduled && (
-                        <span className="flex items-center gap-1 text-xs text-primary">
-                          <Clock className="w-3 h-3" />
-                          Agendado
-                        </span>
-                      )}
-                      {!!post.parts_count && post.parts_count > 1 && (
-                        <span className="text-xs text-gray-400">{post.parts_count} partes</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+                    <span style={metaTextStyle}>{new Date(post.created_at).toLocaleString("pt-BR")}</span>
                     {post.scheduled && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          publishMutation.mutate(post.id)
-                        }}
-                        disabled={publishMutation.isPending}
-                        className="p-1.5 rounded hover:bg-primary-light transition-colors text-primary disabled:opacity-50"
-                        title="Publicar agora"
-                      >
-                        {publishMutation.isPending && publishMutation.variables === post.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Send className="w-4 h-4" />
-                        )}
-                      </button>
+                      <StatusBadge tone="positive" icon="clock">
+                        Agendado
+                      </StatusBadge>
                     )}
-                    <button
+                    {!!post.parts_count && post.parts_count > 1 && (
+                      <span style={metaTextStyle}>{post.parts_count} partes</span>
+                    )}
+                  </div>
+                  {publishMutation.isError && publishMutation.variables === post.id && (
+                    <p style={{ ...metaTextStyle, color: "var(--negative)", marginTop: 8 }}>
+                      {publishMutation.error.message}
+                    </p>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, flex: "0 0 auto" }}>
+                  {post.scheduled && (
+                    <IconButton
+                      icon="send"
+                      label="Publicar agora"
+                      tone="plain"
+                      size={32}
+                      className={
+                        publishMutation.isPending && publishMutation.variables === post.id ? "animate-spin" : ""
+                      }
                       onClick={(e) => {
                         e.stopPropagation()
-                        setDeleteConfirm(post.id)
+                        if (publishMutation.isPending) return
+                        publishMutation.mutate(post.id)
                       }}
-                      className="p-1.5 rounded hover:bg-red-50 transition-colors text-red-500"
-                      title="Remover post"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                    />
+                  )}
+                  <IconButton
+                    icon="trash-2"
+                    label="Remover post"
+                    tone="plain"
+                    size={32}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeleteConfirm(post.id)
+                    }}
+                  />
                 </div>
-                {publishMutation.isError && publishMutation.variables === post.id && (
-                  <p className="text-xs text-red-600 mt-2">{publishMutation.error.message}</p>
-                )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
+          ))}
+        </Panel>
+      )}
 
       {modalOpen && (
         <PostModal
@@ -262,31 +312,23 @@ export function PostsPage() {
         />
       )}
 
-      {deleteConfirm != null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Confirmar remoção</h2>
-            <p className="text-gray-500 text-sm mb-6">
-              Tem certeza que deseja remover este post? Esta ação não pode ser desfeita.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate(deleteConfirm)}
-                disabled={deleteMutation.isPending}
-                className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 transition"
-              >
-                {deleteMutation.isPending ? "Removendo..." : "Remover"}
-              </button>
-            </div>
-          </div>
+      <Modal open={deleteConfirm != null} onClose={() => setDeleteConfirm(null)} title="Confirmar remoção" width={400}>
+        <p style={{ font: "var(--text-role-body)", color: "var(--text-muted)", marginTop: 0, marginBottom: 20 }}>
+          Tem certeza que deseja remover este post? Esta ação não pode ser desfeita.
+        </p>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="send"
+            disabled={deleteMutation.isPending}
+            onClick={() => deleteConfirm != null && deleteMutation.mutate(deleteConfirm)}
+          >
+            {deleteMutation.isPending ? "Removendo..." : "Remover"}
+          </Button>
         </div>
-      )}
+      </Modal>
     </div>
   )
 }
@@ -380,126 +422,164 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">{post ? "Editar post" : "Novo post"}</h2>
+    <Modal open onClose={onClose} title={post ? "Editar post" : "Novo post"} width={560}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div>
+          <span style={labelStyle}>Produtos</span>
+          <div
+            style={{
+              maxHeight: 140,
+              overflowY: "auto",
+              border: "1px solid var(--border-hairline)",
+              borderRadius: "var(--r-md)",
+              background: "var(--surface-inset)",
+              padding: 8,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            {products.length === 0 && (
+              <p style={{ ...metaTextStyle, padding: "2px 4px" }}>Nenhum produto cadastrado ainda.</p>
+            )}
+            {products.map((product: Product) => (
+              <label
+                key={product.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "4px 6px",
+                  borderRadius: "var(--r-sm)",
+                  cursor: "pointer",
+                  font: "var(--text-role-body)",
+                  color: "var(--text-body)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedProductIds.includes(product.id)}
+                  onChange={() => toggleProduct(product.id)}
+                  style={{ accentColor: "var(--sky-400)", width: 15, height: 15 }}
+                />
+                {product.name}
+              </label>
+            ))}
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-              Produtos
-            </label>
-            <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
-              {products.length === 0 && (
-                <p className="text-xs text-gray-400 px-1">Nenhum produto cadastrado ainda.</p>
-              )}
-              {products.map((product: Product) => (
-                <label key={product.id} className="flex items-center gap-2 text-sm px-1 py-0.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedProductIds.includes(product.id)}
-                    onChange={() => toggleProduct(product.id)}
-                    className="rounded border-gray-300"
-                  />
-                  {product.name}
-                </label>
-              ))}
-            </div>
-          </div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8, flexWrap: "wrap" }}>
+          <Select
+            label="Persona da IA"
+            value={persona}
+            onChange={(e) => setPersona(e.target.value)}
+            options={PERSONAS}
+            width={200}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            icon={generateMutation.isPending ? "loader-2" : "sparkles"}
+            disabled={selectedProductIds.length === 0 || generateMutation.isPending}
+            onClick={() => generateMutation.mutate(selectedProductIds[0])}
+          >
+            {generateMutation.isPending ? "Gerando..." : "Gerar texto com IA"}
+          </Button>
+        </div>
+        {generateMutation.isError && (
+          <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{generateMutation.error.message}</p>
+        )}
 
-          <div className="flex items-center gap-2">
-            <select
-              value={persona}
-              onChange={(e) => setPersona(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-            >
-              {PERSONAS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={selectedProductIds.length === 0 || generateMutation.isPending}
-              onClick={() => generateMutation.mutate(selectedProductIds[0])}
-              className="px-3 py-2 rounded-lg bg-primary-light text-primary text-sm font-medium hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5"
-              title={selectedProductIds.length === 0 ? "Selecione um produto primeiro" : "Gerar texto com IA"}
-            >
-              {generateMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4" />
-              )}
-              Gerar texto com IA
-            </button>
-          </div>
-          {generateMutation.isError && (
-            <p className="text-xs text-red-600">{generateMutation.error.message}</p>
-          )}
-
-          <div className="space-y-3">
-            {texts.map((partText, index) => (
-              <div key={index}>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {index === 0 ? "Texto do post *" : `Parte ${index + 1} (resposta em thread)`}
-                  </label>
-                  {texts.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removePart(index)}
-                      className="text-xs text-red-500 hover:text-red-700"
-                    >
-                      Remover parte
-                    </button>
-                  )}
-                </div>
-                <textarea
-                  value={partText}
-                  onChange={(e) => setPartText(index, e.target.value)}
-                  required={index === 0}
-                  rows={index === 0 ? 6 : 3}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-                />
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={addPart}
-              className="text-sm text-primary hover:text-primary-hover font-medium flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Adicionar parte (thread)
-            </button>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-              Mídia (imagem/vídeo)
-            </label>
-            {post && post.medias.length > 0 && (
-              <ul className="space-y-1 mb-2">
-                {post.medias.map((media) => (
-                  <li
-                    key={media.id}
-                    className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-1.5"
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {texts.map((partText, index) => (
+            <div key={index} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ ...labelStyle, marginBottom: 0 }}>
+                  {index === 0 ? "Texto do post *" : `Parte ${index + 1} (resposta em thread)`}
+                </span>
+                {texts.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removePart(index)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      color: "var(--red-300)",
+                      font: "var(--fw-medium) var(--fs-caption)/1 var(--font-sans)",
+                      cursor: "pointer",
+                    }}
                   >
-                    <span className="truncate">{media.file_name}</span>
-                    <button
-                      type="button"
-                      onClick={() => deleteMediaMutation.mutate(media.id)}
-                      disabled={deleteMediaMutation.isPending}
-                      className="text-red-500 hover:text-red-700 text-xs shrink-0 ml-2"
-                    >
-                      Remover
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+                    Remover parte
+                  </button>
+                )}
+              </div>
+              <Textarea
+                value={partText}
+                onChange={(e) => setPartText(index, e.target.value)}
+                required={index === 0}
+                rows={index === 0 ? 6 : 3}
+              />
+            </div>
+          ))}
+          <Button type="button" variant="ghost" icon="plus" onClick={addPart} style={{ alignSelf: "flex-start", padding: 0 }}>
+            Adicionar parte (thread)
+          </Button>
+        </div>
+
+        <div>
+          <span style={labelStyle}>Mídia (imagem/vídeo)</span>
+          {post && post.medias.length > 0 && (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+              {post.medias.map((media) => (
+                <li
+                  key={media.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    padding: "6px 10px",
+                    borderRadius: "var(--r-sm)",
+                    background: "var(--surface-inset)",
+                    font: "var(--fw-regular) var(--fs-caption)/1 var(--font-sans)",
+                    color: "var(--text-body)",
+                  }}
+                >
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {media.file_name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => deleteMediaMutation.mutate(media.id)}
+                    disabled={deleteMediaMutation.isPending}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--red-300)",
+                      cursor: "pointer",
+                      font: "inherit",
+                      flex: "0 0 auto",
+                      opacity: deleteMediaMutation.isPending ? 0.5 : 1,
+                    }}
+                  >
+                    Remover
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "8px 12px",
+              borderRadius: "var(--r-md)",
+              background: "var(--surface-inset)",
+              border: "1px solid var(--border-hairline)",
+            }}
+          >
             <input
               type="file"
               accept=".webp,.jpg,.jpeg,.png,.gif,.mp4"
@@ -513,133 +593,100 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
                 }
                 e.target.value = ""
               }}
-              className="text-sm"
+              style={{ font: "var(--fw-regular) var(--fs-caption)/1 var(--font-sans)", color: "var(--text-body)" }}
             />
-            {!post && pendingFiles.length > 0 && (
-              <ul className="space-y-1 mt-2">
-                {pendingFiles.map((file, index) => (
-                  <li
-                    key={index}
-                    className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-1.5"
-                  >
-                    <span className="truncate">{file.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== index))}
-                      className="text-red-500 hover:text-red-700 text-xs shrink-0 ml-2"
-                    >
-                      Remover
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {addMediaMutation.isError && (
-              <p className="text-xs text-red-600 mt-1">{addMediaMutation.error.message}</p>
-            )}
           </div>
-
-          {!post && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                Rede social
-              </label>
-              <select
-                value={network}
-                onChange={(e) => setNetwork(e.target.value as PostNetwork)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-              >
-                {NETWORKS.map((n) => (
-                  <option key={n.value} value={n.value}>
-                    {n.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {!post && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                Quando publicar? *
-              </label>
-              <div className="flex gap-2 mb-3">
-                {(
-                  [
-                    ["now", "Agora"],
-                    ["date", "Data específica"],
-                    ["cron", "Recorrente"],
-                  ] as [WhenOption, string][]
-                ).map(([value, label]) => (
+          {!post && pendingFiles.length > 0 && (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+              {pendingFiles.map((file, index) => (
+                <li
+                  key={index}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    padding: "6px 10px",
+                    borderRadius: "var(--r-sm)",
+                    background: "var(--surface-inset)",
+                    font: "var(--fw-regular) var(--fs-caption)/1 var(--font-sans)",
+                    color: "var(--text-body)",
+                  }}
+                >
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {file.name}
+                  </span>
                   <button
-                    key={value}
                     type="button"
-                    onClick={() => setWhen(value)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                      when === value
-                        ? "bg-primary text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
+                    onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== index))}
+                    style={{ background: "none", border: "none", color: "var(--red-300)", cursor: "pointer", font: "inherit", flex: "0 0 auto" }}
                   >
-                    {label}
+                    Remover
                   </button>
-                ))}
-              </div>
-
-              {when === "date" && (
-                <input
-                  type="datetime-local"
-                  value={runDate}
-                  onChange={(e) => setRunDate(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-                />
-              )}
-
-              {when === "cron" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <select
-                    value={cronDay}
-                    onChange={(e) => setCronDay(Number(e.target.value))}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-                  >
-                    {WEEKDAYS.map((d) => (
-                      <option key={d.value} value={d.value}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="time"
-                    value={cronTime}
-                    onChange={(e) => setCronTime(e.target.value)}
-                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-                  />
-                </div>
-              )}
-            </div>
+                </li>
+              ))}
+            </ul>
           )}
+          {addMediaMutation.isError && (
+            <p style={{ ...metaTextStyle, color: "var(--negative)", marginTop: 6 }}>
+              {addMediaMutation.error.message}
+            </p>
+          )}
+        </div>
 
-          {error && <p className="text-xs text-red-600">{error}</p>}
+        {!post && (
+          <Select
+            label="Rede social"
+            value={network}
+            onChange={(e) => setNetwork(e.target.value as PostNetwork)}
+            options={NETWORKS}
+          />
+        )}
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading || trimmedTexts.length === 0 || (when === "date" && !runDate)}
-              className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition"
-            >
-              {loading ? "Salvando..." : post ? "Salvar" : "Criar"}
-            </button>
+        {!post && (
+          <div>
+            <span style={labelStyle}>Quando publicar? *</span>
+            <div style={{ marginBottom: 12 }}>
+              <SegmentedToggle
+                options={[
+                  { value: "now", label: "Agora" },
+                  { value: "date", label: "Data específica" },
+                  { value: "cron", label: "Recorrente" },
+                ]}
+                value={when}
+                onChange={(value) => setWhen(value as WhenOption)}
+                fullWidth
+              />
+            </div>
+
+            {when === "date" && (
+              <TextInput type="datetime-local" value={runDate} onChange={(e) => setRunDate(e.target.value)} required />
+            )}
+
+            {when === "cron" && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Select
+                  value={String(cronDay)}
+                  onChange={(e) => setCronDay(Number(e.target.value))}
+                  options={WEEKDAYS.map((d) => ({ value: String(d.value), label: d.label }))}
+                />
+                <TextInput type="time" value={cronTime} onChange={(e) => setCronTime(e.target.value)} />
+              </div>
+            )}
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+
+        {error && <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{error}</p>}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 4 }}>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" disabled={loading || trimmedTexts.length === 0 || (when === "date" && !runDate)}>
+            {loading ? "Salvando..." : post ? "Salvar" : "Criar"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }

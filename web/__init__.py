@@ -19,6 +19,7 @@ from shopee_bot.web.routes.auth import auth_bp
 from shopee_bot.web.routes.startup import startup_bp
 from shopee_bot.web.routes.internal import internal_bp
 from shopee_bot.web.routes.api_proxy import api_proxy_bp
+from shopee_bot.web.routes.spa import spa_bp
 from flask_babel import Babel
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -33,6 +34,15 @@ SESSION_SECRET = os.environ.get("FLASK_SESSION_SECRET")
 UPLOAD_FOLDER = os.environ.get("FLASK_UPLOAD_FOLDER")
 MAX_CONTENT_LENGTH = int(os.environ.get("FLASK_MAX_CONTENT_LENGTH"))
 DEBUG = bool(os.environ.get("FLASK_DEBUG"))
+
+# Painel Jinja legado (index() em "/", + blueprints products/posts/users)
+# colide de path com o React novo (frontend/, ver router.tsx). Default
+# "false": React é o painel principal daqui pra frente, essas 4 rotas
+# ficam fora e o catch-all do SPA (web/routes/spa.py) assume os paths.
+# "true" reverte pro Jinja antigo (rollback reversível, sem rebuild).
+LEGACY_PANEL_ENABLED = os.environ.get(
+    "LEGACY_PANEL_ENABLED", "false"
+).lower() == "true"
 
 # app — static_folder absoluto baseado na localização do módulo para
 # funcionar tanto em dev local quanto em Docker/livemy (onde o root
@@ -111,11 +121,12 @@ babel = Babel(app)
 app.register_blueprint(startup_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(activities_bp)
-app.register_blueprint(users_bp)
-app.register_blueprint(products_bp)
+if LEGACY_PANEL_ENABLED:
+    app.register_blueprint(users_bp)
+    app.register_blueprint(products_bp)
+    app.register_blueprint(posts_bp)
 app.register_blueprint(product_lists_bp)
 app.register_blueprint(panel_bp)
-app.register_blueprint(posts_bp)
 # rotas internas (chamadas só pela API nova, via secret — não sessão de
 # browser) precisam ficar fora do CSRF, que exige token de sessão
 app.register_blueprint(internal_bp)
@@ -163,29 +174,40 @@ def load_user(user_id):
     return None
 
 
-@app.get("/")
-@login_required
-def index():
-    recent_posts, _ = posts.query_paginated(current_user.id, None, 5)
-    recent_activities, _ = activities.query_activities_paginated(
-        current_user.id, None, 5
-    )
+if LEGACY_PANEL_ENABLED:
+    @app.get("/")
+    @login_required
+    def index():
+        recent_posts, _ = posts.query_paginated(current_user.id, None, 5)
+        recent_activities, _ = activities.query_activities_paginated(
+            current_user.id, None, 5
+        )
 
-    return render_template(
-        "index.html",
-        user=current_user,
-        products_count=products.count(current_user.id),
-        posts_count=posts.count(current_user.id),
-        product_lists_count=product_lists.count(current_user.id),
-        recent_posts=recent_posts,
-        recent_activities=recent_activities,
-    )
+        return render_template(
+            "index.html",
+            user=current_user,
+            products_count=products.count(current_user.id),
+            posts_count=posts.count(current_user.id),
+            product_lists_count=product_lists.count(current_user.id),
+            recent_posts=recent_posts,
+            recent_activities=recent_activities,
+        )
 
 
 # development only, production uses Nginx
 @app.get("/media/<path:name>")
 def data_view(name):
     return send_from_directory('media', name)
+
+
+# catch-all do SPA React (frontend/dist) — precisa ser o ÚLTIMO registro
+# do arquivo: Werkzeug desempata rotas de mesmo "peso" (ex.: "/" estático
+# vs "/" via defaults do catch-all) pela ordem de inserção, então
+# registrar antes faria o catch-all vencer index()/data_view() mesmo com
+# LEGACY_PANEL_ENABLED=true. Registrado por último, rotas Flask exatas já
+# definidas acima sempre vencem o <path:...> do catch-all; só os paths que
+# ninguém registrou (ou que ficaram fora por causa da flag) chegam aqui.
+app.register_blueprint(spa_bp)
 
 
 # Gunicon Server Hooks

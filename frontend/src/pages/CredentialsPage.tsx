@@ -3,7 +3,10 @@ import { useEffect, useState } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { credentialsApi, type SimpleNetwork } from "../api/credentials"
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react"
+import { Panel, PanelHeader } from "../components/ui/Panel"
+import { Button } from "../components/ui/Button"
+import { TextInput } from "../components/ui/TextInput"
+import { StatusBadge } from "../components/ui/StatusBadge"
 
 const SIMPLE_NETWORKS: { key: SimpleNetwork; label: string }[] = [
   { key: "shopee", label: "Shopee" },
@@ -11,6 +14,14 @@ const SIMPLE_NETWORKS: { key: SimpleNetwork; label: string }[] = [
   { key: "facebook", label: "Facebook" },
   { key: "kwai", label: "Kwai" },
 ]
+
+// Grade de 2 colunas que colapsa pra 1 em telas estreitas (mesmo efeito do
+// antigo `grid-cols-1 sm:grid-cols-2`, sem depender de breakpoint Tailwind).
+const FIELD_GRID = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 12,
+} as const
 
 export function CredentialsPage() {
   const { logout } = useAuthStore()
@@ -75,73 +86,70 @@ export function CredentialsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-3xl mx-auto animate-pulse space-y-4">
-          <div className="h-8 w-48 bg-gray-200 rounded" />
-          <div className="h-64 bg-gray-200 rounded" />
-        </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256, color: "var(--text-muted)" }}>
+        Carregando...
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-3xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Credenciais</h1>
-          <p className="text-gray-500 mt-1">
-            O valor da credencial nunca é reexibido depois de salvo — só o status de conexão.
-          </p>
-        </header>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+      <div>
+        <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Credenciais</h1>
+        <p style={{ color: "var(--text-muted)", marginTop: 4 }}>
+          O valor da credencial nunca é reexibido depois de salvo — só o status de conexão.
+        </p>
+      </div>
 
-        {banner && (
-          <div
-            className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${
-              banner.ok
-                ? "bg-green-50 text-green-700 border border-green-200"
-                : "bg-red-50 text-red-700 border border-red-200"
-            }`}
-          >
-            {banner.text}
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {SIMPLE_NETWORKS.map((network) => (
-            <SimpleCredentialCard
-              key={network.key}
-              network={network.key}
-              label={network.label}
-              connected={status?.[network.key]?.connected ?? false}
-              onSaved={invalidate}
-              onAuthError={onAuthError}
-            />
-          ))}
-
-          <ThreadsCredentialCard
-            connected={status?.threads?.connected ?? false}
-            onSaved={invalidate}
-            onAuthError={onAuthError}
-          />
-
-          <TikTokCredentialCard
-            connected={status?.tiktok?.connected ?? false}
-            onSaved={invalidate}
-            onAuthError={onAuthError}
-          />
-
-          <InstagramCredentialCard
-            connected={status?.instagram?.connected ?? false}
-            onSaved={invalidate}
-            onAuthError={onAuthError}
-          />
+      {banner && (
+        <div
+          style={{
+            padding: "12px 16px",
+            borderRadius: "var(--r-md)",
+            font: "var(--fw-medium) var(--fs-body)/1.3 var(--font-sans)",
+            background: banner.ok ? "var(--positive-on-glass)" : "var(--negative-on-glass)",
+            color: banner.ok ? "var(--positive-ink)" : "var(--negative-ink)",
+          }}
+        >
+          {banner.text}
         </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {SIMPLE_NETWORKS.map((network) => (
+          <SimpleCredentialCard
+            key={network.key}
+            network={network.key}
+            label={network.label}
+            connected={status?.[network.key]?.connected ?? false}
+            onSaved={invalidate}
+            onAuthError={onAuthError}
+          />
+        ))}
+
+        <ThreadsCredentialCard
+          connected={status?.threads?.connected ?? false}
+          onSaved={invalidate}
+          onAuthError={onAuthError}
+        />
+
+        <TikTokCredentialCard
+          connected={status?.tiktok?.connected ?? false}
+          onSaved={invalidate}
+          onAuthError={onAuthError}
+        />
+
+        <InstagramCredentialCard
+          connected={status?.instagram?.connected ?? false}
+          onSaved={invalidate}
+          onAuthError={onAuthError}
+        />
       </div>
     </div>
   )
 }
 
-// ── Card genérico (Shopee, X, Facebook, Instagram, TikTok, Kwai) ────────────────
+// ── Card genérico (Shopee, X, Facebook, Kwai) ────────────────────────────────
 
 function SimpleCredentialCard({
   network,
@@ -179,68 +187,72 @@ function SimpleCredentialCard({
   })
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-gray-900 font-medium">{label}</h3>
-        <StatusBadge connected={connected} />
-      </div>
+    <Panel surface="dark">
+      <PanelHeader
+        title={label}
+        trailing={
+          <StatusBadge tone={connected ? "positive" : "neutral"} icon={connected ? "check-circle-2" : "x-circle"}>
+            {connected ? "Conectado" : "Desconectado"}
+          </StatusBadge>
+        }
+      />
 
       <form
         onSubmit={(e) => {
           e.preventDefault()
           saveMutation.mutate()
         }}
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+        style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}
       >
-        <input
-          type="text"
-          value={appId}
-          onChange={(e) => setAppId(e.target.value)}
-          placeholder="APP ID"
-          required
-          className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-        />
-        <input
-          type="password"
-          value={secret}
-          onChange={(e) => setSecret(e.target.value)}
-          placeholder="Secret"
-          autoComplete="off"
-          required
-          className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-        />
+        <div style={FIELD_GRID}>
+          <TextInput
+            label="App ID"
+            value={appId}
+            onChange={(e) => setAppId(e.target.value)}
+            placeholder="APP ID"
+            required
+          />
+          <TextInput
+            label="Secret"
+            type="password"
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            placeholder="Secret"
+            autoComplete="off"
+            required
+          />
+        </div>
         {isFacebook && (
-          <input
-            type="text"
+          <TextInput
+            label="Page ID"
             value={pageId}
             onChange={(e) => setPageId(e.target.value)}
             placeholder="Page ID"
             required
-            className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition sm:col-span-2"
           />
         )}
-        <div className="sm:col-span-2 flex justify-end gap-2">
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           {connected && (
-            <button
+            <Button
               type="button"
-              onClick={() => deleteMutation.mutate()}
+              variant="ghost"
               disabled={deleteMutation.isPending}
-              className="px-3 py-1.5 rounded-lg text-red-600 text-sm hover:bg-red-50 disabled:opacity-50 transition"
+              onClick={() => deleteMutation.mutate()}
+              style={{ color: "var(--red-300)" }}
             >
-              Desconectar
-            </button>
+              {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
+            </Button>
           )}
-          <button
+          <Button
             type="submit"
+            variant="primary"
             disabled={saveMutation.isPending || !appId || !secret || (isFacebook && !pageId)}
-            className="px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5"
           >
-            {saveMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Salvar
-          </button>
+            {saveMutation.isPending ? "Salvando..." : "Salvar"}
+          </Button>
         </div>
       </form>
-    </div>
+    </Panel>
   )
 }
 
@@ -283,71 +295,79 @@ function ThreadsCredentialCard({
   })
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-gray-900 font-medium">Threads</h3>
-        <StatusBadge connected={connected} />
-      </div>
-      <p className="text-xs text-gray-500 mb-4">
-        Threads usa OAuth — conecte pela Meta ou, se preferir, cole um token já emitido.
-      </p>
+    <Panel surface="dark">
+      <PanelHeader
+        title="Threads"
+        trailing={
+          <StatusBadge tone={connected ? "positive" : "neutral"} icon={connected ? "check-circle-2" : "x-circle"}>
+            {connected ? "Conectado" : "Desconectado"}
+          </StatusBadge>
+        }
+      />
 
-      <button
-        type="button"
-        onClick={() => authorizeMutation.mutate()}
-        disabled={authorizeMutation.isPending}
-        className="mb-4 px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5"
-      >
-        {authorizeMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-        Conectar Threads
-      </button>
+      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+          Threads usa OAuth — conecte pela Meta ou, se preferir, cole um token já emitido.
+        </p>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          saveMutation.mutate()
-        }}
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-      >
-        <input
-          type="text"
-          value={tUserId}
-          onChange={(e) => setTUserId(e.target.value)}
-          placeholder="Threads User ID"
-          required
-          className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-        />
-        <input
-          type="password"
-          value={accessToken}
-          onChange={(e) => setAccessToken(e.target.value)}
-          placeholder="Access Token"
-          autoComplete="off"
-          required
-          className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-        />
-        <div className="sm:col-span-2 flex justify-end gap-2">
-          {connected && (
-            <button
-              type="button"
-              onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
-              className="px-3 py-1.5 rounded-lg text-red-600 text-sm hover:bg-red-50 disabled:opacity-50 transition"
+        <Button
+          type="button"
+          variant="primary"
+          disabled={authorizeMutation.isPending}
+          onClick={() => authorizeMutation.mutate()}
+          style={{ alignSelf: "flex-start" }}
+        >
+          {authorizeMutation.isPending ? "Conectando..." : "Conectar Threads"}
+        </Button>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            saveMutation.mutate()
+          }}
+          style={{ display: "flex", flexDirection: "column", gap: 12 }}
+        >
+          <div style={FIELD_GRID}>
+            <TextInput
+              label="Threads User ID"
+              value={tUserId}
+              onChange={(e) => setTUserId(e.target.value)}
+              placeholder="Threads User ID"
+              required
+            />
+            <TextInput
+              label="Access Token"
+              type="password"
+              value={accessToken}
+              onChange={(e) => setAccessToken(e.target.value)}
+              placeholder="Access Token"
+              autoComplete="off"
+              required
+            />
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            {connected && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate()}
+                style={{ color: "var(--red-300)" }}
+              >
+                {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
+              </Button>
+            )}
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={saveMutation.isPending || !tUserId || !accessToken}
             >
-              Desconectar
-            </button>
-          )}
-          <button
-            type="submit"
-            disabled={saveMutation.isPending || !tUserId || !accessToken}
-            className="px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5"
-          >
-            {saveMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Salvar
-          </button>
-        </div>
-      </form>
-    </div>
+              {saveMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </Panel>
   )
 }
 
@@ -390,71 +410,75 @@ function TikTokCredentialCard({
   })
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-gray-900 font-medium">TikTok</h3>
-        <StatusBadge connected={connected} />
+    <Panel surface="dark">
+      <PanelHeader
+        title="TikTok"
+        trailing={
+          <StatusBadge tone={connected ? "positive" : "neutral"} icon={connected ? "check-circle-2" : "x-circle"}>
+            {connected ? "Conectado" : "Desconectado"}
+          </StatusBadge>
+        }
+      />
+
+      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+          Salve o Client Key/Secret do seu app TikTok for Developers e depois conecte via OAuth.
+        </p>
+
+        <Button
+          type="button"
+          variant="primary"
+          disabled={authorizeMutation.isPending}
+          onClick={() => authorizeMutation.mutate()}
+          style={{ alignSelf: "flex-start" }}
+        >
+          {authorizeMutation.isPending ? "Conectando..." : "Conectar TikTok"}
+        </Button>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            saveMutation.mutate()
+          }}
+          style={{ display: "flex", flexDirection: "column", gap: 12 }}
+        >
+          <div style={FIELD_GRID}>
+            <TextInput
+              label="Client Key"
+              value={appId}
+              onChange={(e) => setAppId(e.target.value)}
+              placeholder="Client Key"
+              required
+            />
+            <TextInput
+              label="Client Secret"
+              type="password"
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              placeholder="Client Secret"
+              autoComplete="off"
+              required
+            />
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            {connected && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate()}
+                style={{ color: "var(--red-300)" }}
+              >
+                {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
+              </Button>
+            )}
+            <Button type="submit" variant="primary" disabled={saveMutation.isPending || !appId || !secret}>
+              {saveMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </form>
       </div>
-      <p className="text-xs text-gray-500 mb-4">
-        Salve o Client Key/Secret do seu app TikTok for Developers e depois conecte via OAuth.
-      </p>
-
-      <button
-        type="button"
-        onClick={() => authorizeMutation.mutate()}
-        disabled={authorizeMutation.isPending}
-        className="mb-4 px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5"
-      >
-        {authorizeMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-        Conectar TikTok
-      </button>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          saveMutation.mutate()
-        }}
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-      >
-        <input
-          type="text"
-          value={appId}
-          onChange={(e) => setAppId(e.target.value)}
-          placeholder="Client Key"
-          required
-          className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-        />
-        <input
-          type="password"
-          value={secret}
-          onChange={(e) => setSecret(e.target.value)}
-          placeholder="Client Secret"
-          autoComplete="off"
-          required
-          className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-        />
-        <div className="sm:col-span-2 flex justify-end gap-2">
-          {connected && (
-            <button
-              type="button"
-              onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
-              className="px-3 py-1.5 rounded-lg text-red-600 text-sm hover:bg-red-50 disabled:opacity-50 transition"
-            >
-              Desconectar
-            </button>
-          )}
-          <button
-            type="submit"
-            disabled={saveMutation.isPending || !appId || !secret}
-            className="px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5"
-          >
-            {saveMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Salvar
-          </button>
-        </div>
-      </form>
-    </div>
+    </Panel>
   )
 }
 
@@ -497,86 +521,75 @@ function InstagramCredentialCard({
   })
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-gray-900 font-medium">Instagram</h3>
-        <StatusBadge connected={connected} />
+    <Panel surface="dark">
+      <PanelHeader
+        title="Instagram"
+        trailing={
+          <StatusBadge tone={connected ? "positive" : "neutral"} icon={connected ? "check-circle-2" : "x-circle"}>
+            {connected ? "Conectado" : "Desconectado"}
+          </StatusBadge>
+        }
+      />
+
+      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+          Publicar exige uma conta Business/Creator vinculada a uma Página do Facebook — conecte
+          via Facebook Login for Business, ou salve o App ID/Secret do app Meta abaixo.
+        </p>
+
+        <Button
+          type="button"
+          variant="primary"
+          disabled={authorizeMutation.isPending}
+          onClick={() => authorizeMutation.mutate()}
+          style={{ alignSelf: "flex-start" }}
+        >
+          {authorizeMutation.isPending ? "Conectando..." : "Conectar Instagram"}
+        </Button>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            saveMutation.mutate()
+          }}
+          style={{ display: "flex", flexDirection: "column", gap: 12 }}
+        >
+          <div style={FIELD_GRID}>
+            <TextInput
+              label="App ID"
+              value={appId}
+              onChange={(e) => setAppId(e.target.value)}
+              placeholder="APP ID"
+              required
+            />
+            <TextInput
+              label="Secret"
+              type="password"
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              placeholder="Secret"
+              autoComplete="off"
+              required
+            />
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            {connected && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate()}
+                style={{ color: "var(--red-300)" }}
+              >
+                {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
+              </Button>
+            )}
+            <Button type="submit" variant="primary" disabled={saveMutation.isPending || !appId || !secret}>
+              {saveMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </form>
       </div>
-      <p className="text-xs text-gray-500 mb-4">
-        Publicar exige uma conta Business/Creator vinculada a uma Página do
-        Facebook — conecte via Facebook Login for Business, ou salve o App
-        ID/Secret do app Meta abaixo.
-      </p>
-
-      <button
-        type="button"
-        onClick={() => authorizeMutation.mutate()}
-        disabled={authorizeMutation.isPending}
-        className="mb-4 px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5"
-      >
-        {authorizeMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-        Conectar Instagram
-      </button>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          saveMutation.mutate()
-        }}
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-      >
-        <input
-          type="text"
-          value={appId}
-          onChange={(e) => setAppId(e.target.value)}
-          placeholder="APP ID"
-          required
-          className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-        />
-        <input
-          type="password"
-          value={secret}
-          onChange={(e) => setSecret(e.target.value)}
-          placeholder="Secret"
-          autoComplete="off"
-          required
-          className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-        />
-        <div className="sm:col-span-2 flex justify-end gap-2">
-          {connected && (
-            <button
-              type="button"
-              onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
-              className="px-3 py-1.5 rounded-lg text-red-600 text-sm hover:bg-red-50 disabled:opacity-50 transition"
-            >
-              Desconectar
-            </button>
-          )}
-          <button
-            type="submit"
-            disabled={saveMutation.isPending || !appId || !secret}
-            className="px-4 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1.5"
-          >
-            {saveMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Salvar
-          </button>
-        </div>
-      </form>
-    </div>
-  )
-}
-
-function StatusBadge({ connected }: { connected: boolean }) {
-  return connected ? (
-    <span className="flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full">
-      <CheckCircle2 className="w-3.5 h-3.5" />
-      Conectado
-    </span>
-  ) : (
-    <span className="flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-      <XCircle className="w-3.5 h-3.5" />
-      Desconectado
-    </span>
+    </Panel>
   )
 }

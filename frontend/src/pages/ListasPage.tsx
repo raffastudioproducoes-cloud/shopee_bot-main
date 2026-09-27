@@ -3,7 +3,11 @@ import { useState, useCallback } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { listsApi, type ProductList, type ProductListsResponse } from "../api/lists"
-import { Plus, Trash2 } from "lucide-react"
+import { Panel } from "../components/ui/Panel"
+import { Button } from "../components/ui/Button"
+import { IconButton } from "../components/ui/IconButton"
+import { TextInput } from "../components/ui/TextInput"
+import { Modal } from "../components/ui/Modal"
 
 export function ListasPage() {
   const { logout } = useAuthStore()
@@ -19,6 +23,13 @@ export function ListasPage() {
 
   const lists = listsData?.data ?? []
 
+  const onAuthError = (err: Error) => {
+    if (err.message.includes("401") || err.message === "Não autenticado") {
+      logout()
+      router.navigate({ to: "/login" })
+    }
+  }
+
   // ── Create mutation ─────────────────────────────────────────────────────────────
 
   const createMutation = useMutation({
@@ -27,12 +38,7 @@ export function ListasPage() {
       queryClient.invalidateQueries({ queryKey: ["lists"] })
       setModalOpen(false)
     },
-    onError: (err: Error) => {
-      if (err.message.includes("401") || err.message === "Não autenticado") {
-        logout()
-        router.navigate({ to: "/login" })
-      }
-    },
+    onError: onAuthError,
   })
 
   // ── Update mutation ─────────────────────────────────────────────────────────────
@@ -44,12 +50,7 @@ export function ListasPage() {
       setModalOpen(false)
       setEditingList(null)
     },
-    onError: (err: Error) => {
-      if (err.message.includes("401") || err.message === "Não autenticado") {
-        logout()
-        router.navigate({ to: "/login" })
-      }
-    },
+    onError: onAuthError,
   })
 
   // ── Delete mutation ─────────────────────────────────────────────────────────────
@@ -60,12 +61,7 @@ export function ListasPage() {
       queryClient.invalidateQueries({ queryKey: ["lists"] })
       setDeleteConfirm(null)
     },
-    onError: (err: Error) => {
-      if (err.message.includes("401") || err.message === "Não autenticado") {
-        logout()
-        router.navigate({ to: "/login" })
-      }
-    },
+    onError: onAuthError,
   })
 
   // ── Handlers ────────────────────────────────────────────────────────────────────
@@ -92,29 +88,19 @@ export function ListasPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 w-40 bg-gray-200 rounded" />
-            <div className="h-96 bg-gray-200 rounded" />
-          </div>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256, color: "var(--text-muted)" }}>
+        Carregando...
       </div>
     )
   }
 
   if (!listsData) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto text-center py-12">
-          <p className="text-gray-500">Erro ao carregar as listas.</p>
-          <button
-            onClick={() => router.navigate({ to: "/login" })}
-            className="mt-4 px-4 py-2 rounded bg-primary text-white"
-          >
-            Voltar ao login
-          </button>
-        </div>
+      <div style={{ textAlign: "center", padding: "48px 0" }}>
+        <p style={{ color: "var(--text-muted)" }}>Erro ao carregar as listas.</p>
+        <Button variant="primary" onClick={() => router.navigate({ to: "/login" })} style={{ marginTop: 16 }}>
+          Voltar ao login
+        </Button>
       </div>
     )
   }
@@ -122,69 +108,76 @@ export function ListasPage() {
   // ── Page ────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <header className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Listas de Produtos</h1>
-            <p className="text-gray-500 mt-1">Agrupe seus produtos em listas.</p>
-          </div>
-          <button
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+      {/* Header */}
+      <header style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+        <div>
+          <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Listas de Produtos</h1>
+          <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Agrupe seus produtos em listas.</p>
+        </div>
+        <Button
+          variant="primary"
+          icon="plus"
+          onClick={() => {
+            setEditingList(null)
+            setModalOpen(true)
+          }}
+        >
+          Nova lista
+        </Button>
+      </header>
+
+      {/* Lists */}
+      {lists.length === 0 ? (
+        <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
+          <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhuma lista criada.</p>
+          <Button
+            variant="primary"
+            style={{ marginTop: 16 }}
             onClick={() => {
               setEditingList(null)
               setModalOpen(true)
             }}
-            className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover transition flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" />
-            Nova lista
-          </button>
-        </header>
-
-        {/* Lists */}
-        {lists.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <p className="text-gray-500 text-sm">Nenhuma lista criada.</p>
-            <button
-              onClick={() => {
-                setEditingList(null)
-                setModalOpen(true)
-              }}
-              className="mt-4 px-4 py-2 rounded-lg bg-primary text-white text-sm"
-            >
-              Criar primeira lista
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {lists.map((list) => (
-              <div
-                key={list.id}
-                className="bg-white rounded-xl border border-gray-200 p-4 hover:border-gray-300 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-gray-900 font-medium truncate">{list.name}</h3>
-                    <p className="text-gray-500 text-sm mt-1">
-                      {list.product_count ?? 0} produto{list.product_count !== 1 ? "s" : ""}
-                      {" · "}
-                      {new Date(list.created_at).toLocaleDateString("pt-BR")}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setDeleteConfirm(list.id)}
-                    className="p-1.5 rounded hover:bg-red-50 transition-colors text-red-500 shrink-0"
-                    title="Remover lista"
+            Criar primeira lista
+          </Button>
+        </Panel>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {lists.map((list) => (
+            <Panel key={list.id} surface="dark" style={{ padding: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <h3
+                    style={{
+                      color: "var(--text-display)",
+                      font: "var(--text-role-title)",
+                      margin: 0,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    {list.name}
+                  </h3>
+                  <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginTop: 4 }}>
+                    {list.product_count ?? 0} produto{list.product_count !== 1 ? "s" : ""}
+                    {" · "}
+                    {new Date(list.created_at).toLocaleDateString("pt-BR")}
+                  </p>
                 </div>
+                <IconButton
+                  icon="trash-2"
+                  label="Remover lista"
+                  tone="plain"
+                  size={32}
+                  onClick={() => setDeleteConfirm(list.id)}
+                />
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </Panel>
+          ))}
+        </div>
+      )}
 
       {/* Create/Edit modal */}
       {modalOpen && (
@@ -231,44 +224,22 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">
-          {list ? "Editar lista" : "Nova lista"}
-        </h2>
-        <p className="text-gray-500 text-sm mb-6">
-          {list ? "Altere o nome da lista." : "Digite um nome para a nova lista."}
-        </p>
-        <form onSubmit={handleSubmit}>
-          <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-            Nome *
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-          />
-          <div className="flex justify-end gap-3 mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !name.trim()}
-              className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition"
-            >
-              {loading ? "Salvando..." : list ? "Salvar" : "Criar"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Modal open onClose={onClose} title={list ? "Editar lista" : "Nova lista"} width={400}>
+      <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginTop: 0, marginBottom: 16 }}>
+        {list ? "Altere o nome da lista." : "Digite um nome para a nova lista."}
+      </p>
+      <form onSubmit={handleSubmit}>
+        <TextInput label="Nome *" value={name} onChange={(e) => setName(e.target.value)} required />
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 20 }}>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" disabled={loading || !name.trim()}>
+            {loading ? "Salvando..." : list ? "Salvar" : "Criar"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
@@ -282,28 +253,18 @@ interface DeleteModalProps {
 
 function DeleteModal({ onClose, onConfirm, loading }: DeleteModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Confirmar remoção</h2>
-        <p className="text-gray-500 text-sm mb-6">
-          Tem certeza que deseja remover esta lista? Esta ação não pode ser desfeita.
-        </p>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-          >
-            {loading ? "Removendo..." : "Remover"}
-          </button>
-        </div>
+    <Modal open onClose={onClose} title="Confirmar remoção" width={400}>
+      <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginBottom: 20 }}>
+        Tem certeza que deseja remover esta lista? Esta ação não pode ser desfeita.
+      </p>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+        <Button variant="ghost" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button variant="send" onClick={onConfirm} disabled={loading}>
+          {loading ? "Removendo..." : "Remover"}
+        </Button>
       </div>
-    </div>
+    </Modal>
   )
 }

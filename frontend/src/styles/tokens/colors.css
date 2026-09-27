@@ -1,0 +1,94 @@
+/* ── Base palette ───────────────────────────────────────────────
+   The seven hexes published on the MiT brand sheet, verbatim.      */
+:root{
+  --sky-400:#81BDFA;   /* primary accent / data blue      */
+  --steel-600:#405D7A; /* mid navy, panel gradient bottom */
+  --navy-800:#303F54;  /* deep navy, chrome               */
+  --black:#000000;     /* token tiles, marketing ground   */
+  --green-600:#58956E; /* deep mint, quiet positive       */
+  --mint-400:#82DBA3;  /* signal mint / brand highlight   */
+  --white:#FFFFFF;
+
+  /* Derived steps — measured off the delivered screens, not generated. */
+  --sky-200:#BFD9F6;
+  --sky-300:#A3C9F4;
+  --sky-500:#6BA6E4;
+  --steel-400:#7C9CBE;
+  --steel-500:#5B7B9E;
+  --navy-700:#3A4B62;
+  --navy-850:#2B3949;
+  --navy-900:#243243;
+  --navy-950:#1B2735;
+  --ink-900:#0D141C;
+
+  /* Marketing / case-study ground */
+  --coal-950:#0A0A0A;
+  --coal-900:#141414;
+  --coal-850:#1C1C1C;
+  --coal-800:#262626;
+  --coal-700:#333333;
+  --coal-600:#4A4A4A;
+
+  /* Semantic signal */
+  --red-300:#F1948A;
+  --red-400:#E4776A;
+  --amber-300:#F3C97D;
+
+  /* ── Semantic aliases ─────────────────────────────────────────── */
+  --bg-app:#1E2A38;
+  --bg-app-gradient:linear-gradient(150deg,#26364A 0%,#1E2A38 48%,#182430 100%); /* @kind color */
+  --bg-rail:#28364A;
+  --bg-marketing:var(--black);
+
+  --surface-card:var(--navy-850);
+  --surface-card-hover:#31414F;
+  --surface-inset:rgba(0,0,0,.22);
+  --surface-tile:var(--black);
+  --surface-elevated:#35465B;
+  --surface-marketing-card:var(--coal-850);
+
+  /* The signature glass panel: light steel top-left → navy bottom-right */
+  /* Lit from the bottom-left, as sampled off the source panels (light #6493C1 corner,
+     dark #3F5569 corner). Kept in the source range's darker half so 11px white clears 4.5:1. */
+  --panel-glass:linear-gradient(45deg,rgba(71,99,132,.92) 0%,rgba(64,89,117,.91) 50%,rgba(58,80,102,.90) 100%); /* @kind color */
+  --panel-glass-quiet:linear-gradient(145deg,rgba(124,156,190,.55) 0%,rgba(64,93,122,.42) 100%); /* @kind color */
+  --panel-row-active:rgba(255,255,255,.16);
+  --panel-row-hover:rgba(255,255,255,.08);
+
+  --text-display:var(--white);
+  --text-body:rgba(255,255,255,.88);
+  --text-muted:rgba(255,255,255,.62);
+  --text-faint:rgba(255,255,255,.42);
+  --text-on-glass:var(--white);
+  --text-on-glass-muted:rgba(255,255,255,.80);
+  --text-on-mint:var(--black);
+  --text-inverse:var(--black);
+
+  --accent:var(--sky-400);
+  --accent-quiet:var(--steel-600);
+  --highlight:var(--mint-400);
+
+  --positive:var(--mint-400);
+  --positive-ink:var(--black);
+  --positive-quiet:var(--green-600);
+  --negative:var(--red-300);
+  /* Signal tints for the glass panel: the dark-ground green/salmon land near 1.7:1 there. */
+  --positive-on-glass:#BFEDD2;
+  --negative-on-glass:#F9D5CE;
+  --negative-ink:#2A0F0B;
+
+  --border-hairline:rgba(255,255,255,.10);
+  --border-card:rgba(255,255,255,.07);
+  --border-strong:rgba(255,255,255,.22);
+  --border-on-glass:rgba(255,255,255,.14);
+  --border-buy:#7FC9A8;
+  --border-send:#E4998C;
+
+  --chart-1:var(--sky-400);
+  --chart-2:var(--steel-400);
+  --chart-3:var(--sky-200);
+  --chart-line:rgba(255,255,255,.92);
+  --chart-grid:rgba(255,255,255,.08);
+
+  --focus-ring:rgba(129,189,250,.55);
+}
