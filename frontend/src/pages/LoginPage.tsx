@@ -14,11 +14,21 @@ import { Icon } from '../components/ui/Icon'
 const splitScreenStyles = `
   .login-split { display: flex; flex-direction: column; min-height: 100vh; }
   .login-split__image { width: 100%; height: 38vh; position: relative; overflow: hidden; }
+  /* max-width:none derruba o preflight do Tailwind (img,video{max-width:100%}), que
+     senão prende a largura do vídeo aos 45% do container pai mesmo com width:80vw. */
+  .login-split__video { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: center; }
+  .login-split__fade { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: linear-gradient(to bottom, transparent 0%, var(--bg-app) 85%); pointer-events: none; }
   .login-split__form { width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
   @media (min-width: 768px) {
     .login-split { flex-direction: row; }
-    .login-split__image { width: 45%; height: 100vh; }
-    .login-split__form { width: 55%; height: 100vh; }
+    /* Largura/posição do painel de imagem no fluxo flex NÃO mudam (continua 45%) —
+       é isso que garante que .login-split__form (55%, via flex-grow) fique no mesmo
+       lugar de sempre. O vídeo por dentro é que se estende visualmente até 80vw via
+       position:absolute + overflow:visible no painel pai (ver .login-split__video). */
+    .login-split__image { width: 45%; height: 100vh; overflow: visible; z-index: 0; }
+    .login-split__video { top: 0; left: 0; right: auto; bottom: auto; width: 80vw; height: 100vh; }
+    .login-split__fade { display: none; }
+    .login-split__form { width: 55%; height: 100vh; z-index: 1; }
   }
 `
 
@@ -85,25 +95,17 @@ export default function LoginPage() {
         }}
       >
         {!prefersReducedMotion && (
-          <video
-            src="/videos/login-bg.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              objectPosition: 'center',
-            }}
-          />
+          <video className="login-split__video" src="/videos/login-bg.mp4" autoPlay loop muted playsInline />
         )}
+        {/* Fusão vídeo→form no mobile (empilhado): degradê na borda inferior do painel de
+            vídeo. Escondido no desktop via CSS (lá quem funde é o background do form). */}
+        <div className="login-split__fade" />
       </div>
 
-      <div className="login-split__form" style={{ background: 'var(--bg-app-gradient)' }}>
+      <div
+        className="login-split__form"
+        style={{ background: 'linear-gradient(to right, transparent 0%, var(--bg-app) 55%)' }}
+      >
         <div style={{ width: '100%', maxWidth: 360 }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <h1 style={{ font: 'var(--text-role-hero)', margin: 0 }}>Shopee Auto Vendas</h1>
