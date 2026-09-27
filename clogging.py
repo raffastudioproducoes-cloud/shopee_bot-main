@@ -3,7 +3,7 @@ import logging
 from dotenv import load_dotenv
 
 load_dotenv()
-LOG_LEVEL = int(os.environ.get("LOG_LEVEL"))
+LOG_LEVEL = int(os.environ.get("LOG_LEVEL", "20"))
 
 
 def logging_setup():
