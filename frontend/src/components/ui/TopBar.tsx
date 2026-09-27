@@ -12,12 +12,15 @@ export interface TopBarProps {
   avatarSrc?: string
   searchWidth?: number
   onBell?: () => void
-  /** Red dot on the bell. */
+  /** Red dot on the bell. Ignored when `bell` overrides the default button. */
   unread?: boolean
   /** Node before the search pill (mobile puts the avatar here). */
   leading?: ReactNode
   /** Node before the bell. */
   trailing?: ReactNode
+  /** Replaces the default bell IconButton entirely (e.g. a self-contained
+   *  notifications dropdown) — `onBell`/`unread` are ignored when set. */
+  bell?: ReactNode
   className?: string
   style?: CSSProperties
 }
@@ -32,6 +35,7 @@ export function TopBar({
   unread = true,
   leading,
   trailing,
+  bell,
   className = "",
   style,
 }: TopBarProps) {
@@ -50,7 +54,7 @@ export function TopBar({
       <SearchField value={query} onChange={onQuery} width={searchWidth} />
       <span style={{ flex: 1 }} />
       {trailing}
-      <IconButton icon="bell" label="Notifications" tone="glass" badge={unread} onClick={onBell} />
+      {bell ?? <IconButton icon="bell" label="Notifications" tone="glass" badge={unread} onClick={onBell} />}
       {avatarSrc ? (
         <img
           src={avatarSrc}
