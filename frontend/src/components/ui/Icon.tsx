@@ -27,6 +27,9 @@ import {
   Clock,
   Eye,
   EyeOff,
+  User,
+  Lock,
+  Image,
   type LucideProps,
 } from "lucide-react"
 
@@ -80,6 +83,11 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   // — não fazem parte do mapa original.
   eye: Eye,
   "eye-off": EyeOff,
+  // Extrapolação: adicionados para LoginPage.tsx (split-screen: ícones nos campos
+  // e placeholder do painel de imagem) — não fazem parte do mapa original.
+  user: User,
+  lock: Lock,
+  image: Image,
 }
 
 export function Icon({ name, size = 20, strokeWidth = 1.75, className = "", style }: IconProps) {

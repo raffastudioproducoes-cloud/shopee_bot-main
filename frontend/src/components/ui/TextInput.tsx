@@ -8,6 +8,7 @@
 // text/password), ListasPage e UsersPage (nome/usuário/senha).
 import { useState } from "react"
 import type { ChangeEvent, CSSProperties, InputHTMLAttributes } from "react"
+import { Icon } from "./Icon"
 
 export interface TextInputProps {
   label?: string
@@ -26,6 +27,8 @@ export interface TextInputProps {
   className?: string
   style?: CSSProperties
   inputStyle?: CSSProperties
+  /** Lucide icon name (kebab-case), rendered inside the field on the left. */
+  icon?: string
 }
 
 /** Retangular text field with an Eyebrow-style label above it. */
@@ -46,6 +49,7 @@ export function TextInput({
   className = "",
   style,
   inputStyle,
+  icon,
 }: TextInputProps) {
   const [hot, setHot] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -66,38 +70,55 @@ export function TextInput({
           {label}
         </span>
       ) : null}
-      <input
-        name={name}
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        required={required}
-        disabled={disabled}
-        autoComplete={autoComplete}
-        min={min}
-        max={max}
-        step={step}
-        onMouseEnter={() => setHot(true)}
-        onMouseLeave={() => setHot(false)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={{
-          width: "100%",
-          height: 40,
-          padding: "0 14px",
-          borderRadius: "var(--r-md)",
-          background: "var(--surface-inset)",
-          border: `1px solid ${active ? "var(--border-strong)" : "var(--border-hairline)"}`,
-          color: "var(--text-body)",
-          font: "var(--text-role-body)",
-          outline: "none",
-          transition: "var(--t-hover)",
-          opacity: disabled ? 0.5 : 1,
-          cursor: disabled ? "not-allowed" : "text",
-          ...inputStyle,
-        }}
-      />
+      <div style={{ position: "relative" }}>
+        {icon ? (
+          <span
+            style={{
+              position: "absolute",
+              left: 14,
+              top: "50%",
+              transform: "translateY(-50%)",
+              display: "inline-flex",
+              color: "var(--text-muted)",
+              pointerEvents: "none",
+            }}
+          >
+            <Icon name={icon} size={16} />
+          </span>
+        ) : null}
+        <input
+          name={name}
+          type={type}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          required={required}
+          disabled={disabled}
+          autoComplete={autoComplete}
+          min={min}
+          max={max}
+          step={step}
+          onMouseEnter={() => setHot(true)}
+          onMouseLeave={() => setHot(false)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={{
+            width: "100%",
+            height: 40,
+            padding: icon ? "0 14px 0 40px" : "0 14px",
+            borderRadius: "var(--r-md)",
+            background: "var(--surface-inset)",
+            border: `1px solid ${active ? "var(--border-strong)" : "var(--border-hairline)"}`,
+            color: "var(--text-body)",
+            font: "var(--text-role-body)",
+            outline: "none",
+            transition: "var(--t-hover)",
+            opacity: disabled ? 0.5 : 1,
+            cursor: disabled ? "not-allowed" : "text",
+            ...inputStyle,
+          }}
+        />
+      </div>
     </label>
   )
 }
