@@ -148,7 +148,7 @@ def _verify_oauth_state(
     return payload
 
 
-@router.get("/")
+@router.get("")
 async def list_credentials(user_id: int = Depends(get_current_user_id)):
     """Status de conexão (sem valor) de todas as redes suportadas."""
     result: dict[str, dict] = {}

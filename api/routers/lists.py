@@ -70,7 +70,7 @@ def _get_list_products(list_id: int) -> list[dict]:
 
 # ── Endpoints ────────────────────────────────────────────────────────────────────
 
-@router.get("/")
+@router.get("")
 async def list_product_lists(
     user_id: int = Depends(get_current_user_id),
     cursor: str | None = Query(None, description="Cursor de paginação"),
@@ -110,7 +110,7 @@ async def list_product_lists(
     return {"data": lists, "next_cursor": next_cursor}
 
 
-@router.post("/")
+@router.post("")
 async def create_product_list(
     body: ProductListCreate,
     user_id: int = Depends(get_current_user_id),

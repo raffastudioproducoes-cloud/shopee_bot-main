@@ -56,7 +56,7 @@ def _get(user_id: int, product_id: int) -> dict[str, Any]:
 
 # ── Endpoints ────────────────────────────────────────────────────────────────────
 
-@router.get("/")
+@router.get("")
 async def list_products(
     user_id: int = Depends(get_current_user_id),
     search: str | None = Query(None, description="Busca por nome"),
@@ -99,7 +99,7 @@ async def list_products(
     }
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_product(
     body: ProductCreate,
     user_id: int = Depends(get_current_user_id),
