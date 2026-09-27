@@ -79,7 +79,13 @@ export function CredentialsPage() {
     if (err.message.includes("401") || err.message === "Não autenticado") {
       logout()
       router.navigate({ to: "/login" })
+      return
     }
+    // Extrapolação: antes desse fallback, qualquer erro que não fosse 401
+    // (ex: 502 do bridge interno na validação da Shopee, 400 de credencial
+    // inválida) era descartado em silêncio — o botão voltava de "Salvando..."
+    // pra "Salvar" sem nenhum aviso, dando a impressão de que nada aconteceu.
+    setBanner({ ok: false, text: err.message || "Erro ao salvar credencial." })
   }
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["credentials"] })
@@ -124,6 +130,7 @@ export function CredentialsPage() {
             connected={status?.[network.key]?.connected ?? false}
             onSaved={invalidate}
             onAuthError={onAuthError}
+            setBanner={setBanner}
           />
         ))}
 
@@ -131,18 +138,21 @@ export function CredentialsPage() {
           connected={status?.threads?.connected ?? false}
           onSaved={invalidate}
           onAuthError={onAuthError}
+          setBanner={setBanner}
         />
 
         <TikTokCredentialCard
           connected={status?.tiktok?.connected ?? false}
           onSaved={invalidate}
           onAuthError={onAuthError}
+          setBanner={setBanner}
         />
 
         <InstagramCredentialCard
           connected={status?.instagram?.connected ?? false}
           onSaved={invalidate}
           onAuthError={onAuthError}
+          setBanner={setBanner}
         />
       </div>
     </div>
@@ -157,12 +167,14 @@ function SimpleCredentialCard({
   connected,
   onSaved,
   onAuthError,
+  setBanner,
 }: {
   network: SimpleNetwork
   label: string
   connected: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
+  setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const [appId, setAppId] = useState("")
   const [secret, setSecret] = useState("")
@@ -175,6 +187,7 @@ function SimpleCredentialCard({
       setAppId("")
       setSecret("")
       setPageId("")
+      setBanner({ ok: true, text: `${label} conectado com sucesso.` })
       onSaved()
     },
     onError: onAuthError,
@@ -182,7 +195,10 @@ function SimpleCredentialCard({
 
   const deleteMutation = useMutation({
     mutationFn: () => credentialsApi.delete(network),
-    onSuccess: onSaved,
+    onSuccess: () => {
+      setBanner({ ok: true, text: `${label} desconectado.` })
+      onSaved()
+    },
     onError: onAuthError,
   })
 
@@ -262,10 +278,12 @@ function ThreadsCredentialCard({
   connected,
   onSaved,
   onAuthError,
+  setBanner,
 }: {
   connected: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
+  setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const [tUserId, setTUserId] = useState("")
   const [accessToken, setAccessToken] = useState("")
@@ -283,6 +301,7 @@ function ThreadsCredentialCard({
     onSuccess: () => {
       setTUserId("")
       setAccessToken("")
+      setBanner({ ok: true, text: "Threads conectado com sucesso." })
       onSaved()
     },
     onError: onAuthError,
@@ -290,7 +309,10 @@ function ThreadsCredentialCard({
 
   const deleteMutation = useMutation({
     mutationFn: () => credentialsApi.deleteThreads(),
-    onSuccess: onSaved,
+    onSuccess: () => {
+      setBanner({ ok: true, text: "Threads desconectado." })
+      onSaved()
+    },
     onError: onAuthError,
   })
 
@@ -377,10 +399,12 @@ function TikTokCredentialCard({
   connected,
   onSaved,
   onAuthError,
+  setBanner,
 }: {
   connected: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
+  setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const [appId, setAppId] = useState("")
   const [secret, setSecret] = useState("")
@@ -398,6 +422,7 @@ function TikTokCredentialCard({
     onSuccess: () => {
       setAppId("")
       setSecret("")
+      setBanner({ ok: true, text: "Client Key/Secret do TikTok salvos." })
       onSaved()
     },
     onError: onAuthError,
@@ -405,7 +430,10 @@ function TikTokCredentialCard({
 
   const deleteMutation = useMutation({
     mutationFn: () => credentialsApi.delete("tiktok"),
-    onSuccess: onSaved,
+    onSuccess: () => {
+      setBanner({ ok: true, text: "TikTok desconectado." })
+      onSaved()
+    },
     onError: onAuthError,
   })
 
@@ -488,10 +516,12 @@ function InstagramCredentialCard({
   connected,
   onSaved,
   onAuthError,
+  setBanner,
 }: {
   connected: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
+  setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const [appId, setAppId] = useState("")
   const [secret, setSecret] = useState("")
@@ -509,6 +539,7 @@ function InstagramCredentialCard({
     onSuccess: () => {
       setAppId("")
       setSecret("")
+      setBanner({ ok: true, text: "App ID/Secret do Instagram salvos." })
       onSaved()
     },
     onError: onAuthError,
@@ -516,7 +547,10 @@ function InstagramCredentialCard({
 
   const deleteMutation = useMutation({
     mutationFn: () => credentialsApi.delete("instagram"),
-    onSuccess: onSaved,
+    onSuccess: () => {
+      setBanner({ ok: true, text: "Instagram desconectado." })
+      onSaved()
+    },
     onError: onAuthError,
   })
 
