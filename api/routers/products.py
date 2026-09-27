@@ -39,6 +39,27 @@ class ProductUpdate(BaseModel):
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
 
+# price_min/price_max/commission são TEXT na tabela `products` (schema legado do
+# scraper Flask, ver database/migrations/002_create_products_table.sql) — o
+# Postgrest devolve isso como string JSON (ex: "129.9"). O frontend (e o schema
+# Pydantic acima) sempre tratou esses campos como número; sem essa conversão,
+# `product.price_min.toFixed(2)` no ProductsPage.tsx quebra com
+# "TypeError: toFixed is not a function" e derruba a página inteira.
+_NUMERIC_FIELDS = ("price_min", "price_max", "commission")
+
+
+def _normalize_numeric_fields(row: dict[str, Any]) -> dict[str, Any]:
+    for field in _NUMERIC_FIELDS:
+        value = row.get(field)
+        if value is None or isinstance(value, (int, float)):
+            continue
+        try:
+            row[field] = float(value)
+        except (TypeError, ValueError):
+            row[field] = None
+    return row
+
+
 def _get(user_id: int, product_id: int) -> dict[str, Any]:
     """Busca um produto pelo ID, verificando ownership."""
     result = (
@@ -51,7 +72,7 @@ def _get(user_id: int, product_id: int) -> dict[str, Any]:
     )
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
-    return result.data
+    return _normalize_numeric_fields(result.data)
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────────
@@ -92,7 +113,7 @@ async def list_products(
     result = query.range(offset, offset + page_size - 1).execute()
 
     return {
-        "data": result.data,
+        "data": [_normalize_numeric_fields(row) for row in result.data],
         "total": len(result.data),
         "page": page,
         "page_size": page_size,
@@ -122,7 +143,7 @@ async def create_product(
     )
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar produto")
-    return result.data[0]
+    return _normalize_numeric_fields(result.data[0])
 
 
 @router.get("/{product_id}")
@@ -157,7 +178,7 @@ async def update_product(
     )
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
-    return result.data
+    return _normalize_numeric_fields(result.data)
 
 
 @router.delete("/{product_id}")

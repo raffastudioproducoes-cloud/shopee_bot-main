@@ -5,6 +5,7 @@ import { authApi } from '../api/auth'
 import { SideRail, type SideRailItem } from '../components/ui/SideRail'
 import { TopBar } from '../components/ui/TopBar'
 import { IconButton } from '../components/ui/IconButton'
+import { NotificationsBell } from '../components/ui/NotificationsBell'
 
 const navItems: SideRailItem[] = [
   { value: '/', label: 'Dashboard', icon: 'house' },
@@ -63,6 +64,7 @@ export function PanelPage() {
         <TopBar
           query=""
           trailing={<IconButton icon="log-out" label="Sair" tone="glass" onClick={handleLogout} />}
+          bell={<NotificationsBell />}
         />
 
         <main style={{ flex: 1, minWidth: 0 }}>
