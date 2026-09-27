@@ -6,6 +6,7 @@ from .lists import router as lists_router
 from .posts import router as posts_router
 from .credentials import router as credentials_router
 from .users import router as users_router
+from .dashboard import router as dashboard_router
 
 __all__ = [
     "auth_router",
@@ -14,4 +15,5 @@ __all__ = [
     "posts_router",
     "credentials_router",
     "users_router",
+    "dashboard_router",
 ]

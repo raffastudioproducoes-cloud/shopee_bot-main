@@ -292,7 +292,7 @@ async def generate_copy(
     return {"text": text}
 
 
-@router.get("/")
+@router.get("")
 async def list_posts(
     user_id: int = Depends(get_current_user_id),
     cursor: str | None = Query(None, description="Cursor de paginação (created_at)"),
@@ -332,7 +332,7 @@ async def list_posts(
     return {"data": posts, "next_cursor": next_cursor}
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_post(
     body: PostCreate,
     user_id: int = Depends(get_current_user_id),
