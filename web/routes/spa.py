@@ -43,6 +43,13 @@ def spa_catch_all(path):
     if path.startswith(_RESERVED_PREFIXES):
         abort(404)
 
+    # Vite copia frontend/public/* pra raiz de frontend/dist/ (vídeos,
+    # favicon, robots.txt, etc.) — sem essa checagem, qualquer arquivo
+    # ali fora de /assets/ cai no fallback de index.html abaixo e é
+    # servido com Content-Type text/html em vez do arquivo real.
+    if path and path != "index.html" and (_DIST_DIR / path).is_file():
+        return send_from_directory(_DIST_DIR, path)
+
     index_file = _DIST_DIR / "index.html"
     if not index_file.is_file():
         # frontend não buildado (dev sem `npm run build`) — não mascarar
