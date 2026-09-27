@@ -53,7 +53,14 @@ export function TextInput({
 }: TextInputProps) {
   const [hot, setHot] = useState(false)
   const [focused, setFocused] = useState(false)
+  const [revealed, setRevealed] = useState(false)
   const active = hot || focused
+  // Extrapolação: toggle "mostrar senha" pro type="password" — aplicado aqui (em vez
+  // de replicado campo a campo, como era feito antes só na LoginPage) pra cobrir de
+  // uma vez todos os campos de senha do app (login, criar conta, trocar senha,
+  // credenciais, usuários).
+  const isPassword = type === "password"
+  const inputType = isPassword ? (revealed ? "text" : "password") : type
   return (
     <label className={className} style={{ display: "block", width, ...style }}>
       {label ? (
@@ -88,7 +95,7 @@ export function TextInput({
         ) : null}
         <input
           name={name}
-          type={type}
+          type={inputType}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
@@ -105,7 +112,7 @@ export function TextInput({
           style={{
             width: "100%",
             height: 40,
-            padding: icon ? "0 14px 0 40px" : "0 14px",
+            padding: `0 ${isPassword ? 40 : 14}px 0 ${icon ? 40 : 14}px`,
             borderRadius: "var(--r-md)",
             background: "var(--surface-inset)",
             border: `1px solid ${active ? "var(--border-strong)" : "var(--border-hairline)"}`,
@@ -118,6 +125,28 @@ export function TextInput({
             ...inputStyle,
           }}
         />
+        {isPassword ? (
+          <button
+            type="button"
+            onClick={() => setRevealed((v) => !v)}
+            disabled={disabled}
+            aria-label={revealed ? "Ocultar senha" : "Mostrar senha"}
+            style={{
+              position: "absolute",
+              right: 8,
+              top: "50%",
+              transform: "translateY(-50%)",
+              display: "inline-flex",
+              background: "none",
+              border: "none",
+              color: "var(--text-muted)",
+              cursor: disabled ? "not-allowed" : "pointer",
+              padding: 4,
+            }}
+          >
+            <Icon name={revealed ? "eye-off" : "eye"} size={18} />
+          </button>
+        ) : null}
       </div>
     </label>
   )
