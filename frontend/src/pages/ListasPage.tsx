@@ -8,6 +8,14 @@ import { Button } from "../components/ui/Button"
 import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
+import { TimelineListCard } from "../components/ui/TimelineListCard"
+import { Icon } from "../components/ui/Icon"
+
+function estimatedListValue(list: ProductList): string {
+  if (!list.products || list.products.length === 0) return "—"
+  const total = list.products.reduce((acc, p) => acc + (p.price_min ?? 0), 0)
+  return total > 0 ? `R$ ${total.toFixed(2)}` : "—"
+}
 
 export function ListasPage() {
   const { logout } = useAuthStore()
@@ -145,36 +153,94 @@ export function ListasPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {lists.map((list) => (
-            <Panel key={list.id} surface="dark" style={{ padding: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <h3
-                    style={{
-                      color: "var(--text-display)",
-                      font: "var(--text-role-title)",
-                      margin: 0,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+            <TimelineListCard
+              key={list.id}
+              title={list.name}
+              subtitle={`${list.product_count ?? 0} produto${list.product_count !== 1 ? "s" : ""}`}
+              thumbnail={
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 40,
+                    height: 40,
+                    borderRadius: "var(--r-md)",
+                    background: "var(--surface-inset)",
+                    color: "var(--text-muted)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon name="sliders-horizontal" size={18} />
+                </span>
+              }
+              actions={
+                <>
+                  <IconButton
+                    icon="pencil"
+                    label="Editar lista"
+                    tone="plain"
+                    size={30}
+                    onClick={() => {
+                      setEditingList(list)
+                      setModalOpen(true)
                     }}
-                  >
-                    {list.name}
-                  </h3>
-                  <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginTop: 4 }}>
-                    {list.product_count ?? 0} produto{list.product_count !== 1 ? "s" : ""}
-                    {" · "}
-                    {new Date(list.created_at).toLocaleDateString("pt-BR")}
-                  </p>
-                </div>
-                <IconButton
-                  icon="trash-2"
-                  label="Remover lista"
-                  tone="plain"
-                  size={32}
-                  onClick={() => setDeleteConfirm(list.id)}
-                />
-              </div>
-            </Panel>
+                  />
+                  <IconButton
+                    icon="trash-2"
+                    label="Remover lista"
+                    tone="plain"
+                    size={30}
+                    onClick={() => setDeleteConfirm(list.id)}
+                  />
+                </>
+              }
+              stats={[
+                { icon: "package", label: "Produtos", value: list.product_count ?? 0 },
+                { icon: "calendar", label: "Criada em", value: new Date(list.created_at).toLocaleDateString("pt-BR") },
+                {
+                  icon: "calendar",
+                  label: "Atualizada",
+                  value: list.updated_at ? new Date(list.updated_at).toLocaleDateString("pt-BR") : "—",
+                },
+                { icon: "dollar-sign", label: "Valor (mín.)", value: estimatedListValue(list) },
+              ]}
+              sections={[
+                { label: "Lista", content: list.name },
+                {
+                  label: "Produtos",
+                  category: `${list.product_count ?? 0} ${list.product_count === 1 ? "item" : "itens"}`,
+                  content:
+                    list.products && list.products.length > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {list.products.slice(0, 6).map((p) => (
+                          <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                            <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>
+                              {p.price_min != null ? `R$ ${p.price_min.toFixed(2)}` : "—"}
+                            </span>
+                          </div>
+                        ))}
+                        {list.products.length > 6 ? (
+                          <span style={{ color: "var(--text-muted)" }}>+{list.products.length - 6} mais</span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      "Nenhum produto nesta lista."
+                    ),
+                },
+                {
+                  label: "Criada em",
+                  category: "Data",
+                  content: new Date(list.created_at).toLocaleString("pt-BR"),
+                },
+                {
+                  label: "Atualizada em",
+                  category: "Data",
+                  content: list.updated_at ? new Date(list.updated_at).toLocaleString("pt-BR") : "Nunca atualizada",
+                },
+              ]}
+            />
           ))}
         </div>
       )}

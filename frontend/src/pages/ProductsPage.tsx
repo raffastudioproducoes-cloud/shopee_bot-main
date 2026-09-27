@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useCallback } from "react"
-import type { CSSProperties } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { productsApi, type Product } from "../api/products"
@@ -10,6 +9,9 @@ import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
 import { SearchField } from "../components/ui/SearchField"
+import { TimelineListCard } from "../components/ui/TimelineListCard"
+import { Badge } from "../components/ui/Badge"
+import { Icon } from "../components/ui/Icon"
 
 const emptyForm = {
   name: "",
@@ -22,19 +24,12 @@ const emptyForm = {
   price_max: "",
 }
 
-const thStyle: CSSProperties = {
-  textAlign: "left",
-  font: "var(--text-role-label)",
-  letterSpacing: "var(--ls-label)",
-  textTransform: "uppercase",
-  color: "var(--text-muted)",
-  padding: "12px 16px",
-}
-
-const tdStyle: CSSProperties = {
-  padding: "12px 16px",
-  font: "var(--text-role-body)",
-  color: "var(--text-body)",
+function formatPriceRange(product: Product): string {
+  if (product.price_min != null && product.price_max != null) {
+    return `R$ ${product.price_min.toFixed(2)} – R$ ${product.price_max.toFixed(2)}`
+  }
+  if (product.price_min != null) return `R$ ${product.price_min.toFixed(2)}+`
+  return "—"
 }
 
 export function ProductsPage() {
@@ -217,7 +212,7 @@ export function ProductsPage() {
         </div>
       )}
 
-      {/* Products table */}
+      {/* Products */}
       {products.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
           <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum produto cadastrado.</p>
@@ -226,81 +221,87 @@ export function ProductsPage() {
           </Button>
         </Panel>
       ) : (
-        <Panel surface="dark">
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border-hairline)" }}>
-                  <th style={thStyle}>Nome</th>
-                  <th style={thStyle}>ID Shopee</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Comissão</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Preço</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((product: Product) => (
-                  <tr key={product.id} style={{ borderBottom: "1px solid var(--border-card)" }}>
-                    <td style={tdStyle}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        {product.image && (
-                          <img
-                            src={product.image}
-                            alt=""
-                            style={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: "var(--r-md)",
-                              objectFit: "cover",
-                              background: "var(--surface-inset)",
-                              flexShrink: 0,
-                            }}
-                          />
-                        )}
-                        <span
-                          style={{
-                            fontWeight: "var(--fw-medium)" as unknown as number,
-                            color: "var(--text-display)",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            maxWidth: 200,
-                            display: "inline-block",
-                          }}
-                        >
-                          {product.name}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={{ ...tdStyle, color: "var(--text-muted)", fontFamily: "monospace", fontSize: "var(--fs-caption)" }}>
-                      {product.product_id}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "right", color: "var(--text-muted)" }}>
-                      {product.commission != null ? `${product.commission}%` : "—"}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "right", color: "var(--text-muted)" }}>
-                      {product.price_min != null && product.price_max != null ? (
-                        <span style={{ fontFamily: "monospace" }}>
-                          R$ {product.price_min.toFixed(2)} – R$ {product.price_max.toFixed(2)}
-                        </span>
-                      ) : product.price_min != null ? (
-                        <span style={{ fontFamily: "monospace" }}>R$ {product.price_min.toFixed(2)}+</span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
-                        <IconButton icon="pencil" label="Editar" tone="plain" size={30} onClick={() => handleEdit(product)} />
-                        <IconButton icon="trash-2" label="Remover" tone="plain" size={30} onClick={() => setDeleteId(product.id)} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {products.map((product: Product) => (
+            <TimelineListCard
+              key={product.id}
+              title={product.name}
+              subtitle={product.product_id}
+              thumbnail={
+                product.image ? (
+                  <img
+                    src={product.image}
+                    alt=""
+                    style={{ width: 40, height: 40, borderRadius: "var(--r-md)", objectFit: "cover", background: "var(--surface-inset)", flexShrink: 0 }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 40,
+                      height: 40,
+                      borderRadius: "var(--r-md)",
+                      background: "var(--surface-inset)",
+                      color: "var(--text-muted)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon name="package" size={18} />
+                  </span>
+                )
+              }
+              badge={product.category ? <Badge tone="outline">{product.category}</Badge> : undefined}
+              actions={
+                <>
+                  <IconButton icon="pencil" label="Editar" tone="plain" size={30} onClick={() => handleEdit(product)} />
+                  <IconButton icon="trash-2" label="Remover" tone="plain" size={30} onClick={() => setDeleteId(product.id)} />
+                </>
+              }
+              stats={[
+                { icon: "hash", label: "ID Shopee", value: product.product_id },
+                { icon: "dollar-sign", label: "Preço", value: formatPriceRange(product) },
+                { icon: "percent", label: "Comissão", value: product.commission != null ? `${product.commission}%` : "—" },
+                { icon: "calendar", label: "Cadastrado", value: new Date(product.created_at).toLocaleDateString("pt-BR") },
+              ]}
+              sections={[
+                { label: "Produto", category: product.category || undefined, content: product.name },
+                { label: "Preço", category: "Faixa", content: formatPriceRange(product) },
+                { label: "Comissão", category: "Percentual", content: product.commission != null ? `${product.commission}%` : "—" },
+                {
+                  label: "Links",
+                  category: "Afiliado",
+                  content: (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {product.original_link ? (
+                        <a href={product.original_link} target="_blank" rel="noreferrer" style={{ color: "var(--sky-300)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+                          {product.original_link}
+                        </a>
+                      ) : null}
+                      {product.commission_link ? (
+                        <a href={product.commission_link} target="_blank" rel="noreferrer" style={{ color: "var(--sky-300)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+                          {product.commission_link}
+                        </a>
+                      ) : null}
+                      {!product.original_link && !product.commission_link ? "—" : null}
+                    </div>
+                  ),
+                },
+                {
+                  label: "Cadastro",
+                  category: "Datas",
+                  content: (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      <span>Criado em {new Date(product.created_at).toLocaleString("pt-BR")}</span>
+                      {product.updated_at ? <span style={{ color: "var(--text-muted)" }}>Atualizado em {new Date(product.updated_at).toLocaleString("pt-BR")}</span> : null}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          ))}
+        </div>
       )}
 
       {/* Modal de criação/edição */}

@@ -10,6 +10,8 @@ import { Badge } from "../components/ui/Badge"
 import { Modal } from "../components/ui/Modal"
 import { TextInput } from "../components/ui/TextInput"
 import { Select } from "../components/ui/Select"
+import { TimelineListCard } from "../components/ui/TimelineListCard"
+import { Icon } from "../components/ui/Icon"
 
 export function UsersPage() {
   const { user, logout } = useAuthStore()
@@ -113,85 +115,81 @@ export function UsersPage() {
         </div>
       )}
 
-      <Panel surface="dark">
-        <table style={{ width: "100%", borderCollapse: "collapse", font: "var(--text-role-body)" }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid var(--border-hairline)" }}>
-              <th
-                style={{
-                  textAlign: "left",
-                  font: "var(--text-role-label)",
-                  letterSpacing: "var(--ls-label)",
-                  textTransform: "uppercase",
-                  color: "var(--text-muted)",
-                  padding: "12px 16px",
-                }}
-              >
-                Usuário
-              </th>
-              <th
-                style={{
-                  textAlign: "left",
-                  font: "var(--text-role-label)",
-                  letterSpacing: "var(--ls-label)",
-                  textTransform: "uppercase",
-                  color: "var(--text-muted)",
-                  padding: "12px 16px",
-                }}
-              >
-                Acesso
-              </th>
-              <th
-                style={{
-                  textAlign: "right",
-                  font: "var(--text-role-label)",
-                  letterSpacing: "var(--ls-label)",
-                  textTransform: "uppercase",
-                  color: "var(--text-muted)",
-                  padding: "12px 16px",
-                }}
-              >
-                Ações
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} style={{ borderBottom: "1px solid var(--border-hairline)" }}>
-                <td style={{ padding: "12px 16px", color: "var(--text-body)", font: "var(--fw-medium) var(--fs-body)/1.3 var(--font-sans)" }}>
-                  {u.username}
-                </td>
-                <td style={{ padding: "12px 16px" }}>
-                  <Badge tone={u.access === "ADMIN" ? "mint" : "neutral"}>{u.access}</Badge>
-                </td>
-                <td style={{ padding: "12px 16px" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon="pencil"
-                      onClick={() => {
-                        setEditingUser(u)
-                        setModalOpen(true)
-                      }}
-                    >
-                      Editar
-                    </Button>
-                    <IconButton
-                      icon="trash-2"
-                      label="Remover"
-                      tone="plain"
-                      size={30}
-                      onClick={() => setDeleteConfirm(u.id)}
-                      style={{ color: "var(--red-300)" }}
-                    />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Panel>
+      {users.length === 0 ? (
+        <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
+          <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum usuário cadastrado.</p>
+        </Panel>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {users.map((u) => (
+            <TimelineListCard
+              key={u.id}
+              title={u.username}
+              subtitle={`Criado em ${new Date(u.created_at).toLocaleDateString("pt-BR")}`}
+              thumbnail={
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 40,
+                    height: 40,
+                    borderRadius: "var(--r-md)",
+                    background: "var(--surface-inset)",
+                    color: "var(--text-muted)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon name="user" size={18} />
+                </span>
+              }
+              badge={<Badge tone={u.access === "ADMIN" ? "mint" : "neutral"}>{u.access}</Badge>}
+              actions={
+                <>
+                  <IconButton
+                    icon="pencil"
+                    label="Editar"
+                    tone="plain"
+                    size={30}
+                    onClick={() => {
+                      setEditingUser(u)
+                      setModalOpen(true)
+                    }}
+                  />
+                  <IconButton
+                    icon="trash-2"
+                    label="Remover"
+                    tone="plain"
+                    size={30}
+                    onClick={() => setDeleteConfirm(u.id)}
+                    style={{ color: "var(--red-300)" }}
+                  />
+                </>
+              }
+              stats={[
+                { icon: "hash", label: "ID", value: u.id.slice(0, 8) },
+                { icon: "users", label: "Acesso", value: u.access },
+                { icon: "calendar", label: "Criado em", value: new Date(u.created_at).toLocaleDateString("pt-BR") },
+                {
+                  icon: "calendar",
+                  label: "Atualizado",
+                  value: u.updated_at ? new Date(u.updated_at).toLocaleDateString("pt-BR") : "—",
+                },
+              ]}
+              sections={[
+                { label: "Usuário", category: u.id, content: u.username },
+                { label: "Acesso", category: "Permissão", content: <Badge tone={u.access === "ADMIN" ? "mint" : "neutral"}>{u.access}</Badge> },
+                { label: "Criado em", category: "Data", content: new Date(u.created_at).toLocaleString("pt-BR") },
+                {
+                  label: "Atualizado em",
+                  category: "Data",
+                  content: u.updated_at ? new Date(u.updated_at).toLocaleString("pt-BR") : "Nunca atualizado",
+                },
+              ]}
+            />
+          ))}
+        </div>
+      )}
 
       {modalOpen && (
         <UserModal
