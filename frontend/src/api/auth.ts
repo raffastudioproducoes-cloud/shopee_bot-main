@@ -16,6 +16,10 @@ export interface MeResponse {
   access: string
 }
 
+export interface ResetPasswordResponse {
+  msg: string
+}
+
 export const authApi = {
   async login(username: string, password: string): Promise<string> {
     const formData = new FormData()
@@ -51,5 +55,13 @@ export const authApi = {
 
   async me(): Promise<MeResponse> {
     return api.get<MeResponse>('/auth/me')
+  },
+
+  async resetPassword(username: string, newPassword: string): Promise<string> {
+    const data = await api.post<ResetPasswordResponse>('/auth/reset-password', {
+      username,
+      new_password: newPassword,
+    })
+    return data.msg
   },
 }

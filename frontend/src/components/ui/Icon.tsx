@@ -25,6 +25,8 @@ import {
   Sparkles,
   Send,
   Clock,
+  Eye,
+  EyeOff,
   type LucideProps,
 } from "lucide-react"
 
@@ -74,6 +76,10 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   sparkles: Sparkles,
   send: Send,
   clock: Clock,
+  // Extrapolação: adicionados para LoginPage.tsx (toggle mostrar/ocultar senha)
+  // — não fazem parte do mapa original.
+  eye: Eye,
+  "eye-off": EyeOff,
 }
 
 export function Icon({ name, size = 20, strokeWidth = 1.75, className = "", style }: IconProps) {

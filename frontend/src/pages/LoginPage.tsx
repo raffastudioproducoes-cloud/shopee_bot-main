@@ -1,8 +1,21 @@
 import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useAuthStore } from '../stores/authStore'
 import { authApi } from '../api/auth'
-import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
+import { Panel } from '../components/ui/Panel'
+import { Button } from '../components/ui/Button'
+import { TextInput } from '../components/ui/TextInput'
+import { Modal } from '../components/ui/Modal'
+import { Icon } from '../components/ui/Icon'
+
+const bannerStyle = (ok: boolean): React.CSSProperties => ({
+  padding: '12px 16px',
+  borderRadius: 'var(--r-md)',
+  font: 'var(--fw-medium) var(--fs-body)/1.3 var(--font-sans)',
+  background: ok ? 'var(--positive-on-glass)' : 'var(--negative-on-glass)',
+  color: ok ? 'var(--positive-ink)' : 'var(--negative-ink)',
+})
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -12,8 +25,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [forgotOpen, setForgotOpen] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
@@ -40,79 +54,210 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Shopee Auto Vendas</h1>
-            <p className="text-gray-500 mt-1">Entre para continuar</p>
-          </div>
-
-          {error && (
-            <div className="mb-6 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <span>{error}</span>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-app-gradient)',
+        padding: 16,
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        <Panel surface="glass">
+          <div style={{ padding: 32 }}>
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+              <h1 style={{ font: 'var(--text-role-hero)', margin: 0 }}>Shopee Auto Vendas</h1>
+              <p style={{ marginTop: 6, opacity: 0.8 }}>Entre para continuar</p>
             </div>
-          )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                Usuário
-              </label>
-              <input
-                id="username"
-                type="text"
+            {error && <div style={{ ...bannerStyle(false), marginBottom: 20 }}>{error}</div>}
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <TextInput
+                label="Usuário"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
                 placeholder="Digite seu usuário"
+                autoComplete="username"
               />
-            </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Senha
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition pr-12"
-                  placeholder="Digite sua senha"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+              <label style={{ display: 'block', width: '100%' }}>
+                <span
+                  style={{
+                    display: 'block',
+                    font: 'var(--text-role-label)',
+                    letterSpacing: 'var(--ls-label)',
+                    textTransform: 'uppercase',
+                    color: 'var(--text-muted)',
+                    marginBottom: 6,
+                  }}
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
+                  Senha
+                </span>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder="Digite sua senha"
+                    autoComplete="current-password"
+                    style={{
+                      width: '100%',
+                      height: 40,
+                      padding: '0 44px 0 14px',
+                      borderRadius: 'var(--r-md)',
+                      background: 'var(--surface-inset)',
+                      border: '1px solid var(--border-hairline)',
+                      color: 'var(--text-body)',
+                      font: 'var(--text-role-body)',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    style={{
+                      position: 'absolute',
+                      right: 8,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      display: 'inline-flex',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: 4,
+                    }}
+                  >
+                    <Icon name={showPassword ? 'eye-off' : 'eye'} size={18} />
+                  </button>
+                </div>
+              </label>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-primary text-white font-medium rounded-lg hover:bg-primary-hover focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Entrando...
-                </>
-              ) : (
-                'Entrar'
-              )}
-            </button>
-          </form>
-        </div>
+              <Button type="submit" variant="primary" fullWidth disabled={loading}>
+                {loading ? (
+                  <>
+                    <Icon name="loader-2" size={18} className="animate-spin" />
+                    Entrando...
+                  </>
+                ) : (
+                  'Entrar'
+                )}
+              </Button>
+
+              <button
+                type="button"
+                onClick={() => setForgotOpen(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  font: 'var(--text-role-body)',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  padding: 4,
+                }}
+              >
+                Esqueceu a senha?
+              </button>
+            </form>
+          </div>
+        </Panel>
       </div>
+
+      {forgotOpen && (
+        <ForgotPasswordModal initialUsername={username} onClose={() => setForgotOpen(false)} />
+      )}
     </div>
+  )
+}
+
+// ── Modal "esqueceu a senha" ────────────────────────────────────────────────────
+
+interface ForgotPasswordModalProps {
+  initialUsername: string
+  onClose: () => void
+}
+
+function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalProps) {
+  const [username, setUsername] = useState(initialUsername)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (newPassword !== confirmPassword) {
+      setError('As senhas não coincidem')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const msg = await authApi.resetPassword(username, newPassword)
+      setSuccess(msg || 'Senha atualizada. Faça login com a senha nova.')
+      setTimeout(onClose, 1500)
+    } catch (err: unknown) {
+      if (err instanceof Error && 'status' in err) {
+        setError((err as { message: string }).message || 'Erro ao trocar a senha')
+      } else {
+        setError('Erro inesperado. Tente novamente.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Trocar senha" width={400}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {error && <div style={bannerStyle(false)}>{error}</div>}
+        {success && <div style={bannerStyle(true)}>{success}</div>}
+
+        <TextInput
+          label="Usuário"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+          disabled={!!success}
+        />
+        <TextInput
+          label="Nova senha"
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          required
+          autoComplete="new-password"
+          disabled={!!success}
+        />
+        <TextInput
+          label="Confirmar nova senha"
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
+          autoComplete="new-password"
+          disabled={!!success}
+        />
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" disabled={loading || !!success}>
+            {loading ? 'Trocando...' : 'Trocar senha'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
