@@ -30,6 +30,13 @@ import {
   User,
   Lock,
   Image,
+  Hash,
+  Calendar,
+  DollarSign,
+  Percent,
+  Package,
+  Link2,
+  ChevronDown,
   type LucideProps,
 } from "lucide-react"
 
@@ -88,6 +95,16 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   user: User,
   lock: Lock,
   image: Image,
+  // Extrapolação: adicionados para TimelineListCard.tsx (redesign de
+  // Produtos/Listas/Usuários em cards com timeline expansível) — não fazem
+  // parte do mapa original.
+  hash: Hash,
+  calendar: Calendar,
+  "dollar-sign": DollarSign,
+  percent: Percent,
+  package: Package,
+  "link-2": Link2,
+  "chevron-down": ChevronDown,
 }
 
 export function Icon({ name, size = 20, strokeWidth = 1.75, className = "", style }: IconProps) {
