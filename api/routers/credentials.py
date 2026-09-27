@@ -29,7 +29,11 @@ from .. import x_oauth
 from ..config import settings
 from ..database import supabase
 from ..crypto import encrypt, decrypt
-from ..internal_client import validate_shopee_credential, InternalApiError
+from ..internal_client import (
+    validate_shopee_credential,
+    validate_network_credential,
+    InternalApiError,
+)
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
@@ -66,10 +70,28 @@ def _simple_table(network: str) -> str:
     return table
 
 
-def _status_only(row: dict | None) -> dict:
-    if not row:
-        return {"connected": False}
-    return {"connected": bool(row.get("status"))}
+def _light_for(connected: bool, check: dict | None) -> str:
+    """Cor do sinalizador (visível pra todo usuário, não só admin).
+
+    'red': sem credencial salva, OU salva mas nunca testada ainda ('fez
+    conexão' não confirmado). 'yellow': testada e o teste encontrou um
+    problema (API incorreta, falta autorização OAuth, instável). 'green':
+    testada e funcionando. Nunca inferido só de `status` — só um teste
+    real (POST /{network}/test, admin-only) grava 'ok'/'error' em
+    credential_checks."""
+    if not connected or not check:
+        return "red"
+    return "green" if check.get("state") == "ok" else "yellow"
+
+
+def _status_only(row: dict | None, check: dict | None = None) -> dict:
+    connected = bool(row.get("status")) if row else False
+    return {
+        "connected": connected,
+        "light": _light_for(connected, check),
+        "checked_at": check.get("checked_at") if check else None,
+        "check_message": check.get("message") if check else None,
+    }
 
 
 def _upsert_by_user(table: str, user_id: int, data: dict) -> dict:
@@ -151,6 +173,12 @@ def _verify_oauth_state(
 @router.get("")
 async def list_credentials(user_id: int = Depends(get_current_user_id)):
     """Status de conexão (sem valor) de todas as redes suportadas."""
+    checks_row = (
+        supabase.table("credential_checks").select("network, state, message, checked_at")
+        .eq("user_id", user_id).execute()
+    )
+    checks_by_network = {c["network"]: c for c in (checks_row.data or [])}
+
     result: dict[str, dict] = {}
 
     for network, table in SIMPLE_NETWORKS.items():
@@ -158,13 +186,15 @@ async def list_credentials(user_id: int = Depends(get_current_user_id)):
             supabase.table(table).select("status").eq("user_id", user_id)
             .maybe_single().execute()
         )
-        result[network] = _status_only(row.data if row else None)
+        result[network] = _status_only(row.data if row else None, checks_by_network.get(network))
 
     threads_row = (
         supabase.table("threads_credentials").select("status")
         .eq("user_id", user_id).maybe_single().execute()
     )
-    result["threads"] = _status_only(threads_row.data if threads_row else None)
+    result["threads"] = _status_only(
+        threads_row.data if threads_row else None, checks_by_network.get("threads")
+    )
 
     return result
 
@@ -552,6 +582,99 @@ async def x_callback(
     })
 
     return _redirect("x=success")
+
+
+def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
+    """Mesma regra de api/routers/users.py — "Testar conexão" é admin-only,
+    a luz do sinalizador (GET /credentials acima) continua visível pra
+    qualquer usuário."""
+    result = (
+        supabase.table("users").select("access").eq("id", user_id)
+        .single().execute()
+    )
+    if not result.data or result.data.get("access") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    return user_id
+
+
+_TEST_NETWORKS = {**SIMPLE_NETWORKS, "threads": "threads_credentials"}
+
+
+def _test_payload(network: str, user_id: int) -> dict | None:
+    """Busca e descriptografa só os campos necessários pra chamar a API
+    real da rede via bridge interno (ver web/routes/internal.py). None
+    quando não há credencial suficiente pra testar (endpoint trata como
+    400 — nada foi salvo ainda, luz já é 'red' sem precisar chamar nada)."""
+    table = _TEST_NETWORKS.get(network)
+    if not table:
+        raise HTTPException(status_code=404, detail=f"Rede '{network}' não suportada")
+
+    if network == "threads":
+        row = (
+            supabase.table(table).select("access_token")
+            .eq("user_id", user_id).maybe_single().execute()
+        )
+        data = row.data if row and row.data else None
+        if not data or not data.get("access_token"):
+            return None
+        return {"access_token": decrypt(data["access_token"])}
+
+    fields = "app_id, secret"
+    if network == "facebook":
+        fields += ", page_id"
+    if network in ("x", "instagram", "tiktok"):
+        fields += ", user_access_token"
+
+    row = (
+        supabase.table(table).select(fields)
+        .eq("user_id", user_id).maybe_single().execute()
+    )
+    data = row.data if row and row.data else None
+    if not data or not data.get("app_id") or not data.get("secret"):
+        return None
+
+    payload: dict = {"app_id": data["app_id"], "secret": decrypt(data["secret"])}
+    if network == "facebook":
+        payload["page_id"] = data.get("page_id")
+    if network in ("x", "instagram", "tiktok") and data.get("user_access_token"):
+        payload["user_access_token"] = decrypt(data["user_access_token"])
+    return payload
+
+
+@router.post("/{network}/test")
+async def test_credential(network: str, user_id: int = Depends(_require_admin)):
+    """"Testar conexão" — chama a API real da rede (via bridge interno) e
+    grava o resultado em credential_checks, que é o que alimenta a luz do
+    sinalizador pra todo mundo (GET /credentials). Admin-only: só quem
+    pode clicar o botão decide quando gastar uma chamada real contra a
+    API de cada rede."""
+    payload = _test_payload(network, user_id)
+    if payload is None:
+        raise HTTPException(status_code=400, detail="Nenhuma credencial salva para esta rede.")
+
+    try:
+        result = await validate_network_credential(network, payload)
+    except InternalApiError:
+        raise HTTPException(
+            status_code=502,
+            detail="Não foi possível testar a conexão agora. Tente novamente.",
+        )
+
+    state = result.get("state") or "error"
+    message = result.get("message") or ""
+    checked_at = datetime.now(timezone.utc).isoformat()
+    check_data = {"state": state, "message": message, "checked_at": checked_at}
+
+    existing = (
+        supabase.table("credential_checks").select("id")
+        .eq("user_id", user_id).eq("network", network).maybe_single().execute()
+    )
+    if existing and existing.data:
+        supabase.table("credential_checks").update(check_data).eq("id", existing.data["id"]).execute()
+    else:
+        supabase.table("credential_checks").insert({**check_data, "user_id": user_id, "network": network}).execute()
+
+    return {"light": "green" if state == "ok" else "yellow", "message": message, "checked_at": checked_at}
 
 
 @router.put("/{network}")
