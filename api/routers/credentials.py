@@ -13,6 +13,7 @@ Shopee falha com 502 em vez de salvar sem validar — melhor recusar do
 que gravar uma credencial nunca verificada.
 """
 
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
@@ -35,6 +36,8 @@ from ..internal_client import (
     validate_network_credential,
     InternalApiError,
 )
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
@@ -408,6 +411,9 @@ async def instagram_callback(
     try:
         ig_user_id, access_token = await instagram_oauth.get_user_auth_id_token(code)
     except instagram_oauth.InstagramOAuthError:
+        logger.exception(
+            "Falha na troca de code por token OAuth do Instagram para user_id=%s", user_id
+        )
         return _redirect("instagram=error&message=oauth_failed")
 
     _upsert_by_user("instagram_credentials", user_id, {
@@ -496,6 +502,9 @@ async def facebook_callback(
     try:
         page_id, page_name, page_access_token = await facebook_oauth.get_user_auth_page_token(code)
     except facebook_oauth.FacebookOAuthError:
+        logger.exception(
+            "Falha na troca de code por token OAuth do Facebook para user_id=%s", user_id
+        )
         return _redirect("facebook=error&message=oauth_failed")
 
     _upsert_by_user("facebook_credentials", user_id, {
@@ -573,6 +582,7 @@ async def tiktok_authorize(
 
 
 @router.get("/tiktok/callback")
+@router.get("/tiktok/callback/")
 async def tiktok_callback(
     request: Request,
     code: str | None = None,
@@ -588,6 +598,21 @@ async def tiktok_callback(
     ANTES de trocar code por token. Precisa do Client Key/Secret que o
     usuário já salvou (PUT /credentials/tiktok) pra essa troca — nunca
     expõe token nem detalhe de erro sensível pro frontend.
+
+    Registrado nos DOIS formatos (com e sem barra final): a "Verify URL
+    prefix" do TikTok Login Kit foi registrada como
+    `.../credentials/tiktok/callback/` (com barra — ver comentário do
+    arquivo de verificação de domínio logo acima), então o redirect_uri
+    real que o TikTok ecoa de volta pode vir com barra final mesmo que
+    TIKTOK_CALLBACK_URL não tenha. Antes desta rota só existir sem
+    barra, o Starlette respondia a `/callback/` com um redirect_slashes
+    307 automático — e como o processo interno (127.0.0.1:8001) não
+    sabe que está atrás do proxy do Flask, o Location desse redirect
+    vazava o host interno em vez do domínio público (mesmo bug já
+    corrigido em products/lists/posts/users/credentials — ver docstring
+    do módulo). Aceitar as duas variantes aqui elimina o redirect
+    automático nesta rota, independente de qual formato exato o TikTok
+    usar.
     """
     frontend_redirect = f"{settings.frontend_url}/credentials"
 
@@ -608,6 +633,9 @@ async def tiktok_callback(
     try:
         access_token, refresh_token, open_id = await tiktok_oauth.get_user_auth_id_token(code)
     except tiktok_oauth.TikTokOAuthError:
+        logger.exception(
+            "Falha na troca de code por token OAuth do TikTok para user_id=%s", user_id
+        )
         return _redirect("tiktok=error&message=oauth_failed")
 
     _upsert_by_user("tiktok_credentials", user_id, {
@@ -700,6 +728,9 @@ async def x_callback(
     try:
         token_data = await x_oauth.exchange_code_for_token(code, oauth_state["code_verifier"])
     except x_oauth.XOAuthError:
+        logger.exception(
+            "Falha na troca de code por token OAuth do X para user_id=%s", user_id
+        )
         return _redirect("x=error&message=oauth_failed")
 
     expires_in = token_data.get("expires_in", 7200)

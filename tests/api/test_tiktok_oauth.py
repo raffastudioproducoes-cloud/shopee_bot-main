@@ -84,6 +84,37 @@ def test_tiktok_callback_success_saves_credential_and_redirects(client, monkeypa
     assert saved["data"]["user_access_token"] != "user-access-token"
 
 
+def test_tiktok_callback_trailing_slash_is_handled_directly(client, monkeypatch):
+    """Regressão do bug de produção: a "Verify URL prefix" do TikTok Login
+    Kit foi registrada com barra final (.../tiktok/callback/), então o
+    TikTok pode ecoar o redirect_uri de volta com essa barra. Antes desta
+    rota aceitar as duas variantes, isso disparava o redirect_slashes
+    automático do Starlette (307 pro path sem barra) ANTES de chegar no
+    handler — e como o processo interno não sabe que está atrás do proxy
+    do Flask, o Location vazava 127.0.0.1:8001 em vez do domínio público.
+    Aqui confirmamos que a variante com barra final é atendida direto
+    pelo handler (mesmo redirect de sucesso/erro pro frontend, sem hop
+    intermediário)."""
+    upsert_called = False
+
+    def fake_upsert(*args, **kwargs):
+        nonlocal upsert_called
+        upsert_called = True
+
+    monkeypatch.setattr(credentials_module, "_upsert_by_user", fake_upsert)
+
+    res = client.get(
+        "/credentials/tiktok/callback/",
+        params={"error": "access_denied"},
+        follow_redirects=False,
+    )
+
+    assert res.status_code == 307
+    assert "tiktok=error" in res.headers["location"]
+    assert "127.0.0.1" not in res.headers["location"]
+    assert upsert_called is False
+
+
 def test_tiktok_callback_error_from_tiktok_redirects_without_saving(client, monkeypatch):
     upsert_called = False
 
