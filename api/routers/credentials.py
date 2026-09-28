@@ -339,6 +339,17 @@ async def threads_callback(
     return _redirect("threads=success")
 
 
+def _get_instagram_credentials_row(user_id: int) -> dict | None:
+    """Busca app_id/secret (App ID/Secret do Meta for Developers) já
+    salvos pelo usuário. Mesmo padrão de `_get_tiktok_credentials_row`
+    — isolado em função própria pra dar pra mockar em teste."""
+    row = (
+        supabase.table("instagram_credentials").select("app_id, secret")
+        .eq("user_id", user_id).maybe_single().execute()
+    )
+    return row.data if row and row.data else None
+
+
 @router.get("/instagram/authorize")
 async def instagram_authorize(
     response: Response,
@@ -346,9 +357,23 @@ async def instagram_authorize(
 ):
     """URL de autorização do Facebook Login for Business — Instagram Graph
     API não tem OAuth próprio, publica via conta Business/Creator vinculada
-    a uma Página do Facebook (ver api/instagram_oauth.py). Gera `state`
-    + cookie httponly assinado (CSRF binding do account-linking, 10
-    min) pro /callback validar."""
+    a uma Página do Facebook (ver api/instagram_oauth.py).
+
+    Igual ao TikTok: o App ID não é um único app global via env — cada
+    usuário cadastra seu próprio app no Meta for Developers e salva via
+    PUT /credentials/instagram (tabela instagram_credentials) antes de
+    poder conectar.
+
+    Gera `state` + cookie httponly assinado (CSRF binding do
+    account-linking, 10 min) pro /callback validar."""
+    creds = _get_instagram_credentials_row(user_id)
+    app_id = creds.get("app_id") if creds else None
+    if not app_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Salve o App ID/Secret do Instagram antes de conectar.",
+        )
+
     state, cookie_value = _sign_oauth_state(user_id)
 
     response.set_cookie(
@@ -359,7 +384,7 @@ async def instagram_authorize(
         samesite="lax",
         max_age=600,
     )
-    return {"url": instagram_oauth.get_user_auth_url(state)}
+    return {"url": instagram_oauth.get_user_auth_url(app_id, state)}
 
 
 @router.get("/instagram/callback")
@@ -396,8 +421,14 @@ async def instagram_callback(
     if not _verify_oauth_state(request, _INSTAGRAM_OAUTH_COOKIE, state, user_id):
         return _redirect("instagram=error&message=invalid_state")
 
+    creds = _get_instagram_credentials_row(user_id)
+    if not creds or not creds.get("app_id") or not creds.get("secret"):
+        return _redirect("instagram=error&message=missing_client_credentials")
+
     try:
-        ig_user_id, access_token = await instagram_oauth.get_user_auth_id_token(code)
+        ig_user_id, access_token = await instagram_oauth.get_user_auth_id_token(
+            creds["app_id"], decrypt(creds["secret"]), code
+        )
     except instagram_oauth.InstagramOAuthError:
         return _redirect("instagram=error&message=oauth_failed")
 
@@ -722,9 +753,17 @@ async def save_credential(
     """Cria ou atualiza a credencial (update-or-insert por user_id). Cifra o secret."""
     table = _simple_table(network)
 
+    # .strip(): copiar/colar do painel da rede (Meta for Developers, TikTok
+    # for Developers, etc.) facilmente traz espaço em branco líder/de trás —
+    # isso quebra client_key=/client_id= na URL de autorização OAuth sem
+    # nenhum erro visível (bug encontrado em produção no TikTok). Aplicado
+    # aqui pra TODAS as redes de SIMPLE_NETWORKS, não só a que apareceu.
+    app_id = body.app_id.strip()
+    secret = body.secret.strip()
+
     if network == "shopee":
         try:
-            valid = await validate_shopee_credential(body.app_id, body.secret)
+            valid = await validate_shopee_credential(app_id, secret)
         except InternalApiError:
             raise HTTPException(
                 status_code=502,
@@ -734,8 +773,8 @@ async def save_credential(
             raise HTTPException(status_code=400, detail="Credencial da Shopee inválida")
 
     data = {
-        "app_id": body.app_id,
-        "secret": encrypt(body.secret),
+        "app_id": app_id,
+        "secret": encrypt(secret),
         "status": True,
     }
     if network == "facebook":

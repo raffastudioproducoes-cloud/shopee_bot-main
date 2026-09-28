@@ -79,6 +79,36 @@ class TestCredentialsUnknownNetwork:
         assert res.status_code == 401
 
 
+class TestSaveCredentialStripsWhitespace:
+    """Copiar/colar do painel da rede (Meta for Developers, TikTok for
+    Developers, etc.) facilmente traz espaço em branco líder/de trás —
+    isso quebra client_key=/client_id= na URL de autorização OAuth sem
+    nenhum erro visível (bug encontrado em produção no TikTok, ver
+    api/routers/credentials.py::save_credential)."""
+
+    def test_save_credential_strips_app_id_and_secret(self, monkeypatch, auth_client):
+        captured = {}
+
+        def fake_upsert(table, user_id, data):
+            captured["data"] = data
+            return {**data, "id": 1}
+
+        from api.routers import credentials as credentials_module
+
+        monkeypatch.setattr(credentials_module, "_upsert_by_user", fake_upsert)
+
+        res = auth_client.put(
+            "/credentials/x",
+            json={"app_id": " app-with-space ", "secret": " secret-with-space "},
+        )
+
+        assert res.status_code == 200
+        assert captured["data"]["app_id"] == "app-with-space"
+        # secret é cifrado antes de salvar — comparamos com o valor
+        # descriptografado pra confirmar que o espaço não sobreviveu.
+        assert credentials_module.decrypt(captured["data"]["secret"]) == "secret-with-space"
+
+
 class TestTestConnectionAdminGate:
     """"Testar conexão" (POST /credentials/{network}/test) é admin-only —
     a luz do sinalizador continua visível a qualquer usuário via GET
