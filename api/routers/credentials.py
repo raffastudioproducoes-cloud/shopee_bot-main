@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from .auth import get_current_user_id
 from .. import threads_oauth
 from .. import instagram_oauth
+from .. import facebook_oauth
 from .. import tiktok_oauth
 from .. import x_oauth
 from ..config import settings
@@ -39,15 +40,13 @@ router = APIRouter(prefix="/credentials", tags=["credentials"])
 
 # Redes onde o usuário final ainda cola App ID/Secret manual (formulário):
 # Shopee (é a conta de afiliado do PRÓPRIO usuário, não um "app" — não dá
-# pra virar app único sem trocar de dono a comissão), Facebook (ainda sem
-# OAuth, ver bloqueio em apis/facebook.py) e Kwai (sem API pública).
-# X/TikTok/Instagram SAÍRAM daqui — app único da plataforma (env vars),
-# usuário só clica "Conectar" (ver api/x_oauth.py, api/tiktok_oauth.py,
-# api/instagram_oauth.py e vault Projetos/ShopeeAutoVendas/
-# 27-Migracao-App-Unico-OAuth.md).
+# pra virar app único sem trocar de dono a comissão) e Kwai (sem API
+# pública). X/TikTok/Instagram/Facebook SAÍRAM daqui — app único da
+# plataforma (env vars), usuário só clica "Conectar" (ver api/x_oauth.py,
+# api/tiktok_oauth.py, api/instagram_oauth.py, api/facebook_oauth.py e
+# vault Projetos/ShopeeAutoVendas/27-Migracao-App-Unico-OAuth.md).
 SIMPLE_NETWORKS = {
     "shopee": "shopee_credentials",
-    "facebook": "facebook_credentials",
     "kwai": "kwai_credentials",
 }
 
@@ -59,17 +58,13 @@ OAUTH_NETWORKS = {
     "x": ("x_credentials", "user_access_token"),
     "tiktok": ("tiktok_credentials", "user_access_token"),
     "instagram": ("instagram_credentials", "user_access_token"),
+    "facebook": ("facebook_credentials", "page_access_token"),
 }
 
 
 class SimpleCredentialBody(BaseModel):
     app_id: str
     secret: str
-    # Só usado pela rede "facebook" (Meta Graph API precisa saber em qual
-    # Página publicar via POST /{page-id}/feed). Ignorado pelas outras
-    # redes que reusam este mesmo schema — mantido opcional para não
-    # quebrá-las.
-    page_id: str | None = None
 
 
 class ThreadsCredentialBody(BaseModel):
@@ -151,6 +146,7 @@ _X_OAUTH_COOKIE = "x_oauth_state"
 _THREADS_OAUTH_COOKIE = "threads_oauth_state"
 _INSTAGRAM_OAUTH_COOKIE = "instagram_oauth_state"
 _TIKTOK_OAUTH_COOKIE = "tiktok_oauth_state"
+_FACEBOOK_OAUTH_COOKIE = "facebook_oauth_state"
 
 
 def _sign_oauth_state(user_id: int, extra: dict | None = None) -> tuple[str, str]:
@@ -439,6 +435,99 @@ async def delete_instagram_credential(user_id: int = Depends(get_current_user_id
     return {"connected": False}
 
 
+@router.get("/facebook/authorize")
+async def facebook_authorize(
+    response: Response,
+    user_id: int = Depends(get_current_user_id),
+):
+    """URL de autorização do Login do Facebook (mesmo app do Instagram,
+    ver api/facebook_oauth.py). App único da plataforma — não depende de
+    nenhuma credencial salva pelo usuário antes de conectar.
+
+    Gera `state` + cookie httponly assinado (CSRF binding do
+    account-linking, 10 min) pro /callback validar."""
+    state, cookie_value = _sign_oauth_state(user_id)
+
+    response.set_cookie(
+        key=_FACEBOOK_OAUTH_COOKIE,
+        value=cookie_value,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=600,
+    )
+    return {"url": facebook_oauth.get_user_auth_url(state)}
+
+
+@router.get("/facebook/callback")
+async def facebook_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Callback do Login do Facebook: ?code=&state= (sucesso) ou ?error=
+    (usuário negou autorização, ou outra falha do lado do Meta). Mesma
+    semântica dos callbacks de Threads/Instagram/TikTok/X acima.
+
+    Valida o `state` contra o cookie assinado do /authorize (CSRF)
+    ANTES de trocar code por token. Troca code por user_access_token,
+    resolve a Página do usuário (primeira encontrada — ver limitação de
+    múltiplas páginas em api/facebook_oauth.py) e salva page_id/page_name/
+    page_access_token — nunca expõe token/erro sensível pro frontend.
+    """
+    frontend_redirect = f"{settings.frontend_url}/credentials"
+
+    def _redirect(query: str) -> RedirectResponse:
+        res = RedirectResponse(f"{frontend_redirect}?{query}", status_code=307)
+        res.delete_cookie(_FACEBOOK_OAUTH_COOKIE)
+        return res
+
+    if error:
+        return _redirect(f"facebook=error&message={quote(error, safe='')}")
+
+    if not code:
+        return _redirect("facebook=error&message=missing_code")
+
+    if not _verify_oauth_state(request, _FACEBOOK_OAUTH_COOKIE, state, user_id):
+        return _redirect("facebook=error&message=invalid_state")
+
+    try:
+        page_id, page_name, page_access_token = await facebook_oauth.get_user_auth_page_token(code)
+    except facebook_oauth.FacebookOAuthError:
+        return _redirect("facebook=error&message=oauth_failed")
+
+    _upsert_by_user("facebook_credentials", user_id, {
+        "page_id": page_id,
+        "page_name": page_name,
+        "page_access_token": encrypt(page_access_token),
+        "status": True,
+    })
+
+    return _redirect("facebook=success")
+
+
+@router.delete("/facebook")
+async def delete_facebook_credential(user_id: int = Depends(get_current_user_id)):
+    """Rota literal registrada ANTES de "/{network}" (ver docstring de
+    delete_instagram_credential) — facebook saiu de SIMPLE_NETWORKS."""
+    result = (
+        supabase.table("facebook_credentials")
+        .update({
+            "page_id": None,
+            "page_name": None,
+            "page_access_token": None,
+            "status": False,
+        })
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Credencial não encontrada")
+    return {"connected": False}
+
+
 # Verificação de propriedade de domínio pro TikTok Login Kit ("Verify URL
 # prefix" no painel TikTok for Developers, app 7690297968163031048): o
 # TikTok exige hospedar um arquivo com esse nome exato, nesse caminho
@@ -692,6 +781,21 @@ def _test_payload(network: str, user_id: int) -> dict | None:
             return None
         return {"access_token": decrypt(data["access_token"])}
 
+    if network == "facebook":
+        # Sem app_id/secret aqui — o app é global (mesmo de
+        # api/instagram_oauth.py) e o que importa pra testar é só o
+        # token JÁ escopado pra Página do usuário (ver
+        # api/facebook_oauth.py).
+        row = (
+            supabase.table(table).select("page_id, page_access_token")
+            .eq("user_id", user_id).maybe_single().execute()
+        )
+        data = row.data if row and row.data else None
+        token = data.get("page_access_token") if data else None
+        if not token:
+            return None
+        return {"page_id": data.get("page_id"), "page_access_token": decrypt(token)}
+
     if network in _OAUTH_GLOBAL_APP:
         app_id, secret = _OAUTH_GLOBAL_APP[network]
         if not app_id or not secret:
@@ -709,22 +813,15 @@ def _test_payload(network: str, user_id: int) -> dict | None:
             payload["user_access_token"] = decrypt(token)
         return payload
 
-    fields = "app_id, secret"
-    if network == "facebook":
-        fields += ", page_id"
-
     row = (
-        supabase.table(table).select(fields)
+        supabase.table(table).select("app_id, secret")
         .eq("user_id", user_id).maybe_single().execute()
     )
     data = row.data if row and row.data else None
     if not data or not data.get("app_id") or not data.get("secret"):
         return None
 
-    payload = {"app_id": data["app_id"], "secret": decrypt(data["secret"])}
-    if network == "facebook":
-        payload["page_id"] = data.get("page_id")
-    return payload
+    return {"app_id": data["app_id"], "secret": decrypt(data["secret"])}
 
 
 @router.post("/{network}/test")
@@ -797,8 +894,6 @@ async def save_credential(
         "secret": encrypt(secret),
         "status": True,
     }
-    if network == "facebook":
-        data["page_id"] = body.page_id
 
     _upsert_by_user(table, user_id, data)
     return {"connected": True}
@@ -811,14 +906,13 @@ async def delete_credential(
 ):
     """Desconecta (zera app_id/secret, status=False) — não apaga a linha.
 
-    Só cobre SIMPLE_NETWORKS (shopee/facebook/kwai) — x/tiktok/instagram
+    Só cobre SIMPLE_NETWORKS (shopee/kwai) — x/tiktok/instagram/facebook
     têm DELETE dedicado (delete_x_credential/delete_tiktok_credential/
-    delete_instagram_credential, registrados antes desta rota) porque
-    saíram de SIMPLE_NETWORKS na migração pro app único."""
+    delete_instagram_credential/delete_facebook_credential, registrados
+    antes desta rota) porque saíram de SIMPLE_NETWORKS na migração pro
+    app único."""
     table = _simple_table(network)
     update_data = {"app_id": None, "secret": None, "status": False}
-    if network == "facebook":
-        update_data["page_id"] = None
     result = (
         supabase.table(table)
         .update(update_data)

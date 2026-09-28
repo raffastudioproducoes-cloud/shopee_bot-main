@@ -169,6 +169,72 @@ def post_text(app_id, secret, page_id, text):
         )
     return res.json()
 
+def validate_page_access_token(page_access_token, page_id):
+    """Valida um Page Access Token obtido via OAuth do usuário (Login do
+    Facebook, ver api/facebook_oauth.py) — token já escopado pra Página
+    certa, não precisa derivar via App Token. Complementa
+    validate_credentials (fluxo antigo per-user, app_id/secret)."""
+    if not page_id:
+        raise Exception("Facebook: nenhuma Página vinculada a esta conexão.")
+    url = f"{API_BASE}/{page_id}"
+    params = {"access_token": page_access_token, "fields": "id,name"}
+    res = retry_with_backoff(
+        requests.get, url, params=params,
+        exceptions=(requests.exceptions.RequestException,),
+        timeout=15,
+    )
+    if res.status_code != 200:
+        raise Exception(
+            f"Facebook: token da página inválido (status {res.status_code}): {res.text[:300]}"
+        )
+    return res.json()
+
+def post_text_as_page(page_access_token, page_id, text):
+    """Publica usando um Page Access Token já resolvido via OAuth do
+    usuário (api/facebook_oauth.py::get_user_page) — não deriva token
+    via App Token, então funciona pra Páginas de qualquer usuário que
+    autorizar, não só as que o app do Rafa administra."""
+    url = f"{API_BASE}/{page_id}/feed"
+    params = {
+        "message": text,
+        "access_token": page_access_token,
+    }
+    res = retry_with_backoff(
+        requests.post, url, params=params,
+        exceptions=(requests.exceptions.RequestException,),
+        timeout=30,
+    )
+    if res.status_code not in (200, 201):
+        raise Exception(
+            f"Facebook: falha ao publicar (status {res.status_code}): {res.text[:300]}"
+        )
+    return res.json()
+
+def post_product_as_page(page_access_token, page_id, product):
+    """Mesmo texto de post_product, mas publicando com Page Access Token
+    (fluxo OAuth novo) em vez de app_id/secret (fluxo antigo per-user)."""
+    commission_link = (
+        product.get("commission_link")
+        or product.get("original_link")
+        or ""
+    )
+    name = product.get("name", "[produto]")
+    commission = product.get("commission")
+    price_min = product.get("price_min")
+    price_max = product.get("price_max")
+
+    text = (
+        f"🔥 {name}\n"
+    )
+    if commission is not None:
+        text += f"Comissão: {commission}%\n"
+    if price_min is not None or price_max is not None:
+        text += f"Faixa de preço: R$ {price_min} a R$ {price_max}\n"
+    if commission_link:
+        text += f"\n{commission_link}"
+
+    return post_text_as_page(page_access_token, page_id, text)
+
 def post_product(app_id, secret, page_id, product):
     """Posta texto com link de afiliado de um produto Shopee na página do Facebook.
 

@@ -143,11 +143,11 @@ class TestTestConnectionAdminGate:
 
 
 class TestSimpleNetworksNoLongerAcceptXTiktokInstagram:
-    """x/tiktok/instagram saíram de SIMPLE_NETWORKS na migração pro app
-    único (2026-09-28) — o formulário manual de App ID/Secret não existe
-    mais pra essas 3 redes, só o botão "Conectar" (authorize/callback)."""
+    """x/tiktok/instagram/facebook saíram de SIMPLE_NETWORKS na migração
+    pro app único (2026-09-28) — o formulário manual de App ID/Secret não
+    existe mais pra essas redes, só o botão "Conectar" (authorize/callback)."""
 
-    @pytest.mark.parametrize("network", ["x", "tiktok", "instagram"])
+    @pytest.mark.parametrize("network", ["x", "tiktok", "instagram", "facebook"])
     def test_put_rejects_manual_app_id_secret(self, auth_client, network):
         res = auth_client.put(
             f"/credentials/{network}",
@@ -185,3 +185,12 @@ class TestDedicatedOAuthDeleteEndpoints:
         update_data = query.update.call_args[0][0]
         assert update_data["user_access_token"] is None
         assert update_data["ig_user_id"] is None
+
+    def test_delete_facebook_zeroes_oauth_token_fields(self, monkeypatch, auth_client):
+        query = _mock_supabase(monkeypatch, [{"id": 1, "status": False}])
+        res = auth_client.delete("/credentials/facebook")
+        assert res.status_code == 200
+        update_data = query.update.call_args[0][0]
+        assert update_data["page_access_token"] is None
+        assert update_data["page_id"] is None
+        assert update_data["page_name"] is None

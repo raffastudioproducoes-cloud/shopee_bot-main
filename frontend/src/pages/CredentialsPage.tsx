@@ -4,6 +4,7 @@ import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import {
   credentialsApi,
+  CREDENTIAL_HELP_LINKS,
   type SimpleNetwork,
   type CredentialStatusWithLight,
 } from "../api/credentials"
@@ -13,12 +14,11 @@ import { TextInput } from "../components/ui/TextInput"
 import { StatusBadge } from "../components/ui/StatusBadge"
 import { ConnectionLight } from "../components/ui/ConnectionLight"
 
-// X saiu daqui: agora tem card dedicado (XCredentialCard, mesmo padrão de
-// TikTok/Instagram) porque também usa OAuth authorize/callback, não só
-// app_id/secret por formulário.
+// X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
+// FacebookCredentialCard — mesmo padrão de TikTok/Instagram) porque usam
+// OAuth authorize/callback, não app_id/secret por formulário.
 const SIMPLE_NETWORKS: { key: SimpleNetwork; label: string }[] = [
   { key: "shopee", label: "Shopee" },
-  { key: "facebook", label: "Facebook" },
   { key: "kwai", label: "Kwai" },
 ]
 
@@ -104,6 +104,20 @@ export function CredentialsPage() {
     window.history.replaceState(null, "", window.location.pathname + (query ? `?${query}` : ""))
   }, [])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const facebook = params.get("facebook")
+    if (!facebook) return
+    setBanner(
+      facebook === "success"
+        ? { ok: true, text: "Facebook conectado com sucesso." }
+        : { ok: false, text: "Falha ao conectar o Facebook. Tente novamente." }
+    )
+    params.delete("facebook")
+    const query = params.toString()
+    window.history.replaceState(null, "", window.location.pathname + (query ? `?${query}` : ""))
+  }, [])
+
   const onAuthError = (err: Error) => {
     if (err.message.includes("401") || err.message === "Não autenticado") {
       logout()
@@ -174,6 +188,14 @@ export function CredentialsPage() {
 
         <XCredentialCard
           status={status?.x ?? EMPTY_STATUS}
+          isAdmin={isAdmin}
+          onSaved={invalidate}
+          onAuthError={onAuthError}
+          setBanner={setBanner}
+        />
+
+        <FacebookCredentialCard
+          status={status?.facebook ?? EMPTY_STATUS}
           isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
@@ -273,16 +295,14 @@ function SimpleCredentialCard({
 }) {
   const [appId, setAppId] = useState("")
   const [secret, setSecret] = useState("")
-  const [pageId, setPageId] = useState("")
-  const isFacebook = network === "facebook"
   const connected = status.connected
+  const helpUrl = CREDENTIAL_HELP_LINKS[network]
 
   const saveMutation = useMutation({
-    mutationFn: () => credentialsApi.save(network, appId, secret, isFacebook ? pageId : undefined),
+    mutationFn: () => credentialsApi.save(network, appId, secret),
     onSuccess: () => {
       setAppId("")
       setSecret("")
-      setPageId("")
       setBanner({ ok: true, text: `${label} conectado com sucesso.` })
       onSaved()
     },
@@ -322,6 +342,16 @@ function SimpleCredentialCard({
         }}
         style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}
       >
+        {helpUrl && (
+          <a
+            href={helpUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{ font: "var(--text-role-body)", color: "var(--accent-500)" }}
+          >
+            Abrir Portal de Afiliados da {label} (pegar App ID/Secret) ↗
+          </a>
+        )}
         <div style={FIELD_GRID}>
           <TextInput
             label="App ID"
@@ -340,15 +370,6 @@ function SimpleCredentialCard({
             required
           />
         </div>
-        {isFacebook && (
-          <TextInput
-            label="Page ID"
-            value={pageId}
-            onChange={(e) => setPageId(e.target.value)}
-            placeholder="Page ID"
-            required
-          />
-        )}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           {connected && (
             <Button
@@ -364,7 +385,7 @@ function SimpleCredentialCard({
           <Button
             type="submit"
             variant="primary"
-            disabled={saveMutation.isPending || !appId || !secret || (isFacebook && !pageId)}
+            disabled={saveMutation.isPending || !appId || !secret}
           >
             {saveMutation.isPending ? "Salvando..." : "Salvar"}
           </Button>
@@ -568,6 +589,89 @@ function XCredentialCard({
             onClick={() => authorizeMutation.mutate()}
           >
             {authorizeMutation.isPending ? "Conectando..." : connected ? "Reconectar X" : "Conectar X"}
+          </Button>
+          {connected && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+              style={{ color: "var(--red-300)" }}
+            >
+              {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
+            </Button>
+          )}
+        </div>
+      </div>
+    </Panel>
+  )
+}
+
+// ── Card do Facebook (OAuth de app único — clicar "Conectar Facebook") ──────────
+
+function FacebookCredentialCard({
+  status,
+  isAdmin,
+  onSaved,
+  onAuthError,
+  setBanner,
+}: {
+  status: CredentialStatusWithLight
+  isAdmin: boolean
+  onSaved: () => void
+  onAuthError: (err: Error) => void
+  setBanner: (b: { ok: boolean; text: string } | null) => void
+}) {
+  const connected = status.connected
+
+  const authorizeMutation = useMutation({
+    mutationFn: () => credentialsApi.authorizeFacebook(),
+    onSuccess: ({ url }) => {
+      window.location.href = url
+    },
+    onError: onAuthError,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => credentialsApi.delete("facebook"),
+    onSuccess: () => {
+      setBanner({ ok: true, text: "Facebook desconectado." })
+      onSaved()
+    },
+    onError: onAuthError,
+  })
+
+  return (
+    <Panel surface="dark">
+      <PanelHeader
+        title="Facebook"
+        trailing={
+          <CredentialTrailing
+            network="facebook"
+            label="Facebook"
+            status={status}
+            isAdmin={isAdmin}
+            onSaved={onSaved}
+            onAuthError={onAuthError}
+            setBanner={setBanner}
+          />
+        }
+      />
+
+      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+          Conecte a Página do Facebook com um clique — nenhuma configuração técnica necessária.
+          Se você administra mais de uma Página, a primeira encontrada é conectada automaticamente.
+        </p>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={authorizeMutation.isPending}
+            onClick={() => authorizeMutation.mutate()}
+          >
+            {authorizeMutation.isPending ? "Conectando..." : connected ? "Reconectar Facebook" : "Conectar Facebook"}
           </Button>
           {connected && (
             <Button

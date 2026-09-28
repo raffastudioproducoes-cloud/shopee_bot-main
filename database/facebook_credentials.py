@@ -11,6 +11,8 @@ def get_by_user_id(user_id):
             fc.app_id facebook_app_id,
             fc.secret facebook_secret,
             fc.page_id facebook_page_id,
+            fc.page_name facebook_page_name,
+            fc.page_access_token facebook_page_access_token,
             fc.status facebook_status
         FROM users u
         LEFT JOIN facebook_credentials fc ON fc.user_id = u.id
@@ -20,6 +22,7 @@ def get_by_user_id(user_id):
     result = query_db(query, args, True)
     if result:
         result["facebook_secret"] = decrypt(result["facebook_secret"])
+        result["facebook_page_access_token"] = decrypt(result["facebook_page_access_token"])
     return result
 
 

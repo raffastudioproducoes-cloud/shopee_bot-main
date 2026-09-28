@@ -148,8 +148,13 @@ def validate_credential(network):
             return ok("Conectado")
 
         if network == "facebook":
-            FacebookAPI.validate_credentials(
-                body["app_id"], body["secret"], body.get("page_id")
+            if not body.get("page_access_token"):
+                return error(
+                    "App único válido, mas falta autorizar via OAuth "
+                    "(Conectar Facebook) — sem isso não é possível publicar."
+                )
+            FacebookAPI.validate_page_access_token(
+                body["page_access_token"], body.get("page_id")
             )
             return ok("Conectado")
 

@@ -2,6 +2,13 @@ import { api, ApiError } from '../lib/api'
 
 export type SimpleNetwork = 'shopee' | 'x' | 'facebook' | 'instagram' | 'tiktok' | 'kwai'
 
+/** Link externo pra onde o usuário vai buscar/gerar a própria credencial —
+ * só existe pra redes sem tela de login OAuth (Shopee: API de afiliados
+ * não tem "Login with Shopee", só App ID/Secret gerado no portal deles). */
+export const CREDENTIAL_HELP_LINKS: Partial<Record<SimpleNetwork, string>> = {
+  shopee: 'https://affiliate.shopee.com.br/',
+}
+
 export type ConnectionLight = 'green' | 'yellow' | 'red'
 
 export interface CredentialStatus {
@@ -27,18 +34,10 @@ export const credentialsApi = {
     return api.get<CredentialsStatusMap>('/credentials')
   },
 
-  async save(
-    network: SimpleNetwork,
-    appId: string,
-    secret: string,
-    pageId?: string,
-  ): Promise<CredentialStatus> {
-    // page_id só é relevante pro Facebook (Graph API precisa saber em
-    // qual Página publicar) — as outras redes ignoram o campo.
+  async save(network: SimpleNetwork, appId: string, secret: string): Promise<CredentialStatus> {
     return api.put<CredentialStatus>(`/credentials/${network}`, {
       app_id: appId,
       secret,
-      ...(network === 'facebook' ? { page_id: pageId } : {}),
     })
   },
 
@@ -71,6 +70,10 @@ export const credentialsApi = {
 
   async authorizeX(): Promise<{ url: string }> {
     return api.get<{ url: string }>('/credentials/x/authorize')
+  },
+
+  async authorizeFacebook(): Promise<{ url: string }> {
+    return api.get<{ url: string }>('/credentials/facebook/authorize')
   },
 
   /** "Testar conexão" — admin-only no backend (403 pra quem não é ADMIN). */
