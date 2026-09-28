@@ -156,6 +156,37 @@ def test_exchange_code_for_token_sends_basic_auth_header(monkeypatch):
     assert result == {"access_token": "tok"}
 
 
+def test_exchange_code_for_token_strips_whitespace_from_env_credentials(monkeypatch):
+    """X_CLIENT_ID/X_CLIENT_SECRET lidos de env var no Render podem vir
+    com espaço/newline colado (erro comum ao colar no dashboard). Isso
+    vaza pro base64 do Basic Auth e produz um header presente mas
+    garbled -> 401 unauthorized_client. Regressão do .strip() defensivo
+    aplicado na leitura do env var em x_oauth.py."""
+    monkeypatch.setattr(x_oauth, "CLIENT_ID", "cid-123\n")
+    monkeypatch.setattr(x_oauth, "CLIENT_SECRET", " csecret-456 ")
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {"access_token": "tok"}
+
+    async def fake_post(self, url, headers=None, data=None):
+        captured["headers"] = headers
+        captured["data"] = data
+        return FakeResponse()
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+
+    asyncio.run(x_oauth.exchange_code_for_token("the-code", "the-verifier"))
+
+    expected_auth = "Basic " + base64.b64encode(b"cid-123:csecret-456").decode()
+    assert captured["headers"]["Authorization"] == expected_auth
+
+
 def test_x_authorize_requires_auth():
     app.dependency_overrides.clear()
     res = TestClient(app).get("/credentials/x/authorize")

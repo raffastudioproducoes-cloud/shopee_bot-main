@@ -42,8 +42,15 @@ AUTH_URL = "https://twitter.com/i/oauth2/authorize"
 # strip de auth em redirect cross-host, mesmo comportamento do curl).
 TOKEN_URL = "https://api.x.com/2/oauth2/token"
 CALLBACK_URL = os.environ.get("X_CALLBACK_URL")
-CLIENT_ID = os.environ.get("X_CLIENT_ID")
-CLIENT_SECRET = os.environ.get("X_CLIENT_SECRET")
+# .strip() defensivo: Render (e outros dashboards de env var) deixa
+# passar espaço/newline colado no valor, o que vaza pro Basic Auth
+# base64 e vira 401 "unauthorized_client / Missing valid authorization
+# header" (header presente mas garbled) em vez do invalid_client que
+# credencial errada daria. Ver .strip() equivalente em save_credential
+# (commit 0d5f0b0) pra credenciais salvas no banco — este cobre a
+# leitura via env var, caminho de código diferente.
+CLIENT_ID = (os.environ.get("X_CLIENT_ID") or "").strip() or None
+CLIENT_SECRET = (os.environ.get("X_CLIENT_SECRET") or "").strip() or None
 DEFAULT_SCOPES = "tweet.read tweet.write users.read offline.access"
 
 
@@ -73,7 +80,14 @@ def get_user_auth_url(code_challenge: str, state: str, scopes: str = DEFAULT_SCO
 
 
 def _basic_auth_header() -> dict:
-    credentials = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
+    # .strip() de novo aqui (além do módulo): ponto único por onde os
+    # dois callers (exchange_code_for_token, refresh_access_token)
+    # passam — garante que nenhuma whitespace residual (ex.: atribuição
+    # direta a CLIENT_ID/CLIENT_SECRET fora do os.environ.get() do
+    # topo do arquivo) vaze pro Basic Auth.
+    client_id = (CLIENT_ID or "").strip()
+    client_secret = (CLIENT_SECRET or "").strip()
+    credentials = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
     return {"Authorization": f"Basic {credentials}"}
 
 
