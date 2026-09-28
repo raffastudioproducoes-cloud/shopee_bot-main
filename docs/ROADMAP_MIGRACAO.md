@@ -1,8 +1,11 @@
 # Roadmap de Migração — React + API Python
 
-> Em andamento desde 2026-09-04. Atualizado em 2026-09-26 — Fases 0-8 concluídas.
+> Em andamento desde 2026-09-04. Atualizado em 2026-09-27 — Fases 0-8.1 concluídas.
 > Próxima etapa: validar deploy em produção (Render) e aposentar rota OAuth legada do Flask.
-> Wrappers de publicação das 5 redes sociais sendo implementados em paralelo.
+> Wrappers de publicação das 5 redes sociais (Threads, X, Facebook, Instagram, TikTok) já
+> existem e estão registrados no scheduler — falta concluir a conexão OAuth de X/Instagram/
+> TikTok (app registrado, mas sem token de usuário salvo ainda) e validar publicação real em
+> produção. Ver `vault/00-INDICE-Estado-Atual.md` (Obsidian) para o detalhe rede a rede.
 
 ## Visão geral
 
@@ -54,12 +57,18 @@ Migrar o ShopeeAutoVendas do frontend Flask/Jinja2/Alpine.js para React + TanSta
 
 **Simplificações restantes** (ver `api/routers/posts.py` docstring):
 - Upload de mídia só na head da thread, não em cada parte.
-- Publicação de verdade hoje só existe pra Threads (`func="bot_post"`) — as outras 5 redes
-  têm credencial mas nenhum wrapper de publicação ligado ao scheduler ainda (isso é
-  limitação do Flask original, não da migração).
+- **Atualizado 2026-09-27** (correção de uma alegação desatualizada desta seção): os
+  wrappers de publicação de X, Facebook, Instagram e TikTok (`scheduler/bot_post_x.py`,
+  `bot_post_facebook.py`, `bot_post_instagram.py`, `bot_post_tiktok.py`) **existem** e estão
+  registrados em `scheduler/__init__.py` — não é mais "falta implementar". O que falta de
+  verdade: X/Instagram/TikTok têm app_id/secret salvos mas nenhum usuário concluiu o OAuth
+  ("Conectar") ainda, então `user_access_token` está nulo no Supabase — sem isso o wrapper
+  não tem o que publicar. Facebook usa token de Página colado manualmente (sem OAuth) e tem
+  credencial completa, mas nunca foi validado com sucesso confirmado. Só o Threads tem
+  token de usuário real salvo hoje.
 - Upload de mídia grava no filesystem local do processo da API nova — só funciona de
   verdade em produção quando ela roda no mesmo container/filesystem que o Flask (ver
-  Fase 8; hoje só o Flask está deployado no Render).
+  Fase 8.1 — implementado no código via `gunicorn.conf.py`, validação em produção pendente).
 
 ### Fase 6 — Credenciais
 
@@ -131,11 +140,14 @@ Implementadas as 5 mudanças finais para suportar a API nova em produção:
   - **Por quê**: suportar múltiplas redes sociais em paralelo; escolher qual publicar por post
   - Status: Implementado
 
-- [ ] **Pendente real** (bloqueia aposentar o Flask): hoje só o Flask está deployado no
-  Render — a API nova (`api/`) ainda não tem processo próprio em produção, então
-  `FLASK_INTERNAL_URL`/`INTERNAL_API_SECRET` só existem em dev local. Falta decidir a
-  topologia de deploy (mesmo container? Web Service separado no Render?) antes do bridge
-  funcionar em produção. Mídia (Fase 5) tem a mesma dependência (filesystem compartilhado).
+- [x] **Topologia de deploy decidida e implementada no código (2026-09-27)**: mesmo
+  container — `gunicorn.conf.py` sobe um subprocesso `uvicorn` (`api.main:app`) em
+  `127.0.0.1:8001` no hook `on_starting`, e `web/routes/api_proxy.py` expõe o proxy
+  `/api/<path>` no Flask. Não é mais uma decisão em aberto no código.
+- [ ] **Pendente real**: validar em produção no Render que esse processo duplo sobe
+  corretamente e que `FLASK_INTERNAL_URL`/`INTERNAL_API_SECRET` estão configurados lá (só
+  confirmados em dev local até 2026-09-27). Mídia (Fase 5) tem a mesma dependência
+  (filesystem compartilhado).
 
 ## Documentação criada nesta sessão
 
