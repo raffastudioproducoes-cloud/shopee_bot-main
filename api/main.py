@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import init_db
+from .middleware import RequestLoggingMiddleware
 
 logger = logging.getLogger("uvicorn.error")
 from .routers import (
@@ -36,6 +37,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RequestLoggingMiddleware)
 
 # Routers
 app.include_router(auth_router)
