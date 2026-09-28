@@ -1,5 +1,5 @@
 import os
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet
 
 _current_fernet = None
 _current_key_id = None

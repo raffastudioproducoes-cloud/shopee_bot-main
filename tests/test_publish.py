@@ -5,8 +5,6 @@ Threads mockada — não bate na API de verdade (isso é o item 1.6 do
 roadmap, testado à parte com credencial real). Aqui a garantia é: o
 job publica, loga sucesso; se falhar, loga falha e não quebra.
 """
-import pytest
-
 from shopee_bot.database import get_conn, put_conn, posts, schedulers, \
     activities
 from shopee_bot.scheduler.bot_post import bot_post

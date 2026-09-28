@@ -41,9 +41,7 @@ Recomendação do README:
     com orientação de como obter o token.
 """
 
-import os
 import time
-import json
 import requests
 from shopee_bot.utils import retry_with_backoff
 

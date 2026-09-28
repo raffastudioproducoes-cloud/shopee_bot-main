@@ -13,11 +13,6 @@ Se o usuário tiver acesso a API regia de Kwai (parceiro), esta é a entrada
 para implementar.
 """
 
-import os
-import time
-import requests
-from shopee_bot.utils import retry_with_backoff
-
 API_BASE = "https://api.kw.ai"  # placeholder
 
 def validate_credentials(app_id, secret):

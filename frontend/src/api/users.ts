@@ -1,4 +1,4 @@
-import { api, ApiError } from '../lib/api'
+import { api } from '../lib/api'
 
 export type UserAccess = 'USER' | 'ADMIN'
 
@@ -52,5 +52,3 @@ export const usersApi = {
     return api.delete<{ msg: string }>(`/users/${id}`)
   },
 }
-
-export { ApiError }

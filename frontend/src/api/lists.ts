@@ -1,4 +1,4 @@
-import { api, ApiError } from '../lib/api'
+import { api } from '../lib/api'
 
 export interface ProductList {
   id: number
@@ -60,5 +60,3 @@ export const listsApi = {
     return api.delete<{ msg: string }>(`/lists/${id}`)
   },
 }
-
-export { ApiError }

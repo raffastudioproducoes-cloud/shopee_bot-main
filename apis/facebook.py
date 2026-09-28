@@ -12,9 +12,7 @@ permissão da Graph API. Isso é uma limitação da Meta, não deste código;
 não há workaround client-side.
 """
 
-import os
 import time
-import json
 import requests
 from shopee_bot.utils import retry_with_backoff
 

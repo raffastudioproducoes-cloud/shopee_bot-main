@@ -1,4 +1,4 @@
-import { api, ApiError } from '../lib/api'
+import { api } from '../lib/api'
 
 export type SimpleNetwork = 'shopee' | 'x' | 'facebook' | 'instagram' | 'tiktok' | 'kwai'
 
@@ -81,5 +81,3 @@ export const credentialsApi = {
     return api.post<TestConnectionResult>(`/credentials/${network}/test`, undefined)
   },
 }
-
-export { ApiError }

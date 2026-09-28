@@ -1,4 +1,4 @@
-from shopee_bot.database import query_db, execute_db
+from shopee_bot.database import execute_db
 
 
 def insert(post_product, open_conn=None):

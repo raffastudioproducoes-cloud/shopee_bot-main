@@ -7,7 +7,6 @@ naquele módulo. Mocka add_job pra não precisar de Postgres/scheduler de
 verdade.
 """
 
-import os
 from unittest.mock import patch
 
 INTERNAL_SECRET = "test-internal-secret"
