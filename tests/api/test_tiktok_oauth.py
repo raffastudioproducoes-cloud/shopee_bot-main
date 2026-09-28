@@ -1,19 +1,10 @@
 """
 Testes do OAuth do TikTok (api/routers/credentials.py).
 
-Mesmo espírito de tests/api/test_threads_oauth.py: mocka a troca de code
-por token (api/tiktok_oauth.py) e o upsert de credencial, sem bater na
-API de verdade nem precisar de um Supabase real. Roda com
-`pytest --confcutdir=tests/api tests/api` (ver tests/api/conftest.py).
-
-Diferença do Threads: o Client Key/Secret do TikTok é por usuário (não
-um app global via env), então authorize/callback primeiro leem a
-credencial já salva (`_get_tiktok_credentials_row`, mockada aqui em vez
-do Supabase de verdade).
-
-Cobre também a validação do `state` (CSRF do account-linking, ver HIGH
-de api/routers/credentials.py): authorize seta o cookie, callback com
-state ausente/errado falha antes de trocar code por token.
+App único da plataforma (migração 2026-09-28 — TIKTOK_CLIENT_KEY/SECRET
+via env, não mais por usuário): mesma estrutura de
+tests/api/test_threads_oauth.py, sem precisar mockar credencial salva
+antes do authorize/callback.
 """
 
 import pytest
@@ -31,22 +22,8 @@ def client():
     return TestClient(app)
 
 
-def test_tiktok_authorize_without_saved_client_key_fails_clearly(client, monkeypatch):
-    monkeypatch.setattr(
-        credentials_module, "_get_tiktok_credentials_row", lambda user_id: None
-    )
-
-    res = client.get("/credentials/tiktok/authorize")
-
-    assert res.status_code == 400
-
-
-def test_tiktok_authorize_returns_url_with_saved_client_key(client, monkeypatch):
-    monkeypatch.setattr(
-        credentials_module,
-        "_get_tiktok_credentials_row",
-        lambda user_id: {"app_id": "client-key-123", "secret": "enc-secret"},
-    )
+def test_tiktok_authorize_returns_url_and_sets_state_cookie(client, monkeypatch):
+    monkeypatch.setattr(credentials_module.tiktok_oauth, "CLIENT_KEY", "client-key-123")
 
     res = client.get("/credentials/tiktok/authorize")
 
@@ -59,16 +36,7 @@ def test_tiktok_authorize_returns_url_with_saved_client_key(client, monkeypatch)
 def test_tiktok_callback_success_saves_credential_and_redirects(client, monkeypatch):
     saved = {}
 
-    monkeypatch.setattr(
-        credentials_module,
-        "_get_tiktok_credentials_row",
-        lambda user_id: {"app_id": "client-key-123", "secret": "enc-secret"},
-    )
-    monkeypatch.setattr(credentials_module, "decrypt", lambda v: "plain-secret")
-
-    async def fake_get_user_auth_id_token(client_key, client_secret, code):
-        assert client_key == "client-key-123"
-        assert client_secret == "plain-secret"
+    async def fake_get_user_auth_id_token(code):
         assert code == "tiktok-code-123"
         return "user-access-token", "refresh-token", "open-id-1"
 
@@ -172,25 +140,6 @@ def test_tiktok_callback_state_mismatch_redirects_without_saving(client, monkeyp
     assert "tiktok=error" in res.headers["location"]
     assert "invalid_state" in res.headers["location"]
     assert upsert_called is False
-
-
-def test_tiktok_callback_without_saved_client_credentials_fails_clearly(client, monkeypatch):
-    monkeypatch.setattr(
-        credentials_module, "_get_tiktok_credentials_row", lambda user_id: None
-    )
-
-    state, cookie_value = credentials_module._sign_oauth_state(42)
-    client.cookies.set("tiktok_oauth_state", cookie_value)
-
-    res = client.get(
-        "/credentials/tiktok/callback",
-        params={"code": "tiktok-code-123", "state": state},
-        follow_redirects=False,
-    )
-
-    assert res.status_code == 307
-    assert "tiktok=error" in res.headers["location"]
-    assert "missing_client_credentials" in res.headers["location"]
 
 
 def test_tiktok_authorize_requires_auth():

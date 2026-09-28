@@ -1,15 +1,10 @@
 """
 Testes do fluxo OAuth do Instagram (api/routers/credentials.py).
 
-Mesmo padrão de tests/api/test_tiktok_oauth.py: o App ID/Secret do
-Instagram é por usuário (tabela instagram_credentials, não env var
-global) — authorize/callback primeiro leem a credencial já salva
-(`_get_instagram_credentials_row`, mockada aqui em vez do Supabase de
-verdade) antes de trocar code por token (api/instagram_oauth.py).
-
-Cobre o caminho feliz de authorize/callback, o caso de erro vindo do
-Meta (?error=), a falta de credencial salva, e a validação do `state`
-(CSRF do account-linking).
+App único da plataforma (migração 2026-09-28 — INSTAGRAM_APP_ID/SECRET
+via env, não mais por usuário): mesma estrutura de
+tests/api/test_threads_oauth.py, sem precisar mockar credencial salva
+antes do authorize/callback.
 """
 
 import pytest
@@ -27,27 +22,10 @@ def client():
     return TestClient(app)
 
 
-def test_instagram_authorize_without_saved_app_id_fails_clearly(client, monkeypatch):
-    monkeypatch.setattr(
-        credentials_module, "_get_instagram_credentials_row", lambda user_id: None
-    )
-
-    res = client.get("/credentials/instagram/authorize")
-
-    assert res.status_code == 400
-
-
-def test_instagram_authorize_returns_url_with_saved_app_id(client, monkeypatch):
-    monkeypatch.setattr(
-        credentials_module,
-        "_get_instagram_credentials_row",
-        lambda user_id: {"app_id": "meta-app-123", "secret": "enc-secret"},
-    )
-
+def test_instagram_authorize_returns_url_and_sets_state_cookie(client):
     res = client.get("/credentials/instagram/authorize")
 
     assert res.status_code == 200
-    assert "meta-app-123" in res.json()["url"]
     assert "state=" in res.json()["url"]
     assert "instagram_oauth_state" in res.cookies
 
@@ -55,16 +33,7 @@ def test_instagram_authorize_returns_url_with_saved_app_id(client, monkeypatch):
 def test_instagram_callback_success_saves_credential_and_redirects(client, monkeypatch):
     saved = {}
 
-    monkeypatch.setattr(
-        credentials_module,
-        "_get_instagram_credentials_row",
-        lambda user_id: {"app_id": "meta-app-123", "secret": "enc-secret"},
-    )
-    monkeypatch.setattr(credentials_module, "decrypt", lambda v: "plain-secret")
-
-    async def fake_get_user_auth_id_token(app_id, secret, code):
-        assert app_id == "meta-app-123"
-        assert secret == "plain-secret"
+    async def fake_get_user_auth_id_token(code):
         assert code == "meta-code-123"
         return "ig-business-1", "long-lived-token"
 
@@ -122,14 +91,7 @@ def test_instagram_callback_error_from_meta_redirects_without_saving(client, mon
 
 
 def test_instagram_callback_oauth_failure_redirects_without_saving(client, monkeypatch):
-    monkeypatch.setattr(
-        credentials_module,
-        "_get_instagram_credentials_row",
-        lambda user_id: {"app_id": "meta-app-123", "secret": "enc-secret"},
-    )
-    monkeypatch.setattr(credentials_module, "decrypt", lambda v: "plain-secret")
-
-    async def fake_get_user_auth_id_token(app_id, secret, code):
+    async def fake_get_user_auth_id_token(code):
         raise credentials_module.instagram_oauth.InstagramOAuthError("no linked ig account")
 
     upsert_called = False
@@ -158,25 +120,6 @@ def test_instagram_callback_oauth_failure_redirects_without_saving(client, monke
     assert "instagram=error" in res.headers["location"]
     assert "oauth_failed" in res.headers["location"]
     assert upsert_called is False
-
-
-def test_instagram_callback_without_saved_client_credentials_fails_clearly(client, monkeypatch):
-    monkeypatch.setattr(
-        credentials_module, "_get_instagram_credentials_row", lambda user_id: None
-    )
-
-    state, cookie_value = credentials_module._sign_oauth_state(42)
-    client.cookies.set("instagram_oauth_state", cookie_value)
-
-    res = client.get(
-        "/credentials/instagram/callback",
-        params={"code": "meta-code-123", "state": state},
-        follow_redirects=False,
-    )
-
-    assert res.status_code == 307
-    assert "instagram=error" in res.headers["location"]
-    assert "missing_client_credentials" in res.headers["location"]
 
 
 def test_instagram_callback_missing_state_redirects_without_saving(client, monkeypatch):

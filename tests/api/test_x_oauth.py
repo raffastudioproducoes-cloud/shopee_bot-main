@@ -1,9 +1,10 @@
 """
 Testes do fluxo OAuth 2.0 + PKCE do X (api/routers/credentials.py).
 
-Mocka a troca de code por token (api/x_oauth.py) e o upsert de
-credencial — cobre o caminho feliz de authorize/callback, mesma
-estrutura de tests/api/test_threads_oauth.py.
+App único da plataforma (migração 2026-09-28 — X_CLIENT_ID/SECRET via
+env, não mais por usuário): mesma estrutura de
+tests/api/test_threads_oauth.py, sem precisar mockar credencial salva
+antes do authorize/callback.
 """
 
 import pytest
@@ -21,41 +22,8 @@ def client():
     return TestClient(app)
 
 
-class _FakeResult:
-    def __init__(self, data):
-        self.data = data
-
-
-def _fake_supabase_row(data):
-    """Monta um stand-in pra `supabase.table(...).select(...).eq(...)
-    .maybe_single().execute()` retornando `data` fixo."""
-
-    class _Chain:
-        def select(self, *a, **kw):
-            return self
-
-        def eq(self, *a, **kw):
-            return self
-
-        def maybe_single(self):
-            return self
-
-        def execute(self):
-            return _FakeResult(data)
-
-    class _Table:
-        def table(self, *a, **kw):
-            return _Chain()
-
-    return _Table()
-
-
 def test_x_authorize_returns_pkce_url_and_sets_state_cookie(client, monkeypatch):
-    monkeypatch.setattr(
-        credentials_module,
-        "supabase",
-        _fake_supabase_row({"app_id": "client-id-123"}),
-    )
+    monkeypatch.setattr(credentials_module.x_oauth, "CLIENT_ID", "client-id-123")
 
     res = client.get("/credentials/x/authorize")
 
@@ -67,27 +35,10 @@ def test_x_authorize_returns_pkce_url_and_sets_state_cookie(client, monkeypatch)
     assert "x_oauth_state" in res.cookies
 
 
-def test_x_authorize_without_saved_app_credential_fails(client, monkeypatch):
-    monkeypatch.setattr(
-        credentials_module, "supabase", _fake_supabase_row(None)
-    )
-    res = client.get("/credentials/x/authorize")
-    assert res.status_code == 400
-
-
 def test_x_callback_success_saves_tokens_and_redirects(client, monkeypatch):
     saved = {}
 
-    monkeypatch.setattr(
-        credentials_module,
-        "supabase",
-        _fake_supabase_row({"app_id": "client-id-123", "secret": "enc-secret"}),
-    )
-    monkeypatch.setattr(credentials_module, "decrypt", lambda v: "plain-secret")
-
-    async def fake_exchange(client_id, client_secret, code, code_verifier):
-        assert client_id == "client-id-123"
-        assert client_secret == "plain-secret"
+    async def fake_exchange(code, code_verifier):
         assert code == "x-code-123"
         assert code_verifier == "verifier-abc"
         return {

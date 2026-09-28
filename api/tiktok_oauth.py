@@ -8,13 +8,14 @@ neste projeto pra código compartilhado entre o Flask antigo e a API nova
 nova dependa de `shopee_bot.utils` (as funções de POST de vídeo de
 `apis/tiktok.py` usam `retry_with_backoff`; as de OAuth aqui, não).
 
-Diferença importante em relação ao Threads: o Client Key/Secret do
-TikTok não é um único app global (THREADS_APP_ID/SECRET via env) — cada
-usuário cadastra seu próprio app no TikTok for Developers e já salvou
-Client Key/Secret via PUT /credentials/tiktok (tabela tiktok_credentials,
-colunas app_id/secret). Por isso as funções aqui recebem client_key/
-client_secret como parâmetro, puxados da credencial do usuário no
-router, em vez de ler de variável de ambiente.
+App único da plataforma (mesmo padrão de api/threads_oauth.py): Rafa
+registra UM app no TikTok for Developers, Client Key/Secret vêm de env
+(TIKTOK_CLIENT_KEY/TIKTOK_CLIENT_SECRET) — usuário final só clica
+"Conectar TikTok" e autoriza, nunca vê nem cola Client Key/Secret de
+app nenhum. Antes disso cada usuário cadastrava o próprio app
+(per-user); migrado pro app único pra simplificar pro usuário leigo
+(decisão + rollout documentados no vault, ver
+Projetos/ShopeeAutoVendas/27-Migracao-App-Unico-OAuth.md).
 
 Só o essencial pro fluxo de login (authorize URL, troca de code por
 token). Publicação de vídeo (Content Posting API) continua exclusiva do
@@ -29,6 +30,8 @@ import httpx
 AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
 TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 CALLBACK_URL = os.environ.get("TIKTOK_CALLBACK_URL")
+CLIENT_KEY = os.environ.get("TIKTOK_CLIENT_KEY")
+CLIENT_SECRET = os.environ.get("TIKTOK_CLIENT_SECRET")
 DEFAULT_SCOPE = os.environ.get(
     "TIKTOK_PERMISSIONS", "user.info.basic,video.publish,video.upload"
 )
@@ -38,7 +41,7 @@ class TikTokOAuthError(Exception):
     pass
 
 
-def get_user_auth_url(client_key: str, state: str) -> str:
+def get_user_auth_url(state: str) -> str:
     # https://developers.tiktok.com/doc/login-kit-web
     #
     # `state` é ecoado pelo TikTok de volta no /callback — usado pelo
@@ -46,7 +49,7 @@ def get_user_auth_url(client_key: str, state: str) -> str:
     # account-linking (evita que um atacante induza a vítima a linkar a
     # conta social DELE à conta da vítima).
     return (
-        f"{AUTH_URL}?client_key={client_key}"
+        f"{AUTH_URL}?client_key={CLIENT_KEY}"
         f"&scope={quote(DEFAULT_SCOPE, safe=',')}"
         "&response_type=code"
         f"&redirect_uri={quote(CALLBACK_URL or '', safe='')}"
@@ -54,9 +57,7 @@ def get_user_auth_url(client_key: str, state: str) -> str:
     )
 
 
-async def get_user_auth_id_token(
-    client_key: str, client_secret: str, code: str
-) -> tuple[str, str | None, str]:
+async def get_user_auth_id_token(code: str) -> tuple[str, str | None, str]:
     """Troca code por (access_token, refresh_token, open_id).
 
     https://developers.tiktok.com/doc/oauth-user-access-token-management
@@ -65,8 +66,8 @@ async def get_user_auth_id_token(
         res = await client.post(
             TOKEN_URL,
             data={
-                "client_key": client_key,
-                "client_secret": client_secret,
+                "client_key": CLIENT_KEY,
+                "client_secret": CLIENT_SECRET,
                 "code": code,
                 "grant_type": "authorization_code",
                 "redirect_uri": CALLBACK_URL,

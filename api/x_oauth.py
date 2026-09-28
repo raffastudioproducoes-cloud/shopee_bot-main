@@ -7,14 +7,15 @@ parâmetros) em vez de importar entre módulos — mesmo padrão de
 `shopee_bot.utils` (apis/x.py importa `retry_with_backoff` no nível do
 módulo só por causa das funções de publicação).
 
-Diferente do Threads (app único da plataforma, client_id/secret em
-env): o X usa um app POR USUÁRIO — cada usuário cadastra seu próprio
-app_id/secret do X Developer Portal (PUT /credentials/x, tabela
-x_credentials). Por isso client_id/client_secret aqui são sempre
-parâmetros passados pelo router, nunca env — só o redirect_uri
-(X_CALLBACK_URL) é fixo, porque é o endpoint do NOSSO backend.
+App único da plataforma (mesmo padrão de api/threads_oauth.py): Rafa
+registra UM app no X Developer Portal, client_id/client_secret vêm de
+env (X_CLIENT_ID/X_CLIENT_SECRET) — o usuário final só clica "Conectar
+X" e autoriza, nunca vê nem cola client_id/secret de app nenhum. Antes
+disso cada usuário cadastrava o próprio app (per-user); migrado pro app
+único pra simplificar pro usuário leigo (decisão + rollout documentados
+no vault, ver Projetos/ShopeeAutoVendas/27-Migracao-App-Unico-OAuth.md).
 
-BLOQUEIO EXTERNO: o app do X correspondente precisa ter "User
+BLOQUEIO EXTERNO: o app do X (o ÚNICO, de Rafa) precisa ter "User
 authentication settings" (OAuth 2.0) habilitado no X Developer Portal,
 com o redirect URI abaixo cadastrado — e pode exigir tier pago
 dependendo do volume de posts. Sem isso, exchange_code_for_token /
@@ -33,6 +34,8 @@ import httpx
 AUTH_URL = "https://twitter.com/i/oauth2/authorize"
 TOKEN_URL = "https://api.twitter.com/2/oauth2/token"
 CALLBACK_URL = os.environ.get("X_CALLBACK_URL")
+CLIENT_ID = os.environ.get("X_CLIENT_ID")
+CLIENT_SECRET = os.environ.get("X_CLIENT_SECRET")
 DEFAULT_SCOPES = "tweet.read tweet.write users.read offline.access"
 
 
@@ -48,12 +51,10 @@ def generate_pkce_pair() -> tuple[str, str]:
     return code_verifier, code_challenge
 
 
-def get_user_auth_url(
-    client_id: str, code_challenge: str, state: str, scopes: str = DEFAULT_SCOPES
-) -> str:
+def get_user_auth_url(code_challenge: str, state: str, scopes: str = DEFAULT_SCOPES) -> str:
     params = {
         "response_type": "code",
-        "client_id": client_id,
+        "client_id": CLIENT_ID,
         "redirect_uri": CALLBACK_URL,
         "scope": scopes,
         "state": state,
@@ -63,24 +64,22 @@ def get_user_auth_url(
     return f"{AUTH_URL}?{urlencode(params)}"
 
 
-def _basic_auth_header(client_id: str, client_secret: str) -> dict:
-    credentials = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+def _basic_auth_header() -> dict:
+    credentials = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
     return {"Authorization": f"Basic {credentials}"}
 
 
-async def exchange_code_for_token(
-    client_id: str, client_secret: str, code: str, code_verifier: str
-) -> dict:
+async def exchange_code_for_token(code: str, code_verifier: str) -> dict:
     headers = {
         "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        **_basic_auth_header(client_id, client_secret),
+        **_basic_auth_header(),
     }
     body = {
         "grant_type": "authorization_code",
         "code": code,
         "redirect_uri": CALLBACK_URL,
         "code_verifier": code_verifier,
-        "client_id": client_id,
+        "client_id": CLIENT_ID,
     }
     async with httpx.AsyncClient(timeout=15) as client:
         res = await client.post(TOKEN_URL, headers=headers, data=body)
@@ -91,17 +90,15 @@ async def exchange_code_for_token(
     return res.json()
 
 
-async def refresh_access_token(
-    client_id: str, client_secret: str, refresh_token: str
-) -> dict:
+async def refresh_access_token(refresh_token: str) -> dict:
     headers = {
         "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        **_basic_auth_header(client_id, client_secret),
+        **_basic_auth_header(),
     }
     body = {
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
-        "client_id": client_id,
+        "client_id": CLIENT_ID,
     }
     async with httpx.AsyncClient(timeout=15) as client:
         res = await client.post(TOKEN_URL, headers=headers, data=body)

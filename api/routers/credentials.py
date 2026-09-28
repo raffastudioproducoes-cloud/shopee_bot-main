@@ -37,14 +37,28 @@ from ..internal_client import (
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
-# Redes com o mesmo formato de credencial: app_id + secret.
+# Redes onde o usuário final ainda cola App ID/Secret manual (formulário):
+# Shopee (é a conta de afiliado do PRÓPRIO usuário, não um "app" — não dá
+# pra virar app único sem trocar de dono a comissão), Facebook (ainda sem
+# OAuth, ver bloqueio em apis/facebook.py) e Kwai (sem API pública).
+# X/TikTok/Instagram SAÍRAM daqui — app único da plataforma (env vars),
+# usuário só clica "Conectar" (ver api/x_oauth.py, api/tiktok_oauth.py,
+# api/instagram_oauth.py e vault Projetos/ShopeeAutoVendas/
+# 27-Migracao-App-Unico-OAuth.md).
 SIMPLE_NETWORKS = {
     "shopee": "shopee_credentials",
-    "x": "x_credentials",
     "facebook": "facebook_credentials",
-    "instagram": "instagram_credentials",
-    "tiktok": "tiktok_credentials",
     "kwai": "kwai_credentials",
+}
+
+# Redes com OAuth de app único: tabela + coluna que guarda o token do
+# usuário (usada tanto por list_credentials quanto por _test_payload pra
+# decidir "conectado" e montar o payload de teste).
+OAUTH_NETWORKS = {
+    "threads": ("threads_credentials", "access_token"),
+    "x": ("x_credentials", "user_access_token"),
+    "tiktok": ("tiktok_credentials", "user_access_token"),
+    "instagram": ("instagram_credentials", "user_access_token"),
 }
 
 
@@ -203,30 +217,25 @@ async def list_credentials(user_id: int = Depends(get_current_user_id)):
 
     result: dict[str, dict] = {}
 
-    # TikTok e Instagram reusam a tabela SIMPLE_NETWORKS pra guardar tanto o
-    # app_id/secret do app (Client Key/Secret, App ID/Secret) quanto o token
-    # OAuth do usuário — "conectado" tem que significar "tem token", não "app_id
-    # salvo" (ver docstring de _status_only).
-    OAUTH_TOKEN_FIELD = {"tiktok": "user_access_token", "instagram": "user_access_token"}
-
     for network, table in SIMPLE_NETWORKS.items():
-        token_field = OAUTH_TOKEN_FIELD.get(network)
-        select_fields = f"status, {token_field}" if token_field else "status"
         row = (
-            supabase.table(table).select(select_fields).eq("user_id", user_id)
+            supabase.table(table).select("status").eq("user_id", user_id)
+            .maybe_single().execute()
+        )
+        result[network] = _status_only(row.data if row else None, checks_by_network.get(network))
+
+    # Threads/X/TikTok/Instagram são OAuth de app único: "conectado" tem que
+    # significar "tem token de usuário", não "status" (que no caso do
+    # Threads é setado junto com o token, mas nas outras 3 não existe mais
+    # nenhum campo além do token — ver OAUTH_NETWORKS acima).
+    for network, (table, token_field) in OAUTH_NETWORKS.items():
+        row = (
+            supabase.table(table).select(f"status, {token_field}").eq("user_id", user_id)
             .maybe_single().execute()
         )
         result[network] = _status_only(
             row.data if row else None, checks_by_network.get(network), token_field=token_field
         )
-
-    threads_row = (
-        supabase.table("threads_credentials").select("status")
-        .eq("user_id", user_id).maybe_single().execute()
-    )
-    result["threads"] = _status_only(
-        threads_row.data if threads_row else None, checks_by_network.get("threads")
-    )
 
     if not is_admin:
         for status in result.values():
@@ -339,17 +348,6 @@ async def threads_callback(
     return _redirect("threads=success")
 
 
-def _get_instagram_credentials_row(user_id: int) -> dict | None:
-    """Busca app_id/secret (App ID/Secret do Meta for Developers) já
-    salvos pelo usuário. Mesmo padrão de `_get_tiktok_credentials_row`
-    — isolado em função própria pra dar pra mockar em teste."""
-    row = (
-        supabase.table("instagram_credentials").select("app_id, secret")
-        .eq("user_id", user_id).maybe_single().execute()
-    )
-    return row.data if row and row.data else None
-
-
 @router.get("/instagram/authorize")
 async def instagram_authorize(
     response: Response,
@@ -359,21 +357,11 @@ async def instagram_authorize(
     API não tem OAuth próprio, publica via conta Business/Creator vinculada
     a uma Página do Facebook (ver api/instagram_oauth.py).
 
-    Igual ao TikTok: o App ID não é um único app global via env — cada
-    usuário cadastra seu próprio app no Meta for Developers e salva via
-    PUT /credentials/instagram (tabela instagram_credentials) antes de
-    poder conectar.
+    App único da plataforma (INSTAGRAM_APP_ID/SECRET via env) — não
+    depende de nenhuma credencial salva pelo usuário antes de conectar.
 
     Gera `state` + cookie httponly assinado (CSRF binding do
     account-linking, 10 min) pro /callback validar."""
-    creds = _get_instagram_credentials_row(user_id)
-    app_id = creds.get("app_id") if creds else None
-    if not app_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Salve o App ID/Secret do Instagram antes de conectar.",
-        )
-
     state, cookie_value = _sign_oauth_state(user_id)
 
     response.set_cookie(
@@ -384,7 +372,7 @@ async def instagram_authorize(
         samesite="lax",
         max_age=600,
     )
-    return {"url": instagram_oauth.get_user_auth_url(app_id, state)}
+    return {"url": instagram_oauth.get_user_auth_url(state)}
 
 
 @router.get("/instagram/callback")
@@ -421,14 +409,8 @@ async def instagram_callback(
     if not _verify_oauth_state(request, _INSTAGRAM_OAUTH_COOKIE, state, user_id):
         return _redirect("instagram=error&message=invalid_state")
 
-    creds = _get_instagram_credentials_row(user_id)
-    if not creds or not creds.get("app_id") or not creds.get("secret"):
-        return _redirect("instagram=error&message=missing_client_credentials")
-
     try:
-        ig_user_id, access_token = await instagram_oauth.get_user_auth_id_token(
-            creds["app_id"], decrypt(creds["secret"]), code
-        )
+        ig_user_id, access_token = await instagram_oauth.get_user_auth_id_token(code)
     except instagram_oauth.InstagramOAuthError:
         return _redirect("instagram=error&message=oauth_failed")
 
@@ -441,19 +423,20 @@ async def instagram_callback(
     return _redirect("instagram=success")
 
 
-def _get_tiktok_credentials_row(user_id: int) -> dict | None:
-    """Busca app_id/secret (Client Key/Secret) já salvos pelo usuário.
-
-    Isolado em função própria (em vez de chamar supabase.table(...)
-    direto dentro dos endpoints) pra dar pra mockar em teste sem
-    precisar de um Supabase de verdade — mesmo padrão de
-    `_upsert_by_user` usado nos testes do Threads.
-    """
-    row = (
-        supabase.table("tiktok_credentials").select("app_id, secret")
-        .eq("user_id", user_id).maybe_single().execute()
+@router.delete("/instagram")
+async def delete_instagram_credential(user_id: int = Depends(get_current_user_id)):
+    """Rota literal registrada ANTES de "/{network}" (ver docstring de
+    save_threads_credential) — instagram saiu de SIMPLE_NETWORKS, então o
+    handler genérico de DELETE não cobre mais essa rede."""
+    result = (
+        supabase.table("instagram_credentials")
+        .update({"user_access_token": None, "ig_user_id": None, "status": False})
+        .eq("user_id", user_id)
+        .execute()
     )
-    return row.data if row and row.data else None
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Credencial não encontrada")
+    return {"connected": False}
 
 
 @router.get("/tiktok/authorize")
@@ -463,23 +446,13 @@ async def tiktok_authorize(
 ):
     """URL de autorização do TikTok Login Kit.
 
-    Diferente do Threads/Instagram: o Client Key não é um único app
-    global via env — cada usuário cadastra seu próprio app no TikTok
-    for Developers e salva Client Key/Secret via PUT /credentials/tiktok
-    (tabela tiktok_credentials, colunas app_id/secret) antes de poder
-    conectar. Ver docstring de api/tiktok_oauth.py.
+    App único da plataforma (TIKTOK_CLIENT_KEY/SECRET via env) — não
+    depende de nenhuma credencial salva pelo usuário antes de conectar.
+    Ver docstring de api/tiktok_oauth.py.
 
     Gera `state` + cookie httponly assinado (CSRF binding do
     account-linking, 10 min) pro /callback validar.
     """
-    creds = _get_tiktok_credentials_row(user_id)
-    app_id = creds.get("app_id") if creds else None
-    if not app_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Salve o Client Key/Secret da TikTok antes de conectar.",
-        )
-
     state, cookie_value = _sign_oauth_state(user_id)
 
     response.set_cookie(
@@ -490,7 +463,7 @@ async def tiktok_authorize(
         samesite="lax",
         max_age=600,
     )
-    return {"url": tiktok_oauth.get_user_auth_url(app_id, state)}
+    return {"url": tiktok_oauth.get_user_auth_url(state)}
 
 
 @router.get("/tiktok/callback")
@@ -526,14 +499,8 @@ async def tiktok_callback(
     if not _verify_oauth_state(request, _TIKTOK_OAUTH_COOKIE, state, user_id):
         return _redirect("tiktok=error&message=invalid_state")
 
-    creds = _get_tiktok_credentials_row(user_id)
-    if not creds or not creds.get("app_id") or not creds.get("secret"):
-        return _redirect("tiktok=error&message=missing_client_credentials")
-
     try:
-        access_token, refresh_token, open_id = await tiktok_oauth.get_user_auth_id_token(
-            creds["app_id"], decrypt(creds["secret"]), code
-        )
+        access_token, refresh_token, open_id = await tiktok_oauth.get_user_auth_id_token(code)
     except tiktok_oauth.TikTokOAuthError:
         return _redirect("tiktok=error&message=oauth_failed")
 
@@ -547,6 +514,22 @@ async def tiktok_callback(
     return _redirect("tiktok=success")
 
 
+@router.delete("/tiktok")
+async def delete_tiktok_credential(user_id: int = Depends(get_current_user_id)):
+    """Rota literal registrada ANTES de "/{network}" — tiktok saiu de
+    SIMPLE_NETWORKS, então o handler genérico de DELETE não cobre mais
+    essa rede (ver docstring de delete_instagram_credential)."""
+    result = (
+        supabase.table("tiktok_credentials")
+        .update({"user_access_token": None, "refresh_token": None, "open_id": None, "status": False})
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Credencial não encontrada")
+    return {"connected": False}
+
+
 @router.get("/x/authorize")
 async def x_authorize(
     response: Response,
@@ -554,23 +537,11 @@ async def x_authorize(
 ):
     """URL de autorização OAuth 2.0 + PKCE do X.
 
-    Igual ao TikTok: o app_id/secret não é um único app global via env
-    — cada usuário cadastra seu próprio app no X Developer Portal e
-    salva via PUT /credentials/x (tabela x_credentials) antes de poder
-    conectar. PKCE exige guardar o code_verifier gerado aqui até o
-    /callback: vai num cookie httponly assinado (10 min).
+    App único da plataforma (X_CLIENT_ID/SECRET via env) — não depende
+    de nenhuma credencial salva pelo usuário antes de conectar. PKCE
+    exige guardar o code_verifier gerado aqui até o /callback: vai num
+    cookie httponly assinado (10 min).
     """
-    row = (
-        supabase.table("x_credentials").select("app_id")
-        .eq("user_id", user_id).maybe_single().execute()
-    )
-    app_id = row.data.get("app_id") if row and row.data else None
-    if not app_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Salve o app_id/secret do X antes de conectar.",
-        )
-
     code_verifier, code_challenge = x_oauth.generate_pkce_pair()
     state, cookie_value = _sign_oauth_state(user_id, {"code_verifier": code_verifier})
 
@@ -582,7 +553,7 @@ async def x_authorize(
         samesite="lax",
         max_age=600,
     )
-    return {"url": x_oauth.get_user_auth_url(app_id, code_challenge, state)}
+    return {"url": x_oauth.get_user_auth_url(code_challenge, state)}
 
 
 @router.get("/x/callback")
@@ -620,21 +591,8 @@ async def x_callback(
     if not oauth_state:
         return _redirect("x=error&message=invalid_state")
 
-    row = (
-        supabase.table("x_credentials").select("app_id, secret")
-        .eq("user_id", user_id).maybe_single().execute()
-    )
-    creds = row.data if row and row.data else None
-    if not creds or not creds.get("app_id") or not creds.get("secret"):
-        return _redirect("x=error&message=missing_client_credentials")
-
     try:
-        token_data = await x_oauth.exchange_code_for_token(
-            creds["app_id"],
-            decrypt(creds["secret"]),
-            code,
-            oauth_state["code_verifier"],
-        )
+        token_data = await x_oauth.exchange_code_for_token(code, oauth_state["code_verifier"])
     except x_oauth.XOAuthError:
         return _redirect("x=error&message=oauth_failed")
 
@@ -651,6 +609,27 @@ async def x_callback(
     return _redirect("x=success")
 
 
+@router.delete("/x")
+async def delete_x_credential(user_id: int = Depends(get_current_user_id)):
+    """Rota literal registrada ANTES de "/{network}" — x saiu de
+    SIMPLE_NETWORKS, então o handler genérico de DELETE não cobre mais
+    essa rede (ver docstring de delete_instagram_credential)."""
+    result = (
+        supabase.table("x_credentials")
+        .update({
+            "user_access_token": None,
+            "user_refresh_token": None,
+            "token_expires_at": None,
+            "status": False,
+        })
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Credencial não encontrada")
+    return {"connected": False}
+
+
 def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
     """Mesma regra de api/routers/users.py — "Testar conexão" é admin-only,
     a luz do sinalizador (GET /credentials acima) continua visível pra
@@ -664,7 +643,17 @@ def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
     return user_id
 
 
-_TEST_NETWORKS = {**SIMPLE_NETWORKS, "threads": "threads_credentials"}
+_TEST_NETWORKS = {**SIMPLE_NETWORKS, **{n: t for n, (t, _) in OAUTH_NETWORKS.items()}}
+
+# App único da plataforma pra cada rede OAuth — app_id/secret vêm de env
+# (ver api/x_oauth.py, api/tiktok_oauth.py, api/instagram_oauth.py), não
+# mais da credencial do usuário. Threads não entra aqui: seu teste só
+# usa o access_token (ver ramo dedicado abaixo).
+_OAUTH_GLOBAL_APP = {
+    "x": (x_oauth.CLIENT_ID, x_oauth.CLIENT_SECRET),
+    "tiktok": (tiktok_oauth.CLIENT_KEY, tiktok_oauth.CLIENT_SECRET),
+    "instagram": (instagram_oauth.APP_ID, instagram_oauth.SECRET),
+}
 
 
 def _test_payload(network: str, user_id: int) -> dict | None:
@@ -686,11 +675,26 @@ def _test_payload(network: str, user_id: int) -> dict | None:
             return None
         return {"access_token": decrypt(data["access_token"])}
 
+    if network in _OAUTH_GLOBAL_APP:
+        app_id, secret = _OAUTH_GLOBAL_APP[network]
+        if not app_id or not secret:
+            # App único ainda não configurado no servidor (env var
+            # ausente) — nada a testar, mesmo efeito de "credencial não
+            # salva" pro usuário (luz fica vermelha).
+            return None
+        row = (
+            supabase.table(table).select("user_access_token")
+            .eq("user_id", user_id).maybe_single().execute()
+        )
+        token = row.data.get("user_access_token") if row and row.data else None
+        payload: dict = {"app_id": app_id, "secret": secret}
+        if token:
+            payload["user_access_token"] = decrypt(token)
+        return payload
+
     fields = "app_id, secret"
     if network == "facebook":
         fields += ", page_id"
-    if network in ("x", "instagram", "tiktok"):
-        fields += ", user_access_token"
 
     row = (
         supabase.table(table).select(fields)
@@ -700,11 +704,9 @@ def _test_payload(network: str, user_id: int) -> dict | None:
     if not data or not data.get("app_id") or not data.get("secret"):
         return None
 
-    payload: dict = {"app_id": data["app_id"], "secret": decrypt(data["secret"])}
+    payload = {"app_id": data["app_id"], "secret": decrypt(data["secret"])}
     if network == "facebook":
         payload["page_id"] = data.get("page_id")
-    if network in ("x", "instagram", "tiktok") and data.get("user_access_token"):
-        payload["user_access_token"] = decrypt(data["user_access_token"])
     return payload
 
 
@@ -753,11 +755,12 @@ async def save_credential(
     """Cria ou atualiza a credencial (update-or-insert por user_id). Cifra o secret."""
     table = _simple_table(network)
 
-    # .strip(): copiar/colar do painel da rede (Meta for Developers, TikTok
-    # for Developers, etc.) facilmente traz espaço em branco líder/de trás —
-    # isso quebra client_key=/client_id= na URL de autorização OAuth sem
-    # nenhum erro visível (bug encontrado em produção no TikTok). Aplicado
-    # aqui pra TODAS as redes de SIMPLE_NETWORKS, não só a que apareceu.
+    # .strip(): copiar/colar do painel da rede (Shopee Affiliate, Meta for
+    # Developers) facilmente traz espaço em branco líder/de trás — isso
+    # quebra client_id=/app_id= sem nenhum erro visível (bug encontrado em
+    # produção no TikTok, quando ainda era per-user; mantido aqui porque
+    # Shopee/Facebook continuam colados à mão). Aplicado a TODAS as redes
+    # de SIMPLE_NETWORKS.
     app_id = body.app_id.strip()
     secret = body.secret.strip()
 
@@ -791,19 +794,14 @@ async def delete_credential(
 ):
     """Desconecta (zera app_id/secret, status=False) — não apaga a linha.
 
-    TikTok/Instagram também guardam o token OAuth nesta mesma linha — sem
-    zerar isso aqui, "Desconectar" deixava o token antigo pra trás e (após o
-    fix de `_status_only`/list_credentials usar o token, não `status`, pra
-    decidir "conectado") o card continuaria mostrando Conectado depois do
-    clique."""
+    Só cobre SIMPLE_NETWORKS (shopee/facebook/kwai) — x/tiktok/instagram
+    têm DELETE dedicado (delete_x_credential/delete_tiktok_credential/
+    delete_instagram_credential, registrados antes desta rota) porque
+    saíram de SIMPLE_NETWORKS na migração pro app único."""
     table = _simple_table(network)
     update_data = {"app_id": None, "secret": None, "status": False}
     if network == "facebook":
         update_data["page_id"] = None
-    if network == "tiktok":
-        update_data.update({"user_access_token": None, "refresh_token": None, "open_id": None})
-    if network == "instagram":
-        update_data.update({"user_access_token": None, "ig_user_id": None})
     result = (
         supabase.table(table)
         .update(update_data)

@@ -98,7 +98,7 @@ class TestSaveCredentialStripsWhitespace:
         monkeypatch.setattr(credentials_module, "_upsert_by_user", fake_upsert)
 
         res = auth_client.put(
-            "/credentials/x",
+            "/credentials/kwai",
             json={"app_id": " app-with-space ", "secret": " secret-with-space "},
         )
 
@@ -129,3 +129,59 @@ class TestTestConnectionAdminGate:
         _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None])
         res = auth_client.post("/credentials/shopee/test")
         assert res.status_code == 400
+
+    def test_admin_test_x_without_global_app_configured_returns_400(self, monkeypatch, auth_client):
+        """X_CLIENT_ID/SECRET não setados no ambiente (caso comum em dev/CI)
+        — nada a testar, mesmo que o usuário já tenha token OAuth salvo."""
+        from api.routers import credentials as credentials_module
+
+        monkeypatch.setattr(credentials_module.x_oauth, "CLIENT_ID", None)
+        monkeypatch.setattr(credentials_module.x_oauth, "CLIENT_SECRET", None)
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}])
+        res = auth_client.post("/credentials/x/test")
+        assert res.status_code == 400
+
+
+class TestSimpleNetworksNoLongerAcceptXTiktokInstagram:
+    """x/tiktok/instagram saíram de SIMPLE_NETWORKS na migração pro app
+    único (2026-09-28) — o formulário manual de App ID/Secret não existe
+    mais pra essas 3 redes, só o botão "Conectar" (authorize/callback)."""
+
+    @pytest.mark.parametrize("network", ["x", "tiktok", "instagram"])
+    def test_put_rejects_manual_app_id_secret(self, auth_client, network):
+        res = auth_client.put(
+            f"/credentials/{network}",
+            json={"app_id": "a", "secret": "s"},
+        )
+        assert res.status_code == 404
+
+
+class TestDedicatedOAuthDeleteEndpoints:
+    """x/tiktok/instagram têm DELETE dedicado (zeram token OAuth) desde
+    que saíram do handler genérico de SIMPLE_NETWORKS."""
+
+    def test_delete_x_zeroes_oauth_token_fields(self, monkeypatch, auth_client):
+        query = _mock_supabase(monkeypatch, [{"id": 1, "status": False}])
+        res = auth_client.delete("/credentials/x")
+        assert res.status_code == 200
+        assert res.json() == {"connected": False}
+        update_data = query.update.call_args[0][0]
+        assert update_data["user_access_token"] is None
+        assert update_data["status"] is False
+
+    def test_delete_tiktok_zeroes_oauth_token_fields(self, monkeypatch, auth_client):
+        query = _mock_supabase(monkeypatch, [{"id": 1, "status": False}])
+        res = auth_client.delete("/credentials/tiktok")
+        assert res.status_code == 200
+        update_data = query.update.call_args[0][0]
+        assert update_data["user_access_token"] is None
+        assert update_data["refresh_token"] is None
+        assert update_data["open_id"] is None
+
+    def test_delete_instagram_zeroes_oauth_token_fields(self, monkeypatch, auth_client):
+        query = _mock_supabase(monkeypatch, [{"id": 1, "status": False}])
+        res = auth_client.delete("/credentials/instagram")
+        assert res.status_code == 200
+        update_data = query.update.call_args[0][0]
+        assert update_data["user_access_token"] is None
+        assert update_data["ig_user_id"] is None

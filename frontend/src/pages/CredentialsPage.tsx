@@ -520,24 +520,11 @@ function XCredentialCard({
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
-  const [appId, setAppId] = useState("")
-  const [secret, setSecret] = useState("")
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeX(),
     onSuccess: ({ url }) => {
       window.location.href = url
-    },
-    onError: onAuthError,
-  })
-
-  const saveMutation = useMutation({
-    mutationFn: () => credentialsApi.save("x", appId, secret),
-    onSuccess: () => {
-      setAppId("")
-      setSecret("")
-      setBanner({ ok: true, text: "App ID/Secret do X salvos." })
-      onSaved()
     },
     onError: onAuthError,
   })
@@ -570,67 +557,36 @@ function XCredentialCard({
 
       <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
         <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
-          Salve o App ID/Secret do seu app no X Developer Portal e depois conecte via OAuth.
+          Conecte sua conta do X com um clique — nenhuma configuração técnica necessária.
         </p>
 
-        <Button
-          type="button"
-          variant="primary"
-          disabled={authorizeMutation.isPending}
-          onClick={() => authorizeMutation.mutate()}
-          style={{ alignSelf: "flex-start" }}
-        >
-          {authorizeMutation.isPending ? "Conectando..." : "Conectar X"}
-        </Button>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            saveMutation.mutate()
-          }}
-          style={{ display: "flex", flexDirection: "column", gap: 12 }}
-        >
-          <div style={FIELD_GRID}>
-            <TextInput
-              label="App ID"
-              value={appId}
-              onChange={(e) => setAppId(e.target.value)}
-              placeholder="APP ID"
-              required
-            />
-            <TextInput
-              label="Secret"
-              type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder="Secret"
-              autoComplete="off"
-              required
-            />
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            {connected && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate()}
-                style={{ color: "var(--red-300)" }}
-              >
-                {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
-              </Button>
-            )}
-            <Button type="submit" variant="primary" disabled={saveMutation.isPending || !appId || !secret}>
-              {saveMutation.isPending ? "Salvando..." : "Salvar"}
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={authorizeMutation.isPending}
+            onClick={() => authorizeMutation.mutate()}
+          >
+            {authorizeMutation.isPending ? "Conectando..." : connected ? "Reconectar X" : "Conectar X"}
+          </Button>
+          {connected && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+              style={{ color: "var(--red-300)" }}
+            >
+              {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
             </Button>
-          </div>
-        </form>
+          )}
+        </div>
       </div>
     </Panel>
   )
 }
 
-// ── Card do TikTok (Client Key/Secret + OAuth) ──────────────────────────────────
+// ── Card do TikTok (OAuth de app único — clicar "Conectar TikTok") ──────────────
 
 function TikTokCredentialCard({
   status,
@@ -646,24 +602,11 @@ function TikTokCredentialCard({
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
-  const [appId, setAppId] = useState("")
-  const [secret, setSecret] = useState("")
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeTiktok(),
     onSuccess: ({ url }) => {
       window.location.href = url
-    },
-    onError: onAuthError,
-  })
-
-  const saveMutation = useMutation({
-    mutationFn: () => credentialsApi.save("tiktok", appId, secret),
-    onSuccess: () => {
-      setAppId("")
-      setSecret("")
-      setBanner({ ok: true, text: "Client Key/Secret do TikTok salvos." })
-      onSaved()
     },
     onError: onAuthError,
   })
@@ -696,67 +639,36 @@ function TikTokCredentialCard({
 
       <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
         <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
-          Salve o Client Key/Secret do seu app TikTok for Developers e depois conecte via OAuth.
+          Conecte sua conta do TikTok com um clique — nenhuma configuração técnica necessária.
         </p>
 
-        <Button
-          type="button"
-          variant="primary"
-          disabled={authorizeMutation.isPending}
-          onClick={() => authorizeMutation.mutate()}
-          style={{ alignSelf: "flex-start" }}
-        >
-          {authorizeMutation.isPending ? "Conectando..." : "Conectar TikTok"}
-        </Button>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            saveMutation.mutate()
-          }}
-          style={{ display: "flex", flexDirection: "column", gap: 12 }}
-        >
-          <div style={FIELD_GRID}>
-            <TextInput
-              label="Client Key"
-              value={appId}
-              onChange={(e) => setAppId(e.target.value)}
-              placeholder="Client Key"
-              required
-            />
-            <TextInput
-              label="Client Secret"
-              type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder="Client Secret"
-              autoComplete="off"
-              required
-            />
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            {connected && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate()}
-                style={{ color: "var(--red-300)" }}
-              >
-                {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
-              </Button>
-            )}
-            <Button type="submit" variant="primary" disabled={saveMutation.isPending || !appId || !secret}>
-              {saveMutation.isPending ? "Salvando..." : "Salvar"}
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={authorizeMutation.isPending}
+            onClick={() => authorizeMutation.mutate()}
+          >
+            {authorizeMutation.isPending ? "Conectando..." : connected ? "Reconectar TikTok" : "Conectar TikTok"}
+          </Button>
+          {connected && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+              style={{ color: "var(--red-300)" }}
+            >
+              {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
             </Button>
-          </div>
-        </form>
+          )}
+        </div>
       </div>
     </Panel>
   )
 }
 
-// ── Card do Instagram (App ID/Secret + Facebook Login for Business) ────────────
+// ── Card do Instagram (OAuth de app único via Facebook Login for Business) ─────
 
 function InstagramCredentialCard({
   status,
@@ -772,24 +684,11 @@ function InstagramCredentialCard({
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
-  const [appId, setAppId] = useState("")
-  const [secret, setSecret] = useState("")
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeInstagram(),
     onSuccess: ({ url }) => {
       window.location.href = url
-    },
-    onError: onAuthError,
-  })
-
-  const saveMutation = useMutation({
-    mutationFn: () => credentialsApi.save("instagram", appId, secret),
-    onSuccess: () => {
-      setAppId("")
-      setSecret("")
-      setBanner({ ok: true, text: "App ID/Secret do Instagram salvos." })
-      onSaved()
     },
     onError: onAuthError,
   })
@@ -823,61 +722,30 @@ function InstagramCredentialCard({
       <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
         <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
           Publicar exige uma conta Business/Creator vinculada a uma Página do Facebook — conecte
-          via Facebook Login for Business, ou salve o App ID/Secret do app Meta abaixo.
+          com um clique, nenhuma configuração técnica necessária.
         </p>
 
-        <Button
-          type="button"
-          variant="primary"
-          disabled={authorizeMutation.isPending}
-          onClick={() => authorizeMutation.mutate()}
-          style={{ alignSelf: "flex-start" }}
-        >
-          {authorizeMutation.isPending ? "Conectando..." : "Conectar Instagram"}
-        </Button>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            saveMutation.mutate()
-          }}
-          style={{ display: "flex", flexDirection: "column", gap: 12 }}
-        >
-          <div style={FIELD_GRID}>
-            <TextInput
-              label="App ID"
-              value={appId}
-              onChange={(e) => setAppId(e.target.value)}
-              placeholder="APP ID"
-              required
-            />
-            <TextInput
-              label="Secret"
-              type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder="Secret"
-              autoComplete="off"
-              required
-            />
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            {connected && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate()}
-                style={{ color: "var(--red-300)" }}
-              >
-                {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
-              </Button>
-            )}
-            <Button type="submit" variant="primary" disabled={saveMutation.isPending || !appId || !secret}>
-              {saveMutation.isPending ? "Salvando..." : "Salvar"}
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={authorizeMutation.isPending}
+            onClick={() => authorizeMutation.mutate()}
+          >
+            {authorizeMutation.isPending ? "Conectando..." : connected ? "Reconectar Instagram" : "Conectar Instagram"}
+          </Button>
+          {connected && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+              style={{ color: "var(--red-300)" }}
+            >
+              {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
             </Button>
-          </div>
-        </form>
+          )}
+        </div>
       </div>
     </Panel>
   )
