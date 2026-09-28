@@ -22,6 +22,17 @@ def client():
     return TestClient(app)
 
 
+def test_tiktok_domain_verification_file_is_public_and_unauthenticated(client):
+    """Arquivo de verificação de domínio do TikTok Login Kit — precisa ser
+    acessível sem login (o crawler do TikTok não manda cookie nenhum)."""
+    app.dependency_overrides.clear()  # sem override de auth nenhum
+    res = TestClient(app).get(
+        "/credentials/tiktok/callback/tiktokiuKagbtH1lO37DxIynSn02EABvEKz1PM.txt"
+    )
+    assert res.status_code == 200
+    assert res.text == "tiktok-developers-site-verification=iuKagbtH1lO37DxIynSn02EABvEKz1PM"
+
+
 def test_tiktok_authorize_returns_url_and_sets_state_cookie(client, monkeypatch):
     monkeypatch.setattr(credentials_module.tiktok_oauth, "CLIENT_KEY", "client-key-123")
 

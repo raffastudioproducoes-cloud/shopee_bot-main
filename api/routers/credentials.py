@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 
 from .auth import get_current_user_id
@@ -437,6 +437,23 @@ async def delete_instagram_credential(user_id: int = Depends(get_current_user_id
     if not result.data:
         raise HTTPException(status_code=404, detail="Credencial não encontrada")
     return {"connected": False}
+
+
+# Verificação de propriedade de domínio pro TikTok Login Kit ("Verify URL
+# prefix" no painel TikTok for Developers, app 7690297968163031048): o
+# TikTok exige hospedar um arquivo com esse nome exato, nesse caminho
+# exato (dentro do prefixo /credentials/tiktok/callback/ que registramos
+# como redirect URI), antes de aceitar o app em modo produção — sem isso
+# o "Conectar TikTok" nunca sai do modo Sandbox. Conteúdo gerado pelo
+# próprio painel TikTok, não é segredo (só prova que o domínio é nosso).
+# Rota registrada ANTES de /tiktok/callback e /tiktok/authorize — tem um
+# segmento a mais no path (o nome do arquivo), então não conflita com
+# nenhuma das duas, mas mantido perto por contexto.
+@router.get("/tiktok/callback/tiktokiuKagbtH1lO37DxIynSn02EABvEKz1PM.txt")
+async def tiktok_domain_verification():
+    return PlainTextResponse(
+        "tiktok-developers-site-verification=iuKagbtH1lO37DxIynSn02EABvEKz1PM"
+    )
 
 
 @router.get("/tiktok/authorize")
