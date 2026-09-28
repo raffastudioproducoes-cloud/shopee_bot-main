@@ -7,6 +7,8 @@ import { ListasPage } from "./pages/ListasPage"
 import { PostsPage } from "./pages/PostsPage"
 import { CredentialsPage } from "./pages/CredentialsPage"
 import { UsersPage } from "./pages/UsersPage"
+import { TermsPage } from "./pages/legal/TermsPage"
+import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage"
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -16,6 +18,21 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   component: LoginPage,
+})
+
+// Rotas públicas (sem guard de autenticação, mesmo padrão de /login) exigidas
+// pela revisão de app OAuth do X/Meta/TikTok — precisam ser acessíveis sem
+// login.
+const termsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/termos",
+  component: TermsPage,
+})
+
+const privacyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/privacidade",
+  component: PrivacyPolicyPage,
 })
 
 // Layout route (no URL segment): renders the sidebar shell around every
@@ -64,6 +81,8 @@ const usersRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
+  termsRoute,
+  privacyRoute,
   panelRoute.addChildren([
     dashboardRoute,
     productsRoute,
