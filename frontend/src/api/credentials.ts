@@ -69,6 +69,10 @@ export const credentialsApi = {
     return api.get<{ url: string }>('/credentials/instagram/authorize')
   },
 
+  async authorizeX(): Promise<{ url: string }> {
+    return api.get<{ url: string }>('/credentials/x/authorize')
+  },
+
   /** "Testar conexão" — admin-only no backend (403 pra quem não é ADMIN). */
   async testConnection(network: SimpleNetwork | 'threads'): Promise<TestConnectionResult> {
     return api.post<TestConnectionResult>(`/credentials/${network}/test`, undefined)

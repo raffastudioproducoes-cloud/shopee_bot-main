@@ -84,8 +84,18 @@ def _light_for(connected: bool, check: dict | None) -> str:
     return "green" if check.get("state") == "ok" else "yellow"
 
 
-def _status_only(row: dict | None, check: dict | None = None) -> dict:
-    connected = bool(row.get("status")) if row else False
+def _status_only(row: dict | None, check: dict | None = None, *, token_field: str | None = None) -> dict:
+    """`token_field`: pra redes onde `status` é setado por PUT /credentials/{network}
+    (só salva app_id/secret do app — TikTok Client Key/Secret, Instagram App ID/
+    Secret) mas a conexão real só existe depois do OAuth (authorize/callback).
+    Usar `status` nesses casos reporta "Conectado" com o app_id salvo e nenhum
+    token de verdade — bug encontrado em produção (tiktok/instagram com status=True
+    e user_access_token NULO). Quando informado, `connected` reflete a presença do
+    token OAuth em vez do campo `status`."""
+    if token_field:
+        connected = bool(row.get(token_field)) if row else False
+    else:
+        connected = bool(row.get("status")) if row else False
     return {
         "connected": connected,
         "light": _light_for(connected, check),
@@ -172,7 +182,19 @@ def _verify_oauth_state(
 
 @router.get("")
 async def list_credentials(user_id: int = Depends(get_current_user_id)):
-    """Status de conexão (sem valor) de todas as redes suportadas."""
+    """Status de conexão (sem valor) de todas as redes suportadas.
+
+    `check_message` é detalhe de diagnóstico interno (texto cru devolvido
+    pela API da rede, ex: motivo exato de uma falha) — só admin (que também
+    é quem pode disparar POST /{network}/test) recebe esse campo. Usuário
+    comum só enxerga a luz/status simplificado, nunca o motivo por trás
+    dela."""
+    user_row = (
+        supabase.table("users").select("access").eq("id", user_id)
+        .maybe_single().execute()
+    )
+    is_admin = bool(user_row and user_row.data and user_row.data.get("access") == "ADMIN")
+
     checks_row = (
         supabase.table("credential_checks").select("network, state, message, checked_at")
         .eq("user_id", user_id).execute()
@@ -181,12 +203,22 @@ async def list_credentials(user_id: int = Depends(get_current_user_id)):
 
     result: dict[str, dict] = {}
 
+    # TikTok e Instagram reusam a tabela SIMPLE_NETWORKS pra guardar tanto o
+    # app_id/secret do app (Client Key/Secret, App ID/Secret) quanto o token
+    # OAuth do usuário — "conectado" tem que significar "tem token", não "app_id
+    # salvo" (ver docstring de _status_only).
+    OAUTH_TOKEN_FIELD = {"tiktok": "user_access_token", "instagram": "user_access_token"}
+
     for network, table in SIMPLE_NETWORKS.items():
+        token_field = OAUTH_TOKEN_FIELD.get(network)
+        select_fields = f"status, {token_field}" if token_field else "status"
         row = (
-            supabase.table(table).select("status").eq("user_id", user_id)
+            supabase.table(table).select(select_fields).eq("user_id", user_id)
             .maybe_single().execute()
         )
-        result[network] = _status_only(row.data if row else None, checks_by_network.get(network))
+        result[network] = _status_only(
+            row.data if row else None, checks_by_network.get(network), token_field=token_field
+        )
 
     threads_row = (
         supabase.table("threads_credentials").select("status")
@@ -195,6 +227,10 @@ async def list_credentials(user_id: int = Depends(get_current_user_id)):
     result["threads"] = _status_only(
         threads_row.data if threads_row else None, checks_by_network.get("threads")
     )
+
+    if not is_admin:
+        for status in result.values():
+            status["check_message"] = None
 
     return result
 
@@ -714,11 +750,21 @@ async def delete_credential(
     network: str,
     user_id: int = Depends(get_current_user_id),
 ):
-    """Desconecta (zera app_id/secret, status=False) — não apaga a linha."""
+    """Desconecta (zera app_id/secret, status=False) — não apaga a linha.
+
+    TikTok/Instagram também guardam o token OAuth nesta mesma linha — sem
+    zerar isso aqui, "Desconectar" deixava o token antigo pra trás e (após o
+    fix de `_status_only`/list_credentials usar o token, não `status`, pra
+    decidir "conectado") o card continuaria mostrando Conectado depois do
+    clique."""
     table = _simple_table(network)
     update_data = {"app_id": None, "secret": None, "status": False}
     if network == "facebook":
         update_data["page_id"] = None
+    if network == "tiktok":
+        update_data.update({"user_access_token": None, "refresh_token": None, "open_id": None})
+    if network == "instagram":
+        update_data.update({"user_access_token": None, "ig_user_id": None})
     result = (
         supabase.table(table)
         .update(update_data)

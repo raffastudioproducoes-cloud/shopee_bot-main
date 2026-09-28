@@ -13,9 +13,11 @@ import { TextInput } from "../components/ui/TextInput"
 import { StatusBadge } from "../components/ui/StatusBadge"
 import { ConnectionLight } from "../components/ui/ConnectionLight"
 
+// X saiu daqui: agora tem card dedicado (XCredentialCard, mesmo padrão de
+// TikTok/Instagram) porque também usa OAuth authorize/callback, não só
+// app_id/secret por formulário.
 const SIMPLE_NETWORKS: { key: SimpleNetwork; label: string }[] = [
   { key: "shopee", label: "Shopee" },
-  { key: "x", label: "X (Twitter)" },
   { key: "facebook", label: "Facebook" },
   { key: "kwai", label: "Kwai" },
 ]
@@ -88,6 +90,20 @@ export function CredentialsPage() {
     window.history.replaceState(null, "", window.location.pathname + (query ? `?${query}` : ""))
   }, [])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const x = params.get("x")
+    if (!x) return
+    setBanner(
+      x === "success"
+        ? { ok: true, text: "X conectado com sucesso." }
+        : { ok: false, text: "Falha ao conectar o X. Tente novamente." }
+    )
+    params.delete("x")
+    const query = params.toString()
+    window.history.replaceState(null, "", window.location.pathname + (query ? `?${query}` : ""))
+  }, [])
+
   const onAuthError = (err: Error) => {
     if (err.message.includes("401") || err.message === "Não autenticado") {
       logout()
@@ -150,6 +166,14 @@ export function CredentialsPage() {
 
         <ThreadsCredentialCard
           status={status?.threads ?? EMPTY_STATUS}
+          isAdmin={isAdmin}
+          onSaved={invalidate}
+          onAuthError={onAuthError}
+          setBanner={setBanner}
+        />
+
+        <XCredentialCard
+          status={status?.x ?? EMPTY_STATUS}
           isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
@@ -471,6 +495,132 @@ function ThreadsCredentialCard({
               variant="primary"
               disabled={saveMutation.isPending || !tUserId || !accessToken}
             >
+              {saveMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </Panel>
+  )
+}
+
+// ── Card do X (App ID/Secret + OAuth 2.0/PKCE) ──────────────────────────────────
+
+function XCredentialCard({
+  status,
+  isAdmin,
+  onSaved,
+  onAuthError,
+  setBanner,
+}: {
+  status: CredentialStatusWithLight
+  isAdmin: boolean
+  onSaved: () => void
+  onAuthError: (err: Error) => void
+  setBanner: (b: { ok: boolean; text: string } | null) => void
+}) {
+  const connected = status.connected
+  const [appId, setAppId] = useState("")
+  const [secret, setSecret] = useState("")
+
+  const authorizeMutation = useMutation({
+    mutationFn: () => credentialsApi.authorizeX(),
+    onSuccess: ({ url }) => {
+      window.location.href = url
+    },
+    onError: onAuthError,
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: () => credentialsApi.save("x", appId, secret),
+    onSuccess: () => {
+      setAppId("")
+      setSecret("")
+      setBanner({ ok: true, text: "App ID/Secret do X salvos." })
+      onSaved()
+    },
+    onError: onAuthError,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => credentialsApi.delete("x"),
+    onSuccess: () => {
+      setBanner({ ok: true, text: "X desconectado." })
+      onSaved()
+    },
+    onError: onAuthError,
+  })
+
+  return (
+    <Panel surface="dark">
+      <PanelHeader
+        title="X (Twitter)"
+        trailing={
+          <CredentialTrailing
+            network="x"
+            label="X"
+            status={status}
+            isAdmin={isAdmin}
+            onSaved={onSaved}
+            onAuthError={onAuthError}
+            setBanner={setBanner}
+          />
+        }
+      />
+
+      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+          Salve o App ID/Secret do seu app no X Developer Portal e depois conecte via OAuth.
+        </p>
+
+        <Button
+          type="button"
+          variant="primary"
+          disabled={authorizeMutation.isPending}
+          onClick={() => authorizeMutation.mutate()}
+          style={{ alignSelf: "flex-start" }}
+        >
+          {authorizeMutation.isPending ? "Conectando..." : "Conectar X"}
+        </Button>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            saveMutation.mutate()
+          }}
+          style={{ display: "flex", flexDirection: "column", gap: 12 }}
+        >
+          <div style={FIELD_GRID}>
+            <TextInput
+              label="App ID"
+              value={appId}
+              onChange={(e) => setAppId(e.target.value)}
+              placeholder="APP ID"
+              required
+            />
+            <TextInput
+              label="Secret"
+              type="password"
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              placeholder="Secret"
+              autoComplete="off"
+              required
+            />
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            {connected && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate()}
+                style={{ color: "var(--red-300)" }}
+              >
+                {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
+              </Button>
+            )}
+            <Button type="submit" variant="primary" disabled={saveMutation.isPending || !appId || !secret}>
               {saveMutation.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </div>
