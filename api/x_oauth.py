@@ -25,14 +25,22 @@ Ver docstring completa em apis/x.py.
 
 import base64
 import hashlib
+import logging
 import os
 import secrets
 from urllib.parse import urlencode
 
 import httpx
 
+logger = logging.getLogger("uvicorn.error")
+
 AUTH_URL = "https://twitter.com/i/oauth2/authorize"
-TOKEN_URL = "https://api.twitter.com/2/oauth2/token"
+# api.x.com é o host canônico atual (api.twitter.com é o domínio legado
+# pós-rebranding) — usar direto evita qualquer redirect cross-host, que o
+# httpx (por padrão, e explicitamente aqui via follow_redirects=False) não
+# segue e que, se seguido, derruba o header Authorization (RFC-compliant
+# strip de auth em redirect cross-host, mesmo comportamento do curl).
+TOKEN_URL = "https://api.x.com/2/oauth2/token"
 CALLBACK_URL = os.environ.get("X_CALLBACK_URL")
 CLIENT_ID = os.environ.get("X_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("X_CLIENT_SECRET")
@@ -81,7 +89,12 @@ async def exchange_code_for_token(code: str, code_verifier: str) -> dict:
         "code_verifier": code_verifier,
         "client_id": CLIENT_ID,
     }
-    async with httpx.AsyncClient(timeout=15) as client:
+    logger.info(
+        "x_oauth.exchange_code_for_token: POST %s headers=%s",
+        TOKEN_URL,
+        list(headers.keys()),
+    )
+    async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
         res = await client.post(TOKEN_URL, headers=headers, data=body)
     if res.status_code not in (200, 201):
         raise XOAuthError(
@@ -100,7 +113,12 @@ async def refresh_access_token(refresh_token: str) -> dict:
         "refresh_token": refresh_token,
         "client_id": CLIENT_ID,
     }
-    async with httpx.AsyncClient(timeout=15) as client:
+    logger.info(
+        "x_oauth.refresh_access_token: POST %s headers=%s",
+        TOKEN_URL,
+        list(headers.keys()),
+    )
+    async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
         res = await client.post(TOKEN_URL, headers=headers, data=body)
     if res.status_code not in (200, 201):
         raise XOAuthError(

@@ -7,9 +7,14 @@ tests/api/test_threads_oauth.py, sem precisar mockar credencial salva
 antes do authorize/callback.
 """
 
+import asyncio
+import base64
+
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from api import x_oauth
 from api.main import app
 from api.routers import credentials as credentials_module
 from api.routers.auth import get_current_user_id
@@ -118,6 +123,37 @@ def test_x_callback_invalid_state_redirects_without_saving(client, monkeypatch):
     assert res.status_code == 307
     assert "x=error" in res.headers["location"]
     assert upsert_called is False
+
+
+def test_exchange_code_for_token_sends_basic_auth_header(monkeypatch):
+    """X exige HTTP Basic Auth (client_id:client_secret) no POST de
+    /2/oauth2/token pra confidential clients — só client_id/secret no
+    body (suficiente pra TikTok/Meta) resulta em 401 "unauthorized_client
+    / Missing valid authorization header". Regressão dessa checagem."""
+    monkeypatch.setattr(x_oauth, "CLIENT_ID", "cid-123")
+    monkeypatch.setattr(x_oauth, "CLIENT_SECRET", "csecret-456")
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {"access_token": "tok"}
+
+    async def fake_post(self, url, headers=None, data=None):
+        captured["headers"] = headers
+        captured["data"] = data
+        return FakeResponse()
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+
+    result = asyncio.run(x_oauth.exchange_code_for_token("the-code", "the-verifier"))
+
+    expected_auth = "Basic " + base64.b64encode(b"cid-123:csecret-456").decode()
+    assert captured["headers"]["Authorization"] == expected_auth
+    assert result == {"access_token": "tok"}
 
 
 def test_x_authorize_requires_auth():
