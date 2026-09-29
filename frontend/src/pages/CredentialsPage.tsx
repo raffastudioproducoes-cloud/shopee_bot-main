@@ -274,6 +274,27 @@ function CredentialTrailing({
   )
 }
 
+// ── Link admin-only pro portal de desenvolvedores de cada rede OAuth de app
+// único (Threads/X/Facebook/TikTok/Instagram). Quem clica "Conectar" nunca
+// precisa disso — é só referência pra quem administra o app da plataforma
+// (env vars em api/x_oauth.py, api/tiktok_oauth.py, etc). Não existe pro
+// usuário comum: ele só tem o botão OAuth. ────────────────────────────────
+
+function AdminHelpLink({ network, label }: { network: SimpleNetwork | "threads"; label: string }) {
+  const helpUrl = CREDENTIAL_HELP_LINKS[network]
+  if (!helpUrl) return null
+  return (
+    <a
+      href={helpUrl}
+      target="_blank"
+      rel="noreferrer"
+      style={{ font: "var(--text-role-body)", color: "var(--accent-500)" }}
+    >
+      Abrir portal de desenvolvedores da {label} (gerenciar app da plataforma) ↗
+    </a>
+  )
+}
+
 // ── Card genérico (Shopee, X, Facebook, Kwai) ────────────────────────────────
 
 function SimpleCredentialCard({
@@ -464,62 +485,72 @@ function ThreadsCredentialCard({
           Threads usa OAuth — conecte pela Meta ou, se preferir, cole um token já emitido.
         </p>
 
-        <Button
-          type="button"
-          variant="primary"
-          disabled={authorizeMutation.isPending}
-          onClick={() => authorizeMutation.mutate()}
-          style={{ alignSelf: "flex-start" }}
-        >
-          {authorizeMutation.isPending ? "Conectando..." : "Conectar Threads"}
-        </Button>
+        {isAdmin && <AdminHelpLink network="threads" label="Threads" />}
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            saveMutation.mutate()
-          }}
-          style={{ display: "flex", flexDirection: "column", gap: 12 }}
-        >
-          <div style={FIELD_GRID}>
-            <TextInput
-              label="Threads User ID"
-              value={tUserId}
-              onChange={(e) => setTUserId(e.target.value)}
-              placeholder="Threads User ID"
-              required
-            />
-            <TextInput
-              label="Access Token"
-              type="password"
-              value={accessToken}
-              onChange={(e) => setAccessToken(e.target.value)}
-              placeholder="Access Token"
-              autoComplete="off"
-              required
-            />
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            {connected && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate()}
-                style={{ color: "var(--red-300)" }}
-              >
-                {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
-              </Button>
-            )}
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={authorizeMutation.isPending}
+            onClick={() => authorizeMutation.mutate()}
+          >
+            {authorizeMutation.isPending ? "Conectando..." : "Conectar Threads"}
+          </Button>
+          {connected && (
             <Button
-              type="submit"
-              variant="primary"
-              disabled={saveMutation.isPending || !tUserId || !accessToken}
+              type="button"
+              variant="ghost"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+              style={{ color: "var(--red-300)" }}
             >
-              {saveMutation.isPending ? "Salvando..." : "Salvar"}
+              {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
             </Button>
-          </div>
-        </form>
+          )}
+        </div>
+
+        {/* Colar token manualmente é a exceção admin-only aqui: pra usuário
+            comum, o fluxo é só o botão OAuth acima (mesma regra das outras
+            redes de app único — luz, status e "Conectar", sem caixa de
+            token). Admin mantém isso como fallback/debug (ex: token gerado
+            fora do fluxo normal). */}
+        {isAdmin && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              saveMutation.mutate()
+            }}
+            style={{ display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <div style={FIELD_GRID}>
+              <TextInput
+                label="Threads User ID"
+                value={tUserId}
+                onChange={(e) => setTUserId(e.target.value)}
+                placeholder="Threads User ID"
+                required
+              />
+              <TextInput
+                label="Access Token"
+                type="password"
+                value={accessToken}
+                onChange={(e) => setAccessToken(e.target.value)}
+                placeholder="Access Token"
+                autoComplete="off"
+                required
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={saveMutation.isPending || !tUserId || !accessToken}
+              >
+                {saveMutation.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </Panel>
   )
@@ -541,6 +572,8 @@ function XCredentialCard({
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
+  const [userAccessToken, setUserAccessToken] = useState("")
+  const [userRefreshToken, setUserRefreshToken] = useState("")
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeX(),
@@ -554,6 +587,17 @@ function XCredentialCard({
     mutationFn: () => credentialsApi.delete("x"),
     onSuccess: () => {
       setBanner({ ok: true, text: "X desconectado." })
+      onSaved()
+    },
+    onError: onAuthError,
+  })
+
+  const saveManualMutation = useMutation({
+    mutationFn: () => credentialsApi.saveXManual(userAccessToken, userRefreshToken || undefined),
+    onSuccess: () => {
+      setUserAccessToken("")
+      setUserRefreshToken("")
+      setBanner({ ok: true, text: "X conectado com sucesso (override manual)." })
       onSaved()
     },
     onError: onAuthError,
@@ -581,6 +625,8 @@ function XCredentialCard({
           Conecte sua conta do X com um clique — nenhuma configuração técnica necessária.
         </p>
 
+        {isAdmin && <AdminHelpLink network="x" label="X" />}
+
         <div style={{ display: "flex", gap: 8 }}>
           <Button
             type="button"
@@ -602,6 +648,48 @@ function XCredentialCard({
             </Button>
           )}
         </div>
+
+        {/* Override manual admin-only — colar token direto, sem passar pelo
+            OAuth (debug/emergência, ex: testar com uma conta específica).
+            Mesma exceção admin-only do Threads acima. */}
+        {isAdmin && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              saveManualMutation.mutate()
+            }}
+            style={{ display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <div style={FIELD_GRID}>
+              <TextInput
+                label="Access Token"
+                type="password"
+                value={userAccessToken}
+                onChange={(e) => setUserAccessToken(e.target.value)}
+                placeholder="Access Token"
+                autoComplete="off"
+                required
+              />
+              <TextInput
+                label="Refresh Token (opcional)"
+                type="password"
+                value={userRefreshToken}
+                onChange={(e) => setUserRefreshToken(e.target.value)}
+                placeholder="Refresh Token"
+                autoComplete="off"
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={saveManualMutation.isPending || !userAccessToken}
+              >
+                {saveManualMutation.isPending ? "Salvando..." : "Salvar (override manual)"}
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </Panel>
   )
@@ -623,6 +711,9 @@ function FacebookCredentialCard({
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
+  const [pageId, setPageId] = useState("")
+  const [pageAccessToken, setPageAccessToken] = useState("")
+  const [pageName, setPageName] = useState("")
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeFacebook(),
@@ -636,6 +727,18 @@ function FacebookCredentialCard({
     mutationFn: () => credentialsApi.delete("facebook"),
     onSuccess: () => {
       setBanner({ ok: true, text: "Facebook desconectado." })
+      onSaved()
+    },
+    onError: onAuthError,
+  })
+
+  const saveManualMutation = useMutation({
+    mutationFn: () => credentialsApi.saveFacebookManual(pageId, pageAccessToken, pageName || undefined),
+    onSuccess: () => {
+      setPageId("")
+      setPageAccessToken("")
+      setPageName("")
+      setBanner({ ok: true, text: "Facebook conectado com sucesso (override manual)." })
       onSaved()
     },
     onError: onAuthError,
@@ -664,6 +767,8 @@ function FacebookCredentialCard({
           Se você administra mais de uma Página, a primeira encontrada é conectada automaticamente.
         </p>
 
+        {isAdmin && <AdminHelpLink network="facebook" label="Facebook" />}
+
         <div style={{ display: "flex", gap: 8 }}>
           <Button
             type="button"
@@ -685,6 +790,53 @@ function FacebookCredentialCard({
             </Button>
           )}
         </div>
+
+        {/* Override manual admin-only — colar page_id/page_access_token
+            direto, sem passar pelo OAuth (debug/emergência). Mesma exceção
+            admin-only do Threads acima. */}
+        {isAdmin && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              saveManualMutation.mutate()
+            }}
+            style={{ display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <div style={FIELD_GRID}>
+              <TextInput
+                label="Page ID"
+                value={pageId}
+                onChange={(e) => setPageId(e.target.value)}
+                placeholder="Page ID"
+                required
+              />
+              <TextInput
+                label="Page Access Token"
+                type="password"
+                value={pageAccessToken}
+                onChange={(e) => setPageAccessToken(e.target.value)}
+                placeholder="Page Access Token"
+                autoComplete="off"
+                required
+              />
+              <TextInput
+                label="Page Name (opcional)"
+                value={pageName}
+                onChange={(e) => setPageName(e.target.value)}
+                placeholder="Page Name"
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={saveManualMutation.isPending || !pageId || !pageAccessToken}
+              >
+                {saveManualMutation.isPending ? "Salvando..." : "Salvar (override manual)"}
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </Panel>
   )
@@ -706,6 +858,9 @@ function TikTokCredentialCard({
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
+  const [openId, setOpenId] = useState("")
+  const [userAccessToken, setUserAccessToken] = useState("")
+  const [refreshToken, setRefreshToken] = useState("")
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeTiktok(),
@@ -719,6 +874,18 @@ function TikTokCredentialCard({
     mutationFn: () => credentialsApi.delete("tiktok"),
     onSuccess: () => {
       setBanner({ ok: true, text: "TikTok desconectado." })
+      onSaved()
+    },
+    onError: onAuthError,
+  })
+
+  const saveManualMutation = useMutation({
+    mutationFn: () => credentialsApi.saveTiktokManual(openId, userAccessToken, refreshToken || undefined),
+    onSuccess: () => {
+      setOpenId("")
+      setUserAccessToken("")
+      setRefreshToken("")
+      setBanner({ ok: true, text: "TikTok conectado com sucesso (override manual)." })
       onSaved()
     },
     onError: onAuthError,
@@ -746,6 +913,8 @@ function TikTokCredentialCard({
           Conecte sua conta do TikTok com um clique — nenhuma configuração técnica necessária.
         </p>
 
+        {isAdmin && <AdminHelpLink network="tiktok" label="TikTok" />}
+
         <div style={{ display: "flex", gap: 8 }}>
           <Button
             type="button"
@@ -767,6 +936,55 @@ function TikTokCredentialCard({
             </Button>
           )}
         </div>
+
+        {/* Override manual admin-only — colar open_id/access_token direto,
+            sem passar pelo OAuth (debug/emergência). Mesma exceção
+            admin-only do Threads acima. */}
+        {isAdmin && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              saveManualMutation.mutate()
+            }}
+            style={{ display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <div style={FIELD_GRID}>
+              <TextInput
+                label="Open ID"
+                value={openId}
+                onChange={(e) => setOpenId(e.target.value)}
+                placeholder="Open ID"
+                required
+              />
+              <TextInput
+                label="Access Token"
+                type="password"
+                value={userAccessToken}
+                onChange={(e) => setUserAccessToken(e.target.value)}
+                placeholder="Access Token"
+                autoComplete="off"
+                required
+              />
+              <TextInput
+                label="Refresh Token (opcional)"
+                type="password"
+                value={refreshToken}
+                onChange={(e) => setRefreshToken(e.target.value)}
+                placeholder="Refresh Token"
+                autoComplete="off"
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={saveManualMutation.isPending || !openId || !userAccessToken}
+              >
+                {saveManualMutation.isPending ? "Salvando..." : "Salvar (override manual)"}
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </Panel>
   )
@@ -788,6 +1006,8 @@ function InstagramCredentialCard({
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
+  const [igUserId, setIgUserId] = useState("")
+  const [userAccessToken, setUserAccessToken] = useState("")
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeInstagram(),
@@ -801,6 +1021,17 @@ function InstagramCredentialCard({
     mutationFn: () => credentialsApi.delete("instagram"),
     onSuccess: () => {
       setBanner({ ok: true, text: "Instagram desconectado." })
+      onSaved()
+    },
+    onError: onAuthError,
+  })
+
+  const saveManualMutation = useMutation({
+    mutationFn: () => credentialsApi.saveInstagramManual(igUserId, userAccessToken),
+    onSuccess: () => {
+      setIgUserId("")
+      setUserAccessToken("")
+      setBanner({ ok: true, text: "Instagram conectado com sucesso (override manual)." })
       onSaved()
     },
     onError: onAuthError,
@@ -829,6 +1060,8 @@ function InstagramCredentialCard({
           com um clique, nenhuma configuração técnica necessária.
         </p>
 
+        {isAdmin && <AdminHelpLink network="instagram" label="Instagram" />}
+
         <div style={{ display: "flex", gap: 8 }}>
           <Button
             type="button"
@@ -850,6 +1083,47 @@ function InstagramCredentialCard({
             </Button>
           )}
         </div>
+
+        {/* Override manual admin-only — colar ig_user_id/access_token
+            direto, sem passar pelo OAuth (debug/emergência). Mesma
+            exceção admin-only do Threads acima. */}
+        {isAdmin && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              saveManualMutation.mutate()
+            }}
+            style={{ display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <div style={FIELD_GRID}>
+              <TextInput
+                label="Instagram User ID"
+                value={igUserId}
+                onChange={(e) => setIgUserId(e.target.value)}
+                placeholder="IG User ID"
+                required
+              />
+              <TextInput
+                label="Access Token"
+                type="password"
+                value={userAccessToken}
+                onChange={(e) => setUserAccessToken(e.target.value)}
+                placeholder="Access Token"
+                autoComplete="off"
+                required
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={saveManualMutation.isPending || !igUserId || !userAccessToken}
+              >
+                {saveManualMutation.isPending ? "Salvando..." : "Salvar (override manual)"}
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </Panel>
   )

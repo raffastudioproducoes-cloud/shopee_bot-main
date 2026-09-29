@@ -156,6 +156,68 @@ class TestSimpleNetworksNoLongerAcceptXTiktokInstagram:
         assert res.status_code == 404
 
 
+class TestManualOverrideAdminGate:
+    """PUT /credentials/{network}/manual (X/Facebook/TikTok/Instagram) —
+    override manual admin-only, mesma dependência de POST /{network}/test.
+    Requer auth + ADMIN antes de qualquer coisa; usuário comum recebe 403."""
+
+    _BODIES = {
+        "x/manual": {"user_access_token": "tok"},
+        "facebook/manual": {"page_id": "123", "page_access_token": "tok"},
+        "tiktok/manual": {"open_id": "abc", "user_access_token": "tok"},
+        "instagram/manual": {"ig_user_id": "abc", "user_access_token": "tok"},
+    }
+
+    @pytest.mark.parametrize("path", list(_BODIES.keys()))
+    def test_requires_auth(self, client, path):
+        res = client.put(f"/credentials/{path}", json=self._BODIES[path])
+        assert res.status_code == 401
+
+    @pytest.mark.parametrize("path", list(_BODIES.keys()))
+    def test_requires_admin(self, monkeypatch, auth_client, path):
+        _mock_supabase(monkeypatch, [{"access": "USER"}])
+        res = auth_client.put(f"/credentials/{path}", json=self._BODIES[path])
+        assert res.status_code == 403
+
+    def test_admin_can_save_x_manual(self, monkeypatch, auth_client):
+        # 1ª execute: _require_admin; 2ª: _upsert_by_user (select existing,
+        # nenhuma linha -> insert); 3ª: insert.
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}]])
+        res = auth_client.put(
+            "/credentials/x/manual",
+            json={"user_access_token": "tok", "user_refresh_token": "refresh"},
+        )
+        assert res.status_code == 200
+        assert res.json() == {"connected": True}
+
+    def test_admin_can_save_facebook_manual(self, monkeypatch, auth_client):
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}]])
+        res = auth_client.put(
+            "/credentials/facebook/manual",
+            json={"page_id": "123", "page_access_token": "tok", "page_name": "Minha Página"},
+        )
+        assert res.status_code == 200
+        assert res.json() == {"connected": True}
+
+    def test_admin_can_save_tiktok_manual(self, monkeypatch, auth_client):
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}]])
+        res = auth_client.put(
+            "/credentials/tiktok/manual",
+            json={"open_id": "abc", "user_access_token": "tok", "refresh_token": "refresh"},
+        )
+        assert res.status_code == 200
+        assert res.json() == {"connected": True}
+
+    def test_admin_can_save_instagram_manual(self, monkeypatch, auth_client):
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}]])
+        res = auth_client.put(
+            "/credentials/instagram/manual",
+            json={"ig_user_id": "abc", "user_access_token": "tok"},
+        )
+        assert res.status_code == 200
+        assert res.json() == {"connected": True}
+
+
 class TestDedicatedOAuthDeleteEndpoints:
     """x/tiktok/instagram têm DELETE dedicado (zeram token OAuth) desde
     que saíram do handler genérico de SIMPLE_NETWORKS."""

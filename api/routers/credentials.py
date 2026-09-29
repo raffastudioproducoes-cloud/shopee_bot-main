@@ -75,6 +75,32 @@ class ThreadsCredentialBody(BaseModel):
     access_token: str
 
 
+# Overrides manuais admin-only (colar token direto, bypassando OAuth — ver
+# _require_admin e as rotas PUT /{network}/manual mais abaixo). Só os campos
+# que são coluna de verdade em cada tabela (ver migrations 018-030):
+# x/tiktok/instagram têm user_access_token, facebook tem page_access_token.
+class XManualCredentialBody(BaseModel):
+    user_access_token: str
+    user_refresh_token: str | None = None
+
+
+class FacebookManualCredentialBody(BaseModel):
+    page_id: str
+    page_access_token: str
+    page_name: str | None = None
+
+
+class TikTokManualCredentialBody(BaseModel):
+    open_id: str
+    user_access_token: str
+    refresh_token: str | None = None
+
+
+class InstagramManualCredentialBody(BaseModel):
+    ig_user_id: str
+    user_access_token: str
+
+
 def _simple_table(network: str) -> str:
     table = SIMPLE_NETWORKS.get(network)
     if not table:
@@ -778,6 +804,68 @@ def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
     if not result.data or result.data.get("access") != "ADMIN":
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     return user_id
+
+
+# Overrides manuais admin-only pra debug/emergência (testar com uma conta
+# específica sem completar o OAuth inteiro, ou recuperar de um estado
+# quebrado) — mesmo padrão do PUT /credentials/threads (cola token já
+# emitido), mas admin-only (mesma dependência de POST /{network}/test)
+# porque aqui, ao contrário do Threads, o usuário comum nunca vê esse
+# formulário (só o botão "Conectar"). Path "/manual" (não literal "/x" etc)
+# pra não roubar a rota PUT /{network} genérica (SIMPLE_NETWORKS) nem o
+# teste que confirma que ela devolve 404 pra essas redes.
+@router.put("/x/manual")
+async def save_x_credential_manual(
+    body: XManualCredentialBody,
+    user_id: int = Depends(_require_admin),
+):
+    _upsert_by_user("x_credentials", user_id, {
+        "user_access_token": encrypt(body.user_access_token),
+        "user_refresh_token": encrypt(body.user_refresh_token) if body.user_refresh_token else None,
+        "status": True,
+    })
+    return {"connected": True}
+
+
+@router.put("/facebook/manual")
+async def save_facebook_credential_manual(
+    body: FacebookManualCredentialBody,
+    user_id: int = Depends(_require_admin),
+):
+    _upsert_by_user("facebook_credentials", user_id, {
+        "page_id": body.page_id,
+        "page_name": body.page_name,
+        "page_access_token": encrypt(body.page_access_token),
+        "status": True,
+    })
+    return {"connected": True}
+
+
+@router.put("/tiktok/manual")
+async def save_tiktok_credential_manual(
+    body: TikTokManualCredentialBody,
+    user_id: int = Depends(_require_admin),
+):
+    _upsert_by_user("tiktok_credentials", user_id, {
+        "open_id": body.open_id,
+        "user_access_token": encrypt(body.user_access_token),
+        "refresh_token": encrypt(body.refresh_token) if body.refresh_token else None,
+        "status": True,
+    })
+    return {"connected": True}
+
+
+@router.put("/instagram/manual")
+async def save_instagram_credential_manual(
+    body: InstagramManualCredentialBody,
+    user_id: int = Depends(_require_admin),
+):
+    _upsert_by_user("instagram_credentials", user_id, {
+        "ig_user_id": body.ig_user_id,
+        "user_access_token": encrypt(body.user_access_token),
+        "status": True,
+    })
+    return {"connected": True}
 
 
 _TEST_NETWORKS = {**SIMPLE_NETWORKS, **{n: t for n, (t, _) in OAUTH_NETWORKS.items()}}
