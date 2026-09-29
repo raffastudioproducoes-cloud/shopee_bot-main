@@ -23,7 +23,13 @@ API_URL = "https://graph.threads.net"
 API_VERSION = "v1.0"
 APP_ID = os.environ.get("THREADS_APP_ID")
 SECRET = os.environ.get("THREADS_SECRET")
-PERMISSIONS = os.environ.get("THREADS_PERMISSIONS")
+# Falta de default aqui (ao contrário de X/TikTok/Instagram/Facebook, que
+# têm fallback hardcoded) fazia cair em scope=None quando a env var não
+# tava setada — a Meta então não reconhecia um scope OAuth válido e o
+# /oauth/authorize virava navegação normal pro app (feed pessoal) em vez
+# de mostrar a tela de consentimento. threads_basic + threads_content_publish
+# são os escopos oficiais mínimos pra login + publicação na Threads API.
+PERMISSIONS = os.environ.get("THREADS_PERMISSIONS", "threads_basic,threads_content_publish")
 CALLBACK_URL = os.environ.get("THREADS_CALLBACK_URL")
 
 
