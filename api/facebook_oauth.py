@@ -44,11 +44,14 @@ from . import instagram_oauth  # reaproveita APP_ID/SECRET — mesmo app Meta
 
 API_URL = "https://graph.facebook.com"
 API_VERSION = "v19.0"
-PERMISSIONS = os.environ.get(
-    "FACEBOOK_PERMISSIONS",
-    "pages_show_list,pages_read_engagement,pages_manage_posts",
-)
 CALLBACK_URL = os.environ.get("FACEBOOK_CALLBACK_URL")
+# Meta descontinuou o produto clássico "Facebook Login" (scope= direto)
+# pra apps novos — só "Login do Facebook para Empresas" (Business Login)
+# fica disponível, e esse exige um config_id em vez de scope=. Sem isso
+# o dialog OAuth retorna "Aplicativo inativo". config_id criado em
+# Login do Facebook para Empresas > Configurações, com as permissões
+# pages_show_list/pages_read_engagement/pages_manage_posts.
+CONFIG_ID = os.environ.get("FACEBOOK_CONFIG_ID")
 
 
 class FacebookOAuthError(Exception):
@@ -64,7 +67,7 @@ def get_user_auth_url(state: str) -> str:
         f"https://www.facebook.com/{API_VERSION}/dialog/oauth"
         f"?client_id={instagram_oauth.APP_ID}"
         f"&redirect_uri={quote(CALLBACK_URL or '', safe='')}"
-        f"&scope={PERMISSIONS}"
+        f"&config_id={CONFIG_ID}"
         "&response_type=code"
         f"&state={quote(state, safe='')}"
     )
