@@ -32,10 +32,33 @@ function formatPriceRange(product: Product): string {
   return "—"
 }
 
+// ── View selector (persistida em localStorage, padrão Windows Explorer) ─────────
+
+type ProductsView = "list" | "grid-small" | "grid-large"
+
+const PRODUCTS_VIEW_STORAGE_KEY = "products-view"
+
+function readStoredProductsView(): ProductsView {
+  try {
+    const raw = localStorage.getItem(PRODUCTS_VIEW_STORAGE_KEY)
+    if (raw === "list" || raw === "grid-small" || raw === "grid-large") return raw
+  } catch {
+    // localStorage indisponível (modo privado, etc.) — usa o padrão
+  }
+  return "list"
+}
+
+const VIEW_OPTIONS: { view: ProductsView; icon: string; label: string }[] = [
+  { view: "list", icon: "list", label: "Lista" },
+  { view: "grid-small", icon: "grid-3x3", label: "Grade pequena" },
+  { view: "grid-large", icon: "layout-grid", label: "Grade grande" },
+]
+
 export function ProductsPage() {
   const { isAuthenticated, logout } = useAuthStore()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
+  const [view, setView] = useState<ProductsView>(readStoredProductsView)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -155,6 +178,15 @@ export function ProductsPage() {
     setModalOpen(true)
   }, [])
 
+  const handleViewChange = useCallback((next: ProductsView) => {
+    setView(next)
+    try {
+      localStorage.setItem(PRODUCTS_VIEW_STORAGE_KEY, next)
+    } catch {
+      // localStorage indisponível — a preferência só não persiste entre sessões
+    }
+  }, [])
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -183,6 +215,31 @@ export function ProductsPage() {
         <div>
           <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Produtos</h1>
           <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Catálogo de produtos da Shopee.</p>
+          <div
+            role="group"
+            aria-label="Modo de visualização"
+            style={{
+              display: "inline-flex",
+              gap: 2,
+              marginTop: 10,
+              padding: 3,
+              background: "var(--surface-inset)",
+              border: "1px solid var(--border-hairline)",
+              borderRadius: "var(--r-pill)",
+            }}
+          >
+            {VIEW_OPTIONS.map((opt) => (
+              <IconButton
+                key={opt.view}
+                icon={opt.icon}
+                label={opt.label}
+                tone="plain"
+                size={30}
+                active={view === opt.view}
+                onClick={() => handleViewChange(opt.view)}
+              />
+            ))}
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <SearchField
@@ -221,7 +278,19 @@ export function ProductsPage() {
           </Button>
         </Panel>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div
+          style={
+            view === "list"
+              ? { display: "flex", flexDirection: "column", gap: 12 }
+              : {
+                  display: "grid",
+                  gridTemplateColumns:
+                    view === "grid-small" ? "repeat(auto-fill, minmax(260px, 1fr))" : "repeat(auto-fill, minmax(420px, 1fr))",
+                  gap: 12,
+                  alignItems: "start",
+                }
+          }
+        >
           {products.map((product: Product) => (
             <TimelineListCard
               key={product.id}

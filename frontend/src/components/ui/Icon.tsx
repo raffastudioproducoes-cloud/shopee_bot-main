@@ -37,6 +37,9 @@ import {
   Package,
   Link2,
   ChevronDown,
+  List,
+  Grid3x3,
+  LayoutGrid,
   type LucideProps,
 } from "lucide-react"
 
@@ -105,6 +108,11 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   package: Package,
   "link-2": Link2,
   "chevron-down": ChevronDown,
+  // Extrapolação: adicionados para o seletor de visualização (lista/grade) do
+  // ProductsPage.tsx (padrão Windows Explorer) — não fazem parte do mapa original.
+  list: List,
+  "grid-3x3": Grid3x3,
+  "layout-grid": LayoutGrid,
 }
 
 export function Icon({ name, size = 20, strokeWidth = 1.75, className = "", style }: IconProps) {
