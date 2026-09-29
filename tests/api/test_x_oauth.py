@@ -154,6 +154,45 @@ def test_exchange_code_for_token_sends_basic_auth_header(monkeypatch):
     expected_auth = "Basic " + base64.b64encode(b"cid-123:csecret-456").decode()
     assert captured["headers"]["Authorization"] == expected_auth
     assert result == {"access_token": "tok"}
+    # client_id NÃO pode ir no body quando o Basic Auth já é enviado —
+    # RFC 6749 §3.2.1: confidential client não deve autenticar por mais
+    # de um método na mesma requisição. Duplicar client_id no form body
+    # junto do header Basic é o que o X rejeitava com 401
+    # unauthorized_client / "Missing valid authorization header".
+    assert "client_id" not in captured["data"]
+
+
+def test_refresh_access_token_sends_basic_auth_header_without_client_id_in_body(
+    monkeypatch,
+):
+    """Mesma checagem de test_exchange_code_for_token_sends_basic_auth_header,
+    pra refresh_access_token: client_id não pode duplicar no body quando
+    o Basic Auth já autentica o client."""
+    monkeypatch.setattr(x_oauth, "CLIENT_ID", "cid-123")
+    monkeypatch.setattr(x_oauth, "CLIENT_SECRET", "csecret-456")
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {"access_token": "tok"}
+
+    async def fake_post(self, url, headers=None, data=None):
+        captured["headers"] = headers
+        captured["data"] = data
+        return FakeResponse()
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+
+    result = asyncio.run(x_oauth.refresh_access_token("the-refresh-token"))
+
+    expected_auth = "Basic " + base64.b64encode(b"cid-123:csecret-456").decode()
+    assert captured["headers"]["Authorization"] == expected_auth
+    assert result == {"access_token": "tok"}
+    assert "client_id" not in captured["data"]
 
 
 def test_exchange_code_for_token_strips_whitespace_from_env_credentials(monkeypatch):

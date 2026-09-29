@@ -96,17 +96,23 @@ async def exchange_code_for_token(code: str, code_verifier: str) -> dict:
         "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
         **_basic_auth_header(),
     }
+    # client_id NÃO vai no body: RFC 6749 §3.2.1 diz que um confidential
+    # client não deve se autenticar por mais de um método na mesma
+    # requisição. client_id no body + Basic Auth no header ao mesmo tempo
+    # é redundante e o X rejeita com 401 unauthorized_client / "Missing
+    # valid authorization header" (mesmo com o header presente e correto).
+    # Autenticação do client é só via header Basic (_basic_auth_header).
     body = {
         "grant_type": "authorization_code",
         "code": code,
         "redirect_uri": CALLBACK_URL,
         "code_verifier": code_verifier,
-        "client_id": CLIENT_ID,
     }
     logger.info(
-        "x_oauth.exchange_code_for_token: POST %s headers=%s",
+        "x_oauth.exchange_code_for_token: POST %s headers=%s body_keys=%s",
         TOKEN_URL,
         list(headers.keys()),
+        list(body.keys()),
     )
     async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
         res = await client.post(TOKEN_URL, headers=headers, data=body)
@@ -122,15 +128,17 @@ async def refresh_access_token(refresh_token: str) -> dict:
         "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
         **_basic_auth_header(),
     }
+    # Mesmo tratamento de exchange_code_for_token: sem client_id no body,
+    # autenticação do client só via header Basic.
     body = {
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
-        "client_id": CLIENT_ID,
     }
     logger.info(
-        "x_oauth.refresh_access_token: POST %s headers=%s",
+        "x_oauth.refresh_access_token: POST %s headers=%s body_keys=%s",
         TOKEN_URL,
         list(headers.keys()),
+        list(body.keys()),
     )
     async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
         res = await client.post(TOKEN_URL, headers=headers, data=body)
