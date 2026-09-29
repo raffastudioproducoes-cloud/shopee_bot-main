@@ -16,10 +16,11 @@ import { ConnectionLight } from "../components/ui/ConnectionLight"
 
 // X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
 // FacebookCredentialCard — mesmo padrão de TikTok/Instagram) porque usam
-// OAuth authorize/callback, não app_id/secret por formulário.
+// OAuth authorize/callback, não app_id/secret por formulário. Kwai também
+// saiu do mapeamento: renderizado à parte, por último, com aviso "em breve"
+// pra usuário não-admin (ver comingSoonForNonAdmin em SimpleCredentialCard).
 const SIMPLE_NETWORKS: { key: SimpleNetwork; label: string }[] = [
   { key: "shopee", label: "Shopee" },
-  { key: "kwai", label: "Kwai" },
 ]
 
 // Grade de 2 colunas que colapsa pra 1 em telas estreitas (mesmo efeito do
@@ -202,6 +203,18 @@ export function CredentialsPage() {
           setBanner={setBanner}
         />
 
+        <InstagramCredentialCard
+          status={status?.instagram ?? EMPTY_STATUS}
+          isAdmin={isAdmin}
+          onSaved={invalidate}
+          onAuthError={onAuthError}
+          setBanner={setBanner}
+        />
+
+        {/* TikTok e Kwai por último, de propósito: ligação com o usuário
+            comum ainda não está pronta (TikTok em revisão externa, Kwai sem
+            API pública de postagem) — card mostra aviso "em breve" pra
+            quem não é admin, ver isAdmin dentro de cada componente. */}
         <TikTokCredentialCard
           status={status?.tiktok ?? EMPTY_STATUS}
           isAdmin={isAdmin}
@@ -210,12 +223,15 @@ export function CredentialsPage() {
           setBanner={setBanner}
         />
 
-        <InstagramCredentialCard
-          status={status?.instagram ?? EMPTY_STATUS}
+        <SimpleCredentialCard
+          network="kwai"
+          label="Kwai"
+          status={status?.kwai ?? EMPTY_STATUS}
           isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
           setBanner={setBanner}
+          comingSoonForNonAdmin
         />
       </div>
     </div>
@@ -305,6 +321,7 @@ function SimpleCredentialCard({
   onSaved,
   onAuthError,
   setBanner,
+  comingSoonForNonAdmin,
 }: {
   network: SimpleNetwork
   label: string
@@ -313,6 +330,7 @@ function SimpleCredentialCard({
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
+  comingSoonForNonAdmin?: boolean
 }) {
   const [appId, setAppId] = useState("")
   const [secret, setSecret] = useState("")
@@ -338,6 +356,22 @@ function SimpleCredentialCard({
     },
     onError: onAuthError,
   })
+
+  // Kwai (única rede com essa flag hoje): sem API pública de postagem, então
+  // usuário comum não vê formulário/status nenhum, só o aviso. Admin
+  // continua vendo tudo normal (pode testar App ID/Secret de afiliado).
+  if (comingSoonForNonAdmin && !isAdmin) {
+    return (
+      <Panel surface="dark">
+        <PanelHeader title={label} />
+        <div style={{ padding: "0 16px 16px" }}>
+          <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+            Em breve — a ligação com {label} ainda não está disponível.
+          </p>
+        </div>
+      </Panel>
+    )
+  }
 
   return (
     <Panel surface="dark">
@@ -890,6 +924,22 @@ function TikTokCredentialCard({
     },
     onError: onAuthError,
   })
+
+  // App em revisão na TikTok for Developers (bloqueio externo) — usuário
+  // comum não vê botão "Conectar" nem status, só o aviso. Admin continua
+  // vendo tudo pra acompanhar/testar assim que a revisão aprovar.
+  if (!isAdmin) {
+    return (
+      <Panel surface="dark">
+        <PanelHeader title="TikTok" />
+        <div style={{ padding: "0 16px 16px" }}>
+          <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+            Em breve — a ligação com TikTok ainda não está disponível.
+          </p>
+        </div>
+      </Panel>
+    )
+  }
 
   return (
     <Panel surface="dark">
