@@ -285,7 +285,7 @@ export function ProductsPage() {
               : {
                   display: "grid",
                   gridTemplateColumns:
-                    view === "grid-small" ? "repeat(auto-fill, minmax(260px, 1fr))" : "repeat(auto-fill, minmax(420px, 1fr))",
+                    view === "grid-small" ? "repeat(4, 1fr)" : "repeat(2, 1fr)",
                   gap: 12,
                   alignItems: "start",
                 }
