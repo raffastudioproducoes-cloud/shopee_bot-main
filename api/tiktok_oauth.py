@@ -30,7 +30,7 @@ import httpx
 AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
 TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 CALLBACK_URL = os.environ.get("TIKTOK_CALLBACK_URL")
-CLIENT_KEY = os.environ.get("TIKTOK_CLIENT_KEY")
+CLIENT_KEY = (os.environ.get("TIKTOK_CLIENT_KEY") or "").strip() or None
 CLIENT_SECRET = os.environ.get("TIKTOK_CLIENT_SECRET")
 DEFAULT_SCOPE = os.environ.get(
     "TIKTOK_PERMISSIONS", "user.info.basic,video.publish,video.upload"
