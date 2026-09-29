@@ -62,11 +62,18 @@ def get_user_auth_url(state: str) -> str:
     # router (api/routers/credentials.py) pra CSRF binding do
     # account-linking (evita que um atacante induza a vítima a linkar a
     # conta social DELE à conta da vítima).
+    # auth_type=rerequest força a Meta a mostrar de novo a tela de
+    # consentimento (inclusive o seletor de Páginas) mesmo quando o
+    # usuário já autorizou esse app antes -- sem isso, "Continuar com
+    # configurações anteriores" reaproveita o consentimento antigo e
+    # nunca concede acesso à Página pro escopo novo do Instagram,
+    # deixando /me/accounts vazio.
     return (
         f"https://www.facebook.com/{API_VERSION}/dialog/oauth"
         f"?client_id={APP_ID}"
         f"&redirect_uri={quote(CALLBACK_URL or '', safe='')}"
         f"&config_id={CONFIG_ID}"
+        "&auth_type=rerequest"
         "&response_type=code"
         f"&state={quote(state, safe='')}"
     )
