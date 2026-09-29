@@ -8,14 +8,28 @@ duas vezes (dois processos publicando o mesmo job em duplicata) — ver
 docstring de web/routes/internal.py e Fase 8 em docs/ROADMAP_MIGRACAO.md.
 """
 
+import logging
 import os
 
 import httpx
+
+logger = logging.getLogger("uvicorn.error")
 
 FLASK_INTERNAL_URL = os.environ.get(
     "FLASK_INTERNAL_URL", f"http://127.0.0.1:{os.environ.get('PORT', '5000')}"
 )
 INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET", "")
+if not INTERNAL_API_SECRET:
+    # ponytail: sem conceito de "modo produção" detectável no projeto (ver
+    # api/config.py) pra fail-fast seguro — warning visível no import é o
+    # que já se faz aqui (mesmo padrão de api/instagram_oauth.py com
+    # INSTAGRAM_APP_ID ausente). Sem isso, todo request pro bridge interno
+    # falha com 403 disperso e sem pista da causa raiz.
+    logger.warning(
+        "INTERNAL_API_SECRET não configurado — bridge interno Flask<->FastAPI "
+        "vai falhar com 403 em toda chamada (web/routes/internal.py bloqueia "
+        "segredo vazio/incorreto)."
+    )
 
 
 class InternalApiError(Exception):

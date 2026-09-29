@@ -31,14 +31,30 @@ def _clear_register_cooldown():
     auth_module._last_register_attempt.clear()
 
 
+@pytest.fixture(autouse=True)
+def _clear_login_rate_limit():
+    """Evita que o rate limit de login vaze entre testes."""
+    auth_module._login_attempts.clear()
+    yield
+    auth_module._login_attempts.clear()
+
+
+def _hash(password: str) -> str:
+    from passlib.context import CryptContext
+
+    return CryptContext(schemes=["bcrypt"], deprecated="auto").hash(password)
+
+
 class TestResetPassword:
-    def test_existing_user_updates_hashed_password(self, client, monkeypatch):
+    def test_existing_user_with_correct_current_password_updates_hash(
+        self, client, monkeypatch
+    ):
         fake_client = MagicMock()
         query = fake_client.table.return_value
         query.select.return_value = query
         query.eq.return_value = query
         query.execute.return_value = MagicMock(
-            data=[{"id": 1, "username": "rafa", "password": "old-hash"}]
+            data=[{"id": 1, "username": "rafa", "password": _hash("senha-antiga-1")}]
         )
         query.update.return_value = query
 
@@ -46,7 +62,11 @@ class TestResetPassword:
 
         res = client.post(
             "/auth/reset-password",
-            json={"username": "rafa", "new_password": "nova-senha-123"},
+            json={
+                "username": "rafa",
+                "current_password": "senha-antiga-1",
+                "new_password": "nova-senha-123",
+            },
         )
 
         assert res.status_code == 200
@@ -63,6 +83,33 @@ class TestResetPassword:
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         assert pwd_context.verify("nova-senha-123", new_hash)
 
+    def test_existing_user_with_wrong_current_password_returns_generic_200_without_update(
+        self, client, monkeypatch
+    ):
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        query.select.return_value = query
+        query.eq.return_value = query
+        query.execute.return_value = MagicMock(
+            data=[{"id": 1, "username": "rafa2", "password": _hash("senha-certa-1")}]
+        )
+        query.update.return_value = query
+
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        res = client.post(
+            "/auth/reset-password",
+            json={
+                "username": "rafa2",
+                "current_password": "senha-errada-1",
+                "new_password": "nova-senha-123",
+            },
+        )
+
+        assert res.status_code == 200
+        assert res.json() == {"msg": "Se o usuário existir, a senha foi atualizada"}
+        query.update.assert_not_called()
+
     def test_nonexistent_user_returns_generic_200_without_update(
         self, client, monkeypatch
     ):
@@ -76,12 +123,28 @@ class TestResetPassword:
 
         res = client.post(
             "/auth/reset-password",
-            json={"username": "nao-existe", "new_password": "nova-senha-123"},
+            json={
+                "username": "nao-existe",
+                "current_password": "qualquer-coisa",
+                "new_password": "nova-senha-123",
+            },
         )
 
         assert res.status_code == 200
         assert res.json() == {"msg": "Se o usuário existir, a senha foi atualizada"}
         query.update.assert_not_called()
+
+    def test_missing_current_password_returns_422(self, client, monkeypatch):
+        fake_client = MagicMock()
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        res = client.post(
+            "/auth/reset-password",
+            json={"username": "rafa", "new_password": "nova-senha-123"},
+        )
+
+        assert res.status_code == 422
+        fake_client.table.assert_not_called()
 
     def test_short_password_returns_400(self, client, monkeypatch):
         fake_client = MagicMock()
@@ -89,7 +152,11 @@ class TestResetPassword:
 
         res = client.post(
             "/auth/reset-password",
-            json={"username": "rafa", "new_password": "curta"},
+            json={
+                "username": "rafa",
+                "current_password": "senha-antiga-1",
+                "new_password": "curta",
+            },
         )
 
         assert res.status_code == 400
@@ -103,7 +170,13 @@ class TestResetPassword:
         query.select.return_value = query
         query.eq.return_value = query
         query.execute.return_value = MagicMock(
-            data=[{"id": 1, "username": "cooldown-user", "password": "old-hash"}]
+            data=[
+                {
+                    "id": 1,
+                    "username": "cooldown-user",
+                    "password": _hash("senha-antiga-1"),
+                }
+            ]
         )
         query.update.return_value = query
 
@@ -111,7 +184,11 @@ class TestResetPassword:
 
         first = client.post(
             "/auth/reset-password",
-            json={"username": "cooldown-user", "new_password": "nova-senha-123"},
+            json={
+                "username": "cooldown-user",
+                "current_password": "senha-antiga-1",
+                "new_password": "nova-senha-123",
+            },
         )
         assert first.status_code == 200
 
@@ -119,7 +196,11 @@ class TestResetPassword:
 
         second = client.post(
             "/auth/reset-password",
-            json={"username": "cooldown-user", "new_password": "outra-senha-456"},
+            json={
+                "username": "cooldown-user",
+                "current_password": "nova-senha-123",
+                "new_password": "outra-senha-456",
+            },
         )
 
         assert second.status_code == 429
@@ -131,7 +212,11 @@ class TestResetPassword:
 
         res = client.post(
             "/auth/reset-password",
-            json={"username": "long-pw-user", "new_password": "a" * 73},
+            json={
+                "username": "long-pw-user",
+                "current_password": "senha-antiga-1",
+                "new_password": "a" * 73,
+            },
         )
 
         assert res.status_code == 400
@@ -143,11 +228,66 @@ class TestResetPassword:
 
         res = client.post(
             "/auth/reset-password",
-            json={"username": "u" * 65, "new_password": "nova-senha-123"},
+            json={
+                "username": "u" * 65,
+                "current_password": "senha-antiga-1",
+                "new_password": "nova-senha-123",
+            },
         )
 
         assert res.status_code == 422
         fake_client.table.assert_not_called()
+
+
+class TestLoginRateLimit:
+    def _fake_supabase_with_user(self, username: str, password_hash: str):
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        query.select.return_value = query
+        query.eq.return_value = query
+        query.execute.return_value = MagicMock(
+            data=[{"id": 1, "username": username, "password": password_hash}]
+        )
+        return fake_client
+
+    def test_sixth_attempt_within_60s_returns_429(self, client, monkeypatch):
+        fake_client = self._fake_supabase_with_user("rate-user", _hash("senha-certa"))
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        responses = [
+            client.post(
+                "/auth/login",
+                data={"username": "rate-user", "password": "senha-errada"},
+            )
+            for _ in range(5)
+        ]
+        assert all(r.status_code == 401 for r in responses)
+
+        sixth = client.post(
+            "/auth/login",
+            data={"username": "rate-user", "password": "senha-errada"},
+        )
+
+        assert sixth.status_code == 429
+
+    def test_rate_limit_does_not_block_different_username_from_same_ip(
+        self, client, monkeypatch
+    ):
+        fake_client = self._fake_supabase_with_user("other-user", _hash("senha-certa"))
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        for _ in range(5):
+            client.post(
+                "/auth/login",
+                data={"username": "exhausted-user", "password": "senha-errada"},
+            )
+
+        res = client.post(
+            "/auth/login",
+            data={"username": "other-user", "password": "senha-certa"},
+        )
+
+        assert res.status_code == 200
 
 
 class TestRegister:

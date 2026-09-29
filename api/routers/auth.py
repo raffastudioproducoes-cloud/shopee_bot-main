@@ -39,6 +39,15 @@ _last_reset_attempt: dict[str, float] = {}
 _REGISTER_COOLDOWN_SECONDS = 30
 _last_register_attempt: dict[str, float] = {}
 
+# ponytail: rate limit de login em memória de processo (dict de módulo,
+# chave IP+username, janela deslizante simples via lista de timestamps).
+# Mesma limitação dos cooldowns acima: não escala pra múltiplos workers/
+# instâncias — cada worker teria seu próprio dict e o limite efetivo vira
+# N_tentativas * N_workers. Upgrade: slowapi + Redis se a app crescer.
+_LOGIN_RATE_LIMIT_ATTEMPTS = 5
+_LOGIN_RATE_LIMIT_WINDOW_SECONDS = 60
+_login_attempts: dict[str, list[float]] = {}
+
 # Duplicado de api/routers/users.py::NETWORK_TABLES — importar de lá criaria
 # import circular (users.py já importa get_current_user_id de auth.py).
 NETWORK_TABLES = [
@@ -54,6 +63,7 @@ NETWORK_TABLES = [
 
 class ResetPasswordRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
+    current_password: str
     new_password: str
 
 
@@ -128,14 +138,34 @@ def _get_user_from_supabase(username: str):
     return response.data[0] if response.data else None
 
 
+def _check_login_rate_limit(key: str) -> None:
+    now = time.monotonic()
+    attempts = [
+        t for t in _login_attempts.get(key, [])
+        if now - t < _LOGIN_RATE_LIMIT_WINDOW_SECONDS
+    ]
+    if len(attempts) >= _LOGIN_RATE_LIMIT_ATTEMPTS:
+        _login_attempts[key] = attempts
+        raise HTTPException(
+            status_code=429,
+            detail="Muitas tentativas de login. Aguarde antes de tentar novamente.",
+        )
+    attempts.append(now)
+    _login_attempts[key] = attempts
+
+
 @router.post("/login")
 async def login(
     response: Response,
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
     from passlib.context import CryptContext
 
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    ip = request.client.host if request.client else "unknown"
+    _check_login_rate_limit(f"{ip}:{form_data.username}")
 
     user = _get_user_from_supabase(form_data.username)
     if not user:
@@ -194,18 +224,17 @@ async def me(request: Request):
 
 @router.post("/reset-password")
 async def reset_password(payload: ResetPasswordRequest):
-    """Reset de senha self-service, sem verificação de identidade.
+    """Troca de senha self-service, exigindo prova de posse da conta.
 
-    AVISO DE SEGURANÇA (decisão consciente, não bug): este endpoint não
-    confirma que quem está fazendo a requisição é o dono da conta — não há
-    confirmação por e-mail/SMS porque o app não tem esse canal configurado.
-    Qualquer pessoa que souber um username existente pode resetar a senha
-    dele. Isso foi pedido explicitamente (botão de "trocar senha" na tela
-    de login, sem fluxo de verificação disponível). Mitigações aplicadas:
-    resposta genérica idêntica para usuário existente ou não, tempo de
-    resposta equalizado entre os dois branches (hash bcrypt dummy quando o
-    usuário não existe) e cooldown por username para dificultar reset em
-    loop contra a mesma conta.
+    Este endpoint NÃO é um fluxo de "esqueci minha senha" de verdade — o
+    app não tem canal de e-mail/SMS configurado (ver requirements.txt),
+    então não há como confirmar identidade de quem não sabe a senha atual.
+    Por isso exige `current_password`: serve pra troca de senha de quem
+    ainda tem a senha antiga em mãos, não pra recuperação de conta perdida
+    (esse caso exige intervenção manual de admin no banco). Mitigações
+    mantidas: resposta genérica idêntica pra usuário inexistente/senha
+    errada/sucesso, tempo de resposta equalizado (hash bcrypt dummy quando
+    o usuário não existe) e cooldown por username.
     """
     now = time.monotonic()
     last_attempt = _last_reset_attempt.get(payload.username)
@@ -230,6 +259,11 @@ async def reset_password(payload: ResetPasswordRequest):
         # atualiza a senha (evita inferir existência do username via
         # timing) — nada é persistido.
         pwd_context.hash("dummy_password_for_timing")
+        return generic_response
+
+    if not pwd_context.verify(payload.current_password, user.get("password", "")):
+        # Mesma resposta genérica de "usuário não existe" — não revela se
+        # foi o username ou a senha atual que estava errada.
         return generic_response
 
     hashed = pwd_context.hash(payload.new_password)

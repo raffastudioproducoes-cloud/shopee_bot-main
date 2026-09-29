@@ -218,7 +218,7 @@ export default function LoginPage() {
                   padding: 4,
                 }}
               >
-                Esqueceu a senha?
+                Trocar senha
               </button>
               <span style={{ color: 'var(--text-muted)' }}>·</span>
               <button
@@ -271,7 +271,7 @@ export default function LoginPage() {
   )
 }
 
-// ── Modal "esqueceu a senha" ────────────────────────────────────────────────────
+// ── Modal "trocar senha" (exige senha atual — não é recuperação de conta) ──────
 
 interface ForgotPasswordModalProps {
   initialUsername: string
@@ -280,6 +280,7 @@ interface ForgotPasswordModalProps {
 
 function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalProps) {
   const [username, setUsername] = useState(initialUsername)
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -297,7 +298,7 @@ function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalPr
 
     setLoading(true)
     try {
-      const msg = await authApi.resetPassword(username, newPassword)
+      const msg = await authApi.resetPassword(username, currentPassword, newPassword)
       setSuccess(msg || 'Senha atualizada. Faça login com a senha nova.')
       setTimeout(onClose, 1500)
     } catch (err: unknown) {
@@ -322,6 +323,15 @@ function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalPr
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
+          disabled={!!success}
+        />
+        <TextInput
+          label="Senha atual"
+          type="password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          required
+          autoComplete="current-password"
           disabled={!!success}
         />
         <TextInput

@@ -33,6 +33,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
+import fleep
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, model_validator, field_validator
 
@@ -63,6 +64,18 @@ NetworkLiteral = Literal[tuple(NETWORK_FUNC_MAP.keys())]
 MEDIA_ROOT = Path("web/media")
 ALLOWED_MEDIA_EXTS = {".webp", ".jpg", ".jpeg", ".png", ".gif", ".mp4"}
 MAX_MEDIA_BYTES = 50 * 1024 * 1024  # 50MB, mesmo teto do Flask (FLASK_MAX_CONTENT_LENGTH)
+
+# Segunda camada de defesa (além da extensão): MIME real detectado por magic
+# bytes via fleep, restrito aos tipos que ALLOWED_MEDIA_EXTS já cobre
+# (imagem/vídeo). webp e gif reportam variações de MIME dependendo da versão
+# do fleep/libmagic, por isso a lista cobre os aliases conhecidos.
+ALLOWED_MEDIA_MIMES = {
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "video/mp4",
+}
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 
@@ -451,6 +464,13 @@ async def upload_media(
     content = await file.read()
     if len(content) > MAX_MEDIA_BYTES:
         raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
+
+    detected = fleep.get(content[:128])
+    if not any(mime in ALLOWED_MEDIA_MIMES for mime in detected.mime):
+        raise HTTPException(
+            status_code=400,
+            detail="Conteúdo do arquivo não corresponde a uma mídia permitida.",
+        )
 
     post_dir = MEDIA_ROOT / str(post_id)
     post_dir.mkdir(parents=True, exist_ok=True)

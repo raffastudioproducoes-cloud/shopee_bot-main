@@ -63,9 +63,14 @@ export const authApi = {
     return api.get<MeResponse>('/auth/me')
   },
 
-  async resetPassword(username: string, newPassword: string): Promise<string> {
+  async resetPassword(
+    username: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<string> {
     const data = await api.post<ResetPasswordResponse>('/auth/reset-password', {
       username,
+      current_password: currentPassword,
       new_password: newPassword,
     })
     return data.msg
