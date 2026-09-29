@@ -241,7 +241,7 @@ export function ProductsPage() {
             ))}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <SearchField
             value={search}
             onChange={(e) => setSearch(e.target.value)}
