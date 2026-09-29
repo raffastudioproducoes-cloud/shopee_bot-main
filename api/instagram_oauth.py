@@ -29,10 +29,13 @@ bloqueia o código: authorize/callback funcionam normalmente, só a
 chamada real de media_publish falha pra quem não é tester.
 """
 
+import logging
 import os
 from urllib.parse import quote
 
 import httpx
+
+logger = logging.getLogger("uvicorn.error")
 
 API_URL = "https://graph.facebook.com"
 API_VERSION = "v19.0"
@@ -122,7 +125,9 @@ async def get_ig_user_id(user_access_token: str) -> str:
         raise InstagramOAuthError(
             f"Failed to Get Facebook Pages: {res.status_code} {res.text}"
         )
-    for page in res.json().get("data", []):
+    pages = res.json().get("data", [])
+    logger.info(f"get_ig_user_id: /me/accounts retornou {len(pages)} Página(s): {pages}")
+    for page in pages:
         ig_account = page.get("instagram_business_account")
         if ig_account and ig_account.get("id"):
             return ig_account["id"]
