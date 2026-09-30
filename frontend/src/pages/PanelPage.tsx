@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation, Outlet } from '@tanstack/react-router'
 import { useAuthStore } from '../stores/authStore'
 import { authApi } from '../api/auth'
-import { usersApi } from '../api/users'
+import { usersApi, type BackupData } from '../api/users'
 import { ApiError } from '../lib/api'
 import { SideRail, type SideRailItem } from '../components/ui/SideRail'
 import { TopBar } from '../components/ui/TopBar'
@@ -31,6 +31,7 @@ export function PanelPage() {
   const location = useLocation()
   const { user, logout, setUser, isAuthenticated } = useAuthStore()
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false)
+  const restoreInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -57,6 +58,40 @@ export function PanelPage() {
     navigate({ to: '/login' })
   }
 
+  const handleExportBackup = async () => {
+    try {
+      const backup = await usersApi.exportBackup()
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `backup-${backup.exported_at.slice(0, 10)}.json`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : 'Não foi possível exportar o backup.')
+    }
+  }
+
+  const handleRestoreFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    if (!confirm('Restaurar este backup vai adicionar os produtos, listas e posts do arquivo à sua conta (não substitui nem apaga nada existente). Continuar?')) {
+      return
+    }
+
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text) as BackupData
+      const result = await usersApi.restoreBackup(data)
+      alert(result.msg)
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : 'Arquivo de backup inválido ou corrompido.')
+    }
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-app-gradient)' }}>
       <SideRail items={items} value={location.pathname} onSelect={(value) => navigate({ to: value })} brand="SV" />
@@ -75,6 +110,15 @@ export function PanelPage() {
           query=""
           trailing={
             <>
+              <IconButton icon="download" label="Exportar backup" tone="glass" onClick={handleExportBackup} />
+              <IconButton icon="upload" label="Restaurar backup" tone="glass" onClick={() => restoreInputRef.current?.click()} />
+              <input
+                ref={restoreInputRef}
+                type="file"
+                accept="application/json"
+                onChange={handleRestoreFileChange}
+                style={{ display: 'none' }}
+              />
               <IconButton icon="trash-2" label="Excluir minha conta" tone="glass" onClick={() => setDeleteAccountOpen(true)} />
               <IconButton icon="log-out" label="Sair" tone="glass" onClick={handleLogout} />
             </>

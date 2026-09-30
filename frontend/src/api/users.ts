@@ -55,4 +55,20 @@ export const usersApi = {
   async deleteSelf(currentPassword: string): Promise<{ msg: string }> {
     return api.delete<{ msg: string }>('/users/me', { current_password: currentPassword })
   },
+
+  async exportBackup(): Promise<BackupData> {
+    return api.get<BackupData>('/users/me/backup')
+  },
+
+  async restoreBackup(data: BackupData): Promise<{ msg: string }> {
+    return api.post<{ msg: string }>('/users/me/restore', data)
+  },
+}
+
+export interface BackupData {
+  products: Record<string, unknown>[]
+  product_lists: Record<string, unknown>[]
+  posts: Record<string, unknown>[]
+  exported_at: string
+  checksum: string
 }

@@ -11,6 +11,7 @@ from api.main import app
 from api.routers import auth as auth_module
 from api.routers import users as users_router
 from api.routers.auth import get_current_user_id
+from api.utils.log_sanitizer import _MASK
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -287,3 +288,110 @@ class TestSelfDeleteAccount:
             data={"username": "usuario_comum", "password": "senha_correta"},
         )
         assert login_res.status_code == 401
+
+
+def _query_mock(execute_return) -> MagicMock:
+    """Mock de query builder encadeável (mesmo padrão de test_lists.py)."""
+    query = MagicMock()
+    for method in (
+        "select", "eq", "single", "in_", "delete", "insert", "update",
+        "order", "limit", "is_", "maybe_single",
+    ):
+        getattr(query, method).return_value = query
+    if isinstance(execute_return, list):
+        query.execute.side_effect = execute_return
+    else:
+        query.execute.return_value = execute_return
+    return query
+
+
+def _make_fake_supabase(tables: dict[str, MagicMock]) -> MagicMock:
+    fake_client = MagicMock()
+    fake_client.table.side_effect = lambda name: tables[name]
+    return fake_client
+
+
+class TestBackupExport:
+    """GET /users/me/backup — item 10.8 do backlog."""
+
+    def test_requires_auth(self, client):
+        res = client.get("/users/me/backup")
+        assert res.status_code == 401
+
+    def test_export_returns_valid_checksum_and_masks_sensitive_field(self, auth_client, monkeypatch):
+        # Produto com um campo "access_token" bogus — nunca deveria existir
+        # de verdade na tabela `products`, mas prova que sanitize_log_data
+        # mascara mesmo assim (defesa em profundidade, ver docstring do
+        # endpoint e de log_sanitizer.py).
+        tables = {
+            "products": _query_mock(MagicMock(data=[
+                {"id": 1, "user_id": 42, "name": "Produto", "price_min": "10.5",
+                 "price_max": "20", "commission": "1.2", "access_token": "leak-me"},
+            ])),
+            "product_lists": _query_mock(MagicMock(data=[])),
+            "posts": _query_mock(MagicMock(data=[])),
+        }
+        monkeypatch.setattr(database_module, "get_supabase", lambda: _make_fake_supabase(tables))
+
+        res = auth_client.get("/users/me/backup")
+
+        assert res.status_code == 200
+        body = res.json()
+        assert body["products"][0]["access_token"] == _MASK
+        assert "checksum" in body
+
+        # Recalcula o checksum sobre os mesmos 4 campos e confere que bate.
+        data = {k: body[k] for k in ("products", "product_lists", "posts", "exported_at")}
+        assert users_router._checksum(data) == body["checksum"]
+
+
+class TestBackupRestore:
+    """POST /users/me/restore — item 10.8 do backlog."""
+
+    def test_requires_auth(self, client):
+        res = client.post("/users/me/restore", json={
+            "products": [], "product_lists": [], "posts": [],
+            "exported_at": "2026-01-01T00:00:00+00:00", "checksum": "x",
+        })
+        assert res.status_code == 401
+
+    def test_tampered_checksum_returns_400_and_creates_nothing(self, auth_client, monkeypatch):
+        data = {
+            "products": [{"id": 1, "name": "Produto"}],
+            "product_lists": [],
+            "posts": [],
+            "exported_at": "2026-01-01T00:00:00+00:00",
+        }
+        checksum = users_router._checksum(data)
+        tampered = ("0" if checksum[0] != "0" else "1") + checksum[1:]
+
+        fake_client = MagicMock()
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        res = auth_client.post("/users/me/restore", json={**data, "checksum": tampered})
+
+        assert res.status_code == 400
+        assert "corrompido" in res.json()["detail"]
+        fake_client.table.assert_not_called()
+
+    def test_valid_checksum_imports_data_as_new_records_for_current_user(self, auth_client, monkeypatch):
+        data = {
+            "products": [{"id": 1, "user_id": 999, "name": "Produto restaurado"}],
+            "product_lists": [],
+            "posts": [],
+            "exported_at": "2026-01-01T00:00:00+00:00",
+        }
+        checksum = users_router._checksum(data)
+
+        tables = {
+            "products": _query_mock(MagicMock(data=[{"id": 55, "name": "Produto restaurado"}])),
+        }
+        monkeypatch.setattr(database_module, "get_supabase", lambda: _make_fake_supabase(tables))
+
+        res = auth_client.post("/users/me/restore", json={**data, "checksum": checksum})
+
+        assert res.status_code == 200
+        insert_call = tables["products"].insert.call_args.args[0]
+        assert insert_call["user_id"] == 42  # nunca o user_id vindo do backup (999)
+        assert "id" not in insert_call
+        assert insert_call["name"] == "Produto restaurado"
