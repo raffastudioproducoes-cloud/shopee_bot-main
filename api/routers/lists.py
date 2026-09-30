@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from .auth import get_current_user_id
+from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..database import supabase
 
@@ -37,16 +38,19 @@ class ProductListWithProducts(ProductListOut):
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
 
-def _get_list(user_id: int, product_list_id: int) -> dict:
-    """Busca uma lista pelo ID, verificando ownership."""
-    result = (
+def _get_list(user_id: int, product_list_id: int, profile_id: str | None = None) -> dict:
+    """Busca uma lista pelo ID, verificando ownership.
+
+    `profile_id` opcional (fallback pra token antigo sem essa claim)."""
+    query = (
         supabase.table("product_lists")
         .select("*")
         .eq("id", product_list_id)
         .eq("user_id", user_id)
-        .single()
-        .execute()
     )
+    if profile_id:
+        query = query.eq("profile_id", profile_id)
+    result = query.single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Lista não encontrada")
     return result.data
@@ -120,17 +124,15 @@ def _sync_list_products(user_id: int, list_id: int, product_ids: list[int]) -> N
 @router.get("")
 async def list_product_lists(
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
     cursor: str | None = Query(None, description="Cursor de paginação"),
     limit: int = Query(20, ge=1, le=100, description="Tamanho da página"),
 ):
     """Lista listas de produtos com paginação por cursor."""
-    query = (
-        supabase.table("product_lists")
-        .select("*")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .limit(limit)
-    )
+    query = supabase.table("product_lists").select("*").eq("user_id", user_id)
+    if profile_id:
+        query = query.eq("profile_id", profile_id)
+    query = query.order("created_at", desc=True).limit(limit)
     if cursor:
         query = query.lt("created_at", cursor)
 
@@ -161,13 +163,13 @@ async def list_product_lists(
 async def create_product_list(
     body: ProductListCreate,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Cria uma nova lista de produtos."""
-    result = (
-        supabase.table("product_lists")
-        .insert({"user_id": user_id, "name": body.name})
-        .execute()
-    )
+    data = {"user_id": user_id, "name": body.name}
+    if profile_id:
+        data["profile_id"] = profile_id
+    result = supabase.table("product_lists").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar lista")
     return result.data[0]

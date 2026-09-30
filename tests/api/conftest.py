@@ -40,3 +40,20 @@ os.environ.setdefault(
 @pytest.fixture(scope="session", autouse=True)
 def _init_database():
     yield
+
+
+@pytest.fixture
+def auth_headers_with_profile():
+    """Cookie `access_token` cujo JWT carrega `profile_id` (Task 6).
+
+    Gerado com a mesma `_create_token` de `api/routers/auth.py` (Task 5).
+    `user_id`/`id` no payload é irrelevante nos testes que usam isso: eles
+    autenticam via `app.dependency_overrides[get_current_user_id]` (padrão
+    já usado em test_products.py/test_lists.py) -- só o claim `profile_id`
+    é decodificado de verdade, por `get_current_profile_id`
+    (api/routers/profiles.py), que lê o cookie direto sem tocar o Supabase.
+    """
+    from api.routers.auth import _create_token
+
+    token = _create_token({"sub": "testuser", "id": 1, "profile_id": "profile-a"})
+    return {"access_token": token}

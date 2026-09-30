@@ -155,3 +155,80 @@ class TestProductsNumericFieldsFromTextColumns:
         assert body["price_min"] is None
         assert body["price_max"] is None
         assert body["commission"] is None
+
+
+class TestProductsScopedByActiveProfile:
+    """Task 6: produtos passam a ser filtrados também por `profile_id` quando
+    o token carrega essa claim; token antigo (sem `profile_id`) continua
+    filtrando só por `user_id` (fallback, nunca quebra sessão existente)."""
+
+    def test_list_products_filters_by_active_profile_when_token_has_profile_id(
+        self, auth_client, auth_headers_with_profile, monkeypatch
+    ):
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        for method in ("select", "eq", "order", "range"):
+            getattr(query, method).return_value = query
+        query.execute.return_value = MagicMock(data=[])
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        auth_client.cookies.update(auth_headers_with_profile)
+        res = auth_client.get("/products")
+
+        assert res.status_code == 200
+        query.eq.assert_any_call("profile_id", "profile-a")
+
+    def test_list_products_does_not_filter_by_profile_when_token_has_no_profile_id(
+        self, auth_client, monkeypatch
+    ):
+        """Token antigo (sem `profile_id`) nunca deve quebrar a sessão existente."""
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        for method in ("select", "eq", "order", "range"):
+            getattr(query, method).return_value = query
+        query.execute.return_value = MagicMock(data=[])
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        res = auth_client.get("/products")
+
+        assert res.status_code == 200
+        for call in query.eq.call_args_list:
+            assert call.args[0] != "profile_id"
+
+    def test_create_product_includes_profile_id_when_token_has_it(
+        self, auth_client, auth_headers_with_profile, monkeypatch
+    ):
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        query.insert.return_value = query
+        query.execute.return_value = MagicMock(
+            data=[{"id": 1, "name": "Fone", "product_id": "abc"}]
+        )
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        auth_client.cookies.update(auth_headers_with_profile)
+        res = auth_client.post(
+            "/products",
+            json={"product_id": "abc", "name": "Fone"},
+        )
+
+        assert res.status_code == 201
+        inserted = query.insert.call_args[0][0]
+        assert inserted["profile_id"] == "profile-a"
+
+    def test_create_product_omits_profile_id_when_token_has_no_profile_id(
+        self, auth_client, monkeypatch
+    ):
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        query.insert.return_value = query
+        query.execute.return_value = MagicMock(
+            data=[{"id": 1, "name": "Fone", "product_id": "abc"}]
+        )
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        res = auth_client.post("/products", json={"product_id": "abc", "name": "Fone"})
+
+        assert res.status_code == 201
+        inserted = query.insert.call_args[0][0]
+        assert "profile_id" not in inserted

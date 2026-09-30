@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Any
 
 from .auth import get_current_user_id
+from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..database import supabase
 
@@ -81,6 +82,7 @@ def _get(user_id: int, product_id: int) -> dict[str, Any]:
 @router.get("")
 async def list_products(
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
     search: str | None = Query(None, description="Busca por nome"),
     category: str | None = Query(None, description="Filtrar por categoria"),
     min_price: float | None = Query(None, description="Preço mínimo"),
@@ -90,8 +92,13 @@ async def list_products(
     page: int = Query(1, ge=1, description="Página"),
     page_size: int = Query(50, ge=1, le=200, description="Itens por página"),
 ):
-    """Lista produtos com filtros, ordenação e paginação por offset."""
+    """Lista produtos com filtros, ordenação e paginação por offset.
+
+    `profile_id` é opcional: tokens antigos (sem essa claim) continuam
+    filtrando só por `user_id` (fallback, nunca quebra sessão existente)."""
     query = supabase.table("products").select("*").eq("user_id", user_id)
+    if profile_id:
+        query = query.eq("profile_id", profile_id)
 
     if search:
         query = query.ilike("name", f"%{search}%")
@@ -125,23 +132,23 @@ async def list_products(
 async def create_product(
     body: ProductCreate,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Cria um novo produto."""
-    result = (
-        supabase.table("products")
-        .insert({
-            "user_id": user_id,
-            "product_id": body.product_id,
-            "name": body.name,
-            "original_link": body.original_link,
-            "commission_link": body.commission_link,
-            "commission": body.commission,
-            "image": body.image,
-            "price_min": body.price_min,
-            "price_max": body.price_max,
-        })
-        .execute()
-    )
+    data: dict[str, Any] = {
+        "user_id": user_id,
+        "product_id": body.product_id,
+        "name": body.name,
+        "original_link": body.original_link,
+        "commission_link": body.commission_link,
+        "commission": body.commission,
+        "image": body.image,
+        "price_min": body.price_min,
+        "price_max": body.price_max,
+    }
+    if profile_id:
+        data["profile_id"] = profile_id
+    result = supabase.table("products").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar produto")
     return _normalize_numeric_fields(result.data[0])
