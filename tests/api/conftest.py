@@ -42,6 +42,81 @@ def _init_database():
     yield
 
 
+class FakeQueryBuilder:
+    """Fake mínimo de query builder do Supabase que APLICA os filtros
+    `.eq()` de verdade contra uma lista de linhas em memória — usado para
+    provar isolamento entre perfis (não só que `.eq("profile_id", ...)` foi
+    chamado, mas que o resultado realmente muda)."""
+
+    def __init__(self, rows):
+        self._rows = rows
+        self._filters: dict = {}
+        self._single = False
+
+    def select(self, *_a, **_kw):
+        return self
+
+    def eq(self, field, value):
+        self._filters[field] = value
+        return self
+
+    def single(self):
+        self._single = True
+        return self
+
+    def maybe_single(self):
+        self._single = True
+        return self
+
+    def order(self, *_a, **_kw):
+        return self
+
+    def range(self, *_a, **_kw):
+        return self
+
+    def limit(self, *_a, **_kw):
+        return self
+
+    def ilike(self, *_a, **_kw):
+        return self
+
+    def gte(self, *_a, **_kw):
+        return self
+
+    def lte(self, *_a, **_kw):
+        return self
+
+    def lt(self, *_a, **_kw):
+        return self
+
+    def execute(self):
+        from unittest.mock import MagicMock
+
+        matched = [
+            row for row in self._rows
+            if all(row.get(k) == v for k, v in self._filters.items())
+        ]
+        if self._single:
+            return MagicMock(data=matched[0] if matched else None)
+        return MagicMock(data=matched)
+
+
+@pytest.fixture
+def fake_query_builder():
+    return FakeQueryBuilder
+
+
+@pytest.fixture
+def old_token_without_profile_claim():
+    """Cookie `access_token` no formato antigo (pré Task 5), sem `profile_id`
+    no payload -- exercita o branch real de fallback, diferente de "sem
+    cookie nenhum"."""
+    from api.routers.auth import _create_token
+
+    token = _create_token({"sub": "testuser", "id": 1})
+    return {"access_token": token}
+
+
 @pytest.fixture
 def auth_headers_with_profile():
     """Cookie `access_token` cujo JWT carrega `profile_id` (Task 6).

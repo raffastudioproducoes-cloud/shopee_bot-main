@@ -62,16 +62,19 @@ def _normalize_numeric_fields(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
-def _get(user_id: int, product_id: int) -> dict[str, Any]:
-    """Busca um produto pelo ID, verificando ownership."""
-    result = (
+def _get(user_id: int, product_id: int, profile_id: str | None = None) -> dict[str, Any]:
+    """Busca um produto pelo ID, verificando ownership.
+
+    `profile_id` opcional (fallback pra token antigo sem essa claim)."""
+    query = (
         supabase.table("products")
         .select("*")
         .eq("id", product_id)
         .eq("user_id", user_id)
-        .single()
-        .execute()
     )
+    if profile_id:
+        query = query.eq("profile_id", profile_id)
+    result = query.single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
     return _normalize_numeric_fields(result.data)
@@ -158,9 +161,10 @@ async def create_product(
 async def get_product(
     product_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Retorna um produto específico."""
-    return _get(user_id, product_id)
+    return _get(user_id, product_id, profile_id)
 
 
 @router.put("/{product_id}")
@@ -168,22 +172,24 @@ async def update_product(
     product_id: int,
     body: ProductUpdate,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Atualiza um produto existente."""
-    before = _get(user_id, product_id)  # ownership check
+    before = _get(user_id, product_id, profile_id)  # ownership check
 
     update_data: dict[str, Any] = {}
     for key, value in body.model_dump(exclude_unset=True).items():
         update_data[key] = value
 
-    result = (
+    update_query = (
         supabase.table("products")
         .update(update_data)
         .eq("id", product_id)
         .eq("user_id", user_id)
-        .single()
-        .execute()
     )
+    if profile_id:
+        update_query = update_query.eq("profile_id", profile_id)
+    result = update_query.single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
     after = _normalize_numeric_fields(result.data)
@@ -206,17 +212,20 @@ async def update_product(
 async def delete_product(
     product_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Remove um produto."""
-    before = _get(user_id, product_id)  # ownership check
+    before = _get(user_id, product_id, profile_id)  # ownership check
 
-    result = (
+    delete_query = (
         supabase.table("products")
         .delete()
         .eq("id", product_id)
         .eq("user_id", user_id)
-        .execute()
     )
+    if profile_id:
+        delete_query = delete_query.eq("profile_id", profile_id)
+    result = delete_query.execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 

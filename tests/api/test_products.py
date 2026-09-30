@@ -179,9 +179,11 @@ class TestProductsScopedByActiveProfile:
         query.eq.assert_any_call("profile_id", "profile-a")
 
     def test_list_products_does_not_filter_by_profile_when_token_has_no_profile_id(
-        self, auth_client, monkeypatch
+        self, auth_client, old_token_without_profile_claim, monkeypatch
     ):
-        """Token antigo (sem `profile_id`) nunca deve quebrar a sessão existente."""
+        """Token antigo (sem a claim `profile_id`) nunca deve quebrar a
+        sessão existente -- exercitado com um JWT real sem essa claim, não
+        apenas ausência de cookie."""
         fake_client = MagicMock()
         query = fake_client.table.return_value
         for method in ("select", "eq", "order", "range"):
@@ -189,6 +191,7 @@ class TestProductsScopedByActiveProfile:
         query.execute.return_value = MagicMock(data=[])
         monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
 
+        auth_client.cookies.update(old_token_without_profile_claim)
         res = auth_client.get("/products")
 
         assert res.status_code == 200
@@ -232,3 +235,79 @@ class TestProductsScopedByActiveProfile:
         assert res.status_code == 201
         inserted = query.insert.call_args[0][0]
         assert "profile_id" not in inserted
+
+    def test_list_products_result_actually_filtered_by_profile(
+        self, auth_client, auth_headers_with_profile, fake_query_builder, monkeypatch
+    ):
+        """Prova que o RESULTADO muda com o filtro, não só que `.eq()` foi
+        chamado: 2 produtos do mesmo user_id, perfis diferentes."""
+        rows = [
+            {"id": 1, "user_id": 42, "profile_id": "profile-a", "name": "Do perfil A"},
+            {"id": 2, "user_id": 42, "profile_id": "profile-b", "name": "Do perfil B"},
+        ]
+        fake_client = MagicMock()
+        fake_client.table.side_effect = lambda _name: fake_query_builder(rows)
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        auth_client.cookies.update(auth_headers_with_profile)
+        res = auth_client.get("/products")
+
+        assert res.status_code == 200
+        data = res.json()["data"]
+        assert [row["id"] for row in data] == [1]
+
+
+class TestProductsByIdScopedByActiveProfile:
+    """CRITICAL (fix round 1): GET/PUT/DELETE por ID vazavam entre perfis da
+    mesma conta -- filtravam só por user_id. Perfil A não pode acessar
+    recurso do perfil B mesmo com o ID certo."""
+
+    def _rows_with_two_profiles(self):
+        return [
+            {
+                "id": 5,
+                "user_id": 42,
+                "profile_id": "profile-b",
+                "name": "Do perfil B",
+                "product_id": "b-1",
+                "price_min": None,
+                "price_max": None,
+                "commission": None,
+            }
+        ]
+
+    def test_get_product_from_other_profile_returns_404(
+        self, auth_client, auth_headers_with_profile, fake_query_builder, monkeypatch
+    ):
+        fake_client = MagicMock()
+        fake_client.table.side_effect = lambda _name: fake_query_builder(self._rows_with_two_profiles())
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        auth_client.cookies.update(auth_headers_with_profile)
+        res = auth_client.get("/products/5")
+
+        assert res.status_code == 404
+
+    def test_update_product_from_other_profile_returns_404(
+        self, auth_client, auth_headers_with_profile, fake_query_builder, monkeypatch
+    ):
+        fake_client = MagicMock()
+        fake_client.table.side_effect = lambda _name: fake_query_builder(self._rows_with_two_profiles())
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        auth_client.cookies.update(auth_headers_with_profile)
+        res = auth_client.put("/products/5", json={"name": "Hackeado"})
+
+        assert res.status_code == 404
+
+    def test_delete_product_from_other_profile_returns_404(
+        self, auth_client, auth_headers_with_profile, fake_query_builder, monkeypatch
+    ):
+        fake_client = MagicMock()
+        fake_client.table.side_effect = lambda _name: fake_query_builder(self._rows_with_two_profiles())
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        auth_client.cookies.update(auth_headers_with_profile)
+        res = auth_client.delete("/products/5")
+
+        assert res.status_code == 404

@@ -179,9 +179,10 @@ async def create_product_list(
 async def get_product_list(
     product_list_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Retorna uma lista específica com seus produtos."""
-    list_data = _get_list(user_id, product_list_id)
+    list_data = _get_list(user_id, product_list_id, profile_id)
     products = _get_list_products(product_list_id)
     return {
         "id": list_data["id"],
@@ -198,16 +199,20 @@ async def update_product_list(
     product_list_id: int,
     body: ProductListUpdate,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Atualiza o nome de uma lista."""
-    result = (
+    _get_list(user_id, product_list_id, profile_id)  # ownership check
+
+    update_query = (
         supabase.table("product_lists")
         .update({"name": body.name})
         .eq("id", product_list_id)
         .eq("user_id", user_id)
-        .single()
-        .execute()
     )
+    if profile_id:
+        update_query = update_query.eq("profile_id", profile_id)
+    result = update_query.single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Lista não encontrada")
 
@@ -221,17 +226,20 @@ async def update_product_list(
 async def delete_product_list(
     product_list_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Remove uma lista de produtos."""
-    before = _get_list(user_id, product_list_id)  # ownership check
+    before = _get_list(user_id, product_list_id, profile_id)  # ownership check
 
-    result = (
+    delete_query = (
         supabase.table("product_lists")
         .delete()
         .eq("id", product_list_id)
         .eq("user_id", user_id)
-        .execute()
     )
+    if profile_id:
+        delete_query = delete_query.eq("profile_id", profile_id)
+    result = delete_query.execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Lista não encontrada")
 
