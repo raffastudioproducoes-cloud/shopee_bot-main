@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from .auth import get_current_user_id
+from ..audit_trail import record_audit_event
 from ..database import supabase
 
 router = APIRouter(prefix="/lists", tags=["lists"])
@@ -170,6 +171,8 @@ async def delete_product_list(
     user_id: int = Depends(get_current_user_id),
 ):
     """Remove uma lista de produtos."""
+    before = _get_list(user_id, product_list_id)  # ownership check
+
     result = (
         supabase.table("product_lists")
         .delete()
@@ -179,4 +182,14 @@ async def delete_product_list(
     )
     if not result.data:
         raise HTTPException(status_code=404, detail="Lista não encontrada")
+
+    record_audit_event(
+        entity="product_list",
+        entity_id=str(product_list_id),
+        user_id=str(user_id),
+        action="product_list_deleted",
+        old_value=before,
+        new_value=None,
+    )
+
     return {"msg": "Lista removida"}

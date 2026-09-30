@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
 from .auth import get_current_user_id
+from ..audit_trail import record_audit_event
 from ..database import supabase
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -161,4 +162,14 @@ async def delete_user(user_id: str, _admin_id: int = Depends(_require_admin)):
     result = supabase.table("users").delete().eq("id", user_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    record_audit_event(
+        entity="user",
+        entity_id=str(user_id),
+        user_id=str(_admin_id),
+        action="user_deleted",
+        old_value=current.data,
+        new_value=None,
+    )
+
     return {"msg": "Usuário removido"}

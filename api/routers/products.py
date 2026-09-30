@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Any
 
 from .auth import get_current_user_id
+from ..audit_trail import record_audit_event
 from ..database import supabase
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -162,7 +163,7 @@ async def update_product(
     user_id: int = Depends(get_current_user_id),
 ):
     """Atualiza um produto existente."""
-    _get(user_id, product_id)  # ownership check
+    before = _get(user_id, product_id)  # ownership check
 
     update_data: dict[str, Any] = {}
     for key, value in body.model_dump(exclude_unset=True).items():
@@ -178,7 +179,20 @@ async def update_product(
     )
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
-    return _normalize_numeric_fields(result.data)
+    after = _normalize_numeric_fields(result.data)
+
+    price_fields = ("price_min", "price_max")
+    if any(before.get(field) != after.get(field) for field in price_fields):
+        record_audit_event(
+            entity="product",
+            entity_id=str(product_id),
+            user_id=str(user_id),
+            action="product_price_changed",
+            old_value={field: before.get(field) for field in price_fields},
+            new_value={field: after.get(field) for field in price_fields},
+        )
+
+    return after
 
 
 @router.delete("/{product_id}")
@@ -187,7 +201,7 @@ async def delete_product(
     user_id: int = Depends(get_current_user_id),
 ):
     """Remove um produto."""
-    _get(user_id, product_id)  # ownership check
+    before = _get(user_id, product_id)  # ownership check
 
     result = (
         supabase.table("products")
@@ -198,4 +212,14 @@ async def delete_product(
     )
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    record_audit_event(
+        entity="product",
+        entity_id=str(product_id),
+        user_id=str(user_id),
+        action="product_deleted",
+        old_value=before,
+        new_value=None,
+    )
+
     return {"msg": "Produto removido"}
