@@ -9,7 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..database import supabase
-from .auth import _validate_password_length, get_current_user_id, pwd_context
+from .auth import (
+    _check_login_rate_limit,
+    _validate_password_length,
+    get_current_user_id,
+    pwd_context,
+)
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -23,6 +28,7 @@ class PasswordChange(BaseModel):
 async def change_password(
     body: PasswordChange, user_id: int = Depends(get_current_user_id)
 ):
+    _check_login_rate_limit(f"changepw:{user_id}")
     _validate_password_length(body.new_password)
 
     result = (

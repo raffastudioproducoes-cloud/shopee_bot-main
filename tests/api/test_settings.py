@@ -27,6 +27,7 @@ from fastapi.testclient import TestClient
 
 from api import database as database_module
 from api.main import app
+from api.routers import auth as auth_module
 from api.routers.auth import get_current_user_id, pwd_context
 
 
@@ -36,6 +37,17 @@ def auth_client():
     app.dependency_overrides.clear()
     app.dependency_overrides[get_current_user_id] = lambda: 42
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _clear_changepw_rate_limit():
+    """PUT /settings/password reusa o rate limit de login (mesmo dict de
+    modulo `auth_module._login_attempts`, chave `changepw:<user_id>`) --
+    evita vazar contagem de tentativa entre testes (mesmo padrao de
+    test_users.py::_clear_selfdelete_rate_limit)."""
+    auth_module._login_attempts.clear()
+    yield
+    auth_module._login_attempts.clear()
 
 
 def _fake_client_for_user(user_data):
@@ -96,6 +108,32 @@ def test_change_password_rejects_short_new_password(auth_client, monkeypatch):
     )
 
     assert response.status_code == 400
+    query.update.assert_not_called()
+
+
+def test_change_password_sixth_wrong_attempt_within_60s_returns_429(
+    auth_client, monkeypatch
+):
+    fake_client, query = _fake_client_for_user(
+        {"id": 42, "password": pwd_context.hash("senha-antiga-1")}
+    )
+    monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+    responses = [
+        auth_client.put(
+            "/settings/password",
+            json={"current_password": "errada", "new_password": "nova12345"},
+        )
+        for _ in range(5)
+    ]
+    assert all(r.status_code == 403 for r in responses)
+
+    sixth = auth_client.put(
+        "/settings/password",
+        json={"current_password": "errada", "new_password": "nova12345"},
+    )
+
+    assert sixth.status_code == 429
     query.update.assert_not_called()
 
 
