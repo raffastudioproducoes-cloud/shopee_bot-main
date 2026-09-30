@@ -9,9 +9,18 @@ import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
 import { SearchField } from "../components/ui/SearchField"
+import { SegmentedToggle } from "../components/ui/SegmentedToggle"
 import { TimelineListCard } from "../components/ui/TimelineListCard"
 import { Badge } from "../components/ui/Badge"
 import { Icon } from "../components/ui/Icon"
+import { CatalogSearchTab } from "../components/products/CatalogSearchTab"
+
+type ProductsTab = "mine" | "catalog"
+
+const TABS_OPTIONS = [
+  { value: "mine", label: "Meus Produtos" },
+  { value: "catalog", label: "Pesquisa Avançada" },
+]
 
 const emptyForm = {
   name: "",
@@ -57,6 +66,7 @@ const VIEW_OPTIONS: { view: ProductsView; icon: string; label: string }[] = [
 export function ProductsPage() {
   const { isAuthenticated, logout } = useAuthStore()
   const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState<ProductsTab>("mine")
   const [search, setSearch] = useState("")
   const [view, setView] = useState<ProductsView>(readStoredProductsView)
   const [modalOpen, setModalOpen] = useState(false)
@@ -215,45 +225,61 @@ export function ProductsPage() {
         <div>
           <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Produtos</h1>
           <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Catálogo de produtos da Shopee.</p>
-          <div
-            role="group"
-            aria-label="Modo de visualização"
-            style={{
-              display: "inline-flex",
-              gap: 2,
-              marginTop: 10,
-              padding: 3,
-              background: "var(--surface-inset)",
-              border: "1px solid var(--border-hairline)",
-              borderRadius: "var(--r-pill)",
-            }}
-          >
-            {VIEW_OPTIONS.map((opt) => (
-              <IconButton
-                key={opt.view}
-                icon={opt.icon}
-                label={opt.label}
-                tone="plain"
-                size={30}
-                active={view === opt.view}
-                onClick={() => handleViewChange(opt.view)}
-              />
-            ))}
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+            <SegmentedToggle
+              options={TABS_OPTIONS}
+              value={activeTab}
+              onChange={(v) => setActiveTab(v as ProductsTab)}
+              fullWidth={false}
+              size={36}
+            />
+            {activeTab === "mine" ? (
+              <div
+                role="group"
+                aria-label="Modo de visualização"
+                style={{
+                  display: "inline-flex",
+                  gap: 2,
+                  padding: 3,
+                  background: "var(--surface-inset)",
+                  border: "1px solid var(--border-hairline)",
+                  borderRadius: "var(--r-pill)",
+                }}
+              >
+                {VIEW_OPTIONS.map((opt) => (
+                  <IconButton
+                    key={opt.view}
+                    icon={opt.icon}
+                    label={opt.label}
+                    tone="plain"
+                    size={30}
+                    active={view === opt.view}
+                    onClick={() => handleViewChange(opt.view)}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-          <SearchField
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar produtos..."
-            width={240}
-          />
-          <Button variant="primary" icon="plus" onClick={openCreateModal}>
-            Novo produto
-          </Button>
-        </div>
+        {activeTab === "mine" ? (
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <SearchField
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar produtos..."
+              width={240}
+            />
+            <Button variant="primary" icon="plus" onClick={openCreateModal}>
+              Novo produto
+            </Button>
+          </div>
+        ) : null}
       </header>
 
+      {activeTab === "catalog" ? (
+        <CatalogSearchTab />
+      ) : (
+        <>
       {/* Error */}
       {error && (
         <div
@@ -371,6 +397,8 @@ export function ProductsPage() {
             />
           ))}
         </div>
+      )}
+        </>
       )}
 
       {/* Modal de criação/edição */}

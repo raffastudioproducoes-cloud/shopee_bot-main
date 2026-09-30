@@ -15,6 +15,7 @@ from .middleware import RequestLoggingMiddleware
 logger = logging.getLogger("uvicorn.error")
 from .routers import (
     auth_router,
+    catalog_router,
     products_router,
     lists_router,
     posts_router,
@@ -43,6 +44,13 @@ app.add_middleware(RequestLoggingMiddleware)
 
 # Routers
 app.include_router(auth_router)
+# catalog_router ANTES de products_router: registra rotas literais
+# "/products/catalog-search" e "/products/catalog-categories" — se
+# products_router (com "/products/{product_id}") for registrado primeiro,
+# o Starlette casa o path pattern primeiro e falha a validação de
+# product_id:int antes de tentar a rota literal (mesmo cuidado de ordem de
+# registro documentado em credentials.py pra rotas literais vs "/{network}").
+app.include_router(catalog_router)
 app.include_router(products_router)
 app.include_router(lists_router)
 app.include_router(posts_router)
