@@ -16,12 +16,18 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
+from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 
 from ..config import settings
 from ..database import get_supabase
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Instância única de módulo — reusada por login/reset_password/register aqui
+# e por api/routers/settings.py (troca de senha em /settings). Não criar uma
+# segunda instância de CryptContext em outro módulo.
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 _DB_UNAVAILABLE_DETAIL = (
     "Serviço de banco de dados indisponível. Verifique a configuração do servidor."
@@ -177,10 +183,6 @@ async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
-    from passlib.context import CryptContext
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
     ip = request.client.host if request.client else "unknown"
     _check_login_rate_limit(f"{ip}:{form_data.username}")
 
@@ -275,10 +277,6 @@ async def reset_password(payload: ResetPasswordRequest):
 
     generic_response = {"msg": "Se o usuário existir, a senha foi atualizada"}
 
-    from passlib.context import CryptContext
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
     user = _get_user_from_supabase(payload.username)
     if not user:
         # Hash dummy só pra equalizar o tempo de resposta com o branch que
@@ -325,10 +323,6 @@ async def register(body: RegisterRequest, request: Request):
 
     if _get_user_from_supabase(body.username):
         raise HTTPException(status_code=409, detail="Nome de usuário já existe")
-
-    from passlib.context import CryptContext
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     try:
         supabase = get_supabase()

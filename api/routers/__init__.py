@@ -11,6 +11,7 @@ from .dashboard import router as dashboard_router
 from .notifications import router as notifications_router
 from .logs import router as logs_router
 from .profiles import router as profiles_router
+from .settings import router as settings_router
 
 __all__ = [
     "auth_router",
@@ -24,4 +25,5 @@ __all__ = [
     "notifications_router",
     "logs_router",
     "profiles_router",
+    "settings_router",
 ]
