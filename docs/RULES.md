@@ -109,6 +109,24 @@ dono do projeto por sessão.
   contra o projeto MiauDelier Manager (origem: benchmarking MiauDelier Manager, 2026-09-29).
   Ver `docs/TASK.md` Fase 10 para o backlog de segurança/features relacionado.
 
+## 9. Migração aplicada fora do fluxo do app (Supabase MCP direto)
+
+- O app tem seu próprio controle de migração: tabela `public.migrations` (colunas
+  `id`, `name`, `aplied_at` — nome com esse typo mesmo, não corrigir sem migrar
+  os dados), lida em todo boot via `post_fork` (`web/__init__.py`) →
+  `database/__init__.py:init_db()` → `database/migrations/__init__.py:run_migrations()`,
+  que roda sequencialmente todo `.sql` em `database/migrations/` que ainda não
+  está na tabela.
+- Se uma migração for aplicada direto no Supabase (via MCP ou SQL editor, fora do
+  fluxo normal do app), ela TEM que ser registrada manualmente na mesma hora com
+  `insert into public.migrations (name, aplied_at) values ('0XX_nome.sql', now())`
+  — senão o próximo boot tenta rodar de novo. `CREATE POLICY`/`CREATE TABLE` sem
+  `IF NOT EXISTS` não é idempotente: a segunda tentativa lança exceção não
+  tratada em `post_fork`, mata o worker, gunicorn conta como falha de boot e
+  chama `HaltServer` — Render reinicia o container, bate no mesmo erro de novo,
+  crash-loop infinito (sintoma visível: site "recarregando" sem parar / 502
+  constante). Incidente real: 2026-09-30, migrações 031/032.
+
 ## Referências
 
 - `.github/workflows/ci.yml`, `.github/workflows/cd.yml`
