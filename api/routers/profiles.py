@@ -4,7 +4,8 @@ Profiles Router — API Python (FastAPI)
 CRUD de perfis (multi-profile) e troca de perfil ativo (`/profiles/{id}/activate`).
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+import fleep
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel
 
 from ..database import supabase
@@ -12,6 +13,17 @@ from ..profiles import PROFILE_LIMIT, can_create_profile, is_principal
 from .auth import _create_token, _decode_token, get_current_user_id
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
+
+# Mesmo padrão de validação por magic-byte de api/routers/posts.py
+# (fleep.get + checagem de qualquer mime detectado contra a allowlist).
+# Mapeado pra extensão pra fixar o nome do arquivo no bucket e evitar
+# path traversal via file.filename (perfil so tem 1 avatar por vez).
+ALLOWED_AVATAR_MIMES = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+}
+AVATAR_BUCKET = "avatars"
 
 
 class ProfileCreate(BaseModel):
@@ -138,3 +150,29 @@ async def activate_profile(
         max_age=86400,
     )
     return {"status": "activated", "profile_id": profile_id}
+
+
+@router.post("/{profile_id}/avatar")
+async def upload_avatar(
+    profile_id: str,
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user_id),
+):
+    _get_own_profile_or_404(profile_id, user_id)
+
+    content = await file.read()
+    info = fleep.get(content[:128])
+    matched_mime = next((m for m in info.mime if m in ALLOWED_AVATAR_MIMES), None)
+    if not matched_mime:
+        raise HTTPException(status_code=400, detail="Arquivo não é uma imagem válida.")
+
+    path = f"{profile_id}/avatar{ALLOWED_AVATAR_MIMES[matched_mime]}"
+    supabase.storage.from_(AVATAR_BUCKET).upload(
+        path, content, {"content-type": matched_mime, "upsert": "true"}
+    )
+    public_url = supabase.storage.from_(AVATAR_BUCKET).get_public_url(path)
+
+    supabase.table("profiles").update({"avatar_url": public_url}).eq(
+        "id", profile_id
+    ).eq("user_id", user_id).execute()
+    return {"avatar_url": public_url}

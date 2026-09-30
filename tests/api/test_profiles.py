@@ -137,3 +137,40 @@ def test_activate_profile_copies_login_cookie_flags(auth_client, monkeypatch):
     assert "Secure" in set_cookie
     assert "samesite=lax" in set_cookie.lower()
     assert "max-age=86400" in set_cookie.lower()
+
+
+def test_avatar_upload_rejects_non_image_content(auth_client, monkeypatch):
+    """Difere do brief (task-7-brief.md Step 1): não existe fixture
+    `client`/`auth_headers` com cookies reais neste arquivo (ver nota no
+    topo do módulo) -- usa `auth_client`/`_mock_supabase`, mesmo padrão
+    das demais rotas de profiles."""
+    _mock_supabase(monkeypatch, {"id": "p-1", "user_id": USER_ID})
+    fake_file = ("avatar.png", b"isso nao e uma imagem de verdade", "image/png")
+    response = auth_client.post(
+        "/profiles/p-1/avatar",
+        files={"file": fake_file},
+    )
+    assert response.status_code == 400
+
+
+def test_avatar_upload_succeeds_and_updates_avatar_url(auth_client, monkeypatch):
+    """PNG real (magic-byte válido via fleep) -- deve subir pro bucket
+    `avatars`, atualizar `profiles.avatar_url` e devolver a URL pública."""
+    _mock_supabase(monkeypatch, {"id": "p-1", "user_id": USER_ID})
+    fake_client = database_module.get_supabase()
+    fake_client.storage.from_.return_value.get_public_url.return_value = (
+        "https://supabase.example/storage/v1/object/public/avatars/p-1/avatar.png"
+    )
+
+    png_header = b"\x89PNG\r\n\x1a\n" + b"\x00" * 120
+    response = auth_client.post(
+        "/profiles/p-1/avatar",
+        files={"file": ("avatar.png", png_header, "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "avatar_url": "https://supabase.example/storage/v1/object/public/avatars/p-1/avatar.png"
+    }
+    fake_client.storage.from_.assert_called_with("avatars")
+    fake_client.storage.from_.return_value.upload.assert_called_once()
