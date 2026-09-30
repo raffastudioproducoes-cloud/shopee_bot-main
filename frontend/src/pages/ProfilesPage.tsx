@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { usersApi, type AppUser, type UserAccess } from "../api/users"
@@ -35,11 +35,47 @@ export function ProfilesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<AppUser | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const avatarInputs = useRef<Record<string, HTMLInputElement | null>>({})
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles"],
     queryFn: () => profilesApi.list(),
   })
+
+  const invalidateProfiles = () => queryClient.invalidateQueries({ queryKey: ["profiles"] })
+
+  const createProfileMutation = useMutation({
+    mutationFn: profilesApi.create,
+    onSuccess: () => {
+      invalidateProfiles()
+      setProfileModalOpen(false)
+    },
+  })
+
+  const activateMutation = useMutation({
+    mutationFn: (id: string) => profilesApi.activate(id),
+    onSuccess: () => {
+      window.location.reload()
+    },
+  })
+
+  const uploadAvatarMutation = useMutation({
+    mutationFn: ({ id, file }: { id: string; file: File }) => profilesApi.uploadAvatar(id, file),
+    onSuccess: () => {
+      setAvatarError(null)
+      invalidateProfiles()
+    },
+    onError: (err: Error) => setAvatarError(err.message),
+  })
+
+  const handleAvatarChange = (profileId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    uploadAvatarMutation.mutate({ id: profileId, file })
+  }
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["users"],
@@ -89,10 +125,27 @@ export function ProfilesPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
-      <div>
-        <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Perfis</h1>
-        <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Perfis de uso da conta.</p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Perfis</h1>
+          <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Perfis de uso da conta.</p>
+        </div>
+        <Button
+          variant="primary"
+          icon="plus"
+          disabled={profiles.length >= 3}
+          title={profiles.length >= 3 ? "Limite de 3 perfis atingido" : undefined}
+          onClick={() => setProfileModalOpen(true)}
+        >
+          Novo perfil
+        </Button>
       </div>
+
+      {avatarError && (
+        <div style={{ color: "var(--negative-ink)", font: "var(--fw-medium) var(--fs-body)/1.3 var(--font-sans)" }}>
+          {avatarError}
+        </div>
+      )}
 
       <div
         style={{
@@ -102,12 +155,39 @@ export function ProfilesPage() {
         }}
       >
         {profiles.map((profile) => (
-          <Panel key={profile.id} style={{ padding: 16 }}>
-            <img
-              src={profile.avatar_url ?? "/avatar-placeholder.png"}
-              alt={profile.nome}
-              style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: "var(--r-lg)" }}
-            />
+          <Panel
+            key={profile.id}
+            style={{ padding: 16, cursor: "pointer" }}
+            onClick={() => activateMutation.mutate(profile.id)}
+          >
+            <div style={{ position: "relative" }}>
+              <img
+                src={profile.avatar_url ?? "/avatar-placeholder.png"}
+                alt={profile.nome}
+                style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: "var(--r-lg)" }}
+              />
+              <input
+                ref={(el) => {
+                  avatarInputs.current[profile.id] = el
+                }}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                style={{ display: "none" }}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => handleAvatarChange(profile.id, e)}
+              />
+              <IconButton
+                icon="camera"
+                label="Alterar avatar"
+                tone="plain"
+                size={30}
+                style={{ position: "absolute", bottom: 4, right: 4, background: "var(--surface-inset)" }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  avatarInputs.current[profile.id]?.click()
+                }}
+              />
+            </div>
             <div style={{ marginTop: 8, fontWeight: 600 }}>{profile.nome}</div>
             <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{profile.email}</div>
             <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
@@ -117,6 +197,14 @@ export function ProfilesPage() {
           </Panel>
         ))}
       </div>
+
+      {profileModalOpen && (
+        <ProfileModal
+          onClose={() => setProfileModalOpen(false)}
+          onCreate={(data) => createProfileMutation.mutate(data)}
+          loading={createProfileMutation.isPending}
+        />
+      )}
 
       {user?.access !== "ADMIN" ? (
         <div style={{ textAlign: "center", padding: "48px 0", color: "var(--text-muted)" }}>
@@ -269,6 +357,51 @@ export function ProfilesPage() {
         </>
       )}
     </div>
+  )
+}
+
+// ── Modal de criação de perfil ──────────────────────────────────────────────────
+
+interface ProfileModalProps {
+  onClose: () => void
+  onCreate: (data: { nome: string; email: string; telefone?: string; endereco?: string }) => void
+  loading: boolean
+}
+
+function ProfileModal({ onClose, onCreate, loading }: ProfileModalProps) {
+  const [nome, setNome] = useState("")
+  const [email, setEmail] = useState("")
+  const [telefone, setTelefone] = useState("")
+  const [endereco, setEndereco] = useState("")
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onCreate({
+      nome,
+      email,
+      telefone: telefone.trim() || undefined,
+      endereco: endereco.trim() || undefined,
+    })
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Novo perfil" width={400}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <TextInput label="Nome *" value={nome} onChange={(e) => setNome(e.target.value)} required />
+        <TextInput label="E-mail *" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <TextInput label="Telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
+        <TextInput label="Endereço" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" disabled={loading || !nome.trim() || !email.trim()}>
+            {loading ? "Salvando..." : "Criar"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

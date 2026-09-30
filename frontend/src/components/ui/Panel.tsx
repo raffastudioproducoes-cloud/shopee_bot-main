@@ -1,4 +1,4 @@
-import type { ReactNode, CSSProperties } from "react"
+import type { ReactNode, CSSProperties, MouseEvent } from "react"
 
 /**
  * Container surface.
@@ -17,6 +17,7 @@ export interface PanelProps {
   overflowHidden?: boolean
   className?: string
   style?: CSSProperties
+  onClick?: (e: MouseEvent<HTMLElement>) => void
 }
 
 const SURFACES: Record<string, CSSProperties> = {
@@ -56,11 +57,13 @@ export function Panel({
   overflowHidden = true,
   className = "",
   style,
+  onClick,
 }: PanelProps) {
   const s = SURFACES[surface] || SURFACES.dark
   return (
     <section
       className={className}
+      onClick={onClick}
       style={{
         position: "relative",
         borderRadius: radius,
