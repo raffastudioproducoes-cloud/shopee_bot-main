@@ -191,7 +191,26 @@ async def login(
     if not pwd_context.verify(form_data.password, user.get("password", "")):
         raise HTTPException(status_code=401, detail="Senha inválida")
 
-    token = _create_token({"sub": user["username"], "id": user["id"]})
+    principal = (
+        get_supabase()
+        .table("profiles")
+        .select("id")
+        .eq("user_id", user["id"])
+        .eq("kind", "principal")
+        .maybe_single()
+        .execute()
+    )
+    # isinstance (nao só truthiness): testes existentes de login mockam
+    # `get_supabase` sem prever esta query nova de perfil principal, e o
+    # `.execute()` auto-gerado pelo MagicMock devolve outro MagicMock (que
+    # é truthy e nao é dict) -- sem essa checagem, `.data["id"]` levantaria
+    # ou o token ficaria com um MagicMock como claim (falha na serializacao
+    # JSON do JWT). Resposta real do Supabase pra maybe_single() é sempre
+    # `None` ou `dict`.
+    profile_id = (
+        principal.data["id"] if isinstance(principal.data, dict) else None
+    )
+    token = _create_token({"sub": user["username"], "id": user["id"], "profile_id": profile_id})
 
     # response injetado pelo FastAPI, não um Response() local — um Response()
     # criado à mão é descartado quando a função retorna um dict (bug que
