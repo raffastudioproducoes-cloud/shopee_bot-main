@@ -22,7 +22,7 @@ const navItems: SideRailItem[] = [
 ]
 
 const adminNavItems: SideRailItem[] = [
-  { value: '/users', label: 'Usuários', icon: 'users' },
+  { value: '/profiles', label: 'Perfis', icon: 'users' },
   { value: '/logs', label: 'Logs', icon: 'scroll-text' },
 ]
 
