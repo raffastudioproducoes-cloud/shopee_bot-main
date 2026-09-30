@@ -46,6 +46,8 @@ export function IconButton({
   const t = TONES[tone] || TONES.glass
   const [hot, setHot] = useState(false)
   const [down, setDown] = useState(false)
+  const box = Math.max(size, 44)
+  const hasFill = t.bg !== "transparent"
   return (
     <button
       type="button"
@@ -65,16 +67,18 @@ export function IconButton({
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: size,
-        height: size,
+        width: box,
+        height: box,
         borderRadius: "var(--r-pill)",
         border: "none",
         background: active ? "rgba(255,255,255,.26)" : t.bg,
         color: t.fg,
         cursor: "pointer",
+        boxShadow: !hasFill ? "none" : down ? "var(--shadow-pressed)" : "var(--shadow-card)",
         filter: hot ? "brightness(1.12)" : "none",
         transform: down ? "scale(var(--press-scale))" : "none",
-        transition: "var(--t-hover), var(--t-press), filter var(--dur-fast) var(--ease-standard)",
+        transition:
+          "var(--t-hover), var(--t-press), filter var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard)",
         ...style,
       }}
     >

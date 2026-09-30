@@ -22,6 +22,8 @@ export interface ButtonProps {
   iconAfter?: string
   fullWidth?: boolean
   disabled?: boolean
+  /** Shows a spinner in place of the leading icon and blocks clicks. */
+  loading?: boolean
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void
   type?: "button" | "submit" | "reset"
   className?: string
@@ -54,6 +56,7 @@ export function Button({
   iconAfter,
   fullWidth = false,
   disabled = false,
+  loading = false,
   onClick,
   type = "button",
   className = "",
@@ -63,10 +66,15 @@ export function Button({
   const t = TONES[variant] || TONES.primary
   const [hot, setHot] = useState(false)
   const [down, setDown] = useState(false)
+  const isInactive = disabled || loading
+  const hasFill = t.bg !== "transparent"
+  const leadingIcon = loading ? "loader-2" : icon
   return (
     <button
       type={type}
-      disabled={disabled}
+      disabled={isInactive}
+      aria-disabled={disabled}
+      aria-busy={loading}
       onClick={onClick}
       onMouseEnter={() => setHot(true)}
       onMouseLeave={() => {
@@ -81,7 +89,7 @@ export function Button({
         alignItems: "center",
         justifyContent: "center",
         gap: s.gap,
-        minHeight: s.h,
+        minHeight: Math.max(s.h, 44),
         padding: `0 ${s.px}px`,
         width: fullWidth ? "100%" : undefined,
         font: `${t.fw} ${s.fs}/1 var(--font-sans)`,
@@ -90,16 +98,20 @@ export function Button({
         color: t.fg,
         border: t.bd,
         borderRadius: s.r,
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.38 : 1,
-        filter: hot && !disabled ? "brightness(1.08)" : "none",
-        transform: down && !disabled ? "scale(var(--press-scale))" : "none",
-        transition: "var(--t-hover), var(--t-press), filter var(--dur-fast) var(--ease-standard)",
+        cursor: isInactive ? "not-allowed" : "pointer",
+        opacity: isInactive ? 0.38 : 1,
+        boxShadow: !hasFill ? "none" : down && !isInactive ? "var(--shadow-pressed)" : "var(--shadow-card)",
+        filter: hot && !isInactive ? "brightness(1.08)" : "none",
+        transform: down && !isInactive ? "scale(var(--press-scale))" : "none",
+        transition:
+          "var(--t-hover), var(--t-press), filter var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard)",
         whiteSpace: "nowrap",
         ...style,
       }}
     >
-      {icon ? <Icon name={icon} size={size === "sm" ? 14 : 16} /> : null}
+      {leadingIcon ? (
+        <Icon name={leadingIcon} size={size === "sm" ? 14 : 16} className={loading ? "animate-spin" : undefined} />
+      ) : null}
       {children}
       {iconAfter ? <Icon name={iconAfter} size={size === "sm" ? 14 : 16} /> : null}
     </button>
