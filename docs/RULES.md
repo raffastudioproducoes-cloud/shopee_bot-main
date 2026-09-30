@@ -101,6 +101,14 @@ dono do projeto por sessão.
   silenciosamente (ver "Atualizado 2026-09-27 (correção de uma alegação desatualizada desta
   seção)" em `docs/ROADMAP_MIGRACAO.md`).
 
+## 8. Migração de esquema de auth/dado sensível (diretriz, não tarefa isolada)
+
+- Se qualquer mudança futura de esquema de autenticação ou de dado sensível for feita,
+  seguir o padrão de fallback para o formato legado durante a transição, sem quebrar conta
+  existente (não fazer migração destrutiva de uma vez só). Prática trazida do benchmarking
+  contra o projeto MiauDelier Manager (origem: benchmarking MiauDelier Manager, 2026-09-29).
+  Ver `docs/TASK.md` Fase 10 para o backlog de segurança/features relacionado.
+
 ## Referências
 
 - `.github/workflows/ci.yml`, `.github/workflows/cd.yml`

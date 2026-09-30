@@ -72,6 +72,60 @@ Garimpo inteligente por filtro, copywriter IA por persona configurável, canais 
 `17-Visao-Expandida-Shopee-IA.md` (vault) como backlog pós-MVP, **não** aprovados como sprint
 em execução.
 
+## Fase 10 — Backlog de segurança/features (benchmarking MiauDelier Manager)
+
+> Investigação de leitura em projeto irmão (MiauDelier Manager) levantou práticas de
+> segurança e features maduras. Rafa decidiu incorporar como backlog/roadmap — **planejamento,
+> não implementação**. Todos os itens abaixo: status **Não iniciada**.
+> (origem: benchmarking MiauDelier Manager, 2026-09-29)
+
+### Segurança
+
+- [ ] **10.1 — RLS real no Supabase/Postgres.** Habilitar Row Level Security nas tabelas
+  sensíveis (`products`, `posts`, `product_lists`, `credentials`, `users`) com policy por
+  `user_id`. Hoje o isolamento é só na lógica da aplicação (service-role direto via
+  psycopg/supabase-py). Referência: MiauDelier Manager já usa RLS real em todas as tabelas.
+  (origem: benchmarking MiauDelier Manager, 2026-09-29)
+- [ ] **10.2 — Avaliar cifra de campo em repouso (envelope encryption).** Chave derivada de
+  senha embrulha uma chave de dados, para dados de negócio sensíveis além do que já é cifrado
+  hoje (tokens OAuth via Fernet). Avaliar se faz sentido pro domínio do Shopee Auto Vendas.
+  (origem: benchmarking MiauDelier Manager, 2026-09-29)
+- [ ] **10.3 — Auditoria imutável de alterações sensíveis.** Tabela de eventos (entidade,
+  entidade_id, quem, quando, ação, valor_anterior, valor_novo) para mudanças de preço/exclusão/
+  dado sensível. Hoje só existe `activities` para eventos de post/bot, não para auditoria de
+  alteração de dado. (origem: benchmarking MiauDelier Manager, 2026-09-29)
+- [ ] **10.4 — Sanitização de log contra vazamento de segredo.** Revisar se logs do Shopee
+  (uvicorn/`logger.exception` em `api/`) podem vazar senha/token/JWT acidentalmente; adicionar
+  sanitização automática (regex de chaves sensíveis) antes de persistir/exibir logs, se
+  aplicável. (origem: benchmarking MiauDelier Manager, 2026-09-29)
+- [ ] **10.5 — Endpoint de autoexclusão de conta e dados (LGPD/direito ao esquecimento).**
+  Hoje só admin consegue deletar usuário via `DELETE /users/{id}`; avaliar RPC ou endpoint
+  próprio para o próprio usuário solicitar exclusão de conta e dados.
+  (origem: benchmarking MiauDelier Manager, 2026-09-29)
+- [ ] **10.6 — Rodar o Supabase Security Advisor** (linter de segurança nativo do Supabase)
+  contra o projeto e corrigir os warnings reais encontrados (prática confirmada no MiauDelier:
+  correção de `anon_security_definer_function_executable`).
+  (origem: benchmarking MiauDelier Manager, 2026-09-29)
+- [ ] **10.7 — Revisar rate limiting de login distribuído.** Avaliar migrar de "em memória de
+  processo" (dívida técnica já documentada) para solução distribuída (Redis/slowapi) antes de
+  escalar para múltiplos workers/instâncias no Render.
+  (origem: benchmarking MiauDelier Manager, 2026-09-29)
+
+### Funcionalidades/Arquitetura
+
+- [ ] **10.8 — Backup/restore de dados do usuário com checksum de integridade.** Exportar
+  JSON com checksum, validar na importação, rejeitar arquivo corrompido. Avaliar se faz
+  sentido pro Shopee Auto Vendas (ex.: exportar produtos/listas/posts do usuário).
+  (origem: benchmarking MiauDelier Manager, 2026-09-29)
+- [ ] **10.9 — Multi-perfil por conta.** Permitir que um usuário gerencie mais de uma
+  loja/conta Shopee/Kwai sob o mesmo login, limitado a um número pequeno de perfis (bem menor
+  que os 10 do MiauDelier — usar 3 como valor de partida; **número exato a confirmar com Rafa
+  antes de implementar**). Avaliar impacto no schema atual (hoje é 1 conta = 1 usuário).
+  (origem: benchmarking MiauDelier Manager, 2026-09-29)
+
+Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
+existente — diretriz, não tarefa isolada).
+
 ## Referências
 
 - `docs/ROADMAP_MIGRACAO.md`, `docs/CHECKLIST_MIGRACAO.md`
