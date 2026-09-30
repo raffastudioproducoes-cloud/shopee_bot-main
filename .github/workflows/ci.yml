@@ -2,9 +2,9 @@ name: CI — Lint e Test da API Python
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
 
 jobs:
   lint-and-test:
