@@ -38,6 +38,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, model_validator, field_validator
 
 from .auth import get_current_user_id
+from ..audit_log import log_action
 from ..database import supabase
 from ..internal_client import (
     create_scheduler_job,
@@ -548,6 +549,7 @@ async def publish_post_now(
     except InternalApiError:
         raise HTTPException(status_code=502, detail="Não foi possível publicar agora. Tente novamente.")
 
+    log_action("post_published", f"post_id={post_id}", user_id=user_id)
     return {"msg": "Publicação disparada"}
 
 

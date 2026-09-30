@@ -13,9 +13,13 @@ const navItems: SideRailItem[] = [
   { value: '/lists', label: 'Listas', icon: 'sliders-horizontal' },
   { value: '/posts', label: 'Posts', icon: 'file-text' },
   { value: '/credentials', label: 'Credenciais', icon: 'key-round' },
+  { value: '/ajuda', label: 'Ajuda & FAQ', icon: 'help-circle' },
 ]
 
-const adminNavItem: SideRailItem = { value: '/users', label: 'Usuários', icon: 'users' }
+const adminNavItems: SideRailItem[] = [
+  { value: '/users', label: 'Usuários', icon: 'users' },
+  { value: '/logs', label: 'Logs', icon: 'scroll-text' },
+]
 
 export function PanelPage() {
   const navigate = useNavigate()
@@ -40,7 +44,7 @@ export function PanelPage() {
     }
   }, [isAuthenticated, navigate, logout, user, setUser])
 
-  const items = user?.access === 'ADMIN' ? [...navItems, adminNavItem] : navItems
+  const items = user?.access === 'ADMIN' ? [...navItems, ...adminNavItems] : navItems
 
   const handleLogout = () => {
     logout()

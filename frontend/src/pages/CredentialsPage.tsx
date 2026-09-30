@@ -398,14 +398,44 @@ function SimpleCredentialCard({
         style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}
       >
         {helpUrl && (
-          <a
-            href={helpUrl}
-            target="_blank"
-            rel="noreferrer"
-            style={{ font: "var(--text-role-body)", color: "var(--accent-500)" }}
-          >
-            Abrir Portal de Afiliados da {label} (pegar App ID/Secret) ↗
-          </a>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <a
+              href={helpUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ font: "var(--text-role-body)", color: "var(--accent-500)" }}
+            >
+              Abrir Portal de Afiliados da {label} (pegar App ID/Secret) ↗
+            </a>
+            {network === "shopee" && (
+              <button
+                type="button"
+                aria-label="Ver tutorial de como gerar App ID e Secret na Shopee"
+                title="Tutorial Shopee"
+                onClick={() => {
+                  window.location.href = "/ajuda?tab=shopee"
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 18,
+                  height: 18,
+                  flexShrink: 0,
+                  borderRadius: "50%",
+                  border: "1px solid currentColor",
+                  background: "none",
+                  color: "var(--accent-500)",
+                  cursor: "pointer",
+                  opacity: 0.75,
+                  font: "var(--fw-semibold) 10px/1 var(--font-sans)",
+                  padding: 0,
+                }}
+              >
+                ?
+              </button>
+            )}
+          </div>
         )}
         <div style={FIELD_GRID}>
           <TextInput

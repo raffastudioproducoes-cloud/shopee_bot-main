@@ -123,6 +123,15 @@ em execução.
   antes de implementar**). Avaliar impacto no schema atual (hoje é 1 conta = 1 usuário).
   (origem: benchmarking MiauDelier Manager, 2026-09-29)
 
+- [x] **10.10 — Página "Ajuda & FAQ" com deep-link do tutorial Shopee.** Botão "?" no card
+  Shopee de `CredentialsPage.tsx` leva direto pra aba "Tutorial Shopee" de uma nova página
+  `HelpPage.tsx` (rota `/ajuda`, abas por `SegmentedToggle`, deep-link via `?tab=shopee`).
+  Estrutura de abas pronta, conteúdo em placeholder ("Em breve") — texto e prints reais ficam
+  para tarefa futura. Rodapé de suporte (e-mail, copiar, "Enviar mensagem", "Desenvolvido por
+  Raffa Studio Produções") replicado estruturalmente do MiauDelier Manager
+  (`src/features/ajuda/AjudaSuportePage.tsx`). Link novo no menu lateral (`PanelPage.tsx`,
+  ícone `help-circle`). Concluída. (origem: pedido direto de Rafa, 2026-09-29)
+
 Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
 existente — diretriz, não tarefa isolada).
 

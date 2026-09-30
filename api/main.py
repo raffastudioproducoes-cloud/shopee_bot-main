@@ -22,6 +22,7 @@ from .routers import (
     users_router,
     dashboard_router,
     notifications_router,
+    logs_router,
 )
 
 app = FastAPI(
@@ -49,6 +50,7 @@ app.include_router(credentials_router)
 app.include_router(users_router)
 app.include_router(dashboard_router)
 app.include_router(notifications_router)
+app.include_router(logs_router)
 
 
 # Health check

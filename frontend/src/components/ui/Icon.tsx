@@ -40,6 +40,8 @@ import {
   List,
   Grid3x3,
   LayoutGrid,
+  ScrollText,
+  HelpCircle,
   type LucideProps,
 } from "lucide-react"
 
@@ -113,6 +115,12 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   list: List,
   "grid-3x3": Grid3x3,
   "layout-grid": LayoutGrid,
+  // Extrapolação: adicionado para o nav item de LogsPage.tsx (página de
+  // auditoria admin-only) — não faz parte do mapa original.
+  "scroll-text": ScrollText,
+  // Extrapolação: adicionado para o nav item de HelpPage.tsx (Ajuda & FAQ)
+  // — não faz parte do mapa original.
+  "help-circle": HelpCircle,
 }
 
 export function Icon({ name, size = 20, strokeWidth = 1.75, className = "", style }: IconProps) {

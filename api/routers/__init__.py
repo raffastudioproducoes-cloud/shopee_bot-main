@@ -8,6 +8,7 @@ from .credentials import router as credentials_router
 from .users import router as users_router
 from .dashboard import router as dashboard_router
 from .notifications import router as notifications_router
+from .logs import router as logs_router
 
 __all__ = [
     "auth_router",
@@ -18,4 +19,5 @@ __all__ = [
     "users_router",
     "dashboard_router",
     "notifications_router",
+    "logs_router",
 ]

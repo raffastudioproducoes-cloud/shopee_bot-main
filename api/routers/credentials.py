@@ -23,6 +23,7 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 
 from .auth import get_current_user_id
+from ..audit_log import log_action
 from .. import threads_oauth
 from .. import instagram_oauth
 from .. import facebook_oauth
@@ -320,6 +321,7 @@ async def threads_authorize(
         samesite="lax",
         max_age=600,
     )
+    log_action("threads_oauth_authorize", user_id=user_id)
     return {"url": threads_oauth.get_user_auth_url(state)}
 
 
@@ -369,6 +371,7 @@ async def threads_callback(
         "access_token": encrypt(access_token),
         "status": True,
     })
+    log_action("threads_oauth_token_exchanged", user_id=user_id)
 
     return _redirect("threads=success")
 
@@ -397,6 +400,7 @@ async def instagram_authorize(
         samesite="lax",
         max_age=600,
     )
+    log_action("instagram_oauth_authorize", user_id=user_id)
     return {"url": instagram_oauth.get_user_auth_url(state)}
 
 
@@ -447,6 +451,7 @@ async def instagram_callback(
         "user_access_token": encrypt(access_token),
         "status": True,
     })
+    log_action("instagram_oauth_token_exchanged", user_id=user_id)
 
     return _redirect("instagram=success")
 
@@ -488,6 +493,7 @@ async def facebook_authorize(
         samesite="lax",
         max_age=600,
     )
+    log_action("facebook_oauth_authorize", user_id=user_id)
     return {"url": facebook_oauth.get_user_auth_url(state)}
 
 
@@ -539,6 +545,7 @@ async def facebook_callback(
         "page_access_token": encrypt(page_access_token),
         "status": True,
     })
+    log_action("facebook_oauth_token_exchanged", user_id=user_id)
 
     return _redirect("facebook=success")
 
@@ -604,6 +611,7 @@ async def tiktok_authorize(
         samesite="lax",
         max_age=600,
     )
+    log_action("tiktok_oauth_authorize", user_id=user_id)
     return {"url": tiktok_oauth.get_user_auth_url(state)}
 
 
@@ -670,6 +678,7 @@ async def tiktok_callback(
         "open_id": open_id,
         "status": True,
     })
+    log_action("tiktok_oauth_token_exchanged", user_id=user_id)
 
     return _redirect("tiktok=success")
 
@@ -713,6 +722,7 @@ async def x_authorize(
         samesite="lax",
         max_age=600,
     )
+    log_action("x_oauth_authorize", user_id=user_id)
     return {"url": x_oauth.get_user_auth_url(code_challenge, state)}
 
 
@@ -768,6 +778,7 @@ async def x_callback(
         ).isoformat(),
         "status": True,
     })
+    log_action("x_oauth_token_exchanged", user_id=user_id)
 
     return _redirect("x=success")
 

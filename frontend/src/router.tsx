@@ -7,6 +7,8 @@ import { ListasPage } from "./pages/ListasPage"
 import { PostsPage } from "./pages/PostsPage"
 import { CredentialsPage } from "./pages/CredentialsPage"
 import { UsersPage } from "./pages/UsersPage"
+import { LogsPage } from "./pages/LogsPage"
+import { HelpPage } from "./pages/HelpPage"
 import { TermsPage } from "./pages/legal/TermsPage"
 import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage"
 
@@ -79,6 +81,18 @@ const usersRoute = createRoute({
   component: UsersPage,
 })
 
+const logsRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: "/logs",
+  component: LogsPage,
+})
+
+const helpRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: "/ajuda",
+  component: HelpPage,
+})
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   termsRoute,
@@ -90,6 +104,8 @@ const routeTree = rootRoute.addChildren([
     postsRoute,
     credentialsRoute,
     usersRoute,
+    logsRoute,
+    helpRoute,
   ]),
 ])
 
