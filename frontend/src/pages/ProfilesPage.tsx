@@ -159,6 +159,15 @@ export function ProfilesPage() {
             key={profile.id}
             style={{ padding: 16, cursor: "pointer" }}
             onClick={() => activateMutation.mutate(profile.id)}
+            role="button"
+            tabIndex={0}
+            aria-label={`Ativar perfil ${profile.nome}`}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                activateMutation.mutate(profile.id)
+              }
+            }}
           >
             <div style={{ position: "relative" }}>
               <img

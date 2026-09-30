@@ -1,4 +1,4 @@
-import type { ReactNode, CSSProperties, MouseEvent } from "react"
+import type { ReactNode, CSSProperties, MouseEvent, KeyboardEvent } from "react"
 
 /**
  * Container surface.
@@ -18,6 +18,10 @@ export interface PanelProps {
   className?: string
   style?: CSSProperties
   onClick?: (e: MouseEvent<HTMLElement>) => void
+  role?: string
+  tabIndex?: number
+  "aria-label"?: string
+  onKeyDown?: (e: KeyboardEvent<HTMLElement>) => void
 }
 
 const SURFACES: Record<string, CSSProperties> = {
@@ -58,12 +62,20 @@ export function Panel({
   className = "",
   style,
   onClick,
+  role,
+  tabIndex,
+  "aria-label": ariaLabel,
+  onKeyDown,
 }: PanelProps) {
   const s = SURFACES[surface] || SURFACES.dark
   return (
     <section
       className={className}
       onClick={onClick}
+      role={role}
+      tabIndex={tabIndex}
+      aria-label={ariaLabel}
+      onKeyDown={onKeyDown}
       style={{
         position: "relative",
         borderRadius: radius,
