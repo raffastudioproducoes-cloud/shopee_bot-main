@@ -4,10 +4,15 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+from passlib.context import CryptContext
 
 from api import database as database_module
 from api.main import app
+from api.routers import auth as auth_module
+from api.routers import users as users_router
 from api.routers.auth import get_current_user_id
+
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @pytest.fixture
@@ -181,3 +186,104 @@ class TestDeleteUserProtectsMasterAdmin:
 
         assert res.status_code == 200
         query.delete.assert_called_once()
+
+
+class TestSelfDeleteAccount:
+    """DELETE /users/me — autoexclusão de conta (item 10.5 do backlog,
+    LGPD/direito ao esquecimento). Qualquer usuário autenticado (não
+    precisa ser admin) pode excluir a própria conta, mediante senha atual."""
+
+    def test_requires_auth(self, client):
+        res = client.request("DELETE", "/users/me", json={"current_password": "x"})
+        assert res.status_code == 401
+
+    def test_wrong_password_returns_403_and_does_not_delete(self, auth_client, monkeypatch):
+        hashed = _pwd_context.hash("senha_correta")
+        query = _mock_supabase(
+            monkeypatch,
+            [{"username": "usuario_comum", "access": "USER", "password": hashed}],
+        )
+
+        res = auth_client.request(
+            "DELETE", "/users/me", json={"current_password": "senha_errada"}
+        )
+
+        assert res.status_code == 403
+        query.delete.assert_not_called()
+
+    def test_correct_password_deletes_account_clears_cookie_and_audits(
+        self, auth_client, monkeypatch
+    ):
+        hashed = _pwd_context.hash("senha_correta")
+        query = _mock_supabase(
+            monkeypatch,
+            [
+                {"username": "usuario_comum", "access": "USER", "password": hashed},
+                [{"id": "42"}],
+            ],
+        )
+        spy = MagicMock()
+        monkeypatch.setattr(users_router, "record_audit_event", spy)
+
+        res = auth_client.request(
+            "DELETE", "/users/me", json={"current_password": "senha_correta"}
+        )
+
+        assert res.status_code == 200
+        query.delete.assert_called_once()
+        set_cookie = res.headers.get("set-cookie", "")
+        assert "access_token=" in set_cookie
+        assert 'Max-Age=0' in set_cookie or "1970" in set_cookie
+
+        spy.assert_called_once()
+        assert spy.call_args.kwargs["action"] == "user_self_deleted"
+        assert spy.call_args.kwargs["entity"] == "user"
+        assert spy.call_args.kwargs["user_id"] == "42"
+
+    def test_master_admin_cannot_self_delete(self, auth_client, monkeypatch):
+        hashed = _pwd_context.hash("senha_correta")
+        query = _mock_supabase(
+            monkeypatch,
+            [{"username": "rafastudio", "access": "ADMIN", "password": hashed}],
+        )
+
+        res = auth_client.request(
+            "DELETE", "/users/me", json={"current_password": "senha_correta"}
+        )
+
+        assert res.status_code == 403
+        query.delete.assert_not_called()
+
+    def test_deleted_user_can_no_longer_log_in(self, monkeypatch):
+        """Depois de excluído, o usuário deixa de existir na base — login
+        subsequente com as mesmas credenciais falha (usuário não encontrado)."""
+        hashed = _pwd_context.hash("senha_correta")
+
+        app.dependency_overrides.clear()
+        app.dependency_overrides[get_current_user_id] = lambda: 42
+        client = TestClient(app)
+
+        _mock_supabase(
+            monkeypatch,
+            [
+                {"username": "usuario_comum", "access": "USER", "password": hashed},
+                [{"id": "42"}],
+            ],
+        )
+        res = client.request("DELETE", "/users/me", json={"current_password": "senha_correta"})
+        assert res.status_code == 200
+
+        # Login pós-exclusão: mocka o supabase pra devolver "não encontrado"
+        # (é o que a base real faria — a linha já foi apagada acima).
+        app.dependency_overrides.clear()
+        fake_client = MagicMock()
+        fake_client.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        login_res = client.post(
+            "/auth/login",
+            data={"username": "usuario_comum", "password": "senha_correta"},
+        )
+        assert login_res.status_code == 401

@@ -51,4 +51,8 @@ export const usersApi = {
   async delete(id: string): Promise<{ msg: string }> {
     return api.delete<{ msg: string }>(`/users/${id}`)
   },
+
+  async deleteSelf(currentPassword: string): Promise<{ msg: string }> {
+    return api.delete<{ msg: string }>('/users/me', { current_password: currentPassword })
+  },
 }
