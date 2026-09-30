@@ -24,6 +24,7 @@ ALLOWED_AVATAR_MIMES = {
     "image/webp": ".webp",
 }
 AVATAR_BUCKET = "avatars"
+MAX_AVATAR_BYTES = 5 * 1024 * 1024  # 5MB, avatar não precisa do teto de 50MB de posts.py
 
 
 class ProfileCreate(BaseModel):
@@ -161,6 +162,9 @@ async def upload_avatar(
     _get_own_profile_or_404(profile_id, user_id)
 
     content = await file.read()
+    if len(content) > MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (5MB)")
+
     info = fleep.get(content[:128])
     matched_mime = next((m for m in info.mime if m in ALLOWED_AVATAR_MIMES), None)
     if not matched_mime:

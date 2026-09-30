@@ -174,3 +174,22 @@ def test_avatar_upload_succeeds_and_updates_avatar_url(auth_client, monkeypatch)
     }
     fake_client.storage.from_.assert_called_with("avatars")
     fake_client.storage.from_.return_value.upload.assert_called_once()
+
+
+def test_avatar_upload_rejects_file_over_max_size(auth_client, monkeypatch):
+    """MEDIUM do security-reviewer (fix round 1): arquivo maior que
+    MAX_AVATAR_BYTES (5MB) deve ser rejeitado com 413, sem chegar a subir
+    pro storage -- mesmo padrão de posts.py::MAX_MEDIA_BYTES."""
+    from api.routers import profiles as profiles_router
+
+    _mock_supabase(monkeypatch, {"id": "p-1", "user_id": USER_ID})
+    fake_client = database_module.get_supabase()
+
+    oversized = b"\x89PNG\r\n\x1a\n" + b"\x00" * profiles_router.MAX_AVATAR_BYTES
+    response = auth_client.post(
+        "/profiles/p-1/avatar",
+        files={"file": ("avatar.png", oversized, "image/png")},
+    )
+
+    assert response.status_code == 413
+    fake_client.storage.from_.return_value.upload.assert_not_called()
