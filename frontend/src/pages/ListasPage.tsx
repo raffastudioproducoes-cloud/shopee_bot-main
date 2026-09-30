@@ -3,6 +3,7 @@ import { useState, useCallback } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { listsApi, type ProductList, type ProductListsResponse } from "../api/lists"
+import { productsApi, type ProductsResponse } from "../api/products"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { IconButton } from "../components/ui/IconButton"
@@ -52,7 +53,8 @@ export function ListasPage() {
   // ── Update mutation ─────────────────────────────────────────────────────────────
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: number; name: string }) => listsApi.update(id, { name }),
+    mutationFn: ({ id, name, productIds }: { id: number; name: string; productIds?: number[] }) =>
+      listsApi.update(id, { name, product_ids: productIds }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lists"] })
       setModalOpen(false)
@@ -75,9 +77,9 @@ export function ListasPage() {
   // ── Handlers ────────────────────────────────────────────────────────────────────
 
   const handleCreate = useCallback(
-    (name: string) => {
+    (name: string, productIds?: number[]) => {
       if (editingList) {
-        updateMutation.mutate({ id: editingList.id, name })
+        updateMutation.mutate({ id: editingList.id, name, productIds })
       } else {
         createMutation.mutate(name)
       }
@@ -275,27 +277,101 @@ export function ListasPage() {
 interface ListModalProps {
   list: ProductList | null
   onClose: () => void
-  onSave: (name: string) => void
+  onSave: (name: string, productIds?: number[]) => void
   loading: boolean
 }
 
 function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
   const [name, setName] = useState(list?.name ?? "")
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(
+    () => new Set((list?.products ?? []).map((p) => p.id)),
+  )
+  const [search, setSearch] = useState("")
+
+  // Só busca produtos ao editar (lista já existe) — criar não associa produtos ainda.
+  const { data: productsData } = useQuery<ProductsResponse>({
+    queryKey: ["products", "for-list"],
+    queryFn: () => productsApi.list({ page_size: 200 }),
+    enabled: !!list,
+  })
+
+  const products = productsData?.data ?? []
+  const filteredProducts = search.trim()
+    ? products.filter((p) => p.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : products
+
+  const toggleProduct = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (name.trim()) {
-      onSave(name.trim())
+      onSave(name.trim(), list ? Array.from(selectedIds) : undefined)
     }
   }
 
   return (
-    <Modal open onClose={onClose} title={list ? "Editar lista" : "Nova lista"} width={400}>
+    <Modal open onClose={onClose} title={list ? "Editar lista" : "Nova lista"} width={440}>
       <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginTop: 0, marginBottom: 16 }}>
-        {list ? "Altere o nome da lista." : "Digite um nome para a nova lista."}
+        {list ? "Altere o nome da lista e os produtos associados." : "Digite um nome para a nova lista."}
       </p>
       <form onSubmit={handleSubmit}>
         <TextInput label="Nome *" value={name} onChange={(e) => setName(e.target.value)} required />
+
+        {list ? (
+          <div style={{ marginTop: 16 }}>
+            <span
+              style={{
+                display: "block",
+                font: "var(--text-role-label)",
+                letterSpacing: "var(--ls-label)",
+                textTransform: "uppercase",
+                color: "var(--text-muted)",
+                marginBottom: 6,
+              }}
+            >
+              Produtos
+            </span>
+            {products.length > 6 ? (
+              <TextInput
+                placeholder="Buscar produto..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ marginBottom: 8 }}
+              />
+            ) : null}
+            <div
+              style={{
+                maxHeight: 240,
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                border: "1px solid var(--border-hairline)",
+                borderRadius: "var(--r-md)",
+                padding: 8,
+              }}
+            >
+              {filteredProducts.length === 0 ? (
+                <span style={{ color: "var(--text-muted)", padding: 4 }}>Nenhum produto encontrado.</span>
+              ) : (
+                filteredProducts.map((p) => (
+                  <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleProduct(p.id)} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+        ) : null}
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 20 }}>
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar

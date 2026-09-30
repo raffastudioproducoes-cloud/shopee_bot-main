@@ -27,6 +27,7 @@ export interface ProductListCreate {
 
 export interface ProductListUpdate {
   name: string
+  product_ids?: number[]
 }
 
 export interface ProductListsResponse {

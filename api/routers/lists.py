@@ -21,6 +21,7 @@ class ProductListCreate(BaseModel):
 
 class ProductListUpdate(BaseModel):
     name: str
+    product_ids: list[int] | None = None
 
 
 class ProductListOut(BaseModel):
@@ -67,6 +68,51 @@ def _get_list_products(list_id: int) -> list[dict]:
         if product:
             products.append(product)
     return products
+
+
+def _sync_list_products(user_id: int, list_id: int, product_ids: list[int]) -> None:
+    """Sincroniza `product_lists_products` com `product_ids`.
+
+    Só associa produtos pertencentes ao usuário (evita IDOR via produto de
+    outro usuário). O client Supabase REST não expõe transação (mesma
+    limitação dos outros endpoints deste router) — insert e delete são duas
+    chamadas separadas, não atômicas.
+    """
+    owned_ids: set[int] = set()
+    if product_ids:
+        owned_result = (
+            supabase.table("products")
+            .select("id")
+            .eq("user_id", user_id)
+            .in_("id", product_ids)
+            .execute()
+        )
+        owned_ids = {row["id"] for row in (owned_result.data or [])}
+
+    current_result = (
+        supabase.table("product_lists_products")
+        .select("product_id")
+        .eq("product_list_id", list_id)
+        .execute()
+    )
+    current_ids = {row["product_id"] for row in (current_result.data or [])}
+
+    to_add = owned_ids - current_ids
+    to_remove = current_ids - owned_ids
+
+    if to_add:
+        supabase.table("product_lists_products").insert(
+            [{"product_list_id": list_id, "product_id": pid} for pid in to_add]
+        ).execute()
+
+    if to_remove:
+        (
+            supabase.table("product_lists_products")
+            .delete()
+            .eq("product_list_id", list_id)
+            .in_("product_id", list(to_remove))
+            .execute()
+        )
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────────
@@ -162,6 +208,10 @@ async def update_product_list(
     )
     if not result.data:
         raise HTTPException(status_code=404, detail="Lista não encontrada")
+
+    if body.product_ids is not None:
+        _sync_list_products(user_id, product_list_id, body.product_ids)
+
     return result.data
 
 
