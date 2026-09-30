@@ -77,17 +77,33 @@ def _is_unknown_field_error(errors: list[dict]) -> bool:
     )
 
 
-async def _post_graphql(app_id: str, secret: str, query: str) -> dict:
+# Códigos de erro (`errors[].extensions.code`) confirmados pela Shopee como
+# credencial/assinatura inválida — vazio de propósito: nenhum foi confirmado
+# contra a API real deste projeto (sem credencial de teste disponível, ver
+# cabeçalho do módulo). Não adivinhar o significado de um código: um erro
+# GraphQL sem `extensions.code` reconhecido cai no branch genérico (502),
+# nunca em "credencial inválida" (422) — ver LOW-1 do relatório de segurança.
+_AUTH_EXTENSION_CODES: frozenset[int] = frozenset()
+
+
+def _is_auth_error(errors: list[dict]) -> bool:
+    return any(
+        (err.get("extensions") or {}).get("code") in _AUTH_EXTENSION_CODES
+        for err in errors
+    )
+
+
+async def _post_graphql(app_id: str, secret: str, query: str, variables: dict) -> dict:
     """POST autenticado no GraphQL da Shopee. Retorna `data` em caso de
-    sucesso; levanta `ShopeeAuthError` em falha HTTP (credencial inválida na
-    prática — a Shopee não documenta um corpo de erro estável pra distinguir
-    "assinatura errada" de outras falhas 4xx/5xx) e `ShopeeCatalogError` com
-    a lista de erros GraphQL quando a resposta tem `errors` (inclusive erro
-    de schema desconhecido, tratado por quem chama)."""
+    sucesso. Levanta `ShopeeAuthError` só para HTTP 401/403 ou erro GraphQL
+    com `extensions.code` de credencial/assinatura conhecido; qualquer outra
+    falha (429, 5xx, JSON inválido, erro GraphQL sem código reconhecido) cai
+    em `ShopeeCatalogError` genérico — evita mostrar "credencial inválida"
+    pra rate limit ou instabilidade da própria Shopee."""
     payload = json.dumps({
         "operationName": None,
         "query": query,
-        "variables": None,
+        "variables": variables,
     })
     headers = {
         "Content-Type": "application/json",
@@ -99,45 +115,60 @@ async def _post_graphql(app_id: str, secret: str, query: str) -> dict:
     except httpx.RequestError as exc:
         raise ShopeeCatalogError(f"Falha de rede ao chamar a Shopee: {exc}") from exc
 
-    if resp.status_code != 200:
+    if resp.status_code in (401, 403):
         raise ShopeeAuthError(
             f"Shopee respondeu {resp.status_code} — credencial inválida ou sem permissão."
         )
+    if resp.status_code != 200:
+        raise ShopeeCatalogError(
+            f"Shopee respondeu {resp.status_code} — tente novamente mais tarde."
+        )
 
-    body = resp.json()
+    try:
+        body = resp.json()
+    except ValueError as exc:
+        raise ShopeeCatalogError("Resposta inesperada da Shopee (JSON inválido).") from exc
+
     errors = body.get("errors")
     if errors:
+        if _is_auth_error(errors):
+            raise ShopeeAuthError(f"Shopee rejeitou a credencial/assinatura: {errors}")
         raise ShopeeCatalogError(f"Shopee retornou erros GraphQL: {errors}", errors=errors)
     if "data" not in body:
         raise ShopeeCatalogError("Resposta inesperada da Shopee (sem campo 'data').")
     return body["data"]
 
 
-def _build_search_query(
-    fields: tuple[str, ...],
+def _build_search_query(fields: tuple[str, ...]) -> str:
+    """Query GraphQL parametrizada — nenhum valor do usuário é interpolado
+    na string da query (ver MEDIUM-1 do relatório de segurança: escapar só
+    aspas duplas no `keyword` não é suficiente, `\\"` quebra o escape e
+    fecha o bloco antes do esperado). Os valores reais entram só via
+    `variables` no payload, montado por `_build_search_variables`."""
+    fields_block = "".join(f"      {f}\n" for f in fields)
+    return (
+        "query($kw: String, $cat: Int64, $sort: Int, $limit: Int) {{"
+        "  productOfferV2(keyword: $kw, productCatId: $cat, sortType: $sort, limit: $limit) {{"
+        "    nodes {{\n"
+        "{0}"
+        "    }}"
+        "  }}"
+        "}}"
+    ).format(fields_block)
+
+
+def _build_search_variables(
     keyword: str | None,
     product_cat_id: int | None,
     sort_type: int,
     limit: int,
-) -> str:
-    args = []
-    if product_cat_id:
-        args.append(f"productCatId: {product_cat_id}")
-    if keyword:
-        safe_kw = keyword.replace('"', '\\"')
-        args.append(f'keyword: "{safe_kw}"')
-    args.append(f"sortType: {sort_type}")
-    args.append(f"limit: {limit}")
-    fields_block = "".join(f"      {f}\n" for f in fields)
-    return (
-        "{{"
-        "  productOfferV2({0}) {{"
-        "    nodes {{\n"
-        "{1}"
-        "    }}"
-        "  }}"
-        "}}"
-    ).format(", ".join(args), fields_block)
+) -> dict:
+    return {
+        "kw": keyword,
+        "cat": product_cat_id,
+        "sort": sort_type,
+        "limit": limit,
+    }
 
 
 async def search_products(
@@ -153,20 +184,17 @@ async def search_products(
     "rico" primeiro; se a Shopee rejeitar por schema (`Cannot query
     field...`), refaz com o conjunto mínimo garantido — nunca deixa a busca
     inteira falhar por causa de um campo best-effort."""
-    rich_query = _build_search_query(
-        _MINIMAL_FIELDS + _RICH_EXTRA_FIELDS, keyword, product_cat_id, sort_type, limit,
-    )
+    variables = _build_search_variables(keyword, product_cat_id, sort_type, limit)
+    rich_query = _build_search_query(_MINIMAL_FIELDS + _RICH_EXTRA_FIELDS)
     try:
-        data = await _post_graphql(app_id, secret, rich_query)
+        data = await _post_graphql(app_id, secret, rich_query, variables)
     except ShopeeAuthError:
         raise
     except ShopeeCatalogError as exc:
         if not _is_unknown_field_error(exc.errors):
             raise
-        minimal_query = _build_search_query(
-            _MINIMAL_FIELDS, keyword, product_cat_id, sort_type, limit,
-        )
-        data = await _post_graphql(app_id, secret, minimal_query)
+        minimal_query = _build_search_query(_MINIMAL_FIELDS)
+        data = await _post_graphql(app_id, secret, minimal_query, variables)
 
     return data.get("productOfferV2", {}).get("nodes", [])
 
@@ -186,32 +214,57 @@ async def _get_global_category_list(page: int, size: int = 1000) -> dict | None:
     return body.get("data")
 
 
+# Árvore de categorias muda raramente — cache em memória de processo com
+# TTL (mesmo padrão simples de dict módulo-level usado em auth.py pros
+# cooldowns). Evita percorrer a árvore inteira em seller.shopee.com.br a
+# cada chamada do endpoint (ver MEDIUM-2 do relatório de segurança).
+_CATEGORY_CACHE_TTL_SECONDS = 3600
+_category_cache: dict = {"data": None, "expires_at": 0.0}
+
+# Limite de páginas do loop de paginação: sem isso, uma resposta com
+# `global_cats` vazio antes de `items_parsed` atingir `total` faria o
+# `while True` original pedir página pra sempre (ver MEDIUM-2). Este número
+# é bem maior que a árvore de categorias real da Shopee costuma precisar.
+_MAX_CATEGORY_PAGES = 50
+
+
 async def get_category_list() -> list[dict]:
     """Árvore de categorias da Shopee (`seller.shopee.com.br`, REST simples,
     sem autenticação de afiliado) — usada como filtro de categoria no
     frontend. Mesma lógica de `apis/shopee.py::get_category_list`, sem
-    dependência de `shopee_bot.*`."""
+    dependência de `shopee_bot.*`. Cacheada (ver `_CATEGORY_CACHE_TTL_SECONDS`)
+    e com paginação limitada/tolerante a resposta incompleta (ver
+    `_MAX_CATEGORY_PAGES`) — nunca lança `KeyError` cru por `total`/
+    `global_cats` ausentes."""
+    now = time.monotonic()
+    if _category_cache["data"] is not None and now < _category_cache["expires_at"]:
+        return _category_cache["data"]
+
     total = 0
     items_parsed = 0
     page = 1
     categories: list[dict] = []
     seen_ids: set = set()
 
-    while True:
+    while page <= _MAX_CATEGORY_PAGES:
         res = await _get_global_category_list(page)
         if res is None:
             raise ShopeeCatalogError("Falha ao buscar categorias da Shopee.")
 
-        if total == 0:
-            total = res["total"]
+        global_cats = res.get("global_cats") or []
+        if not global_cats:
+            break
 
-        for cat in res["global_cats"]:
+        if total == 0:
+            total = res.get("total") or 0
+
+        for cat in global_cats:
             old_category_id = None
-            for index, item in enumerate(cat["path"]):
-                category_id = item["category_id"]
-                if category_id not in seen_ids:
+            for index, item in enumerate(cat.get("path") or []):
+                category_id = item.get("category_id")
+                if category_id is not None and category_id not in seen_ids:
                     categories.append({
-                        "name": item["category_name"],
+                        "name": item.get("category_name"),
                         "category_id": category_id,
                         "parent_id": old_category_id if index > 0 else None,
                     })
@@ -219,8 +272,10 @@ async def get_category_list() -> list[dict]:
                 old_category_id = category_id
             items_parsed += 1
 
-        if items_parsed >= total:
+        if total and items_parsed >= total:
             break
         page += 1
 
+    _category_cache["data"] = categories
+    _category_cache["expires_at"] = now + _CATEGORY_CACHE_TTL_SECONDS
     return categories

@@ -6,6 +6,7 @@ campos best-effort (schema desconhecido -> conjunto mínimo), sort_type
 inválido e mapeamento da resposta.
 """
 
+import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -235,6 +236,263 @@ class TestCatalogSearchFieldFallback:
 
         res = auth_client.get("/products/catalog-search")
         assert res.status_code == 422
+
+
+class TestCatalogSearchInjectionAndRateLimit:
+    """Regressão dos achados MEDIUM-1 (injeção via `keyword`) e MEDIUM-2
+    (rate limit) da revisão de segurança."""
+
+    def test_keyword_with_escaped_quote_does_not_break_query_or_inject(
+        self, auth_client, monkeypatch
+    ):
+        """Reproduz o caso do reviewer: keyword terminando em `\\"` (barra
+        invertida + aspas) — com concatenação de string isso fechava a
+        string antes do esperado e permitia injetar campos/queries
+        arbitrários. Com variáveis GraphQL, o valor nunca é interpolado na
+        string da query, então a busca deve simplesmente funcionar."""
+        monkeypatch.setattr(
+            database_module, "get_supabase", lambda: _fake_supabase_with_credential()
+        )
+
+        malicious_keyword = (
+            'x\\") { itemId } } conversionReport { nodes { purchaseTime } } '
+            'a: productOfferV2(keyword: "y'
+        )
+
+        captured = {}
+
+        class FakeResponse:
+            status_code = 200
+
+            def json(self):
+                return {
+                    "data": {"productOfferV2": {"nodes": []}}
+                }
+
+        async def fake_post(self, url, content=None, headers=None):
+            captured["payload"] = json.loads(content)
+            return FakeResponse()
+
+        monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+
+        res = auth_client.get(
+            "/products/catalog-search", params={"keyword": malicious_keyword}
+        )
+
+        assert res.status_code == 200
+        assert res.json()["data"] == []
+
+        # O valor malicioso foi enviado só como variável, nunca interpolado
+        # na string da query — a query em si não contém o payload injetado.
+        sent = captured["payload"]
+        assert sent["variables"]["kw"] == malicious_keyword
+        assert "conversionReport" not in sent["query"]
+        assert malicious_keyword not in sent["query"]
+        assert "$kw" in sent["query"]
+
+    def test_keyword_longer_than_max_length_is_rejected(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            database_module, "get_supabase", lambda: _fake_supabase_with_credential()
+        )
+        res = auth_client.get(
+            "/products/catalog-search", params={"keyword": "a" * 201}
+        )
+        assert res.status_code == 422
+
+    def test_search_rate_limit_blocks_after_threshold(self, auth_client, monkeypatch):
+        from api.routers import catalog as catalog_router
+
+        catalog_router._search_attempts.clear()
+        monkeypatch.setattr(
+            database_module, "get_supabase", lambda: _fake_supabase_with_credential()
+        )
+
+        class FakeResponse:
+            status_code = 200
+
+            def json(self):
+                return {"data": {"productOfferV2": {"nodes": []}}}
+
+        async def fake_post(self, url, content=None, headers=None):
+            return FakeResponse()
+
+        monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+
+        limit = catalog_router._SEARCH_RATE_LIMIT_ATTEMPTS
+        for _ in range(limit):
+            res = auth_client.get("/products/catalog-search")
+            assert res.status_code == 200
+
+        res = auth_client.get("/products/catalog-search")
+        assert res.status_code == 429
+        catalog_router._search_attempts.clear()
+
+
+class TestCatalogSearchErrorClassification:
+    """Regressão do achado LOW-1: 429/5xx da própria Shopee não deve
+    virar "credencial inválida"."""
+
+    def test_http_429_is_generic_error_not_auth_error(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            database_module, "get_supabase", lambda: _fake_supabase_with_credential()
+        )
+
+        class FakeResponse:
+            status_code = 429
+
+            def json(self):
+                return {}
+
+        async def fake_post(self, url, content=None, headers=None):
+            return FakeResponse()
+
+        monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+
+        res = auth_client.get("/products/catalog-search")
+        assert res.status_code == 502
+
+    def test_http_500_is_generic_error_not_auth_error(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            database_module, "get_supabase", lambda: _fake_supabase_with_credential()
+        )
+
+        class FakeResponse:
+            status_code = 500
+
+            def json(self):
+                return {}
+
+        async def fake_post(self, url, content=None, headers=None):
+            return FakeResponse()
+
+        monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+
+        res = auth_client.get("/products/catalog-search")
+        assert res.status_code == 502
+
+    def test_non_json_response_does_not_crash_with_500(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            database_module, "get_supabase", lambda: _fake_supabase_with_credential()
+        )
+
+        class FakeResponse:
+            status_code = 200
+
+            def json(self):
+                raise ValueError("not json")
+
+        async def fake_post(self, url, content=None, headers=None):
+            return FakeResponse()
+
+        monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+
+        res = auth_client.get("/products/catalog-search")
+        assert res.status_code == 502
+
+
+class TestCatalogSearchCredentialDecryptFailure:
+    """Regressão do achado LOW-2: chave de criptografia rotacionada não
+    deve virar 500 cru (InvalidToken sem tratamento)."""
+
+    def test_invalid_token_on_decrypt_returns_clear_400(self, auth_client, monkeypatch):
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        query.select.return_value = query
+        query.eq.return_value = query
+        query.maybe_single.return_value = query
+        query.execute.return_value = MagicMock(
+            data={"app_id": "app-123", "secret": "not-a-valid-fernet-token"}
+        )
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        res = auth_client.get("/products/catalog-search")
+        assert res.status_code == 400
+        assert "reconecte" in res.json()["detail"].lower()
+
+
+class TestCatalogCategoriesLoopAndCache:
+    """Regressão do achado MEDIUM-2: loop de paginação de categorias."""
+
+    def test_empty_global_cats_before_total_reached_does_not_hang(self, monkeypatch):
+        shopee_catalog._category_cache["data"] = None
+        shopee_catalog._category_cache["expires_at"] = 0.0
+
+        call_count = {"n": 0}
+
+        async def fake_get_global_category_list(page, size=1000):
+            call_count["n"] += 1
+            if page == 1:
+                return {
+                    "total": 100,
+                    "global_cats": [
+                        {"path": [{"category_id": 1, "category_name": "Moda"}]},
+                    ],
+                }
+            # Página seguinte vem vazia antes de atingir `total` — não deve
+            # entrar em loop infinito, deve simplesmente parar.
+            return {"total": 100, "global_cats": []}
+
+        monkeypatch.setattr(
+            shopee_catalog, "_get_global_category_list", fake_get_global_category_list
+        )
+
+        import asyncio
+
+        result = asyncio.run(shopee_catalog.get_category_list())
+        assert len(result) == 1
+        assert call_count["n"] == 2
+
+        shopee_catalog._category_cache["data"] = None
+        shopee_catalog._category_cache["expires_at"] = 0.0
+
+    def test_missing_total_and_global_cats_does_not_crash(self, monkeypatch):
+        shopee_catalog._category_cache["data"] = None
+        shopee_catalog._category_cache["expires_at"] = 0.0
+
+        async def fake_get_global_category_list(page, size=1000):
+            return {}  # sem 'total' nem 'global_cats'
+
+        monkeypatch.setattr(
+            shopee_catalog, "_get_global_category_list", fake_get_global_category_list
+        )
+
+        import asyncio
+
+        result = asyncio.run(shopee_catalog.get_category_list())
+        assert result == []
+
+        shopee_catalog._category_cache["data"] = None
+        shopee_catalog._category_cache["expires_at"] = 0.0
+
+    def test_result_is_cached_between_calls(self, monkeypatch):
+        shopee_catalog._category_cache["data"] = None
+        shopee_catalog._category_cache["expires_at"] = 0.0
+
+        call_count = {"n": 0}
+
+        async def fake_get_global_category_list(page, size=1000):
+            call_count["n"] += 1
+            return {
+                "total": 1,
+                "global_cats": [
+                    {"path": [{"category_id": 1, "category_name": "Moda"}]},
+                ],
+            }
+
+        monkeypatch.setattr(
+            shopee_catalog, "_get_global_category_list", fake_get_global_category_list
+        )
+
+        import asyncio
+
+        first = asyncio.run(shopee_catalog.get_category_list())
+        second = asyncio.run(shopee_catalog.get_category_list())
+
+        assert first == second
+        assert call_count["n"] == 1  # segunda chamada veio do cache
+
+        shopee_catalog._category_cache["data"] = None
+        shopee_catalog._category_cache["expires_at"] = 0.0
 
 
 class TestCatalogCategories:

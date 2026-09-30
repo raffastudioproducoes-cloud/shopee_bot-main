@@ -13,6 +13,9 @@ credencial+GraphQL da Shopee não tem nada a ver com o CRUD Supabase de
 products.py, e manter os dois num arquivo só passaria de 250 linhas.
 """
 
+import time
+
+from cryptography.fernet import InvalidToken
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from .auth import get_current_user_id
@@ -27,6 +30,36 @@ router = APIRouter(prefix="/products", tags=["catalog"])
 # tem paginação nativa (só `limit`), então cada busca é uma chamada só.
 DEFAULT_SEARCH_LIMIT = 150
 MAX_SEARCH_LIMIT = 200
+
+# Tamanho máximo do termo de busca livre — sem isso, uma string arbitrária
+# entra tanto na query GraphQL quanto no cálculo da assinatura sem limite
+# (ver MEDIUM-1 do relatório de segurança).
+MAX_KEYWORD_LENGTH = 200
+
+# ponytail: rate limit de busca em memória de processo (mesmo padrão de
+# `_check_login_rate_limit` em api/routers/auth.py) — por usuário
+# autenticado, já que o endpoint exige login. Mesma limitação de lá: não
+# escala pra múltiplos workers/instâncias. Upgrade: slowapi + Redis se a
+# app crescer pra multi-worker.
+_SEARCH_RATE_LIMIT_ATTEMPTS = 20
+_SEARCH_RATE_LIMIT_WINDOW_SECONDS = 60
+_search_attempts: dict[int, list[float]] = {}
+
+
+def _check_search_rate_limit(user_id: int) -> None:
+    now = time.monotonic()
+    attempts = [
+        t for t in _search_attempts.get(user_id, [])
+        if now - t < _SEARCH_RATE_LIMIT_WINDOW_SECONDS
+    ]
+    if len(attempts) >= _SEARCH_RATE_LIMIT_ATTEMPTS:
+        _search_attempts[user_id] = attempts
+        raise HTTPException(
+            status_code=429,
+            detail="Muitas buscas em pouco tempo. Aguarde antes de tentar novamente.",
+        )
+    attempts.append(now)
+    _search_attempts[user_id] = attempts
 
 
 def _get_shopee_credential(user_id: int) -> tuple[str, str] | None:
@@ -43,7 +76,16 @@ def _get_shopee_credential(user_id: int) -> tuple[str, str] | None:
     # .strip() defensivo (mesmo padrão de save_credential em credentials.py):
     # copiar/colar do painel da Shopee pode trazer espaço em branco.
     app_id = (data["app_id"] or "").strip()
-    secret = (decrypt(data["secret"]) or "").strip()
+    try:
+        secret = (decrypt(data["secret"]) or "").strip()
+    except InvalidToken:
+        # Chave de criptografia rotacionada (ou dado corrompido) — erro
+        # claro pro usuário, sem vazar detalhe interno da exceção
+        # (ver LOW-2 do relatório de segurança).
+        raise HTTPException(
+            status_code=400,
+            detail="Credencial da Shopee corrompida ou desatualizada. Reconecte-a em Credenciais.",
+        )
     if not app_id or not secret:
         return None
     return app_id, secret
@@ -75,7 +117,9 @@ def _map_catalog_node(node: dict) -> dict:
 @router.get("/catalog-search")
 async def catalog_search(
     user_id: int = Depends(get_current_user_id),
-    keyword: str | None = Query(None, description="Termo de busca livre"),
+    keyword: str | None = Query(
+        None, description="Termo de busca livre", max_length=MAX_KEYWORD_LENGTH,
+    ),
     product_cat_id: int | None = Query(None, description="ID de categoria da Shopee"),
     sort_type: int = Query(
         1, description="1=Relevância, 2=Mais vendidos, 3=Preço desc, 4=Preço asc, 5=Comissão",
@@ -85,6 +129,8 @@ async def catalog_search(
     """Busca produtos no catálogo real da Shopee usando a credencial de
     afiliado do próprio usuário. Não persiste nada — o frontend decide o
     que adicionar via POST /products."""
+    _check_search_rate_limit(user_id)
+
     if sort_type not in shopee_catalog.VALID_SORT_TYPES:
         raise HTTPException(
             status_code=400,
