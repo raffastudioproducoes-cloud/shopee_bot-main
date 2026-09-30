@@ -180,10 +180,16 @@ ambiente de teste) — decisão pragmática para não burocratizar demais um pro
 - CODEOWNERS, assinatura GPG de commit, OIDC para nuvem — não se aplicam a projeto solo sem
   deploy via IAM de nuvem (ver decisão já registrada na sessão sobre boas práticas GitHub).
 
-## 8. Perguntas ainda abertas para Rafa antes do plano de implementação
+## 8. Decisões finais (aprovado por Rafa, 2026-09-30)
 
-1. Renomear a branch `master` para `main` de verdade, ou manter o nome `master` e só aplicar
-   as regras de Git Flow nela?
-2. `/profiles` substitui a rota `/users` com redirect, ou os dois paths coexistem?
-3. Confirma que Major version fica reservado só pra breaking change de verdade (não este
-   multi-perfil, que é aditivo)?
+1. **Renomear `master` → `main`.** Segue a prática padrão de devs. A renomeação de branch
+   no GitHub redireciona automaticamente clones/PRs antigos; `cd.yml`/`ci.yml` e qualquer
+   referência a `master` no repo precisam ser atualizados para `main` no mesmo commit.
+2. **`/profiles` substitui `/users`.** Sem coexistência, sem redirect permanente — a rota
+   antiga deixa de existir.
+3. **Este multi-perfil é versão MAJOR** (`v1.x.x` → `v2.0.0`), não Minor. Justificativa do
+   Rafa: agrega uma função "grande" — muda o modelo de dados de toda a aplicação (1 conta
+   = 1 loja → 1 conta = até 3 lojas), mesmo sendo uma migração aditiva que não quebra a
+   conta existente do ponto de vista de dados.
+
+Spec aprovado. Próximo passo: `superpowers:writing-plans` para o plano de implementação.
