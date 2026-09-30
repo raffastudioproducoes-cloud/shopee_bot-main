@@ -6,20 +6,33 @@ Flask: web/routes/users.py before_request).
 """
 
 import hashlib
+import hmac
 import json
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
 
-from .auth import get_current_user_id
+from .auth import _check_login_rate_limit, get_current_user_id
 from .lists import _get_list_products, _sync_list_products
 from .posts import _create_thread, _get_post_products, _get_thread_chain, _set_post_products
-from .products import _normalize_numeric_fields
+from .products import ProductCreate, _normalize_numeric_fields
 from ..audit_trail import record_audit_event
+from ..config import settings
 from ..database import supabase
 from ..utils.log_sanitizer import sanitize_log_data
+
+# Tetos de item por lista no restore (item 2 da revisão de segurança):
+# sem isso, um backup com dezenas de milhares de itens insere um a um,
+# de forma síncrona, dentro de uma rota `async def` — trava a event loop
+# inteira do uvicorn e derruba todo mundo, não só quem restaura. Números
+# generosos pro uso normal (poucas dezenas/centenas de produtos por
+# conta), pequenos o bastante pra nunca virar problema de performance.
+_MAX_BACKUP_PRODUCTS = 1000
+_MAX_BACKUP_PRODUCT_LISTS = 200
+_MAX_BACKUP_POSTS = 500
+_MAX_BACKUP_TEXTS_PER_POST = 50
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -51,13 +64,62 @@ class SelfDeleteRequest(BaseModel):
 
 class BackupData(BaseModel):
     """Formato compartilhado por export (GET /users/me/backup) e import
-    (POST /users/me/restore) — ver item 10.8 do backlog."""
+    (POST /users/me/restore) — ver item 10.8 do backlog.
 
-    products: list[dict[str, Any]]
-    product_lists: list[dict[str, Any]]
-    posts: list[dict[str, Any]]
+    Os 3 campos de lista ficam como `dict[str, Any]` (não tipados com o
+    schema final) de propósito: o checksum é recalculado no restore sobre
+    o payload exatamente como o client enviou (mesmo formato devolvido
+    pelo export), então tipar aqui já forte demais faria o Pydantic
+    descartar/normalizar campo ANTES do checksum ser conferido — quebraria
+    o checksum de qualquer backup exportado antes dessa validação existir.
+    A validação de formato (allowlist de campo, tipo, teto de item) roda
+    manualmente dentro do loop do restore, depois da conferência do
+    checksum (ver `_validate_backup_item` e `restore_backup`)."""
+
+    products: list[dict[str, Any]] = Field(max_length=_MAX_BACKUP_PRODUCTS)
+    product_lists: list[dict[str, Any]] = Field(max_length=_MAX_BACKUP_PRODUCT_LISTS)
+    posts: list[dict[str, Any]] = Field(max_length=_MAX_BACKUP_POSTS)
     exported_at: str
     checksum: str
+
+
+class _BackupProductList(BaseModel):
+    """Item validado de `BackupData.product_lists` — usado só dentro do
+    loop de restore (ver docstring de `BackupData`)."""
+
+    name: str
+    product_ids: list[Any] = Field(default_factory=list)
+
+
+class _BackupPost(BaseModel):
+    """Item validado de `BackupData.posts` — usado só dentro do loop de
+    restore (ver docstring de `BackupData`)."""
+
+    network: str | None = None
+    texts: list[str] = Field(default_factory=list, max_length=_MAX_BACKUP_TEXTS_PER_POST)
+    product_ids: list[Any] = Field(default_factory=list)
+
+
+def _validate_backup_item(model: type[BaseModel], item: Any, label: str) -> BaseModel:
+    """Valida um item solto (dict vindo de `list[dict[str, Any]]`) contra
+    um schema Pydantic — allowlist de campo (schema já existente pra
+    produto, `ProductCreate`) em vez de denylist, e 422 claro em vez de
+    500 pra formato inválido (item malformado: não é dict, tipo errado,
+    lista onde devia ser string etc — ver item 5 da revisão)."""
+    if not isinstance(item, dict):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Item inválido em '{label}': esperado objeto, recebeu {type(item).__name__}.",
+        )
+    try:
+        return model.model_validate(item)
+    except ValidationError as exc:
+        first_error = exc.errors()[0]
+        field = ".".join(str(part) for part in first_error["loc"])
+        raise HTTPException(
+            status_code=422,
+            detail=f"Item inválido em '{label}' (campo '{field}'): {first_error['msg']}.",
+        )
 
 
 def _delete_user_row(user_id: str | int):
@@ -110,13 +172,26 @@ def _collect_backup_data(user_id: int) -> dict[str, Any]:
 
 
 def _checksum(data: dict[str, Any]) -> str:
-    """SHA-256 determinístico sobre os dados JÁ sanitizados (defesa em
-    profundidade, ver docstring de log_sanitizer.py), chaves ordenadas.
-    Mesma função usada no export (calcula) e no restore (recalcula pra
-    comparar) — garante que os dois lados sempre concordam."""
-    sanitized = sanitize_log_data(data)
+    """HMAC-SHA256 (chave: `api_secret_key`, mesmo segredo que já assina
+    o JWT — não existe outro no `api/config.py`) sobre os dados JÁ
+    sanitizados (defesa em profundidade, ver docstring de
+    log_sanitizer.py; `mask_value_patterns=False` — ver docstring do
+    parâmetro), chaves ordenadas. Mesma função usada no export (calcula)
+    e no restore (recalcula pra comparar) — garante que os dois lados
+    sempre concordam.
+
+    Antes era SHA-256 puro: qualquer um edita o JSON e recalcula o hash
+    igual, então "checksum" não provava nada além de corrupção acidental
+    (a docstring de `restore_backup` promete proteção contra "arquivo
+    adulterado" — só HMAC com segredo do servidor entrega isso de
+    verdade, por isso a troca)."""
+    sanitized = sanitize_log_data(data, mask_value_patterns=False)
     serialized = json.dumps(sanitized, sort_keys=True, ensure_ascii=False, default=str)
-    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    return hmac.new(
+        settings.api_secret_key.encode("utf-8"),
+        serialized.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
@@ -199,8 +274,13 @@ async def delete_own_account(
 
     Exige a senha atual — ação irreversível, cookie de sessão sozinho não é
     prova de posse suficiente (mesmo padrão do reset de senha em auth.py).
+    Rate-limitada (mesmo mecanismo de `/auth/login`) — sem isso alguém com
+    cookie roubado podia tentar adivinhar a senha atual sem limite (bcrypt
+    só atrasa, não impede).
     """
     from passlib.context import CryptContext
+
+    _check_login_rate_limit(f"selfdelete:{user_id}")
 
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -224,7 +304,10 @@ async def delete_own_account(
         entity_id=str(user_id),
         user_id=str(user_id),
         action="user_self_deleted",
-        old_value={"username": current.data.get("username"), "access": current.data.get("access")},
+        # Sem username aqui: dado pessoal não precisa sobreviver ao
+        # "direito ao esquecimento" que este próprio evento representa
+        # (entity_id já carrega o id, suficiente pra rastrear a exclusão).
+        old_value={"id": str(user_id), "access": current.data.get("access")},
         new_value=None,
     )
 
@@ -242,19 +325,38 @@ async def export_backup(user_id: int = Depends(get_current_user_id)):
     (sanitize_log_data aplicado antes do checksum, mesmo já não devendo
     haver nada sensível nesses três recortes de dado)."""
     data = _collect_backup_data(user_id)
-    sanitized = sanitize_log_data(data)
+    # mask_value_patterns=False: dado do próprio dono (não é log público),
+    # e o detector de padrão por valor estragava URL legítima com
+    # "?token=" na query string (ver docstring do parâmetro).
+    sanitized = sanitize_log_data(data, mask_value_patterns=False)
     return {**sanitized, "checksum": _checksum(data)}
 
 
 @router.post("/me/restore")
-async def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)):
+def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)):
     """Importa um backup gerado por export_backup. Rejeita com 400 (e não
-    importa nada) se o checksum não bater — arquivo adulterado/corrompido.
+    importa nada) se o checksum não bater — arquivo adulterado/corrompido
+    (comparação com `hmac.compare_digest`, constante no tempo).
 
     Restore é ADITIVO: sempre cria registros novos (nunca sobrescreve ou
     apaga dado existente do usuário) — política mais simples e mais segura
-    pro MVP (YAGNI: sem merge inteligente). `user_id` do backup nunca é
+    pro MVP (YAGNI: sem merge inteligente). EXCEÇÃO: produto cujo
+    `(product_id, user_id)` já existe (restaurar na própria conta que
+    gerou o backup — o uso normal de "conferir/restaurar") faz upsert
+    (atualiza o produto existente) em vez de estourar a constraint única
+    e derrubar a requisição inteira com 500 no meio da inserção (deixando
+    o que já foi inserido antes órfão). `user_id` do backup nunca é
     usado — tudo é recriado sob o usuário autenticado da sessão atual.
+
+    Cada item de `products`/`product_lists`/`posts` é validado (allowlist
+    de campo — `ProductCreate`, mesmo schema já usado pra criar produto —
+    e tipo) antes de tocar o banco; item malformado vira 422 com o campo
+    exato, nunca um 500 (ver `_validate_backup_item`). Listas em si têm
+    teto de tamanho (`BackupData`) — protege contra um backup com dezenas
+    de milhares de itens travando a event loop do uvicorn: a rota agora é
+    `def` (não `async def`), então o FastAPI roda o corpo inteiro numa
+    threadpool, sem bloquear outras requisições enquanto os inserts
+    síncronos do Supabase rodam um a um.
 
     Agendamento de post fica de fora de propósito: reagendar exigiria
     chamar o bridge do scheduler (`api/internal_client.py`) para cada
@@ -267,42 +369,44 @@ async def restore_backup(body: BackupData, user_id: int = Depends(get_current_us
         "posts": body.posts,
         "exported_at": body.exported_at,
     }
-    if _checksum(payload) != body.checksum:
+    if not hmac.compare_digest(_checksum(payload), body.checksum):
         raise HTTPException(status_code=400, detail="Arquivo de backup corrompido ou inválido.")
 
     id_map: dict[Any, int] = {}
     for product in body.products:
-        new_row = {
-            key: value
-            for key, value in product.items()
-            if key not in ("id", "user_id", "created_at", "updated_at")
-        }
+        validated = _validate_backup_item(ProductCreate, product, "products")
+        new_row = validated.model_dump()
         new_row["user_id"] = user_id
-        result = supabase.table("products").insert(new_row).execute()
+        result = (
+            supabase.table("products")
+            .upsert(new_row, on_conflict="product_id,user_id")
+            .execute()
+        )
         if result.data:
             id_map[product.get("id")] = result.data[0]["id"]
 
     for plist in body.product_lists:
+        validated_list = _validate_backup_item(_BackupProductList, plist, "product_lists")
         result = (
             supabase.table("product_lists")
-            .insert({"user_id": user_id, "name": plist.get("name")})
+            .insert({"user_id": user_id, "name": validated_list.name})
             .execute()
         )
         if not result.data:
             continue
         new_product_ids = [
-            id_map[pid] for pid in plist.get("product_ids", []) if pid in id_map
+            id_map[pid] for pid in validated_list.product_ids if pid in id_map
         ]
         if new_product_ids:
             _sync_list_products(user_id, result.data[0]["id"], new_product_ids)
 
     for post in body.posts:
-        texts = post.get("texts") or []
-        if not texts:
+        validated_post = _validate_backup_item(_BackupPost, post, "posts")
+        if not validated_post.texts:
             continue
-        head = _create_thread(user_id, texts, post.get("network") or "threads")
+        head = _create_thread(user_id, validated_post.texts, validated_post.network or "threads")
         new_product_ids = [
-            id_map[pid] for pid in post.get("product_ids", []) if pid in id_map
+            id_map[pid] for pid in validated_post.product_ids if pid in id_map
         ]
         if new_product_ids:
             _set_post_products(head["id"], new_product_ids)
@@ -372,7 +476,8 @@ async def delete_user(user_id: str, _admin_id: int = Depends(_require_admin)):
         entity_id=str(user_id),
         user_id=str(_admin_id),
         action="user_deleted",
-        old_value=current.data,
+        # Idem autoexclusão acima: sem username, id já está em entity_id.
+        old_value={"id": str(user_id), "access": current.data.get("access")},
         new_value=None,
     )
 

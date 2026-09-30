@@ -88,16 +88,26 @@ def _sanitize_string(value: str) -> str:
     return value
 
 
-def sanitize_log_data(data):
+def sanitize_log_data(data, *, mask_value_patterns: bool = True):
     """Recebe dict ou string livre; devolve versão sem segredo em texto claro.
 
     dict: mascara valor de toda chave sensível (recursivo em dict/list
     aninhado) e ainda passa valores string restantes pelo detector de
     padrão. string: só passa pelo detector de padrão (não há "chave" pra
     checar). Qualquer outro tipo volta sem alteração.
+
+    `mask_value_patterns=False` desliga só o detector de PADRÃO de valor
+    (JWT solto, "Bearer x", `token=x` em texto livre) — mantém a máscara
+    por NOME de chave. Uso: backup pessoal (`GET/POST /users/me/backup`
+    e `/restore`) tem link/URL legítimo do próprio dono contendo
+    `?token=` na query string (ex: link de afiliado), e o detector de
+    padrão originalmente pensado pra log de erro/texto livre estragava
+    esse dado — decisão: manter a defesa por chave (pega segredo de
+    verdade tipo campo `password`/`access_token`), desligar só o scan
+    de texto livre nesse fluxo específico.
     """
     if isinstance(data, str):
-        return _sanitize_string(data)
+        return _sanitize_string(data) if mask_value_patterns else data
 
     if isinstance(data, dict):
         result = {}
@@ -105,10 +115,10 @@ def sanitize_log_data(data):
             if _is_sensitive_key(str(key)):
                 result[key] = _MASK if value is not None else value
             else:
-                result[key] = sanitize_log_data(value)
+                result[key] = sanitize_log_data(value, mask_value_patterns=mask_value_patterns)
         return result
 
     if isinstance(data, list):
-        return [sanitize_log_data(item) for item in data]
+        return [sanitize_log_data(item, mask_value_patterns=mask_value_patterns) for item in data]
 
     return data

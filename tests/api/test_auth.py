@@ -290,6 +290,63 @@ class TestLoginRateLimit:
         assert res.status_code == 200
 
 
+class TestStaleTokenIdRejected:
+    """Item 3 da revisão de segurança: token cujo `id` não bate com o
+    `id` atual do usuário daquele username não autentica. Cenário real:
+    JWT emitido antes de uma autoexclusão de conta (válido até 24h)
+    reusado depois que outra pessoa se cadastra com o MESMO username."""
+
+    def _fake_supabase_with_user(self, user_id, username: str):
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        query.select.return_value = query
+        query.eq.return_value = query
+        query.execute.return_value = MagicMock(
+            data=[{"id": user_id, "username": username, "access": "USER"}]
+        )
+        return fake_client
+
+    def test_me_rejects_token_with_stale_id_for_same_username(self, client, monkeypatch):
+        # Token emitido pra id=1 ("usuario"), mas a base hoje tem um id=2
+        # com o mesmo username (a conta original foi apagada e o nome
+        # foi reaproveitado por um cadastro novo).
+        stale_token = auth_module._create_token({"sub": "usuario", "id": 1})
+        fake_client = self._fake_supabase_with_user(2, "usuario")
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        client.cookies.set("access_token", stale_token)
+        res = client.get("/auth/me")
+
+        assert res.status_code == 401
+
+    def test_me_accepts_token_with_matching_id(self, client, monkeypatch):
+        token = auth_module._create_token({"sub": "usuario", "id": 2})
+        fake_client = self._fake_supabase_with_user(2, "usuario")
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        client.cookies.set("access_token", token)
+        res = client.get("/auth/me")
+
+        assert res.status_code == 200
+        assert res.json()["id"] == 2
+
+    def test_get_current_user_id_rejects_stale_id(self, monkeypatch):
+        """Mesma checagem, direto na dependência usada por todo endpoint
+        autenticado (não só `/auth/me`)."""
+        from types import SimpleNamespace
+
+        from fastapi import HTTPException
+
+        stale_token = auth_module._create_token({"sub": "usuario", "id": 1})
+        fake_client = self._fake_supabase_with_user(2, "usuario")
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        fake_request = SimpleNamespace(cookies={"access_token": stale_token})
+        with pytest.raises(HTTPException) as exc_info:
+            auth_module.get_current_user_id(fake_request)
+        assert exc_info.value.status_code == 401
+
+
 class TestRegister:
     def _fake_supabase(self, existing_user=None, created=None):
         """Supabase mock com uma tabela mock por nome (evita que a checagem

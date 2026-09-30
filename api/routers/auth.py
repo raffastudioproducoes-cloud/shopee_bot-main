@@ -85,12 +85,17 @@ def _validate_password_length(password: str) -> None:
         )
 
 
-def get_current_user_id(request: Request) -> int:
-    """Dependência que extrai o ID do usuário do cookie access_token."""
-    token = request.cookies.get("access_token")
-    if not token:
-        raise HTTPException(status_code=401, detail="Não autenticado")
+def _get_authenticated_user(token: str) -> dict:
+    """Decodifica o token e resolve o usuário — compartilhado por
+    `get_current_user_id` e `/auth/me` (evita duplicar a checagem abaixo).
 
+    Rejeita quando o `id` do token não bate com o `id` atual do usuário
+    daquele `username`: sem isso, um JWT antigo (emitido antes de uma
+    autoexclusão de conta, válido por até 24h) autenticaria como uma
+    conta NOVA que reusasse o mesmo username depois do cadastro público
+    reabrir aquele nome — o `sub` (username) sozinho não é suficiente
+    pra identificar a conta.
+    """
     payload = _decode_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Token inválido")
@@ -103,7 +108,19 @@ def get_current_user_id(request: Request) -> int:
     if not user:
         raise HTTPException(status_code=401, detail="Usuário inexistente")
 
-    return user["id"]
+    if str(payload.get("id")) != str(user["id"]):
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    return user
+
+
+def get_current_user_id(request: Request) -> int:
+    """Dependência que extrai o ID do usuário do cookie access_token."""
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Não autenticado")
+
+    return _get_authenticated_user(token)["id"]
 
 
 def _create_token(data: dict, expires_delta: timedelta | None = None) -> str:
@@ -203,17 +220,7 @@ async def me(request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="Não autenticado")
 
-    payload = _decode_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Token inválido")
-
-    username = payload.get("sub")
-    if not username:
-        raise HTTPException(status_code=401, detail="Token sem usuário")
-
-    user = _get_user_from_supabase(username)
-    if not user:
-        raise HTTPException(status_code=401, detail="Usuário inexistente")
+    user = _get_authenticated_user(token)
 
     return {
         "id": user["id"],

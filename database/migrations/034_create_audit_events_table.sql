@@ -5,7 +5,12 @@ CREATE TABLE IF NOT EXISTS audit_events (
     id BIGSERIAL PRIMARY KEY,
     entity TEXT NOT NULL,
     entity_id TEXT NOT NULL,
-    user_id UUID REFERENCES users(id),
+    -- SET NULL (não CASCADE nem sem FK): sobrevive à exclusão da conta —
+    -- igual ao espírito de `request_logs` (migração 029) — mas sem
+    -- abrir mão da FK, então o rastro fica órfão (user_id NULL) em vez
+    -- de travar a exclusão (era o bug: sem regra ON DELETE, Postgres
+    -- rejeitava excluir qualquer usuário com linha de auditoria).
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     action TEXT NOT NULL,
     old_value JSONB,
     new_value JSONB,
