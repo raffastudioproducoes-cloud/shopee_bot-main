@@ -452,6 +452,28 @@ class TestRegister:
         assert res.status_code == 400
         fake_client.table.assert_not_called()
 
+    def test_new_user_gets_principal_profile_created(self, client, monkeypatch):
+        """Sem isso, contas criadas via /auth/register nunca ganham perfil
+        "principal" (a migração 035 só fez backfill dos usuários já
+        existentes) -- o primeiro perfil que o usuário criasse via
+        POST /profiles nasceria "secundario" (hardcoded lá)."""
+        fake_client, tables = self._fake_supabase(
+            created={"id": 42, "username": "newuser", "access": "USER"}
+        )
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        res = client.post(
+            "/auth/register",
+            json={"username": "newuser", "password": "12345678"},
+        )
+
+        assert res.status_code == 201
+        tables["profiles"].insert.assert_called_once_with({
+            "user_id": 42,
+            "kind": "principal",
+            "nome": "newuser",
+        })
+
     def test_second_attempt_same_ip_within_cooldown_returns_429(
         self, client, monkeypatch
     ):

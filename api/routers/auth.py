@@ -352,6 +352,17 @@ async def register(body: RegisterRequest, request: Request):
     for table in NETWORK_TABLES:
         supabase.table(table).insert({"user_id": new_user["id"], "status": False}).execute()
 
+    # Perfil principal — mesmo padrão do backfill da migração 035. Sem isso,
+    # contas criadas via /auth/register nunca ganham perfil "principal": o
+    # primeiro perfil criado via POST /profiles nasceria "secundario"
+    # (hardcoded lá) e a conta ficaria sem nenhum perfil protegido contra
+    # exclusão.
+    supabase.table("profiles").insert({
+        "user_id": new_user["id"],
+        "kind": "principal",
+        "nome": new_user["username"],
+    }).execute()
+
     return {
         "id": new_user["id"],
         "username": new_user["username"],

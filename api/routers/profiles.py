@@ -98,6 +98,7 @@ async def update_profile(
             "endereco": body.endereco.strip() if body.endereco else None,
         })
         .eq("id", profile_id)
+        .eq("user_id", user_id)
         .execute()
     )
     return result.data[0]
@@ -108,7 +109,7 @@ async def delete_profile(profile_id: str, user_id: str = Depends(get_current_use
     existing = _get_own_profile_or_404(profile_id, user_id)
     if is_principal(existing):
         raise HTTPException(status_code=400, detail="O perfil principal não pode ser excluído")
-    supabase.table("profiles").delete().eq("id", profile_id).execute()
+    supabase.table("profiles").delete().eq("id", profile_id).eq("user_id", user_id).execute()
     return {"status": "deleted"}
 
 

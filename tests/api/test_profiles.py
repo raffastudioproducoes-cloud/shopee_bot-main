@@ -105,6 +105,19 @@ def test_delete_profile_not_found_returns_404(auth_client, monkeypatch):
     assert response.status_code == 404
 
 
+def test_update_profile_of_another_user_returns_404(auth_client, monkeypatch):
+    """IDOR: usuario A autenticado tenta PUT num profile_id que pertence ao
+    usuario B -- a query `.eq('id', ...).eq('user_id', ...)` em
+    `_get_own_profile_or_404` nao encontra nada (perfil e de outra conta) e
+    deve devolver 404, mesmo comportamento ja testado em delete/activate."""
+    _mock_supabase(monkeypatch, None)
+    response = auth_client.put(
+        "/profiles/p-of-another-user",
+        json={"nome": "Hack", "email": "hack@example.com"},
+    )
+    assert response.status_code == 404
+
+
 def test_activate_profile_copies_login_cookie_flags(auth_client, monkeypatch):
     """Verifica que /profiles/{id}/activate seta o cookie `access_token`
     com os MESMOS flags do login (httponly, secure, samesite=lax,
