@@ -76,52 +76,64 @@ em execução.
 
 > Investigação de leitura em projeto irmão (MiauDelier Manager) levantou práticas de
 > segurança e features maduras. Rafa decidiu incorporar como backlog/roadmap — **planejamento,
-> não implementação**. Todos os itens abaixo: status **Não iniciada**.
+> não implementação**. Status atualizado após execução em 2026-09-30 (ver evidência por item).
 > (origem: benchmarking MiauDelier Manager, 2026-09-29)
 
 ### Segurança
 
-- [ ] **10.1 — RLS real no Supabase/Postgres.** Habilitar Row Level Security nas tabelas
-  sensíveis (`products`, `posts`, `product_lists`, `credentials`, `users`) com policy por
-  `user_id`. Hoje o isolamento é só na lógica da aplicação (service-role direto via
-  psycopg/supabase-py). Referência: MiauDelier Manager já usa RLS real em todas as tabelas.
-  (origem: benchmarking MiauDelier Manager, 2026-09-29)
-- [ ] **10.2 — Avaliar cifra de campo em repouso (envelope encryption).** Chave derivada de
-  senha embrulha uma chave de dados, para dados de negócio sensíveis além do que já é cifrado
-  hoje (tokens OAuth via Fernet). Avaliar se faz sentido pro domínio do Shopee Auto Vendas.
-  (origem: benchmarking MiauDelier Manager, 2026-09-29)
-- [ ] **10.3 — Auditoria imutável de alterações sensíveis.** Tabela de eventos (entidade,
-  entidade_id, quem, quando, ação, valor_anterior, valor_novo) para mudanças de preço/exclusão/
-  dado sensível. Hoje só existe `activities` para eventos de post/bot, não para auditoria de
-  alteração de dado. (origem: benchmarking MiauDelier Manager, 2026-09-29)
-- [ ] **10.4 — Sanitização de log contra vazamento de segredo.** Revisar se logs do Shopee
-  (uvicorn/`logger.exception` em `api/`) podem vazar senha/token/JWT acidentalmente; adicionar
-  sanitização automática (regex de chaves sensíveis) antes de persistir/exibir logs, se
-  aplicável. (origem: benchmarking MiauDelier Manager, 2026-09-29)
-- [ ] **10.5 — Endpoint de autoexclusão de conta e dados (LGPD/direito ao esquecimento).**
-  Hoje só admin consegue deletar usuário via `DELETE /users/{id}`; avaliar RPC ou endpoint
-  próprio para o próprio usuário solicitar exclusão de conta e dados.
-  (origem: benchmarking MiauDelier Manager, 2026-09-29)
-- [ ] **10.6 — Rodar o Supabase Security Advisor** (linter de segurança nativo do Supabase)
-  contra o projeto e corrigir os warnings reais encontrados (prática confirmada no MiauDelier:
-  correção de `anon_security_definer_function_executable`).
-  (origem: benchmarking MiauDelier Manager, 2026-09-29)
-- [ ] **10.7 — Revisar rate limiting de login distribuído.** Avaliar migrar de "em memória de
-  processo" (dívida técnica já documentada) para solução distribuída (Redis/slowapi) antes de
-  escalar para múltiplos workers/instâncias no Render.
-  (origem: benchmarking MiauDelier Manager, 2026-09-29)
+- [ ] **10.1 — RLS real no Supabase/Postgres.** **Decisão registrada, não é pendência de
+  implementação:** todas as 22 tabelas do projeto já têm a policy `block_all_api`
+  (deny-all via RLS), que é a defesa real aplicável aqui. RLS por `user_id`/`auth.uid()` não
+  se aplica neste projeto porque o backend nunca autentica no Postgres como `anon`/
+  `authenticated` — usa a `service_role` key direto, que ignora RLS sempre. Implementar
+  policy por `user_id` seria código sem efeito nenhum. Decisão: não implementar, arquitetura
+  já é segura pelo padrão existente. Reavaliar só se o backend passar a autenticar como
+  `anon`/`authenticated`. (origem: benchmarking MiauDelier Manager, 2026-09-29; decisão:
+  2026-09-30)
+- [ ] **10.2 — Avaliar cifra de campo em repouso (envelope encryption).** **Decisão: não
+  implementar agora.** Hoje não existe dado de negócio sensível no domínio do Shopee Auto
+  Vendas além do que já é cifrado (senha via bcrypt, tokens OAuth via Fernet) — preço/produto
+  são dados públicos da própria Shopee, não segredo do usuário. Reavaliar se o produto passar
+  a guardar dado financeiro sensível próprio do usuário (ex.: custo de aquisição, margem
+  real). (origem: benchmarking MiauDelier Manager, 2026-09-29; decisão: 2026-09-30)
+- [x] **10.3 — Auditoria imutável de alterações sensíveis.** Concluída. Tabela `audit_events`
+  (`database/migrations/034_create_audit_events_table.sql`, FK de `user_id` com
+  `ON DELETE SET NULL` — corrigida após review de segurança para não quebrar a autoexclusão
+  de conta de quem tem histórico de auditoria), lógica em `api/audit_trail.py`,
+  instrumentação em products/lists/users, testes em `tests/api/test_audit_trail.py`.
+  (origem: benchmarking MiauDelier Manager, 2026-09-29; concluída: 2026-09-30)
+- [x] **10.4 — Sanitização de log contra vazamento de segredo.** Concluída.
+  `api/utils/log_sanitizer.py` (regex de chaves sensíveis), aplicado em `audit_trail.py` e no
+  backup/restore (10.8). (origem: benchmarking MiauDelier Manager, 2026-09-29; concluída:
+  2026-09-30)
+- [x] **10.5 — Endpoint de autoexclusão de conta e dados (LGPD/direito ao esquecimento).**
+  Concluída. `DELETE /users/me` em `api/routers/users.py`, exige senha atual, rate limit
+  próprio, testes em `tests/api/test_users.py`. (origem: benchmarking MiauDelier Manager,
+  2026-09-29; concluída: 2026-09-30)
+- [x] **10.6 — Rodar o Supabase Security Advisor** (linter de segurança nativo do Supabase)
+  contra o projeto. Concluída. 0 achados de segurança; 19 índices de FK ausentes aplicados
+  via `database/migrations/033_add_indexes_for_unindexed_foreign_keys.sql`. (origem:
+  benchmarking MiauDelier Manager, 2026-09-29; concluída: 2026-09-30)
+- [ ] **10.7 — Revisar rate limiting de login distribuído.** **Decisão: não migrar agora.**
+  Render free tier = 1 instância = 1 worker; rate limit em memória de processo já é correto
+  nesse cenário (a limitação documentada nos comentários `# ponytail:` do código só importa
+  com múltiplos workers/instâncias). Migrar pra Redis exigiria provisionar infraestrutura
+  paga nova — decisão de custo que não deve ser tomada sem o Rafa pedir explicitamente.
+  Reavaliar se/quando escalar pra múltiplas instâncias. (origem: benchmarking MiauDelier
+  Manager, 2026-09-29; decisão: 2026-09-30)
 
 ### Funcionalidades/Arquitetura
 
-- [ ] **10.8 — Backup/restore de dados do usuário com checksum de integridade.** Exportar
-  JSON com checksum, validar na importação, rejeitar arquivo corrompido. Avaliar se faz
-  sentido pro Shopee Auto Vendas (ex.: exportar produtos/listas/posts do usuário).
-  (origem: benchmarking MiauDelier Manager, 2026-09-29)
+- [x] **10.8 — Backup/restore de dados do usuário com checksum de integridade.** Concluída.
+  `GET/POST /users/me/backup` e `/restore` em `api/routers/users.py`, checksum
+  HMAC-SHA256 (corrigido de SHA-256 puro após review de segurança), testes em
+  `tests/api/test_users.py`. (origem: benchmarking MiauDelier Manager, 2026-09-29; concluída:
+  2026-09-30)
 - [ ] **10.9 — Multi-perfil por conta.** Permitir que um usuário gerencie mais de uma
   loja/conta Shopee/Kwai sob o mesmo login, limitado a um número pequeno de perfis (bem menor
   que os 10 do MiauDelier — usar 3 como valor de partida; **número exato a confirmar com Rafa
   antes de implementar**). Avaliar impacto no schema atual (hoje é 1 conta = 1 usuário).
-  (origem: benchmarking MiauDelier Manager, 2026-09-29)
+  Não iniciada/Bloqueada. (origem: benchmarking MiauDelier Manager, 2026-09-29)
 
 - [x] **10.10 — Página "Ajuda & FAQ" com deep-link do tutorial Shopee.** Botão "?" no card
   Shopee de `CredentialsPage.tsx` leva direto pra aba "Tutorial Shopee" de uma nova página
@@ -131,6 +143,20 @@ em execução.
   Raffa Studio Produções") replicado estruturalmente do MiauDelier Manager
   (`src/features/ajuda/AjudaSuportePage.tsx`). Link novo no menu lateral (`PanelPage.tsx`,
   ícone `help-circle`). Concluída. (origem: pedido direto de Rafa, 2026-09-29)
+
+- [x] **10.11 — Pesquisa Avançada de catálogo Shopee.** Concluída. Aba nova em
+  `frontend/src/pages/ProductsPage.tsx` ("Meus Produtos"/"Pesquisa Avançada"), busca real via
+  API de afiliados da Shopee (`api/shopee_catalog.py`, `api/routers/catalog.py`:
+  `GET /products/catalog-search`, `GET /products/catalog-categories`), filtros (ordenação
+  real da API, categoria), paginação client-side, botão para importar resultado pro catálogo
+  pessoal (`POST /products` já existente). Campos de vendedor/rating/vendas são best-effort
+  (schema real da Shopee não confirmado, fallback automático pro conjunto mínimo garantido).
+  Filtro "mais recentes" não existe (API não suporta, confirmado com o Rafa). (origem: pedido
+  direto de Rafa, 2026-09-30)
+- [x] **10.12 — Polimento de acessibilidade Button/IconButton.** Concluída. Área de toque
+  mínima 44×44px, sombra sutil (`--shadow-card`/`--shadow-pressed`), prop `loading`, foco
+  visível (`:focus-visible` com `--focus-ring`, reaproveitando regra global já existente),
+  sem paleta/fonte nova. (origem: pedido direto de Rafa, 2026-09-30)
 
 Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
 existente — diretriz, não tarefa isolada).

@@ -127,6 +127,13 @@ dono do projeto por sessão.
   crash-loop infinito (sintoma visível: site "recarregando" sem parar / 502
   constante). Incidente real: 2026-09-30, migrações 031/032.
 
+## 10. Documentação atualizada a cada rodada de trabalho relevante (diretriz permanente)
+
+- Sempre atualizar o `README.md` e a documentação do projeto (`docs/`) pra não ficar
+  desatualizada com o código, a cada rodada de trabalho relevante — prática permanente a
+  seguir daqui pra frente em toda sessão futura, não uma tarefa única. (origem: pedido direto
+  de Rafa, 2026-09-30)
+
 ## Referências
 
 - `.github/workflows/ci.yml`, `.github/workflows/cd.yml`

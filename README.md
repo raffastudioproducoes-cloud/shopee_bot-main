@@ -70,7 +70,7 @@ Tirar o trabalho manual de quem divulga produto de afiliado:
 | Módulo | Recursos |
 | --- | --- |
 | **Garimpo** | Busca de produtos na Shopee Open API por categoria, palavra-chave, comissão mínima e vendas |
-| **Produtos** | Cadastro, edição, listagem com busca — origem manual ou vinda do garimpo |
+| **Produtos** | Cadastro, edição, listagem com busca — origem manual ou vinda do garimpo. Aba "Pesquisa Avançada" busca em tempo real no catálogo da Shopee (API de afiliados), com filtros e importação direta pro catálogo pessoal |
 | **Listas de produtos** | Agrupamento de produtos reaproveitável entre posts |
 | **Posts** | Criação, agendamento (cron/data), publicação sob demanda, retry e log de falha |
 | **Copywriter IA** | Geração de texto de post via Gemini, por persona (`apis/llm.py`) |
