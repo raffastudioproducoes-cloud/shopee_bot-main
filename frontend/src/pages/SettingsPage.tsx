@@ -76,7 +76,7 @@ export function SettingsPage() {
             </p>
           )}
           {status.kind === "error" && (
-            <p role="alert" style={{ margin: 0, color: "var(--negative-ink)" }}>
+            <p role="alert" style={{ margin: 0, color: "var(--negative-on-glass)" }}>
               {status.message}
             </p>
           )}
