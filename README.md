@@ -76,7 +76,7 @@ Tirar o trabalho manual de quem divulga produto de afiliado:
 | **Copywriter IA** | Geração de texto de post via Gemini, por persona (`apis/llm.py`) |
 | **Credenciais** | Shopee, Threads, X, Facebook, Instagram, TikTok, Kwai — cifradas em repouso (Fernet), nunca reexibidas |
 | **Atividades** | Histórico auditável de ações do usuário |
-| **Usuários** | Administração de acesso (ADMIN/USER) |
+| **Perfis e Configurações** | Até 3 perfis por conta (1 principal + 2 secundários, com avatar) que escopam produtos e listas; página `/settings` com troca de senha. Administração de acesso (ADMIN/USER) na página Perfis |
 | **Scheduler** | Jobs agendados in-process (APScheduler, jobstore em Postgres) — ADR em `19-ADR-Scheduler-In-Process.md` (Vault) |
 
 ## Tecnologias
@@ -196,7 +196,7 @@ python -m pytest tests/api --confcutdir=tests/api
 
 - **Plataforma**: Render (Web Service, Docker), plano Free.
 - **Build**: lê o `Dockerfile` da raiz (Python 3.13-slim + gunicorn + gevent).
-- **Auto-deploy**: integração nativa do Render com o GitHub, a cada push em `master`.
+- **Auto-deploy**: integração nativa do Render com o GitHub, a cada push em `main`.
 - **Banco**: Supabase, via Session Pooler (IPv4 — o Direct Connection só responde IPv6, incompatível com o Render Free).
 
 Detalhes de infraestrutura, variáveis de ambiente e histórico de bugs resolvidos no deploy: Vault `26-Deploy-Render.md`.
