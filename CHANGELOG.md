@@ -19,7 +19,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Página de Configurações (`/settings`) com troca de senha (`PUT /settings/password`,
   com rate limit).
 - Branch `staging` criada e serviço `shopee-bot-staging` criado no Render (plano Free), MAS ainda sem env vars/deploy hook configurados — ver `docs/TASK.md` item 10.13 (pendências manuais).
-- Ambiente de staging (Render, plano Free) e fluxo Git Flow (`main`/`staging`/`feature/*`).
+- Fluxo Git Flow (`main`/`staging`/`feature/*`, SemVer só sobe no merge pra `main`; proteção automática de branch indisponível no plano Free do GitHub — ver `docs/TASK.md` 10.13).
 
 ### Changed
 - Página "Usuários" renomeada para "Perfis" (rota `/profiles`); a seção admin de contas
