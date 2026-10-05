@@ -58,7 +58,9 @@ Multi-tenant com múltiplos usuários pagantes é visão pós-MVP, não implemen
 | Copywriter IA | Geração de texto de post via Gemini, por persona (`apis/llm.py`) | `README.md` |
 | Credenciais | Conectar rede social (OAuth de app único) ou colar credencial manual (Shopee/Kwai), nunca reexibida | `api/routers/credentials.py` |
 | Atividades | Histórico auditável de ações do usuário | `database/activities.py` |
-| Usuários | Perfis: até 3 por conta; Configurações: troca de senha | `api/routers/users.py`, frontend `ProfilesPage`, `SettingsPage` |
+| Usuários | Administração de acesso ADMIN/USER | `api/routers/users.py` |
+| Perfis | Até 3 perfis (lojas) por conta, isolamento de produtos e listas por perfil; avatar | `api/routers/profiles.py`, frontend `ProfilesPage` |
+| Configurações | Troca de senha da conta | `api/routers/settings.py`, frontend `SettingsPage` |
 | Scheduler | Jobs agendados in-process (APScheduler, jobstore em Postgres) | `scheduler/`, ADR `19-ADR-Scheduler-In-Process.md` (vault) |
 
 ### Redes sociais — estado real por rede (evidência: código + consulta SQL ao Supabase em
