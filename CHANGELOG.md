@@ -18,7 +18,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Página "Perfis" (`/profiles`) com grid de cards (criar, ativar, enviar avatar).
 - Página de Configurações (`/settings`) com troca de senha (`PUT /settings/password`,
   com rate limit).
-- `POST /auth/register` agora cria o perfil principal junto com a conta.
+- Branch `staging` criada e serviço `shopee-bot-staging` criado no Render (plano Free), MAS ainda sem env vars/deploy hook configurados — ver `docs/TASK.md` item 10.13 (pendências manuais).
 - Ambiente de staging (Render, plano Free) e fluxo Git Flow (`main`/`staging`/`feature/*`).
 
 ### Changed

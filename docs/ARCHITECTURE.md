@@ -95,7 +95,7 @@ shopee_bot-main/
 │   ├── templates/, static/, media/
 ├── frontend/                  # React novo
 │   └── src/
-│       ├── pages/             # DashboardPage, LoginPage, PanelPage, PostsPage, ProductsPage, ListasPage, CredentialsPage, UsersPage
+│       ├── pages/             # DashboardPage, LoginPage, PanelPage, PostsPage, ProductsPage, ListasPage, CredentialsPage, ProfilesPage, SettingsPage
 │       ├── components/ui/     # design system (ver DESIGN.md)
 │       ├── api/                # clientes HTTP tipados
 │       ├── stores/              # Zustand (auth)
