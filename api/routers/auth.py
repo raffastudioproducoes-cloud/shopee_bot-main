@@ -84,10 +84,12 @@ def _validate_password_length(password: str) -> None:
             status_code=400,
             detail="A nova senha deve ter no mínimo 8 caracteres.",
         )
-    if len(password) > 72:
+    # bcrypt trunca silenciosamente em 72 BYTES (não caracteres): emojis/acentos
+    # contam mais de 1 byte, então validamos o tamanho em UTF-8.
+    if len(password.encode("utf-8")) > 72:
         raise HTTPException(
             status_code=400,
-            detail="Senha não pode ter mais de 72 caracteres.",
+            detail="Senha não pode ter mais de 72 bytes (emojis e acentos ocupam mais de 1).",
         )
 
 
