@@ -150,7 +150,7 @@ não ativada). Ver `docs/TASK.md` item 10.13 para contexto da decisão.
   seguir daqui pra frente em toda sessão futura, não uma tarefa única. (origem: pedido direto
   de Rafa, 2026-09-30)
 
-## 11. Migrações 037+ aplicadas antes do deploy do código que as usa (regra permanente, 2026-10-05)
+## 11. Migrações 037+ aplicadas antes do deploy do código que as usa (regra permanente, 2026-10-05; incidente-prevenção registrado 2026-10-06)
 
 - O código da branch de multi-perfil completo depende das migrações `037` (trigger de limite de
   3 perfis), `038` (`profile_id` em 14 tabelas), `039` (remove UNIQUE de
@@ -161,6 +161,18 @@ não ativada). Ver `docs/TASK.md` item 10.13 para contexto da decisão.
   `run_migrations()` roda no boot (`post_fork`) e aplicaria as pendentes sozinho, mas uma falha
   ali derruba o worker e entra em crash-loop (ver item 9). Aplicar antes, de forma controlada,
   e conferir a linha na tabela `migrations`, evita descobrir o erro no boot de produção.
+- **Procedimento: Aplicar via MCP Supabase + Registrar em `public.migrations`** (2026-10-06):
+  - Usar MCP Supabase ou SQL editor web do Supabase para rodar cada migração `.sql` em sequência.
+  - Imediatamente após cada migração (ou após o lote), registrar na tabela `migrations`:
+    ```sql
+    INSERT INTO public.migrations (name, aplied_at) 
+    VALUES ('037_create_profile_limit_trigger.sql', NOW()),
+           ('038_add_profile_id_to_tables.sql', NOW()),
+           -- etc., ordenado como em database/migrations/
+    ```
+  - Verificar idempotência: `SELECT * FROM public.migrations WHERE name LIKE '03%'` deve listar 6 linhas (037-042).
+  - Conferir backfill: `SELECT DISTINCT profile_id FROM products LIMIT 5` e `SELECT COUNT(*) FROM shopee_credentials WHERE profile_id IS NULL` devem estar OK.
+- **Risco conhecido — Incidente-prevenção 2026-10-06**: Código de produção **antigo** (sem este PR #10) usa `upsert on_conflict (product_id, user_id)` no endpoint `POST /users/me/restore`. A migração 041 muda a unicidade para `(user_id, product_id, coalesce(profile_id))`. Se o código antigo tentar restaurar dados, o restore **falhará com violação de constraint** (o produto do perfil principal vai conflitar com a tentativa do antigo on_conflict). **Solução**: O merge da branch `chore/phase-12-integration` (PR #10) corrige o restore (`POST /users/me/restore`) para respeitar o perfil ativo. **Janela de risco**: Apenas se alguém ativar uma restauração com código de produção antigo após aplicar a migração 041. **Prevenção**: Aplicar migrações antes do deploy do PR #10; garantir que o #10 está em `main` antes de qualquer ativação de restore em produção. A migração é **aditiva, sem rollback** — não há desfazer automático; se o restore falhar, contactar suporte Rafa Studio Produções.
 - As migrações 037/038/039/040/041/042 são idempotentes e aditivas (exceto a 039, que só remove/troca
   unicidade, sem alterar dado). Se forem aplicadas fora do app, registrar em `migrations` na
   hora (item 9).
