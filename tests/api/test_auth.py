@@ -606,7 +606,9 @@ class TestMeProfileId:
         assert calls == [("p-alheio", 2)]
         assert body["id"] == 2 and body["username"] == "usuario"
 
-    def test_me_profile_id_is_none_without_claim(self, client, monkeypatch):
-        calls = self._setup(client, monkeypatch, {}, "x")
-        assert client.get("/auth/me").json()["profile_id"] is None
-        assert calls == []
+    def test_me_profile_id_falls_back_to_principal_without_claim(self, client, monkeypatch):
+        # Coerente com get_current_profile_id: token legado sem claim opera
+        # (e é reportado) no perfil principal, não "sem perfil".
+        calls = self._setup(client, monkeypatch, {}, "p-main")
+        assert client.get("/auth/me").json()["profile_id"] == "p-main"
+        assert calls == [(None, 2)]

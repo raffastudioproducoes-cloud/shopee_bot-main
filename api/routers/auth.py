@@ -307,7 +307,7 @@ async def me(request: Request):
         "id": user["id"],
         "username": user["username"],
         "access": user.get("access", ""),
-        "profile_id": _resolve_profile_id(claim, user["id"]) if claim else None,
+        "profile_id": _resolve_profile_id(claim, user["id"]),
     }
 
 

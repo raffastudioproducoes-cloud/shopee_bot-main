@@ -150,3 +150,25 @@ def test_create_post_rejects_foreign_product_without_creating(product_db, profil
     })
     assert res.status_code == 400, res.text
     assert len(product_db.tables["posts"]) == 1
+
+
+def test_legacy_token_without_claim_falls_back_to_principal_profile(real_profile_resolution, fake_db, monkeypatch, old_token_without_profile_claim):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 42
+    db = fake_db({
+        "profiles": [
+            {"id": "profile-a", "user_id": 42, "kind": "principal"},
+            {"id": "profile-b", "user_id": 42, "kind": "secundario"},
+        ],
+        "posts": [
+            {"id": 1, "user_id": 42, "profile_id": "profile-a", "text": "A", "post_id": None, "created_at": "2026-01-01"},
+            {"id": 2, "user_id": 42, "profile_id": "profile-b", "text": "B", "post_id": None, "created_at": "2026-01-02"},
+        ],
+    })
+    monkeypatch.setattr(posts_module, "supabase", db)
+    from api.routers import profiles as profiles_module
+    monkeypatch.setattr(profiles_module, "supabase", db)
+    c = TestClient(app)
+    c.cookies.update(old_token_without_profile_claim)
+    assert [p["id"] for p in c.get("/posts").json()["data"]] == [1]
+    app.dependency_overrides.clear()

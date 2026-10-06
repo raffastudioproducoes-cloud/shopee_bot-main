@@ -51,11 +51,11 @@ class ProfileUpdate(BaseModel):
     endereco: str | None = None
 
 
-def _resolve_profile_id(profile_id: str, user_id: str) -> str | None:
+def _resolve_profile_id(profile_id: str | None, user_id: str) -> str | None:
     """Confirma que o perfil do token pertence ao usuário (perfil excluído
     ou de outra conta não vale). Se não pertencer, cai no perfil principal
     do usuário; sem principal, None (sem filtro por perfil)."""
-    owned = (
+    owned = profile_id and (
         supabase.table("profiles")
         .select("id")
         .eq("id", profile_id)
@@ -79,17 +79,16 @@ def _resolve_profile_id(profile_id: str, user_id: str) -> str | None:
 def get_current_profile_id(
     request: Request, user_id: str = Depends(get_current_user_id)
 ) -> str | None:
-    """Claim opcional -- token emitido antes desta feature não tem profile_id."""
+    """Claim opcional -- token emitido antes desta feature não tem profile_id;
+    nesse caso (ou claim inválido) cai no perfil principal do usuário, para
+    nunca operar sem escopo de perfil quando o usuário tem perfis."""
     token = request.cookies.get("access_token")
     if not token:
         return None
     payload = _decode_token(token)
     if not payload:
         return None
-    profile_id = payload.get("profile_id")
-    if not profile_id:
-        return None
-    return _resolve_profile_id(profile_id, user_id)
+    return _resolve_profile_id(payload.get("profile_id"), user_id)
 
 
 def _get_own_profile_or_404(profile_id: str, user_id: str) -> dict:
