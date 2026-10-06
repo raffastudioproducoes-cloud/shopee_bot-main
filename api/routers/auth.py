@@ -299,10 +299,15 @@ async def me(request: Request):
 
     user = _get_authenticated_user(token)
 
+    # Mesma regra de get_current_profile_id (import tardio: profiles importa auth).
+    from .profiles import _resolve_profile_id
+
+    claim = (_decode_token(token) or {}).get("profile_id")
     return {
         "id": user["id"],
         "username": user["username"],
         "access": user.get("access", ""),
+        "profile_id": _resolve_profile_id(claim, user["id"]) if claim else None,
     }
 
 

@@ -572,3 +572,41 @@ class TestRegisterProvisioningFailure:
         assert "interno" not in res.text
         tables["users"].delete.assert_called_once()
         tables["users"].eq.assert_called_with("id", 7)
+
+
+class TestMeProfileId:
+    """`/auth/me` expõe o perfil ativo (claim do cookie httpOnly) já validado."""
+
+    @staticmethod
+    def _setup(client, monkeypatch, claims, resolved):
+        from api.routers import profiles as profiles_module
+
+        token = auth_module._create_token({"sub": "usuario", "id": 2, **claims})
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        query.select.return_value = query
+        query.eq.return_value = query
+        query.execute.return_value = MagicMock(
+            data=[{"id": 2, "username": "usuario", "access": "USER"}]
+        )
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+        calls = []
+        monkeypatch.setattr(
+            profiles_module,
+            "_resolve_profile_id",
+            lambda pid, uid: calls.append((pid, uid)) or resolved,
+        )
+        client.cookies.set("access_token", token)
+        return calls
+
+    def test_me_returns_validated_profile_id(self, client, monkeypatch):
+        calls = self._setup(client, monkeypatch, {"profile_id": "p-alheio"}, "p-main")
+        body = client.get("/auth/me").json()
+        assert body["profile_id"] == "p-main"
+        assert calls == [("p-alheio", 2)]
+        assert body["id"] == 2 and body["username"] == "usuario"
+
+    def test_me_profile_id_is_none_without_claim(self, client, monkeypatch):
+        calls = self._setup(client, monkeypatch, {}, "x")
+        assert client.get("/auth/me").json()["profile_id"] is None
+        assert calls == []
