@@ -56,7 +56,7 @@ def test_x_callback_success_saves_tokens_and_redirects(client, monkeypatch):
         credentials_module.x_oauth, "exchange_code_for_token", fake_exchange
     )
 
-    def fake_upsert(table, user_id, data):
+    def fake_upsert(table, user_id, data, profile_id=None):
         saved["table"] = table
         saved["user_id"] = user_id
         saved["data"] = data

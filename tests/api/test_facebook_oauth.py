@@ -36,7 +36,7 @@ def test_facebook_callback_success_saves_credential_and_redirects(client, monkey
         assert code == "meta-code-123"
         return "page-1", "Minha Página", "page-access-token"
 
-    def fake_upsert(table, user_id, data):
+    def fake_upsert(table, user_id, data, profile_id=None):
         saved["table"] = table
         saved["user_id"] = user_id
         saved["data"] = data

@@ -23,6 +23,8 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 
 from .auth import get_current_user_id
+from .profiles import get_current_profile_id
+from ..profiles import scope_owner
 from ..audit_log import log_action
 from .. import threads_oauth
 from .. import instagram_oauth
@@ -143,20 +145,25 @@ def _status_only(row: dict | None, check: dict | None = None, *, token_field: st
     }
 
 
-def _upsert_by_user(table: str, user_id: int, data: dict) -> dict:
-    """update-or-insert por user_id. Não existe unique constraint em
-    user_id nessas tabelas (só em app_id/t_user_id) — upsert nativo do
-    Postgres via on_conflict não se aplica aqui."""
+def _upsert_by_user(table: str, user_id: int, data: dict, profile_id: str | None = None) -> dict:
+    """update-or-insert por user_id (e por perfil ativo, quando houver). Não
+    existe unique constraint em user_id nessas tabelas (só em app_id/
+    t_user_id) — upsert nativo do Postgres via on_conflict não se aplica
+    aqui. Com perfil ativo, a linha é a do perfil (cada perfil tem as
+    próprias credenciais) e o insert grava `profile_id`."""
     existing = (
-        supabase.table(table).select("id").eq("user_id", user_id)
+        scope_owner(supabase.table(table).select("id"), user_id, profile_id)
         .maybe_single().execute()
     )
     if existing and existing.data:
         result = (
-            supabase.table(table).update(data).eq("user_id", user_id).execute()
+            scope_owner(supabase.table(table).update(data), user_id, profile_id).execute()
         )
     else:
-        result = supabase.table(table).insert({**data, "user_id": user_id}).execute()
+        row = {**data, "user_id": user_id}
+        if profile_id:
+            row["profile_id"] = profile_id
+        result = supabase.table(table).insert(row).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao salvar credencial")
     return result.data[0]
@@ -221,7 +228,7 @@ def _verify_oauth_state(
 
 
 @router.get("")
-async def list_credentials(user_id: int = Depends(get_current_user_id)):
+async def list_credentials(user_id: int = Depends(get_current_user_id), profile_id: str | None = Depends(get_current_profile_id)):
     """Status de conexão (sem valor) de todas as redes suportadas.
 
     `check_message` é detalhe de diagnóstico interno (texto cru devolvido
@@ -236,8 +243,7 @@ async def list_credentials(user_id: int = Depends(get_current_user_id)):
     is_admin = bool(user_row and user_row.data and user_row.data.get("access") == "ADMIN")
 
     checks_row = (
-        supabase.table("credential_checks").select("network, state, message, checked_at")
-        .eq("user_id", user_id).execute()
+        scope_owner(supabase.table("credential_checks").select("network, state, message, checked_at"), user_id, profile_id).execute()
     )
     checks_by_network = {c["network"]: c for c in (checks_row.data or [])}
 
@@ -245,7 +251,7 @@ async def list_credentials(user_id: int = Depends(get_current_user_id)):
 
     for network, table in SIMPLE_NETWORKS.items():
         row = (
-            supabase.table(table).select("status").eq("user_id", user_id)
+            scope_owner(supabase.table(table).select("status"), user_id, profile_id)
             .maybe_single().execute()
         )
         result[network] = _status_only(row.data if row else None, checks_by_network.get(network))
@@ -256,7 +262,7 @@ async def list_credentials(user_id: int = Depends(get_current_user_id)):
     # nenhum campo além do token — ver OAUTH_NETWORKS acima).
     for network, (table, token_field) in OAUTH_NETWORKS.items():
         row = (
-            supabase.table(table).select(f"status, {token_field}").eq("user_id", user_id)
+            scope_owner(supabase.table(table).select(f"status, {token_field}"), user_id, profile_id)
             .maybe_single().execute()
         )
         result[network] = _status_only(
@@ -274,6 +280,7 @@ async def list_credentials(user_id: int = Depends(get_current_user_id)):
 async def save_threads_credential(
     body: ThreadsCredentialBody,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Threads usa OAuth (token obtido via callback do Flask, não por
     formulário) — este endpoint só permite colar um token já emitido.
@@ -286,16 +293,15 @@ async def save_threads_credential(
         "t_user_id": body.t_user_id,
         "access_token": encrypt(body.access_token),
         "status": True,
-    })
+    }, profile_id=profile_id)
     return {"connected": True}
 
 
 @router.delete("/threads")
-async def delete_threads_credential(user_id: int = Depends(get_current_user_id)):
+async def delete_threads_credential(user_id: int = Depends(get_current_user_id), profile_id: str | None = Depends(get_current_profile_id)):
     result = (
-        supabase.table("threads_credentials")
-        .update({"t_user_id": None, "access_token": None, "status": False})
-        .eq("user_id", user_id)
+        scope_owner(supabase.table("threads_credentials")
+        .update({"t_user_id": None, "access_token": None, "status": False}), user_id, profile_id)
         .execute()
     )
     if not result.data:
@@ -332,6 +338,7 @@ async def threads_callback(
     state: str | None = None,
     error: str | None = None,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Callback do OAuth do Threads (Meta): ?code=&state= (sucesso) ou
     ?error= (usuário negou autorização, ou outra falha do lado do
@@ -370,7 +377,7 @@ async def threads_callback(
         "t_user_id": t_user_id,
         "access_token": encrypt(access_token),
         "status": True,
-    })
+    }, profile_id=profile_id)
     log_action("threads_oauth_token_exchanged", user_id=user_id)
 
     return _redirect("threads=success")
@@ -411,6 +418,7 @@ async def instagram_callback(
     state: str | None = None,
     error: str | None = None,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Callback do Facebook Login for Business pro Instagram: ?code=&state=
     (sucesso) ou ?error= (usuário negou autorização, ou outra falha do
@@ -450,21 +458,20 @@ async def instagram_callback(
         "ig_user_id": ig_user_id,
         "user_access_token": encrypt(access_token),
         "status": True,
-    })
+    }, profile_id=profile_id)
     log_action("instagram_oauth_token_exchanged", user_id=user_id)
 
     return _redirect("instagram=success")
 
 
 @router.delete("/instagram")
-async def delete_instagram_credential(user_id: int = Depends(get_current_user_id)):
+async def delete_instagram_credential(user_id: int = Depends(get_current_user_id), profile_id: str | None = Depends(get_current_profile_id)):
     """Rota literal registrada ANTES de "/{network}" (ver docstring de
     save_threads_credential) — instagram saiu de SIMPLE_NETWORKS, então o
     handler genérico de DELETE não cobre mais essa rede."""
     result = (
-        supabase.table("instagram_credentials")
-        .update({"user_access_token": None, "ig_user_id": None, "status": False})
-        .eq("user_id", user_id)
+        scope_owner(supabase.table("instagram_credentials")
+        .update({"user_access_token": None, "ig_user_id": None, "status": False}), user_id, profile_id)
         .execute()
     )
     if not result.data:
@@ -504,6 +511,7 @@ async def facebook_callback(
     state: str | None = None,
     error: str | None = None,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Callback do Login do Facebook: ?code=&state= (sucesso) ou ?error=
     (usuário negou autorização, ou outra falha do lado do Meta). Mesma
@@ -544,25 +552,24 @@ async def facebook_callback(
         "page_name": page_name,
         "page_access_token": encrypt(page_access_token),
         "status": True,
-    })
+    }, profile_id=profile_id)
     log_action("facebook_oauth_token_exchanged", user_id=user_id)
 
     return _redirect("facebook=success")
 
 
 @router.delete("/facebook")
-async def delete_facebook_credential(user_id: int = Depends(get_current_user_id)):
+async def delete_facebook_credential(user_id: int = Depends(get_current_user_id), profile_id: str | None = Depends(get_current_profile_id)):
     """Rota literal registrada ANTES de "/{network}" (ver docstring de
     delete_instagram_credential) — facebook saiu de SIMPLE_NETWORKS."""
     result = (
-        supabase.table("facebook_credentials")
+        scope_owner(supabase.table("facebook_credentials")
         .update({
             "page_id": None,
             "page_name": None,
             "page_access_token": None,
             "status": False,
-        })
-        .eq("user_id", user_id)
+        }), user_id, profile_id)
         .execute()
     )
     if not result.data:
@@ -623,6 +630,7 @@ async def tiktok_callback(
     state: str | None = None,
     error: str | None = None,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Callback do OAuth do TikTok: ?code=&state= (sucesso) ou ?error=
     (usuário negou autorização, ou outra falha do lado da TikTok).
@@ -677,21 +685,20 @@ async def tiktok_callback(
         "refresh_token": encrypt(refresh_token) if refresh_token else None,
         "open_id": open_id,
         "status": True,
-    })
+    }, profile_id=profile_id)
     log_action("tiktok_oauth_token_exchanged", user_id=user_id)
 
     return _redirect("tiktok=success")
 
 
 @router.delete("/tiktok")
-async def delete_tiktok_credential(user_id: int = Depends(get_current_user_id)):
+async def delete_tiktok_credential(user_id: int = Depends(get_current_user_id), profile_id: str | None = Depends(get_current_profile_id)):
     """Rota literal registrada ANTES de "/{network}" — tiktok saiu de
     SIMPLE_NETWORKS, então o handler genérico de DELETE não cobre mais
     essa rede (ver docstring de delete_instagram_credential)."""
     result = (
-        supabase.table("tiktok_credentials")
-        .update({"user_access_token": None, "refresh_token": None, "open_id": None, "status": False})
-        .eq("user_id", user_id)
+        scope_owner(supabase.table("tiktok_credentials")
+        .update({"user_access_token": None, "refresh_token": None, "open_id": None, "status": False}), user_id, profile_id)
         .execute()
     )
     if not result.data:
@@ -733,6 +740,7 @@ async def x_callback(
     state: str | None = None,
     error: str | None = None,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Callback do OAuth 2.0 + PKCE do X: ?code=&state= (sucesso) ou
     ?error= (usuário negou autorização, ou outra falha do lado do X).
@@ -777,26 +785,25 @@ async def x_callback(
             datetime.now(timezone.utc) + timedelta(seconds=expires_in)
         ).isoformat(),
         "status": True,
-    })
+    }, profile_id=profile_id)
     log_action("x_oauth_token_exchanged", user_id=user_id)
 
     return _redirect("x=success")
 
 
 @router.delete("/x")
-async def delete_x_credential(user_id: int = Depends(get_current_user_id)):
+async def delete_x_credential(user_id: int = Depends(get_current_user_id), profile_id: str | None = Depends(get_current_profile_id)):
     """Rota literal registrada ANTES de "/{network}" — x saiu de
     SIMPLE_NETWORKS, então o handler genérico de DELETE não cobre mais
     essa rede (ver docstring de delete_instagram_credential)."""
     result = (
-        supabase.table("x_credentials")
+        scope_owner(supabase.table("x_credentials")
         .update({
             "user_access_token": None,
             "user_refresh_token": None,
             "token_expires_at": None,
             "status": False,
-        })
-        .eq("user_id", user_id)
+        }), user_id, profile_id)
         .execute()
     )
     if not result.data:
@@ -829,12 +836,13 @@ def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
 async def save_x_credential_manual(
     body: XManualCredentialBody,
     user_id: int = Depends(_require_admin),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     _upsert_by_user("x_credentials", user_id, {
         "user_access_token": encrypt(body.user_access_token),
         "user_refresh_token": encrypt(body.user_refresh_token) if body.user_refresh_token else None,
         "status": True,
-    })
+    }, profile_id=profile_id)
     return {"connected": True}
 
 
@@ -842,13 +850,14 @@ async def save_x_credential_manual(
 async def save_facebook_credential_manual(
     body: FacebookManualCredentialBody,
     user_id: int = Depends(_require_admin),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     _upsert_by_user("facebook_credentials", user_id, {
         "page_id": body.page_id,
         "page_name": body.page_name,
         "page_access_token": encrypt(body.page_access_token),
         "status": True,
-    })
+    }, profile_id=profile_id)
     return {"connected": True}
 
 
@@ -856,13 +865,14 @@ async def save_facebook_credential_manual(
 async def save_tiktok_credential_manual(
     body: TikTokManualCredentialBody,
     user_id: int = Depends(_require_admin),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     _upsert_by_user("tiktok_credentials", user_id, {
         "open_id": body.open_id,
         "user_access_token": encrypt(body.user_access_token),
         "refresh_token": encrypt(body.refresh_token) if body.refresh_token else None,
         "status": True,
-    })
+    }, profile_id=profile_id)
     return {"connected": True}
 
 
@@ -870,12 +880,13 @@ async def save_tiktok_credential_manual(
 async def save_instagram_credential_manual(
     body: InstagramManualCredentialBody,
     user_id: int = Depends(_require_admin),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     _upsert_by_user("instagram_credentials", user_id, {
         "ig_user_id": body.ig_user_id,
         "user_access_token": encrypt(body.user_access_token),
         "status": True,
-    })
+    }, profile_id=profile_id)
     return {"connected": True}
 
 
@@ -892,7 +903,7 @@ _OAUTH_GLOBAL_APP = {
 }
 
 
-def _test_payload(network: str, user_id: int) -> dict | None:
+def _test_payload(network: str, user_id: int, profile_id: str | None = None) -> dict | None:
     """Busca e descriptografa só os campos necessários pra chamar a API
     real da rede via bridge interno (ver web/routes/internal.py). None
     quando não há credencial suficiente pra testar (endpoint trata como
@@ -903,8 +914,7 @@ def _test_payload(network: str, user_id: int) -> dict | None:
 
     if network == "threads":
         row = (
-            supabase.table(table).select("access_token")
-            .eq("user_id", user_id).maybe_single().execute()
+            scope_owner(supabase.table(table).select("access_token"), user_id, profile_id).maybe_single().execute()
         )
         data = row.data if row and row.data else None
         if not data or not data.get("access_token"):
@@ -917,8 +927,7 @@ def _test_payload(network: str, user_id: int) -> dict | None:
         # token JÁ escopado pra Página do usuário (ver
         # api/facebook_oauth.py).
         row = (
-            supabase.table(table).select("page_id, page_access_token")
-            .eq("user_id", user_id).maybe_single().execute()
+            scope_owner(supabase.table(table).select("page_id, page_access_token"), user_id, profile_id).maybe_single().execute()
         )
         data = row.data if row and row.data else None
         token = data.get("page_access_token") if data else None
@@ -934,8 +943,7 @@ def _test_payload(network: str, user_id: int) -> dict | None:
             # salva" pro usuário (luz fica vermelha).
             return None
         row = (
-            supabase.table(table).select("user_access_token")
-            .eq("user_id", user_id).maybe_single().execute()
+            scope_owner(supabase.table(table).select("user_access_token"), user_id, profile_id).maybe_single().execute()
         )
         token = row.data.get("user_access_token") if row and row.data else None
         payload: dict = {"app_id": app_id, "secret": secret}
@@ -944,8 +952,7 @@ def _test_payload(network: str, user_id: int) -> dict | None:
         return payload
 
     row = (
-        supabase.table(table).select("app_id, secret")
-        .eq("user_id", user_id).maybe_single().execute()
+        scope_owner(supabase.table(table).select("app_id, secret"), user_id, profile_id).maybe_single().execute()
     )
     data = row.data if row and row.data else None
     if not data or not data.get("app_id") or not data.get("secret"):
@@ -955,13 +962,13 @@ def _test_payload(network: str, user_id: int) -> dict | None:
 
 
 @router.post("/{network}/test")
-async def test_credential(network: str, user_id: int = Depends(_require_admin)):
+async def test_credential(network: str, user_id: int = Depends(_require_admin), profile_id: str | None = Depends(get_current_profile_id)):
     """"Testar conexão" — chama a API real da rede (via bridge interno) e
     grava o resultado em credential_checks, que é o que alimenta a luz do
     sinalizador pra todo mundo (GET /credentials). Admin-only: só quem
     pode clicar o botão decide quando gastar uma chamada real contra a
     API de cada rede."""
-    payload = _test_payload(network, user_id)
+    payload = _test_payload(network, user_id, profile_id)
     if payload is None:
         raise HTTPException(status_code=400, detail="Nenhuma credencial salva para esta rede.")
 
@@ -979,13 +986,15 @@ async def test_credential(network: str, user_id: int = Depends(_require_admin)):
     check_data = {"state": state, "message": message, "checked_at": checked_at}
 
     existing = (
-        supabase.table("credential_checks").select("id")
-        .eq("user_id", user_id).eq("network", network).maybe_single().execute()
+        scope_owner(supabase.table("credential_checks").select("id"), user_id, profile_id).eq("network", network).maybe_single().execute()
     )
     if existing and existing.data:
         supabase.table("credential_checks").update(check_data).eq("id", existing.data["id"]).execute()
     else:
-        supabase.table("credential_checks").insert({**check_data, "user_id": user_id, "network": network}).execute()
+        supabase.table("credential_checks").insert({
+            **check_data, "user_id": user_id, "network": network,
+            **({"profile_id": profile_id} if profile_id else {}),
+        }).execute()
 
     return {"light": "green" if state == "ok" else "yellow", "message": message, "checked_at": checked_at}
 
@@ -995,6 +1004,7 @@ async def save_credential(
     network: str,
     body: SimpleCredentialBody,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Cria ou atualiza a credencial (update-or-insert por user_id). Cifra o secret."""
     table = _simple_table(network)
@@ -1025,7 +1035,7 @@ async def save_credential(
         "status": True,
     }
 
-    _upsert_by_user(table, user_id, data)
+    _upsert_by_user(table, user_id, data, profile_id=profile_id)
     return {"connected": True}
 
 
@@ -1033,6 +1043,7 @@ async def save_credential(
 async def delete_credential(
     network: str,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Desconecta (zera app_id/secret, status=False) — não apaga a linha.
 
@@ -1044,9 +1055,8 @@ async def delete_credential(
     table = _simple_table(network)
     update_data = {"app_id": None, "secret": None, "status": False}
     result = (
-        supabase.table(table)
-        .update(update_data)
-        .eq("user_id", user_id)
+        scope_owner(supabase.table(table)
+        .update(update_data), user_id, profile_id)
         .execute()
     )
     if not result.data:

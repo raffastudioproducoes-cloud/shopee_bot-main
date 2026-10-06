@@ -101,6 +101,131 @@ class FakeQueryBuilder:
         return MagicMock(data=matched)
 
 
+class FakeDB:
+    """Supabase fake com ESTADO: `table(name)` opera sobre listas em memória,
+    aplicando de verdade eq/is_/in_/lt, insert, update e delete. Usado para
+    provar isolamento entre perfis nas escritas e leituras dos routers
+    (o resultado muda, não só a chamada `.eq()`)."""
+
+    def __init__(self, tables: dict[str, list[dict]]):
+        self.tables = {name: [dict(r) for r in rows] for name, rows in tables.items()}
+        self._seq = 1000
+
+    def table(self, name):
+        return _FakeTable(self, self.tables.setdefault(name, []))
+
+    def next_id(self):
+        self._seq += 1
+        return self._seq
+
+
+class _FakeTable:
+    def __init__(self, db, rows):
+        self._db, self._rows = db, rows
+        self._preds: list = []
+        self._op = "select"
+        self._payload = None
+        self._single = False
+        self._count = False
+        self._limit = None
+
+    def select(self, *_a, count=None, **_kw):
+        self._count = bool(count)
+        return self
+
+    def insert(self, payload):
+        self._op, self._payload = "insert", payload
+        return self
+
+    def update(self, payload):
+        self._op, self._payload = "update", payload
+        return self
+
+    def delete(self):
+        self._op = "delete"
+        return self
+
+    def upsert(self, payload, **_kw):
+        self._op, self._payload = "insert", payload
+        return self
+
+    def eq(self, field, value):
+        self._preds.append(lambda r: r.get(field) == value)
+        return self
+
+    def is_(self, field, value):
+        self._preds.append(lambda r: (r.get(field) is None) == (value == "null"))
+        return self
+
+    def in_(self, field, values):
+        self._preds.append(lambda r: r.get(field) in values)
+        return self
+
+    def lt(self, field, value):
+        self._preds.append(lambda r: r.get(field) is not None and r.get(field) < value)
+        return self
+
+    def single(self):
+        self._single = True
+        return self
+
+    maybe_single = single
+
+    def limit(self, n):
+        self._limit = n
+        return self
+
+    def order(self, *_a, **_kw):
+        return self
+
+    def range(self, *_a, **_kw):
+        return self
+
+    def ilike(self, *_a, **_kw):
+        return self
+
+    def gte(self, *_a, **_kw):
+        return self
+
+    def lte(self, *_a, **_kw):
+        return self
+
+    def _match(self):
+        return [r for r in self._rows if all(p(r) for p in self._preds)]
+
+    def execute(self):
+        from unittest.mock import MagicMock
+
+        if self._op == "insert":
+            items = self._payload if isinstance(self._payload, list) else [self._payload]
+            created = []
+            for item in items:
+                row = {"id": self._db.next_id(), **item}
+                self._rows.append(row)
+                created.append(dict(row))
+            return MagicMock(data=created, count=len(created))
+        matched = self._match()
+        if self._op == "update":
+            for r in matched:
+                r.update(self._payload)
+            return MagicMock(data=[dict(r) for r in matched])
+        if self._op == "delete":
+            for r in matched:
+                self._rows.remove(r)
+            return MagicMock(data=[dict(r) for r in matched])
+        data = [dict(r) for r in matched]
+        if self._limit is not None:
+            data = data[: self._limit]
+        if self._single:
+            return MagicMock(data=data[0] if data else None)
+        return MagicMock(data=data, count=len(matched))
+
+
+@pytest.fixture
+def fake_db():
+    return FakeDB
+
+
 @pytest.fixture(autouse=True)
 def _clear_rate_limit_state():
     """O rate limit em memória (api/routers/auth.py) é global de módulo;
@@ -161,3 +286,14 @@ def auth_headers_with_profile():
 
     token = _create_token({"sub": "testuser", "id": 1, "profile_id": "profile-a"})
     return {"access_token": token}
+
+
+@pytest.fixture
+def profile_cookie():
+    """Fábrica de cookie `access_token` com claim `profile_id` arbitrário."""
+    from api.routers.auth import _create_token
+
+    def _make(profile_id: str) -> dict:
+        return {"access_token": _create_token({"sub": "testuser", "id": 1, "profile_id": profile_id})}
+
+    return _make
