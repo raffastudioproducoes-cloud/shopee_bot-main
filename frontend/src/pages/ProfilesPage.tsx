@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRef, useState } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
+import { ApiError } from "../lib/api"
+import { validatePassword } from "../lib/password"
 import { usersApi, type AppUser, type UserAccess } from "../api/users"
 import { profilesApi, type Profile } from "../api/profiles"
 import { Panel } from "../components/ui/Panel"
@@ -84,7 +86,7 @@ export function ProfilesPage() {
   })
 
   const onAuthError = (err: Error) => {
-    if (err.message.includes("401") || err.message === "Não autenticado") {
+    if ((err instanceof ApiError && err.status === 401) || err.message.includes("401") || err.message === "Não autenticado") {
       logout()
       router.navigate({ to: "/login" })
     }
@@ -342,6 +344,7 @@ export function ProfilesPage() {
               onCreate={(data) => createMutation.mutate(data)}
               onUpdate={(id, username, access) => updateMutation.mutate({ id, username, access })}
               loading={createMutation.isPending || updateMutation.isPending}
+              apiError={createMutation.error instanceof ApiError && createMutation.error.status !== 401 ? createMutation.error.message : null}
             />
           )}
 
@@ -422,18 +425,22 @@ interface UserModalProps {
   onCreate: (data: { username: string; password: string; access: UserAccess }) => void
   onUpdate: (id: string, username: string, access: UserAccess) => void
   loading: boolean
+  apiError?: string | null
 }
 
-function UserModal({ user, onClose, onCreate, onUpdate, loading }: UserModalProps) {
+function UserModal({ user, onClose, onCreate, onUpdate, loading, apiError }: UserModalProps) {
   const [username, setUsername] = useState(user?.username ?? "")
   const [password, setPassword] = useState("")
   const [access, setAccess] = useState<UserAccess>(user?.access ?? "USER")
+
+  const passwordError = !user && password ? validatePassword(password) : null
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (user) {
       onUpdate(user.id, username, access)
     } else {
+      if (validatePassword(password)) return
       onCreate({ username, password, access })
     }
   }
@@ -459,6 +466,12 @@ function UserModal({ user, onClose, onCreate, onUpdate, loading }: UserModalProp
           />
         )}
 
+        {(passwordError || apiError) && (
+          <p role="alert" style={{ margin: 0, color: "var(--negative-on-glass)" }}>
+            {passwordError ?? apiError}
+          </p>
+        )}
+
         <Select
           label="Acesso"
           value={access}
@@ -476,7 +489,7 @@ function UserModal({ user, onClose, onCreate, onUpdate, loading }: UserModalProp
           <Button
             type="submit"
             variant="primary"
-            disabled={loading || !username.trim() || (!user && !password.trim())}
+            disabled={loading || !username.trim() || (!user && (!password.trim() || passwordError !== null))}
           >
             {loading ? "Salvando..." : user ? "Salvar" : "Criar"}
           </Button>
