@@ -84,13 +84,13 @@ contexto inicial.
   Dockerfile não-root + `HEALTHCHECK`, gunicorn com timeout e supervisão, CI/CD endurecidos.
 - **Estado das redes**: sem alteração desde a verificação de 2026-09-28 (só o Threads tem token
   de usuário salvo); esta rodada não consultou o Supabase.
-- **Pendências manuais de Rafa (não são código)**:
-  - Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção).
-  - Trocar o branch de produção do serviço no Render de `master` para `main`.
-  - Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado).
-  - Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub (só se quiser deploy automático de staging).
-  - Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor.
-  - Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok.
+- **Pendências manuais de Rafa (não são código) — atualizado 2026-10-05**:
+  - [CONCLUÍDO] Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção) — confirmado pelo Rafa, 2026-10-05.
+  - [CONCLUÍDO] Trocar o branch de produção do serviço no Render de `master` para `main` — confirmado pelo Rafa, 2026-10-05.
+  - [CONCLUÍDO] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub — confirmado pelo Rafa, 2026-10-05.
+  - [CONCLUÍDO] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor — confirmado pelo Rafa, 2026-10-05.
+  - [CONCLUÍDO] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok — confirmado pelo Rafa, 2026-10-05.
+  - [POSSÍVEL, NÃO ATIVADA] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado) — GitHub Pro ativo (confirmado pelo Rafa, 2026-10-05), mas branch protection ainda não configurada.
   - Aplicar as migrações 037, 038, 039, 040 e 041 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
   - Merge dos PRs da branch `chore/phase-12-integration` em `main`.
 

@@ -209,8 +209,8 @@ pytest tests/test_auth.py tests/test_publish.py
 - **Build**: lê o `Dockerfile` da raiz (Python 3.13-slim + gunicorn + gevent).
 - **CI** (`.github/workflows/ci.yml`, push/PR em `main`): job `api` (flake8 bloqueante + `pytest tests/api`, Python 3.13) e job `frontend` (`npm ci` + `npm run build`, Node 20); cache de pip/npm e `concurrency` por ref.
 - **CD** (`.github/workflows/cd.yml`): dispara via `workflow_run` só quando a CI termina com sucesso em `main` (push) e chama o deploy hook do Render (secret `RENDER_DEPLOY_HOOK_URL`; sem o secret, o job emite warning e pula). `.github/dependabot.yml` (semanal) e `.github/pull_request_template.md` complementam o fluxo.
-- **Fluxo de branches**: Git Flow (`main` produção, `staging` homologação, `feature/*`); ver `docs/RULES.md`. A proteção de branch não está ativa (limitação do GitHub Free em repo privado).
-- **Pendente em produção**: o Render ainda precisa ter o branch de produção trocado de `master` para `main`; ver `docs/TASK.md` item 10.13.
+- **Fluxo de branches**: Git Flow (`main` produção, `staging` homologação, `feature/*`); ver `docs/RULES.md`. GitHub Pro está ativo (confirmado pelo Rafa, 2026-10-05); branch protection agora é possível, mas ainda não configurada.
+- **Pendências em produção** (confirmado pelo Rafa, 2026-10-05): env vars do Render (`shopee-bot-staging`), branch de produção de `master` para `main`, callback URLs das redes, conectar redes sociais — ver `docs/TASK.md` item 10.13.
 - **Banco**: Supabase, via Session Pooler (IPv4 — o Direct Connection só responde IPv6, incompatível com o Render Free).
 
 Detalhes de infraestrutura e histórico de bugs resolvidos no deploy: Vault `26-Deploy-Render.md`.

@@ -52,12 +52,16 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Supervisor uvicorn em `gunicorn.conf.py` (reinício com backoff em caso de crash) sem deixar processo órfão.
 - `generate-copy` não devolve a exceção ao cliente; log de debug de páginas do Facebook removido.
 
-### Notes (limitações conhecidas / pendências manuais)
-- Pendências manuais de Rafa (não são código): env vars do serviço `shopee-bot-staging` no Render,
-  trocar o branch de produção no Render de `master` para `main`, branch protection (exige GitHub Pro
-  ou repo público), secret `RENDER_STAGING_DEPLOY_HOOK_URL`, callback URLs das redes, conectar
-  X/Instagram/TikTok, recolar o Client Secret do TikTok, aplicar as migrações 037/038/039/040/041 no
-  Supabase e conferir disco/permissão do container não-root, merge dos PRs.
+### Notes (limitações conhecidas / pendências manuais — atualizado 2026-10-05)
+- Pendências manuais de Rafa (não são código):
+  - [CONCLUÍDO, 2026-10-05] Env vars do serviço `shopee-bot-staging` no Render.
+  - [CONCLUÍDO, 2026-10-05] Trocar o branch de produção no Render de `master` para `main`.
+  - [CONCLUÍDO, 2026-10-05] Secret `RENDER_STAGING_DEPLOY_HOOK_URL`.
+  - [CONCLUÍDO, 2026-10-05] Callback URLs das redes (X, Meta, TikTok) nos painéis de desenvolvedor.
+  - [CONCLUÍDO, 2026-10-05] Conectar X, Instagram e TikTok; recolar o Client Secret do TikTok.
+  - [POSSÍVEL, NÃO ATIVADA] Branch protection (GitHub Pro ativo desde 2026-10-05, mas ainda não configurada).
+  - Aplicar as migrações 037/038/039/040/041 no Supabase e conferir disco/permissão do container não-root.
+  - Merge dos PRs da branch `chore/phase-12-integration` em `main`.
 - Correção de nota anterior (2026-10-05): a limitação "`profile_id` ainda NÃO cobre credenciais,
   posts…" da 2.0.0 deixa de valer nesta branch.
 

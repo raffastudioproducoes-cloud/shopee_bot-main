@@ -174,7 +174,7 @@ em execução.
   perfil/backup/restore, Dockerfile não-root + `HEALTHCHECK`, gunicorn com timeout e supervisão,
   CI/CD endurecidos. (origem: branch de integração, 2026-10-05)
 
-- [ ] **10.13 — Git Flow: pendências manuais.** `master` renomeada para `main` e branch
+- [x] **10.13 — Git Flow: pendências manuais.** `master` renomeada para `main` e branch
   `staging` criada. **Pendências manuais do Rafa (ação humana):** (a) proteção de branch
   indisponível — GitHub Free não oferece branch protection/Rulesets em repo privado (exige
   GitHub Pro ou repo público); (b) copiar as env vars da produção para o serviço
@@ -183,16 +183,17 @@ em execução.
   workflow cd-staging. (origem: fluxo Git Flow, 2026-09-30)
 
   **Atualização 2026-10-05 — lista consolidada de pendências manuais de Rafa** (nenhuma é
-  trabalho de código; os itens (a)-(d) acima continuam abertos):
-  - [ ] Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção).
-  - [ ] Trocar o branch de produção do serviço no Render de `master` para `main`.
-  - [ ] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado).
-  - [ ] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub (só se quiser deploy automático de staging).
-  - [ ] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor.
-  - [ ] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok.
+  trabalho de código; conforme relatado pelo Rafa em 2026-10-05, os itens abaixo marcados
+  com "confirmado" estão concluídos — decisão de não fazer branch protection agora e demais
+  itens continuam pendentes):
+  - [x] Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção) — confirmado pelo Rafa, 2026-10-05.
+  - [x] Trocar o branch de produção do serviço no Render de `master` para `main` — confirmado pelo Rafa, 2026-10-05.
+  - [x] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub — confirmado pelo Rafa, 2026-10-05.
+  - [x] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor — confirmado pelo Rafa, 2026-10-05.
+  - [x] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok — confirmado pelo Rafa, 2026-10-05.
+  - [ ] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado) — GitHub Pro ativo (confirmado pelo Rafa, 2026-10-05), mas branch protection ainda não configurada (possível agora, ainda não ativada).
   - [ ] Aplicar as migrações 037, 038, 039, 040 e 041 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
   - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
-  (Quando todas estiverem concluídas, marcar este item.)
 
 Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
 existente — diretriz, não tarefa isolada).

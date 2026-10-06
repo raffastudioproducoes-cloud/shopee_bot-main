@@ -25,9 +25,10 @@ Versionamento SemVer (arquivo `VERSION` + `CHANGELOG.md`): a versão só sobe no
 `main` — patch = correção, minor = feature compatível, major = mudança grande. O sistema
 multi-perfil foi tratado como MAJOR (2.0.0) por decisão do Rafa.
 
-Limitação: a proteção automática de branch NÃO está ativa — o GitHub Free não oferece branch
-protection/Rulesets em repositório privado (exige GitHub Pro ou repo público). Por ora a regra
-vale por disciplina, até o Rafa decidir. Ver `docs/TASK.md` item 10.13.
+Proteção de branch: **GitHub Pro está ativo (confirmado pelo Rafa, 2026-10-05).** A proteção
+automática de branch agora é possível — branch protection/Rulesets pode ser ativada em
+repositório privado com GitHub Pro. Configuração não foi aplicada ainda (possível agora, ainda
+não ativada). Ver `docs/TASK.md` item 10.13 para contexto da decisão.
 
 ## 2. CI (`.github/workflows/ci.yml`)
 

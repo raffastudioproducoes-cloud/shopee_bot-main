@@ -106,12 +106,12 @@ Critérios gerais aplicados a cada módulo abaixo:
   rate limit em criar perfil/backup/restore
 - [x] Infra: Dockerfile não-root + `HEALTHCHECK`, gunicorn `timeout = 120` com supervisão do uvicorn
 - [x] CI: flake8 bloqueante, job `frontend`, Python 3.13, cache, `concurrency`; CD via `workflow_run`; dependabot e template de PR
-- [ ] Ainda pendente (ações manuais de Rafa, não são código):
-  - [ ] Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção).
-  - [ ] Trocar o branch de produção do serviço no Render de `master` para `main`.
-  - [ ] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado).
-  - [ ] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub (só se quiser deploy automático de staging).
-  - [ ] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor.
-  - [ ] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok.
+- [ ] Ainda pendente (ações manuais de Rafa, não são código) — atualizado 2026-10-05:
+  - [x] Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção) — confirmado pelo Rafa, 2026-10-05.
+  - [x] Trocar o branch de produção do serviço no Render de `master` para `main` — confirmado pelo Rafa, 2026-10-05.
+  - [x] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub — confirmado pelo Rafa, 2026-10-05.
+  - [x] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor — confirmado pelo Rafa, 2026-10-05.
+  - [x] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok — confirmado pelo Rafa, 2026-10-05.
+  - [ ] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado) — GitHub Pro ativo (confirmado pelo Rafa, 2026-10-05), mas branch protection ainda não configurada (possível agora, ainda não ativada).
   - [ ] Aplicar as migrações 037, 038, 039, 040 e 041 no Supabase (ver `docs/RULES.md` item 11). Disco/permissão do container não-root: o Dockerfile já cria e dá `chown app` a `/shopee_bot/upload` e `/shopee_bot/web/media` (únicos pontos de escrita local; mídia vai para disco, avatar para Supabase Storage). Pendência só se o Render montar disco persistente: ver `docs/RULES.md` item 11.
   - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
