@@ -73,6 +73,27 @@ As outras três têm o mecanismo de OAuth implementado e a UI pronta, mas nenhum
 completou a conexão. Esta tabela e o restante do documento refletem o estado real, não o
 contexto inicial.
 
+## Atualização 2026-10-05 (nota datada; o conteúdo acima é de 2026-09-29)
+
+- **Branch de trabalho**: `chore/phase-12-integration` (worktree `wt-int`). Segundo
+  `git log main..HEAD`, estes commits ainda não estão em `main`; `VERSION` segue 2.0.0 e as
+  mudanças estão em `CHANGELOG.md` como "Não lançado".
+- **Feito no código desta branch**: multi-perfil completo (`profile_id` em 16 tabelas, migrações
+  até 039, backup/restore e bots por perfil), UI de perfis (editar/excluir/ativar/TopBar),
+  segurança do servidor (claim `pwv`, validação do `profile_id`, trigger 037, rate limits),
+  Dockerfile não-root + `HEALTHCHECK`, gunicorn com timeout e supervisão, CI/CD endurecidos.
+- **Estado das redes**: sem alteração desde a verificação de 2026-09-28 (só o Threads tem token
+  de usuário salvo); esta rodada não consultou o Supabase.
+- **Pendências manuais de Rafa (não são código)**:
+  - Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção).
+  - Trocar o branch de produção do serviço no Render de `master` para `main`.
+  - Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado).
+  - Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub (só se quiser deploy automático de staging).
+  - Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor.
+  - Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok.
+  - Aplicar as migrações 037, 038 e 039 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
+  - Merge dos PRs da branch `chore/phase-12-integration` em `main`.
+
 ## Referências
 
 - Vault Obsidian: `00-INDICE-Estado-Atual.md` (fonte viva mais detalhada, rede a rede,
