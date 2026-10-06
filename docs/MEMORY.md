@@ -91,7 +91,7 @@ contexto inicial.
   - [CONCLUÍDO] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor — confirmado pelo Rafa, 2026-10-05.
   - [CONCLUÍDO] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok — confirmado pelo Rafa, 2026-10-05.
   - [POSSÍVEL, NÃO ATIVADA] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado) — GitHub Pro ativo (confirmado pelo Rafa, 2026-10-05), mas branch protection ainda não configurada.
-  - Aplicar as migrações 037, 038, 039, 040 e 041 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
+  - Aplicar as migrações 037, 038, 039, 040, 041 e 042 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
   - Merge dos PRs da branch `chore/phase-12-integration` em `main`.
 
 ## Referências

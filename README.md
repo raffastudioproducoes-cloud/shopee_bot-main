@@ -240,10 +240,10 @@ Supabase (Postgres), schema com RLS habilitado em todas as tabelas:
 `threads_credentials`, `x_credentials`, `facebook_credentials`, `instagram_credentials`,
 `tiktok_credentials`, `kwai_credentials`).
 
-Migrações SQL numeradas em `database/migrations/` (hoje até a `041`), rodadas em sequência no
+Migrações SQL numeradas em `database/migrations/` (hoje até a `042`), rodadas em sequência no
 boot (`run_migrations`) e registradas na tabela `migrations`. Migração aplicada direto no
 Supabase precisa ser registrada à mão — ver `docs/RULES.md` item 9. **Antes de fazer deploy
-desta branch, aplicar as migrações 037, 038, 039, 040 e 041** (ver `docs/RULES.md` item 11).
+desta branch, aplicar as migrações 037, 038, 039, 040, 041 e 042** (ver `docs/RULES.md` item 11).
 
 ### Multi-perfil
 
