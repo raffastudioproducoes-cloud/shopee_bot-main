@@ -147,3 +147,34 @@ def test_change_password_requires_authentication():
     )
 
     assert response.status_code == 401
+
+
+def test_change_password_rejects_80_bytes_even_with_20_chars(auth_client, monkeypatch):
+    """20 emojis = 20 caracteres mas 80 bytes UTF-8; bcrypt truncaria em 72."""
+    fake_client, query = _fake_client_for_user(
+        {"id": 42, "password": pwd_context.hash("senha-antiga-1")}
+    )
+    monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+    response = auth_client.put(
+        "/settings/password",
+        json={"current_password": "senha-antiga-1", "new_password": "😀" * 20},
+    )
+
+    assert response.status_code == 400
+    assert "72 bytes" in response.json()["detail"]
+    query.update.assert_not_called()
+
+
+def test_change_password_accepts_exactly_72_bytes(auth_client, monkeypatch):
+    fake_client, query = _fake_client_for_user(
+        {"id": 42, "password": pwd_context.hash("senha-antiga-1")}
+    )
+    monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+    response = auth_client.put(
+        "/settings/password",
+        json={"current_password": "senha-antiga-1", "new_password": "😀" * 18},
+    )
+
+    assert response.status_code == 200

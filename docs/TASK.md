@@ -178,8 +178,9 @@ em execução.
   `staging` criada. **Pendências manuais do Rafa (ação humana):** (a) proteção de branch
   indisponível — GitHub Free não oferece branch protection/Rulesets em repo privado (exige
   GitHub Pro ou repo público); (b) copiar as env vars da produção para o serviço
-  `shopee-bot-staging` no Render; (c) trocar o branch do serviço de produção no Render de
-  `master` para `main`; (d) secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub, se quiser o
+  `shopee-bot-staging` no Render; (c) ~~trocar o branch do serviço de produção no Render de
+  `master` para `main`~~ — **concluído**: o serviço `shopee-bot` já está na branch `main`
+  (verificado em 2026-10-06 via API do Render); (d) secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub, se quiser o
   workflow cd-staging. (origem: fluxo Git Flow, 2026-09-30)
 
   **Atualização 2026-10-05 — lista consolidada de pendências manuais de Rafa** (nenhuma é
