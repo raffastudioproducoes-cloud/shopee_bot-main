@@ -162,8 +162,13 @@ vale por disciplina, até o Rafa decidir. Ver `docs/TASK.md` item 10.13.
 - As migrações 037/038/039/040 são idempotentes e aditivas (exceto a 039, que só remove/troca
   unicidade, sem alterar dado). Se forem aplicadas fora do app, registrar em `migrations` na
   hora (item 9).
-- Conferir também, ao subir a imagem não-root (`Dockerfile`, usuário `app`), que o disco e a
-  permissão de escrita da pasta de upload (`FLASK_UPLOAD_FOLDER`) funcionam no container.
+- Escrita em disco local (imagem não-root, usuário `app`, uid 10001): `/shopee_bot/upload`
+  (`FLASK_UPLOAD_FOLDER=upload`) e `/shopee_bot/web/media` (mídia de posts na API). O
+  `Dockerfile` cria ambos com `chown app` na build. Sem disco persistente do Render o conteúdo
+  é efêmero (some a cada deploy). Se montar disco persistente em um desses caminhos, o mount
+  nasce `root:root` e esconde o `chown` da imagem: ajustar a permissão no destino (ex.: Shell
+  do serviço `chown -R 10001:10001 <mount>` uma vez) ou apontar `FLASK_UPLOAD_FOLDER` para
+  um subdiretório criável. Não há variável `RENDER_DISK` lida pelo app.
 
 ## Revisão de consistência (2026-10-05)
 

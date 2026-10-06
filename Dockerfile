@@ -51,6 +51,11 @@ COPY --from=frontend-build --chown=app:app /app/frontend/dist ./frontend/dist
 
 EXPOSE 5000
 
+# Diretórios de escrita em runtime (relativos ao WORKDIR): FLASK_UPLOAD_FOLDER=upload
+# (web/__init__.py) e web/media (api/routers/posts.py). /shopee_bot é root-owned;
+# sem isto o makedirs('upload') do boot falha como usuário app.
+RUN mkdir -p upload web/media && chown app:app /shopee_bot upload web/media
+
 USER app
 
 # /health do Flask (web/__init__.py), público e sem auth. $PORT é injetada

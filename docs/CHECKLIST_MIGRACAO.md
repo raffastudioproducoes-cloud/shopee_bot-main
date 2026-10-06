@@ -113,5 +113,5 @@ Critérios gerais aplicados a cada módulo abaixo:
   - [ ] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub (só se quiser deploy automático de staging).
   - [ ] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor.
   - [ ] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok.
-  - [ ] Aplicar as migrações 037, 038, 039 e 040 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
+  - [ ] Aplicar as migrações 037, 038, 039 e 040 no Supabase (ver `docs/RULES.md` item 11). Disco/permissão do container não-root: o Dockerfile já cria e dá `chown app` a `/shopee_bot/upload` e `/shopee_bot/web/media` (únicos pontos de escrita local; mídia vai para disco, avatar para Supabase Storage). Pendência só se o Render montar disco persistente: ver `docs/RULES.md` item 11.
   - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
