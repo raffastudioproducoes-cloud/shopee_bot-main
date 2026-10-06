@@ -83,6 +83,8 @@ def _supervise_uvicorn():
         _log.error("uvicorn saiu com código %s; reiniciando em %ss", code, backoff)
         if _supervisor_stop.wait(backoff):
             break
+        if _supervisor_stop.is_set():  # on_exit já rodou: não criar uvicorn órfão
+            break
         _uvicorn_process = _start_uvicorn()
         backoff = min(backoff * 2, _SUPERVISOR_MAX_BACKOFF_SECONDS)
 
