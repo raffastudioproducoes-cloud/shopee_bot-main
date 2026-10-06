@@ -211,6 +211,7 @@ pytest tests/test_auth.py tests/test_publish.py
 - **CD** (`.github/workflows/cd.yml`): dispara via `workflow_run` só quando a CI termina com sucesso em `main` (push) e chama o deploy hook do Render (secret `RENDER_DEPLOY_HOOK_URL`; sem o secret, o job emite warning e pula). `.github/dependabot.yml` (semanal) e `.github/pull_request_template.md` complementam o fluxo.
 - **Fluxo de branches**: Git Flow (`main` produção, `staging` homologação, `feature/*`); ver `docs/RULES.md`. GitHub Pro está ativo (confirmado pelo Rafa, 2026-10-05); branch protection agora é possível, mas ainda não configurada.
 - **Pendências em produção** (confirmado pelo Rafa, 2026-10-05): env vars do Render (`shopee-bot-staging`), branch de produção de `master` para `main`, callback URLs das redes, conectar redes sociais — ver `docs/TASK.md` item 10.13.
+- **Auto-deploy**: integração nativa do Render com o GitHub, a cada push em `main` (serviço de produção `shopee-bot` já na branch `main`, verificado em 2026-10-06 via API do Render).
 - **Banco**: Supabase, via Session Pooler (IPv4 — o Direct Connection só responde IPv6, incompatível com o Render Free).
 
 Detalhes de infraestrutura e histórico de bugs resolvidos no deploy: Vault `26-Deploy-Render.md`.
