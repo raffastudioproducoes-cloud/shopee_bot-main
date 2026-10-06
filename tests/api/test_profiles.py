@@ -232,3 +232,34 @@ class TestCurrentProfileIdValidation:
             database_module, "get_supabase", (lambda c=self._fake(None, None): c)
         )
         assert _resolve_profile_id("p-alheio", USER_ID) is None
+
+
+def _create_payload():
+    return {"nome": "Novo", "email": "novo@example.com"}
+
+
+def test_create_profile_maps_db_trigger_limit_error_to_400(auth_client, monkeypatch):
+    """Race (TOCTOU): o count do app passou, mas o trigger do banco recusou
+    o insert -- vira 400 amigavel, nao 500."""
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [
+        MagicMock(data=[]),
+        Exception("profile_limit_exceeded"),
+    ]
+    response = auth_client.post("/profiles", json=_create_payload())
+    assert response.status_code == 400
+    assert "Limite" in response.json()["detail"]
+
+
+def test_create_profile_unexpected_db_error_returns_generic_500(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [MagicMock(data=[]), Exception("conn string secreta")]
+    response = auth_client.post("/profiles", json=_create_payload())
+    assert response.status_code == 500
+    assert "secreta" not in response.text
+
+
+def test_create_profile_is_rate_limited(auth_client, monkeypatch):
+    _mock_supabase(monkeypatch, [{"id": "p"}, {"id": "q"}, {"id": "r"}])
+    codes = [auth_client.post("/profiles", json=_create_payload()).status_code for _ in range(6)]
+    assert codes[-1] == 429

@@ -4,15 +4,18 @@ Profiles Router — API Python (FastAPI)
 CRUD de perfis (multi-profile) e troca de perfil ativo (`/profiles/{id}/activate`).
 """
 
+import logging
+
 import fleep
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel
 
 from ..database import supabase
 from ..profiles import PROFILE_LIMIT, can_create_profile, is_principal
-from .auth import _create_token, _decode_token, get_current_user_id
+from .auth import _check_login_rate_limit, _create_token, _decode_token, get_current_user_id
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
+logger = logging.getLogger(__name__)
 
 # Mesmo padrão de validação por magic-byte de api/routers/posts.py
 # (fleep.get + checagem de qualquer mime detectado contra a allowlist).
@@ -106,24 +109,33 @@ async def list_profiles(user_id: str = Depends(get_current_user_id)):
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_profile(body: ProfileCreate, user_id: str = Depends(get_current_user_id)):
+    _check_login_rate_limit(f"profile-create:{user_id}")
+    limit_detail = f"Limite de {PROFILE_LIMIT} perfis por conta atingido."
     existing = supabase.table("profiles").select("id").eq("user_id", user_id).execute()
     if not can_create_profile(len(existing.data or [])):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Limite de {PROFILE_LIMIT} perfis por conta atingido.",
+        raise HTTPException(status_code=400, detail=limit_detail)
+    try:
+        result = (
+            supabase.table("profiles")
+            .insert({
+                "user_id": user_id,
+                "kind": "secundario",
+                "nome": body.nome.strip(),
+                "email": body.email.strip(),
+                "telefone": body.telefone.strip() if body.telefone else None,
+                "endereco": body.endereco.strip() if body.endereco else None,
+            })
+            .execute()
         )
-    result = (
-        supabase.table("profiles")
-        .insert({
-            "user_id": user_id,
-            "kind": "secundario",
-            "nome": body.nome.strip(),
-            "email": body.email.strip(),
-            "telefone": body.telefone.strip() if body.telefone else None,
-            "endereco": body.endereco.strip() if body.endereco else None,
-        })
-        .execute()
-    )
+    except Exception as exc:
+        # O check acima tem race (count-then-insert); o trigger do banco
+        # (migração 037) é a barreira atômica e levanta profile_limit_exceeded.
+        if "profile_limit_exceeded" in str(exc):
+            raise HTTPException(status_code=400, detail=limit_detail)
+        logger.exception("Falha ao criar perfil")
+        raise HTTPException(status_code=500, detail="Erro interno ao criar perfil.")
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Erro interno ao criar perfil.")
     return result.data[0]
 
 

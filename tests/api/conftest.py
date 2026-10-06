@@ -101,6 +101,17 @@ class FakeQueryBuilder:
         return MagicMock(data=matched)
 
 
+@pytest.fixture(autouse=True)
+def _clear_rate_limit_state():
+    """O rate limit em memória (api/routers/auth.py) é global de módulo;
+    limpa entre testes pra não vazar contagem de um teste pro outro."""
+    from api.routers import auth
+
+    auth._login_attempts.clear()
+    yield
+    auth._login_attempts.clear()
+
+
 @pytest.fixture
 def real_profile_resolution():
     """Opt-in: testes que pedem este fixture exercitam a validação real de
