@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { usersApi, type AppUser, type UserAccess } from "../api/users"
-import { profilesApi, type Profile } from "../api/profiles"
+import { profilesApi, type Profile, type ProfileInput } from "../api/profiles"
+import { PROFILE_LIMIT, useActivateProfile, useProfiles } from "../hooks/useProfiles"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { IconButton } from "../components/ui/IconButton"
@@ -13,21 +14,12 @@ import { TextInput } from "../components/ui/TextInput"
 import { Select } from "../components/ui/Select"
 import { TimelineListCard } from "../components/ui/TimelineListCard"
 import { Icon } from "../components/ui/Icon"
+import { StatusMessage } from "../components/StatusMessage"
+import { ProfileCard } from "../components/profiles/ProfileCard"
+import { ProfileFormModal } from "../components/profiles/ProfileFormModal"
+import { ConfirmModal } from "../components/profiles/ConfirmModal"
 
-const planTierLabel: Record<Profile["plan_tier"], string> = {
-  free: "Free",
-  plus: "Plus",
-  premium: "Premium",
-}
-const planTierTone: Record<Profile["plan_tier"], "neutral" | "outline" | "mint"> = {
-  free: "neutral",
-  plus: "outline",
-  premium: "mint",
-}
-const kindLabel: Record<Profile["kind"], string> = {
-  principal: "Principal",
-  secundario: "Secundário",
-}
+const errMsg = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback)
 
 export function ProfilesPage() {
   const { user, logout } = useAuthStore()
@@ -36,13 +28,12 @@ export function ProfilesPage() {
   const [editingUser, setEditingUser] = useState<AppUser | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
-  const [avatarError, setAvatarError] = useState<string | null>(null)
-  const avatarInputs = useRef<Record<string, HTMLInputElement | null>>({})
+  const [editingProfile, setEditingProfile] = useState<Profile | null>(null)
+  const [deletingProfile, setDeletingProfile] = useState<Profile | null>(null)
+  const [feedback, setFeedback] = useState<{ kind: "error" | "success"; text: string } | null>(null)
 
-  const { data: profiles = [] } = useQuery({
-    queryKey: ["profiles"],
-    queryFn: () => profilesApi.list(),
-  })
+  const { profiles, activeProfile, isLoading: profilesLoading, isError: profilesError, refetch: refetchProfiles } = useProfiles()
+  const atLimit = profiles.length >= PROFILE_LIMIT
 
   const invalidateProfiles = () => queryClient.invalidateQueries({ queryKey: ["profiles"] })
 
@@ -51,31 +42,46 @@ export function ProfilesPage() {
     onSuccess: () => {
       invalidateProfiles()
       setProfileModalOpen(false)
+      setFeedback({ kind: "success", text: "Perfil criado." })
     },
   })
 
-  const activateMutation = useMutation({
-    mutationFn: (id: string) => profilesApi.activate(id),
+  const updateProfileMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ProfileInput }) => profilesApi.update(id, data),
     onSuccess: () => {
-      window.location.reload()
+      invalidateProfiles()
+      setEditingProfile(null)
+      setFeedback({ kind: "success", text: "Perfil atualizado." })
     },
   })
+
+  const deleteProfileMutation = useMutation({
+    mutationFn: (id: string) => profilesApi.delete(id),
+    onSuccess: () => {
+      invalidateProfiles()
+      setDeletingProfile(null)
+      setFeedback({ kind: "success", text: "Perfil excluído." })
+    },
+  })
+
+  const activateMutation = useActivateProfile()
+
+  const handleActivate = (profile: Profile) => {
+    setFeedback(null)
+    activateMutation.mutate(profile.id, {
+      onSuccess: () => setFeedback({ kind: "success", text: `Perfil ${profile.nome} ativado.` }),
+      onError: (err) => setFeedback({ kind: "error", text: errMsg(err, "Não foi possível ativar o perfil.") }),
+    })
+  }
 
   const uploadAvatarMutation = useMutation({
     mutationFn: ({ id, file }: { id: string; file: File }) => profilesApi.uploadAvatar(id, file),
     onSuccess: () => {
-      setAvatarError(null)
       invalidateProfiles()
+      setFeedback({ kind: "success", text: "Foto atualizada." })
     },
-    onError: (err: Error) => setAvatarError(err.message),
+    onError: (err) => setFeedback({ kind: "error", text: errMsg(err, "Não foi possível enviar a foto.") }),
   })
-
-  const handleAvatarChange = (profileId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ""
-    if (!file) return
-    uploadAvatarMutation.mutate({ id: profileId, file })
-  }
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["users"],
@@ -130,89 +136,106 @@ export function ProfilesPage() {
           <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Perfis</h1>
           <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Perfis de uso da conta.</p>
         </div>
-        <Button
-          variant="primary"
-          icon="plus"
-          disabled={profiles.length >= 3}
-          title={profiles.length >= 3 ? "Limite de 3 perfis atingido" : undefined}
-          onClick={() => setProfileModalOpen(true)}
-        >
-          Novo perfil
-        </Button>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+          <Button
+            variant="primary"
+            icon="plus"
+            disabled={atLimit}
+            title={atLimit ? `Limite de ${PROFILE_LIMIT} perfis atingido` : undefined}
+            onClick={() => {
+              createProfileMutation.reset()
+              setProfileModalOpen(true)
+            }}
+          >
+            Novo perfil
+          </Button>
+          {atLimit && (
+            <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+              Limite de {PROFILE_LIMIT} perfis atingido. Exclua um perfil secundário para criar outro.
+            </span>
+          )}
+        </div>
       </div>
 
-      {avatarError && (
-        <div style={{ color: "var(--negative-ink)", font: "var(--fw-medium) var(--fs-body)/1.3 var(--font-sans)" }}>
-          {avatarError}
+      {feedback && (
+        <StatusMessage kind={feedback.kind} onDismiss={() => setFeedback(null)}>
+          {feedback.text}
+        </StatusMessage>
+      )}
+
+      {profilesLoading ? (
+        <div
+          role="status"
+          aria-label="Carregando perfis"
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}
+        >
+          {[0, 1, 2].map((i) => (
+            <Panel key={i} style={{ height: 240, opacity: 0.5 }} />
+          ))}
+        </div>
+      ) : profilesError ? (
+        <Panel style={{ padding: 24, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <p role="alert" style={{ margin: 0, color: "var(--negative-on-glass)" }}>
+            Não foi possível carregar os perfis.
+          </p>
+          <Button variant="secondary" onClick={() => refetchProfiles()}>
+            Tentar novamente
+          </Button>
+        </Panel>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+          {profiles.map((profile) => (
+            <ProfileCard
+              key={profile.id}
+              profile={profile}
+              active={profile.id === activeProfile?.id}
+              activating={activateMutation.isPending && activateMutation.variables === profile.id}
+              onActivate={() => handleActivate(profile)}
+              onEdit={() => {
+                updateProfileMutation.reset()
+                setEditingProfile(profile)
+              }}
+              onDelete={() => {
+                deleteProfileMutation.reset()
+                setDeletingProfile(profile)
+              }}
+              onAvatarFile={(file) => uploadAvatarMutation.mutate({ id: profile.id, file })}
+            />
+          ))}
         </div>
       )}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-          gap: 16,
-        }}
-      >
-        {profiles.map((profile) => (
-          <Panel
-            key={profile.id}
-            style={{ padding: 16, cursor: "pointer" }}
-            onClick={() => activateMutation.mutate(profile.id)}
-            role="button"
-            tabIndex={0}
-            aria-label={`Ativar perfil ${profile.nome}`}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault()
-                activateMutation.mutate(profile.id)
-              }
-            }}
-          >
-            <div style={{ position: "relative" }}>
-              <img
-                src={profile.avatar_url ?? "/avatar-placeholder.png"}
-                alt={profile.nome}
-                style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: "var(--r-lg)" }}
-              />
-              <input
-                ref={(el) => {
-                  avatarInputs.current[profile.id] = el
-                }}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                style={{ display: "none" }}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => handleAvatarChange(profile.id, e)}
-              />
-              <IconButton
-                icon="camera"
-                label="Alterar avatar"
-                tone="plain"
-                size={30}
-                style={{ position: "absolute", bottom: 4, right: 4, background: "var(--surface-inset)" }}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  avatarInputs.current[profile.id]?.click()
-                }}
-              />
-            </div>
-            <div style={{ marginTop: 8, fontWeight: 600 }}>{profile.nome}</div>
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{profile.email}</div>
-            <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-              <Badge tone={planTierTone[profile.plan_tier]}>{planTierLabel[profile.plan_tier]}</Badge>
-              <Badge tone={profile.kind === "principal" ? "mint" : "neutral"}>{kindLabel[profile.kind]}</Badge>
-            </div>
-          </Panel>
-        ))}
-      </div>
-
       {profileModalOpen && (
-        <ProfileModal
+        <ProfileFormModal
           onClose={() => setProfileModalOpen(false)}
-          onCreate={(data) => createProfileMutation.mutate(data)}
+          onSubmit={(data) => createProfileMutation.mutate(data)}
           loading={createProfileMutation.isPending}
+          error={createProfileMutation.isError ? errMsg(createProfileMutation.error, "Não foi possível criar o perfil.") : null}
         />
+      )}
+
+      {editingProfile && (
+        <ProfileFormModal
+          profile={editingProfile}
+          onClose={() => setEditingProfile(null)}
+          onSubmit={(data) => updateProfileMutation.mutate({ id: editingProfile.id, data })}
+          loading={updateProfileMutation.isPending}
+          error={updateProfileMutation.isError ? errMsg(updateProfileMutation.error, "Não foi possível salvar o perfil.") : null}
+        />
+      )}
+
+      {deletingProfile && (
+        <ConfirmModal
+          title="Excluir perfil"
+          confirmLabel="Excluir"
+          busyLabel="Excluindo..."
+          loading={deleteProfileMutation.isPending}
+          error={deleteProfileMutation.isError ? errMsg(deleteProfileMutation.error, "Não foi possível excluir o perfil.") : null}
+          onConfirm={() => deleteProfileMutation.mutate(deletingProfile.id)}
+          onClose={() => setDeletingProfile(null)}
+        >
+          Excluir o perfil <strong>{deletingProfile.nome}</strong>? Esta ação não pode ser desfeita.
+        </ConfirmModal>
       )}
 
       {user?.access !== "ADMIN" ? (
@@ -240,6 +263,7 @@ export function ProfilesPage() {
 
           {error && (
             <div
+              role="alert"
               style={{
                 padding: "12px 16px",
                 borderRadius: "var(--r-md)",
@@ -366,51 +390,6 @@ export function ProfilesPage() {
         </>
       )}
     </div>
-  )
-}
-
-// ── Modal de criação de perfil ──────────────────────────────────────────────────
-
-interface ProfileModalProps {
-  onClose: () => void
-  onCreate: (data: { nome: string; email: string; telefone?: string; endereco?: string }) => void
-  loading: boolean
-}
-
-function ProfileModal({ onClose, onCreate, loading }: ProfileModalProps) {
-  const [nome, setNome] = useState("")
-  const [email, setEmail] = useState("")
-  const [telefone, setTelefone] = useState("")
-  const [endereco, setEndereco] = useState("")
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onCreate({
-      nome,
-      email,
-      telefone: telefone.trim() || undefined,
-      endereco: endereco.trim() || undefined,
-    })
-  }
-
-  return (
-    <Modal open onClose={onClose} title="Novo perfil" width={400}>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <TextInput label="Nome *" value={nome} onChange={(e) => setNome(e.target.value)} required />
-        <TextInput label="E-mail *" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <TextInput label="Telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
-        <TextInput label="Endereço" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" variant="primary" disabled={loading || !nome.trim() || !email.trim()}>
-            {loading ? "Salvando..." : "Criar"}
-          </Button>
-        </div>
-      </form>
-    </Modal>
   )
 }
 
