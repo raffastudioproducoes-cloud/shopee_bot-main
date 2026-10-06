@@ -6,7 +6,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 ## [Não lançado]
 
 > Branch `chore/phase-12-integration`. A versão (`VERSION`) só sobe no merge para `main`.
-> Migrações exigidas: 037, 038, 039, 040 e 041 (aplicar no Supabase antes do deploy, ver `docs/RULES.md` item 11).
+> Migrações exigidas: 037, 038, 039, 040, 041 e 042 (aplicar no Supabase antes do deploy, ver `docs/RULES.md` item 11).
 
 ### Added
 - Multi-perfil completo: `profile_id` nas 14 tabelas restantes que tinham `user_id`
@@ -60,7 +60,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
   - [CONCLUÍDO, 2026-10-05] Callback URLs das redes (X, Meta, TikTok) nos painéis de desenvolvedor.
   - [CONCLUÍDO, 2026-10-05] Conectar X, Instagram e TikTok; recolar o Client Secret do TikTok.
   - [POSSÍVEL, NÃO ATIVADA] Branch protection (GitHub Pro ativo desde 2026-10-05, mas ainda não configurada).
-  - Aplicar as migrações 037/038/039/040/041 no Supabase e conferir disco/permissão do container não-root.
+  - Aplicar as migrações 037/038/039/040/041/042 no Supabase e conferir disco/permissão do container não-root.
   - Merge dos PRs da branch `chore/phase-12-integration` em `main`.
 - Correção de nota anterior (2026-10-05): a limitação "`profile_id` ainda NÃO cobre credenciais,
   posts…" da 2.0.0 deixa de valer nesta branch.

@@ -7,6 +7,7 @@
 create or replace function public.enforce_profile_limit()
 returns trigger
 language plpgsql
+set search_path = public, pg_temp
 as $$
 begin
   perform pg_advisory_xact_lock(hashtext(new.user_id::text));

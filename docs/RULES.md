@@ -161,7 +161,7 @@ não ativada). Ver `docs/TASK.md` item 10.13 para contexto da decisão.
   `run_migrations()` roda no boot (`post_fork`) e aplicaria as pendentes sozinho, mas uma falha
   ali derruba o worker e entra em crash-loop (ver item 9). Aplicar antes, de forma controlada,
   e conferir a linha na tabela `migrations`, evita descobrir o erro no boot de produção.
-- As migrações 037/038/039/040/041 são idempotentes e aditivas (exceto a 039, que só remove/troca
+- As migrações 037/038/039/040/041/042 são idempotentes e aditivas (exceto a 039, que só remove/troca
   unicidade, sem alterar dado). Se forem aplicadas fora do app, registrar em `migrations` na
   hora (item 9).
 - Escrita em disco local (imagem não-root, usuário `app`, uid 10001): `/shopee_bot/upload`
