@@ -149,6 +149,28 @@ vale por disciplina, até o Rafa decidir. Ver `docs/TASK.md` item 10.13.
   seguir daqui pra frente em toda sessão futura, não uma tarefa única. (origem: pedido direto
   de Rafa, 2026-09-30)
 
+## 11. Migrações 037+ aplicadas antes do deploy do código que as usa (regra permanente, 2026-10-05)
+
+- O código da branch de multi-perfil completo depende das migrações `037` (trigger de limite de
+  3 perfis), `038` (`profile_id` em 14 tabelas) e `039` (remove UNIQUE de
+  `shopee_credentials.app_id` e troca o de `credential_checks`). Toda migração nova que o código
+  passa a exigir deve ser aplicada no Supabase **antes** de o deploy dessa versão subir.
+- Motivo (fato verificado em `database/migrations/__init__.py` e `gunicorn.conf.py`): o
+  `run_migrations()` roda no boot (`post_fork`) e aplicaria as pendentes sozinho, mas uma falha
+  ali derruba o worker e entra em crash-loop (ver item 9). Aplicar antes, de forma controlada,
+  e conferir a linha na tabela `migrations`, evita descobrir o erro no boot de produção.
+- As migrações 037/038/039 são idempotentes e aditivas (exceto a 039, que só remove/troca
+  unicidade, sem alterar dado). Se forem aplicadas fora do app, registrar em `migrations` na
+  hora (item 9).
+- Conferir também, ao subir a imagem não-root (`Dockerfile`, usuário `app`), que o disco e a
+  permissão de escrita da pasta de upload (`FLASK_UPLOAD_FOLDER`) funcionam no container.
+
+## Revisão de consistência (2026-10-05)
+
+Itens 2 e 3 conferidos contra `.github/workflows/ci.yml` e `cd.yml` (Python 3.13, flake8
+bloqueante, job `frontend`, `workflow_run`, `concurrency`): coerentes. Item 1 continua válido;
+o limite de 3 perfis agora também é imposto por trigger no banco (migração 037).
+
 ## Referências
 
 - `.github/workflows/ci.yml`, `.github/workflows/cd.yml`
