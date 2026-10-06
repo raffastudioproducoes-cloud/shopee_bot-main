@@ -1,19 +1,13 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
 
-// O backend nao expoe o perfil ativo (o claim vive no cookie httponly), entao o
-// front guarda o ultimo id ativado. Sem valor (ou id inexistente) = principal.
+// Espelho em memoria do perfil ativo. A fonte da verdade e o `profile_id` de
+// `/auth/me` (claim do cookie httponly); nada e persistido no navegador.
 interface ProfileState {
   activeProfileId: string | null
   setActiveProfileId: (id: string | null) => void
 }
 
-export const useProfileStore = create<ProfileState>()(
-  persist(
-    (set) => ({
-      activeProfileId: null,
-      setActiveProfileId: (id) => set({ activeProfileId: id }),
-    }),
-    { name: 'shopee-active-profile', storage: createJSONStorage(() => localStorage) }
-  )
-)
+export const useProfileStore = create<ProfileState>()((set) => ({
+  activeProfileId: null,
+  setActiveProfileId: (id) => set({ activeProfileId: id }),
+}))
