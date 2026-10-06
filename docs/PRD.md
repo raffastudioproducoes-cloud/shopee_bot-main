@@ -59,7 +59,7 @@ Multi-tenant com múltiplos usuários pagantes é visão pós-MVP, não implemen
 | Credenciais | Conectar rede social (OAuth de app único) ou colar credencial manual (Shopee/Kwai), nunca reexibida | `api/routers/credentials.py` |
 | Atividades | Histórico auditável de ações do usuário | `database/activities.py` |
 | Usuários | Administração de acesso ADMIN/USER | `api/routers/users.py` |
-| Perfis | Até 3 perfis (lojas) por conta, isolamento de produtos e listas por perfil; avatar | `api/routers/profiles.py`, frontend `ProfilesPage` |
+| Perfis | Até 3 perfis (lojas) por conta, com avatar. Atualização 2026-10-05 (branch `chore/phase-12-integration`): o isolamento por perfil cobre também posts, mídias, credenciais das redes, dashboard, notificações, logs e backup/restore; a versão anterior desta linha dizia só produtos e listas | `api/routers/profiles.py`, `database/migrations/038`, frontend `ProfilesPage` |
 | Configurações | Troca de senha da conta | `api/routers/settings.py`, frontend `SettingsPage` |
 | Scheduler | Jobs agendados in-process (APScheduler, jobstore em Postgres) | `scheduler/`, ADR `19-ADR-Scheduler-In-Process.md` (vault) |
 
@@ -87,6 +87,11 @@ No frontend, TikTok e Kwai aparecem como "em breve" para o usuário comum (admin
 confirmado em `git log` (`514d84a feat(credentials): TikTok/Kwai viram 'em breve' pra
 usuario comum`). Para X, Facebook e Instagram, o frontend já expõe o card de conexão
 completo — a limitação é a ausência de token de usuário salvo, não uma restrição de UI.
+
+> **Atualização 2026-10-05**: a seção 4 acima descreve 2026-09-29. Desde então, nesta branch
+> (ainda não mergeada em `main`), o multi-perfil passou a isolar quase todos os dados por
+> `profile_id` (migrações 037-039) e a UI de perfis ganhou editar/excluir/ativar sem reload. O
+> estado das redes sociais não mudou. Pendências manuais de Rafa: ver `docs/TASK.md` item 10.13.
 
 ## 5. Fora do escopo do MVP
 
