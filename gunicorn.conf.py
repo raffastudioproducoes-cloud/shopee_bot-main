@@ -1,6 +1,8 @@
+import logging
 import os
 import subprocess
 import sys
+import threading
 
 from shopee_bot.web import post_fork, on_exit as _flask_on_exit
 
@@ -10,7 +12,10 @@ loglevel = "info"
 bind = f"0.0.0.0:{os.environ.get('PORT', '5000')}"
 workers = 1
 worker_class = "gevent"
-timeout = 0
+# Finito: com timeout=0 um worker travado nunca seria reciclado. O worker
+# gevent notifica o master em loop próprio, então 120s não mata requisição
+# longa que esteja só aguardando I/O.
+timeout = 120
 
 # FastAPI (api/main.py) sobe como processo uvicorn separado no mesmo
 # container — gevent monkey-patch do Flask (web/__init__.py) é incompatível
@@ -55,16 +60,45 @@ _UVICORN_ENTRYPOINT = (
 )
 
 
+_log = logging.getLogger("gunicorn.error")
+_SUPERVISOR_POLL_SECONDS = 5
+_SUPERVISOR_MAX_BACKOFF_SECONDS = 60
+_supervisor_stop = threading.Event()
+
+
+def _start_uvicorn():
+    return subprocess.Popen([sys.executable, "-c", _UVICORN_ENTRYPOINT])
+
+
+def _supervise_uvicorn():
+    """Reinicia o uvicorn se o subprocesso morrer, com backoff exponencial
+    (1s, 2s, 4s... até 60s; volta a 1s depois que fica de pé)."""
+    global _uvicorn_process
+    backoff = 1
+    while not _supervisor_stop.wait(_SUPERVISOR_POLL_SECONDS):
+        code = _uvicorn_process.poll()
+        if code is None:
+            backoff = 1
+            continue
+        _log.error("uvicorn saiu com código %s; reiniciando em %ss", code, backoff)
+        if _supervisor_stop.wait(backoff):
+            break
+        _uvicorn_process = _start_uvicorn()
+        backoff = min(backoff * 2, _SUPERVISOR_MAX_BACKOFF_SECONDS)
+
+
 # Server Hooks
 post_fork = post_fork
 
 
 def on_starting(server):
     global _uvicorn_process
-    _uvicorn_process = subprocess.Popen([sys.executable, "-c", _UVICORN_ENTRYPOINT])
+    _uvicorn_process = _start_uvicorn()
+    threading.Thread(target=_supervise_uvicorn, name="uvicorn-supervisor", daemon=True).start()
 
 
 def on_exit(server):
+    _supervisor_stop.set()
     _flask_on_exit(server)
     if _uvicorn_process is not None:
         _uvicorn_process.terminate()
