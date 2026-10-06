@@ -163,6 +163,17 @@ em execução.
   visível (`:focus-visible` com `--focus-ring`, reaproveitando regra global já existente),
   sem paleta/fonte nova. (origem: pedido direto de Rafa, 2026-09-30)
 
+- [x] **10.9b — Multi-perfil: escopo completo (nota datada 2026-10-05).** Concluída no código da
+  branch `chore/phase-12-integration` (ainda não mergeada em `main`). A ressalva de "escopo
+  parcial" do item 10.9 deixa de valer: migração 038 adiciona `profile_id` a credenciais das 7
+  redes, `credential_checks`, `posts`, `medias`, `schedulers`, `activities`, `request_logs` e
+  `audit_events` (FK `ON DELETE SET NULL`); 039 relaxa UNIQUE; 037 impõe o limite de 3 perfis
+  por trigger. Backend, backup/restore e bots do scheduler respeitam o perfil ativo; UI com
+  editar/excluir/ativar e perfil ativo na TopBar. Também nesta branch: claim `pwv`, validação do
+  `profile_id` do token, rate limit em criar perfil/backup/restore, Dockerfile não-root +
+  `HEALTHCHECK`, gunicorn com timeout e supervisão, CI/CD endurecidos. (origem: branch de
+  integração, 2026-10-05)
+
 - [ ] **10.13 — Git Flow: pendências manuais.** `master` renomeada para `main` e branch
   `staging` criada. **Pendências manuais do Rafa (ação humana):** (a) proteção de branch
   indisponível — GitHub Free não oferece branch protection/Rulesets em repo privado (exige
@@ -170,6 +181,18 @@ em execução.
   `shopee-bot-staging` no Render; (c) trocar o branch do serviço de produção no Render de
   `master` para `main`; (d) secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub, se quiser o
   workflow cd-staging. (origem: fluxo Git Flow, 2026-09-30)
+
+  **Atualização 2026-10-05 — lista consolidada de pendências manuais de Rafa** (nenhuma é
+  trabalho de código; os itens (a)-(d) acima continuam abertos):
+  - [ ] Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção).
+  - [ ] Trocar o branch de produção do serviço no Render de `master` para `main`.
+  - [ ] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado).
+  - [ ] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub (só se quiser deploy automático de staging).
+  - [ ] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor.
+  - [ ] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok.
+  - [ ] Aplicar as migrações 037, 038 e 039 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
+  - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
+  (Quando todas estiverem concluídas, marcar este item.)
 
 Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
 existente — diretriz, não tarefa isolada).
