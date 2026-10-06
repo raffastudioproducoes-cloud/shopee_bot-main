@@ -549,7 +549,7 @@ class TestAdminCreateUserProvisioning:
 
 class TestBackupRestoreRateLimit:
     def test_backup_is_rate_limited(self, auth_client, monkeypatch):
-        monkeypatch.setattr(users_router, "_collect_backup_data", lambda uid: {
+        monkeypatch.setattr(users_router, "_collect_backup_data", lambda uid, pid=None: {
             "products": [], "product_lists": [], "posts": [], "exported_at": "x"
         })
         codes = [auth_client.get("/users/me/backup").status_code for _ in range(6)]

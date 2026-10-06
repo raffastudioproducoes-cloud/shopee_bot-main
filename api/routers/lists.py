@@ -10,6 +10,7 @@ from .auth import get_current_user_id
 from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..database import supabase
+from ..profiles import scope_owner
 
 router = APIRouter(prefix="/lists", tags=["lists"])
 
@@ -74,20 +75,20 @@ def _get_list_products(list_id: int) -> list[dict]:
     return products
 
 
-def _sync_list_products(user_id: int, list_id: int, product_ids: list[int]) -> None:
+def _sync_list_products(
+    user_id: int, list_id: int, product_ids: list[int], profile_id: str | None = None
+) -> None:
     """Sincroniza `product_lists_products` com `product_ids`.
 
-    Só associa produtos pertencentes ao usuário (evita IDOR via produto de
-    outro usuário). O client Supabase REST não expõe transação (mesma
+    Só associa produtos pertencentes ao usuário (e ao perfil ativo, quando
+    houver — evita IDOR via produto de outro usuário ou de outro perfil). O client Supabase REST não expõe transação (mesma
     limitação dos outros endpoints deste router) — insert e delete são duas
     chamadas separadas, não atômicas.
     """
     owned_ids: set[int] = set()
     if product_ids:
         owned_result = (
-            supabase.table("products")
-            .select("id")
-            .eq("user_id", user_id)
+            scope_owner(supabase.table("products").select("id"), user_id, profile_id)
             .in_("id", product_ids)
             .execute()
         )
@@ -217,7 +218,7 @@ async def update_product_list(
         raise HTTPException(status_code=404, detail="Lista não encontrada")
 
     if body.product_ids is not None:
-        _sync_list_products(user_id, product_list_id, body.product_ids)
+        _sync_list_products(user_id, product_list_id, body.product_ids, profile_id)
 
     return result.data
 

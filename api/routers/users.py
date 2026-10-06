@@ -18,9 +18,11 @@ from .auth import _check_login_rate_limit, get_current_user_id, provision_new_us
 from .lists import _get_list_products, _sync_list_products
 from .posts import _create_thread, _get_post_products, _get_thread_chain, _set_post_products
 from .products import ProductCreate, _normalize_numeric_fields
+from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..config import settings
 from ..database import supabase
+from ..profiles import scope_owner
 from ..utils.log_sanitizer import sanitize_log_data
 
 # Tetos de item por lista no restore (item 2 da revisão de segurança):
@@ -123,15 +125,20 @@ def _delete_user_row(user_id: str | int):
     return supabase.table("users").delete().eq("id", user_id).execute()
 
 
-def _collect_backup_data(user_id: str) -> dict[str, Any]:
-    """Reúne os próprios dados do usuário (item 10.8 do backlog) reusando
+def _collect_backup_data(user_id: str, profile_id: str | None = None) -> dict[str, Any]:
+    """Reúne os próprios dados do usuário (item 10.8 do backlog) — só os do
+    perfil ativo quando houver (token antigo, sem perfil: conta inteira) — reusando
     as mesmas queries/helpers dos routers de produtos/listas/posts — nunca
     inclui mídia binária nem dado de agendamento (ver docstring de
     restore_backup sobre o porquê de agendamento ficar de fora)."""
-    products_result = supabase.table("products").select("*").eq("user_id", user_id).execute()
+    products_result = scope_owner(
+        supabase.table("products").select("*"), user_id, profile_id
+    ).execute()
     products = [_normalize_numeric_fields(dict(row)) for row in (products_result.data or [])]
 
-    lists_result = supabase.table("product_lists").select("*").eq("user_id", user_id).execute()
+    lists_result = scope_owner(
+        supabase.table("product_lists").select("*"), user_id, profile_id
+    ).execute()
     product_lists = []
     for item in lists_result.data or []:
         list_products = _get_list_products(item["id"])
@@ -141,8 +148,8 @@ def _collect_backup_data(user_id: str) -> dict[str, Any]:
         })
 
     posts_result = (
-        supabase.table("posts").select("*")
-        .eq("user_id", user_id).is_("post_id", "null").execute()
+        scope_owner(supabase.table("posts").select("*"), user_id, profile_id)
+        .is_("post_id", "null").execute()
     )
     posts = []
     for item in posts_result.data or []:
@@ -159,6 +166,17 @@ def _collect_backup_data(user_id: str) -> dict[str, Any]:
         "posts": posts,
         "exported_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+def _product_owned_by_other_profile(user_id: str, product_id: Any, profile_id: str) -> bool:
+    """True se o produto já existe na conta, ligado a um perfil diferente do ativo."""
+    existing = (
+        supabase.table("products").select("id, profile_id")
+        .eq("user_id", user_id).eq("product_id", product_id)
+        .maybe_single().execute()
+    )
+    row = existing.data if existing else None
+    return bool(row and row.get("profile_id") and row["profile_id"] != profile_id)
 
 
 def _checksum(data: dict[str, Any]) -> str:
@@ -297,13 +315,16 @@ async def delete_own_account(
 
 
 @router.get("/me/backup")
-async def export_backup(user_id: str = Depends(get_current_user_id)):
+async def export_backup(
+    user_id: str = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
     """Exporta produtos/listas/posts do PRÓPRIO usuário com checksum de
     integridade (item 10.8 do backlog). Nunca inclui senha/token/segredo
     (sanitize_log_data aplicado antes do checksum, mesmo já não devendo
     haver nada sensível nesses três recortes de dado)."""
     _check_login_rate_limit(f"backup:{user_id}")
-    data = _collect_backup_data(user_id)
+    data = _collect_backup_data(user_id, profile_id)
     # mask_value_patterns=False: dado do próprio dono (não é log público),
     # e o detector de padrão por valor estragava URL legítima com
     # "?token=" na query string (ver docstring do parâmetro).
@@ -312,7 +333,11 @@ async def export_backup(user_id: str = Depends(get_current_user_id)):
 
 
 @router.post("/me/restore")
-def restore_backup(body: BackupData, user_id: str = Depends(get_current_user_id)):
+def restore_backup(
+    body: BackupData,
+    user_id: str = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
     """Importa um backup gerado por export_backup. Rejeita com 400 (e não
     importa nada) se o checksum não bater — arquivo adulterado/corrompido
     (comparação com `hmac.compare_digest`, constante no tempo).
@@ -325,7 +350,12 @@ def restore_backup(body: BackupData, user_id: str = Depends(get_current_user_id)
     (atualiza o produto existente) em vez de estourar a constraint única
     e derrubar a requisição inteira com 500 no meio da inserção (deixando
     o que já foi inserido antes órfão). `user_id` do backup nunca é
-    usado — tudo é recriado sob o usuário autenticado da sessão atual.
+    usado — tudo é recriado sob o usuário autenticado da sessão atual e,
+    quando há perfil ativo, sob esse perfil (o backup antigo, sem
+    `profile_id`, continua válido: o campo nunca vem do arquivo). Produto
+    cujo `(product_id, user_id)` já pertence a OUTRO perfil da conta é
+    pulado em vez de ser "roubado" pelo upsert (a UNIQUE atual não permite
+    o mesmo produto em dois perfis).
 
     Cada item de `products`/`product_lists`/`posts` é validado (allowlist
     de campo — `ProductCreate`, mesmo schema já usado pra criar produto —
@@ -357,6 +387,10 @@ def restore_backup(body: BackupData, user_id: str = Depends(get_current_user_id)
         validated = _validate_backup_item(ProductCreate, product, "products")
         new_row = validated.model_dump()
         new_row["user_id"] = user_id
+        if profile_id:
+            if _product_owned_by_other_profile(user_id, new_row["product_id"], profile_id):
+                continue
+            new_row["profile_id"] = profile_id
         result = (
             supabase.table("products")
             .upsert(new_row, on_conflict="product_id,user_id")
@@ -369,7 +403,10 @@ def restore_backup(body: BackupData, user_id: str = Depends(get_current_user_id)
         validated_list = _validate_backup_item(_BackupProductList, plist, "product_lists")
         result = (
             supabase.table("product_lists")
-            .insert({"user_id": user_id, "name": validated_list.name})
+            .insert({
+                "user_id": user_id, "name": validated_list.name,
+                **({"profile_id": profile_id} if profile_id else {}),
+            })
             .execute()
         )
         if not result.data:
@@ -378,13 +415,15 @@ def restore_backup(body: BackupData, user_id: str = Depends(get_current_user_id)
             id_map[pid] for pid in validated_list.product_ids if pid in id_map
         ]
         if new_product_ids:
-            _sync_list_products(user_id, result.data[0]["id"], new_product_ids)
+            _sync_list_products(user_id, result.data[0]["id"], new_product_ids, profile_id)
 
     for post in body.posts:
         validated_post = _validate_backup_item(_BackupPost, post, "posts")
         if not validated_post.texts:
             continue
-        head = _create_thread(user_id, validated_post.texts, validated_post.network or "threads")
+        head = _create_thread(
+            user_id, validated_post.texts, validated_post.network or "threads", profile_id
+        )
         new_product_ids = [
             id_map[pid] for pid in validated_post.product_ids if pid in id_map
         ]
