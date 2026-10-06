@@ -242,8 +242,7 @@ Supabase (Postgres), schema com RLS habilitado em todas as tabelas:
 
 Migrações SQL numeradas em `database/migrations/` (hoje até a `042`), rodadas em sequência no
 boot (`run_migrations`) e registradas na tabela `migrations`. Migração aplicada direto no
-Supabase precisa ser registrada à mão — ver `docs/RULES.md` item 9. **Antes de fazer deploy
-desta branch, aplicar as migrações 037, 038, 039, 040, 041 e 042** (ver `docs/RULES.md` item 11).
+Supabase precisa ser registrada à mão — ver `docs/RULES.md` item 9. **Migrações 037, 038, 039, 040, 041 e 042 já foram aplicadas no Supabase (2026-10-06)** — verificado via MCP; registradas em `public.migrations`. Ver `docs/RULES.md` item 11 para procedimento e risco conhecido.
 
 ### Multi-perfil
 
