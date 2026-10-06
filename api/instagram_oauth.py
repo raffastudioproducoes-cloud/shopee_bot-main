@@ -133,7 +133,6 @@ async def get_ig_user_id(user_access_token: str) -> str:
             f"Failed to Get Facebook Pages: {res.status_code} {res.text}"
         )
     pages = res.json().get("data", [])
-    logger.info(f"get_ig_user_id: /me/accounts retornou {len(pages)} Página(s): {pages}")
     for page in pages:
         ig_account = page.get("instagram_business_account")
         if ig_account and ig_account.get("id"):
