@@ -128,6 +128,11 @@ def test_activate_profile_copies_login_cookie_flags(auth_client, monkeypatch):
     _mock_supabase(
         monkeypatch, {"id": "p-2", "user_id": USER_ID, "kind": "secundario"}
     )
+    from api.routers import profiles as profiles_module
+    monkeypatch.setattr(
+        profiles_module, "_get_user_from_supabase",
+        lambda username: {"id": USER_ID, "password": "h"},
+    )
     response = auth_client.post("/profiles/p-2/activate")
 
     assert response.status_code == 200
@@ -193,3 +198,90 @@ def test_avatar_upload_rejects_file_over_max_size(auth_client, monkeypatch):
 
     assert response.status_code == 413
     fake_client.storage.from_.return_value.upload.assert_not_called()
+
+
+class TestCurrentProfileIdValidation:
+    """O `profile_id` do token só vale se pertencer ao usuário; senão cai
+    no perfil principal."""
+
+    @staticmethod
+    def _fake(owned, principal):
+        results = iter([MagicMock(data=owned), MagicMock(data=principal)])
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        for method in ("select", "eq", "maybe_single"):
+            getattr(query, method).return_value = query
+        query.execute.side_effect = lambda: next(results)
+        return fake_client
+
+    def test_returns_token_profile_when_owned(self, monkeypatch, real_profile_resolution):
+        from api.routers.profiles import _resolve_profile_id
+
+        monkeypatch.setattr(
+            database_module, "get_supabase", (lambda c=self._fake({"id": "p-2"}, None): c)
+        )
+        assert _resolve_profile_id("p-2", USER_ID) == "p-2"
+
+    def test_falls_back_to_principal_when_not_owned(self, monkeypatch, real_profile_resolution):
+        from api.routers.profiles import _resolve_profile_id
+
+        monkeypatch.setattr(
+            database_module, "get_supabase", (lambda c=self._fake(None, {"id": "p-main"}): c)
+        )
+        assert _resolve_profile_id("p-alheio", USER_ID) == "p-main"
+
+    def test_returns_none_when_no_principal(self, monkeypatch, real_profile_resolution):
+        from api.routers.profiles import _resolve_profile_id
+
+        monkeypatch.setattr(
+            database_module, "get_supabase", (lambda c=self._fake(None, None): c)
+        )
+        assert _resolve_profile_id("p-alheio", USER_ID) is None
+
+
+def _create_payload():
+    return {"nome": "Novo", "email": "novo@example.com"}
+
+
+def test_create_profile_maps_db_trigger_limit_error_to_400(auth_client, monkeypatch):
+    """Race (TOCTOU): o count do app passou, mas o trigger do banco recusou
+    o insert -- vira 400 amigavel, nao 500."""
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [
+        MagicMock(data=[]),
+        Exception("profile_limit_exceeded"),
+    ]
+    response = auth_client.post("/profiles", json=_create_payload())
+    assert response.status_code == 400
+    assert "Limite" in response.json()["detail"]
+
+
+def test_create_profile_unexpected_db_error_returns_generic_500(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [MagicMock(data=[]), Exception("conn string secreta")]
+    response = auth_client.post("/profiles", json=_create_payload())
+    assert response.status_code == 500
+    assert "secreta" not in response.text
+
+
+def test_create_profile_is_rate_limited(auth_client, monkeypatch):
+    _mock_supabase(monkeypatch, [{"id": "p"}, {"id": "q"}, {"id": "r"}])
+    codes = [auth_client.post("/profiles", json=_create_payload()).status_code for _ in range(6)]
+    assert codes[-1] == 429
+
+
+def test_activate_recomputes_pwv_from_current_hash_for_legacy_token(auth_client, monkeypatch):
+    """Token legado (sem pwv) deve ganhar pwv do hash atual ao trocar de perfil."""
+    from api.routers import profiles as profiles_module
+    from api.routers.auth import _decode_token, _password_version
+
+    auth_client.cookies.set("access_token", _create_token({"sub": "testuser", "id": USER_ID}))
+    _mock_supabase(monkeypatch, {"id": "p-2", "user_id": USER_ID, "kind": "secundario"})
+    monkeypatch.setattr(
+        profiles_module, "_get_user_from_supabase",
+        lambda username: {"id": USER_ID, "password": "hash-atual"},
+    )
+    response = auth_client.post("/profiles/p-2/activate")
+    assert response.status_code == 200
+    new_token = response.headers["set-cookie"].split("access_token=")[1].split(";")[0]
+    assert _decode_token(new_token)["pwv"] == _password_version("hash-atual")

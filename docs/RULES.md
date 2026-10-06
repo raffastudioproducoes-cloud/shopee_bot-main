@@ -25,29 +25,37 @@ Versionamento SemVer (arquivo `VERSION` + `CHANGELOG.md`): a versão só sobe no
 `main` — patch = correção, minor = feature compatível, major = mudança grande. O sistema
 multi-perfil foi tratado como MAJOR (2.0.0) por decisão do Rafa.
 
-Limitação: a proteção automática de branch NÃO está ativa — o GitHub Free não oferece branch
-protection/Rulesets em repositório privado (exige GitHub Pro ou repo público). Por ora a regra
-vale por disciplina, até o Rafa decidir. Ver `docs/TASK.md` item 10.13.
+Proteção de branch: **GitHub Pro está ativo (confirmado pelo Rafa, 2026-10-05).** A proteção
+automática de branch agora é possível — branch protection/Rulesets pode ser ativada em
+repositório privado com GitHub Pro. Configuração não foi aplicada ainda (possível agora, ainda
+não ativada). Ver `docs/TASK.md` item 10.13 para contexto da decisão.
 
 ## 2. CI (`.github/workflows/ci.yml`)
 
-- Lint com `flake8` sobre `api/` (dois passos: erros de sintaxe `E9,F63,F7,F82` sempre;
-  estilo com `--max-line-length=120` tolerante a falha, `|| true`).
-- Checagem de sintaxe explícita via `python -m py_compile` nos módulos centrais da API nova.
-- Testes: `python -m pytest tests/api --confcutdir=tests/api -q` — **nunca** `pytest` puro
-  (quebra `ModuleNotFoundError` em `from api.main import app` sem `-m pytest`).
-- `--confcutdir=tests/api` é obrigatório: o `conftest.py` da raiz faz
-  `gevent.monkey.patch_all()` (suporte do Flask legado) e trava as threads async do
-  `anyio`/`httpx` usadas pelo `TestClient` do FastAPI.
-- CI só cobre `tests/api` (API nova) — os testes do Flask legado (`tests/test_auth.py`,
-  `tests/test_publish.py`) exigem Postgres local em `localhost:5433` e **não rodam na CI**.
+- Gatilhos: push e pull_request em `main`. `permissions: contents: read`; `concurrency`
+  cancela execuções antigas do mesmo ref. Cache de pip e npm.
+- Job `api` (Python 3.13, igual ao `Dockerfile`):
+  - `flake8 api/ --select=E9,F63,F7,F82` **bloqueante** (sem `|| true`); estilo
+    (`--max-line-length=120`) é informativo (`continue-on-error`).
+  - Checagem de sintaxe via `python -m py_compile` nos módulos centrais.
+  - Testes: `python -m pytest tests/api --confcutdir=tests/api -q` — **nunca** `pytest` puro
+    (quebra `ModuleNotFoundError` em `from api.main import app` sem `-m pytest`).
+  - `--confcutdir=tests/api` é obrigatório: o `conftest.py` da raiz faz
+    `gevent.monkey.patch_all()` (Flask legado) e trava as threads async do `anyio`/`httpx`.
+  - Só cobre `tests/api`; os testes do Flask legado exigem Postgres local em `localhost:5433`
+    e **não rodam na CI**.
+- Job `frontend` (Node 20): `npm ci` e `npm run build` (`tsc && vite build`) em `frontend/`.
+  Não há testes de frontend.
+- `.github/dependabot.yml` (semanal, minor/patch agrupados: pip raiz e `/api`, npm, actions)
+  e `.github/pull_request_template.md` com checklist de PR.
 
 ## 3. Deploy
 
-- `cd.yml`: qualquer push em `main` dispara um `curl` no `RENDER_DEPLOY_HOOK_URL` (deploy
-  automático). Não há gate de aprovação manual documentado.
-- Se o secret não estiver configurado, o job **não falha** — emite `::warning::` e sai com
-  `exit 0`. Deploy silenciosamente pulado é uma possibilidade real, não um erro visível.
+- `cd.yml` dispara via `workflow_run` quando o workflow `CI` termina com sucesso em `main`
+  (evento push). CI vermelho = sem deploy. `concurrency` evita deploys em paralelo.
+- `curl -fsS`: resposta HTTP de erro do hook do Render faz o job falhar.
+- Se o secret `RENDER_DEPLOY_HOOK_URL` não existir, o job **não falha** — emite `::warning::`
+  e sai com `exit 0`. Deploy silenciosamente pulado ainda é possível.
 
 ## 4. Padrões de código observados
 
@@ -141,6 +149,46 @@ vale por disciplina, até o Rafa decidir. Ver `docs/TASK.md` item 10.13.
   desatualizada com o código, a cada rodada de trabalho relevante — prática permanente a
   seguir daqui pra frente em toda sessão futura, não uma tarefa única. (origem: pedido direto
   de Rafa, 2026-09-30)
+
+## 11. Migrações 037+ aplicadas antes do deploy do código que as usa (regra permanente, 2026-10-05; incidente-prevenção registrado 2026-10-06)
+
+- O código da branch de multi-perfil completo depende das migrações `037` (trigger de limite de
+  3 perfis), `038` (`profile_id` em 14 tabelas), `039` (remove UNIQUE de
+  `shopee_credentials.app_id` e troca o de `credential_checks`), `041` (unicidade de `products` por
+  perfil, para o mesmo produto existir em 2 perfis). Toda migração nova que o código
+  passa a exigir deve ser aplicada no Supabase **antes** de o deploy dessa versão subir.
+- Motivo (fato verificado em `database/migrations/__init__.py` e `gunicorn.conf.py`): o
+  `run_migrations()` roda no boot (`post_fork`) e aplicaria as pendentes sozinho, mas uma falha
+  ali derruba o worker e entra em crash-loop (ver item 9). Aplicar antes, de forma controlada,
+  e conferir a linha na tabela `migrations`, evita descobrir o erro no boot de produção.
+- **Procedimento: Aplicar via MCP Supabase + Registrar em `public.migrations`** (2026-10-06):
+  - Usar MCP Supabase ou SQL editor web do Supabase para rodar cada migração `.sql` em sequência.
+  - Imediatamente após cada migração (ou após o lote), registrar na tabela `migrations`:
+    ```sql
+    INSERT INTO public.migrations (name, aplied_at) 
+    VALUES ('037_create_profile_limit_trigger.sql', NOW()),
+           ('038_add_profile_id_to_tables.sql', NOW()),
+           -- etc., ordenado como em database/migrations/
+    ```
+  - Verificar idempotência: `SELECT * FROM public.migrations WHERE name LIKE '03%'` deve listar 6 linhas (037-042).
+  - Conferir backfill: `SELECT DISTINCT profile_id FROM products LIMIT 5` e `SELECT COUNT(*) FROM shopee_credentials WHERE profile_id IS NULL` devem estar OK.
+- **Risco conhecido — Incidente-prevenção 2026-10-06**: Código de produção **antigo** (sem este PR #10) usa `upsert on_conflict (product_id, user_id)` no endpoint `POST /users/me/restore`. A migração 041 muda a unicidade para `(user_id, product_id, coalesce(profile_id))`. Se o código antigo tentar restaurar dados, o restore **falhará com violação de constraint** (o produto do perfil principal vai conflitar com a tentativa do antigo on_conflict). **Solução**: O merge da branch `chore/phase-12-integration` (PR #10) corrige o restore (`POST /users/me/restore`) para respeitar o perfil ativo. **Janela de risco**: Apenas se alguém ativar uma restauração com código de produção antigo após aplicar a migração 041. **Prevenção**: Aplicar migrações antes do deploy do PR #10; garantir que o #10 está em `main` antes de qualquer ativação de restore em produção. A migração é **aditiva, sem rollback** — não há desfazer automático; se o restore falhar, contactar suporte Rafa Studio Produções.
+- As migrações 037/038/039/040/041/042 são idempotentes e aditivas (exceto a 039, que só remove/troca
+  unicidade, sem alterar dado). Se forem aplicadas fora do app, registrar em `migrations` na
+  hora (item 9).
+- Escrita em disco local (imagem não-root, usuário `app`, uid 10001): `/shopee_bot/upload`
+  (`FLASK_UPLOAD_FOLDER=upload`) e `/shopee_bot/web/media` (mídia de posts na API). O
+  `Dockerfile` cria ambos com `chown app` na build. Sem disco persistente do Render o conteúdo
+  é efêmero (some a cada deploy). Se montar disco persistente em um desses caminhos, o mount
+  nasce `root:root` e esconde o `chown` da imagem: ajustar a permissão no destino (ex.: Shell
+  do serviço `chown -R 10001:10001 <mount>` uma vez) ou apontar `FLASK_UPLOAD_FOLDER` para
+  um subdiretório criável. Não há variável `RENDER_DISK` lida pelo app.
+
+## Revisão de consistência (2026-10-05)
+
+Itens 2 e 3 conferidos contra `.github/workflows/ci.yml` e `cd.yml` (Python 3.13, flake8
+bloqueante, job `frontend`, `workflow_run`, `concurrency`): coerentes. Item 1 continua válido;
+o limite de 3 perfis agora também é imposto por trigger no banco (migração 037).
 
 ## Referências
 

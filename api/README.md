@@ -11,6 +11,29 @@ Nova camada de API em FastAPI (async) que roda em background no mesmo container 
 - **`api/crypto.py`** — criptografia Fernet (compatível com o `utils/crypto.py` do Flask)
 - **`tests/api/`** — testes pytest (cobertura 80%+)
 
+## Multi-perfil (perfil ativo)
+
+O cookie `access_token` carrega o claim `profile_id` (perfil ativo, validado contra `profiles` por
+`get_current_profile_id`). Com perfil ativo, leituras filtram e escritas gravam `profile_id`; sem perfil
+(token antigo) o comportamento é o anterior, só por `user_id`. GET/PUT/DELETE por ID também filtram por
+perfil (sem IDOR entre perfis da mesma conta). Helper: `api/profiles.py::scope_owner`.
+
+| Tabela / rota | Escopo por `profile_id` |
+|---|---|
+| `products`, `product_lists` (`/products`, `/lists`) | leitura, escrita, por ID |
+| `posts`, `medias` (`/posts`) | leitura, escrita, por ID; `profile_id` repassado ao bridge do scheduler |
+| `*_credentials` e `credential_checks` (`/credentials`) | cada perfil tem as próprias credenciais e a própria luz de "Testar conexão" |
+| `/products/catalog-search` | usa a credencial Shopee do perfil ativo |
+| `/dashboard/stats`, `/notifications` (`activities`) | contagens/lista do perfil ativo |
+| `/users/me/backup`, `/users/me/restore` | exporta/importa só o perfil ativo; backup antigo (sem `profile_id`) e HMAC continuam válidos |
+| `request_logs`, `audit_events` | gravam `profile_id`; `GET /logs` (admin) aceita `?profile_id=` opcional |
+| `schedulers` + bots (`scheduler/bot_post*.py`) | job guarda o perfil do post; bot usa a credencial/atividades desse perfil |
+
+Migrações: `038_add_profile_id_to_remaining_tables.sql` (coluna nullable + índice + backfill pro perfil principal,
+`ON DELETE SET NULL`), `039_relax_unique_for_multi_profile.sql` (remove UNIQUE de `shopee_credentials.app_id`
+e troca `UNIQUE (user_id, network)` de `credential_checks` por índice único `(user_id, profile_id, network)`), `041_products_unique_per_profile.sql` (UNIQUE de `products` passa a ser
+`(user_id, product_id, perfil)`: o mesmo produto em 2 perfis; duplicado no mesmo perfil = 409) e `042_profile_limit_function_search_path.sql` (define `search_path` da função `enforce_profile_limit()` para evitar mutabilidade).
+
 ## Endpoints principais
 
 ### Threads OAuth

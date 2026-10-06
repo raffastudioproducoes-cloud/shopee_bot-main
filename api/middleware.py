@@ -30,18 +30,19 @@ _MAX_TEXT_LEN = 2000
 _SKIP_PATHS = {"/health"}
 
 
-def _user_from_cookie(request: Request) -> tuple[str | None, str | None]:
+def _user_from_cookie(request: Request) -> tuple[str | None, str | None, str | None]:
     """Decodifica o JWT do cookie sem bater no banco — best-effort, nunca
     levanta exceção (log não pode derrubar a requisição real nem depender
-    de uma segunda ida ao Supabase)."""
+    de uma segunda ida ao Supabase). Devolve (id, username, profile_id); o
+    `profile_id` é só o claim do token (não validado — é rótulo de log)."""
     token = request.cookies.get("access_token")
     if not token:
-        return None, None
+        return None, None, None
     try:
         payload = jwt.decode(token, settings.api_secret_key, algorithms=["HS256"])
     except Exception:
-        return None, None
-    return payload.get("id"), payload.get("sub")
+        return None, None, None
+    return payload.get("id"), payload.get("sub"), payload.get("profile_id")
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -50,7 +51,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         start = time.monotonic()
-        user_id, username = _user_from_cookie(request)
+        user_id, username, profile_id = _user_from_cookie(request)
         status_code = 500
         error = None
         redirect_to = None
@@ -70,11 +71,13 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         finally:
             duration_ms = int((time.monotonic() - start) * 1000)
             self._save(
-                request, user_id, username, status_code, duration_ms, error, redirect_to
+                request, user_id, username, status_code, duration_ms, error, redirect_to,
+                profile_id,
             )
 
     def _save(
-        self, request, user_id, username, status_code, duration_ms, error, redirect_to
+        self, request, user_id, username, status_code, duration_ms, error, redirect_to,
+        profile_id=None,
     ):
         try:
             supabase = get_supabase()
@@ -89,6 +92,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "error": error,
                     "redirect_to": redirect_to,
                     "client_ip": request.client.host if request.client else None,
+                    **({"profile_id": profile_id} if profile_id else {}),
                 }
             ).execute()
         except Exception:

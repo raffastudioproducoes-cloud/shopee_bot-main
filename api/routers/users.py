@@ -14,13 +14,21 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, ValidationError
 
-from .auth import _check_login_rate_limit, _validate_password_length, get_current_user_id
+from .auth import (
+    _check_login_rate_limit,
+    _validate_password_length,
+    get_current_user_id,
+    provision_new_user,
+    pwd_context,
+)
 from .lists import _get_list_products, _sync_list_products
 from .posts import _create_thread, _get_post_products, _get_thread_chain, _set_post_products
-from .products import ProductCreate, _normalize_numeric_fields
+from .products import ProductCreate, _normalize_numeric_fields, find_product_in_profile
+from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..config import settings
 from ..database import supabase
+from ..profiles import scope_owner
 from ..utils.log_sanitizer import sanitize_log_data
 
 # Tetos de item por lista no restore (item 2 da revisão de segurança):
@@ -35,16 +43,6 @@ _MAX_BACKUP_POSTS = 500
 _MAX_BACKUP_TEXTS_PER_POST = 50
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-NETWORK_TABLES = [
-    "shopee_credentials",
-    "threads_credentials",
-    "x_credentials",
-    "facebook_credentials",
-    "instagram_credentials",
-    "tiktok_credentials",
-    "kwai_credentials",
-]
 
 
 class UserCreate(BaseModel):
@@ -133,15 +131,20 @@ def _delete_user_row(user_id: str | int):
     return supabase.table("users").delete().eq("id", user_id).execute()
 
 
-def _collect_backup_data(user_id: int) -> dict[str, Any]:
-    """Reúne os próprios dados do usuário (item 10.8 do backlog) reusando
+def _collect_backup_data(user_id: str, profile_id: str | None = None) -> dict[str, Any]:
+    """Reúne os próprios dados do usuário (item 10.8 do backlog) — só os do
+    perfil ativo quando houver (token antigo, sem perfil: conta inteira) — reusando
     as mesmas queries/helpers dos routers de produtos/listas/posts — nunca
     inclui mídia binária nem dado de agendamento (ver docstring de
     restore_backup sobre o porquê de agendamento ficar de fora)."""
-    products_result = supabase.table("products").select("*").eq("user_id", user_id).execute()
+    products_result = scope_owner(
+        supabase.table("products").select("*"), user_id, profile_id
+    ).execute()
     products = [_normalize_numeric_fields(dict(row)) for row in (products_result.data or [])]
 
-    lists_result = supabase.table("product_lists").select("*").eq("user_id", user_id).execute()
+    lists_result = scope_owner(
+        supabase.table("product_lists").select("*"), user_id, profile_id
+    ).execute()
     product_lists = []
     for item in lists_result.data or []:
         list_products = _get_list_products(item["id"])
@@ -151,8 +154,8 @@ def _collect_backup_data(user_id: int) -> dict[str, Any]:
         })
 
     posts_result = (
-        supabase.table("posts").select("*")
-        .eq("user_id", user_id).is_("post_id", "null").execute()
+        scope_owner(supabase.table("posts").select("*"), user_id, profile_id)
+        .is_("post_id", "null").execute()
     )
     posts = []
     for item in posts_result.data or []:
@@ -194,7 +197,7 @@ def _checksum(data: dict[str, Any]) -> str:
     ).hexdigest()
 
 
-def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
+def _require_admin(user_id: str = Depends(get_current_user_id)) -> int:
     result = (
         supabase.table("users").select("access").eq("id", user_id)
         .single().execute()
@@ -206,7 +209,7 @@ def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
 
 @router.get("")
 async def list_users(
-    _admin_id: int = Depends(_require_admin),
+    _admin_id: str = Depends(_require_admin),
     cursor: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
 ):
@@ -228,11 +231,7 @@ async def list_users(
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_user(body: UserCreate, _admin_id: int = Depends(_require_admin)):
-    from passlib.context import CryptContext
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
+async def create_user(body: UserCreate, _admin_id: str = Depends(_require_admin)):
     if body.access not in ("USER", "ADMIN"):
         raise HTTPException(status_code=400, detail="access deve ser USER ou ADMIN")
 
@@ -255,13 +254,9 @@ async def create_user(body: UserCreate, _admin_id: int = Depends(_require_admin)
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar usuário")
 
-    new_user_id = result.data[0]["id"]
-
-    # Semeia uma linha vazia de credencial por rede — mesmo padrão do
-    # Flask (web/routes/users.py) para a tela de credenciais sempre
-    # ter uma linha pra cada rede, independente de já ter conectado.
-    for table in NETWORK_TABLES:
-        supabase.table(table).insert({"user_id": new_user_id, "status": False}).execute()
+    # Credenciais vazias por rede (padrão do Flask, web/routes/users.py) +
+    # perfil principal, igual a /auth/register; desfaz o usuário se falhar.
+    provision_new_user(supabase, result.data[0])
 
     return result.data[0]
 
@@ -270,7 +265,7 @@ async def create_user(body: UserCreate, _admin_id: int = Depends(_require_admin)
 async def delete_own_account(
     body: SelfDeleteRequest,
     response: Response,
-    user_id: int = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
 ):
     """Autoexclusão de conta e dados (LGPD/direito ao esquecimento).
 
@@ -280,11 +275,7 @@ async def delete_own_account(
     cookie roubado podia tentar adivinhar a senha atual sem limite (bcrypt
     só atrasa, não impede).
     """
-    from passlib.context import CryptContext
-
     _check_login_rate_limit(f"selfdelete:{user_id}")
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     current = (
         supabase.table("users").select("username, access, password").eq("id", user_id)
@@ -321,12 +312,16 @@ async def delete_own_account(
 
 
 @router.get("/me/backup")
-async def export_backup(user_id: int = Depends(get_current_user_id)):
+async def export_backup(
+    user_id: str = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
     """Exporta produtos/listas/posts do PRÓPRIO usuário com checksum de
     integridade (item 10.8 do backlog). Nunca inclui senha/token/segredo
     (sanitize_log_data aplicado antes do checksum, mesmo já não devendo
     haver nada sensível nesses três recortes de dado)."""
-    data = _collect_backup_data(user_id)
+    _check_login_rate_limit(f"backup:{user_id}")
+    data = _collect_backup_data(user_id, profile_id)
     # mask_value_patterns=False: dado do próprio dono (não é log público),
     # e o detector de padrão por valor estragava URL legítima com
     # "?token=" na query string (ver docstring do parâmetro).
@@ -335,7 +330,11 @@ async def export_backup(user_id: int = Depends(get_current_user_id)):
 
 
 @router.post("/me/restore")
-def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)):
+def restore_backup(
+    body: BackupData,
+    user_id: str = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
     """Importa um backup gerado por export_backup. Rejeita com 400 (e não
     importa nada) se o checksum não bater — arquivo adulterado/corrompido
     (comparação com `hmac.compare_digest`, constante no tempo).
@@ -343,12 +342,16 @@ def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)
     Restore é ADITIVO: sempre cria registros novos (nunca sobrescreve ou
     apaga dado existente do usuário) — política mais simples e mais segura
     pro MVP (YAGNI: sem merge inteligente). EXCEÇÃO: produto cujo
-    `(product_id, user_id)` já existe (restaurar na própria conta que
-    gerou o backup — o uso normal de "conferir/restaurar") faz upsert
-    (atualiza o produto existente) em vez de estourar a constraint única
+    `(product_id, perfil ativo)` já existe (restaurar na própria conta que
+    gerou o backup — o uso normal de "conferir/restaurar") atualiza
+    o produto existente em vez de estourar a constraint única
     e derrubar a requisição inteira com 500 no meio da inserção (deixando
     o que já foi inserido antes órfão). `user_id` do backup nunca é
-    usado — tudo é recriado sob o usuário autenticado da sessão atual.
+    usado — tudo é recriado sob o usuário autenticado da sessão atual e,
+    quando há perfil ativo, sob esse perfil (o backup antigo, sem
+    `profile_id`, continua válido: o campo nunca vem do arquivo). O mesmo
+    produto pode existir em perfis diferentes (migração 041): o de outro
+    perfil nunca é tocado, o restore cria/atualiza o do perfil ativo.
 
     Cada item de `products`/`product_lists`/`posts` é validado (allowlist
     de campo — `ProductCreate`, mesmo schema já usado pra criar produto —
@@ -365,6 +368,7 @@ def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)
     post restaurado, o que acopla restore a um serviço externo (Flask)
     só pra recriar automação, não dado — fora do escopo de "backup de
     dados". Post restaurado volta sem agendamento ativo."""
+    _check_login_rate_limit(f"restore:{user_id}")
     payload = {
         "products": body.products,
         "product_lists": body.product_lists,
@@ -379,11 +383,15 @@ def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)
         validated = _validate_backup_item(ProductCreate, product, "products")
         new_row = validated.model_dump()
         new_row["user_id"] = user_id
-        result = (
-            supabase.table("products")
-            .upsert(new_row, on_conflict="product_id,user_id")
-            .execute()
-        )
+        if profile_id:
+            new_row["profile_id"] = profile_id
+        # Sem on_conflict: o índice único (041) usa coalesce(profile_id), que o
+        # PostgREST não aceita como alvo. Procura no perfil ativo e atualiza/cria.
+        existing = find_product_in_profile(supabase, user_id, new_row["product_id"], profile_id)
+        if existing:
+            result = supabase.table("products").update(new_row).eq("id", existing["id"]).execute()
+        else:
+            result = supabase.table("products").insert(new_row).execute()
         if result.data:
             id_map[product.get("id")] = result.data[0]["id"]
 
@@ -391,7 +399,10 @@ def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)
         validated_list = _validate_backup_item(_BackupProductList, plist, "product_lists")
         result = (
             supabase.table("product_lists")
-            .insert({"user_id": user_id, "name": validated_list.name})
+            .insert({
+                "user_id": user_id, "name": validated_list.name,
+                **({"profile_id": profile_id} if profile_id else {}),
+            })
             .execute()
         )
         if not result.data:
@@ -400,13 +411,15 @@ def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)
             id_map[pid] for pid in validated_list.product_ids if pid in id_map
         ]
         if new_product_ids:
-            _sync_list_products(user_id, result.data[0]["id"], new_product_ids)
+            _sync_list_products(user_id, result.data[0]["id"], new_product_ids, profile_id)
 
     for post in body.posts:
         validated_post = _validate_backup_item(_BackupPost, post, "posts")
         if not validated_post.texts:
             continue
-        head = _create_thread(user_id, validated_post.texts, validated_post.network or "threads")
+        head = _create_thread(
+            user_id, validated_post.texts, validated_post.network or "threads", profile_id
+        )
         new_product_ids = [
             id_map[pid] for pid in validated_post.product_ids if pid in id_map
         ]
@@ -417,7 +430,7 @@ def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)
 
 
 @router.get("/{user_id}")
-async def get_user(user_id: str, _admin_id: int = Depends(_require_admin)):
+async def get_user(user_id: str, _admin_id: str = Depends(_require_admin)):
     result = (
         supabase.table("users")
         .select("id, username, access, created_at, updated_at")
@@ -434,7 +447,7 @@ async def get_user(user_id: str, _admin_id: int = Depends(_require_admin)):
 async def update_user(
     user_id: str,
     body: UserUpdate,
-    _admin_id: int = Depends(_require_admin),
+    _admin_id: str = Depends(_require_admin),
 ):
     if body.access not in ("USER", "ADMIN"):
         raise HTTPException(status_code=400, detail="access deve ser USER ou ADMIN")
@@ -461,7 +474,7 @@ async def update_user(
 
 
 @router.delete("/{user_id}")
-async def delete_user(user_id: str, _admin_id: int = Depends(_require_admin)):
+async def delete_user(user_id: str, _admin_id: str = Depends(_require_admin)):
     current = (
         supabase.table("users").select("username, access").eq("id", user_id)
         .single().execute()

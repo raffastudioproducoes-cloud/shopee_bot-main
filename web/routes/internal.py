@@ -85,6 +85,7 @@ def create_job():
         "day_of_week": body.get("day_of_week"),
         "start_date": _parse_datetime(body.get("start_date")),
         "run_date": _parse_datetime(body.get("run_date")),
+        "profile_id": body.get("profile_id"),
     }
     job_id = add_job(user_id, job)
     return jsonify({"job_id": str(job_id)}), 201

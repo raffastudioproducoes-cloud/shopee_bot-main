@@ -37,7 +37,7 @@ def test_threads_callback_success_saves_credential_and_redirects(client, monkeyp
         assert code == "meta-code-123"
         return "threads-user-1", "long-lived-token"
 
-    def fake_upsert(table, user_id, data):
+    def fake_upsert(table, user_id, data, profile_id=None):
         saved["table"] = table
         saved["user_id"] = user_id
         saved["data"] = data

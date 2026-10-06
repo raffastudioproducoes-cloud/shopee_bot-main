@@ -19,8 +19,10 @@ def bot_post_facebook(job_id):
     job_data = schedulers.get_by_id(job_id)
     user_id = job_data["user_id"]
     post_id = job_data["post_id"]
+    # perfil dono do post: credencial e atividades ficam nele (None = job antigo)
+    profile_id = job_data.get("profile_id")
 
-    user_data = facebook_credentials.get_by_user_id(user_id)
+    user_data = facebook_credentials.get_by_user_id(user_id, profile_id)
     username = user_data["username"]
     app_id = user_data["facebook_app_id"]
     secret = user_data["facebook_secret"]
@@ -61,7 +63,8 @@ def bot_post_facebook(job_id):
                 "job_id": str(job_id),
                 "post_id": post_id,
                 "error": str(err),
-            })
+            }),
+            profile_id=profile_id
         )
         return
 
@@ -71,6 +74,7 @@ def bot_post_facebook(job_id):
         activity_metadata_wrapper({
             "job_id": str(job_id),
             "post_id": post_id,
-        })
+        }),
+        profile_id=profile_id
     )
     logger.info(f"bot_post_facebook job #{job_id} for {username} finished.")

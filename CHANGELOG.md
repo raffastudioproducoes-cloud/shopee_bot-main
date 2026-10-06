@@ -3,6 +3,69 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+> Branch `chore/phase-12-integration`. A versão (`VERSION`) só sobe no merge para `main`.
+> Migrações exigidas: 037, 038, 039, 040, 041 e 042 (aplicar no Supabase antes do deploy, ver `docs/RULES.md` item 11).
+
+### Added
+- Multi-perfil completo: `profile_id` nas 14 tabelas restantes que tinham `user_id`
+  (migração 038: credenciais das 7 redes, `credential_checks`, `posts`, `medias`, `schedulers`,
+  `activities`, `request_logs`, `audit_events`), com `ON DELETE SET NULL`, índice e backfill para o
+  perfil principal.
+- Posts, mídias, credenciais das redes (leitura, escrita, OAuth, teste de conexão), dashboard,
+  notificações, catálogo, logs/auditoria e backup/restore passam a respeitar o perfil ativo;
+  scheduler e bots usam a credencial e as atividades do perfil do post (com fallback por `user_id`).
+- Migração 037: trigger que impõe o limite de 3 perfis por conta no banco (atômico).
+- UI de perfis: editar e excluir perfil, perfil ativo na TopBar, ativação sem recarregar a página;
+  backup/restore sem `alert`/`confirm`.
+- `GET /auth/me` devolve o `profile_id` ativo; o frontend lê o perfil ativo dali (sem `localStorage`).
+- CI: job `frontend` (`npm ci` + `npm run build`), `.github/dependabot.yml` e
+  `.github/pull_request_template.md`.
+- `Dockerfile`: `HEALTHCHECK` em `/health`.
+- `SECURITY.md` com contato e política de reporte.
+
+### Changed
+- Migração 039: removido o UNIQUE de `shopee_credentials.app_id` (mesma API Key em mais de um
+  perfil) e o de `credential_checks` virou `(user_id, profile_id, network)`.
+- Migração 040: índice único de `credential_checks` usa coalesce(profile_id, uuid('00000000-0000-0000-0000-000000000000'))
+  para deduplicar NULLs em casos de fallback por `user_id`.
+- Migração 041: `products` deixa de ser único por `(product_id, user_id)` e passa a `(user_id, product_id, coalesce(profile_id))`;
+  o mesmo produto pode existir em 2 perfis. Restore cria/atualiza o produto do perfil ativo e `POST /products`
+  duplicado no mesmo perfil devolve 409.
+- CI: flake8 bloqueante para erros graves, Python 3.13, cache de pip/npm e `concurrency`.
+- CD: dispara via `workflow_run` somente após CI verde em `main`; `curl -f`; `concurrency`.
+- `gunicorn.conf.py`: `timeout = 120` e supervisão do subprocesso uvicorn (reinício com backoff).
+- `Dockerfile` roda como usuário não-root.
+- `.env-example` lista as variáveis realmente lidas pelo código e corrige X/TikTok (app único da
+  plataforma, não por usuário). Documentação (`README`, `docs/`) atualizada.
+
+### Fixed
+- Troca de senha invalida JWTs antigos (claim `pwv`); tokens sem o claim continuam aceitos.
+  Ativação de perfil (`POST /profiles/{id}/activate`) recalcula `pwv` no novo JWT.
+- `profile_id` do token é validado contra o dono; se inválido, cai no perfil principal.
+  Token sem claim `profile_id` defaults ao perfil principal, inclusive em `GET /auth/me`.
+- `product_ids` de posts são validados por dono/perfil (400 Bad Request se inválido).
+- Registro provisiona o perfil principal com rollback do usuário órfão em caso de falha; admin que
+  cria usuário também cria o perfil principal.
+- Rate limit em criar perfil, backup e restore.
+- Supervisor uvicorn em `gunicorn.conf.py` (reinício com backoff em caso de crash) sem deixar processo órfão.
+- `generate-copy` não devolve a exceção ao cliente; log de debug de páginas do Facebook removido.
+
+### Notes (limitações conhecidas / pendências manuais — atualizado 2026-10-06)
+- Pendências manuais de Rafa (não são código):
+  - [CONCLUÍDO, 2026-10-05] Env vars do serviço `shopee-bot-staging` no Render.
+  - [CONCLUÍDO, 2026-10-05] Trocar o branch de produção no Render de `master` para `main`.
+  - [CONCLUÍDO, 2026-10-05] Secret `RENDER_STAGING_DEPLOY_HOOK_URL`.
+  - [CONCLUÍDO, 2026-10-05] Callback URLs das redes (X, Meta, TikTok) nos painéis de desenvolvedor.
+  - [CONCLUÍDO, 2026-10-05] Conectar X, Instagram e TikTok; recolar o Client Secret do TikTok.
+  - [POSSÍVEL, NÃO ATIVADA] Branch protection (GitHub Pro ativo desde 2026-10-05, mas ainda não configurada).
+  - [CONCLUÍDO, 2026-10-06] Aplicar as migrações 037/038/039/040/041/042 no Supabase — verificado via MCP: 6 migrações registradas em `public.migrations` (linhas); nenhum `profile_id` NULL em `posts`/`shopee_credentials` após backfill. Staging e produção compartilham MESMO banco. **Risco conhecido**: Código de produção antigo (sem este PR) usa upsert `on_conflict (product_id, user_id)` no restore; após migração 041 (que muda para `(user_id, product_id, coalesce(profile_id))`), o restore falhará com violação de constraint. Solução: Merge desta branch (PR #10) corrige o restore. Prevenção: Aplicar migrações antes do deploy do PR #10. Ver `docs/RULES.md` item 11 para detalhe.
+  - Merge dos PRs da branch `chore/phase-12-integration` em `main`.
+  - Teste real de upload no container não-root (verificação de disco/permissão).
+- Correção de nota anterior (2026-10-05): a limitação "`profile_id` ainda NÃO cobre credenciais,
+  posts…" da 2.0.0 deixa de valer nesta branch.
+
 ## [2.0.0] - 2026-09-30
 
 ### Added

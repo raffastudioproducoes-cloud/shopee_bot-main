@@ -51,7 +51,7 @@ def test_tiktok_callback_success_saves_credential_and_redirects(client, monkeypa
         assert code == "tiktok-code-123"
         return "user-access-token", "refresh-token", "open-id-1"
 
-    def fake_upsert(table, user_id, data):
+    def fake_upsert(table, user_id, data, profile_id=None):
         saved["table"] = table
         saved["user_id"] = user_id
         saved["data"] = data

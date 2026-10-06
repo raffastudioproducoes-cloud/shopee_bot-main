@@ -4,15 +4,25 @@ Profiles Router — API Python (FastAPI)
 CRUD de perfis (multi-profile) e troca de perfil ativo (`/profiles/{id}/activate`).
 """
 
+import logging
+
 import fleep
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel
 
 from ..database import supabase
 from ..profiles import PROFILE_LIMIT, can_create_profile, is_principal
-from .auth import _create_token, _decode_token, get_current_user_id
+from .auth import (
+    _check_login_rate_limit,
+    _create_token,
+    _decode_token,
+    _get_user_from_supabase,
+    _password_version,
+    get_current_user_id,
+)
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
+logger = logging.getLogger(__name__)
 
 # Mesmo padrão de validação por magic-byte de api/routers/posts.py
 # (fleep.get + checagem de qualquer mime detectado contra a allowlist).
@@ -41,15 +51,44 @@ class ProfileUpdate(BaseModel):
     endereco: str | None = None
 
 
-def get_current_profile_id(request: Request) -> str | None:
-    """Claim opcional -- token emitido antes desta feature não tem profile_id."""
+def _resolve_profile_id(profile_id: str | None, user_id: str) -> str | None:
+    """Confirma que o perfil do token pertence ao usuário (perfil excluído
+    ou de outra conta não vale). Se não pertencer, cai no perfil principal
+    do usuário; sem principal, None (sem filtro por perfil)."""
+    owned = profile_id and (
+        supabase.table("profiles")
+        .select("id")
+        .eq("id", profile_id)
+        .eq("user_id", user_id)
+        .maybe_single()
+        .execute()
+    )
+    if owned and owned.data:
+        return profile_id
+    principal = (
+        supabase.table("profiles")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("kind", "principal")
+        .maybe_single()
+        .execute()
+    )
+    return principal.data["id"] if principal and principal.data else None
+
+
+def get_current_profile_id(
+    request: Request, user_id: str = Depends(get_current_user_id)
+) -> str | None:
+    """Claim opcional -- token emitido antes desta feature não tem profile_id;
+    nesse caso (ou claim inválido) cai no perfil principal do usuário, para
+    nunca operar sem escopo de perfil quando o usuário tem perfis."""
     token = request.cookies.get("access_token")
     if not token:
         return None
     payload = _decode_token(token)
     if not payload:
         return None
-    return payload.get("profile_id")
+    return _resolve_profile_id(payload.get("profile_id"), user_id)
 
 
 def _get_own_profile_or_404(profile_id: str, user_id: str) -> dict:
@@ -76,24 +115,33 @@ async def list_profiles(user_id: str = Depends(get_current_user_id)):
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_profile(body: ProfileCreate, user_id: str = Depends(get_current_user_id)):
+    _check_login_rate_limit(f"profile-create:{user_id}")
+    limit_detail = f"Limite de {PROFILE_LIMIT} perfis por conta atingido."
     existing = supabase.table("profiles").select("id").eq("user_id", user_id).execute()
     if not can_create_profile(len(existing.data or [])):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Limite de {PROFILE_LIMIT} perfis por conta atingido.",
+        raise HTTPException(status_code=400, detail=limit_detail)
+    try:
+        result = (
+            supabase.table("profiles")
+            .insert({
+                "user_id": user_id,
+                "kind": "secundario",
+                "nome": body.nome.strip(),
+                "email": body.email.strip(),
+                "telefone": body.telefone.strip() if body.telefone else None,
+                "endereco": body.endereco.strip() if body.endereco else None,
+            })
+            .execute()
         )
-    result = (
-        supabase.table("profiles")
-        .insert({
-            "user_id": user_id,
-            "kind": "secundario",
-            "nome": body.nome.strip(),
-            "email": body.email.strip(),
-            "telefone": body.telefone.strip() if body.telefone else None,
-            "endereco": body.endereco.strip() if body.endereco else None,
-        })
-        .execute()
-    )
+    except Exception as exc:
+        # O check acima tem race (count-then-insert); o trigger do banco
+        # (migração 037) é a barreira atômica e levanta profile_limit_exceeded.
+        if "profile_limit_exceeded" in str(exc):
+            raise HTTPException(status_code=400, detail=limit_detail)
+        logger.exception("Falha ao criar perfil")
+        raise HTTPException(status_code=500, detail="Erro interno ao criar perfil.")
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Erro interno ao criar perfil.")
     return result.data[0]
 
 
@@ -138,7 +186,17 @@ async def activate_profile(
     token = request.cookies.get("access_token")
     payload = _decode_token(token) if token else None
     username = payload.get("sub") if payload else None
-    new_token = _create_token({"sub": username, "id": user_id, "profile_id": profile_id})
+    # pwv sempre do hash ATUAL (não copiado do token antigo): token legado
+    # sem pwv passa a expirar após troca de senha.
+    user = _get_user_from_supabase(username) if username else None
+    if not user:
+        raise HTTPException(status_code=401, detail="Usuário inexistente")
+    new_token = _create_token({
+        "sub": username,
+        "id": user_id,
+        "profile_id": profile_id,
+        "pwv": _password_version(user.get("password")),
+    })
 
     # Flags idênticos ao endpoint de login (api/routers/auth.py::login) --
     # confirmado por leitura direta do handler, não reinventados aqui.

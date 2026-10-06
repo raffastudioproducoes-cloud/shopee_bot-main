@@ -80,6 +80,16 @@ def _get(user_id: int, product_id: int, profile_id: str | None = None) -> dict[s
     return _normalize_numeric_fields(result.data)
 
 
+def find_product_in_profile(db: Any, user_id: Any, product_id: Any, profile_id: str | None) -> dict[str, Any] | None:
+    """Produto da conta com esse `product_id` DENTRO do perfil (migração 041:
+    a unicidade é por (user_id, product_id, perfil); sem perfil = linhas
+    legadas com profile_id NULL)."""
+    query = db.table("products").select("id").eq("user_id", user_id).eq("product_id", product_id)
+    query = query.eq("profile_id", profile_id) if profile_id else query.is_("profile_id", "null")
+    rows = query.limit(1).execute().data or []
+    return rows[0] if rows else None
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────────
 
 @router.get("")
@@ -151,7 +161,15 @@ async def create_product(
     }
     if profile_id:
         data["profile_id"] = profile_id
-    result = supabase.table("products").insert(data).execute()
+    duplicate = HTTPException(status_code=409, detail="Produto já cadastrado neste perfil")
+    if find_product_in_profile(supabase, user_id, body.product_id, profile_id):
+        raise duplicate
+    try:
+        result = supabase.table("products").insert(data).execute()
+    except Exception as exc:  # corrida: o índice único (041) é a barreira final
+        if "23505" in str(exc) or "duplicate key" in str(exc).lower():
+            raise duplicate from exc
+        raise
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar produto")
     return _normalize_numeric_fields(result.data[0])
@@ -203,6 +221,7 @@ async def update_product(
             action="product_price_changed",
             old_value={field: before.get(field) for field in price_fields},
             new_value={field: after.get(field) for field in price_fields},
+            profile_id=profile_id,
         )
 
     return after
@@ -236,6 +255,7 @@ async def delete_product(
         action="product_deleted",
         old_value=before,
         new_value=None,
+        profile_id=profile_id,
     )
 
     return {"msg": "Produto removido"}

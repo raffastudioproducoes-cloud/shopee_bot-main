@@ -203,10 +203,12 @@ class TestProductsScopedByActiveProfile:
     ):
         fake_client = MagicMock()
         query = fake_client.table.return_value
-        query.insert.return_value = query
-        query.execute.return_value = MagicMock(
-            data=[{"id": 1, "name": "Fone", "product_id": "abc"}]
-        )
+        for method in ("insert", "select", "eq", "is_", "limit"):
+            getattr(query, method).return_value = query
+        query.execute.side_effect = [
+            MagicMock(data=[]),  # lookup de duplicidade no perfil
+            MagicMock(data=[{"id": 1, "name": "Fone", "product_id": "abc"}]),
+        ]
         monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
 
         auth_client.cookies.update(auth_headers_with_profile)
@@ -224,10 +226,12 @@ class TestProductsScopedByActiveProfile:
     ):
         fake_client = MagicMock()
         query = fake_client.table.return_value
-        query.insert.return_value = query
-        query.execute.return_value = MagicMock(
-            data=[{"id": 1, "name": "Fone", "product_id": "abc"}]
-        )
+        for method in ("insert", "select", "eq", "is_", "limit"):
+            getattr(query, method).return_value = query
+        query.execute.side_effect = [
+            MagicMock(data=[]),  # lookup de duplicidade no perfil
+            MagicMock(data=[{"id": 1, "name": "Fone", "product_id": "abc"}]),
+        ]
         monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
 
         res = auth_client.post("/products", json={"product_id": "abc", "name": "Fone"})

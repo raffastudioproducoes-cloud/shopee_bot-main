@@ -14,6 +14,8 @@ export interface MeResponse {
   id: number
   username: string
   access: string
+  /** Perfil ativo validado pelo backend (claim do cookie); null = sem perfil/token antigo. */
+  profile_id: string | null
 }
 
 export interface ResetPasswordResponse {

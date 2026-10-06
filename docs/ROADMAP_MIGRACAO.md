@@ -149,6 +149,31 @@ Implementadas as 5 mudanças finais para suportar a API nova em produção:
   confirmados em dev local até 2026-09-27). Mídia (Fase 5) tem a mesma dependência
   (filesystem compartilhado).
 
+## Atualização 2026-10-05 — multi-perfil completo (branch `chore/phase-12-integration`)
+
+> Nota datada (docs/RULES.md item 7): o texto acima descreve o estado de 2026-09-26/27 e foi
+> mantido como histórico. O que mudou depois, verificado em `git log main..HEAD` e nos arquivos:
+
+- Multi-perfil deixou de ser parcial: `profile_id` em 16 tabelas (036 + 038), UNIQUE relaxado
+  (039), índice único com coalesce (040), limite de 3 perfis por trigger (037). A versão `VERSION` continua 2.0.0 até o merge.
+- Segurança do servidor: JWT invalidado na troca de senha (claim `pwv`), validação de posse do
+  `profile_id` do token, rate limit em criar perfil/backup/restore.
+- Infra: `Dockerfile` não-root + `HEALTHCHECK`; `gunicorn.conf.py` com `timeout = 120` e
+  supervisão do uvicorn.
+- CI/CD: flake8 bloqueante, job `frontend`, Python 3.13, cache, `concurrency`, CD via
+  `workflow_run`, dependabot e template de PR.
+- Continua pendente (o roadmap de migração Flask -> React em si não mudou): validar em produção
+  o container com dois processos e aposentar o Flask. Pendências manuais de Rafa:
+
+- [ ] Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção).
+- [ ] Trocar o branch de produção do serviço no Render de `master` para `main`.
+- [ ] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado).
+- [ ] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub (só se quiser deploy automático de staging).
+- [ ] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor.
+- [ ] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok.
+- [ ] Aplicar as migrações 037, 038, 039, 040, 041 e 042 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
+- [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
+
 ## Documentação criada nesta sessão
 
 - `docs/CHECKLIST_MIGRACAO.md` — checklist de migração por módulo

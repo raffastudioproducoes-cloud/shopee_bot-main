@@ -25,12 +25,14 @@ def record_audit_event(
     action: str,
     old_value: dict | None,
     new_value: dict | None,
+    profile_id: str | None = None,
 ) -> None:
     """Grava um evento de auditoria em `audit_events`.
 
     `old_value`/`new_value` passam por `sanitize_log_data` antes de ir
     pro banco (reusa a mesma sanitização de `api/audit_log.py`, não
-    duplica a lógica).
+    duplica a lógica). `profile_id` (perfil ativo, opcional) só é gravado
+    quando informado.
     """
     try:
         supabase.table("audit_events").insert({
@@ -40,6 +42,7 @@ def record_audit_event(
             "action": action,
             "old_value": sanitize_log_data(old_value),
             "new_value": sanitize_log_data(new_value),
+            **({"profile_id": profile_id} if profile_id else {}),
         }).execute()
     except Exception:
         logger.warning("Falha ao gravar audit event (não crítico)", exc_info=True)

@@ -11,6 +11,8 @@ ou integração com autenticação centralizada).
 Ver: docs/CHECKLIST_MIGRACAO.md — seção "Auth (futuro)".
 """
 
+import hashlib
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -23,6 +25,7 @@ from ..config import settings
 from ..database import get_supabase
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 # Instância única de módulo — reusada por login/reset_password/register aqui
 # e por api/routers/settings.py (troca de senha em /settings). Não criar uma
@@ -54,8 +57,6 @@ _LOGIN_RATE_LIMIT_ATTEMPTS = 5
 _LOGIN_RATE_LIMIT_WINDOW_SECONDS = 60
 _login_attempts: dict[str, list[float]] = {}
 
-# Duplicado de api/routers/users.py::NETWORK_TABLES — importar de lá criaria
-# import circular (users.py já importa get_current_user_id de auth.py).
 NETWORK_TABLES = [
     "shopee_credentials",
     "threads_credentials",
@@ -65,6 +66,42 @@ NETWORK_TABLES = [
     "tiktok_credentials",
     "kwai_credentials",
 ]
+
+
+def provision_new_user(supabase, new_user: dict) -> None:
+    """Semeia credenciais vazias por rede + perfil principal da conta nova
+    (compartilhado por /auth/register e POST /users do admin).
+
+    O perfil principal é criado primeiro: as credenciais vazias já nascem com
+    `profile_id` dele.
+
+    Perfil principal — mesmo padrão do backfill da migração 035. Sem ele, o
+    primeiro perfil criado via POST /profiles nasceria "secundario" e a
+    conta ficaria sem nenhum perfil protegido contra exclusão.
+
+    Se qualquer insert falhar, desfaz o usuário (FK ON DELETE CASCADE limpa
+    o que já foi semeado) pra não deixar conta órfã, e devolve 500 genérico.
+    """
+    try:
+        profile = supabase.table("profiles").insert({
+            "user_id": new_user["id"],
+            "kind": "principal",
+            "nome": new_user["username"],
+        }).execute()
+        if not profile.data:
+            raise RuntimeError("insert de perfil principal sem retorno")
+        # Credenciais vazias nascem já ligadas ao perfil principal (multi-perfil).
+        for table in NETWORK_TABLES:
+            supabase.table(table).insert(
+                {"user_id": new_user["id"], "profile_id": profile.data[0]["id"], "status": False}
+            ).execute()
+    except Exception:
+        logger.exception("Falha ao provisionar usuário %s; desfazendo", new_user["id"])
+        try:
+            supabase.table("users").delete().eq("id", new_user["id"]).execute()
+        except Exception:
+            logger.exception("Falha ao desfazer usuário órfão %s", new_user["id"])
+        raise HTTPException(status_code=500, detail="Falha ao criar usuário")
 
 
 class ResetPasswordRequest(BaseModel):
@@ -93,6 +130,13 @@ def _validate_password_length(password: str) -> None:
         )
 
 
+def _password_version(password_hash: str | None) -> str:
+    """Fingerprint curto do hash de senha atual, embutido no JWT (claim
+    `pwv`). Trocar a senha muda o hash e, portanto, invalida os tokens
+    emitidos antes — sem coluna nova nem migração."""
+    return hashlib.sha256((password_hash or "").encode("utf-8")).hexdigest()[:16]
+
+
 def _get_authenticated_user(token: str) -> dict:
     """Decodifica o token e resolve o usuário — compartilhado por
     `get_current_user_id` e `/auth/me` (evita duplicar a checagem abaixo).
@@ -119,10 +163,17 @@ def _get_authenticated_user(token: str) -> dict:
     if str(payload.get("id")) != str(user["id"]):
         raise HTTPException(status_code=401, detail="Token inválido")
 
+    # Tokens sem `pwv` (emitidos antes desta checagem existir) seguem
+    # válidos até expirar (24h); todo token novo carrega o claim e morre
+    # quando a senha muda.
+    pwv = payload.get("pwv")
+    if pwv is not None and pwv != _password_version(user.get("password")):
+        raise HTTPException(status_code=401, detail="Sessão expirada")
+
     return user
 
 
-def get_current_user_id(request: Request) -> int:
+def get_current_user_id(request: Request) -> str:
     """Dependência que extrai o ID do usuário do cookie access_token."""
     token = request.cookies.get("access_token")
     if not token:
@@ -214,7 +265,12 @@ async def login(
     profile_id = (
         principal.data["id"] if isinstance(principal.data, dict) else None
     )
-    token = _create_token({"sub": user["username"], "id": user["id"], "profile_id": profile_id})
+    token = _create_token({
+        "sub": user["username"],
+        "id": user["id"],
+        "profile_id": profile_id,
+        "pwv": _password_version(user.get("password")),
+    })
 
     # response injetado pelo FastAPI, não um Response() local — um Response()
     # criado à mão é descartado quando a função retorna um dict (bug que
@@ -245,10 +301,15 @@ async def me(request: Request):
 
     user = _get_authenticated_user(token)
 
+    # Mesma regra de get_current_profile_id (import tardio: profiles importa auth).
+    from .profiles import _resolve_profile_id
+
+    claim = (_decode_token(token) or {}).get("profile_id")
     return {
         "id": user["id"],
         "username": user["username"],
         "access": user.get("access", ""),
+        "profile_id": _resolve_profile_id(claim, user["id"]),
     }
 
 
@@ -345,19 +406,7 @@ async def register(body: RegisterRequest, request: Request):
 
     new_user = result.data[0]
 
-    for table in NETWORK_TABLES:
-        supabase.table(table).insert({"user_id": new_user["id"], "status": False}).execute()
-
-    # Perfil principal — mesmo padrão do backfill da migração 035. Sem isso,
-    # contas criadas via /auth/register nunca ganham perfil "principal": o
-    # primeiro perfil criado via POST /profiles nasceria "secundario"
-    # (hardcoded lá) e a conta ficaria sem nenhum perfil protegido contra
-    # exclusão.
-    supabase.table("profiles").insert({
-        "user_id": new_user["id"],
-        "kind": "principal",
-        "nome": new_user["username"],
-    }).execute()
+    provision_new_user(supabase, new_user)
 
     return {
         "id": new_user["id"],
