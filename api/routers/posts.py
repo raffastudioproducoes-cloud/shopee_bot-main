@@ -29,6 +29,7 @@ de publicação ligado ao scheduler ainda (kwai fica de fora do mapa,
 sem API pública confirmada).
 """
 
+import logging
 import os
 from pathlib import Path
 from typing import Literal
@@ -46,6 +47,8 @@ from ..internal_client import (
     run_scheduler_job,
     InternalApiError,
 )
+
+logger = logging.getLogger(__name__)
 
 # Rede social do post -> função de publicação chamada pelo scheduler
 # (mesmo mapa usado no painel Flask legado, ver database/schedulers.py
@@ -300,8 +303,9 @@ async def generate_copy(
 
     try:
         text = generate_product_copy(product_result.data, body.persona)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Falha ao gerar texto do produto %s", body.product_id)
+        raise HTTPException(status_code=400, detail="Não foi possível gerar o texto agora.")
 
     return {"text": text}
 
@@ -528,7 +532,7 @@ async def delete_media(
         try:
             os.remove(file_path)
         except OSError:
-            pass
+            logger.warning("Falha ao remover arquivo de mídia %s", file_path, exc_info=True)
 
     return {"msg": "Mídia removida"}
 
