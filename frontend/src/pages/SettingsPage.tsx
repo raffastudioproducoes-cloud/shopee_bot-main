@@ -4,9 +4,9 @@ import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { TextInput } from "../components/ui/TextInput"
 import { api, ApiError } from "../lib/api"
-
-const MIN_LEN = 8
-const MAX_BYTES = 72 // bcrypt trunca em 72 bytes UTF-8, não em caracteres
+import { useAuthStore } from "../stores/authStore"
+import { router } from "../router"
+import { MIN_PASSWORD_LEN as MIN_LEN, MAX_PASSWORD_BYTES as MAX_BYTES, passwordBytes, validatePassword } from "../lib/password"
 
 type Status = { kind: "idle" | "saving" } | { kind: "done" } | { kind: "error"; message: string }
 
@@ -23,10 +23,11 @@ export function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const { logout } = useAuthStore()
   const [status, setStatus] = useState<Status>({ kind: "idle" })
 
-  const newBytes = new TextEncoder().encode(newPassword).length
-  const newLenOk = newPassword.length >= MIN_LEN && newBytes <= MAX_BYTES
+  const newBytes = passwordBytes(newPassword)
+  const newLenOk = validatePassword(newPassword) === null
   const tooManyBytes = newBytes > MAX_BYTES
   const canSubmit = currentPassword.length > 0 && newLenOk && status.kind !== "saving"
 
@@ -48,6 +49,11 @@ export function SettingsPage() {
       setNewPassword("")
       setConfirmPassword("")
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        logout()
+        router.navigate({ to: "/login" })
+        return
+      }
       setStatus({ kind: "error", message: errorMessage(err) })
     }
   }
