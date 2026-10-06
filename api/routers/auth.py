@@ -72,6 +72,9 @@ def provision_new_user(supabase, new_user: dict) -> None:
     """Semeia credenciais vazias por rede + perfil principal da conta nova
     (compartilhado por /auth/register e POST /users do admin).
 
+    O perfil principal é criado primeiro: as credenciais vazias já nascem com
+    `profile_id` dele.
+
     Perfil principal — mesmo padrão do backfill da migração 035. Sem ele, o
     primeiro perfil criado via POST /profiles nasceria "secundario" e a
     conta ficaria sem nenhum perfil protegido contra exclusão.
@@ -80,10 +83,6 @@ def provision_new_user(supabase, new_user: dict) -> None:
     o que já foi semeado) pra não deixar conta órfã, e devolve 500 genérico.
     """
     try:
-        for table in NETWORK_TABLES:
-            supabase.table(table).insert(
-                {"user_id": new_user["id"], "status": False}
-            ).execute()
         profile = supabase.table("profiles").insert({
             "user_id": new_user["id"],
             "kind": "principal",
@@ -91,6 +90,11 @@ def provision_new_user(supabase, new_user: dict) -> None:
         }).execute()
         if not profile.data:
             raise RuntimeError("insert de perfil principal sem retorno")
+        # Credenciais vazias nascem já ligadas ao perfil principal (multi-perfil).
+        for table in NETWORK_TABLES:
+            supabase.table(table).insert(
+                {"user_id": new_user["id"], "profile_id": profile.data[0]["id"], "status": False}
+            ).execute()
     except Exception:
         logger.exception("Falha ao provisionar usuário %s; desfazendo", new_user["id"])
         try:
