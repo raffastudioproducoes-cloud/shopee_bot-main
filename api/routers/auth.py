@@ -12,6 +12,7 @@ Ver: docs/CHECKLIST_MIGRACAO.md — seção "Auth (futuro)".
 """
 
 import hashlib
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -24,6 +25,7 @@ from ..config import settings
 from ..database import get_supabase
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 # Instância única de módulo — reusada por login/reset_password/register aqui
 # e por api/routers/settings.py (troca de senha em /settings). Não criar uma
@@ -55,8 +57,6 @@ _LOGIN_RATE_LIMIT_ATTEMPTS = 5
 _LOGIN_RATE_LIMIT_WINDOW_SECONDS = 60
 _login_attempts: dict[str, list[float]] = {}
 
-# Duplicado de api/routers/users.py::NETWORK_TABLES — importar de lá criaria
-# import circular (users.py já importa get_current_user_id de auth.py).
 NETWORK_TABLES = [
     "shopee_credentials",
     "threads_credentials",
@@ -66,6 +66,38 @@ NETWORK_TABLES = [
     "tiktok_credentials",
     "kwai_credentials",
 ]
+
+
+def provision_new_user(supabase, new_user: dict) -> None:
+    """Semeia credenciais vazias por rede + perfil principal da conta nova
+    (compartilhado por /auth/register e POST /users do admin).
+
+    Perfil principal — mesmo padrão do backfill da migração 035. Sem ele, o
+    primeiro perfil criado via POST /profiles nasceria "secundario" e a
+    conta ficaria sem nenhum perfil protegido contra exclusão.
+
+    Se qualquer insert falhar, desfaz o usuário (FK ON DELETE CASCADE limpa
+    o que já foi semeado) pra não deixar conta órfã, e devolve 500 genérico.
+    """
+    try:
+        for table in NETWORK_TABLES:
+            supabase.table(table).insert(
+                {"user_id": new_user["id"], "status": False}
+            ).execute()
+        profile = supabase.table("profiles").insert({
+            "user_id": new_user["id"],
+            "kind": "principal",
+            "nome": new_user["username"],
+        }).execute()
+        if not profile.data:
+            raise RuntimeError("insert de perfil principal sem retorno")
+    except Exception:
+        logger.exception("Falha ao provisionar usuário %s; desfazendo", new_user["id"])
+        try:
+            supabase.table("users").delete().eq("id", new_user["id"]).execute()
+        except Exception:
+            logger.exception("Falha ao desfazer usuário órfão %s", new_user["id"])
+        raise HTTPException(status_code=500, detail="Falha ao criar usuário")
 
 
 class ResetPasswordRequest(BaseModel):
@@ -135,7 +167,7 @@ def _get_authenticated_user(token: str) -> dict:
     return user
 
 
-def get_current_user_id(request: Request) -> int:
+def get_current_user_id(request: Request) -> str:
     """Dependência que extrai o ID do usuário do cookie access_token."""
     token = request.cookies.get("access_token")
     if not token:
@@ -363,19 +395,7 @@ async def register(body: RegisterRequest, request: Request):
 
     new_user = result.data[0]
 
-    for table in NETWORK_TABLES:
-        supabase.table(table).insert({"user_id": new_user["id"], "status": False}).execute()
-
-    # Perfil principal — mesmo padrão do backfill da migração 035. Sem isso,
-    # contas criadas via /auth/register nunca ganham perfil "principal": o
-    # primeiro perfil criado via POST /profiles nasceria "secundario"
-    # (hardcoded lá) e a conta ficaria sem nenhum perfil protegido contra
-    # exclusão.
-    supabase.table("profiles").insert({
-        "user_id": new_user["id"],
-        "kind": "principal",
-        "nome": new_user["username"],
-    }).execute()
+    provision_new_user(supabase, new_user)
 
     return {
         "id": new_user["id"],

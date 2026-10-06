@@ -540,3 +540,35 @@ class TestPasswordVersionClaim:
         assert res.status_code == 200
         payload = auth_module._decode_token(res.cookies["access_token"])
         assert payload["pwv"] == auth_module._password_version(h)
+
+
+class TestRegisterProvisioningFailure:
+    def test_failed_profile_insert_rolls_back_user_and_returns_generic_500(
+        self, client, monkeypatch
+    ):
+        tables: dict[str, MagicMock] = {}
+
+        def table_side_effect(name):
+            if name not in tables:
+                mock = MagicMock()
+                for method in ("select", "eq", "insert", "delete"):
+                    getattr(mock, method).return_value = mock
+                tables[name] = mock
+            return tables[name]
+
+        fake_client = MagicMock()
+        fake_client.table.side_effect = table_side_effect
+        table_side_effect("users").execute.side_effect = [
+            MagicMock(data=[]),
+            MagicMock(data=[{"id": 7, "username": "novo", "access": "USER"}]),
+            MagicMock(data=[]),  # delete de rollback
+        ]
+        table_side_effect("profiles").execute.side_effect = Exception("db detalhe interno")
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        res = client.post("/auth/register", json={"username": "novo", "password": "12345678"})
+
+        assert res.status_code == 500
+        assert "interno" not in res.text
+        tables["users"].delete.assert_called_once()
+        tables["users"].eq.assert_called_with("id", 7)
