@@ -27,6 +27,7 @@ def log_action(
     *,
     user_id: int | None = None,
     username: str | None = None,
+    profile_id: str | None = None,
 ) -> None:
     """Grava um passo de negócio em request_logs.action.
 
@@ -53,6 +54,7 @@ def log_action(
                 "status_code": None,
                 "duration_ms": None,
                 "created_at": datetime.now(timezone.utc).isoformat(),
+                **({"profile_id": profile_id} if profile_id else {}),
             }
         ).execute()
     except Exception:

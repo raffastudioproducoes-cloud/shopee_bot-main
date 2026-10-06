@@ -378,7 +378,7 @@ async def threads_callback(
         "access_token": encrypt(access_token),
         "status": True,
     }, profile_id=profile_id)
-    log_action("threads_oauth_token_exchanged", user_id=user_id)
+    log_action("threads_oauth_token_exchanged", user_id=user_id, profile_id=profile_id)
 
     return _redirect("threads=success")
 
@@ -459,7 +459,7 @@ async def instagram_callback(
         "user_access_token": encrypt(access_token),
         "status": True,
     }, profile_id=profile_id)
-    log_action("instagram_oauth_token_exchanged", user_id=user_id)
+    log_action("instagram_oauth_token_exchanged", user_id=user_id, profile_id=profile_id)
 
     return _redirect("instagram=success")
 
@@ -553,7 +553,7 @@ async def facebook_callback(
         "page_access_token": encrypt(page_access_token),
         "status": True,
     }, profile_id=profile_id)
-    log_action("facebook_oauth_token_exchanged", user_id=user_id)
+    log_action("facebook_oauth_token_exchanged", user_id=user_id, profile_id=profile_id)
 
     return _redirect("facebook=success")
 
@@ -686,7 +686,7 @@ async def tiktok_callback(
         "open_id": open_id,
         "status": True,
     }, profile_id=profile_id)
-    log_action("tiktok_oauth_token_exchanged", user_id=user_id)
+    log_action("tiktok_oauth_token_exchanged", user_id=user_id, profile_id=profile_id)
 
     return _redirect("tiktok=success")
 
@@ -786,7 +786,7 @@ async def x_callback(
         ).isoformat(),
         "status": True,
     }, profile_id=profile_id)
-    log_action("x_oauth_token_exchanged", user_id=user_id)
+    log_action("x_oauth_token_exchanged", user_id=user_id, profile_id=profile_id)
 
     return _redirect("x=success")
 

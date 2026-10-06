@@ -203,6 +203,7 @@ async def update_product(
             action="product_price_changed",
             old_value={field: before.get(field) for field in price_fields},
             new_value={field: after.get(field) for field in price_fields},
+            profile_id=profile_id,
         )
 
     return after
@@ -236,6 +237,7 @@ async def delete_product(
         action="product_deleted",
         old_value=before,
         new_value=None,
+        profile_id=profile_id,
     )
 
     return {"msg": "Produto removido"}

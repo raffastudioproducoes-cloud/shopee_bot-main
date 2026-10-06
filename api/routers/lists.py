@@ -250,6 +250,7 @@ async def delete_product_list(
         action="product_list_deleted",
         old_value=before,
         new_value=None,
+        profile_id=profile_id,
     )
 
     return {"msg": "Lista removida"}

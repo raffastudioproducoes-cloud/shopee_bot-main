@@ -572,7 +572,7 @@ async def publish_post_now(
     except InternalApiError:
         raise HTTPException(status_code=502, detail="Não foi possível publicar agora. Tente novamente.")
 
-    log_action("post_published", f"post_id={post_id}", user_id=user_id)
+    log_action("post_published", f"post_id={post_id}", user_id=user_id, profile_id=profile_id)
     return {"msg": "Publicação disparada"}
 
 
