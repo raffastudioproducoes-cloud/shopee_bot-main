@@ -494,3 +494,49 @@ class TestRegister:
         )
 
         assert second.status_code == 429
+
+
+class TestPasswordVersionClaim:
+    """Token emitido antes da troca de senha (claim `pwv` com o fingerprint
+    do hash antigo) deixa de autenticar; token sem o claim (legado) segue
+    valendo até expirar."""
+
+    def _fake_supabase(self, monkeypatch, password_hash):
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        query.select.return_value = query
+        query.eq.return_value = query
+        query.execute.return_value = MagicMock(
+            data=[{"id": 1, "username": "u", "access": "USER", "password": password_hash}]
+        )
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+    def test_token_with_old_password_version_is_rejected(self, client, monkeypatch):
+        old = auth_module._create_token(
+            {"sub": "u", "id": 1, "pwv": auth_module._password_version("hash-antigo")}
+        )
+        self._fake_supabase(monkeypatch, "hash-novo")
+        client.cookies.set("access_token", old)
+        assert client.get("/auth/me").status_code == 401
+
+    def test_token_with_current_password_version_is_accepted(self, client, monkeypatch):
+        token = auth_module._create_token(
+            {"sub": "u", "id": 1, "pwv": auth_module._password_version("hash-atual")}
+        )
+        self._fake_supabase(monkeypatch, "hash-atual")
+        client.cookies.set("access_token", token)
+        assert client.get("/auth/me").status_code == 200
+
+    def test_legacy_token_without_claim_still_accepted(self, client, monkeypatch):
+        token = auth_module._create_token({"sub": "u", "id": 1})
+        self._fake_supabase(monkeypatch, "qualquer")
+        client.cookies.set("access_token", token)
+        assert client.get("/auth/me").status_code == 200
+
+    def test_login_token_carries_password_version(self, client, monkeypatch):
+        h = auth_module.pwd_context.hash("senha12345")
+        self._fake_supabase(monkeypatch, h)
+        res = client.post("/auth/login", data={"username": "u", "password": "senha12345"})
+        assert res.status_code == 200
+        payload = auth_module._decode_token(res.cookies["access_token"])
+        assert payload["pwv"] == auth_module._password_version(h)

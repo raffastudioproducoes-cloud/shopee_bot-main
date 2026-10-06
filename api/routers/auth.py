@@ -11,6 +11,7 @@ ou integração com autenticação centralizada).
 Ver: docs/CHECKLIST_MIGRACAO.md — seção "Auth (futuro)".
 """
 
+import hashlib
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -91,6 +92,13 @@ def _validate_password_length(password: str) -> None:
         )
 
 
+def _password_version(password_hash: str | None) -> str:
+    """Fingerprint curto do hash de senha atual, embutido no JWT (claim
+    `pwv`). Trocar a senha muda o hash e, portanto, invalida os tokens
+    emitidos antes — sem coluna nova nem migração."""
+    return hashlib.sha256((password_hash or "").encode("utf-8")).hexdigest()[:16]
+
+
 def _get_authenticated_user(token: str) -> dict:
     """Decodifica o token e resolve o usuário — compartilhado por
     `get_current_user_id` e `/auth/me` (evita duplicar a checagem abaixo).
@@ -116,6 +124,13 @@ def _get_authenticated_user(token: str) -> dict:
 
     if str(payload.get("id")) != str(user["id"]):
         raise HTTPException(status_code=401, detail="Token inválido")
+
+    # Tokens sem `pwv` (emitidos antes desta checagem existir) seguem
+    # válidos até expirar (24h); todo token novo carrega o claim e morre
+    # quando a senha muda.
+    pwv = payload.get("pwv")
+    if pwv is not None and pwv != _password_version(user.get("password")):
+        raise HTTPException(status_code=401, detail="Sessão expirada")
 
     return user
 
@@ -212,7 +227,12 @@ async def login(
     profile_id = (
         principal.data["id"] if isinstance(principal.data, dict) else None
     )
-    token = _create_token({"sub": user["username"], "id": user["id"], "profile_id": profile_id})
+    token = _create_token({
+        "sub": user["username"],
+        "id": user["id"],
+        "profile_id": profile_id,
+        "pwv": _password_version(user.get("password")),
+    })
 
     # response injetado pelo FastAPI, não um Response() local — um Response()
     # criado à mão é descartado quando a função retorna um dict (bug que

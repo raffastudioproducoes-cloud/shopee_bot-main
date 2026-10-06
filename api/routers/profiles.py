@@ -138,7 +138,12 @@ async def activate_profile(
     token = request.cookies.get("access_token")
     payload = _decode_token(token) if token else None
     username = payload.get("sub") if payload else None
-    new_token = _create_token({"sub": username, "id": user_id, "profile_id": profile_id})
+    new_token = _create_token({
+        "sub": username,
+        "id": user_id,
+        "profile_id": profile_id,
+        "pwv": payload.get("pwv") if payload else None,
+    })
 
     # Flags idênticos ao endpoint de login (api/routers/auth.py::login) --
     # confirmado por leitura direta do handler, não reinventados aqui.
