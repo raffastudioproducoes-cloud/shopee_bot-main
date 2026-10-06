@@ -6,14 +6,14 @@ import { TextInput } from "../components/ui/TextInput"
 import { api, ApiError } from "../lib/api"
 
 const MIN_LEN = 8
-const MAX_LEN = 72
+const MAX_BYTES = 72 // bcrypt trunca em 72 bytes UTF-8, não em caracteres
 
 type Status = { kind: "idle" | "saving" } | { kind: "done" } | { kind: "error"; message: string }
 
 function errorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 403) return "Senha atual incorreta."
-    if (err.status === 400 || err.status === 422) return `A nova senha deve ter entre ${MIN_LEN} e ${MAX_LEN} caracteres.`
+    if (err.status === 400 || err.status === 422) return `A nova senha deve ter ${MIN_LEN} caracteres ou mais e no máximo ${MAX_BYTES} bytes.`
     if (err.status === 429) return "Muitas tentativas. Aguarde um minuto e tente de novo."
   }
   return "Não foi possível trocar a senha. Tente novamente."
@@ -22,14 +22,21 @@ function errorMessage(err: unknown): string {
 export function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [status, setStatus] = useState<Status>({ kind: "idle" })
 
-  const newLenOk = newPassword.length >= MIN_LEN && newPassword.length <= MAX_LEN
+  const newBytes = new TextEncoder().encode(newPassword).length
+  const newLenOk = newPassword.length >= MIN_LEN && newBytes <= MAX_BYTES
+  const tooManyBytes = newBytes > MAX_BYTES
   const canSubmit = currentPassword.length > 0 && newLenOk && status.kind !== "saving"
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!canSubmit) return
+    if (newPassword !== confirmPassword) {
+      setStatus({ kind: "error", message: "As senhas não coincidem." })
+      return
+    }
     setStatus({ kind: "saving" })
     try {
       await api.put("/settings/password", {
@@ -39,6 +46,7 @@ export function SettingsPage() {
       setStatus({ kind: "done" })
       setCurrentPassword("")
       setNewPassword("")
+      setConfirmPassword("")
     } catch (err) {
       setStatus({ kind: "error", message: errorMessage(err) })
     }
@@ -61,12 +69,24 @@ export function SettingsPage() {
             onChange={(e) => setCurrentPassword(e.target.value)}
           />
           <TextInput
-            label={`Nova senha (${MIN_LEN} a ${MAX_LEN} caracteres)`}
+            label={`Nova senha (mínimo ${MIN_LEN} caracteres, máximo ${MAX_BYTES} bytes)`}
             type="password"
             autoComplete="new-password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />
+          <TextInput
+            label="Confirmar nova senha"
+            type="password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+          {tooManyBytes && (
+            <p role="alert" style={{ margin: 0, color: "var(--negative-on-glass)" }}>
+              A senha excede {MAX_BYTES} bytes ({newBytes}). Emojis e acentos ocupam mais de 1 byte; use uma senha mais curta.
+            </p>
+          )}
           <Button type="submit" disabled={!canSubmit} loading={status.kind === "saving"}>
             Salvar nova senha
           </Button>
