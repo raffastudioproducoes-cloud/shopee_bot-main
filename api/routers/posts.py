@@ -39,6 +39,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, model_validator, field_validator
 
 from .auth import get_current_user_id
+from .profiles import get_current_profile_id
+from ..profiles import scope_owner
 from ..audit_log import log_action
 from ..database import supabase
 from ..internal_client import (
@@ -135,12 +137,11 @@ class GenerateCopyBody(BaseModel):
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
 
-def _get_post(user_id: int, post_id: int) -> dict:
+def _get_post(user_id: int, post_id: int, profile_id: str | None = None) -> dict:
+    """Busca o post verificando dono e, com perfil ativo, o perfil (evita
+    IDOR entre perfis da mesma conta)."""
     result = (
-        supabase.table("posts")
-        .select("*")
-        .eq("id", post_id)
-        .eq("user_id", user_id)
+        scope_owner(supabase.table("posts").select("*").eq("id", post_id), user_id, profile_id)
         .single()
         .execute()
     )
@@ -224,7 +225,9 @@ def _get_post_by_id_only(post_id: int) -> dict:
     return result.data
 
 
-def _create_thread(user_id: int, texts: list[str], network: str = "threads") -> dict:
+def _create_thread(
+    user_id: int, texts: list[str], network: str = "threads", profile_id: str | None = None
+) -> dict:
     """Insere a thread inteira, encadeando post_id. Retorna a head.
 
     `network` só é gravada na head (post_id IS NULL) — é lá que
@@ -234,6 +237,8 @@ def _create_thread(user_id: int, texts: list[str], network: str = "threads") -> 
     head = None
     for text in texts:
         row_data = {"user_id": user_id, "text": text, "post_id": parent_id}
+        if profile_id:
+            row_data["profile_id"] = profile_id
         if parent_id is None:
             row_data["network"] = network
         result = (
@@ -286,15 +291,16 @@ def _delete_thread_cascade(head_id: int) -> None:
 async def generate_copy(
     body: GenerateCopyBody,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Gera texto de post via IA (Gemini) para um produto, por persona."""
     from apis.llm import generate_product_copy
 
     product_result = (
-        supabase.table("products")
-        .select("*")
-        .eq("id", body.product_id)
-        .eq("user_id", user_id)
+        scope_owner(
+            supabase.table("products").select("*").eq("id", body.product_id),
+            user_id, profile_id,
+        )
         .single()
         .execute()
     )
@@ -313,14 +319,13 @@ async def generate_copy(
 @router.get("")
 async def list_posts(
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
     cursor: str | None = Query(None, description="Cursor de paginação (created_at)"),
     limit: int = Query(20, ge=1, le=100),
 ):
     """Lista posts únicos (post_id IS NULL — sem thread) com paginação por cursor."""
     query = (
-        supabase.table("posts")
-        .select("*")
-        .eq("user_id", user_id)
+        scope_owner(supabase.table("posts").select("*"), user_id, profile_id)
         .is_("post_id", "null")
         .order("created_at", desc=True)
         .limit(limit)
@@ -354,11 +359,12 @@ async def list_posts(
 async def create_post(
     body: PostCreate,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Cria a thread (1+ partes, ver docstring do módulo) e agenda a
     publicação. Se o agendamento falhar, desfaz a criação inteira —
     melhor não criar do que criar um post que nunca vai publicar."""
-    head = _create_thread(user_id, body.texts, body.network)
+    head = _create_thread(user_id, body.texts, body.network, profile_id)
     _set_post_products(head["id"], body.product_ids)
 
     try:
@@ -371,6 +377,7 @@ async def create_post(
             day_of_week=body.schedule.day_of_week,
             start_date=body.schedule.start_date,
             run_date=body.schedule.run_date,
+            **({"profile_id": profile_id} if profile_id else {}),
         )
     except InternalApiError:
         _delete_thread_cascade(head["id"])
@@ -392,8 +399,9 @@ async def create_post(
 async def get_post(
     post_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
-    post = _get_post(user_id, post_id)
+    post = _get_post(user_id, post_id, profile_id)
     job = _get_scheduler_job(post_id)
     chain = _get_thread_chain(post_id)
     return {
@@ -410,21 +418,22 @@ async def update_post(
     post_id: int,
     body: PostUpdate,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Atualiza a head (id fixo — mantém agendamento/produtos válidos)
     e substitui as partes seguintes (apaga e recria — simplificação:
     não tenta casar partes antigas com as novas por id)."""
-    _get_post(user_id, post_id)  # ownership check
+    _get_post(user_id, post_id, profile_id)  # ownership check
 
     chain = _get_thread_chain(post_id)
     for row in reversed(chain[1:]):
         supabase.table("posts").delete().eq("id", row["id"]).execute()
 
     result = (
-        supabase.table("posts")
-        .update({"text": body.texts[0]})
-        .eq("id", post_id)
-        .eq("user_id", user_id)
+        scope_owner(
+            supabase.table("posts").update({"text": body.texts[0]}).eq("id", post_id),
+            user_id, profile_id,
+        )
         .execute()
     )
     if not result.data:
@@ -434,7 +443,10 @@ async def update_post(
     for text in body.texts[1:]:
         row = (
             supabase.table("posts")
-            .insert({"user_id": user_id, "text": text, "post_id": parent_id})
+            .insert({
+                "user_id": user_id, "text": text, "post_id": parent_id,
+                **({"profile_id": profile_id} if profile_id else {}),
+            })
             .execute()
         )
         parent_id = row.data[0]["id"]
@@ -452,11 +464,12 @@ async def upload_media(
     post_id: int,
     file: UploadFile,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Anexa uma mídia à HEAD do post (não a partes de thread — ver
     docstring do módulo). Grava em disco no mesmo caminho relativo que
     o Flask usa (`web/media/<post_id>/`)."""
-    _get_post(user_id, post_id)  # ownership check
+    _get_post(user_id, post_id, profile_id)  # ownership check
 
     filename = file.filename or ""
     ext = Path(filename).suffix.lower()
@@ -487,6 +500,7 @@ async def upload_media(
         supabase.table("medias")
         .insert({
             "user_id": user_id,
+            **({"profile_id": profile_id} if profile_id else {}),
             "file_name": filename,
             "file_path": str(file_path),
             "size": len(content),
@@ -514,12 +528,16 @@ async def delete_media(
     post_id: int,
     media_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
-    _get_post(user_id, post_id)  # ownership check
+    _get_post(user_id, post_id, profile_id)  # ownership check
 
     media_result = (
-        supabase.table("medias").select("file_path")
-        .eq("id", media_id).eq("user_id", user_id).maybe_single().execute()
+        scope_owner(
+            supabase.table("medias").select("file_path").eq("id", media_id),
+            user_id, profile_id,
+        )
+        .maybe_single().execute()
     )
     if not media_result or not media_result.data:
         raise HTTPException(status_code=404, detail="Mídia não encontrada")
@@ -541,9 +559,10 @@ async def delete_media(
 async def publish_post_now(
     post_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Força a publicação imediata de um post já agendado."""
-    _get_post(user_id, post_id)  # ownership check
+    _get_post(user_id, post_id, profile_id)  # ownership check
     job = _get_scheduler_job(post_id)
     if not job:
         raise HTTPException(status_code=409, detail="Post não tem agendamento — nada pra publicar")
@@ -561,8 +580,9 @@ async def publish_post_now(
 async def delete_post(
     post_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
-    _get_post(user_id, post_id)  # ownership check
+    _get_post(user_id, post_id, profile_id)  # ownership check
 
     job = _get_scheduler_job(post_id)
     if job:
