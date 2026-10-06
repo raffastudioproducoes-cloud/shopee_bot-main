@@ -452,6 +452,28 @@ class TestRegister:
         assert res.status_code == 400
         fake_client.table.assert_not_called()
 
+    def test_new_user_gets_principal_profile_created(self, client, monkeypatch):
+        """Sem isso, contas criadas via /auth/register nunca ganham perfil
+        "principal" (a migração 035 só fez backfill dos usuários já
+        existentes) -- o primeiro perfil que o usuário criasse via
+        POST /profiles nasceria "secundario" (hardcoded lá)."""
+        fake_client, tables = self._fake_supabase(
+            created={"id": 42, "username": "newuser", "access": "USER"}
+        )
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        res = client.post(
+            "/auth/register",
+            json={"username": "newuser", "password": "12345678"},
+        )
+
+        assert res.status_code == 201
+        tables["profiles"].insert.assert_called_once_with({
+            "user_id": 42,
+            "kind": "principal",
+            "nome": "newuser",
+        })
+
     def test_second_attempt_same_ip_within_cooldown_returns_429(
         self, client, monkeypatch
     ):
@@ -472,3 +494,121 @@ class TestRegister:
         )
 
         assert second.status_code == 429
+
+
+class TestPasswordVersionClaim:
+    """Token emitido antes da troca de senha (claim `pwv` com o fingerprint
+    do hash antigo) deixa de autenticar; token sem o claim (legado) segue
+    valendo até expirar."""
+
+    def _fake_supabase(self, monkeypatch, password_hash):
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        query.select.return_value = query
+        query.eq.return_value = query
+        query.execute.return_value = MagicMock(
+            data=[{"id": 1, "username": "u", "access": "USER", "password": password_hash}]
+        )
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+    def test_token_with_old_password_version_is_rejected(self, client, monkeypatch):
+        old = auth_module._create_token(
+            {"sub": "u", "id": 1, "pwv": auth_module._password_version("hash-antigo")}
+        )
+        self._fake_supabase(monkeypatch, "hash-novo")
+        client.cookies.set("access_token", old)
+        assert client.get("/auth/me").status_code == 401
+
+    def test_token_with_current_password_version_is_accepted(self, client, monkeypatch):
+        token = auth_module._create_token(
+            {"sub": "u", "id": 1, "pwv": auth_module._password_version("hash-atual")}
+        )
+        self._fake_supabase(monkeypatch, "hash-atual")
+        client.cookies.set("access_token", token)
+        assert client.get("/auth/me").status_code == 200
+
+    def test_legacy_token_without_claim_still_accepted(self, client, monkeypatch):
+        token = auth_module._create_token({"sub": "u", "id": 1})
+        self._fake_supabase(monkeypatch, "qualquer")
+        client.cookies.set("access_token", token)
+        assert client.get("/auth/me").status_code == 200
+
+    def test_login_token_carries_password_version(self, client, monkeypatch):
+        h = auth_module.pwd_context.hash("senha12345")
+        self._fake_supabase(monkeypatch, h)
+        res = client.post("/auth/login", data={"username": "u", "password": "senha12345"})
+        assert res.status_code == 200
+        payload = auth_module._decode_token(res.cookies["access_token"])
+        assert payload["pwv"] == auth_module._password_version(h)
+
+
+class TestRegisterProvisioningFailure:
+    def test_failed_profile_insert_rolls_back_user_and_returns_generic_500(
+        self, client, monkeypatch
+    ):
+        tables: dict[str, MagicMock] = {}
+
+        def table_side_effect(name):
+            if name not in tables:
+                mock = MagicMock()
+                for method in ("select", "eq", "insert", "delete"):
+                    getattr(mock, method).return_value = mock
+                tables[name] = mock
+            return tables[name]
+
+        fake_client = MagicMock()
+        fake_client.table.side_effect = table_side_effect
+        table_side_effect("users").execute.side_effect = [
+            MagicMock(data=[]),
+            MagicMock(data=[{"id": 7, "username": "novo", "access": "USER"}]),
+            MagicMock(data=[]),  # delete de rollback
+        ]
+        table_side_effect("profiles").execute.side_effect = Exception("db detalhe interno")
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        res = client.post("/auth/register", json={"username": "novo", "password": "12345678"})
+
+        assert res.status_code == 500
+        assert "interno" not in res.text
+        tables["users"].delete.assert_called_once()
+        tables["users"].eq.assert_called_with("id", 7)
+
+
+class TestMeProfileId:
+    """`/auth/me` expõe o perfil ativo (claim do cookie httpOnly) já validado."""
+
+    @staticmethod
+    def _setup(client, monkeypatch, claims, resolved):
+        from api.routers import profiles as profiles_module
+
+        token = auth_module._create_token({"sub": "usuario", "id": 2, **claims})
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        query.select.return_value = query
+        query.eq.return_value = query
+        query.execute.return_value = MagicMock(
+            data=[{"id": 2, "username": "usuario", "access": "USER"}]
+        )
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+        calls = []
+        monkeypatch.setattr(
+            profiles_module,
+            "_resolve_profile_id",
+            lambda pid, uid: calls.append((pid, uid)) or resolved,
+        )
+        client.cookies.set("access_token", token)
+        return calls
+
+    def test_me_returns_validated_profile_id(self, client, monkeypatch):
+        calls = self._setup(client, monkeypatch, {"profile_id": "p-alheio"}, "p-main")
+        body = client.get("/auth/me").json()
+        assert body["profile_id"] == "p-main"
+        assert calls == [("p-alheio", 2)]
+        assert body["id"] == 2 and body["username"] == "usuario"
+
+    def test_me_profile_id_falls_back_to_principal_without_claim(self, client, monkeypatch):
+        # Coerente com get_current_profile_id: token legado sem claim opera
+        # (e é reportado) no perfil principal, não "sem perfil".
+        calls = self._setup(client, monkeypatch, {}, "p-main")
+        assert client.get("/auth/me").json()["profile_id"] == "p-main"
+        assert calls == [(None, 2)]

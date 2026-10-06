@@ -11,6 +11,9 @@ import { NotificationsBell } from '../components/ui/NotificationsBell'
 import { Modal } from '../components/ui/Modal'
 import { TextInput } from '../components/ui/TextInput'
 import { Button } from '../components/ui/Button'
+import { StatusMessage } from '../components/StatusMessage'
+import { ConfirmModal } from '../components/profiles/ConfirmModal'
+import { ActiveProfileChip } from '../components/profiles/ActiveProfileChip'
 
 const navItems: SideRailItem[] = [
   { value: '/', label: 'Dashboard', icon: 'house' },
@@ -18,11 +21,12 @@ const navItems: SideRailItem[] = [
   { value: '/lists', label: 'Listas', icon: 'sliders-horizontal' },
   { value: '/posts', label: 'Posts', icon: 'file-text' },
   { value: '/credentials', label: 'Credenciais', icon: 'key-round' },
+  { value: '/settings', label: 'Configurações', icon: 'lock' },
   { value: '/ajuda', label: 'Ajuda & FAQ', icon: 'help-circle' },
 ]
 
 const adminNavItems: SideRailItem[] = [
-  { value: '/users', label: 'Usuários', icon: 'users' },
+  { value: '/profiles', label: 'Perfis', icon: 'users' },
   { value: '/logs', label: 'Logs', icon: 'scroll-text' },
 ]
 
@@ -32,6 +36,9 @@ export function PanelPage() {
   const { user, logout, setUser, isAuthenticated } = useAuthStore()
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false)
   const restoreInputRef = useRef<HTMLInputElement>(null)
+  const [feedback, setFeedback] = useState<{ kind: 'error' | 'success'; text: string } | null>(null)
+  const [pendingRestore, setPendingRestore] = useState<File | null>(null)
+  const [restoring, setRestoring] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -69,26 +76,28 @@ export function PanelPage() {
       link.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Não foi possível exportar o backup.')
+      setFeedback({ kind: 'error', text: err instanceof ApiError ? err.message : 'Não foi possível exportar o backup.' })
     }
   }
 
-  const handleRestoreFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRestoreFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (!file) return
+    if (file) setPendingRestore(file)
+  }
 
-    if (!confirm('Restaurar este backup vai adicionar os produtos, listas e posts do arquivo à sua conta (não substitui nem apaga nada existente). Continuar?')) {
-      return
-    }
-
+  const confirmRestore = async () => {
+    if (!pendingRestore) return
+    setRestoring(true)
     try {
-      const text = await file.text()
-      const data = JSON.parse(text) as BackupData
+      const data = JSON.parse(await pendingRestore.text()) as BackupData
       const result = await usersApi.restoreBackup(data)
-      alert(result.msg)
+      setFeedback({ kind: 'success', text: result.msg })
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : 'Arquivo de backup inválido ou corrompido.')
+      setFeedback({ kind: 'error', text: err instanceof ApiError ? err.message : 'Arquivo de backup inválido ou corrompido.' })
+    } finally {
+      setRestoring(false)
+      setPendingRestore(null)
     }
   }
 
@@ -110,6 +119,7 @@ export function PanelPage() {
           query=""
           trailing={
             <>
+              <ActiveProfileChip />
               <IconButton icon="download" label="Exportar backup" tone="glass" onClick={handleExportBackup} />
               <IconButton icon="upload" label="Restaurar backup" tone="glass" onClick={() => restoreInputRef.current?.click()} />
               <input
@@ -126,10 +136,29 @@ export function PanelPage() {
           bell={<NotificationsBell />}
         />
 
+        {feedback && (
+          <StatusMessage kind={feedback.kind} onDismiss={() => setFeedback(null)}>
+            {feedback.text}
+          </StatusMessage>
+        )}
+
         <main style={{ flex: 1, minWidth: 0 }}>
           <Outlet />
         </main>
       </div>
+
+      {pendingRestore && (
+        <ConfirmModal
+          title="Restaurar backup"
+          confirmLabel="Restaurar"
+          busyLabel="Restaurando..."
+          loading={restoring}
+          onConfirm={confirmRestore}
+          onClose={() => setPendingRestore(null)}
+        >
+          Restaurar este backup vai adicionar os produtos, listas e posts do arquivo à sua conta (não substitui nem apaga nada existente). Continuar?
+        </ConfirmModal>
+      )}
 
       {deleteAccountOpen && (
         <DeleteAccountModal
@@ -193,7 +222,7 @@ function DeleteAccountModal({ onClose, onDeleted }: DeleteAccountModalProps) {
           Tenho certeza que quero excluir minha conta e meus dados permanentemente.
         </label>
 
-        {error && <p style={{ color: 'var(--negative-ink)', margin: 0 }}>{error}</p>}
+        {error && <p role="alert" style={{ color: 'var(--negative-ink)', margin: 0 }}>{error}</p>}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button type="button" variant="ghost" onClick={onClose}>

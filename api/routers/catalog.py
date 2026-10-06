@@ -19,9 +19,11 @@ from cryptography.fernet import InvalidToken
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from .auth import get_current_user_id
+from .profiles import get_current_profile_id
 from .. import shopee_catalog
 from ..crypto import decrypt
 from ..database import supabase
+from ..profiles import scope_owner
 
 router = APIRouter(prefix="/products", tags=["catalog"])
 
@@ -62,13 +64,14 @@ def _check_search_rate_limit(user_id: int) -> None:
     _search_attempts[user_id] = attempts
 
 
-def _get_shopee_credential(user_id: int) -> tuple[str, str] | None:
+def _get_shopee_credential(user_id: int, profile_id: str | None = None) -> tuple[str, str] | None:
     """Busca e descifra app_id/secret da Shopee do usuário autenticado —
     mesmo padrão de `api/routers/credentials.py::_test_payload` pra
-    `SIMPLE_NETWORKS`. None quando não há credencial salva/completa."""
+    `SIMPLE_NETWORKS`. Com perfil ativo, usa a credencial DO PERFIL. None
+    quando não há credencial salva/completa."""
     row = (
-        supabase.table("shopee_credentials").select("app_id, secret")
-        .eq("user_id", user_id).maybe_single().execute()
+        scope_owner(supabase.table("shopee_credentials").select("app_id, secret"), user_id, profile_id)
+        .maybe_single().execute()
     )
     data = row.data if row and row.data else None
     if not data or not data.get("app_id") or not data.get("secret"):
@@ -117,6 +120,7 @@ def _map_catalog_node(node: dict) -> dict:
 @router.get("/catalog-search")
 async def catalog_search(
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
     keyword: str | None = Query(
         None, description="Termo de busca livre", max_length=MAX_KEYWORD_LENGTH,
     ),
@@ -138,7 +142,7 @@ async def catalog_search(
                    "3 (Preço: maior→menor), 4 (Preço: menor→maior) ou 5 (Melhor comissão).",
         )
 
-    credential = _get_shopee_credential(user_id)
+    credential = _get_shopee_credential(user_id, profile_id)
     if credential is None:
         raise HTTPException(
             status_code=400,

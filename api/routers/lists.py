@@ -7,8 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from .auth import get_current_user_id
+from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..database import supabase
+from ..profiles import scope_owner
 
 router = APIRouter(prefix="/lists", tags=["lists"])
 
@@ -37,16 +39,19 @@ class ProductListWithProducts(ProductListOut):
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
 
-def _get_list(user_id: int, product_list_id: int) -> dict:
-    """Busca uma lista pelo ID, verificando ownership."""
-    result = (
+def _get_list(user_id: int, product_list_id: int, profile_id: str | None = None) -> dict:
+    """Busca uma lista pelo ID, verificando ownership.
+
+    `profile_id` opcional (fallback pra token antigo sem essa claim)."""
+    query = (
         supabase.table("product_lists")
         .select("*")
         .eq("id", product_list_id)
         .eq("user_id", user_id)
-        .single()
-        .execute()
     )
+    if profile_id:
+        query = query.eq("profile_id", profile_id)
+    result = query.single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Lista não encontrada")
     return result.data
@@ -70,20 +75,20 @@ def _get_list_products(list_id: int) -> list[dict]:
     return products
 
 
-def _sync_list_products(user_id: int, list_id: int, product_ids: list[int]) -> None:
+def _sync_list_products(
+    user_id: int, list_id: int, product_ids: list[int], profile_id: str | None = None
+) -> None:
     """Sincroniza `product_lists_products` com `product_ids`.
 
-    Só associa produtos pertencentes ao usuário (evita IDOR via produto de
-    outro usuário). O client Supabase REST não expõe transação (mesma
+    Só associa produtos pertencentes ao usuário (e ao perfil ativo, quando
+    houver — evita IDOR via produto de outro usuário ou de outro perfil). O client Supabase REST não expõe transação (mesma
     limitação dos outros endpoints deste router) — insert e delete são duas
     chamadas separadas, não atômicas.
     """
     owned_ids: set[int] = set()
     if product_ids:
         owned_result = (
-            supabase.table("products")
-            .select("id")
-            .eq("user_id", user_id)
+            scope_owner(supabase.table("products").select("id"), user_id, profile_id)
             .in_("id", product_ids)
             .execute()
         )
@@ -120,17 +125,15 @@ def _sync_list_products(user_id: int, list_id: int, product_ids: list[int]) -> N
 @router.get("")
 async def list_product_lists(
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
     cursor: str | None = Query(None, description="Cursor de paginação"),
     limit: int = Query(20, ge=1, le=100, description="Tamanho da página"),
 ):
     """Lista listas de produtos com paginação por cursor."""
-    query = (
-        supabase.table("product_lists")
-        .select("*")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .limit(limit)
-    )
+    query = supabase.table("product_lists").select("*").eq("user_id", user_id)
+    if profile_id:
+        query = query.eq("profile_id", profile_id)
+    query = query.order("created_at", desc=True).limit(limit)
     if cursor:
         query = query.lt("created_at", cursor)
 
@@ -161,13 +164,13 @@ async def list_product_lists(
 async def create_product_list(
     body: ProductListCreate,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Cria uma nova lista de produtos."""
-    result = (
-        supabase.table("product_lists")
-        .insert({"user_id": user_id, "name": body.name})
-        .execute()
-    )
+    data = {"user_id": user_id, "name": body.name}
+    if profile_id:
+        data["profile_id"] = profile_id
+    result = supabase.table("product_lists").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar lista")
     return result.data[0]
@@ -177,9 +180,10 @@ async def create_product_list(
 async def get_product_list(
     product_list_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Retorna uma lista específica com seus produtos."""
-    list_data = _get_list(user_id, product_list_id)
+    list_data = _get_list(user_id, product_list_id, profile_id)
     products = _get_list_products(product_list_id)
     return {
         "id": list_data["id"],
@@ -196,21 +200,25 @@ async def update_product_list(
     product_list_id: int,
     body: ProductListUpdate,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Atualiza o nome de uma lista."""
-    result = (
+    _get_list(user_id, product_list_id, profile_id)  # ownership check
+
+    update_query = (
         supabase.table("product_lists")
         .update({"name": body.name})
         .eq("id", product_list_id)
         .eq("user_id", user_id)
-        .single()
-        .execute()
     )
+    if profile_id:
+        update_query = update_query.eq("profile_id", profile_id)
+    result = update_query.single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Lista não encontrada")
 
     if body.product_ids is not None:
-        _sync_list_products(user_id, product_list_id, body.product_ids)
+        _sync_list_products(user_id, product_list_id, body.product_ids, profile_id)
 
     return result.data
 
@@ -219,17 +227,20 @@ async def update_product_list(
 async def delete_product_list(
     product_list_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Remove uma lista de produtos."""
-    before = _get_list(user_id, product_list_id)  # ownership check
+    before = _get_list(user_id, product_list_id, profile_id)  # ownership check
 
-    result = (
+    delete_query = (
         supabase.table("product_lists")
         .delete()
         .eq("id", product_list_id)
         .eq("user_id", user_id)
-        .execute()
     )
+    if profile_id:
+        delete_query = delete_query.eq("profile_id", profile_id)
+    result = delete_query.execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Lista não encontrada")
 
@@ -240,6 +251,7 @@ async def delete_product_list(
         action="product_list_deleted",
         old_value=before,
         new_value=None,
+        profile_id=profile_id,
     )
 
     return {"msg": "Lista removida"}

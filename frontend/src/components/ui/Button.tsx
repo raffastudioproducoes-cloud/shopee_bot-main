@@ -28,6 +28,7 @@ export interface ButtonProps {
   type?: "button" | "submit" | "reset"
   className?: string
   style?: CSSProperties
+  title?: string
 }
 
 const SIZES = {
@@ -61,6 +62,7 @@ export function Button({
   type = "button",
   className = "",
   style,
+  title,
 }: ButtonProps) {
   const s = SIZES[size] || SIZES.md
   const t = TONES[variant] || TONES.primary
@@ -72,6 +74,7 @@ export function Button({
   return (
     <button
       type={type}
+      title={title}
       disabled={isInactive}
       aria-disabled={disabled}
       aria-busy={loading}

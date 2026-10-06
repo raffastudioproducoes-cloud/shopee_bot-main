@@ -15,31 +15,47 @@ não só o *o quê* — ver corpo do commit `feat(facebook): OAuth de app unico.
 (`.claude/tmp/commit_msg_facebook_oauth.txt`), que documenta o problema resolvido, a
 reutilização de app existente e uma limitação conhecida deixada como MVP.
 
-Branch principal: `master`. Push direto em `master` é a prática adotada — **sem PR** para
-grande parte do histórico recente (confirmado no vault, `27-Migracao-App-Unico-OAuth.md`:
-"commit já feito local, sem passar por PR (pedido explícito)"). Alguns merges de PR também
-existem no histórico (`Merge pull request #5`, `#4`) — os dois fluxos coexistem, decisão é do
-dono do projeto por sessão.
+Fluxo de branches (Git Flow, a partir de 2026-09-30): `main` é produção, `staging` é o
+ambiente de homologação e todo trabalho acontece em `feature/*`. Nunca commitar direto em
+`main`: trabalho em branch própria + PR, e merge só com testes verdes e revisão. (Antes
+disso a prática era push direto em `master` sem PR — confirmado no vault,
+`27-Migracao-App-Unico-OAuth.md` — e alguns merges de PR existem no histórico, `#5`, `#4`.)
+
+Versionamento SemVer (arquivo `VERSION` + `CHANGELOG.md`): a versão só sobe no merge para
+`main` — patch = correção, minor = feature compatível, major = mudança grande. O sistema
+multi-perfil foi tratado como MAJOR (2.0.0) por decisão do Rafa.
+
+Proteção de branch: **GitHub Pro está ativo (confirmado pelo Rafa, 2026-10-05).** A proteção
+automática de branch agora é possível — branch protection/Rulesets pode ser ativada em
+repositório privado com GitHub Pro. Configuração não foi aplicada ainda (possível agora, ainda
+não ativada). Ver `docs/TASK.md` item 10.13 para contexto da decisão.
 
 ## 2. CI (`.github/workflows/ci.yml`)
 
-- Lint com `flake8` sobre `api/` (dois passos: erros de sintaxe `E9,F63,F7,F82` sempre;
-  estilo com `--max-line-length=120` tolerante a falha, `|| true`).
-- Checagem de sintaxe explícita via `python -m py_compile` nos módulos centrais da API nova.
-- Testes: `python -m pytest tests/api --confcutdir=tests/api -q` — **nunca** `pytest` puro
-  (quebra `ModuleNotFoundError` em `from api.main import app` sem `-m pytest`).
-- `--confcutdir=tests/api` é obrigatório: o `conftest.py` da raiz faz
-  `gevent.monkey.patch_all()` (suporte do Flask legado) e trava as threads async do
-  `anyio`/`httpx` usadas pelo `TestClient` do FastAPI.
-- CI só cobre `tests/api` (API nova) — os testes do Flask legado (`tests/test_auth.py`,
-  `tests/test_publish.py`) exigem Postgres local em `localhost:5433` e **não rodam na CI**.
+- Gatilhos: push e pull_request em `main`. `permissions: contents: read`; `concurrency`
+  cancela execuções antigas do mesmo ref. Cache de pip e npm.
+- Job `api` (Python 3.13, igual ao `Dockerfile`):
+  - `flake8 api/ --select=E9,F63,F7,F82` **bloqueante** (sem `|| true`); estilo
+    (`--max-line-length=120`) é informativo (`continue-on-error`).
+  - Checagem de sintaxe via `python -m py_compile` nos módulos centrais.
+  - Testes: `python -m pytest tests/api --confcutdir=tests/api -q` — **nunca** `pytest` puro
+    (quebra `ModuleNotFoundError` em `from api.main import app` sem `-m pytest`).
+  - `--confcutdir=tests/api` é obrigatório: o `conftest.py` da raiz faz
+    `gevent.monkey.patch_all()` (Flask legado) e trava as threads async do `anyio`/`httpx`.
+  - Só cobre `tests/api`; os testes do Flask legado exigem Postgres local em `localhost:5433`
+    e **não rodam na CI**.
+- Job `frontend` (Node 20): `npm ci` e `npm run build` (`tsc && vite build`) em `frontend/`.
+  Não há testes de frontend.
+- `.github/dependabot.yml` (semanal, minor/patch agrupados: pip raiz e `/api`, npm, actions)
+  e `.github/pull_request_template.md` com checklist de PR.
 
 ## 3. Deploy
 
-- `cd.yml`: qualquer push em `master` disparra um `curl` no `RENDER_DEPLOY_HOOK_URL` (deploy
-  automático). Não há gate de aprovação manual documentado.
-- Se o secret não estiver configurado, o job **não falha** — emite `::warning::` e sai com
-  `exit 0`. Deploy silenciosamente pulado é uma possibilidade real, não um erro visível.
+- `cd.yml` dispara via `workflow_run` quando o workflow `CI` termina com sucesso em `main`
+  (evento push). CI vermelho = sem deploy. `concurrency` evita deploys em paralelo.
+- `curl -fsS`: resposta HTTP de erro do hook do Render faz o job falhar.
+- Se o secret `RENDER_DEPLOY_HOOK_URL` não existir, o job **não falha** — emite `::warning::`
+  e sai com `exit 0`. Deploy silenciosamente pulado ainda é possível.
 
 ## 4. Padrões de código observados
 
@@ -133,6 +149,34 @@ dono do projeto por sessão.
   desatualizada com o código, a cada rodada de trabalho relevante — prática permanente a
   seguir daqui pra frente em toda sessão futura, não uma tarefa única. (origem: pedido direto
   de Rafa, 2026-09-30)
+
+## 11. Migrações 037+ aplicadas antes do deploy do código que as usa (regra permanente, 2026-10-05)
+
+- O código da branch de multi-perfil completo depende das migrações `037` (trigger de limite de
+  3 perfis), `038` (`profile_id` em 14 tabelas), `039` (remove UNIQUE de
+  `shopee_credentials.app_id` e troca o de `credential_checks`), `041` (unicidade de `products` por
+  perfil, para o mesmo produto existir em 2 perfis). Toda migração nova que o código
+  passa a exigir deve ser aplicada no Supabase **antes** de o deploy dessa versão subir.
+- Motivo (fato verificado em `database/migrations/__init__.py` e `gunicorn.conf.py`): o
+  `run_migrations()` roda no boot (`post_fork`) e aplicaria as pendentes sozinho, mas uma falha
+  ali derruba o worker e entra em crash-loop (ver item 9). Aplicar antes, de forma controlada,
+  e conferir a linha na tabela `migrations`, evita descobrir o erro no boot de produção.
+- As migrações 037/038/039/040/041 são idempotentes e aditivas (exceto a 039, que só remove/troca
+  unicidade, sem alterar dado). Se forem aplicadas fora do app, registrar em `migrations` na
+  hora (item 9).
+- Escrita em disco local (imagem não-root, usuário `app`, uid 10001): `/shopee_bot/upload`
+  (`FLASK_UPLOAD_FOLDER=upload`) e `/shopee_bot/web/media` (mídia de posts na API). O
+  `Dockerfile` cria ambos com `chown app` na build. Sem disco persistente do Render o conteúdo
+  é efêmero (some a cada deploy). Se montar disco persistente em um desses caminhos, o mount
+  nasce `root:root` e esconde o `chown` da imagem: ajustar a permissão no destino (ex.: Shell
+  do serviço `chown -R 10001:10001 <mount>` uma vez) ou apontar `FLASK_UPLOAD_FOLDER` para
+  um subdiretório criável. Não há variável `RENDER_DISK` lida pelo app.
+
+## Revisão de consistência (2026-10-05)
+
+Itens 2 e 3 conferidos contra `.github/workflows/ci.yml` e `cd.yml` (Python 3.13, flake8
+bloqueante, job `frontend`, `workflow_run`, `concurrency`): coerentes. Item 1 continua válido;
+o limite de 3 perfis agora também é imposto por trigger no banco (migração 037).
 
 ## Referências
 

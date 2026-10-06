@@ -10,16 +10,18 @@ mas nenhum router respondia por esse prefixo, então a rota sempre voltava
 from fastapi import APIRouter, Depends
 
 from .auth import get_current_user_id
+from .profiles import get_current_profile_id
 from ..database import supabase
+from ..profiles import scope_owner
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
-def _count(table: str, user_id: int, **filters: str) -> int:
+def _count(table: str, user_id: int, profile_id: str | None = None, **filters: str) -> int:
     """Conta linhas de `table` para o usuário sem baixar os dados
     (`count="exact"` + `limit(1)`: Postgrest calcula o total via
     Content-Range mesmo com o resultado limitado a 1 linha)."""
-    query = supabase.table(table).select("id", count="exact").eq("user_id", user_id)
+    query = scope_owner(supabase.table(table).select("id", count="exact"), user_id, profile_id)
     for column, value in filters.items():
         query = query.is_(column, value)
     result = query.limit(1).execute()
@@ -27,13 +29,17 @@ def _count(table: str, user_id: int, **filters: str) -> int:
 
 
 @router.get("/stats")
-async def get_stats(user_id: int = Depends(get_current_user_id)):
+async def get_stats(
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
     """Contagens do dashboard: produtos, posts (threads completas, não
     cada parte — mesmo critério de `posts.list_posts`: `post_id IS NULL`),
-    listas de produtos e posts com agendamento ativo."""
+    listas de produtos e posts com agendamento ativo. Com perfil ativo, conta
+    só o que pertence a ele; sem perfil (token antigo), tudo da conta."""
     return {
-        "products_count": _count("products", user_id),
-        "posts_count": _count("posts", user_id, post_id="null"),
-        "lists_count": _count("product_lists", user_id),
-        "scheduled_posts": _count("schedulers", user_id),
+        "products_count": _count("products", user_id, profile_id),
+        "posts_count": _count("posts", user_id, profile_id, post_id="null"),
+        "lists_count": _count("product_lists", user_id, profile_id),
+        "scheduled_posts": _count("schedulers", user_id, profile_id),
     }

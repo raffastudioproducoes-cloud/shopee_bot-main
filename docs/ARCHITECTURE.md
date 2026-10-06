@@ -52,7 +52,7 @@ Fonte: `Dockerfile`, `gunicorn.conf.py`, `web/routes/api_proxy.py`, `api/interna
 | Mídia | Cloudinary (host temporário) | Upload/hospedagem de imagem de post |
 | IA | Google Gemini (`apis/llm.py`) | Copywriter de post por persona |
 | Cripto | `cryptography` (Fernet) — `utils/crypto.py` (Flask) e `api/crypto.py` (wrapper compatível, FastAPI) | Cifra credencial de rede social em repouso |
-| Infra/Deploy | Render (Web Service, Docker, plano Free), GitHub Actions (CI) | Deploy automático a cada push em `master` |
+| Infra/Deploy | Render (Web Service, Docker, plano Free), GitHub Actions (CI) | Deploy automático a cada push em `main` |
 | WSGI/ASGI | Gunicorn + gevent (Flask), Uvicorn (FastAPI) | Servidores de aplicação |
 
 ## 3. Estrutura de pastas real
@@ -95,7 +95,7 @@ shopee_bot-main/
 │   ├── templates/, static/, media/
 ├── frontend/                  # React novo
 │   └── src/
-│       ├── pages/             # DashboardPage, LoginPage, PanelPage, PostsPage, ProductsPage, ListasPage, CredentialsPage, UsersPage
+│       ├── pages/             # DashboardPage, LoginPage, PanelPage, PostsPage, ProductsPage, ListasPage, CredentialsPage, ProfilesPage, SettingsPage
 │       ├── components/ui/     # design system (ver DESIGN.md)
 │       ├── api/                # clientes HTTP tipados
 │       ├── stores/              # Zustand (auth)
@@ -172,6 +172,34 @@ via bridge.
   Render — decisão tomada por custo/complexidade (Fase 8.1 do roadmap de migração).
 - **App único de OAuth** (substituindo o modelo per-user anterior para X/TikTok/Instagram) —
   detalhe completo em `27-Migracao-App-Unico-OAuth.md` (vault).
+
+## 8. Atualização 2026-10-05 — multi-perfil e endurecimento (branch `chore/phase-12-integration`)
+
+> Nota datada: as seções 1-7 refletem a verificação de 2026-09-29 e foram mantidas. Correções e
+> acréscimos verificados no código desta branch:
+
+- **Correções ao texto acima**: (a) o gunicorn escuta em `$PORT` (default 5000,
+  `gunicorn.conf.py`), não em 8000 como no diagrama da seção 1; (b) o redirect pós-OAuth da API
+  nova vai para `{FRONTEND_URL}/credentials` (`api/routers/credentials.py`), não `/panel/credentials`;
+  (c) além dos routers listados na seção 3 existem `profiles.py`, `settings.py`, `catalog.py` e
+  `logs.py`.
+- **Perfil ativo**: o JWT (cookie httpOnly) carrega `sub`, `id`, `profile_id` e `pwv`. O backend
+  valida que o `profile_id` pertence ao usuário e, se não pertencer, cai no perfil principal
+  (`api/routers/profiles.py::_resolve_profile_id`). `GET /auth/me` devolve o `profile_id` ativo.
+  Tabelas com `profile_id` (FK `ON DELETE SET NULL`): `products`, `product_lists` (036) e, pela
+  038, credenciais das 7 redes, `credential_checks`, `posts`, `medias`, `schedulers`,
+  `activities`, `request_logs`, `audit_events`. O scheduler e os bots usam a credencial e as
+  atividades do perfil do post, com fallback por `user_id`.
+- **Banco**: migração 037 (trigger `trg_enforce_profile_limit`, limite de 3 perfis, advisory
+  lock), 038 (colunas/índices/backfill), 039 (remove UNIQUE de `shopee_credentials.app_id`; check
+  de credencial passa a ser por `(user_id, profile_id, network)`) e 040 (índice único de `credential_checks` com coalesce para deduplicar NULLs). Migrações vão até a 041.
+- **Auth**: a troca de senha muda o hash e invalida tokens antigos (claim `pwv`, comparado em
+  `api/routers/auth.py`); tokens emitidos antes do claim existir continuam aceitos.
+- **Container**: `Dockerfile` roda como usuário não-root (uid 10001) com `HEALTHCHECK` em
+  `/health`; `gunicorn.conf.py` com `timeout = 120` e thread supervisora que reinicia o uvicorn
+  com backoff.
+- **CI/CD**: ver `docs/RULES.md` itens 2 e 3 (flake8 bloqueante, job `frontend`, CD via
+  `workflow_run`).
 
 ## Referências
 

@@ -24,7 +24,7 @@ from ..utils.log_sanitizer import sanitize_log_data
 
 router = APIRouter(prefix="/logs", tags=["logs"])
 
-_FIELDS = "id, user_id, username, method, path, action, status_code, duration_ms, error, redirect_to, client_ip, created_at"
+_FIELDS = "id, user_id, profile_id, username, method, path, action, status_code, duration_ms, error, redirect_to, client_ip, created_at"
 
 
 def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
@@ -44,6 +44,7 @@ async def list_logs(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     user_id: int | None = Query(None),
+    profile_id: str | None = Query(None, description="Filtra por perfil (opcional)"),
     username: str | None = Query(None),
     status_code: int | None = Query(None),
     created_from: datetime | None = Query(None),
@@ -53,6 +54,8 @@ async def list_logs(
 
     if user_id is not None:
         query = query.eq("user_id", user_id)
+    if profile_id:
+        query = query.eq("profile_id", profile_id)
     if username:
         query = query.ilike("username", f"%{username}%")
     if status_code is not None:

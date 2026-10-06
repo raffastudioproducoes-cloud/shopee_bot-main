@@ -397,19 +397,20 @@ class TestBackupRestore:
         checksum = users_router._checksum(data)
 
         tables = {
-            "products": _query_mock(MagicMock(data=[{"id": 55, "name": "Produto restaurado"}])),
+            "products": _query_mock([
+                MagicMock(data=[]),  # lookup no perfil: não existe
+                MagicMock(data=[{"id": 55, "name": "Produto restaurado"}]),
+            ]),
         }
         monkeypatch.setattr(database_module, "get_supabase", lambda: _make_fake_supabase(tables))
 
         res = auth_client.post("/users/me/restore", json={**data, "checksum": checksum})
 
         assert res.status_code == 200
-        upsert_call = tables["products"].upsert.call_args
-        inserted = upsert_call.args[0]
+        inserted = tables["products"].insert.call_args.args[0]
         assert inserted["user_id"] == 42  # nunca o user_id vindo do backup (999)
         assert "id" not in inserted  # allowlist do ProductCreate: sem `id` solto
         assert inserted["name"] == "Produto restaurado"
-        assert upsert_call.kwargs["on_conflict"] == "product_id,user_id"
 
     def test_malformed_product_item_returns_422_not_500(self, auth_client, monkeypatch):
         """`product_id` ausente (fora do schema `ProductCreate`) vira 422
@@ -446,14 +447,17 @@ class TestBackupRestore:
         checksum = users_router._checksum(data)
 
         tables = {
-            "products": _query_mock(MagicMock(data=[{"id": 55, "name": "Produto já existente"}])),
+            "products": _query_mock([
+                MagicMock(data=[{"id": 55}]),  # lookup: já existe no perfil
+                MagicMock(data=[{"id": 55, "name": "Produto já existente"}]),
+            ]),
         }
         monkeypatch.setattr(database_module, "get_supabase", lambda: _make_fake_supabase(tables))
 
         res = auth_client.post("/users/me/restore", json={**data, "checksum": checksum})
 
         assert res.status_code == 200
-        tables["products"].upsert.assert_called_once()
+        tables["products"].update.assert_called_once()
         tables["products"].insert.assert_not_called()
 
     def test_oversized_product_list_is_rejected_before_touching_database(
@@ -505,3 +509,59 @@ class TestBackupRestore:
 
         assert res.status_code == 400
         fake_client.table.assert_not_called()
+
+
+class TestAdminCreateUserProvisioning:
+    def test_creates_principal_profile_like_register(self, auth_client, monkeypatch):
+        query = _mock_supabase(
+            monkeypatch,
+            [{"access": "ADMIN"}]
+            + [[{"id": 9, "username": "novo", "access": "USER"}]]
+            + [[{"id": "x"}]] * 8,
+        )
+        query.insert.return_value = query
+
+        res = auth_client.post(
+            "/users", json={"username": "novo", "password": "senha1234", "access": "USER"}
+        )
+
+        assert res.status_code == 201
+        inserts = [c.args[0] for c in query.insert.call_args_list]
+        assert {"user_id": 9, "kind": "principal", "nome": "novo"} in inserts
+
+    def test_failure_rolls_back_user_and_returns_generic_500(self, auth_client, monkeypatch):
+        query = _mock_supabase(
+            monkeypatch,
+            [{"access": "ADMIN"}, [{"id": 9, "username": "novo", "access": "USER"}]],
+        )
+        query.insert.return_value = query
+        query.execute.side_effect = [
+            MagicMock(data={"access": "ADMIN"}),
+            MagicMock(data=[{"id": 9, "username": "novo", "access": "USER"}]),
+            Exception("segredo do banco"),
+            MagicMock(data=[]),
+        ]
+
+        res = auth_client.post(
+            "/users", json={"username": "novo", "password": "senha1234", "access": "USER"}
+        )
+
+        assert res.status_code == 500
+        assert "segredo" not in res.text
+        query.delete.assert_called_once()
+
+
+class TestBackupRestoreRateLimit:
+    def test_backup_is_rate_limited(self, auth_client, monkeypatch):
+        monkeypatch.setattr(users_router, "_collect_backup_data", lambda uid, pid=None: {
+            "products": [], "product_lists": [], "posts": [], "exported_at": "x"
+        })
+        codes = [auth_client.get("/users/me/backup").status_code for _ in range(6)]
+        assert codes[:5] == [200] * 5
+        assert codes[5] == 429
+
+    def test_restore_is_rate_limited(self, auth_client):
+        body = {"products": [], "product_lists": [], "posts": [], "exported_at": "x",
+                "checksum": "invalido"}
+        codes = [auth_client.post("/users/me/restore", json=body).status_code for _ in range(6)]
+        assert codes[5] == 429

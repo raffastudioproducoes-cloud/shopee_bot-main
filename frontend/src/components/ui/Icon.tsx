@@ -42,6 +42,7 @@ import {
   LayoutGrid,
   ScrollText,
   HelpCircle,
+  Camera,
   type LucideProps,
 } from "lucide-react"
 
@@ -121,6 +122,9 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   // Extrapolação: adicionado para o nav item de HelpPage.tsx (Ajuda & FAQ)
   // — não faz parte do mapa original.
   "help-circle": HelpCircle,
+  // Extrapolação: adicionado para o botão de upload de avatar em ProfilesPage.tsx
+  // — não faz parte do mapa original.
+  camera: Camera,
 }
 
 export function Icon({ name, size = 20, strokeWidth = 1.75, className = "", style }: IconProps) {

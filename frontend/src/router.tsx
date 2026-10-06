@@ -6,9 +6,10 @@ import { ProductsPage } from "./pages/ProductsPage"
 import { ListasPage } from "./pages/ListasPage"
 import { PostsPage } from "./pages/PostsPage"
 import { CredentialsPage } from "./pages/CredentialsPage"
-import { UsersPage } from "./pages/UsersPage"
+import { ProfilesPage } from "./pages/ProfilesPage"
 import { LogsPage } from "./pages/LogsPage"
 import { HelpPage } from "./pages/HelpPage"
+import { SettingsPage } from "./pages/SettingsPage"
 import { TermsPage } from "./pages/legal/TermsPage"
 import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage"
 
@@ -75,10 +76,10 @@ const credentialsRoute = createRoute({
   component: CredentialsPage,
 })
 
-const usersRoute = createRoute({
+const profilesRoute = createRoute({
   getParentRoute: () => panelRoute,
-  path: "/users",
-  component: UsersPage,
+  path: "/profiles",
+  component: ProfilesPage,
 })
 
 const logsRoute = createRoute({
@@ -93,6 +94,12 @@ const helpRoute = createRoute({
   component: HelpPage,
 })
 
+const settingsRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: "/settings",
+  component: SettingsPage,
+})
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   termsRoute,
@@ -103,9 +110,10 @@ const routeTree = rootRoute.addChildren([
     listsRoute,
     postsRoute,
     credentialsRoute,
-    usersRoute,
+    profilesRoute,
     logsRoute,
     helpRoute,
+    settingsRoute,
   ]),
 ])
 

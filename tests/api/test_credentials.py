@@ -89,7 +89,7 @@ class TestSaveCredentialStripsWhitespace:
     def test_save_credential_strips_app_id_and_secret(self, monkeypatch, auth_client):
         captured = {}
 
-        def fake_upsert(table, user_id, data):
+        def fake_upsert(table, user_id, data, profile_id=None):
             captured["data"] = data
             return {**data, "id": 1}
 

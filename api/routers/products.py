@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Any
 
 from .auth import get_current_user_id
+from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..database import supabase
 
@@ -61,19 +62,32 @@ def _normalize_numeric_fields(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
-def _get(user_id: int, product_id: int) -> dict[str, Any]:
-    """Busca um produto pelo ID, verificando ownership."""
-    result = (
+def _get(user_id: int, product_id: int, profile_id: str | None = None) -> dict[str, Any]:
+    """Busca um produto pelo ID, verificando ownership.
+
+    `profile_id` opcional (fallback pra token antigo sem essa claim)."""
+    query = (
         supabase.table("products")
         .select("*")
         .eq("id", product_id)
         .eq("user_id", user_id)
-        .single()
-        .execute()
     )
+    if profile_id:
+        query = query.eq("profile_id", profile_id)
+    result = query.single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
     return _normalize_numeric_fields(result.data)
+
+
+def find_product_in_profile(db: Any, user_id: Any, product_id: Any, profile_id: str | None) -> dict[str, Any] | None:
+    """Produto da conta com esse `product_id` DENTRO do perfil (migração 041:
+    a unicidade é por (user_id, product_id, perfil); sem perfil = linhas
+    legadas com profile_id NULL)."""
+    query = db.table("products").select("id").eq("user_id", user_id).eq("product_id", product_id)
+    query = query.eq("profile_id", profile_id) if profile_id else query.is_("profile_id", "null")
+    rows = query.limit(1).execute().data or []
+    return rows[0] if rows else None
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────────
@@ -81,6 +95,7 @@ def _get(user_id: int, product_id: int) -> dict[str, Any]:
 @router.get("")
 async def list_products(
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
     search: str | None = Query(None, description="Busca por nome"),
     category: str | None = Query(None, description="Filtrar por categoria"),
     min_price: float | None = Query(None, description="Preço mínimo"),
@@ -90,8 +105,13 @@ async def list_products(
     page: int = Query(1, ge=1, description="Página"),
     page_size: int = Query(50, ge=1, le=200, description="Itens por página"),
 ):
-    """Lista produtos com filtros, ordenação e paginação por offset."""
+    """Lista produtos com filtros, ordenação e paginação por offset.
+
+    `profile_id` é opcional: tokens antigos (sem essa claim) continuam
+    filtrando só por `user_id` (fallback, nunca quebra sessão existente)."""
     query = supabase.table("products").select("*").eq("user_id", user_id)
+    if profile_id:
+        query = query.eq("profile_id", profile_id)
 
     if search:
         query = query.ilike("name", f"%{search}%")
@@ -125,23 +145,31 @@ async def list_products(
 async def create_product(
     body: ProductCreate,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Cria um novo produto."""
-    result = (
-        supabase.table("products")
-        .insert({
-            "user_id": user_id,
-            "product_id": body.product_id,
-            "name": body.name,
-            "original_link": body.original_link,
-            "commission_link": body.commission_link,
-            "commission": body.commission,
-            "image": body.image,
-            "price_min": body.price_min,
-            "price_max": body.price_max,
-        })
-        .execute()
-    )
+    data: dict[str, Any] = {
+        "user_id": user_id,
+        "product_id": body.product_id,
+        "name": body.name,
+        "original_link": body.original_link,
+        "commission_link": body.commission_link,
+        "commission": body.commission,
+        "image": body.image,
+        "price_min": body.price_min,
+        "price_max": body.price_max,
+    }
+    if profile_id:
+        data["profile_id"] = profile_id
+    duplicate = HTTPException(status_code=409, detail="Produto já cadastrado neste perfil")
+    if find_product_in_profile(supabase, user_id, body.product_id, profile_id):
+        raise duplicate
+    try:
+        result = supabase.table("products").insert(data).execute()
+    except Exception as exc:  # corrida: o índice único (041) é a barreira final
+        if "23505" in str(exc) or "duplicate key" in str(exc).lower():
+            raise duplicate from exc
+        raise
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar produto")
     return _normalize_numeric_fields(result.data[0])
@@ -151,9 +179,10 @@ async def create_product(
 async def get_product(
     product_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Retorna um produto específico."""
-    return _get(user_id, product_id)
+    return _get(user_id, product_id, profile_id)
 
 
 @router.put("/{product_id}")
@@ -161,22 +190,24 @@ async def update_product(
     product_id: int,
     body: ProductUpdate,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Atualiza um produto existente."""
-    before = _get(user_id, product_id)  # ownership check
+    before = _get(user_id, product_id, profile_id)  # ownership check
 
     update_data: dict[str, Any] = {}
     for key, value in body.model_dump(exclude_unset=True).items():
         update_data[key] = value
 
-    result = (
+    update_query = (
         supabase.table("products")
         .update(update_data)
         .eq("id", product_id)
         .eq("user_id", user_id)
-        .single()
-        .execute()
     )
+    if profile_id:
+        update_query = update_query.eq("profile_id", profile_id)
+    result = update_query.single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
     after = _normalize_numeric_fields(result.data)
@@ -190,6 +221,7 @@ async def update_product(
             action="product_price_changed",
             old_value={field: before.get(field) for field in price_fields},
             new_value={field: after.get(field) for field in price_fields},
+            profile_id=profile_id,
         )
 
     return after
@@ -199,17 +231,20 @@ async def update_product(
 async def delete_product(
     product_id: int,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Remove um produto."""
-    before = _get(user_id, product_id)  # ownership check
+    before = _get(user_id, product_id, profile_id)  # ownership check
 
-    result = (
+    delete_query = (
         supabase.table("products")
         .delete()
         .eq("id", product_id)
         .eq("user_id", user_id)
-        .execute()
     )
+    if profile_id:
+        delete_query = delete_query.eq("profile_id", profile_id)
+    result = delete_query.execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
@@ -220,6 +255,7 @@ async def delete_product(
         action="product_deleted",
         old_value=before,
         new_value=None,
+        profile_id=profile_id,
     )
 
     return {"msg": "Produto removido"}

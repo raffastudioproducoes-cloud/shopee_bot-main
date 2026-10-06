@@ -50,9 +50,14 @@ atividades.
 Hospedado em **Render (Free)**: `https://shopee-bot-fj0w.onrender.com`.
 Banco: **Supabase** (Postgres gerenciado).
 
-> **Em migração**: o frontend em produção hoje é Flask + Jinja2 + Alpine.js
-> (funcional, mantido enquanto a migração roda). O novo frontend React já está
-> em construção em paralelo — ver [Roadmap da migração](#roadmap-da-migração).
+> **Em migração**: o Flask (`web/`) segue no mesmo container servindo o proxy `/api/*`,
+> o scheduler e o build do React; o painel Jinja legado fica desligado por padrão
+> (`LEGACY_PANEL_ENABLED=false`) e o painel principal é o React (`frontend/`). Ver
+> [Roadmap da migração](#roadmap-da-migração).
+
+**Versão atual**: 2.0.0 (arquivo `VERSION`). As mudanças da branch de integração
+(multi-perfil completo, endurecimento de segurança e CI) estão em `CHANGELOG.md` na
+seção "Não lançado" e só viram versão no merge para `main`.
 
 ## Objetivo
 
@@ -76,7 +81,7 @@ Tirar o trabalho manual de quem divulga produto de afiliado:
 | **Copywriter IA** | Geração de texto de post via Gemini, por persona (`apis/llm.py`) |
 | **Credenciais** | Shopee, Threads, X, Facebook, Instagram, TikTok, Kwai — cifradas em repouso (Fernet), nunca reexibidas |
 | **Atividades** | Histórico auditável de ações do usuário |
-| **Usuários** | Administração de acesso (ADMIN/USER) |
+| **Perfis e Configurações** | Até 3 perfis por conta (1 principal + 2 secundários, com avatar), editar/excluir/ativar sem recarregar a página e perfil ativo na TopBar; o perfil ativo escopa produtos, listas, posts, mídias, credenciais das redes, dashboard, notificações, logs e backup/restore (ver [Multi-perfil](#multi-perfil)). Página `/settings` com troca de senha. Administração de acesso (ADMIN/USER) na página Perfis |
 | **Scheduler** | Jobs agendados in-process (APScheduler, jobstore em Postgres) — ADR em `19-ADR-Scheduler-In-Process.md` (Vault) |
 
 ## Tecnologias
@@ -99,8 +104,8 @@ Tirar o trabalho manual de quem divulga produto de afiliado:
 - Credenciais cifradas com **Fernet**
 
 **Infra**:
-- **Render** (Web Service, Docker) — deploy automático a partir do GitHub
-- **GitHub Actions** — CI (lint + testes da API Python)
+- **Render** (Web Service, Docker) — Python 3.13 (build do frontend em Node 22 no `Dockerfile`); a imagem roda como usuário não-root e tem `HEALTHCHECK` em `/health`
+- **GitHub Actions** — CI (lint, testes da API e build do frontend) e CD (ver [Deploy](#deploy))
 
 ## Estrutura do projeto
 
@@ -111,15 +116,13 @@ shopee_bot-main/
 │   ├── config.py
 │   ├── database.py
 │   ├── requirements.txt
-│   └── routers/
-│       ├── auth.py
-│       ├── products.py
-│       └── lists.py
+│   └── routers/            # auth, profiles, settings, products, lists, posts,
+│                           # credentials, users, dashboard, notifications, catalog, logs
 ├── frontend/               # Frontend novo (React + Vite) — em migração
 │   ├── src/
 │   │   ├── api/            # clientes HTTP tipados por recurso
 │   │   ├── lib/            # cliente HTTP base
-│   │   ├── pages/          # Dashboard, Login, Panel, Products, Listas
+│   │   ├── pages/          # Dashboard, Login, Panel, Products, Listas, Posts, Credentials, Profiles, Settings
 │   │   ├── stores/         # Zustand (auth)
 │   │   └── router.tsx      # TanStack Router (code-based)
 │   └── vite.config.ts
@@ -154,7 +157,7 @@ pip install -r api/requirements.txt
 cd frontend && npm install
 ```
 
-Requisitos: Python 3.11+, Node.js 20+, conta Supabase (ou Postgres local via `docker-compose-dev.yml`).
+Requisitos: Python 3.13 (versão usada pela CI e pelo `Dockerfile`), Node.js 20+, conta Supabase (ou Postgres local via `docker-compose-dev.yml`).
 
 ## Desenvolvimento
 
@@ -181,11 +184,19 @@ O Flask (`web/`) não tem build separado — Jinja2 é renderizado em runtime.
 ## Testes
 
 ```bash
-# Flask (precisa de Postgres local em localhost:5433 — ver conftest.py)
-pytest tests/test_auth.py tests/test_publish.py
+# API nova (FastAPI) — isolada do conftest do Flask, não precisa de Postgres.
+# É exatamente o que a CI roda.
+python -m pytest tests/api --confcutdir=tests/api -q
 
-# API nova (FastAPI) — isolada do conftest do Flask, não precisa de Postgres
-python -m pytest tests/api --confcutdir=tests/api
+# Lint bloqueante da CI (erros de sintaxe/nomes indefinidos em api/)
+flake8 api/ --select=E9,F63,F7,F82
+
+# Frontend: type check + build (também roda na CI; não há testes de frontend)
+cd frontend && npm ci && npm run build
+
+# Flask legado (precisa de Postgres local em localhost:5433 — ver conftest.py);
+# NÃO roda na CI
+pytest tests/test_auth.py tests/test_publish.py
 ```
 
 > `--confcutdir=tests/api` é necessário: o `conftest.py` da raiz faz
@@ -196,20 +207,56 @@ python -m pytest tests/api --confcutdir=tests/api
 
 - **Plataforma**: Render (Web Service, Docker), plano Free.
 - **Build**: lê o `Dockerfile` da raiz (Python 3.13-slim + gunicorn + gevent).
-- **Auto-deploy**: integração nativa do Render com o GitHub, a cada push em `master`.
+- **CI** (`.github/workflows/ci.yml`, push/PR em `main`): job `api` (flake8 bloqueante + `pytest tests/api`, Python 3.13) e job `frontend` (`npm ci` + `npm run build`, Node 20); cache de pip/npm e `concurrency` por ref.
+- **CD** (`.github/workflows/cd.yml`): dispara via `workflow_run` só quando a CI termina com sucesso em `main` (push) e chama o deploy hook do Render (secret `RENDER_DEPLOY_HOOK_URL`; sem o secret, o job emite warning e pula). `.github/dependabot.yml` (semanal) e `.github/pull_request_template.md` complementam o fluxo.
+- **Fluxo de branches**: Git Flow (`main` produção, `staging` homologação, `feature/*`); ver `docs/RULES.md`. GitHub Pro está ativo (confirmado pelo Rafa, 2026-10-05); branch protection agora é possível, mas ainda não configurada.
+- **Pendências em produção** (confirmado pelo Rafa, 2026-10-05): env vars do Render (`shopee-bot-staging`), branch de produção de `master` para `main`, callback URLs das redes, conectar redes sociais — ver `docs/TASK.md` item 10.13.
 - **Banco**: Supabase, via Session Pooler (IPv4 — o Direct Connection só responde IPv6, incompatível com o Render Free).
 
-Detalhes de infraestrutura, variáveis de ambiente e histórico de bugs resolvidos no deploy: Vault `26-Deploy-Render.md`.
+Detalhes de infraestrutura e histórico de bugs resolvidos no deploy: Vault `26-Deploy-Render.md`.
+
+### Variáveis de ambiente
+
+A lista completa, com comentário de cada uma e valores placeholder, está em `.env-example`.
+Principais grupos: Supabase (`SUPABASE_URL`, `SUPABASE_KEY`), JWT da API (`API_SECRET_KEY`),
+Postgres do Flask/scheduler (`SHOPEE_PG_*`), bridge interno (`INTERNAL_API_SECRET`,
+`FLASK_INTERNAL_URL`, `API_INTERNAL_URL`), OAuth de app único (`THREADS_*`, `X_CLIENT_ID/SECRET`,
+`INSTAGRAM_*`, `FACEBOOK_*`, `TIKTOK_CLIENT_KEY/SECRET`, mais as `*_CALLBACK_URL`),
+criptografia (`APP_ENCRYPTION_KEY`), mídia (`CLOUDINARY_*`), IA (`GEMINI_API_KEY`),
+`FRONTEND_URL`, `CORS_ORIGINS` e `REQUEST_LOGGING_ENABLED`. Nunca versionar valores reais.
+
+### Processo no container
+
+`gunicorn.conf.py` usa `timeout = 120` e sobe o uvicorn (FastAPI) em subprocesso com um
+supervisor que o reinicia com backoff se ele cair.
 
 ## Banco de dados
 
 Supabase (Postgres), schema com RLS habilitado em todas as tabelas:
-`users`, `products`, `product_lists`, `product_lists_products`, `posts`,
+`users`, `profiles`, `products`, `product_lists`, `product_lists_products`, `posts`,
 `medias`, `posts_medias`, `posts_products`, `schedulers`, `apscheduler_jobs`,
-`activities`, `activity_types`, `migrations`, e uma tabela de credenciais por
-rede (`shopee_credentials`, `threads_credentials`, `x_credentials`,
-`facebook_credentials`, `instagram_credentials`, `tiktok_credentials`,
-`kwai_credentials`).
+`activities`, `activity_types`, `audit_events`, `request_logs`, `credential_checks`,
+`migrations`, e uma tabela de credenciais por rede (`shopee_credentials`,
+`threads_credentials`, `x_credentials`, `facebook_credentials`, `instagram_credentials`,
+`tiktok_credentials`, `kwai_credentials`).
+
+Migrações SQL numeradas em `database/migrations/` (hoje até a `041`), rodadas em sequência no
+boot (`run_migrations`) e registradas na tabela `migrations`. Migração aplicada direto no
+Supabase precisa ser registrada à mão — ver `docs/RULES.md` item 9. **Antes de fazer deploy
+desta branch, aplicar as migrações 037, 038, 039, 040 e 041** (ver `docs/RULES.md` item 11).
+
+### Multi-perfil
+
+Cada conta tem até 3 perfis (1 principal + 2 secundários), limite imposto também no banco por
+trigger (migração 037). O perfil ativo vai no claim `profile_id` do JWT; o backend valida que o
+perfil pertence ao usuário e, se não pertencer, cai no perfil principal. `GET /auth/me` devolve
+o `profile_id` ativo e o frontend o lê de lá (sem `localStorage`). `profile_id` existe em 16
+tabelas (036: `products`, `product_lists`; 038: as outras 14, com índice e backfill para o
+perfil principal) com `ON DELETE SET NULL`. A 039 removeu o UNIQUE de `shopee_credentials.app_id`;
+a 040 adiciona índice único com coalesce para deduplicar NULLs em `credential_checks`
+e trocou o de `credential_checks` por `(user_id, profile_id, network)`. A 041 troca o UNIQUE `(product_id, user_id)` de `products` por `(user_id, product_id, perfil)`: o mesmo
+produto pode existir em 2 perfis (duplicado no mesmo perfil = 409). Backup/restore e os bots
+do scheduler também respeitam o perfil.
 
 ## Segurança
 
@@ -218,6 +265,11 @@ rede (`shopee_credentials`, `threads_credentials`, `x_credentials`,
 - CSRF global (Flask-WTF) + Content-Security-Policy, X-Frame-Options, HSTS
 - Handler de exceção genérico em produção (não vaza traceback)
 - Cookie de sessão `Secure; HttpOnly; SameSite=Lax`
+- JWT da API invalidado na troca de senha (claim `pwv`); tokens antigos sem o claim continuam aceitos
+- Rate limit também em criar perfil, backup e restore
+- Container roda como usuário não-root
+
+Para reportar uma vulnerabilidade, ver `SECURITY.md`.
 
 ## Processo do projeto (ciclo operacional)
 

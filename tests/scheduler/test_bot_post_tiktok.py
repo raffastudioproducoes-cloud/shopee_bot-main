@@ -39,7 +39,7 @@ def _patch_common(monkeypatch, user_data, post_data):
     )
     monkeypatch.setattr(
         module.tiktok_credentials, "get_by_user_id",
-        lambda user_id: user_data,
+        lambda user_id, profile_id=None: user_data,
     )
     monkeypatch.setattr(
         module.posts, "get", lambda user_id, post_id: post_data,
@@ -59,7 +59,7 @@ def test_bot_post_tiktok_without_video_fails_clearly_and_does_not_call_api(monke
     activities = []
     monkeypatch.setattr(
         module, "insert_activities",
-        lambda user_id, activity_type, metadata: activities.append(
+        lambda user_id, activity_type, metadata, profile_id=None: activities.append(
             (user_id, activity_type, metadata)
         ),
     )
@@ -90,7 +90,7 @@ def test_bot_post_tiktok_without_any_media_field_also_fails_clearly(monkeypatch)
     activities = []
     monkeypatch.setattr(
         module, "insert_activities",
-        lambda user_id, activity_type, metadata: activities.append(
+        lambda user_id, activity_type, metadata, profile_id=None: activities.append(
             (user_id, activity_type, metadata)
         ),
     )
@@ -118,7 +118,7 @@ def test_bot_post_tiktok_with_video_calls_post_video_and_logs_success(monkeypatc
     activities = []
     monkeypatch.setattr(
         module, "insert_activities",
-        lambda user_id, activity_type, metadata: activities.append(
+        lambda user_id, activity_type, metadata, profile_id=None: activities.append(
             (user_id, activity_type, metadata)
         ),
     )
@@ -149,7 +149,7 @@ def test_bot_post_tiktok_api_failure_records_activity_and_does_not_raise(monkeyp
     activities = []
     monkeypatch.setattr(
         module, "insert_activities",
-        lambda user_id, activity_type, metadata: activities.append(
+        lambda user_id, activity_type, metadata, profile_id=None: activities.append(
             (user_id, activity_type, metadata)
         ),
     )

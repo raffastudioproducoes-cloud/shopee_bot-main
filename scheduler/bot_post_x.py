@@ -47,8 +47,10 @@ def bot_post_x(job_id):
     job_data = schedulers.get_by_id(job_id)
     user_id = job_data["user_id"]
     post_id = job_data["post_id"]
+    # perfil dono do post: credencial e atividades ficam nele (None = job antigo)
+    profile_id = job_data.get("profile_id")
 
-    user_data = x_credentials.get_by_user_id(user_id)
+    user_data = x_credentials.get_by_user_id(user_id, profile_id)
     username = user_data["username"]
     logger.info(f"job #{job_id} is {username}'s (X).")
 
@@ -65,7 +67,8 @@ def bot_post_x(job_id):
                 "job_id": str(job_id),
                 "post_id": post_id,
                 "error": f"refresh_token: {err}",
-            })
+            }),
+            profile_id=profile_id
         )
         return
 
@@ -97,7 +100,8 @@ def bot_post_x(job_id):
                     "total_parts": len(post_data),
                     "published_parts": published_parts,
                     "error": str(err),
-                })
+                }),
+                profile_id=profile_id
             )
             # não continua a thread: partes seguintes seriam replies de
             # um tweet que nunca saiu (reply_to_id inválido).
@@ -110,6 +114,7 @@ def bot_post_x(job_id):
             "job_id": str(job_id),
             "post_id": post_id,
             "published_parts": published_parts,
-        })
+        }),
+        profile_id=profile_id
     )
     logger.info(f"bot_post_x job #{job_id} for {username} finished.")

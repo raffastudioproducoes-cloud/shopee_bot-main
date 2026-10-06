@@ -3,7 +3,7 @@
 > Fases e tarefas derivadas do PRD e do histórico real (`git log`, `docs/ROADMAP_MIGRACAO.md`,
 > `docs/CHECKLIST_MIGRACAO.md`, vault Obsidian `00-INDICE-Estado-Atual.md`). Uma tarefa só é
 > marcada **Concluída** com evidência de código ou teste passando; senão fica **Bloqueada** ou
-> **Pendente**. Última verificação: 2026-09-29.
+> **Pendente**. Última verificação: 2026-10-05.
 
 ## Fase 0-8.1 — Migração Flask → React + FastAPI
 
@@ -129,11 +129,16 @@ em execução.
   HMAC-SHA256 (corrigido de SHA-256 puro após review de segurança), testes em
   `tests/api/test_users.py`. (origem: benchmarking MiauDelier Manager, 2026-09-29; concluída:
   2026-09-30)
-- [ ] **10.9 — Multi-perfil por conta.** Permitir que um usuário gerencie mais de uma
-  loja/conta Shopee/Kwai sob o mesmo login, limitado a um número pequeno de perfis (bem menor
-  que os 10 do MiauDelier — usar 3 como valor de partida; **número exato a confirmar com Rafa
-  antes de implementar**). Avaliar impacto no schema atual (hoje é 1 conta = 1 usuário).
-  Não iniciada/Bloqueada. (origem: benchmarking MiauDelier Manager, 2026-09-29)
+- [x] **10.9 — Multi-perfil por conta.** Concluída. Limite de 3 perfis por conta (1 principal
+  + 2 secundários; número confirmado por Rafa). Evidência: tabela `profiles` com backfill
+  (migração 035) e `profile_id` aditivo em `products`/`product_lists` (migração 036) em
+  `database/migrations/`; CRUD, ativação (reemite JWT com claim `profile_id`) e avatar
+  (Supabase Storage, 5MB, magic-byte) em `api/routers/profiles.py`; página Perfis
+  (`frontend/src/pages/ProfilesPage.tsx`, rota `/profiles`) e página `/settings` com troca de
+  senha. **Escopo parcial de `profile_id`:** só produtos e listas; credenciais de redes, posts,
+  mídias, activities, schedulers, audit_events e request_logs seguem só por `user_id` (rodada
+  futura). Free/Plus/Premium é só rótulo, sem cobrança. (origem: benchmarking MiauDelier
+  Manager, 2026-09-29; concluída: 2026-09-30)
 
 - [x] **10.10 — Página "Ajuda & FAQ" com deep-link do tutorial Shopee.** Botão "?" no card
   Shopee de `CredentialsPage.tsx` leva direto pra aba "Tutorial Shopee" de uma nova página
@@ -157,6 +162,38 @@ em execução.
   mínima 44×44px, sombra sutil (`--shadow-card`/`--shadow-pressed`), prop `loading`, foco
   visível (`:focus-visible` com `--focus-ring`, reaproveitando regra global já existente),
   sem paleta/fonte nova. (origem: pedido direto de Rafa, 2026-09-30)
+
+- [x] **10.9b — Multi-perfil: escopo completo (nota datada 2026-10-05).** Concluída no código da
+  branch `chore/phase-12-integration` (ainda não mergeada em `main`). A ressalva de "escopo
+  parcial" do item 10.9 deixa de valer: migração 038 adiciona `profile_id` a credenciais das 7
+  redes, `credential_checks`, `posts`, `medias`, `schedulers`, `activities`, `request_logs` e
+  `audit_events` (FK `ON DELETE SET NULL`); 039 relaxa UNIQUE; 040 adiciona índice único com
+  coalesce para deduplicar NULLs; 037 impõe o limite de 3 perfis por trigger. Backend, backup/restore
+  e bots do scheduler respeitam o perfil ativo; UI com editar/excluir/ativar e perfil ativo na TopBar.
+  Também nesta branch: claim `pwv`, validação do `profile_id` do token, rate limit em criar
+  perfil/backup/restore, Dockerfile não-root + `HEALTHCHECK`, gunicorn com timeout e supervisão,
+  CI/CD endurecidos. (origem: branch de integração, 2026-10-05)
+
+- [x] **10.13 — Git Flow: pendências manuais.** `master` renomeada para `main` e branch
+  `staging` criada. **Pendências manuais do Rafa (ação humana):** (a) proteção de branch
+  indisponível — GitHub Free não oferece branch protection/Rulesets em repo privado (exige
+  GitHub Pro ou repo público); (b) copiar as env vars da produção para o serviço
+  `shopee-bot-staging` no Render; (c) trocar o branch do serviço de produção no Render de
+  `master` para `main`; (d) secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub, se quiser o
+  workflow cd-staging. (origem: fluxo Git Flow, 2026-09-30)
+
+  **Atualização 2026-10-05 — lista consolidada de pendências manuais de Rafa** (nenhuma é
+  trabalho de código; conforme relatado pelo Rafa em 2026-10-05, os itens abaixo marcados
+  com "confirmado" estão concluídos — decisão de não fazer branch protection agora e demais
+  itens continuam pendentes):
+  - [x] Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção) — confirmado pelo Rafa, 2026-10-05.
+  - [x] Trocar o branch de produção do serviço no Render de `master` para `main` — confirmado pelo Rafa, 2026-10-05.
+  - [x] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub — confirmado pelo Rafa, 2026-10-05.
+  - [x] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor — confirmado pelo Rafa, 2026-10-05.
+  - [x] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok — confirmado pelo Rafa, 2026-10-05.
+  - [ ] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado) — GitHub Pro ativo (confirmado pelo Rafa, 2026-10-05), mas branch protection ainda não configurada (possível agora, ainda não ativada).
+  - [ ] Aplicar as migrações 037, 038, 039, 040 e 041 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
+  - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
 
 Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
 existente — diretriz, não tarefa isolada).

@@ -37,7 +37,7 @@ def _patch_common(monkeypatch, user_data, root_post):
     )
     monkeypatch.setattr(
         module.instagram_credentials, "get_by_user_id",
-        lambda user_id: user_data,
+        lambda user_id, profile_id=None: user_data,
     )
     monkeypatch.setattr(
         module.posts, "get", lambda user_id, post_id: [root_post],
@@ -60,7 +60,7 @@ def test_bot_post_instagram_text_only_uses_saved_token_and_ig_user_id(monkeypatc
     activities = []
     monkeypatch.setattr(
         module, "insert_activities",
-        lambda user_id, activity_type, metadata: activities.append(
+        lambda user_id, activity_type, metadata, profile_id=None: activities.append(
             (user_id, activity_type, metadata)
         ),
     )
@@ -118,7 +118,7 @@ def test_bot_post_instagram_failure_records_activity_and_does_not_raise(monkeypa
     activities = []
     monkeypatch.setattr(
         module, "insert_activities",
-        lambda user_id, activity_type, metadata: activities.append(
+        lambda user_id, activity_type, metadata, profile_id=None: activities.append(
             (user_id, activity_type, metadata)
         ),
     )

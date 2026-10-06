@@ -76,6 +76,25 @@ Todas as tabelas hoje filtradas por `user_id` (identidade de LOGIN) passam a tam
   auto-preenchimento entre perfis: o usuário cola a chave de novo manualmente em cada
   perfil novo, mesmo que seja a mesma.
 
+> **Nota (2026-10-05) — divergências entre este spec e a implementação** (verificadas em
+> `database/migrations/036`, `038`, `039`, `040` e `api/routers/profiles.py`; o texto acima fica como
+> registro do que foi aprovado):
+>
+> - **FK com `ON DELETE SET NULL`, não `ON DELETE CASCADE`.** Em todas as tabelas com
+>   `profile_id` (036 e 038) a FK usa `on delete set null`. Motivo, registrado no cabeçalho das
+>   migrações: excluir um perfil não deve apagar dado de negócio (produtos, posts, credenciais,
+>   atividades etc.) — a linha continua existindo, só perde a ligação com o perfil.
+>   (A FK `profiles.user_id -> users` segue `on delete cascade`, como na seção 2.1.)
+> - **Exceção Shopee implementada pela 039.** A migração `039` removeu o UNIQUE de
+>   `shopee_credentials.app_id` (`shopee_credentials_app_id_key`), permitindo a mesma API Key em
+>   mais de um perfil. Também trocou o UNIQUE `(user_id, network)` de `credential_checks` por um
+>   índice único `(user_id, profile_id, network)`. A migração `040` reforça esse índice com coalesce
+>   para deduplicar NULLs em `profile_id`.
+> - **Nome do claim: `profile_id`, não `active_profile_id`** (seção 2.4 abaixo). O JWT carrega
+>   `profile_id`, e `GET /auth/me` devolve o `profile_id` ativo para o frontend.
+> - **Limite de 3 perfis também no banco**: a migração `037` adiciona trigger
+>   `trg_enforce_profile_limit` (advisory lock + recontagem) além da checagem em `POST /profiles`.
+
 ### 2.4 Perfil ativo na sessão
 
 O JWT (cookie httpOnly já existente) ganha um claim `active_profile_id`. Trocar de perfil
