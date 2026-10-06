@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, ValidationError
 
-from .auth import _check_login_rate_limit, get_current_user_id
+from .auth import _check_login_rate_limit, get_current_user_id, provision_new_user, pwd_context
 from .lists import _get_list_products, _sync_list_products
 from .posts import _create_thread, _get_post_products, _get_thread_chain, _set_post_products
 from .products import ProductCreate, _normalize_numeric_fields
@@ -35,16 +35,6 @@ _MAX_BACKUP_POSTS = 500
 _MAX_BACKUP_TEXTS_PER_POST = 50
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-NETWORK_TABLES = [
-    "shopee_credentials",
-    "threads_credentials",
-    "x_credentials",
-    "facebook_credentials",
-    "instagram_credentials",
-    "tiktok_credentials",
-    "kwai_credentials",
-]
 
 
 class UserCreate(BaseModel):
@@ -133,7 +123,7 @@ def _delete_user_row(user_id: str | int):
     return supabase.table("users").delete().eq("id", user_id).execute()
 
 
-def _collect_backup_data(user_id: int) -> dict[str, Any]:
+def _collect_backup_data(user_id: str) -> dict[str, Any]:
     """Reúne os próprios dados do usuário (item 10.8 do backlog) reusando
     as mesmas queries/helpers dos routers de produtos/listas/posts — nunca
     inclui mídia binária nem dado de agendamento (ver docstring de
@@ -194,7 +184,7 @@ def _checksum(data: dict[str, Any]) -> str:
     ).hexdigest()
 
 
-def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
+def _require_admin(user_id: str = Depends(get_current_user_id)) -> int:
     result = (
         supabase.table("users").select("access").eq("id", user_id)
         .single().execute()
@@ -206,7 +196,7 @@ def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
 
 @router.get("")
 async def list_users(
-    _admin_id: int = Depends(_require_admin),
+    _admin_id: str = Depends(_require_admin),
     cursor: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
 ):
@@ -228,11 +218,7 @@ async def list_users(
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_user(body: UserCreate, _admin_id: int = Depends(_require_admin)):
-    from passlib.context import CryptContext
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
+async def create_user(body: UserCreate, _admin_id: str = Depends(_require_admin)):
     if body.access not in ("USER", "ADMIN"):
         raise HTTPException(status_code=400, detail="access deve ser USER ou ADMIN")
 
@@ -253,13 +239,9 @@ async def create_user(body: UserCreate, _admin_id: int = Depends(_require_admin)
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar usuário")
 
-    new_user_id = result.data[0]["id"]
-
-    # Semeia uma linha vazia de credencial por rede — mesmo padrão do
-    # Flask (web/routes/users.py) para a tela de credenciais sempre
-    # ter uma linha pra cada rede, independente de já ter conectado.
-    for table in NETWORK_TABLES:
-        supabase.table(table).insert({"user_id": new_user_id, "status": False}).execute()
+    # Credenciais vazias por rede (padrão do Flask, web/routes/users.py) +
+    # perfil principal, igual a /auth/register; desfaz o usuário se falhar.
+    provision_new_user(supabase, result.data[0])
 
     return result.data[0]
 
@@ -268,7 +250,7 @@ async def create_user(body: UserCreate, _admin_id: int = Depends(_require_admin)
 async def delete_own_account(
     body: SelfDeleteRequest,
     response: Response,
-    user_id: int = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
 ):
     """Autoexclusão de conta e dados (LGPD/direito ao esquecimento).
 
@@ -278,11 +260,7 @@ async def delete_own_account(
     cookie roubado podia tentar adivinhar a senha atual sem limite (bcrypt
     só atrasa, não impede).
     """
-    from passlib.context import CryptContext
-
     _check_login_rate_limit(f"selfdelete:{user_id}")
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     current = (
         supabase.table("users").select("username, access, password").eq("id", user_id)
@@ -319,11 +297,12 @@ async def delete_own_account(
 
 
 @router.get("/me/backup")
-async def export_backup(user_id: int = Depends(get_current_user_id)):
+async def export_backup(user_id: str = Depends(get_current_user_id)):
     """Exporta produtos/listas/posts do PRÓPRIO usuário com checksum de
     integridade (item 10.8 do backlog). Nunca inclui senha/token/segredo
     (sanitize_log_data aplicado antes do checksum, mesmo já não devendo
     haver nada sensível nesses três recortes de dado)."""
+    _check_login_rate_limit(f"backup:{user_id}")
     data = _collect_backup_data(user_id)
     # mask_value_patterns=False: dado do próprio dono (não é log público),
     # e o detector de padrão por valor estragava URL legítima com
@@ -333,7 +312,7 @@ async def export_backup(user_id: int = Depends(get_current_user_id)):
 
 
 @router.post("/me/restore")
-def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)):
+def restore_backup(body: BackupData, user_id: str = Depends(get_current_user_id)):
     """Importa um backup gerado por export_backup. Rejeita com 400 (e não
     importa nada) se o checksum não bater — arquivo adulterado/corrompido
     (comparação com `hmac.compare_digest`, constante no tempo).
@@ -363,6 +342,7 @@ def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)
     post restaurado, o que acopla restore a um serviço externo (Flask)
     só pra recriar automação, não dado — fora do escopo de "backup de
     dados". Post restaurado volta sem agendamento ativo."""
+    _check_login_rate_limit(f"restore:{user_id}")
     payload = {
         "products": body.products,
         "product_lists": body.product_lists,
@@ -415,7 +395,7 @@ def restore_backup(body: BackupData, user_id: int = Depends(get_current_user_id)
 
 
 @router.get("/{user_id}")
-async def get_user(user_id: str, _admin_id: int = Depends(_require_admin)):
+async def get_user(user_id: str, _admin_id: str = Depends(_require_admin)):
     result = (
         supabase.table("users")
         .select("id, username, access, created_at, updated_at")
@@ -432,7 +412,7 @@ async def get_user(user_id: str, _admin_id: int = Depends(_require_admin)):
 async def update_user(
     user_id: str,
     body: UserUpdate,
-    _admin_id: int = Depends(_require_admin),
+    _admin_id: str = Depends(_require_admin),
 ):
     if body.access not in ("USER", "ADMIN"):
         raise HTTPException(status_code=400, detail="access deve ser USER ou ADMIN")
@@ -459,7 +439,7 @@ async def update_user(
 
 
 @router.delete("/{user_id}")
-async def delete_user(user_id: str, _admin_id: int = Depends(_require_admin)):
+async def delete_user(user_id: str, _admin_id: str = Depends(_require_admin)):
     current = (
         supabase.table("users").select("username, access").eq("id", user_id)
         .single().execute()

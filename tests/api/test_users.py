@@ -505,3 +505,59 @@ class TestBackupRestore:
 
         assert res.status_code == 400
         fake_client.table.assert_not_called()
+
+
+class TestAdminCreateUserProvisioning:
+    def test_creates_principal_profile_like_register(self, auth_client, monkeypatch):
+        query = _mock_supabase(
+            monkeypatch,
+            [{"access": "ADMIN"}]
+            + [[{"id": 9, "username": "novo", "access": "USER"}]]
+            + [[{"id": "x"}]] * 8,
+        )
+        query.insert.return_value = query
+
+        res = auth_client.post(
+            "/users", json={"username": "novo", "password": "senha1234", "access": "USER"}
+        )
+
+        assert res.status_code == 201
+        inserts = [c.args[0] for c in query.insert.call_args_list]
+        assert {"user_id": 9, "kind": "principal", "nome": "novo"} in inserts
+
+    def test_failure_rolls_back_user_and_returns_generic_500(self, auth_client, monkeypatch):
+        query = _mock_supabase(
+            monkeypatch,
+            [{"access": "ADMIN"}, [{"id": 9, "username": "novo", "access": "USER"}]],
+        )
+        query.insert.return_value = query
+        query.execute.side_effect = [
+            MagicMock(data={"access": "ADMIN"}),
+            MagicMock(data=[{"id": 9, "username": "novo", "access": "USER"}]),
+            Exception("segredo do banco"),
+            MagicMock(data=[]),
+        ]
+
+        res = auth_client.post(
+            "/users", json={"username": "novo", "password": "senha1234", "access": "USER"}
+        )
+
+        assert res.status_code == 500
+        assert "segredo" not in res.text
+        query.delete.assert_called_once()
+
+
+class TestBackupRestoreRateLimit:
+    def test_backup_is_rate_limited(self, auth_client, monkeypatch):
+        monkeypatch.setattr(users_router, "_collect_backup_data", lambda uid: {
+            "products": [], "product_lists": [], "posts": [], "exported_at": "x"
+        })
+        codes = [auth_client.get("/users/me/backup").status_code for _ in range(6)]
+        assert codes[:5] == [200] * 5
+        assert codes[5] == 429
+
+    def test_restore_is_rate_limited(self, auth_client):
+        body = {"products": [], "product_lists": [], "posts": [], "exported_at": "x",
+                "checksum": "invalido"}
+        codes = [auth_client.post("/users/me/restore", json=body).status_code for _ in range(6)]
+        assert codes[5] == 429

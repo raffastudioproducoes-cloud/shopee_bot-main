@@ -32,7 +32,7 @@ async def change_password(
     body: PasswordChange,
     request: Request,
     response: Response,
-    user_id: int = Depends(get_current_user_id),
+    user_id: str = Depends(get_current_user_id),
 ):
     _check_login_rate_limit(f"changepw:{user_id}")
     _validate_password_length(body.new_password)
