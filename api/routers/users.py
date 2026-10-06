@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, ValidationError
 from .auth import _check_login_rate_limit, get_current_user_id, provision_new_user, pwd_context
 from .lists import _get_list_products, _sync_list_products
 from .posts import _create_thread, _get_post_products, _get_thread_chain, _set_post_products
-from .products import ProductCreate, _normalize_numeric_fields
+from .products import ProductCreate, _normalize_numeric_fields, find_product_in_profile
 from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..config import settings
@@ -166,17 +166,6 @@ def _collect_backup_data(user_id: str, profile_id: str | None = None) -> dict[st
         "posts": posts,
         "exported_at": datetime.now(timezone.utc).isoformat(),
     }
-
-
-def _product_owned_by_other_profile(user_id: str, product_id: Any, profile_id: str) -> bool:
-    """True se o produto já existe na conta, ligado a um perfil diferente do ativo."""
-    existing = (
-        supabase.table("products").select("id, profile_id")
-        .eq("user_id", user_id).eq("product_id", product_id)
-        .maybe_single().execute()
-    )
-    row = existing.data if existing else None
-    return bool(row and row.get("profile_id") and row["profile_id"] != profile_id)
 
 
 def _checksum(data: dict[str, Any]) -> str:
@@ -345,17 +334,16 @@ def restore_backup(
     Restore é ADITIVO: sempre cria registros novos (nunca sobrescreve ou
     apaga dado existente do usuário) — política mais simples e mais segura
     pro MVP (YAGNI: sem merge inteligente). EXCEÇÃO: produto cujo
-    `(product_id, user_id)` já existe (restaurar na própria conta que
-    gerou o backup — o uso normal de "conferir/restaurar") faz upsert
-    (atualiza o produto existente) em vez de estourar a constraint única
+    `(product_id, perfil ativo)` já existe (restaurar na própria conta que
+    gerou o backup — o uso normal de "conferir/restaurar") atualiza
+    o produto existente em vez de estourar a constraint única
     e derrubar a requisição inteira com 500 no meio da inserção (deixando
     o que já foi inserido antes órfão). `user_id` do backup nunca é
     usado — tudo é recriado sob o usuário autenticado da sessão atual e,
     quando há perfil ativo, sob esse perfil (o backup antigo, sem
-    `profile_id`, continua válido: o campo nunca vem do arquivo). Produto
-    cujo `(product_id, user_id)` já pertence a OUTRO perfil da conta é
-    pulado em vez de ser "roubado" pelo upsert (a UNIQUE atual não permite
-    o mesmo produto em dois perfis).
+    `profile_id`, continua válido: o campo nunca vem do arquivo). O mesmo
+    produto pode existir em perfis diferentes (migração 041): o de outro
+    perfil nunca é tocado, o restore cria/atualiza o do perfil ativo.
 
     Cada item de `products`/`product_lists`/`posts` é validado (allowlist
     de campo — `ProductCreate`, mesmo schema já usado pra criar produto —
@@ -388,14 +376,14 @@ def restore_backup(
         new_row = validated.model_dump()
         new_row["user_id"] = user_id
         if profile_id:
-            if _product_owned_by_other_profile(user_id, new_row["product_id"], profile_id):
-                continue
             new_row["profile_id"] = profile_id
-        result = (
-            supabase.table("products")
-            .upsert(new_row, on_conflict="product_id,user_id")
-            .execute()
-        )
+        # Sem on_conflict: o índice único (041) usa coalesce(profile_id), que o
+        # PostgREST não aceita como alvo. Procura no perfil ativo e atualiza/cria.
+        existing = find_product_in_profile(supabase, user_id, new_row["product_id"], profile_id)
+        if existing:
+            result = supabase.table("products").update(new_row).eq("id", existing["id"]).execute()
+        else:
+            result = supabase.table("products").insert(new_row).execute()
         if result.data:
             id_map[product.get("id")] = result.data[0]["id"]
 

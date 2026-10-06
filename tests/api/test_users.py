@@ -397,19 +397,20 @@ class TestBackupRestore:
         checksum = users_router._checksum(data)
 
         tables = {
-            "products": _query_mock(MagicMock(data=[{"id": 55, "name": "Produto restaurado"}])),
+            "products": _query_mock([
+                MagicMock(data=[]),  # lookup no perfil: não existe
+                MagicMock(data=[{"id": 55, "name": "Produto restaurado"}]),
+            ]),
         }
         monkeypatch.setattr(database_module, "get_supabase", lambda: _make_fake_supabase(tables))
 
         res = auth_client.post("/users/me/restore", json={**data, "checksum": checksum})
 
         assert res.status_code == 200
-        upsert_call = tables["products"].upsert.call_args
-        inserted = upsert_call.args[0]
+        inserted = tables["products"].insert.call_args.args[0]
         assert inserted["user_id"] == 42  # nunca o user_id vindo do backup (999)
         assert "id" not in inserted  # allowlist do ProductCreate: sem `id` solto
         assert inserted["name"] == "Produto restaurado"
-        assert upsert_call.kwargs["on_conflict"] == "product_id,user_id"
 
     def test_malformed_product_item_returns_422_not_500(self, auth_client, monkeypatch):
         """`product_id` ausente (fora do schema `ProductCreate`) vira 422
@@ -446,14 +447,17 @@ class TestBackupRestore:
         checksum = users_router._checksum(data)
 
         tables = {
-            "products": _query_mock(MagicMock(data=[{"id": 55, "name": "Produto já existente"}])),
+            "products": _query_mock([
+                MagicMock(data=[{"id": 55}]),  # lookup: já existe no perfil
+                MagicMock(data=[{"id": 55, "name": "Produto já existente"}]),
+            ]),
         }
         monkeypatch.setattr(database_module, "get_supabase", lambda: _make_fake_supabase(tables))
 
         res = auth_client.post("/users/me/restore", json={**data, "checksum": checksum})
 
         assert res.status_code == 200
-        tables["products"].upsert.assert_called_once()
+        tables["products"].update.assert_called_once()
         tables["products"].insert.assert_not_called()
 
     def test_oversized_product_list_is_rejected_before_touching_database(
