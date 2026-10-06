@@ -8,7 +8,7 @@
 
 ## Repositório
 
-- `C:\Users\rafae\Documents\Projetos\ShopeeAutoVendas\shopee_bot-main`, branch `master`.
+- `C:\Users\rafae\Documents\Projetos\ShopeeAutoVendas\shopee_bot-main`, branch `main` (trabalho em `feature/*`; v2.0.0, ver `CHANGELOG.md`).
 - Hospedagem: Render (Free), `https://shopee-bot-fj0w.onrender.com`. Banco: Supabase
   (projeto `autovendas`).
 - Flask (legado, produção) e FastAPI (novo) coexistem no **mesmo container Docker** —

@@ -18,6 +18,7 @@ const navItems: SideRailItem[] = [
   { value: '/lists', label: 'Listas', icon: 'sliders-horizontal' },
   { value: '/posts', label: 'Posts', icon: 'file-text' },
   { value: '/credentials', label: 'Credenciais', icon: 'key-round' },
+  { value: '/settings', label: 'Configurações', icon: 'lock' },
   { value: '/ajuda', label: 'Ajuda & FAQ', icon: 'help-circle' },
 ]
 

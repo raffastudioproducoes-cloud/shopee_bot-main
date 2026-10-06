@@ -3,7 +3,7 @@
 > Fases e tarefas derivadas do PRD e do histórico real (`git log`, `docs/ROADMAP_MIGRACAO.md`,
 > `docs/CHECKLIST_MIGRACAO.md`, vault Obsidian `00-INDICE-Estado-Atual.md`). Uma tarefa só é
 > marcada **Concluída** com evidência de código ou teste passando; senão fica **Bloqueada** ou
-> **Pendente**. Última verificação: 2026-09-29.
+> **Pendente**. Última verificação: 2026-10-05.
 
 ## Fase 0-8.1 — Migração Flask → React + FastAPI
 
@@ -129,11 +129,16 @@ em execução.
   HMAC-SHA256 (corrigido de SHA-256 puro após review de segurança), testes em
   `tests/api/test_users.py`. (origem: benchmarking MiauDelier Manager, 2026-09-29; concluída:
   2026-09-30)
-- [ ] **10.9 — Multi-perfil por conta.** Permitir que um usuário gerencie mais de uma
-  loja/conta Shopee/Kwai sob o mesmo login, limitado a um número pequeno de perfis (bem menor
-  que os 10 do MiauDelier — usar 3 como valor de partida; **número exato a confirmar com Rafa
-  antes de implementar**). Avaliar impacto no schema atual (hoje é 1 conta = 1 usuário).
-  Não iniciada/Bloqueada. (origem: benchmarking MiauDelier Manager, 2026-09-29)
+- [x] **10.9 — Multi-perfil por conta.** Concluída. Limite de 3 perfis por conta (1 principal
+  + 2 secundários; número confirmado por Rafa). Evidência: tabela `profiles` com backfill
+  (migração 035) e `profile_id` aditivo em `products`/`product_lists` (migração 036) em
+  `database/migrations/`; CRUD, ativação (reemite JWT com claim `profile_id`) e avatar
+  (Supabase Storage, 5MB, magic-byte) em `api/routers/profiles.py`; página Perfis
+  (`frontend/src/pages/ProfilesPage.tsx`, rota `/profiles`) e página `/settings` com troca de
+  senha. **Escopo parcial de `profile_id`:** só produtos e listas; credenciais de redes, posts,
+  mídias, activities, schedulers, audit_events e request_logs seguem só por `user_id` (rodada
+  futura). Free/Plus/Premium é só rótulo, sem cobrança. (origem: benchmarking MiauDelier
+  Manager, 2026-09-29; concluída: 2026-09-30)
 
 - [x] **10.10 — Página "Ajuda & FAQ" com deep-link do tutorial Shopee.** Botão "?" no card
   Shopee de `CredentialsPage.tsx` leva direto pra aba "Tutorial Shopee" de uma nova página
@@ -157,6 +162,15 @@ em execução.
   mínima 44×44px, sombra sutil (`--shadow-card`/`--shadow-pressed`), prop `loading`, foco
   visível (`:focus-visible` com `--focus-ring`, reaproveitando regra global já existente),
   sem paleta/fonte nova. (origem: pedido direto de Rafa, 2026-09-30)
+
+- [ ] **10.13 — Git Flow: pendências manuais.** `master` renomeada para `main` e branch
+  `staging` criada. **Pendências manuais do Rafa (ação humana):** (a) proteção de branch
+  indisponível — GitHub Free não oferece branch protection/Rulesets em repo privado (exige
+  GitHub Pro ou repo público); (b) copiar as env vars da produção para o serviço
+  `shopee-bot-staging` no Render; (c) ~~trocar o branch do serviço de produção no Render de
+  `master` para `main`~~ — **concluído**: o serviço `shopee-bot` já está na branch `main`
+  (verificado em 2026-10-06 via API do Render); (d) secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub, se quiser o
+  workflow cd-staging. (origem: fluxo Git Flow, 2026-09-30)
 
 Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
 existente — diretriz, não tarefa isolada).

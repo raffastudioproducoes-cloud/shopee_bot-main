@@ -222,6 +222,22 @@ class TestResetPassword:
         assert res.status_code == 400
         fake_client.table.assert_not_called()
 
+    def test_password_over_72_bytes_with_few_chars_returns_400(self, client, monkeypatch):
+        fake_client = MagicMock()
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
+
+        res = client.post(
+            "/auth/reset-password",
+            json={
+                "username": "emoji-pw-user",
+                "current_password": "senha-antiga-1",
+                "new_password": "😀" * 20,
+            },
+        )
+
+        assert res.status_code == 400
+        fake_client.table.assert_not_called()
+
     def test_username_over_64_chars_rejected_by_schema(self, client, monkeypatch):
         fake_client = MagicMock()
         monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)

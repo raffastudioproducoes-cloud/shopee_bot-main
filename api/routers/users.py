@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, ValidationError
 
-from .auth import _check_login_rate_limit, get_current_user_id
+from .auth import _check_login_rate_limit, _validate_password_length, get_current_user_id
 from .lists import _get_list_products, _sync_list_products
 from .posts import _create_thread, _get_post_products, _get_thread_chain, _set_post_products
 from .products import ProductCreate, _normalize_numeric_fields
@@ -235,6 +235,8 @@ async def create_user(body: UserCreate, _admin_id: int = Depends(_require_admin)
 
     if body.access not in ("USER", "ADMIN"):
         raise HTTPException(status_code=400, detail="access deve ser USER ou ADMIN")
+
+    _validate_password_length(body.password)
 
     if body.username.lower() == "rafastudio":
         # Mesmo motivo do register() em auth.py: bloqueia squatting do

@@ -15,11 +15,19 @@ não só o *o quê* — ver corpo do commit `feat(facebook): OAuth de app unico.
 (`.claude/tmp/commit_msg_facebook_oauth.txt`), que documenta o problema resolvido, a
 reutilização de app existente e uma limitação conhecida deixada como MVP.
 
-Branch principal: `master`. Push direto em `master` é a prática adotada — **sem PR** para
-grande parte do histórico recente (confirmado no vault, `27-Migracao-App-Unico-OAuth.md`:
-"commit já feito local, sem passar por PR (pedido explícito)"). Alguns merges de PR também
-existem no histórico (`Merge pull request #5`, `#4`) — os dois fluxos coexistem, decisão é do
-dono do projeto por sessão.
+Fluxo de branches (Git Flow, a partir de 2026-09-30): `main` é produção, `staging` é o
+ambiente de homologação e todo trabalho acontece em `feature/*`. Nunca commitar direto em
+`main`: trabalho em branch própria + PR, e merge só com testes verdes e revisão. (Antes
+disso a prática era push direto em `master` sem PR — confirmado no vault,
+`27-Migracao-App-Unico-OAuth.md` — e alguns merges de PR existem no histórico, `#5`, `#4`.)
+
+Versionamento SemVer (arquivo `VERSION` + `CHANGELOG.md`): a versão só sobe no merge para
+`main` — patch = correção, minor = feature compatível, major = mudança grande. O sistema
+multi-perfil foi tratado como MAJOR (2.0.0) por decisão do Rafa.
+
+Limitação: a proteção automática de branch NÃO está ativa — o GitHub Free não oferece branch
+protection/Rulesets em repositório privado (exige GitHub Pro ou repo público). Por ora a regra
+vale por disciplina, até o Rafa decidir. Ver `docs/TASK.md` item 10.13.
 
 ## 2. CI (`.github/workflows/ci.yml`)
 
@@ -36,7 +44,7 @@ dono do projeto por sessão.
 
 ## 3. Deploy
 
-- `cd.yml`: qualquer push em `master` disparra um `curl` no `RENDER_DEPLOY_HOOK_URL` (deploy
+- `cd.yml`: qualquer push em `main` dispara um `curl` no `RENDER_DEPLOY_HOOK_URL` (deploy
   automático). Não há gate de aprovação manual documentado.
 - Se o secret não estiver configurado, o job **não falha** — emite `::warning::` e sai com
   `exit 0`. Deploy silenciosamente pulado é uma possibilidade real, não um erro visível.

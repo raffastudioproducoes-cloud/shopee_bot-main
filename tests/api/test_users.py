@@ -104,6 +104,19 @@ class TestCreateUserBlocksMasterAdminUsernameSquatting:
         query.insert.assert_not_called()
 
 
+class TestCreateUserPasswordBytes:
+    def test_password_over_72_bytes_returns_400(self, auth_client, monkeypatch):
+        query = _mock_supabase(monkeypatch, [{"access": "ADMIN"}])
+
+        res = auth_client.post(
+            "/users",
+            json={"username": "novo", "password": "😀" * 20, "access": "USER"},
+        )
+
+        assert res.status_code == 400
+        query.insert.assert_not_called()
+
+
 class TestUpdateUserProtectsMasterAdmin:
     """rafastudio (master admin) nunca pode ser rebaixado nem renomeado."""
 

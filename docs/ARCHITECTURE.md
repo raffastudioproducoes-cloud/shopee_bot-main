@@ -52,7 +52,7 @@ Fonte: `Dockerfile`, `gunicorn.conf.py`, `web/routes/api_proxy.py`, `api/interna
 | Mídia | Cloudinary (host temporário) | Upload/hospedagem de imagem de post |
 | IA | Google Gemini (`apis/llm.py`) | Copywriter de post por persona |
 | Cripto | `cryptography` (Fernet) — `utils/crypto.py` (Flask) e `api/crypto.py` (wrapper compatível, FastAPI) | Cifra credencial de rede social em repouso |
-| Infra/Deploy | Render (Web Service, Docker, plano Free), GitHub Actions (CI) | Deploy automático a cada push em `master` |
+| Infra/Deploy | Render (Web Service, Docker, plano Free), GitHub Actions (CI) | Deploy automático a cada push em `main` |
 | WSGI/ASGI | Gunicorn + gevent (Flask), Uvicorn (FastAPI) | Servidores de aplicação |
 
 ## 3. Estrutura de pastas real
@@ -95,7 +95,7 @@ shopee_bot-main/
 │   ├── templates/, static/, media/
 ├── frontend/                  # React novo
 │   └── src/
-│       ├── pages/             # DashboardPage, LoginPage, PanelPage, PostsPage, ProductsPage, ListasPage, CredentialsPage, UsersPage
+│       ├── pages/             # DashboardPage, LoginPage, PanelPage, PostsPage, ProductsPage, ListasPage, CredentialsPage, ProfilesPage, SettingsPage
 │       ├── components/ui/     # design system (ver DESIGN.md)
 │       ├── api/                # clientes HTTP tipados
 │       ├── stores/              # Zustand (auth)
