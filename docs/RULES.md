@@ -31,23 +31,30 @@ vale por disciplina, até o Rafa decidir. Ver `docs/TASK.md` item 10.13.
 
 ## 2. CI (`.github/workflows/ci.yml`)
 
-- Lint com `flake8` sobre `api/` (dois passos: erros de sintaxe `E9,F63,F7,F82` sempre;
-  estilo com `--max-line-length=120` tolerante a falha, `|| true`).
-- Checagem de sintaxe explícita via `python -m py_compile` nos módulos centrais da API nova.
-- Testes: `python -m pytest tests/api --confcutdir=tests/api -q` — **nunca** `pytest` puro
-  (quebra `ModuleNotFoundError` em `from api.main import app` sem `-m pytest`).
-- `--confcutdir=tests/api` é obrigatório: o `conftest.py` da raiz faz
-  `gevent.monkey.patch_all()` (suporte do Flask legado) e trava as threads async do
-  `anyio`/`httpx` usadas pelo `TestClient` do FastAPI.
-- CI só cobre `tests/api` (API nova) — os testes do Flask legado (`tests/test_auth.py`,
-  `tests/test_publish.py`) exigem Postgres local em `localhost:5433` e **não rodam na CI**.
+- Gatilhos: push e pull_request em `main`. `permissions: contents: read`; `concurrency`
+  cancela execuções antigas do mesmo ref. Cache de pip e npm.
+- Job `api` (Python 3.13, igual ao `Dockerfile`):
+  - `flake8 api/ --select=E9,F63,F7,F82` **bloqueante** (sem `|| true`); estilo
+    (`--max-line-length=120`) é informativo (`continue-on-error`).
+  - Checagem de sintaxe via `python -m py_compile` nos módulos centrais.
+  - Testes: `python -m pytest tests/api --confcutdir=tests/api -q` — **nunca** `pytest` puro
+    (quebra `ModuleNotFoundError` em `from api.main import app` sem `-m pytest`).
+  - `--confcutdir=tests/api` é obrigatório: o `conftest.py` da raiz faz
+    `gevent.monkey.patch_all()` (Flask legado) e trava as threads async do `anyio`/`httpx`.
+  - Só cobre `tests/api`; os testes do Flask legado exigem Postgres local em `localhost:5433`
+    e **não rodam na CI**.
+- Job `frontend` (Node 20): `npm ci` e `npm run build` (`tsc && vite build`) em `frontend/`.
+  Não há testes de frontend.
+- `.github/dependabot.yml` (semanal, minor/patch agrupados: pip raiz e `/api`, npm, actions)
+  e `.github/pull_request_template.md` com checklist de PR.
 
 ## 3. Deploy
 
-- `cd.yml`: qualquer push em `main` dispara um `curl` no `RENDER_DEPLOY_HOOK_URL` (deploy
-  automático). Não há gate de aprovação manual documentado.
-- Se o secret não estiver configurado, o job **não falha** — emite `::warning::` e sai com
-  `exit 0`. Deploy silenciosamente pulado é uma possibilidade real, não um erro visível.
+- `cd.yml` dispara via `workflow_run` quando o workflow `CI` termina com sucesso em `main`
+  (evento push). CI vermelho = sem deploy. `concurrency` evita deploys em paralelo.
+- `curl -fsS`: resposta HTTP de erro do hook do Render faz o job falhar.
+- Se o secret `RENDER_DEPLOY_HOOK_URL` não existir, o job **não falha** — emite `::warning::`
+  e sai com `exit 0`. Deploy silenciosamente pulado ainda é possível.
 
 ## 4. Padrões de código observados
 
