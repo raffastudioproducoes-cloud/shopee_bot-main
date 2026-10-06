@@ -192,7 +192,7 @@ via bridge.
   atividades do perfil do post, com fallback por `user_id`.
 - **Banco**: migração 037 (trigger `trg_enforce_profile_limit`, limite de 3 perfis, advisory
   lock), 038 (colunas/índices/backfill), 039 (remove UNIQUE de `shopee_credentials.app_id`; check
-  de credencial passa a ser por `(user_id, profile_id, network)`) e 040 (índice único de `credential_checks` com coalesce para deduplicar NULLs). Migrações vão até a 040.
+  de credencial passa a ser por `(user_id, profile_id, network)`) e 040 (índice único de `credential_checks` com coalesce para deduplicar NULLs). Migrações vão até a 041.
 - **Auth**: a troca de senha muda o hash e invalida tokens antigos (claim `pwv`, comparado em
   `api/routers/auth.py`); tokens emitidos antes do claim existir continuam aceitos.
 - **Container**: `Dockerfile` roda como usuário não-root (uid 10001) com `HEALTHCHECK` em

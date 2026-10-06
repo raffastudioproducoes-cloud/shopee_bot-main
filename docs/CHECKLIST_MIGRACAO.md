@@ -94,11 +94,11 @@ Critérios gerais aplicados a cada módulo abaixo:
 ## Atualizado 2026-10-05 — multi-perfil completo (branch `chore/phase-12-integration`)
 
 > Nota datada: as seções acima registram o estado de 2026-09-27 e foram mantidas. O que mudou
-> desde então (evidência: `git log main..HEAD`, `database/migrations/037-040`):
+> desde então (evidência: `git log main..HEAD`, `database/migrations/037-041`):
 
 - [x] Perfis por conta (até 3), com trigger de limite no banco (migração 037)
 - [x] `profile_id` nas 14 tabelas restantes (migração 038), relaxamento de UNIQUE (039) e índice único com coalesce (040);
-  migrações do repositório vão até a 040
+  migrações do repositório vão até a 041
 - [x] Posts, mídias, credenciais das redes, dashboard, notificações, catálogo, logs, backup/restore
   e bots do scheduler escopados pelo perfil ativo
 - [x] UI de perfis: editar, excluir, ativar sem reload, perfil ativo na TopBar; `GET /auth/me` devolve `profile_id`
@@ -113,5 +113,5 @@ Critérios gerais aplicados a cada módulo abaixo:
   - [ ] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub (só se quiser deploy automático de staging).
   - [ ] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor.
   - [ ] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok.
-  - [ ] Aplicar as migrações 037, 038, 039 e 040 no Supabase (ver `docs/RULES.md` item 11). Disco/permissão do container não-root: o Dockerfile já cria e dá `chown app` a `/shopee_bot/upload` e `/shopee_bot/web/media` (únicos pontos de escrita local; mídia vai para disco, avatar para Supabase Storage). Pendência só se o Render montar disco persistente: ver `docs/RULES.md` item 11.
+  - [ ] Aplicar as migrações 037, 038, 039, 040 e 041 no Supabase (ver `docs/RULES.md` item 11). Disco/permissão do container não-root: o Dockerfile já cria e dá `chown app` a `/shopee_bot/upload` e `/shopee_bot/web/media` (únicos pontos de escrita local; mídia vai para disco, avatar para Supabase Storage). Pendência só se o Render montar disco persistente: ver `docs/RULES.md` item 11.
   - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.

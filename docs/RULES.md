@@ -153,13 +153,14 @@ vale por disciplina, até o Rafa decidir. Ver `docs/TASK.md` item 10.13.
 
 - O código da branch de multi-perfil completo depende das migrações `037` (trigger de limite de
   3 perfis), `038` (`profile_id` em 14 tabelas), `039` (remove UNIQUE de
-  `shopee_credentials.app_id` e troca o de `credential_checks`). Toda migração nova que o código
+  `shopee_credentials.app_id` e troca o de `credential_checks`), `041` (unicidade de `products` por
+  perfil, para o mesmo produto existir em 2 perfis). Toda migração nova que o código
   passa a exigir deve ser aplicada no Supabase **antes** de o deploy dessa versão subir.
 - Motivo (fato verificado em `database/migrations/__init__.py` e `gunicorn.conf.py`): o
   `run_migrations()` roda no boot (`post_fork`) e aplicaria as pendentes sozinho, mas uma falha
   ali derruba o worker e entra em crash-loop (ver item 9). Aplicar antes, de forma controlada,
   e conferir a linha na tabela `migrations`, evita descobrir o erro no boot de produção.
-- As migrações 037/038/039/040 são idempotentes e aditivas (exceto a 039, que só remove/troca
+- As migrações 037/038/039/040/041 são idempotentes e aditivas (exceto a 039, que só remove/troca
   unicidade, sem alterar dado). Se forem aplicadas fora do app, registrar em `migrations` na
   hora (item 9).
 - Escrita em disco local (imagem não-root, usuário `app`, uid 10001): `/shopee_bot/upload`

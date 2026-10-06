@@ -171,7 +171,7 @@ Implementadas as 5 mudanças finais para suportar a API nova em produção:
 - [ ] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub (só se quiser deploy automático de staging).
 - [ ] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor.
 - [ ] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok.
-- [ ] Aplicar as migrações 037, 038, 039 e 040 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
+- [ ] Aplicar as migrações 037, 038, 039, 040 e 041 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
 - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
 
 ## Documentação criada nesta sessão

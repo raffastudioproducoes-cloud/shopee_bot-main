@@ -240,10 +240,10 @@ Supabase (Postgres), schema com RLS habilitado em todas as tabelas:
 `threads_credentials`, `x_credentials`, `facebook_credentials`, `instagram_credentials`,
 `tiktok_credentials`, `kwai_credentials`).
 
-Migrações SQL numeradas em `database/migrations/` (hoje até a `040`), rodadas em sequência no
+Migrações SQL numeradas em `database/migrations/` (hoje até a `041`), rodadas em sequência no
 boot (`run_migrations`) e registradas na tabela `migrations`. Migração aplicada direto no
 Supabase precisa ser registrada à mão — ver `docs/RULES.md` item 9. **Antes de fazer deploy
-desta branch, aplicar as migrações 037, 038, 039 e 040** (ver `docs/RULES.md` item 11).
+desta branch, aplicar as migrações 037, 038, 039, 040 e 041** (ver `docs/RULES.md` item 11).
 
 ### Multi-perfil
 
@@ -254,7 +254,8 @@ o `profile_id` ativo e o frontend o lê de lá (sem `localStorage`). `profile_id
 tabelas (036: `products`, `product_lists`; 038: as outras 14, com índice e backfill para o
 perfil principal) com `ON DELETE SET NULL`. A 039 removeu o UNIQUE de `shopee_credentials.app_id`;
 a 040 adiciona índice único com coalesce para deduplicar NULLs em `credential_checks`
-e trocou o de `credential_checks` por `(user_id, profile_id, network)`. Backup/restore e os bots
+e trocou o de `credential_checks` por `(user_id, profile_id, network)`. A 041 troca o UNIQUE `(product_id, user_id)` de `products` por `(user_id, product_id, perfil)`: o mesmo
+produto pode existir em 2 perfis (duplicado no mesmo perfil = 409). Backup/restore e os bots
 do scheduler também respeitam o perfil.
 
 ## Segurança

@@ -31,7 +31,8 @@ perfil (sem IDOR entre perfis da mesma conta). Helper: `api/profiles.py::scope_o
 
 Migrações: `038_add_profile_id_to_remaining_tables.sql` (coluna nullable + índice + backfill pro perfil principal,
 `ON DELETE SET NULL`) e `039_relax_unique_for_multi_profile.sql` (remove UNIQUE de `shopee_credentials.app_id`
-e troca `UNIQUE (user_id, network)` de `credential_checks` por índice único `(user_id, profile_id, network)`).
+e troca `UNIQUE (user_id, network)` de `credential_checks` por índice único `(user_id, profile_id, network)`); `041_products_unique_per_profile.sql` (UNIQUE de `products` passa a ser
+`(user_id, product_id, perfil)`: o mesmo produto em 2 perfis; duplicado no mesmo perfil = 409).
 
 ## Endpoints principais
 

@@ -6,7 +6,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 ## [Não lançado]
 
 > Branch `chore/phase-12-integration`. A versão (`VERSION`) só sobe no merge para `main`.
-> Migrações exigidas: 037, 038, 039 e 040 (aplicar no Supabase antes do deploy, ver `docs/RULES.md` item 11).
+> Migrações exigidas: 037, 038, 039, 040 e 041 (aplicar no Supabase antes do deploy, ver `docs/RULES.md` item 11).
 
 ### Added
 - Multi-perfil completo: `profile_id` nas 14 tabelas restantes que tinham `user_id`
@@ -30,6 +30,9 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
   perfil) e o de `credential_checks` virou `(user_id, profile_id, network)`.
 - Migração 040: índice único de `credential_checks` usa coalesce(profile_id, uuid('00000000-0000-0000-0000-000000000000'))
   para deduplicar NULLs em casos de fallback por `user_id`.
+- Migração 041: `products` deixa de ser único por `(product_id, user_id)` e passa a `(user_id, product_id, coalesce(profile_id))`;
+  o mesmo produto pode existir em 2 perfis. Restore cria/atualiza o produto do perfil ativo e `POST /products`
+  duplicado no mesmo perfil devolve 409.
 - CI: flake8 bloqueante para erros graves, Python 3.13, cache de pip/npm e `concurrency`.
 - CD: dispara via `workflow_run` somente após CI verde em `main`; `curl -f`; `concurrency`.
 - `gunicorn.conf.py`: `timeout = 120` e supervisão do subprocesso uvicorn (reinício com backoff).
@@ -53,7 +56,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Pendências manuais de Rafa (não são código): env vars do serviço `shopee-bot-staging` no Render,
   trocar o branch de produção no Render de `master` para `main`, branch protection (exige GitHub Pro
   ou repo público), secret `RENDER_STAGING_DEPLOY_HOOK_URL`, callback URLs das redes, conectar
-  X/Instagram/TikTok, recolar o Client Secret do TikTok, aplicar as migrações 037/038/039/040 no
+  X/Instagram/TikTok, recolar o Client Secret do TikTok, aplicar as migrações 037/038/039/040/041 no
   Supabase e conferir disco/permissão do container não-root, merge dos PRs.
 - Correção de nota anterior (2026-10-05): a limitação "`profile_id` ainda NÃO cobre credenciais,
   posts…" da 2.0.0 deixa de valer nesta branch.
