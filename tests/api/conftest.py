@@ -102,6 +102,24 @@ class FakeQueryBuilder:
 
 
 @pytest.fixture
+def real_profile_resolution():
+    """Opt-in: testes que pedem este fixture exercitam a validação real de
+    `profile_id` do token (api/routers/profiles.py::_resolve_profile_id)."""
+
+
+@pytest.fixture(autouse=True)
+def _stub_profile_resolution(request, monkeypatch):
+    """Por padrão a validação de posse do `profile_id` do token (consulta ao
+    Supabase) é neutralizada: os testes de products/lists só querem provar
+    que o claim vira filtro, sem mockar a tabela `profiles`."""
+    if "real_profile_resolution" in request.fixturenames:
+        return
+    from api.routers import profiles
+
+    monkeypatch.setattr(profiles, "_resolve_profile_id", lambda pid, uid: pid)
+
+
+@pytest.fixture
 def fake_query_builder():
     return FakeQueryBuilder
 

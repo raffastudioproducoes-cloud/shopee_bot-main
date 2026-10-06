@@ -193,3 +193,42 @@ def test_avatar_upload_rejects_file_over_max_size(auth_client, monkeypatch):
 
     assert response.status_code == 413
     fake_client.storage.from_.return_value.upload.assert_not_called()
+
+
+class TestCurrentProfileIdValidation:
+    """O `profile_id` do token só vale se pertencer ao usuário; senão cai
+    no perfil principal."""
+
+    @staticmethod
+    def _fake(owned, principal):
+        results = iter([MagicMock(data=owned), MagicMock(data=principal)])
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        for method in ("select", "eq", "maybe_single"):
+            getattr(query, method).return_value = query
+        query.execute.side_effect = lambda: next(results)
+        return fake_client
+
+    def test_returns_token_profile_when_owned(self, monkeypatch, real_profile_resolution):
+        from api.routers.profiles import _resolve_profile_id
+
+        monkeypatch.setattr(
+            database_module, "get_supabase", (lambda c=self._fake({"id": "p-2"}, None): c)
+        )
+        assert _resolve_profile_id("p-2", USER_ID) == "p-2"
+
+    def test_falls_back_to_principal_when_not_owned(self, monkeypatch, real_profile_resolution):
+        from api.routers.profiles import _resolve_profile_id
+
+        monkeypatch.setattr(
+            database_module, "get_supabase", (lambda c=self._fake(None, {"id": "p-main"}): c)
+        )
+        assert _resolve_profile_id("p-alheio", USER_ID) == "p-main"
+
+    def test_returns_none_when_no_principal(self, monkeypatch, real_profile_resolution):
+        from api.routers.profiles import _resolve_profile_id
+
+        monkeypatch.setattr(
+            database_module, "get_supabase", (lambda c=self._fake(None, None): c)
+        )
+        assert _resolve_profile_id("p-alheio", USER_ID) is None
