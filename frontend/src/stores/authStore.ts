@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { useProfileStore } from './profileStore'
 
 export interface User {
   id: number
@@ -23,9 +24,12 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       login: (token: string, user: User) => {
+        // novo login => backend emite cookie com o perfil principal
+        useProfileStore.getState().setActiveProfileId(null)
         set({ accessToken: token, user, isAuthenticated: true })
       },
       logout: () => {
+        useProfileStore.getState().setActiveProfileId(null)
         set({ accessToken: null, user: null, isAuthenticated: false })
       },
       setUser: (user: User) => {
