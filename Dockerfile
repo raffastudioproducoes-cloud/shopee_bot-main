@@ -39,14 +39,23 @@ COPY requirements.txt .
 COPY api/requirements.txt api/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt -r api/requirements.txt
 
+# Usuário sem privilégios: o app não precisa de root em runtime.
+RUN useradd --system --uid 10001 --home-dir /shopee_bot app
+
 # Copia o app (a pasta raiz tem __init__.py -> vira o pacote shopee_bot)
-COPY . .
+COPY --chown=app:app . .
 
 # Build do frontend (estágio Node acima) -> frontend/dist, servido pelo
 # Flask via web/routes/spa.py quando LEGACY_PANEL_ENABLED != true
-COPY --from=frontend-build /app/frontend/dist ./frontend/dist
+COPY --from=frontend-build --chown=app:app /app/frontend/dist ./frontend/dist
 
 EXPOSE 5000
+
+USER app
+
+# /health do Flask (web/__init__.py), público e sem auth. $PORT é injetada
+# pela plataforma (default 5000). start-period cobre o boot do scheduler.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 CMD ["python", "-c", "import os,urllib.request as u;u.urlopen('http://127.0.0.1:'+os.environ.get('PORT','5000')+'/health',timeout=4)"]
 
 # Scheduler sobe dentro do gunicorn (hook post_fork -> init_scheduler);
 # on_starting sobe o processo uvicorn da API FastAPI (ver gunicorn.conf.py)
