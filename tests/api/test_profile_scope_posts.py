@@ -104,3 +104,49 @@ def test_create_post_without_profile_omits_profile_id(make_client, old_token_wit
     created = [p for p in db.tables["posts"] if p["id"] > 1000]
     assert "profile_id" not in created[0]
     assert "profile_id" not in sent
+
+
+@pytest.fixture
+def product_db(fake_db, monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 42
+    db = fake_db({
+        "posts": [{"id": 1, "user_id": 42, "profile_id": "profile-a", "text": "do A", "post_id": None}],
+        "products": [
+            {"id": 10, "user_id": 42, "profile_id": "profile-a"},
+            {"id": 11, "user_id": 99, "profile_id": "profile-x"},
+            {"id": 12, "user_id": 42, "profile_id": "profile-b"},
+        ],
+    })
+    monkeypatch.setattr(posts_module, "supabase", db)
+    yield db
+    app.dependency_overrides.clear()
+
+
+def test_update_post_rejects_products_not_owned_and_keeps_post(product_db, profile_cookie):
+    c = TestClient(app)
+    c.cookies.update(profile_cookie("profile-a"))
+    for bad in (11, 12):
+        res = c.put("/posts/1", json={"texts": ["novo"], "product_ids": [10, bad]})
+        assert res.status_code == 400
+    assert product_db.tables["posts"][0]["text"] == "do A"
+    assert product_db.tables.get("posts_products", []) == []
+
+
+def test_update_post_accepts_own_products(product_db, profile_cookie):
+    c = TestClient(app)
+    c.cookies.update(profile_cookie("profile-a"))
+    res = c.put("/posts/1", json={"texts": ["novo"], "product_ids": [10]})
+    assert res.status_code == 200
+    assert [r["product_id"] for r in product_db.tables["posts_products"]] == [10]
+
+
+def test_create_post_rejects_foreign_product_without_creating(product_db, profile_cookie):
+    c = TestClient(app)
+    c.cookies.update(profile_cookie("profile-a"))
+    res = c.post("/posts", json={
+        "texts": ["x"], "network": "threads", "product_ids": [11],
+        "schedule": {"trigger": "date", "run_date": "2030-01-01T10:00:00"},
+    })
+    assert res.status_code == 400, res.text
+    assert len(product_db.tables["posts"]) == 1

@@ -182,6 +182,23 @@ def _get_post_medias(post_id: int) -> list[dict]:
     return medias
 
 
+def _validate_product_ids(
+    user_id: int, product_ids: list[int], profile_id: str | None
+) -> None:
+    """400 se algum produto não pertence ao usuário (e ao perfil ativo);
+    evita associar produto alheio ao post (IDOR). Chamar ANTES de qualquer escrita."""
+    wanted = set(product_ids)
+    if not wanted:
+        return
+    owned = (
+        scope_owner(supabase.table("products").select("id"), user_id, profile_id)
+        .in_("id", list(wanted))
+        .execute()
+    )
+    if wanted - {row["id"] for row in (owned.data or [])}:
+        raise HTTPException(status_code=400, detail="Produto inválido")
+
+
 def _set_post_products(post_id: int, product_ids: list[int]) -> None:
     supabase.table("posts_products").delete().eq("post_id", post_id).execute()
     if product_ids:
@@ -364,6 +381,7 @@ async def create_post(
     """Cria a thread (1+ partes, ver docstring do módulo) e agenda a
     publicação. Se o agendamento falhar, desfaz a criação inteira —
     melhor não criar do que criar um post que nunca vai publicar."""
+    _validate_product_ids(user_id, body.product_ids, profile_id)
     head = _create_thread(user_id, body.texts, body.network, profile_id)
     _set_post_products(head["id"], body.product_ids)
 
@@ -424,6 +442,7 @@ async def update_post(
     e substitui as partes seguintes (apaga e recria — simplificação:
     não tenta casar partes antigas com as novas por id)."""
     _get_post(user_id, post_id, profile_id)  # ownership check
+    _validate_product_ids(user_id, body.product_ids, profile_id)
 
     chain = _get_thread_chain(post_id)
     for row in reversed(chain[1:]):
