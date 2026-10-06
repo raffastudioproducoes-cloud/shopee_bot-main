@@ -18,7 +18,9 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 
 from .auth import get_current_user_id
+from .profiles import get_current_profile_id
 from ..database import supabase
+from ..profiles import scope_owner
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -37,14 +39,17 @@ def _serialize(row: dict[str, Any]) -> dict[str, Any]:
 @router.get("")
 async def list_notifications(
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
     cursor: str | None = Query(None, description="Cursor de paginação (created_at)"),
     limit: int = Query(20, ge=1, le=100),
 ):
     """Lista atividades do usuário, mais recente primeiro, paginação por cursor."""
     query = (
-        supabase.table("activities")
-        .select("id, metadata, created_at, activity_types(name, description)")
-        .eq("user_id", user_id)
+        scope_owner(
+            supabase.table("activities")
+            .select("id, metadata, created_at, activity_types(name, description)"),
+            user_id, profile_id,
+        )
         .order("created_at", desc=True)
         .limit(limit)
     )
