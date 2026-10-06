@@ -12,7 +12,14 @@ from pydantic import BaseModel
 
 from ..database import supabase
 from ..profiles import PROFILE_LIMIT, can_create_profile, is_principal
-from .auth import _check_login_rate_limit, _create_token, _decode_token, get_current_user_id
+from .auth import (
+    _check_login_rate_limit,
+    _create_token,
+    _decode_token,
+    _get_user_from_supabase,
+    _password_version,
+    get_current_user_id,
+)
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 logger = logging.getLogger(__name__)
@@ -180,11 +187,16 @@ async def activate_profile(
     token = request.cookies.get("access_token")
     payload = _decode_token(token) if token else None
     username = payload.get("sub") if payload else None
+    # pwv sempre do hash ATUAL (não copiado do token antigo): token legado
+    # sem pwv passa a expirar após troca de senha.
+    user = _get_user_from_supabase(username) if username else None
+    if not user:
+        raise HTTPException(status_code=401, detail="Usuário inexistente")
     new_token = _create_token({
         "sub": username,
         "id": user_id,
         "profile_id": profile_id,
-        "pwv": payload.get("pwv") if payload else None,
+        "pwv": _password_version(user.get("password")),
     })
 
     # Flags idênticos ao endpoint de login (api/routers/auth.py::login) --

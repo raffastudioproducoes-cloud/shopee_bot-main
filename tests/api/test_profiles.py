@@ -128,6 +128,11 @@ def test_activate_profile_copies_login_cookie_flags(auth_client, monkeypatch):
     _mock_supabase(
         monkeypatch, {"id": "p-2", "user_id": USER_ID, "kind": "secundario"}
     )
+    from api.routers import profiles as profiles_module
+    monkeypatch.setattr(
+        profiles_module, "_get_user_from_supabase",
+        lambda username: {"id": USER_ID, "password": "h"},
+    )
     response = auth_client.post("/profiles/p-2/activate")
 
     assert response.status_code == 200
@@ -263,3 +268,20 @@ def test_create_profile_is_rate_limited(auth_client, monkeypatch):
     _mock_supabase(monkeypatch, [{"id": "p"}, {"id": "q"}, {"id": "r"}])
     codes = [auth_client.post("/profiles", json=_create_payload()).status_code for _ in range(6)]
     assert codes[-1] == 429
+
+
+def test_activate_recomputes_pwv_from_current_hash_for_legacy_token(auth_client, monkeypatch):
+    """Token legado (sem pwv) deve ganhar pwv do hash atual ao trocar de perfil."""
+    from api.routers import profiles as profiles_module
+    from api.routers.auth import _decode_token, _password_version
+
+    auth_client.cookies.set("access_token", _create_token({"sub": "testuser", "id": USER_ID}))
+    _mock_supabase(monkeypatch, {"id": "p-2", "user_id": USER_ID, "kind": "secundario"})
+    monkeypatch.setattr(
+        profiles_module, "_get_user_from_supabase",
+        lambda username: {"id": USER_ID, "password": "hash-atual"},
+    )
+    response = auth_client.post("/profiles/p-2/activate")
+    assert response.status_code == 200
+    new_token = response.headers["set-cookie"].split("access_token=")[1].split(";")[0]
+    assert _decode_token(new_token)["pwv"] == _password_version("hash-atual")
