@@ -77,7 +77,7 @@ Todas as tabelas hoje filtradas por `user_id` (identidade de LOGIN) passam a tam
   perfil novo, mesmo que seja a mesma.
 
 > **Nota (2026-10-05) — divergências entre este spec e a implementação** (verificadas em
-> `database/migrations/036`, `038`, `039` e `api/routers/profiles.py`; o texto acima fica como
+> `database/migrations/036`, `038`, `039`, `040` e `api/routers/profiles.py`; o texto acima fica como
 > registro do que foi aprovado):
 >
 > - **FK com `ON DELETE SET NULL`, não `ON DELETE CASCADE`.** Em todas as tabelas com
@@ -88,7 +88,8 @@ Todas as tabelas hoje filtradas por `user_id` (identidade de LOGIN) passam a tam
 > - **Exceção Shopee implementada pela 039.** A migração `039` removeu o UNIQUE de
 >   `shopee_credentials.app_id` (`shopee_credentials_app_id_key`), permitindo a mesma API Key em
 >   mais de um perfil. Também trocou o UNIQUE `(user_id, network)` de `credential_checks` por um
->   índice único `(user_id, profile_id, network)`.
+>   índice único `(user_id, profile_id, network)`. A migração `040` reforça esse índice com coalesce
+>   para deduplicar NULLs em `profile_id`.
 > - **Nome do claim: `profile_id`, não `active_profile_id`** (seção 2.4 abaixo). O JWT carrega
 >   `profile_id`, e `GET /auth/me` devolve o `profile_id` ativo para o frontend.
 > - **Limite de 3 perfis também no banco**: a migração `037` adiciona trigger

@@ -6,7 +6,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 ## [Não lançado]
 
 > Branch `chore/phase-12-integration`. A versão (`VERSION`) só sobe no merge para `main`.
-> Migrações exigidas: 037, 038 e 039 (aplicar no Supabase antes do deploy, ver `docs/RULES.md` item 11).
+> Migrações exigidas: 037, 038, 039 e 040 (aplicar no Supabase antes do deploy, ver `docs/RULES.md` item 11).
 
 ### Added
 - Multi-perfil completo: `profile_id` nas 14 tabelas restantes que tinham `user_id`
@@ -28,6 +28,8 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 ### Changed
 - Migração 039: removido o UNIQUE de `shopee_credentials.app_id` (mesma API Key em mais de um
   perfil) e o de `credential_checks` virou `(user_id, profile_id, network)`.
+- Migração 040: índice único de `credential_checks` usa coalesce(profile_id, uuid('00000000-0000-0000-0000-000000000000'))
+  para deduplicar NULLs em casos de fallback por `user_id`.
 - CI: flake8 bloqueante para erros graves, Python 3.13, cache de pip/npm e `concurrency`.
 - CD: dispara via `workflow_run` somente após CI verde em `main`; `curl -f`; `concurrency`.
 - `gunicorn.conf.py`: `timeout = 120` e supervisão do subprocesso uvicorn (reinício com backoff).
@@ -37,17 +39,21 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Fixed
 - Troca de senha invalida JWTs antigos (claim `pwv`); tokens sem o claim continuam aceitos.
+  Ativação de perfil (`POST /profiles/{id}/activate`) recalcula `pwv` no novo JWT.
 - `profile_id` do token é validado contra o dono; se inválido, cai no perfil principal.
+  Token sem claim `profile_id` defaults ao perfil principal, inclusive em `GET /auth/me`.
+- `product_ids` de posts são validados por dono/perfil (400 Bad Request se inválido).
 - Registro provisiona o perfil principal com rollback do usuário órfão em caso de falha; admin que
   cria usuário também cria o perfil principal.
 - Rate limit em criar perfil, backup e restore.
+- Supervisor uvicorn em `gunicorn.conf.py` (reinício com backoff em caso de crash) sem deixar processo órfão.
 - `generate-copy` não devolve a exceção ao cliente; log de debug de páginas do Facebook removido.
 
 ### Notes (limitações conhecidas / pendências manuais)
 - Pendências manuais de Rafa (não são código): env vars do serviço `shopee-bot-staging` no Render,
   trocar o branch de produção no Render de `master` para `main`, branch protection (exige GitHub Pro
   ou repo público), secret `RENDER_STAGING_DEPLOY_HOOK_URL`, callback URLs das redes, conectar
-  X/Instagram/TikTok, recolar o Client Secret do TikTok, aplicar as migrações 037/038/039 no
+  X/Instagram/TikTok, recolar o Client Secret do TikTok, aplicar as migrações 037/038/039/040 no
   Supabase e conferir disco/permissão do container não-root, merge dos PRs.
 - Correção de nota anterior (2026-10-05): a limitação "`profile_id` ainda NÃO cobre credenciais,
   posts…" da 2.0.0 deixa de valer nesta branch.

@@ -240,10 +240,10 @@ Supabase (Postgres), schema com RLS habilitado em todas as tabelas:
 `threads_credentials`, `x_credentials`, `facebook_credentials`, `instagram_credentials`,
 `tiktok_credentials`, `kwai_credentials`).
 
-Migrações SQL numeradas em `database/migrations/` (hoje até a `039`), rodadas em sequência no
+Migrações SQL numeradas em `database/migrations/` (hoje até a `040`), rodadas em sequência no
 boot (`run_migrations`) e registradas na tabela `migrations`. Migração aplicada direto no
 Supabase precisa ser registrada à mão — ver `docs/RULES.md` item 9. **Antes de fazer deploy
-desta branch, aplicar as migrações 037, 038 e 039** (ver `docs/RULES.md` item 11).
+desta branch, aplicar as migrações 037, 038, 039 e 040** (ver `docs/RULES.md` item 11).
 
 ### Multi-perfil
 
@@ -252,7 +252,8 @@ trigger (migração 037). O perfil ativo vai no claim `profile_id` do JWT; o bac
 perfil pertence ao usuário e, se não pertencer, cai no perfil principal. `GET /auth/me` devolve
 o `profile_id` ativo e o frontend o lê de lá (sem `localStorage`). `profile_id` existe em 16
 tabelas (036: `products`, `product_lists`; 038: as outras 14, com índice e backfill para o
-perfil principal) com `ON DELETE SET NULL`. A 039 removeu o UNIQUE de `shopee_credentials.app_id`
+perfil principal) com `ON DELETE SET NULL`. A 039 removeu o UNIQUE de `shopee_credentials.app_id`;
+a 040 adiciona índice único com coalesce para deduplicar NULLs em `credential_checks`
 e trocou o de `credential_checks` por `(user_id, profile_id, network)`. Backup/restore e os bots
 do scheduler também respeitam o perfil.
 

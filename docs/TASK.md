@@ -167,12 +167,12 @@ em execução.
   branch `chore/phase-12-integration` (ainda não mergeada em `main`). A ressalva de "escopo
   parcial" do item 10.9 deixa de valer: migração 038 adiciona `profile_id` a credenciais das 7
   redes, `credential_checks`, `posts`, `medias`, `schedulers`, `activities`, `request_logs` e
-  `audit_events` (FK `ON DELETE SET NULL`); 039 relaxa UNIQUE; 037 impõe o limite de 3 perfis
-  por trigger. Backend, backup/restore e bots do scheduler respeitam o perfil ativo; UI com
-  editar/excluir/ativar e perfil ativo na TopBar. Também nesta branch: claim `pwv`, validação do
-  `profile_id` do token, rate limit em criar perfil/backup/restore, Dockerfile não-root +
-  `HEALTHCHECK`, gunicorn com timeout e supervisão, CI/CD endurecidos. (origem: branch de
-  integração, 2026-10-05)
+  `audit_events` (FK `ON DELETE SET NULL`); 039 relaxa UNIQUE; 040 adiciona índice único com
+  coalesce para deduplicar NULLs; 037 impõe o limite de 3 perfis por trigger. Backend, backup/restore
+  e bots do scheduler respeitam o perfil ativo; UI com editar/excluir/ativar e perfil ativo na TopBar.
+  Também nesta branch: claim `pwv`, validação do `profile_id` do token, rate limit em criar
+  perfil/backup/restore, Dockerfile não-root + `HEALTHCHECK`, gunicorn com timeout e supervisão,
+  CI/CD endurecidos. (origem: branch de integração, 2026-10-05)
 
 - [ ] **10.13 — Git Flow: pendências manuais.** `master` renomeada para `main` e branch
   `staging` criada. **Pendências manuais do Rafa (ação humana):** (a) proteção de branch
@@ -190,7 +190,7 @@ em execução.
   - [ ] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub (só se quiser deploy automático de staging).
   - [ ] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor.
   - [ ] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok.
-  - [ ] Aplicar as migrações 037, 038 e 039 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
+  - [ ] Aplicar as migrações 037, 038, 039 e 040 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
   - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
   (Quando todas estiverem concluídas, marcar este item.)
 

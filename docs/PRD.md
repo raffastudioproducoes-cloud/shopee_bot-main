@@ -90,7 +90,7 @@ completo — a limitação é a ausência de token de usuário salvo, não uma r
 
 > **Atualização 2026-10-05**: a seção 4 acima descreve 2026-09-29. Desde então, nesta branch
 > (ainda não mergeada em `main`), o multi-perfil passou a isolar quase todos os dados por
-> `profile_id` (migrações 037-039) e a UI de perfis ganhou editar/excluir/ativar sem reload. O
+> `profile_id` (migrações 037-040) e a UI de perfis ganhou editar/excluir/ativar sem reload. O
 > estado das redes sociais não mudou. Pendências manuais de Rafa: ver `docs/TASK.md` item 10.13.
 
 ## 5. Fora do escopo do MVP

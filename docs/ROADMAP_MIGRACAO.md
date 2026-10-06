@@ -155,7 +155,7 @@ Implementadas as 5 mudanças finais para suportar a API nova em produção:
 > mantido como histórico. O que mudou depois, verificado em `git log main..HEAD` e nos arquivos:
 
 - Multi-perfil deixou de ser parcial: `profile_id` em 16 tabelas (036 + 038), UNIQUE relaxado
-  (039), limite de 3 perfis por trigger (037). A versão `VERSION` continua 2.0.0 até o merge.
+  (039), índice único com coalesce (040), limite de 3 perfis por trigger (037). A versão `VERSION` continua 2.0.0 até o merge.
 - Segurança do servidor: JWT invalidado na troca de senha (claim `pwv`), validação de posse do
   `profile_id` do token, rate limit em criar perfil/backup/restore.
 - Infra: `Dockerfile` não-root + `HEALTHCHECK`; `gunicorn.conf.py` com `timeout = 120` e
@@ -171,7 +171,7 @@ Implementadas as 5 mudanças finais para suportar a API nova em produção:
 - [ ] Secret `RENDER_STAGING_DEPLOY_HOOK_URL` no GitHub (só se quiser deploy automático de staging).
 - [ ] Cadastrar as callback URLs de cada rede (X, Meta, TikTok) nos painéis de desenvolvedor.
 - [ ] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok.
-- [ ] Aplicar as migrações 037, 038 e 039 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
+- [ ] Aplicar as migrações 037, 038, 039 e 040 no Supabase (ver `docs/RULES.md` item 11) e conferir disco/permissão de escrita do container não-root.
 - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
 
 ## Documentação criada nesta sessão
