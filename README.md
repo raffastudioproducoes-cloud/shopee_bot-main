@@ -196,7 +196,7 @@ python -m pytest tests/api --confcutdir=tests/api
 
 - **Plataforma**: Render (Web Service, Docker), plano Free.
 - **Build**: lê o `Dockerfile` da raiz (Python 3.13-slim + gunicorn + gevent).
-- **Auto-deploy**: integração nativa do Render com o GitHub, a cada push em `main`.
+- **Auto-deploy**: integração nativa do Render com o GitHub, a cada push em `main` (serviço de produção `shopee-bot` já na branch `main`, verificado em 2026-10-06 via API do Render).
 - **Banco**: Supabase, via Session Pooler (IPv4 — o Direct Connection só responde IPv6, incompatível com o Render Free).
 
 Detalhes de infraestrutura, variáveis de ambiente e histórico de bugs resolvidos no deploy: Vault `26-Deploy-Render.md`.
