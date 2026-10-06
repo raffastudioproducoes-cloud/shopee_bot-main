@@ -42,3 +42,11 @@ def test_039_is_idempotent_and_touches_only_two_constraints():
     assert "drop constraint if exists shopee_credentials_app_id_key" in SQL_039
     assert "drop constraint if exists credential_checks_user_id_network_key" in SQL_039
     assert "create unique index if not exists uq_credential_checks_user_profile_network" in SQL_039
+
+
+def test_040_recreates_unique_index_with_coalesce_and_dedupes_nulls():
+    sql = (MIGRATIONS / "040_credential_checks_unique_coalesce.sql").read_text(encoding="utf-8")
+    assert "drop index if exists public.uq_credential_checks_user_profile_network" in sql
+    assert "create unique index if not exists uq_credential_checks_user_profile_network" in sql
+    assert "coalesce(profile_id, '00000000-0000-0000-0000-000000000000'::uuid)" in sql
+    assert sql.index("delete from") < sql.index("create unique index")
