@@ -214,7 +214,10 @@ def _get_user_from_supabase(username: str):
     return response.data[0] if response.data else None
 
 
-def _check_login_rate_limit(key: str) -> None:
+def _check_login_rate_limit(
+    key: str,
+    detail: str = "Muitas tentativas de login. Aguarde antes de tentar novamente.",
+) -> None:
     now = time.monotonic()
     attempts = [
         t for t in _login_attempts.get(key, [])
@@ -222,12 +225,29 @@ def _check_login_rate_limit(key: str) -> None:
     ]
     if len(attempts) >= _LOGIN_RATE_LIMIT_ATTEMPTS:
         _login_attempts[key] = attempts
-        raise HTTPException(
-            status_code=429,
-            detail="Muitas tentativas de login. Aguarde antes de tentar novamente.",
-        )
+        raise HTTPException(status_code=429, detail=detail)
     attempts.append(now)
     _login_attempts[key] = attempts
+
+
+# Em produção o FastAPI só recebe tráfego do proxy Flask local
+# (web/routes/api_proxy.py -> 127.0.0.1:8001), então `request.client.host`
+# é sempre 127.0.0.1 e todo rate limit por IP vira global. O proxy repassa
+# o IP real (já resolvido pelo ProxyFix do Flask) em X-Forwarded-For; só
+# confiamos nesse header quando a conexão vem do loopback (o próprio proxy).
+_TRUSTED_PROXY_HOSTS = {"127.0.0.1", "::1"}
+
+
+def client_ip(request) -> str:
+    host = request.client.host if request.client else "unknown"
+    if host in _TRUSTED_PROXY_HOSTS:
+        forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[-1].strip()
+        if forwarded:
+            return forwarded
+    return host
+
+
+_INVALID_LOGIN_DETAIL = "Usuário ou senha inválidos"
 
 
 @router.post("/login")
@@ -236,15 +256,17 @@ async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
-    ip = request.client.host if request.client else "unknown"
-    _check_login_rate_limit(f"{ip}:{form_data.username}")
+    _check_login_rate_limit(f"{client_ip(request)}:{form_data.username}")
 
     user = _get_user_from_supabase(form_data.username)
     if not user:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado")
+        # Mesma mensagem e custo de bcrypt do caso "senha errada": não
+        # revela quais usernames existem (nem por texto nem por timing).
+        pwd_context.hash("dummy_password_for_timing")
+        raise HTTPException(status_code=401, detail=_INVALID_LOGIN_DETAIL)
 
     if not pwd_context.verify(form_data.password, user.get("password", "")):
-        raise HTTPException(status_code=401, detail="Senha inválida")
+        raise HTTPException(status_code=401, detail=_INVALID_LOGIN_DETAIL)
 
     principal = (
         get_supabase()
@@ -367,7 +389,7 @@ async def register(body: RegisterRequest, request: Request):
     """Cadastro público. Sempre cria com access="USER" — o cliente não tem
     como enviar ADMIN, o campo nem existe no schema de entrada."""
     now = time.monotonic()
-    ip = request.client.host if request.client else "unknown"
+    ip = client_ip(request)
     last_attempt = _last_register_attempt.get(ip)
     _last_register_attempt[ip] = now
     if last_attempt is not None and (now - last_attempt) < _REGISTER_COOLDOWN_SECONDS:

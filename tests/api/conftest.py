@@ -35,6 +35,8 @@ import pytest
 os.environ.setdefault(
     "APP_ENCRYPTION_KEY", "e7lc8f3AsY0VNg7Kpy1K5umJirUK6jwqkJg7_xhn0IY="
 )
+# api/config.py aborta o import sem segredo de JWT (>= 32 chars).
+os.environ.setdefault("API_SECRET_KEY", "test-only-api-secret-key-0123456789abcdef")
 
 
 @pytest.fixture(scope="session", autouse=True)

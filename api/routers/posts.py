@@ -30,7 +30,7 @@ sem API pública confirmada).
 """
 
 import logging
-import os
+import uuid
 from pathlib import Path
 from typing import Literal
 
@@ -38,7 +38,7 @@ import fleep
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, model_validator, field_validator
 
-from .auth import get_current_user_id
+from .auth import _check_login_rate_limit, get_current_user_id
 from .profiles import get_current_profile_id
 from ..profiles import scope_owner
 from ..audit_log import log_action
@@ -70,20 +70,34 @@ NETWORK_FUNC_MAP = {
 NetworkLiteral = Literal[tuple(NETWORK_FUNC_MAP.keys())]
 
 MEDIA_ROOT = Path("web/media")
-ALLOWED_MEDIA_EXTS = {".webp", ".jpg", ".jpeg", ".png", ".gif", ".mp4"}
 MAX_MEDIA_BYTES = 50 * 1024 * 1024  # 50MB, mesmo teto do Flask (FLASK_MAX_CONTENT_LENGTH)
 
-# Segunda camada de defesa (além da extensão): MIME real detectado por magic
-# bytes via fleep, restrito aos tipos que ALLOWED_MEDIA_EXTS já cobre
-# (imagem/vídeo). webp e gif reportam variações de MIME dependendo da versão
-# do fleep/libmagic, por isso a lista cobre os aliases conhecidos.
+# MIME real detectado por magic bytes (fleep) -> extensão gravada em disco.
+# O nome do arquivo é gerado no servidor (uuid + esta extensão), NUNCA vem de
+# `file.filename` (path traversal: "../../x.png", absoluto, "..\\x.png").
+# Mesmo padrão do avatar em api/routers/profiles.py.
 ALLOWED_MEDIA_MIMES = {
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "video/mp4",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "video/mp4": ".mp4",
 }
+
+
+def _remove_media_file(file_path: str) -> None:
+    """Apaga um arquivo de mídia só se ele estiver dentro de MEDIA_ROOT —
+    `file_path` vem do banco e pode ter sido gravado por versões antigas
+    sem sanitização (ex.: "web/media/1/../../../x")."""
+    resolved = Path(file_path).resolve()
+    if not resolved.is_relative_to(MEDIA_ROOT.resolve()):
+        logger.warning("Remoção de mídia fora de MEDIA_ROOT recusada: %s", file_path)
+        return
+    try:
+        resolved.unlink(missing_ok=True)  # já sumiu: não bloqueia a remoção do post
+    except OSError:
+        logger.warning("Falha ao remover arquivo de mídia %s", file_path, exc_info=True)
+
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 
@@ -366,10 +380,7 @@ def _delete_thread_cascade(head_id: int) -> None:
         if media and _media_shared_elsewhere(media["id"], head_id):
             continue  # outro post do grupo ainda usa: só o vínculo sai
         if media and media.get("file_path"):
-            try:
-                os.remove(media["file_path"])
-            except OSError:
-                pass  # arquivo já sumiu — não bloqueia a remoção do post
+            _remove_media_file(media["file_path"])
         if media:
             supabase.table("medias").delete().eq("id", media["id"]).execute()
 
@@ -391,6 +402,12 @@ async def generate_copy(
 ):
     """Gera texto de post via IA (Gemini) para um produto, por persona."""
     from apis.llm import generate_product_copy
+
+    # Cada chamada custa uma requisição paga de LLM: limite por usuário.
+    _check_login_rate_limit(
+        f"generate-copy:{user_id}",
+        detail="Muitas gerações de texto em pouco tempo. Aguarde um minuto.",
+    )
 
     product_result = (
         scope_owner(
@@ -582,14 +599,6 @@ async def upload_media(
     o Flask usa (`web/media/<post_id>/`)."""
     post = _get_post(user_id, post_id, profile_id)  # ownership check
 
-    filename = file.filename or ""
-    ext = Path(filename).suffix.lower()
-    if ext not in ALLOWED_MEDIA_EXTS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Formato de arquivo inválido: {filename}. Permitidos: {sorted(ALLOWED_MEDIA_EXTS)}",
-        )
-
     content = await file.read()
     if len(content) > MAX_MEDIA_BYTES:
         raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
@@ -601,7 +610,8 @@ async def upload_media(
     )
 
     detected = fleep.get(content[:128])
-    if not any(mime in ALLOWED_MEDIA_MIMES for mime in detected.mime):
+    mime = next((m for m in detected.mime if m in ALLOWED_MEDIA_MIMES), None)
+    if not mime:
         raise HTTPException(
             status_code=400,
             detail="Conteúdo do arquivo não corresponde a uma mídia permitida.",
@@ -609,10 +619,13 @@ async def upload_media(
 
     post_dir = MEDIA_ROOT / str(post_id)
     post_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}{ALLOWED_MEDIA_MIMES[mime]}"
     file_path = post_dir / filename
+    if not file_path.resolve().is_relative_to(post_dir.resolve()):  # defesa extra
+        raise HTTPException(status_code=400, detail="Nome de arquivo inválido.")
     file_path.write_bytes(content)
 
-    media_type = "VIDEO" if ext == ".mp4" else "IMAGE"
+    media_type = "VIDEO" if mime.startswith("video/") else "IMAGE"
     media_result = (
         supabase.table("medias")
         .insert({
@@ -666,10 +679,7 @@ async def delete_media(
 
     file_path = media_result.data.get("file_path")
     if file_path:
-        try:
-            os.remove(file_path)
-        except OSError:
-            logger.warning("Falha ao remover arquivo de mídia %s", file_path, exc_info=True)
+        _remove_media_file(file_path)
 
     return {"msg": "Mídia removida"}
 
