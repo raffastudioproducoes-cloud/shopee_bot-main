@@ -55,6 +55,8 @@ export interface PostCreate {
   product_ids?: number[]
   schedule: PostSchedule
   network?: PostNetwork
+  /** Multi-rede: mídia já enviada pro 1º post do grupo, reaproveitada. */
+  media_ids?: number[]
 }
 
 export interface PostUpdate {
