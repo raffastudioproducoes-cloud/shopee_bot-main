@@ -115,3 +115,14 @@ def test_create_rejects_reused_media_invalid_for_network(client):
     res = c.post("/posts", json={"texts": ["oi"], "schedule": SCHEDULE, "network": "instagram", "media_ids": [5]})
     assert res.status_code == 422
     assert "Instagram: não aceita .png" in res.json()["detail"]
+
+
+def test_upload_rejects_format_not_accepted_by_post_network(client, monkeypatch, tmp_path):
+    c, db = client
+    monkeypatch.setattr(posts_module, "MEDIA_ROOT", tmp_path)
+    db.tables["posts"].append({"id": 7, "user_id": 42, "text": "oi", "post_id": None, "network": "instagram"})
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    res = c.post("/posts/7/media", files={"file": ("foto.png", png, "image/png")})
+    assert res.status_code == 422
+    assert "Instagram: não aceita .png (foto.png)" in res.json()["detail"]
+    assert list(tmp_path.iterdir()) == []

@@ -603,12 +603,6 @@ async def upload_media(
     if len(content) > MAX_MEDIA_BYTES:
         raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
 
-    _check_network_rules(
-        post.get("network") or "threads", [post.get("text") or ""],
-        [*_get_post_medias(post_id), {"file_name": filename, "size": len(content)}],
-        0,
-    )
-
     detected = fleep.get(content[:128])
     mime = next((m for m in detected.mime if m in ALLOWED_MEDIA_MIMES), None)
     if not mime:
@@ -616,6 +610,14 @@ async def upload_media(
             status_code=400,
             detail="Conteúdo do arquivo não corresponde a uma mídia permitida.",
         )
+
+    # regras da rede do post com o formato REAL (magic bytes), não o nome enviado
+    shown_name = f"{Path(file.filename or 'arquivo').stem}{ALLOWED_MEDIA_MIMES[mime]}"
+    _check_network_rules(
+        post.get("network") or "threads", [post.get("text") or ""],
+        [*_get_post_medias(post_id), {"file_name": shown_name, "size": len(content)}],
+        0,
+    )
 
     post_dir = MEDIA_ROOT / str(post_id)
     post_dir.mkdir(parents=True, exist_ok=True)
