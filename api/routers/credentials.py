@@ -15,6 +15,7 @@ que gravar uma credencial nunca verificada.
 
 import logging
 import secrets
+import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
@@ -34,6 +35,7 @@ from .. import x_oauth
 from ..config import settings
 from ..database import supabase
 from ..crypto import encrypt, decrypt
+from ..utils.log_sanitizer import sanitize_log_data
 from ..internal_client import (
     validate_shopee_credential,
     validate_network_credential,
@@ -111,21 +113,68 @@ def _simple_table(network: str) -> str:
     return table
 
 
+# Teste com mais de uma semana não garante mais nada (token revogado, app
+# alterado): a luz volta pra amarelo pedindo novo teste.
+CHECK_STALE_AFTER = timedelta(days=7)
+
+# Redes com expiração de token gravada: (coluna de expiração, coluna de
+# refresh). Token vencido SEM refresh = precisa reconectar; com refresh o
+# bot renova sozinho na próxima publicação (scheduler/bot_post_x.py).
+_TOKEN_EXPIRY_FIELDS = {"x": ("token_expires_at", "user_refresh_token")}
+
+
+def _parse_ts(value) -> datetime | None:
+    if not value:
+        return None
+    try:
+        ts = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+
+
+def _token_expired(network: str, row: dict | None) -> bool:
+    fields = _TOKEN_EXPIRY_FIELDS.get(network)
+    if not fields or not row:
+        return False
+    expires_at = _parse_ts(row.get(fields[0]))
+    return bool(expires_at and expires_at <= datetime.now(timezone.utc) and not row.get(fields[1]))
+
+
+def _short_reason(message: str | None) -> str:
+    text = sanitize_log_data(message or "").strip()
+    return (text[:117] + "...") if len(text) > 120 else (text or "falha no teste")
+
+
+def _connection_state(connected: bool, check: dict | None, token_expired: bool = False) -> tuple[str, str, str]:
+    """(light, state, status_text) — uma fonte só pra luz E selo, pra nunca
+    mostrar "Conectado" verde com bolinha vermelha sem explicação.
+
+    red: sem credencial, ou salva e nunca testada. yellow: token expirado,
+    teste com erro ou teste antigo (> CHECK_STALE_AFTER). green: teste OK
+    recente. O teste (POST /{network}/test) é a única fonte de 'ok'/'error'
+    e é zerado sempre que a credencial é salva/reconectada."""
+    if not connected:
+        return "red", "disconnected", "Desconectado"
+    if token_expired:
+        return "yellow", "expired", "Token expirado — reconecte"
+    if not check:
+        return "red", "untested", "Salva, nunca testada — clique em Testar conexão"
+    if check.get("state") != "ok":
+        return "yellow", "error", f"Erro: {_short_reason(check.get('message'))}"
+    checked_at = _parse_ts(check.get("checked_at"))
+    if checked_at and datetime.now(timezone.utc) - checked_at > CHECK_STALE_AFTER:
+        return "yellow", "stale", "Testada há mais de 7 dias — teste de novo"
+    return "green", "ok", "Funcionando"
+
+
 def _light_for(connected: bool, check: dict | None) -> str:
-    """Cor do sinalizador (visível pra todo usuário, não só admin).
-
-    'red': sem credencial salva, OU salva mas nunca testada ainda ('fez
-    conexão' não confirmado). 'yellow': testada e o teste encontrou um
-    problema (API incorreta, falta autorização OAuth, instável). 'green':
-    testada e funcionando. Nunca inferido só de `status` — só um teste
-    real (POST /{network}/test, admin-only) grava 'ok'/'error' em
-    credential_checks."""
-    if not connected or not check:
-        return "red"
-    return "green" if check.get("state") == "ok" else "yellow"
+    return _connection_state(connected, check)[0]
 
 
-def _status_only(row: dict | None, check: dict | None = None, *, token_field: str | None = None) -> dict:
+def _status_only(
+    row: dict | None, check: dict | None = None, *, token_field: str | None = None, network: str | None = None,
+) -> dict:
     """`token_field`: pra redes onde `status` é setado por PUT /credentials/{network}
     (só salva app_id/secret do app — TikTok Client Key/Secret, Instagram App ID/
     Secret) mas a conexão real só existe depois do OAuth (authorize/callback).
@@ -137,12 +186,35 @@ def _status_only(row: dict | None, check: dict | None = None, *, token_field: st
         connected = bool(row.get(token_field)) if row else False
     else:
         connected = bool(row.get("status")) if row else False
+    light, state, status_text = _connection_state(
+        connected, check, _token_expired(network, row) if network else False,
+    )
     return {
         "connected": connected,
-        "light": _light_for(connected, check),
+        "light": light,
+        "state": state,
+        "status_text": status_text,
         "checked_at": check.get("checked_at") if check else None,
         "check_message": check.get("message") if check else None,
     }
+
+
+# tabela de credencial -> rede (pra zerar o teste ao salvar/reconectar)
+_TABLE_TO_NETWORK = {
+    **{t: n for n, t in SIMPLE_NETWORKS.items()},
+    **{t: n for n, (t, _) in OAUTH_NETWORKS.items()},
+}
+
+
+def _reset_credential_check(table: str, user_id: int, profile_id: str | None) -> None:
+    """Credencial nova/reconectada invalida o teste anterior (senão a luz
+    verde de um token antigo continuava valendo pro novo)."""
+    network = _TABLE_TO_NETWORK.get(table)
+    if not network:
+        return
+    scope_owner(
+        supabase.table("credential_checks").delete(), user_id, profile_id,
+    ).eq("network", network).execute()
 
 
 def _upsert_by_user(table: str, user_id: int, data: dict, profile_id: str | None = None) -> dict:
@@ -166,6 +238,7 @@ def _upsert_by_user(table: str, user_id: int, data: dict, profile_id: str | None
         result = supabase.table(table).insert(row).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao salvar credencial")
+    _reset_credential_check(table, user_id, profile_id)
     return result.data[0]
 
 
@@ -261,12 +334,14 @@ async def list_credentials(user_id: int = Depends(get_current_user_id), profile_
     # Threads é setado junto com o token, mas nas outras 3 não existe mais
     # nenhum campo além do token — ver OAUTH_NETWORKS acima).
     for network, (table, token_field) in OAUTH_NETWORKS.items():
+        expiry_cols = "".join(f", {c}" for c in _TOKEN_EXPIRY_FIELDS.get(network, ()))
         row = (
-            scope_owner(supabase.table(table).select(f"status, {token_field}"), user_id, profile_id)
+            scope_owner(supabase.table(table).select(f"status, {token_field}{expiry_cols}"), user_id, profile_id)
             .maybe_single().execute()
         )
         result[network] = _status_only(
-            row.data if row else None, checks_by_network.get(network), token_field=token_field
+            row.data if row else None, checks_by_network.get(network),
+            token_field=token_field, network=network,
         )
 
     if not is_admin:
@@ -961,13 +1036,30 @@ def _test_payload(network: str, user_id: int, profile_id: str | None = None) -> 
     return {"app_id": data["app_id"], "secret": decrypt(data["secret"])}
 
 
+# ponytail: rate limit em memória de processo (mesmo padrão de
+# catalog.py/auth.py) — 1 worker hoje; Redis se virar multi-instância.
+_TEST_RATE_LIMIT_ATTEMPTS = 6
+_TEST_RATE_LIMIT_WINDOW_SECONDS = 60
+_test_attempts: dict = {}
+
+
+def _check_test_rate_limit(user_id) -> None:
+    now = time.monotonic()
+    attempts = [t for t in _test_attempts.get(user_id, []) if now - t < _TEST_RATE_LIMIT_WINDOW_SECONDS]
+    if len(attempts) >= _TEST_RATE_LIMIT_ATTEMPTS:
+        _test_attempts[user_id] = attempts
+        raise HTTPException(status_code=429, detail="Muitos testes em pouco tempo. Aguarde um minuto.")
+    _test_attempts[user_id] = attempts + [now]
+
+
 @router.post("/{network}/test")
-async def test_credential(network: str, user_id: int = Depends(_require_admin), profile_id: str | None = Depends(get_current_profile_id)):
+async def test_credential(network: str, user_id: int = Depends(get_current_user_id), profile_id: str | None = Depends(get_current_profile_id)):
     """"Testar conexão" — chama a API real da rede (via bridge interno) e
     grava o resultado em credential_checks, que é o que alimenta a luz do
-    sinalizador pra todo mundo (GET /credentials). Admin-only: só quem
-    pode clicar o botão decide quando gastar uma chamada real contra a
-    API de cada rede."""
+    sinalizador (GET /credentials). Qualquer usuário testa a PRÓPRIA
+    credencial (escopo user_id/perfil em _test_payload — nunca a de outro),
+    com rate limit pra não gastar chamada real à toa."""
+    _check_test_rate_limit(user_id)
     payload = _test_payload(network, user_id, profile_id)
     if payload is None:
         raise HTTPException(status_code=400, detail="Nenhuma credencial salva para esta rede.")
@@ -996,7 +1088,11 @@ async def test_credential(network: str, user_id: int = Depends(_require_admin), 
             **({"profile_id": profile_id} if profile_id else {}),
         }).execute()
 
-    return {"light": "green" if state == "ok" else "yellow", "message": message, "checked_at": checked_at}
+    light, conn_state, status_text = _connection_state(True, check_data)
+    return {
+        "light": light, "state": conn_state, "status_text": status_text,
+        "message": status_text if conn_state != "ok" else message, "checked_at": checked_at,
+    }
 
 
 @router.put("/{network}")
