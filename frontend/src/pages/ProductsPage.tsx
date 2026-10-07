@@ -10,10 +10,12 @@ import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
 import { SearchField } from "../components/ui/SearchField"
 import { SegmentedToggle } from "../components/ui/SegmentedToggle"
+import { ViewSwitcher, useViewMode, viewContainerStyle } from "../components/ui/ViewSwitcher"
 import { TimelineListCard } from "../components/ui/TimelineListCard"
 import { Badge } from "../components/ui/Badge"
 import { Icon } from "../components/ui/Icon"
 import { CatalogSearchTab } from "../components/products/CatalogSearchTab"
+import type { CatalogProduct } from "../api/catalog"
 
 type ProductsTab = "mine" | "catalog"
 
@@ -41,34 +43,12 @@ function formatPriceRange(product: Product): string {
   return "—"
 }
 
-// ── View selector (persistida em localStorage, padrão Windows Explorer) ─────────
-
-type ProductsView = "list" | "grid-small" | "grid-large"
-
-const PRODUCTS_VIEW_STORAGE_KEY = "products-view"
-
-function readStoredProductsView(): ProductsView {
-  try {
-    const raw = localStorage.getItem(PRODUCTS_VIEW_STORAGE_KEY)
-    if (raw === "list" || raw === "grid-small" || raw === "grid-large") return raw
-  } catch {
-    // localStorage indisponível (modo privado, etc.) — usa o padrão
-  }
-  return "list"
-}
-
-const VIEW_OPTIONS: { view: ProductsView; icon: string; label: string }[] = [
-  { view: "list", icon: "list", label: "Lista" },
-  { view: "grid-small", icon: "grid-3x3", label: "Grade pequena" },
-  { view: "grid-large", icon: "layout-grid", label: "Grade grande" },
-]
-
 export function ProductsPage() {
   const { isAuthenticated, logout } = useAuthStore()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<ProductsTab>("mine")
   const [search, setSearch] = useState("")
-  const [view, setView] = useState<ProductsView>(readStoredProductsView)
+  const [view, handleViewChange] = useViewMode("products-view")
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -176,6 +156,21 @@ export function ProductsPage() {
     setModalOpen(true)
   }, [])
 
+  const handlePrefill = useCallback((p: CatalogProduct) => {
+    setEditingId(null)
+    setForm({
+      name: p.name,
+      product_id: p.product_id,
+      original_link: p.original_link || "",
+      commission_link: p.commission_link || "",
+      commission: p.commission ?? "",
+      image: p.image || "",
+      price_min: p.price_min ?? "",
+      price_max: p.price_max ?? "",
+    })
+    setModalOpen(true)
+  }, [])
+
   const handleCancel = useCallback(() => {
     setModalOpen(false)
     setEditingId(null)
@@ -186,15 +181,6 @@ export function ProductsPage() {
     setEditingId(null)
     setForm(emptyForm)
     setModalOpen(true)
-  }, [])
-
-  const handleViewChange = useCallback((next: ProductsView) => {
-    setView(next)
-    try {
-      localStorage.setItem(PRODUCTS_VIEW_STORAGE_KEY, next)
-    } catch {
-      // localStorage indisponível — a preferência só não persiste entre sessões
-    }
   }, [])
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -234,30 +220,7 @@ export function ProductsPage() {
               size={36}
             />
             {activeTab === "mine" ? (
-              <div
-                role="group"
-                aria-label="Modo de visualização"
-                style={{
-                  display: "inline-flex",
-                  gap: 2,
-                  padding: 3,
-                  background: "var(--surface-inset)",
-                  border: "1px solid var(--border-hairline)",
-                  borderRadius: "var(--r-pill)",
-                }}
-              >
-                {VIEW_OPTIONS.map((opt) => (
-                  <IconButton
-                    key={opt.view}
-                    icon={opt.icon}
-                    label={opt.label}
-                    tone="plain"
-                    size={30}
-                    active={view === opt.view}
-                    onClick={() => handleViewChange(opt.view)}
-                  />
-                ))}
-              </div>
+              <ViewSwitcher value={view} onChange={handleViewChange} />
             ) : null}
           </div>
         </div>
@@ -269,15 +232,12 @@ export function ProductsPage() {
               placeholder="Buscar produtos..."
               width={240}
             />
-            <Button variant="primary" icon="plus" onClick={openCreateModal}>
-              Novo produto
-            </Button>
           </div>
         ) : null}
       </header>
 
       {activeTab === "catalog" ? (
-        <CatalogSearchTab />
+        <CatalogSearchTab onManualCreate={openCreateModal} onPrefill={handlePrefill} />
       ) : (
         <>
       {/* Error */}
@@ -299,26 +259,12 @@ export function ProductsPage() {
       {products.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
           <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum produto cadastrado.</p>
-          <Button variant="primary" style={{ marginTop: 16 }} onClick={openCreateModal}>
-            Cadastrar primeiro produto
+          <Button variant="primary" icon="search" style={{ marginTop: 16 }} onClick={() => setActiveTab("catalog")}>
+            Buscar na Pesquisa Avançada
           </Button>
         </Panel>
       ) : (
-        <div
-          style={
-            view === "list"
-              ? { display: "flex", flexDirection: "column", gap: 12 }
-              : {
-                  display: "grid",
-                  gridTemplateColumns:
-                    view === "grid-small"
-                      ? "repeat(auto-fill, minmax(min(100%, 200px), 1fr))"
-                      : "repeat(auto-fill, minmax(min(100%, 340px), 1fr))",
-                  gap: 12,
-                  alignItems: "start",
-                }
-          }
-        >
+        <div style={viewContainerStyle(view)}>
           {products.map((product: Product) => (
             <TimelineListCard
               key={product.id}

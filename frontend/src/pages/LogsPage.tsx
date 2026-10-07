@@ -9,6 +9,10 @@ import { TextInput } from "../components/ui/TextInput"
 
 const PAGE_SIZE = 50
 
+// ~10 linhas visiveis (cabecalho ~40px + 10 x ~46px); o resto rola dentro do painel.
+const TABLE_MAX_HEIGHT = 500
+const STICKY_TH = { padding: "10px 16px", position: "sticky", top: 0, zIndex: 1, background: "var(--surface-card)", boxShadow: "inset 0 -1px 0 var(--border-hairline)" } as const
+
 export function LogsPage() {
   const { user } = useAuthStore()
   const [offset, setOffset] = useState(0)
@@ -94,16 +98,16 @@ export function LogsPage() {
           <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum log encontrado.</p>
         </Panel>
       ) : (
-        <Panel surface="dark" style={{ padding: 0, overflow: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", font: "var(--fw-regular) var(--fs-body)/1.3 var(--font-sans)" }}>
+        <Panel surface="dark" style={{ padding: 0, overflow: "auto", maxHeight: TABLE_MAX_HEIGHT }}>
+          <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse", font: "var(--fw-regular) var(--fs-body)/1.3 var(--font-sans)" }}>
             <thead>
-              <tr style={{ textAlign: "left", color: "var(--text-muted)", borderBottom: "1px solid var(--border-hairline)" }}>
-                <th style={{ padding: "10px 16px" }}>Timestamp</th>
-                <th style={{ padding: "10px 16px" }}>Usuário</th>
-                <th style={{ padding: "10px 16px" }}>Ação / rota</th>
-                <th style={{ padding: "10px 16px" }}>Status</th>
-                <th style={{ padding: "10px 16px" }}>Duração</th>
-                <th style={{ padding: "10px 16px" }}>Erro</th>
+              <tr style={{ textAlign: "left", color: "var(--text-muted)" }}>
+                <th style={STICKY_TH}>Timestamp</th>
+                <th style={STICKY_TH}>Usuário</th>
+                <th style={STICKY_TH}>Ação / rota</th>
+                <th style={STICKY_TH}>Status</th>
+                <th style={STICKY_TH}>Duração</th>
+                <th style={STICKY_TH}>Erro</th>
               </tr>
             </thead>
             <tbody>
