@@ -13,6 +13,7 @@ credencial+GraphQL da Shopee não tem nada a ver com o CRUD Supabase de
 products.py, e manter os dois num arquivo só passaria de 250 linhas.
 """
 
+import logging
 import time
 
 from cryptography.fernet import InvalidToken
@@ -26,12 +27,14 @@ from ..database import supabase
 from ..profiles import scope_owner
 
 router = APIRouter(prefix="/products", tags=["catalog"])
+logger = logging.getLogger(__name__)
 
-# Limite alto o bastante pra paginação client-side (o frontend pagina em
-# blocos de até 50), mas capado pra não abusar da API da Shopee — ela não
-# tem paginação nativa (só `limit`), então cada busca é uma chamada só.
-DEFAULT_SEARCH_LIMIT = 150
+# O frontend pagina client-side em blocos de 50 e pede até 150 de uma vez;
+# cada chamada à Shopee vai com no máximo SHOPEE_PAGE_LIMIT (50) itens —
+# pedidos maiores viram páginas sequenciais (ver shopee_catalog.search_products).
+DEFAULT_SEARCH_LIMIT = shopee_catalog.SHOPEE_PAGE_LIMIT
 MAX_SEARCH_LIMIT = 200
+_INT32_MAX = 2**31 - 1
 
 # Tamanho máximo do termo de busca livre — sem isso, uma string arbitrária
 # entra tanto na query GraphQL quanto no cálculo da assinatura sem limite
@@ -117,6 +120,22 @@ def _map_catalog_node(node: dict) -> dict:
     }
 
 
+def _error_status(exc: Exception) -> int:
+    return 422 if isinstance(exc, shopee_catalog.ShopeeAuthError) else 502
+
+
+def _error_detail(exc: Exception) -> str:
+    """Mensagem específica por causa, sem detalhe interno/segredo."""
+    if isinstance(exc, shopee_catalog.ShopeeAuthError):
+        return ("Credencial da Shopee inválida, expirada ou sem acesso à API de afiliados. "
+                "Reconecte em Credenciais.")
+    if isinstance(exc, shopee_catalog.ShopeeRateLimitError):
+        return "A Shopee limitou as buscas por alguns instantes. Aguarde um minuto e tente de novo."
+    if exc.errors:
+        return "A Shopee recusou a busca com esses filtros. Tente outra categoria/ordenação ou outro termo."
+    return "A Shopee está indisponível no momento. Tente novamente em alguns minutos."
+
+
 @router.get("/catalog-search")
 async def catalog_search(
     user_id: int = Depends(get_current_user_id),
@@ -124,11 +143,14 @@ async def catalog_search(
     keyword: str | None = Query(
         None, description="Termo de busca livre", max_length=MAX_KEYWORD_LENGTH,
     ),
-    product_cat_id: int | None = Query(None, description="ID de categoria da Shopee"),
+    product_cat_id: int | None = Query(
+        None, ge=1, le=_INT32_MAX, description="ID de categoria da Shopee (Int32)",
+    ),
     sort_type: int = Query(
         1, description="1=Relevância, 2=Mais vendidos, 3=Preço desc, 4=Preço asc, 5=Comissão",
     ),
     limit: int = Query(DEFAULT_SEARCH_LIMIT, ge=1, le=MAX_SEARCH_LIMIT),
+    page: int = Query(1, ge=1, le=100, description="Página da Shopee (tamanho = min(limit, 50))"),
 ):
     """Busca produtos no catálogo real da Shopee usando a credencial de
     afiliado do próprio usuário. Não persiste nada — o frontend decide o
@@ -157,17 +179,17 @@ async def catalog_search(
             product_cat_id=product_cat_id,
             sort_type=sort_type,
             limit=limit,
+            page=page,
         )
-    except shopee_catalog.ShopeeAuthError:
-        raise HTTPException(
-            status_code=422,
-            detail="Credencial da Shopee inválida ou sem permissão para buscar produtos.",
+    except shopee_catalog.ShopeeCatalogError as exc:
+        # Loga o motivo real (só message/code dos erros GraphQL, sem
+        # credencial) — antes o 502 escondia a causa (Int64 x Int32).
+        logger.warning(
+            "catalog-search falhou (%s): %s errors=%s",
+            type(exc).__name__, str(exc)[:200] if not exc.errors else "-",
+            shopee_catalog.summarize_errors(exc.errors),
         )
-    except shopee_catalog.ShopeeCatalogError:
-        raise HTTPException(
-            status_code=502,
-            detail="Não foi possível buscar produtos na Shopee agora. Tente novamente.",
-        )
+        raise HTTPException(status_code=_error_status(exc), detail=_error_detail(exc))
 
     return {"data": [_map_catalog_node(node) for node in nodes]}
 
