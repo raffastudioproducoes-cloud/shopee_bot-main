@@ -32,6 +32,14 @@ export interface Post {
   scheduled: boolean
   parts_count?: number
   network?: PostNetwork
+  /** Resultado real da última execução (o /publish só dispara o job). */
+  last_result?: PostPublishResult | null
+}
+
+export interface PostPublishResult {
+  status: 'published' | 'failed' | null
+  at: string | null
+  error: string | null
 }
 
 export interface PostSchedule {
