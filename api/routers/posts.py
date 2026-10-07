@@ -44,6 +44,7 @@ from ..profiles import scope_owner
 from ..audit_log import log_action
 from ..database import supabase
 from ..utils.log_sanitizer import sanitize_log_data
+from ..network_limits import validate_post, errors_detail
 from ..internal_client import (
     create_scheduler_job,
     remove_scheduler_job,
@@ -110,6 +111,9 @@ class PostCreate(BaseModel):
     product_ids: list[int] = []
     schedule: PostSchedule
     network: NetworkLiteral = "threads"
+    # Publicação multi-rede: os posts das outras redes reaproveitam a mídia
+    # já enviada pro primeiro (mesma linha em `medias`, sem reenviar).
+    media_ids: list[int] = []
 
     @field_validator("texts")
     @classmethod
@@ -207,6 +211,44 @@ def _set_post_products(post_id: int, product_ids: list[int]) -> None:
             {"post_id": post_id, "product_id": pid, "display_order": i}
             for i, pid in enumerate(product_ids)
         ]).execute()
+
+
+def _check_network_rules(
+    network: str, texts: list[str], medias: list[dict], product_count: int,
+    check_required_media: bool = False,
+) -> None:
+    """422 com o motivo por rede se o post não passa nas regras da rede
+    (api/network_limits.py, espelho do front)."""
+    detail = errors_detail(
+        validate_post(network, texts, medias, product_count, check_required_media)
+    )
+    if detail:
+        raise HTTPException(status_code=422, detail=detail)
+
+
+def _get_owned_medias(user_id: int, media_ids: list[int], profile_id: str | None) -> list[dict]:
+    """Mídias reaproveitadas na criação multi-rede: 400 se alguma não é do
+    usuário/perfil (IDOR)."""
+    if not media_ids:
+        return []
+    owned = (
+        scope_owner(supabase.table("medias").select("id, file_name, size, type"), user_id, profile_id)
+        .in_("id", list(set(media_ids)))
+        .execute()
+    )
+    by_id = {row["id"]: row for row in (owned.data or [])}
+    if set(media_ids) - set(by_id):
+        raise HTTPException(status_code=400, detail="Mídia inválida")
+    return [by_id[mid] for mid in media_ids]
+
+
+def _media_shared_elsewhere(media_id: int, post_id: int) -> bool:
+    """A mesma mídia pode estar ligada a vários posts (grupo multi-rede):
+    arquivo e linha em `medias` só somem quando ninguém mais usa."""
+    rows = (
+        supabase.table("posts_medias").select("post_id").eq("media_id", media_id).execute()
+    )
+    return any(r.get("post_id") != post_id for r in (rows.data or []))
 
 
 def _get_scheduler_job(post_id: int) -> dict | None:
@@ -321,6 +363,8 @@ def _delete_thread_cascade(head_id: int) -> None:
     )
     for item in media_rows.data or []:
         media = item.get("medias")
+        if media and _media_shared_elsewhere(media["id"], head_id):
+            continue  # outro post do grupo ainda usa: só o vínculo sai
         if media and media.get("file_path"):
             try:
                 os.remove(media["file_path"])
@@ -418,8 +462,15 @@ async def create_post(
     publicação. Se o agendamento falhar, desfaz a criação inteira —
     melhor não criar do que criar um post que nunca vai publicar."""
     _validate_product_ids(user_id, body.product_ids, profile_id)
+    medias = _get_owned_medias(user_id, body.media_ids, profile_id)
+    _check_network_rules(body.network, body.texts, medias, len(body.product_ids))
     head = _create_thread(user_id, body.texts, body.network, profile_id)
     _set_post_products(head["id"], body.product_ids)
+    if medias:
+        supabase.table("posts_medias").insert([
+            {"post_id": head["id"], "media_id": m["id"], "display_order": i}
+            for i, m in enumerate(medias)
+        ]).execute()
 
     try:
         await create_scheduler_job(
@@ -444,7 +495,7 @@ async def create_post(
         **head,
         "texts": body.texts,
         "products": _get_post_products(head["id"]),
-        "medias": [],
+        "medias": medias,
         "scheduled": True,
     }
 
@@ -478,8 +529,12 @@ async def update_post(
     """Atualiza a head (id fixo — mantém agendamento/produtos válidos)
     e substitui as partes seguintes (apaga e recria — simplificação:
     não tenta casar partes antigas com as novas por id)."""
-    _get_post(user_id, post_id, profile_id)  # ownership check
+    post = _get_post(user_id, post_id, profile_id)  # ownership check
     _validate_product_ids(user_id, body.product_ids, profile_id)
+    _check_network_rules(
+        post.get("network") or "threads", body.texts,
+        _get_post_medias(post_id), len(body.product_ids),
+    )
 
     chain = _get_thread_chain(post_id)
     for row in reversed(chain[1:]):
@@ -525,7 +580,7 @@ async def upload_media(
     """Anexa uma mídia à HEAD do post (não a partes de thread — ver
     docstring do módulo). Grava em disco no mesmo caminho relativo que
     o Flask usa (`web/media/<post_id>/`)."""
-    _get_post(user_id, post_id, profile_id)  # ownership check
+    post = _get_post(user_id, post_id, profile_id)  # ownership check
 
     filename = file.filename or ""
     ext = Path(filename).suffix.lower()
@@ -538,6 +593,12 @@ async def upload_media(
     content = await file.read()
     if len(content) > MAX_MEDIA_BYTES:
         raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
+
+    _check_network_rules(
+        post.get("network") or "threads", [post.get("text") or ""],
+        [*_get_post_medias(post_id), {"file_name": filename, "size": len(content)}],
+        0,
+    )
 
     detected = fleep.get(content[:128])
     if not any(mime in ALLOWED_MEDIA_MIMES for mime in detected.mime):
@@ -599,6 +660,8 @@ async def delete_media(
         raise HTTPException(status_code=404, detail="Mídia não encontrada")
 
     supabase.table("posts_medias").delete().eq("post_id", post_id).eq("media_id", media_id).execute()
+    if _media_shared_elsewhere(media_id, post_id):
+        return {"msg": "Mídia removida"}
     supabase.table("medias").delete().eq("id", media_id).execute()
 
     file_path = media_result.data.get("file_path")
@@ -618,7 +681,13 @@ async def publish_post_now(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Força a publicação imediata de um post já agendado."""
-    _get_post(user_id, post_id, profile_id)  # ownership check
+    post = _get_post(user_id, post_id, profile_id)  # ownership check
+    _check_network_rules(
+        post.get("network") or "threads",
+        [row.get("text") or "" for row in _get_thread_chain(post_id)],
+        _get_post_medias(post_id), len(_get_post_products(post_id)),
+        check_required_media=True,
+    )
     job = _get_scheduler_job(post_id)
     if not job:
         raise HTTPException(status_code=409, detail="Post não tem agendamento — nada pra publicar")

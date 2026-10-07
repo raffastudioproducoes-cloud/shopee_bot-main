@@ -3,6 +3,16 @@ import { useState, useCallback } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { postsApi, type Post, type PostSchedule, type PostNetwork } from "../api/posts"
+import { credentialsApi } from "../api/credentials"
+import { ApiError } from "../lib/api"
+import { NETWORK_RULES, mediaKind, readMediaInfo, validateForNetwork, type Issue, type MediaInfo } from "../lib/networkLimits"
+import {
+  NetworkLimitsPanel,
+  NetworkLogo,
+  NetworkPicker,
+  PICKER_NETWORKS,
+  type NetworkState,
+} from "../components/posts/NetworkPicker"
 import { productsApi, type Product } from "../api/products"
 import { Panel, PanelHeader, Divider } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
@@ -26,17 +36,44 @@ const PERSONAS = [
   { value: "persuasivo", label: "Persuasivo" },
 ]
 
-// Mesmo mapa network -> func do backend (api/routers/posts.py). Só
-// Threads publica de verdade hoje — as outras 4 já roteiam pro
-// scheduler certo, mas o wrapper de publicação ainda não existe
-// (ver NETWORK_FUNC_MAP). Kwai fica de fora, sem API pública ainda.
-const NETWORKS: { value: PostNetwork; label: string }[] = [
-  { value: "threads", label: "Threads" },
-  { value: "x", label: "X (Twitter)" },
-  { value: "facebook", label: "Facebook" },
-  { value: "instagram", label: "Instagram" },
-  { value: "tiktok", label: "TikTok" },
-]
+// "Data específica" é sempre horário de Brasília, independente do fuso do
+// navegador. ponytail: offset fixo -03:00 (Brasil sem horário de verão desde
+// 2019); se voltar, trocar por cálculo de offset via Intl.
+const SP_OFFSET = "-03:00"
+const todayInSaoPaulo = () =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date())
+
+// Posts do mesmo envio multi-rede: mesmo texto, criados juntos, redes
+// diferentes. ponytail: heurística na lista (o schema não tem coluna de
+// grupo); vira coluna group_id se precisar agrupar com certeza.
+const GROUP_WINDOW_MS = 2 * 60 * 1000
+function groupPosts(posts: Post[]): Map<number, { key: number; size: number }> {
+  const groups: Post[][] = []
+  for (const p of posts) {
+    const g = groups[groups.length - 1]
+    const head = g?.[0]
+    const sameGroup =
+      head &&
+      head.text === p.text &&
+      Math.abs(new Date(head.created_at).getTime() - new Date(p.created_at).getTime()) < GROUP_WINDOW_MS &&
+      !g.some((x) => (x.network ?? "threads") === (p.network ?? "threads"))
+    if (sameGroup) g.push(p)
+    else groups.push([p])
+  }
+  const out = new Map<number, { key: number; size: number }>()
+  for (const g of groups) {
+    if (g.length < 2) continue
+    const key = Math.min(...g.map((p) => p.id))
+    for (const p of g) out.set(p.id, { key, size: g.length })
+  }
+  return out
+}
+
+export interface NetworkResult {
+  network: PostNetwork
+  ok: boolean
+  error?: string
+}
 
 const WEEKDAYS = [
   { value: 0, label: "Domingo" },
@@ -87,32 +124,52 @@ export function PostsPage() {
   )
 
   const createMutation = useMutation({
+    // Um post por rede. A mídia sobe UMA vez (no 1º post criado) e as outras
+    // redes reaproveitam os mesmos media_ids. Falha numa rede não cancela as
+    // outras: cada uma volta com seu resultado.
     mutationFn: async (data: {
       texts: string[]
       product_ids: number[]
       schedule: PostSchedule
-      network: PostNetwork
+      networks: PostNetwork[]
       files: File[]
       publishNow: boolean
-    }) => {
-      const created = await postsApi.create({
-        texts: data.texts,
-        product_ids: data.product_ids,
-        schedule: data.schedule,
-        network: data.network,
-      })
-      for (const file of data.files) {
-        await postsApi.uploadMedia(created.id, file)
+    }): Promise<NetworkResult[]> => {
+      const results: NetworkResult[] = []
+      let mediaIds: number[] | null = data.files.length > 0 ? null : []
+      for (const network of data.networks) {
+        let createdId: number | null = null
+        try {
+          const created = await postsApi.create({
+            texts: data.texts,
+            product_ids: data.product_ids,
+            schedule: data.schedule,
+            network,
+            media_ids: mediaIds ?? [],
+          })
+          createdId = created.id
+          if (mediaIds === null) {
+            const uploaded = []
+            for (const file of data.files) uploaded.push(await postsApi.uploadMedia(created.id, file))
+            mediaIds = uploaded.map((m) => m.id)
+          }
+          // "Agora": o job foi criado com run_date de segurança no futuro; só
+          // dispara depois que a mídia já está no servidor.
+          if (data.publishNow) await postsApi.publishNow(created.id)
+          results.push({ network, ok: true })
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 401) onAuthError(err)
+          // mídia não subiu: desfaz pra não publicar sem mídia pela rede de segurança
+          if (createdId != null && mediaIds === null) await postsApi.delete(createdId).catch(() => undefined)
+          results.push({ network, ok: false, error: err instanceof Error ? err.message : String(err) })
+        }
       }
-      // "Agora": o job foi criado com run_date de segurança no futuro; só
-      // dispara depois que a mídia já está no servidor.
-      if (data.publishNow) await postsApi.publishNow(created.id)
-      return created
+      return results
     },
-    onSuccess: (_created, data) => {
+    onSuccess: (results, data) => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
       if (data.publishNow) refreshPublishResult()
-      setModalOpen(false)
+      if (results.every((r) => r.ok)) setModalOpen(false)
     },
     onError: onAuthError,
   })
@@ -159,14 +216,14 @@ export function PostsPage() {
       texts: string[],
       productIds: number[],
       schedule: PostSchedule,
-      network: PostNetwork,
+      networks: PostNetwork[],
       files: File[],
       publishNow: boolean,
     ) => {
       if (editingPost) {
         updateMutation.mutate({ id: editingPost.id, texts, product_ids: productIds })
       } else {
-        createMutation.mutate({ texts, product_ids: productIds, schedule, network, files, publishNow })
+        createMutation.mutate({ texts, product_ids: productIds, schedule, networks, files, publishNow })
       }
     },
     [editingPost, createMutation, updateMutation],
@@ -187,6 +244,8 @@ export function PostsPage() {
       </div>
     )
   }
+
+  const groups = groupPosts(posts)
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
@@ -212,6 +271,7 @@ export function PostsPage() {
           icon="plus"
           onClick={() => {
             setEditingPost(null)
+            createMutation.reset()
             setModalOpen(true)
           }}
         >
@@ -270,6 +330,17 @@ export function PostsPage() {
                     </div>
                   )}
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+                    <Badge tone="outline">
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                        <NetworkLogo network={post.network ?? "threads"} size={12} />
+                        {NETWORK_RULES[post.network ?? "threads"].label}
+                      </span>
+                    </Badge>
+                    {groups.has(post.id) && (
+                      <Badge tone="glass">
+                        Grupo #{groups.get(post.id)!.key} · {groups.get(post.id)!.size} redes
+                      </Badge>
+                    )}
                     <span style={metaTextStyle}>{new Date(post.created_at).toLocaleString("pt-BR")}</span>
                     {post.scheduled && (
                       <StatusBadge tone="positive" icon="clock">
@@ -344,7 +415,8 @@ export function PostsPage() {
           }}
           onSave={handleSave}
           loading={createMutation.isPending || updateMutation.isPending}
-          error={createMutation.error?.message}
+          error={createMutation.error?.message ?? updateMutation.error?.message}
+          results={createMutation.data}
         />
       )}
 
@@ -378,37 +450,53 @@ interface PostModalProps {
     texts: string[],
     productIds: number[],
     schedule: PostSchedule,
-    network: PostNetwork,
+    networks: PostNetwork[],
     files: File[],
     publishNow: boolean,
   ) => void
   loading: boolean
   error?: string
+  /** Resultado por rede do último envio (só falhas mantêm o modal aberto). */
+  results?: NetworkResult[]
 }
 
 type WhenOption = "now" | "date" | "cron"
 
-function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
+function PostModal({ post, onClose, onSave, loading, error, results }: PostModalProps) {
   const queryClient = useQueryClient()
   const [texts, setTexts] = useState<string[]>(
     post?.texts && post.texts.length > 0 ? post.texts : [""],
   )
   const [persona, setPersona] = useState("casual")
-  const [network, setNetwork] = useState<PostNetwork>(post?.network ?? "threads")
+  const [networks, setNetworks] = useState<PostNetwork[]>(post ? [post.network ?? "threads"] : [])
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>(
     post?.products.map((p) => p.id) ?? [],
   )
   const [when, setWhen] = useState<WhenOption>("now")
-  const [runDate, setRunDate] = useState("")
+  const [runDay, setRunDay] = useState("")
+  const [runTime, setRunTime] = useState("")
   const [cronTime, setCronTime] = useState("09:00")
   const [cronDay, setCronDay] = useState(1)
-  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; info: MediaInfo }[]>([])
+  // Redes que já deram certo no último envio saem da seleção: reenviar só
+  // repete as que falharam, sem duplicar post.
+  const [handledResults, setHandledResults] = useState<NetworkResult[] | undefined>(undefined)
+  if (results && results !== handledResults) {
+    setHandledResults(results)
+    setNetworks((prev) => prev.filter((n) => !results.some((r) => r.network === n && r.ok)))
+  }
 
   const { data: productsData } = useQuery({
     queryKey: ["products", ""],
     queryFn: () => productsApi.list(),
   })
   const products = productsData?.data ?? []
+
+  const { data: credentials } = useQuery({
+    queryKey: ["credentials"],
+    queryFn: () => credentialsApi.list(),
+    enabled: !post,
+  })
 
   const generateMutation = useMutation({
     mutationFn: (productId: number) => postsApi.generateCopy(productId, persona),
@@ -448,22 +536,67 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
     // "Agora" = rede de segurança de 5 min: o post é disparado explicitamente
     // logo após o envio da mídia (ver createMutation), sem duplicar.
     const runAt =
-      when === "now" ? new Date(Date.now() + NOW_SAFETY_DELAY_MS).toISOString() : new Date(runDate).toISOString()
-    return { trigger: "date", run_date: runAt }
+      when === "now" ? new Date(Date.now() + NOW_SAFETY_DELAY_MS) : (scheduledAt ?? new Date(NaN))
+    return { trigger: "date", run_date: runAt.toISOString() }
   }
 
   const trimmedTexts = texts.map((t) => t.trim()).filter(Boolean)
 
+  // Data específica: dia + hora em America/Sao_Paulo; precisa ser futura.
+  const scheduledAt = runDay && runTime ? new Date(`${runDay}T${runTime}:00${SP_OFFSET}`) : null
+  const dateError =
+    when !== "date"
+      ? null
+      : !scheduledAt
+        ? "Escolha o dia e a hora."
+        : !(scheduledAt.getTime() > Date.now())
+          ? "Essa data/hora já passou (horário de Brasília)."
+          : null
+
+  // Validação por rede em tempo real (lib/networkLimits.ts).
+  const media: MediaInfo[] = post
+    ? post.medias.map((m) => ({ name: m.file_name, size: m.size, kind: m.type === "VIDEO" ? "video" : mediaKind(m.file_name) }))
+    : pendingFiles.map((p) => p.info)
+  const draft = { texts: trimmedTexts.length ? trimmedTexts : [""], media, productCount: selectedProductIds.length }
+  const issues = Object.fromEntries(PICKER_NETWORKS.map((n) => [n, validateForNetwork(n, draft)])) as Record<
+    PostNetwork,
+    Issue[]
+  >
+  const states = Object.fromEntries(
+    PICKER_NETWORKS.map((n) => [
+      n,
+      { connected: credentials?.[n]?.connected, errors: issues[n].filter((i) => i.level === "error") },
+    ]),
+  ) as Record<PostNetwork, NetworkState>
+  const blockedNetworks = networks.filter((n) => states[n].errors.length > 0)
+
+  const toggleNetwork = (n: PostNetwork) =>
+    setNetworks((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]))
+
+  const canSubmit =
+    !loading && trimmedTexts.length > 0 && !dateError && networks.length > 0 && blockedNetworks.length === 0
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (trimmedTexts.length === 0) return
-    if (when === "date" && !runDate) return
-    onSave(trimmedTexts, selectedProductIds, buildSchedule(), network, pendingFiles, when === "now")
+    if (!canSubmit) return
+    onSave(
+      trimmedTexts,
+      selectedProductIds,
+      buildSchedule(),
+      networks,
+      pendingFiles.map((p) => p.file),
+      when === "now",
+    )
   }
 
   return (
     <Modal open onClose={onClose} title={post ? "Editar post" : "Novo post"} width={560}>
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div>
+          <span style={labelStyle}>{post ? "Rede social" : "Redes sociais * (uma ou mais)"}</span>
+          <NetworkPicker selected={networks} states={states} onToggle={toggleNetwork} readOnly={!!post} />
+        </div>
+
         <div>
           <span style={labelStyle}>Produtos</span>
           <div
@@ -629,7 +762,7 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
                 if (post) {
                   addMediaMutation.mutate(file)
                 } else {
-                  setPendingFiles((prev) => [...prev, file])
+                  readMediaInfo(file).then((info) => setPendingFiles((prev) => [...prev, { file, info }]))
                 }
                 e.target.value = ""
               }}
@@ -638,7 +771,7 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
           </div>
           {!post && pendingFiles.length > 0 && (
             <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
-              {pendingFiles.map((file, index) => (
+              {pendingFiles.map(({ file, info }, index) => (
                 <li
                   key={index}
                   style={{
@@ -655,6 +788,11 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
                 >
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {file.name}
+                    <span style={{ color: "var(--text-muted)" }}>
+                      {" "}· {(file.size / (1024 * 1024)).toFixed(1)} MB
+                      {info.width ? ` · ${info.width}×${info.height}` : ""}
+                      {info.durationSec != null ? ` · ${Math.round(info.durationSec)} s` : ""}
+                    </span>
                   </span>
                   <button
                     type="button"
@@ -674,14 +812,12 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
           )}
         </div>
 
-        {!post && (
-          <Select
-            label="Rede social"
-            value={network}
-            onChange={(e) => setNetwork(e.target.value as PostNetwork)}
-            options={NETWORKS}
-          />
-        )}
+        <NetworkLimitsPanel
+          selected={networks}
+          headText={trimmedTexts[0] ?? ""}
+          mediaCount={media.length}
+          issues={issues}
+        />
 
         {!post && (
           <div>
@@ -700,7 +836,22 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
             </div>
 
             {when === "date" && (
-              <TextInput type="datetime-local" value={runDate} onChange={(e) => setRunDate(e.target.value)} required />
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
+                  <TextInput
+                    label="Dia"
+                    type="date"
+                    value={runDay}
+                    min={todayInSaoPaulo()}
+                    onChange={(e) => setRunDay(e.target.value)}
+                    required
+                  />
+                  <TextInput label="Hora" type="time" value={runTime} onChange={(e) => setRunTime(e.target.value)} required />
+                </div>
+                <p style={{ ...metaTextStyle, marginTop: 6, color: dateError && runDay && runTime ? "var(--negative)" : "var(--text-muted)" }}>
+                  {dateError && runDay && runTime ? dateError : "Horário de Brasília (America/Sao_Paulo)."}
+                </p>
+              </div>
             )}
 
             {when === "cron" && (
@@ -718,12 +869,32 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
 
         {error && <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{error}</p>}
 
+        {!post && results && results.length > 0 && (
+          <ul aria-live="polite" style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            {results.map((r) => (
+              <li
+                key={r.network}
+                style={{ ...metaTextStyle, lineHeight: 1.4, color: r.ok ? "var(--text-body)" : "var(--negative)" }}
+              >
+                {NETWORK_RULES[r.network].label}: {r.ok ? "criado ✓" : `falhou — ${r.error}`}
+              </li>
+            ))}
+            <li style={{ ...metaTextStyle, lineHeight: 1.4 }}>
+              As redes que deram certo foram desmarcadas; corrija e envie de novo só as que falharam.
+            </li>
+          </ul>
+        )}
+
+        {!post && networks.length === 0 && (
+          <p style={{ ...metaTextStyle, margin: 0 }}>Escolha ao menos uma rede para publicar.</p>
+        )}
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 4 }}>
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" disabled={loading || trimmedTexts.length === 0 || (when === "date" && !runDate)}>
-            {loading ? "Salvando..." : post ? "Salvar" : "Criar"}
+          <Button type="submit" variant="primary" disabled={!canSubmit}>
+            {loading ? "Salvando..." : post ? "Salvar" : networks.length > 1 ? `Criar em ${networks.length} redes` : "Criar"}
           </Button>
         </div>
       </form>
