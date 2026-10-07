@@ -14,6 +14,7 @@ import { Button } from '../components/ui/Button'
 import { StatusMessage } from '../components/StatusMessage'
 import { ConfirmModal } from '../components/profiles/ConfirmModal'
 import { ActiveProfileChip } from '../components/profiles/ActiveProfileChip'
+import { Icon } from '../components/ui/Icon'
 
 const navItems: SideRailItem[] = [
   { value: '/', label: 'Dashboard', icon: 'house' },
@@ -39,6 +40,24 @@ export function PanelPage() {
   const [feedback, setFeedback] = useState<{ kind: 'error' | 'success'; text: string } | null>(null)
   const [pendingRestore, setPendingRestore] = useState<File | null>(null)
   const [restoring, setRestoring] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuBtnRef = useRef<HTMLButtonElement>(null)
+
+  // Gaveta mobile: fecha com ESC (devolvendo foco ao hambúrguer) e ao trocar de rota.
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenuOpen(false)
+        menuBtnRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    document.querySelector<HTMLButtonElement>('#app-nav .app-rail-item')?.focus()
+    return () => document.removeEventListener('keydown', onKey)
+  }, [menuOpen])
+
+  useEffect(() => setMenuOpen(false), [location.pathname])
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -102,21 +121,56 @@ export function PanelPage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-app-gradient)' }}>
-      <SideRail items={items} value={location.pathname} onSelect={(value) => navigate({ to: value })} brand="SV" />
-
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minWidth: 0,
-          padding: 'var(--shell-pad)',
-          gap: 'var(--gap-column)',
+    <div className="app-shell">
+      <SideRail
+        id="app-nav"
+        className="app-rail"
+        open={menuOpen}
+        items={items}
+        value={location.pathname}
+        onSelect={(value) => {
+          setMenuOpen(false)
+          navigate({ to: value })
         }}
-      >
+        brand="SV"
+      />
+      <button
+        type="button"
+        className="app-rail-backdrop"
+        data-open={menuOpen ? 'true' : 'false'}
+        aria-label="Fechar menu"
+        tabIndex={-1}
+        onClick={() => setMenuOpen(false)}
+      />
+
+      <div className="app-col">
         <TopBar
           query=""
+          leading={
+            <button
+              ref={menuBtnRef}
+              type="button"
+              className="app-menu-btn"
+              aria-label="Abrir menu"
+              aria-expanded={menuOpen}
+              aria-controls="app-nav"
+              onClick={() => setMenuOpen((v) => !v)}
+              style={{
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 44,
+                height: 44,
+                flex: '0 0 auto',
+                borderRadius: 'var(--r-pill)',
+                border: 'none',
+                background: 'rgba(255,255,255,.14)',
+                color: 'var(--text-body)',
+                cursor: 'pointer',
+              }}
+            >
+              <Icon name="menu" size={20} />
+            </button>
+          }
           trailing={
             <>
               <ActiveProfileChip />

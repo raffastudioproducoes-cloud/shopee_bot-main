@@ -18,7 +18,7 @@
   --pad-card:14px;        /* dark stat card padding            */
   --pad-panel:18px;       /* glass panel padding               */
   --pad-row:12px 14px;    /* list row padding                  */
-  --rail-w:72px;          /* desktop side rail                 */
+  --rail-w:104px;         /* desktop side rail (cabe "CONFIGURAÇÕES") */
   --topbar-h:56px;
   --tabbar-h:64px;        /* mobile floating tab bar           */
   --hit-min:44px;         /* minimum touch target              */
