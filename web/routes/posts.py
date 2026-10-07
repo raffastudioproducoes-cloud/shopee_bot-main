@@ -9,7 +9,6 @@ from shopee_bot.database import get_conn, put_conn, query_db, \
 from shopee_bot.database.schedulers import NETWORK_FUNC_MAP
 from shopee_bot.web.forms.posts import PostForm
 from shopee_bot.scheduler import add_job, remove_job, run_job
-from shopee_bot.apis import llm
 from shopee_bot.web.limiter import limiter
 
 posts_bp = Blueprint("posts", __name__)
@@ -21,7 +20,6 @@ posts_bp = Blueprint("posts", __name__)
 def generate_copy():
     body = request.get_json(silent=True) or {}
     product_id = body.get("product_id")
-    persona = body.get("persona") or "casual"
 
     if product_id is None:
         return {"error": "product_id é obrigatório."}, 400
@@ -30,12 +28,11 @@ def generate_copy():
     if not product:
         return {"error": "Produto não encontrado."}, 404
 
-    try:
-        text = llm.generate_product_copy(product, persona)
-    except Exception as e:
-        return {"error": str(e)}, 400
-
-    return {"text": text}, 200
+    # Sem chave global de IA no servidor: a chave é de cada usuário e vive
+    # na API nova (Credenciais -> Inteligência Artificial, POST
+    # /api/posts/generate-copy). O painel legado não gera mais texto.
+    return {"error": "Cadastre sua chave de IA em Credenciais no painel novo "
+                     "e use o \"Gerar texto com IA\" de lá."}, 400
 
 
 @posts_bp.get("/posts")

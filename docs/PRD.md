@@ -55,7 +55,7 @@ Multi-tenant com múltiplos usuários pagantes é visão pós-MVP, não implemen
 | Garimpo/Produtos | Cadastro/edição de produto Shopee (URL colada, valida contra a API deles) | `README.md`, `database/products.py` |
 | Listas de produtos | Agrupamento reaproveitável entre posts | `database/product_lists*.py` |
 | Posts | Criação, thread multi-parte, upload de mídia, agendamento (cron/data) ou publicação imediata, retry e log de falha | `api/routers/posts.py`, `scheduler/` |
-| Copywriter IA | Geração de texto de post via Gemini, por persona (`apis/llm.py`) | `README.md` |
+| Copywriter IA | Geração de texto de post por persona com a chave de IA do próprio usuário (Gemini/OpenAI/Anthropic, `apis/llm.py`) | `README.md` |
 | Credenciais | Conectar rede social (OAuth de app único) ou colar credencial manual (Shopee/Kwai), nunca reexibida | `api/routers/credentials.py` |
 | Atividades | Histórico auditável de ações do usuário | `database/activities.py` |
 | Usuários | Administração de acesso ADMIN/USER | `api/routers/users.py` |
