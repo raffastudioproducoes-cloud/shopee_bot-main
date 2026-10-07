@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import {
@@ -8,8 +8,9 @@ import {
   type SimpleNetwork,
   type CredentialStatusWithLight,
 } from "../api/credentials"
-import { Panel, PanelHeader } from "../components/ui/Panel"
+import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
+import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { StatusBadge } from "../components/ui/StatusBadge"
 import { ConnectionLight } from "../components/ui/ConnectionLight"
@@ -30,6 +31,70 @@ const FIELD_GRID = {
   gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
   gap: 12,
 } as const
+
+const CARD_GRID = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))",
+  gap: 16,
+  alignItems: "start",
+} as const
+
+// ── Card recolhivel: estado por card em localStorage; recolhido mostra so
+// titulo + status (o corpo e escondido por CSS, ver .cred-card em index.css). ──
+
+const COLLAPSE_KEY = "credentials-collapsed:"
+const CollapseCtx = createContext<{ collapsed: boolean; toggle: () => void }>({ collapsed: false, toggle: () => {} })
+
+function readCollapsed(id: string): boolean {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY + id) === "1"
+  } catch {
+    return false
+  }
+}
+
+function CredPanel({ id, children }: { id: string; children: ReactNode }) {
+  const [collapsed, setCollapsed] = useState(() => readCollapsed(id))
+  const toggle = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    try {
+      localStorage.setItem(COLLAPSE_KEY + id, next ? "1" : "0")
+    } catch {
+      // sem localStorage: so nao persiste
+    }
+  }
+  return (
+    <CollapseCtx.Provider value={{ collapsed, toggle }}>
+      <Panel surface="dark" className={collapsed ? "cred-card is-collapsed" : "cred-card"}>
+        {children}
+      </Panel>
+    </CollapseCtx.Provider>
+  )
+}
+
+function CredHeader({ title, trailing }: { title: ReactNode; trailing?: ReactNode }) {
+  const { collapsed, toggle } = useContext(CollapseCtx)
+  return (
+    <header style={{ display: "flex", flexDirection: "column", gap: 8, padding: "14px 16px 12px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
+        <span style={{ font: "var(--text-role-title)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {title}
+        </span>
+        <IconButton
+          icon={collapsed ? "chevron-down" : "chevron-up"}
+          label={collapsed ? "Expandir card" : "Recolher card"}
+          tone="plain"
+          size={30}
+          aria-expanded={!collapsed}
+          onClick={toggle}
+          style={{ flexShrink: 0 }}
+        />
+      </div>
+      {trailing}
+    </header>
+  )
+}
 
 const EMPTY_STATUS: CredentialStatusWithLight = {
   connected: false,
@@ -165,7 +230,9 @@ export function CredentialsPage() {
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Grade responsiva: cards lado a lado no desktop, 1 coluna no celular.
+          Um novo card (ex.: chave de IA) entra como mais um filho desta grade. */}
+      <div style={CARD_GRID}>
         {SIMPLE_NETWORKS.map((network) => (
           <SimpleCredentialCard
             key={network.key}
@@ -271,7 +338,7 @@ function CredentialTrailing({
   })
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: 10 }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap", gap: 10 }}>
       <ConnectionLight state={status.light} title={status.check_message ?? undefined} />
       <StatusBadge
         tone={status.light === "green" ? "positive" : "neutral"}
@@ -371,20 +438,20 @@ function SimpleCredentialCard({
   // continua vendo tudo normal (pode testar App ID/Secret de afiliado).
   if (comingSoonForNonAdmin && !isAdmin) {
     return (
-      <Panel surface="dark">
-        <PanelHeader title={label} />
+      <CredPanel id={label}>
+        <CredHeader title={label} />
         <div style={{ padding: "0 16px 16px" }}>
           <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
             Em breve — a ligação com {label} ainda não está disponível.
           </p>
         </div>
-      </Panel>
+      </CredPanel>
     )
   }
 
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id={label}>
+      <CredHeader
         title={label}
         trailing={
           <CredentialTrailing
@@ -485,7 +552,7 @@ function SimpleCredentialCard({
           </Button>
         </div>
       </form>
-    </Panel>
+    </CredPanel>
   )
 }
 
@@ -537,8 +604,8 @@ function ThreadsCredentialCard({
   })
 
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id="Threads">
+      <CredHeader
         title="Threads"
         trailing={
           <CredentialTrailing
@@ -625,7 +692,7 @@ function ThreadsCredentialCard({
           </form>
         )}
       </div>
-    </Panel>
+    </CredPanel>
   )
 }
 
@@ -677,8 +744,8 @@ function XCredentialCard({
   })
 
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id="X (Twitter)">
+      <CredHeader
         title="X (Twitter)"
         trailing={
           <CredentialTrailing
@@ -764,7 +831,7 @@ function XCredentialCard({
           </form>
         )}
       </div>
-    </Panel>
+    </CredPanel>
   )
 }
 
@@ -818,8 +885,8 @@ function FacebookCredentialCard({
   })
 
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id="Facebook">
+      <CredHeader
         title="Facebook"
         trailing={
           <CredentialTrailing
@@ -911,7 +978,7 @@ function FacebookCredentialCard({
           </form>
         )}
       </div>
-    </Panel>
+    </CredPanel>
   )
 }
 
@@ -969,20 +1036,20 @@ function TikTokCredentialCard({
   // vendo tudo pra acompanhar/testar assim que a revisão aprovar.
   if (!isAdmin) {
     return (
-      <Panel surface="dark">
-        <PanelHeader title="TikTok" />
+      <CredPanel id="TikTok">
+        <CredHeader title="TikTok" />
         <div style={{ padding: "0 16px 16px" }}>
           <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
             Em breve — a ligação com TikTok ainda não está disponível.
           </p>
         </div>
-      </Panel>
+      </CredPanel>
     )
   }
 
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id="TikTok">
+      <CredHeader
         title="TikTok"
         trailing={
           <CredentialTrailing
@@ -1075,7 +1142,7 @@ function TikTokCredentialCard({
           </form>
         )}
       </div>
-    </Panel>
+    </CredPanel>
   )
 }
 
@@ -1127,8 +1194,8 @@ function InstagramCredentialCard({
   })
 
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id="Instagram">
+      <CredHeader
         title="Instagram"
         trailing={
           <CredentialTrailing
@@ -1214,6 +1281,6 @@ function InstagramCredentialCard({
           </form>
         )}
       </div>
-    </Panel>
+    </CredPanel>
   )
 }

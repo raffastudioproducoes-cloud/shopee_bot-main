@@ -11,6 +11,7 @@ import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
 import { TimelineListCard } from "../components/ui/TimelineListCard"
 import { Icon } from "../components/ui/Icon"
+import { ViewSwitcher, useViewMode, viewContainerStyle } from "../components/ui/ViewSwitcher"
 
 function estimatedListValue(list: ProductList): string {
   if (!list.products || list.products.length === 0) return "—"
@@ -24,6 +25,7 @@ export function ListasPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingList, setEditingList] = useState<ProductList | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
+  const [view, setView] = useViewMode("lists-view")
 
   const { data: listsData, isLoading } = useQuery<ProductListsResponse>({
     queryKey: ["lists"],
@@ -42,7 +44,10 @@ export function ListasPage() {
   // ── Create mutation ─────────────────────────────────────────────────────────────
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => listsApi.create({ name }),
+    mutationFn: async ({ name, productIds }: { name: string; productIds?: number[] }) => {
+      const created = await listsApi.create({ name })
+      return productIds && productIds.length > 0 ? listsApi.update(created.id, { name, product_ids: productIds }) : created
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lists"] })
       setModalOpen(false)
@@ -81,7 +86,7 @@ export function ListasPage() {
       if (editingList) {
         updateMutation.mutate({ id: editingList.id, name, productIds })
       } else {
-        createMutation.mutate(name)
+        createMutation.mutate({ name, productIds })
       }
     },
     [editingList, createMutation, updateMutation],
@@ -124,6 +129,9 @@ export function ListasPage() {
         <div>
           <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Listas de Produtos</h1>
           <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Agrupe seus produtos em listas.</p>
+          <div style={{ marginTop: 10 }}>
+            <ViewSwitcher value={view} onChange={setView} />
+          </div>
         </div>
         <Button
           variant="primary"
@@ -153,7 +161,7 @@ export function ListasPage() {
           </Button>
         </Panel>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={viewContainerStyle(view)}>
           {lists.map((list) => (
             <TimelineListCard
               key={list.id}
@@ -288,11 +296,9 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
   )
   const [search, setSearch] = useState("")
 
-  // Só busca produtos ao editar (lista já existe) — criar não associa produtos ainda.
   const { data: productsData } = useQuery<ProductsResponse>({
     queryKey: ["products", "for-list"],
     queryFn: () => productsApi.list({ page_size: 200 }),
-    enabled: !!list,
   })
 
   const products = productsData?.data ?? []
@@ -312,19 +318,19 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (name.trim()) {
-      onSave(name.trim(), list ? Array.from(selectedIds) : undefined)
+      onSave(name.trim(), Array.from(selectedIds))
     }
   }
 
   return (
     <Modal open onClose={onClose} title={list ? "Editar lista" : "Nova lista"} width={440}>
       <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginTop: 0, marginBottom: 16 }}>
-        {list ? "Altere o nome da lista e os produtos associados." : "Digite um nome para a nova lista."}
+        {list ? "Altere o nome da lista e os produtos associados." : "Digite um nome e escolha os produtos da nova lista."}
       </p>
       <form onSubmit={handleSubmit}>
         <TextInput label="Nome *" value={name} onChange={(e) => setName(e.target.value)} required />
 
-        {list ? (
+        {(
           <div style={{ marginTop: 16 }}>
             <span
               style={{
@@ -370,7 +376,7 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
               )}
             </div>
           </div>
-        ) : null}
+        )}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 20 }}>
           <Button type="button" variant="ghost" onClick={onClose}>

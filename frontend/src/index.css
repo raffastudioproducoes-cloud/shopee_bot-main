@@ -61,3 +61,9 @@ body { background: var(--bg-app-gradient); background-attachment: fixed; }
   }
 }
 @media (prefers-reduced-motion: reduce) { .app-rail { transition: none !important; } }
+
+/* Credenciais: card recolhido mostra so o cabecalho (titulo + status). */
+.cred-card.is-collapsed > :not(header) {
+  display: none !important;
+}
+.cred-card p, .cred-card label { overflow-wrap: anywhere; }

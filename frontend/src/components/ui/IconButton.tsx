@@ -18,6 +18,7 @@ export interface IconButtonProps {
   /** Red unread dot, top-right. */
   badge?: boolean
   active?: boolean
+  "aria-expanded"?: boolean
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void
   className?: string
   style?: CSSProperties
@@ -39,6 +40,7 @@ export function IconButton({
   size = 36,
   badge = false,
   active = false,
+  "aria-expanded": ariaExpanded,
   onClick,
   className = "",
   style,
@@ -52,6 +54,7 @@ export function IconButton({
     <button
       type="button"
       aria-label={label}
+      aria-expanded={ariaExpanded}
       title={label}
       onClick={onClick}
       onMouseEnter={() => setHot(true)}

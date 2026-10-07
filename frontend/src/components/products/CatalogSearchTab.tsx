@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react"
+import { useMemo, useState, useCallback, type ReactNode } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { catalogApi, CATALOG_SORT_OPTIONS, type CatalogProduct, type CatalogSortType } from "../../api/catalog"
 import { productsApi } from "../../api/products"
@@ -9,6 +9,7 @@ import { SearchField } from "../ui/SearchField"
 import { Select } from "../ui/Select"
 import { Badge } from "../ui/Badge"
 import { Icon } from "../ui/Icon"
+import { Modal } from "../ui/Modal"
 
 // A API da Shopee não tem paginação nativa (só `limit`, ver
 // api/shopee_catalog.py) — busca 1 vez com limite alto e pagina os
@@ -33,37 +34,50 @@ function formatCatalogPrice(product: CatalogProduct): string {
 interface CatalogCardProps {
   product: CatalogProduct
   added: boolean
-  onAdd: () => void
-  isAdding: boolean
+  onOpen: () => void
 }
 
-function CatalogCard({ product, added, onAdd, isAdding }: CatalogCardProps) {
+function CatalogThumb({ image, size }: { image: string | null; size: number }) {
+  const box = { width: size, height: size, borderRadius: "var(--r-md)", background: "var(--surface-inset)", flexShrink: 0 } as const
+  return image ? (
+    <img src={image} alt="" style={{ ...box, objectFit: "cover" }} />
+  ) : (
+    <span style={{ ...box, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+      <Icon name="package" size={Math.round(size * 0.4)} />
+    </span>
+  )
+}
+
+function CatalogBadges({ product }: { product: CatalogProduct }) {
   return (
-    <Panel surface="dark" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      <Badge tone="outline">{formatCatalogPrice(product)}</Badge>
+      {product.commission != null ? <Badge tone="outline">Comissão {product.commission}%</Badge> : null}
+      {product.commission_rate != null ? <Badge tone="outline">Taxa {product.commission_rate}</Badge> : null}
+      {product.sales != null ? <Badge tone="outline">{product.sales} vendas</Badge> : null}
+      {product.rating_star != null ? <Badge tone="outline">★ {product.rating_star}</Badge> : null}
+    </div>
+  )
+}
+
+function CatalogCard({ product, added, onOpen }: CatalogCardProps) {
+  return (
+    <Panel
+      surface="dark"
+      role="button"
+      tabIndex={0}
+      aria-label={`Ver detalhes de ${product.name}`}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+      style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10, cursor: "pointer" }}
+    >
       <div style={{ display: "flex", gap: 12 }}>
-        {product.image ? (
-          <img
-            src={product.image}
-            alt=""
-            style={{ width: 64, height: 64, borderRadius: "var(--r-md)", objectFit: "cover", background: "var(--surface-inset)", flexShrink: 0 }}
-          />
-        ) : (
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 64,
-              height: 64,
-              borderRadius: "var(--r-md)",
-              background: "var(--surface-inset)",
-              color: "var(--text-muted)",
-              flexShrink: 0,
-            }}
-          >
-            <Icon name="package" size={24} />
-          </span>
-        )}
+        <CatalogThumb image={product.image} size={64} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <p
             title={product.name}
@@ -81,36 +95,97 @@ function CatalogCard({ product, added, onAdd, isAdding }: CatalogCardProps) {
             {product.name}
           </p>
           {product.shop_name ? (
-            <p style={{ margin: "4px 0 0", font: "var(--text-role-label)", color: "var(--text-muted)" }}>
-              {product.shop_name}
-            </p>
+            <p style={{ margin: "4px 0 0", font: "var(--text-role-label)", color: "var(--text-muted)" }}>{product.shop_name}</p>
           ) : null}
         </div>
       </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        <Badge tone="outline">{formatCatalogPrice(product)}</Badge>
-        {product.commission != null ? <Badge tone="outline">Comissão {product.commission}%</Badge> : null}
-        {product.commission_rate != null ? <Badge tone="outline">Taxa {product.commission_rate}</Badge> : null}
-        {product.sales != null ? <Badge tone="outline">{product.sales} vendas</Badge> : null}
-        {product.rating_star != null ? <Badge tone="outline">★ {product.rating_star}</Badge> : null}
-      </div>
-
-      <Button
-        variant={added ? "secondary" : "primary"}
-        icon={added ? "check" : "plus"}
-        disabled={added || isAdding}
-        onClick={onAdd}
-        size="sm"
-        fullWidth
-      >
-        {added ? "Adicionado" : isAdding ? "Adicionando..." : "Adicionar aos meus produtos"}
-      </Button>
+      <CatalogBadges product={product} />
+      {added ? <Badge tone="mint">Adicionado aos meus produtos</Badge> : null}
     </Panel>
   )
 }
 
-export function CatalogSearchTab() {
+interface CatalogDetailsModalProps {
+  product: CatalogProduct | null
+  added: boolean
+  isAdding: boolean
+  error: string | null
+  onClose: () => void
+  onConfirm: (p: CatalogProduct) => void
+  onEdit: (p: CatalogProduct) => void
+}
+
+function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+      <span style={{ font: "var(--text-role-label)", letterSpacing: "var(--ls-label)", textTransform: "uppercase", color: "var(--text-muted)" }}>
+        {label}
+      </span>
+      <span style={{ font: "var(--text-role-body)", color: "var(--text-body)", overflowWrap: "anywhere" }}>{children}</span>
+    </div>
+  )
+}
+
+function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfirm, onEdit }: CatalogDetailsModalProps) {
+  const linkStyle = { color: "var(--sky-300)" } as const
+  return (
+    <Modal open={product != null} onClose={onClose} title="Detalhes do produto" width={520}>
+      {product ? (
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", gap: 14 }}>
+            <CatalogThumb image={product.image} size={96} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <p style={{ margin: 0, font: "var(--text-role-title)", color: "var(--text-display)", overflowWrap: "anywhere" }}>{product.name}</p>
+              {product.shop_name ? (
+                <p style={{ margin: "4px 0 0", font: "var(--text-role-label)", color: "var(--text-muted)" }}>{product.shop_name}</p>
+              ) : null}
+            </div>
+          </div>
+          <CatalogBadges product={product} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+            <DetailRow label="ID Shopee">{product.product_id}</DetailRow>
+            <DetailRow label="Preço">{formatCatalogPrice(product)}</DetailRow>
+            <DetailRow label="Comissão">{product.commission != null ? `${product.commission}%` : "—"}</DetailRow>
+          </div>
+          {product.original_link || product.commission_link ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {product.original_link ? (
+                <a href={product.original_link} target="_blank" rel="noreferrer" style={linkStyle}>Link original ↗</a>
+              ) : null}
+              {product.commission_link ? (
+                <a href={product.commission_link} target="_blank" rel="noreferrer" style={linkStyle}>Link de comissão ↗</a>
+              ) : null}
+            </div>
+          ) : null}
+          {error ? <div style={{ color: "var(--negative)", font: "var(--text-role-body)" }}>{error}</div> : null}
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 12 }}>
+            <Button type="button" variant="ghost" onClick={() => onEdit(product)} disabled={added}>
+              Editar antes de salvar
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              icon={added ? "check" : "plus"}
+              disabled={added || isAdding}
+              onClick={() => onConfirm(product)}
+            >
+              {added ? "Adicionado" : isAdding ? "Adicionando..." : "Adicionar aos meus produtos"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </Modal>
+  )
+}
+
+interface CatalogSearchTabProps {
+  /** Abre o formulario de cadastro manual (em branco). */
+  onManualCreate: () => void
+  /** Abre o formulario ja preenchido com os dados do catalogo. */
+  onPrefill: (product: CatalogProduct) => void
+}
+
+export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTabProps) {
   const queryClient = useQueryClient()
   const [keywordInput, setKeywordInput] = useState("")
   const [searchKeyword, setSearchKeyword] = useState<string | undefined>(undefined)
@@ -119,6 +194,7 @@ export function CatalogSearchTab() {
   const [page, setPage] = useState(1)
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [hasSearched, setHasSearched] = useState(false)
+  const [selected, setSelected] = useState<CatalogProduct | null>(null)
 
   const categoriesQuery = useQuery({
     queryKey: ["catalog-categories"],
@@ -207,6 +283,9 @@ export function CatalogSearchTab() {
         <Button type="submit" variant="primary" icon="search" disabled={searchQuery.isFetching}>
           {searchQuery.isFetching ? "Buscando..." : "Buscar"}
         </Button>
+        <Button type="button" variant="ghost" icon="plus" onClick={onManualCreate}>
+          Cadastrar manualmente
+        </Button>
       </form>
 
       {searchQuery.isError ? (
@@ -220,20 +299,6 @@ export function CatalogSearchTab() {
           }}
         >
           {searchQuery.error instanceof Error ? searchQuery.error.message : "Erro ao buscar produtos."}
-        </div>
-      ) : null}
-
-      {addMutation.isError ? (
-        <div
-          style={{
-            padding: "12px 16px",
-            borderRadius: "var(--r-md)",
-            border: "1px solid var(--negative)",
-            color: "var(--negative)",
-            font: "var(--text-role-body)",
-          }}
-        >
-          {addMutation.error instanceof Error ? addMutation.error.message : "Erro ao adicionar produto."}
         </div>
       ) : null}
 
@@ -268,8 +333,10 @@ export function CatalogSearchTab() {
                 key={product.product_id}
                 product={product}
                 added={addedIds.has(product.product_id)}
-                isAdding={addMutation.isPending && addMutation.variables?.product_id === product.product_id}
-                onAdd={() => addMutation.mutate(product)}
+                onOpen={() => {
+                  addMutation.reset()
+                  setSelected(product)
+                }}
               />
             ))}
           </div>
@@ -297,6 +364,18 @@ export function CatalogSearchTab() {
           ) : null}
         </>
       )}
+      <CatalogDetailsModal
+        product={selected}
+        added={selected != null && addedIds.has(selected.product_id)}
+        isAdding={addMutation.isPending}
+        error={addMutation.isError ? (addMutation.error instanceof Error ? addMutation.error.message : "Erro ao adicionar produto.") : null}
+        onClose={() => setSelected(null)}
+        onConfirm={(p) => addMutation.mutate(p)}
+        onEdit={(p) => {
+          setSelected(null)
+          onPrefill(p)
+        }}
+      />
     </div>
   )
 }
