@@ -200,9 +200,11 @@ def _checksum(data: dict[str, Any]) -> str:
 def _require_admin(user_id: str = Depends(get_current_user_id)) -> int:
     result = (
         supabase.table("users").select("access").eq("id", user_id)
-        .single().execute()
+        .maybe_single().execute()
     )
-    if not result.data or result.data.get("access") != "ADMIN":
+    # maybe_single: linha inexistente vira 403, não 500 (.single() levanta
+    # e o supabase-py devolve None em vez de resposta vazia).
+    if not result or not result.data or result.data.get("access") != "ADMIN":
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     return user_id
 

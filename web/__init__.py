@@ -26,6 +26,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_login import LoginManager, login_required, current_user
 from flask_cors import CORS
 from shopee_bot.web.limiter import limiter
+from shopee_bot.web.helpers import cors_origins
 from flask import Flask, render_template, send_from_directory
 from dotenv import load_dotenv
 load_dotenv()
@@ -53,7 +54,12 @@ app = Flask(
     static_folder=_app_dir / 'static',
     static_url_path='/static'
 )
-CORS(app)
+# CORS só pras origens configuradas (antes: CORS(app) = qualquer origem,
+# inclusive no proxy /api). Sem nenhuma configurada, não liga CORS: o SPA
+# é servido pelo próprio Flask (mesma origem).
+_cors_origins = cors_origins()
+if _cors_origins:
+    CORS(app, origins=_cors_origins)
 
 # session cookie security
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_SESSION_COOKIE_SECURE", "False").lower() == "true"
