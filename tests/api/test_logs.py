@@ -99,3 +99,39 @@ class TestAdminAccess:
 
         assert res.status_code == 200
         query.range.assert_called_with(15, 19)
+
+
+class TestAdminCheckAndUuidFilter:
+    def test_missing_user_row_is_403_not_500(self, client, monkeypatch):
+        app.dependency_overrides[get_current_user_id] = lambda: "ghost"
+        fake_client = MagicMock()
+        query = fake_client.table.return_value
+        query.select.return_value = query
+        query.eq.return_value = query
+        query.maybe_single.return_value = query
+        query.single.return_value = query
+        query.execute.return_value = None  # supabase-py: maybe_single sem linha
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        res = client.get("/logs")
+        app.dependency_overrides.clear()
+
+        assert res.status_code == 403
+
+    def test_filter_by_uuid_user_id(self, client, monkeypatch):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        query = _mock_supabase(monkeypatch, [({"access": "ADMIN"}, None), ([], 0)])
+        uid = "3f2b8c1e-9a4d-4e7b-8c2a-1d5e6f7a8b9c"
+
+        res = client.get("/logs", params={"user_id": uid})
+        app.dependency_overrides.clear()
+
+        assert res.status_code == 200
+        query.eq.assert_any_call("user_id", uid)
+
+    def test_non_uuid_user_id_is_422(self, client, monkeypatch):
+        app.dependency_overrides[get_current_user_id] = lambda: 1
+        _mock_supabase(monkeypatch, [({"access": "ADMIN"}, None)])
+        res = client.get("/logs", params={"user_id": "abc"})
+        app.dependency_overrides.clear()
+        assert res.status_code == 422

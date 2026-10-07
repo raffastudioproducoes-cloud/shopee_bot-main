@@ -340,10 +340,19 @@ function CredentialTrailing({
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap", gap: 10 }}>
       <ConnectionLight state={status.light} title={status.check_message ?? undefined} />
-      <StatusBadge tone={status.connected ? "positive" : "neutral"} icon={status.connected ? "check-circle-2" : "x-circle"}>
-        {status.connected ? "Conectado" : "Desconectado"}
+      <StatusBadge
+        tone={status.light === "green" ? "positive" : "neutral"}
+        icon={status.light === "green" ? "check-circle-2" : "x-circle"}
+      >
+        {status.status_text ?? (status.connected ? "Conectado" : "Desconectado")}
       </StatusBadge>
-      {isAdmin && (
+      {status.checked_at && (
+        <span style={{ font: "var(--text-role-body)", color: "var(--text-muted)" }}>
+          Testado em {new Date(status.checked_at).toLocaleString("pt-BR")}
+        </span>
+      )}
+      {/* Qualquer usuário testa a própria conexão (backend escopa por usuário). */}
+      {(isAdmin || status.connected) && (
         <Button
           type="button"
           variant="ghost"

@@ -43,6 +43,7 @@ from .profiles import get_current_profile_id
 from ..profiles import scope_owner
 from ..audit_log import log_action
 from ..database import supabase
+from ..utils.log_sanitizer import sanitize_log_data
 from ..internal_client import (
     create_scheduler_job,
     remove_scheduler_job,
@@ -216,6 +217,40 @@ def _get_scheduler_job(post_id: int) -> dict | None:
     return result.data if result else None
 
 
+# activity_types (migração 005): 1=bot_post_success, 2=bot_post_failure —
+# gravados pelos bots do scheduler (Flask) e pelo listener de erro/missed.
+_PUBLISH_ACTIVITY_STATUS = {1: "published", 2: "failed"}
+
+
+def _get_last_publish_result(user_id: int, post_id: int) -> dict | None:
+    """Último resultado REAL da publicação do post (a execução acontece no
+    scheduler, depois do 200 de /publish). Best-effort: falha aqui não
+    derruba a listagem."""
+    try:
+        result = (
+            supabase.table("activities").select("activity_id, metadata, created_at")
+            .eq("user_id", user_id)
+            .in_("activity_id", list(_PUBLISH_ACTIVITY_STATUS))
+            .eq("metadata->>post_id", str(post_id))
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        logger.warning("Falha ao ler resultado de publicação do post %s", post_id, exc_info=True)
+        return None
+    rows = result.data if isinstance(getattr(result, "data", None), list) else []
+    if not rows:
+        return None
+    row = rows[0]
+    error = (row.get("metadata") or {}).get("error")
+    return {
+        "status": _PUBLISH_ACTIVITY_STATUS.get(row.get("activity_id")),
+        "at": row.get("created_at"),
+        "error": sanitize_log_data(str(error))[:200] if error else None,
+    }
+
+
 def _get_thread_chain(head_id: int) -> list[dict]:
     """Head primeiro, depois cada parte seguinte (post_id aponta pra
     parte ANTERIOR — ver docstring do módulo). Bounded por MAX_PARTS
@@ -363,6 +398,7 @@ async def list_posts(
             "medias": _get_post_medias(item["id"]),
             "scheduled": job is not None,
             "parts_count": len(chain),
+            "last_result": _get_last_publish_result(user_id, item["id"]),
         })
 
     next_cursor = None
@@ -428,6 +464,7 @@ async def get_post(
         "products": _get_post_products(post_id),
         "medias": _get_post_medias(post_id),
         "scheduled": job is not None,
+        "last_result": _get_last_publish_result(user_id, post_id),
     }
 
 
@@ -592,7 +629,9 @@ async def publish_post_now(
         raise HTTPException(status_code=502, detail="Não foi possível publicar agora. Tente novamente.")
 
     log_action("post_published", f"post_id={post_id}", user_id=user_id, profile_id=profile_id)
-    return {"msg": "Publicação disparada"}
+    # 200 aqui = job disparado, não publicado: o resultado real chega em
+    # segundos em `last_result` (GET /posts) e em Atividade.
+    return {"msg": "Publicação iniciada. O resultado aparece no post em instantes."}
 
 
 @router.delete("/{post_id}")

@@ -15,6 +15,10 @@ import { Textarea } from "../components/ui/Textarea"
 import { Select } from "../components/ui/Select"
 import { SegmentedToggle } from "../components/ui/SegmentedToggle"
 
+// Ver buildSchedule: run_date de segurança do "Agora" (disparado de fato
+// assim que a mídia termina de subir).
+const NOW_SAFETY_DELAY_MS = 5 * 60 * 1000
+
 const PERSONAS = [
   { value: "casual", label: "Casual" },
   { value: "profissional", label: "Profissional" },
@@ -89,6 +93,7 @@ export function PostsPage() {
       schedule: PostSchedule
       network: PostNetwork
       files: File[]
+      publishNow: boolean
     }) => {
       const created = await postsApi.create({
         texts: data.texts,
@@ -99,10 +104,14 @@ export function PostsPage() {
       for (const file of data.files) {
         await postsApi.uploadMedia(created.id, file)
       }
+      // "Agora": o job foi criado com run_date de segurança no futuro; só
+      // dispara depois que a mídia já está no servidor.
+      if (data.publishNow) await postsApi.publishNow(created.id)
       return created
     },
-    onSuccess: () => {
+    onSuccess: (_created, data) => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
+      if (data.publishNow) refreshPublishResult()
       setModalOpen(false)
     },
     onError: onAuthError,
@@ -128,9 +137,20 @@ export function PostsPage() {
     onError: onAuthError,
   })
 
+  // A publicação roda no scheduler depois do 200: recarrega a lista
+  // algumas vezes pra mostrar o resultado real (last_result).
+  const refreshPublishResult = () => {
+    for (const ms of [5000, 15000, 40000]) {
+      setTimeout(() => queryClient.invalidateQueries({ queryKey: ["posts"] }), ms)
+    }
+  }
+
   const publishMutation = useMutation({
     mutationFn: (id: number) => postsApi.publishNow(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] })
+      refreshPublishResult()
+    },
     onError: onAuthError,
   })
 
@@ -141,11 +161,12 @@ export function PostsPage() {
       schedule: PostSchedule,
       network: PostNetwork,
       files: File[],
+      publishNow: boolean,
     ) => {
       if (editingPost) {
         updateMutation.mutate({ id: editingPost.id, texts, product_ids: productIds })
       } else {
-        createMutation.mutate({ texts, product_ids: productIds, schedule, network, files })
+        createMutation.mutate({ texts, product_ids: productIds, schedule, network, files, publishNow })
       }
     },
     [editingPost, createMutation, updateMutation],
@@ -255,10 +276,25 @@ export function PostsPage() {
                         Agendado
                       </StatusBadge>
                     )}
+                    {post.last_result?.status === "published" && (
+                      <StatusBadge tone="positive" icon="check-circle-2">
+                        Publicado{post.last_result.at ? ` em ${new Date(post.last_result.at).toLocaleString("pt-BR")}` : ""}
+                      </StatusBadge>
+                    )}
+                    {post.last_result?.status === "failed" && (
+                      <StatusBadge icon="x-circle" style={{ color: "var(--negative)" }}>
+                        Falhou
+                      </StatusBadge>
+                    )}
                     {!!post.parts_count && post.parts_count > 1 && (
                       <span style={metaTextStyle}>{post.parts_count} partes</span>
                     )}
                   </div>
+                  {post.last_result?.status === "failed" && post.last_result.error && (
+                    <p style={{ ...metaTextStyle, color: "var(--negative)", marginTop: 8 }}>
+                      Última tentativa: {post.last_result.error}
+                    </p>
+                  )}
                   {publishMutation.isError && publishMutation.variables === post.id && (
                     <p style={{ ...metaTextStyle, color: "var(--negative)", marginTop: 8 }}>
                       {publishMutation.error.message}
@@ -344,6 +380,7 @@ interface PostModalProps {
     schedule: PostSchedule,
     network: PostNetwork,
     files: File[],
+    publishNow: boolean,
   ) => void
   loading: boolean
   error?: string
@@ -408,7 +445,10 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
     if (when === "cron") {
       return { trigger: "cron", time: cronTime, day_of_week: cronDay }
     }
-    const runAt = when === "now" ? new Date().toISOString() : new Date(runDate).toISOString()
+    // "Agora" = rede de segurança de 5 min: o post é disparado explicitamente
+    // logo após o envio da mídia (ver createMutation), sem duplicar.
+    const runAt =
+      when === "now" ? new Date(Date.now() + NOW_SAFETY_DELAY_MS).toISOString() : new Date(runDate).toISOString()
     return { trigger: "date", run_date: runAt }
   }
 
@@ -418,7 +458,7 @@ function PostModal({ post, onClose, onSave, loading, error }: PostModalProps) {
     e.preventDefault()
     if (trimmedTexts.length === 0) return
     if (when === "date" && !runDate) return
-    onSave(trimmedTexts, selectedProductIds, buildSchedule(), network, pendingFiles)
+    onSave(trimmedTexts, selectedProductIds, buildSchedule(), network, pendingFiles, when === "now")
   }
 
   return (

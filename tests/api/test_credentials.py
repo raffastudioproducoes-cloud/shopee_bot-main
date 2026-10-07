@@ -110,18 +110,23 @@ class TestSaveCredentialStripsWhitespace:
 
 
 class TestTestConnectionAdminGate:
-    """"Testar conexão" (POST /credentials/{network}/test) é admin-only —
-    a luz do sinalizador continua visível a qualquer usuário via GET
-    /credentials, só o botão que dispara o teste é restrito."""
+    """"Testar conexão" (POST /credentials/{network}/test): qualquer usuário
+    testa a PRÓPRIA credencial (escopo user_id/perfil); o que continua
+    admin-only são os overrides manuais (PUT /{network}/manual)."""
 
     def test_requires_auth(self, client):
         res = client.post("/credentials/shopee/test")
         assert res.status_code == 401
 
-    def test_requires_admin(self, monkeypatch, auth_client):
-        _mock_supabase(monkeypatch, [{"access": "USER"}])
+    def test_regular_user_can_test_own_credential(self, monkeypatch, auth_client):
+        from api.routers import credentials as credentials_module
+
+        credentials_module._test_attempts.clear()
+        # sem credencial salva -> 400 (não 403): usuário comum chega no teste
+        query = _mock_supabase(monkeypatch, [None])
         res = auth_client.post("/credentials/shopee/test")
-        assert res.status_code == 403
+        assert res.status_code == 400
+        query.eq.assert_any_call("user_id", 42)
 
     def test_admin_without_saved_credential_returns_400(self, monkeypatch, auth_client):
         # 1ª execute: _require_admin (access=ADMIN); 2ª: busca da credencial
@@ -182,7 +187,7 @@ class TestManualOverrideAdminGate:
     def test_admin_can_save_x_manual(self, monkeypatch, auth_client):
         # 1ª execute: _require_admin; 2ª: _upsert_by_user (select existing,
         # nenhuma linha -> insert); 3ª: insert.
-        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}]])
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}], None])
         res = auth_client.put(
             "/credentials/x/manual",
             json={"user_access_token": "tok", "user_refresh_token": "refresh"},
@@ -191,7 +196,7 @@ class TestManualOverrideAdminGate:
         assert res.json() == {"connected": True}
 
     def test_admin_can_save_facebook_manual(self, monkeypatch, auth_client):
-        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}]])
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}], None])
         res = auth_client.put(
             "/credentials/facebook/manual",
             json={"page_id": "123", "page_access_token": "tok", "page_name": "Minha Página"},
@@ -200,7 +205,7 @@ class TestManualOverrideAdminGate:
         assert res.json() == {"connected": True}
 
     def test_admin_can_save_tiktok_manual(self, monkeypatch, auth_client):
-        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}]])
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}], None])
         res = auth_client.put(
             "/credentials/tiktok/manual",
             json={"open_id": "abc", "user_access_token": "tok", "refresh_token": "refresh"},
@@ -209,7 +214,7 @@ class TestManualOverrideAdminGate:
         assert res.json() == {"connected": True}
 
     def test_admin_can_save_instagram_manual(self, monkeypatch, auth_client):
-        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}]])
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}], None])
         res = auth_client.put(
             "/credentials/instagram/manual",
             json={"ig_user_id": "abc", "user_access_token": "tok"},

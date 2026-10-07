@@ -29,9 +29,15 @@ export interface CredentialStatus {
 
 export interface CredentialStatusWithLight extends CredentialStatus {
   light: ConnectionLight
+  /** disconnected | untested | expired | error | stale | ok (GET /credentials). */
+  state?: CredentialState
+  /** Texto curto do estado, coerente com a luz (sem segredo). */
+  status_text?: string
   checked_at: string | null
   check_message: string | null
 }
+
+export type CredentialState = 'disconnected' | 'untested' | 'expired' | 'error' | 'stale' | 'ok'
 
 export type CredentialsStatusMap = Record<SimpleNetwork | 'threads', CredentialStatusWithLight>
 

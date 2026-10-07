@@ -519,3 +519,164 @@ class TestCatalogCategories:
 
         res = auth_client.get("/products/catalog-categories")
         assert res.status_code == 502
+
+
+class _Resp:
+    def __init__(self, body, status_code=200):
+        self.status_code = status_code
+        self._body = body
+
+    def json(self):
+        return self._body
+
+
+def _nodes(n, start=0):
+    return [{"itemId": str(start + i), "productName": f"P{start + i}"} for i in range(n)]
+
+
+def _capture_posts(monkeypatch, bodies):
+    sent = []
+
+    async def fake_post(self, url, content=None, headers=None):
+        sent.append(json.loads(content))
+        return _Resp(bodies.pop(0) if bodies else {"data": {"productOfferV2": {"nodes": []}}})
+
+    monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+    return sent
+
+
+def _post_returning(monkeypatch, body, status_code=200):
+    async def fake_post(self, url, content=None, headers=None):
+        return _Resp(body, status_code)
+
+    monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
+
+
+@pytest.fixture
+def with_credential(monkeypatch):
+    from api.routers import catalog as catalog_router
+
+    catalog_router._search_attempts.clear()
+    monkeypatch.setattr(
+        database_module, "get_supabase",
+        lambda: _fake_supabase_with_credential(secret_plain="SUPERSECRET"),
+    )
+    yield
+    catalog_router._search_attempts.clear()
+
+
+class TestCatalogSearchQueryTypes:
+    """Regressão do 502 em produção: `$cat: Int64` declarado contra
+    `productCatId: Int32` no schema da Shopee invalidava a query inteira."""
+
+    def test_query_without_category_has_no_int64_or_productcatid(
+        self, auth_client, monkeypatch, with_credential
+    ):
+        sent = _capture_posts(monkeypatch, [])
+        res = auth_client.get("/products/catalog-search", params={"keyword": "sapato", "sort_type": 1})
+        assert res.status_code == 200
+        q = sent[0]["query"]
+        assert "Int64" not in q
+        assert "productCatId" not in q
+        assert "sortType: 1" in q
+        assert sent[0]["variables"] == {"kw": "sapato"}
+
+    def test_category_goes_as_integer_literal(self, auth_client, monkeypatch, with_credential):
+        sent = _capture_posts(monkeypatch, [])
+        res = auth_client.get(
+            "/products/catalog-search", params={"product_cat_id": 100636, "sort_type": 2},
+        )
+        assert res.status_code == 200
+        q = sent[0]["query"]
+        assert "productCatId: 100636" in q
+        assert "sortType: 2" in q
+        assert "$cat" not in q and "Int64" not in q
+        assert "$kw" not in q
+
+    def test_category_out_of_int32_range_is_rejected(self, auth_client, with_credential):
+        res = auth_client.get("/products/catalog-search", params={"product_cat_id": 2**31})
+        assert res.status_code == 422
+
+
+class TestCatalogSearchPagination:
+    def test_limit_150_is_split_in_pages_of_50(self, auth_client, monkeypatch, with_credential):
+        bodies = [
+            {"data": {"productOfferV2": {"nodes": _nodes(50, 0)}}},
+            {"data": {"productOfferV2": {"nodes": _nodes(50, 50)}}},
+            {"data": {"productOfferV2": {"nodes": _nodes(50, 100)}}},
+        ]
+        sent = _capture_posts(monkeypatch, bodies)
+        res = auth_client.get("/products/catalog-search", params={"keyword": "x", "limit": 150})
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 150
+        assert len(sent) == 3
+        for i, payload in enumerate(sent, start=1):
+            assert f"page: {i}" in payload["query"]
+            assert "limit: 50" in payload["query"]
+
+    def test_stops_when_page_is_short(self, auth_client, monkeypatch, with_credential):
+        sent = _capture_posts(monkeypatch, [{"data": {"productOfferV2": {"nodes": _nodes(7)}}}])
+        res = auth_client.get("/products/catalog-search", params={"limit": 150})
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 7
+        assert len(sent) == 1
+
+    def test_default_limit_is_50_single_call(self, auth_client, monkeypatch, with_credential):
+        sent = _capture_posts(monkeypatch, [])
+        res = auth_client.get("/products/catalog-search")
+        assert res.status_code == 200
+        assert "limit: 50" in sent[0]["query"] and "page: 1" in sent[0]["query"]
+
+
+class TestCatalogSearchSpecificErrors:
+    def test_signature_error_code_10020_asks_to_reconnect(self, auth_client, monkeypatch, with_credential):
+        _post_returning(monkeypatch, {"errors": [
+            {"message": "Invalid Signature", "extensions": {"code": 10020, "message": "Invalid Signature"}},
+        ]})
+        res = auth_client.get("/products/catalog-search", params={"keyword": "sapato"})
+        assert res.status_code == 422
+        assert "Credenciais" in res.json()["detail"]
+
+    def test_http_401_asks_to_reconnect(self, auth_client, monkeypatch, with_credential):
+        _post_returning(monkeypatch, {}, status_code=401)
+        res = auth_client.get("/products/catalog-search")
+        assert res.status_code == 422
+        assert "Reconecte" in res.json()["detail"]
+
+    def test_rate_limit_code_10030_has_specific_message(self, auth_client, monkeypatch, with_credential):
+        _post_returning(monkeypatch, {"errors": [
+            {"message": "Rate limit exceeded", "extensions": {"code": 10030}},
+        ]})
+        res = auth_client.get("/products/catalog-search")
+        assert res.status_code == 502
+        assert "limitou" in res.json()["detail"]
+
+    def test_schema_validation_error_is_logged_without_secret(
+        self, auth_client, monkeypatch, caplog, with_credential
+    ):
+        _post_returning(monkeypatch, {"errors": [
+            {"message": 'Variable "$cat" of type "Int64" used in position expecting type "Int32".'},
+        ]})
+        with caplog.at_level("WARNING", logger="api.routers.catalog"):
+            res = auth_client.get("/products/catalog-search")
+        assert res.status_code == 502
+        assert "recusou" in res.json()["detail"]
+        assert "Int32" in caplog.text
+        assert "SUPERSECRET" not in caplog.text
+
+    def test_network_failure_says_shopee_unavailable(self, auth_client, monkeypatch, with_credential):
+        import httpx
+
+        async def boom(self, url, content=None, headers=None):
+            raise httpx.ConnectError("down")
+
+        monkeypatch.setattr("httpx.AsyncClient.post", boom)
+        res = auth_client.get("/products/catalog-search")
+        assert res.status_code == 502
+        assert "indisponível" in res.json()["detail"]
+
+    def test_no_results_returns_empty_list(self, auth_client, monkeypatch, with_credential):
+        _post_returning(monkeypatch, {"data": {"productOfferV2": {"nodes": None}}})
+        res = auth_client.get("/products/catalog-search", params={"keyword": "zzz"})
+        assert res.status_code == 200
+        assert res.json()["data"] == []
