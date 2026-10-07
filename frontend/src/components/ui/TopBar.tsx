@@ -41,7 +41,7 @@ export function TopBar({
 }: TopBarProps) {
   return (
     <header
-      className={className}
+      className={`app-topbar ${className}`}
       style={{
         display: "flex",
         alignItems: "center",
@@ -51,7 +51,7 @@ export function TopBar({
       }}
     >
       {leading}
-      <SearchField value={query} onChange={onQuery} width={searchWidth} />
+      <SearchField value={query} onChange={onQuery} width={searchWidth} className="app-topbar-search" />
       <span style={{ flex: 1 }} />
       {trailing}
       {bell ?? <IconButton icon="bell" label="Notifications" tone="glass" badge={unread} onClick={onBell} />}

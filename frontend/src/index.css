@@ -14,3 +14,50 @@
   --color-primary-hover: #4f46e5;
   --color-primary-light: #eef2ff;
 }
+
+/* ── App shell responsivo ─────────────────────────────────────────────────────
+   Mobile (<768px): side rail vira gaveta off-canvas (hambúrguer no TopBar),
+   conteúdo ocupa a largura toda. Desktop mantém o trilho fixo. */
+html, body, #root { min-height: 100%; }
+body { background: var(--bg-app-gradient); background-attachment: fixed; }
+
+.app-shell { display: flex; min-height: 100vh; min-height: 100dvh; background: var(--bg-app-gradient); }
+.app-col {
+  display: flex; flex-direction: column; flex: 1; min-width: 0;
+  padding: var(--shell-pad);
+  padding-bottom: calc(var(--shell-pad) + env(safe-area-inset-bottom));
+  gap: var(--gap-column);
+}
+.app-menu-btn, .app-rail-backdrop { display: none; }
+.app-topbar { flex-wrap: wrap; row-gap: 8px; }
+
+@media (max-width: 767px) {
+  .app-shell { --shell-pad: 12px; }
+  .app-menu-btn { display: inline-flex; }
+  .app-topbar-search { display: none !important; }
+  .app-topbar { gap: 6px !important; }
+
+  .app-rail {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 60;
+    width: min(260px, 82vw) !important;
+    align-items: stretch !important;
+    padding: calc(18px + env(safe-area-inset-top)) 12px calc(20px + env(safe-area-inset-bottom)) !important;
+    overflow-y: auto;
+    box-shadow: 0 0 40px rgba(0,0,0,.5);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform .2s ease, visibility 0s linear .2s;
+  }
+  .app-rail[data-open="true"] { transform: none; visibility: visible; transition: transform .2s ease; }
+  .app-rail .app-rail-item {
+    grid-auto-flow: column; justify-content: start; align-items: center;
+    gap: 14px !important; padding: 10px 12px !important; border-radius: var(--r-md, 10px);
+  }
+  .app-rail .app-rail-item[aria-current="page"] { background: rgba(255,255,255,.08); }
+  .app-rail .app-rail-label { font-size: 13px !important; max-width: none !important; }
+  .app-rail-backdrop[data-open="true"] {
+    display: block; position: fixed; inset: 0; z-index: 55;
+    background: rgba(0,0,0,.55); border: 0; padding: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) { .app-rail { transition: none !important; } }
