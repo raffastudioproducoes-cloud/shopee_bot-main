@@ -49,6 +49,7 @@ def _mock_supabase(monkeypatch, execute_results):
     query.select.return_value = query
     query.eq.return_value = query
     query.single.return_value = query
+    query.maybe_single.return_value = query
     query.update.return_value = query
     query.delete.return_value = query
     query.execute.side_effect = [MagicMock(data=d) for d in execute_results]
