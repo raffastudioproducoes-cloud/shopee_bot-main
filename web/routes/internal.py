@@ -17,6 +17,7 @@ Flask (alias de pacote via Docker ou conftest.py) — chamar por HTTP evita
 precisar replicar esse alias na API nova.
 """
 
+import hmac
 import os
 from datetime import datetime, time as dt_time
 from functools import wraps
@@ -47,7 +48,9 @@ def _require_internal_secret(fn):
     def wrapper(*args, **kwargs):
         secret = os.environ.get("INTERNAL_API_SECRET")
         given = request.headers.get("X-Internal-Secret")
-        if not secret or not given or given != secret:
+        if not secret or not given or not hmac.compare_digest(
+            given.encode("utf-8"), secret.encode("utf-8")
+        ):
             return jsonify({"error": "Não autorizado"}), 403
         return fn(*args, **kwargs)
     return wrapper

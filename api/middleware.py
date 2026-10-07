@@ -23,6 +23,7 @@ from starlette.requests import Request
 
 from .config import settings
 from .database import get_supabase
+from .routers.auth import client_ip
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -91,7 +92,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "duration_ms": duration_ms,
                     "error": error,
                     "redirect_to": redirect_to,
-                    "client_ip": request.client.host if request.client else None,
+                    "client_ip": client_ip(request) if request.client else None,
                     **({"profile_id": profile_id} if profile_id else {}),
                 }
             ).execute()
