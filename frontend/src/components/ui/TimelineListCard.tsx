@@ -65,20 +65,26 @@ export function TimelineListCard({
         style={{
           display: "flex",
           alignItems: "center",
+          flexWrap: "wrap",
           gap: 12,
           padding: 16,
           cursor: "pointer",
         }}
       >
         {thumbnail}
-        <div style={{ minWidth: 0, flex: 1 }}>
+        {/* flex-basis 160px: em telas estreitas badge/ações quebram para a linha de
+            baixo em vez de espremer o título; título mostra até 2 linhas. */}
+        <div style={{ minWidth: 0, flex: "1 1 160px" }}>
           <div
+            title={typeof title === "string" ? title : undefined}
             style={{
               font: "var(--text-role-title)",
               color: "var(--text-display)",
-              whiteSpace: "nowrap",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
               overflow: "hidden",
-              textOverflow: "ellipsis",
+              overflowWrap: "anywhere",
             }}
           >
             {title}

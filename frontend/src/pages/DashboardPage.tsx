@@ -53,7 +53,7 @@ export default function DashboardPage() {
         <StatCard name="Agendados" icon="circle-dot" price={String(stats?.scheduled_posts ?? 0)} showSparkline={false} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--gap-grid)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>
         <Panel surface="glass">
           <PanelHeader title="Postagens recentes" />
           <div style={{ padding: '0 16px 16px', color: 'var(--text-on-glass-muted)', font: 'var(--text-role-body)' }}>

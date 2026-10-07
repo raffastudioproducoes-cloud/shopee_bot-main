@@ -62,7 +62,7 @@ export function NotificationsBell() {
       />
 
       {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 40, width: 340 }}>
+        <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 40, width: "min(340px, calc(100vw - 24px))" }}>
           <Panel surface="dark" overflowHidden={false} style={{ maxHeight: 420, display: "flex", flexDirection: "column" }}>
             <PanelHeader title="Notificações" />
             <Divider />

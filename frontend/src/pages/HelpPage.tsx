@@ -135,7 +135,9 @@ export function HelpPage() {
         </p>
       </div>
 
-      <SegmentedToggle options={TABS} value={tab} onChange={(v) => setTab(v as HelpTab)} fullWidth={false} />
+      <div style={{ maxWidth: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <SegmentedToggle options={TABS} value={tab} onChange={(v) => setTab(v as HelpTab)} fullWidth={false} />
+      </div>
 
       <Panel surface="dark">
         <PanelHeader title={TABS.find((t) => t.value === tab)?.label ?? ""} />
@@ -179,7 +181,7 @@ export function HelpPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
                 gap: 12,
               }}
             >

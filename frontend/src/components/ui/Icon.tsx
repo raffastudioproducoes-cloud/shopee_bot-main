@@ -38,6 +38,9 @@ import {
   Link2,
   ChevronDown,
   List,
+  Menu,
+  Download,
+  Upload,
   Grid3x3,
   LayoutGrid,
   ScrollText,
@@ -79,6 +82,9 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   // Extrapolação: adicionados para o close button do Modal (IconButton icon="x") e o
   // StatusBadge (ver Modal.tsx / StatusBadge.tsx) — não fazem parte do mapa original.
   x: X,
+  menu: Menu,
+  download: Download,
+  upload: Upload,
   "check-circle-2": CheckCircle2,
   "x-circle": XCircle,
   // Extrapolação: adicionados para ProductsPage/ListasPage (novo item, editar, remover)
