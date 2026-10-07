@@ -22,11 +22,14 @@ export interface SideRailProps {
   brand?: string
   support?: boolean
   onSupport?: () => void
+  /** Mobile drawer state (styled via `.app-rail[data-open]` in index.css). */
+  open?: boolean
+  id?: string
   className?: string
   style?: CSSProperties
 }
 
-/** 72px desktop rail: mark at the top, icon + tracked caps labels, support at the foot. */
+/** Desktop rail (--rail-w): mark at the top, icon + tracked caps labels, support at the foot. */
 export function SideRail({
   items,
   value,
@@ -35,12 +38,17 @@ export function SideRail({
   brand = "MT",
   support = true,
   onSupport,
+  open,
+  id,
   className = "",
   style,
 }: SideRailProps) {
   const active = value ?? items[0]?.value
   return (
     <nav
+      id={id}
+      aria-label="Navegação principal"
+      data-open={open ? "true" : "false"}
       className={className}
       style={{
         display: "flex",
@@ -76,6 +84,8 @@ export function SideRail({
             <li key={it.value}>
               <button
                 type="button"
+                className="app-rail-item"
+                aria-current={on ? "page" : undefined}
                 onClick={() => onSelect?.(it.value)}
                 style={{
                   display: "grid",
@@ -92,7 +102,12 @@ export function SideRail({
               >
                 <Icon name={it.icon} size={20} strokeWidth={on ? 2 : 1.6} />
                 <span
+                  className="app-rail-label"
                   style={{
+                    maxWidth: "calc(var(--rail-w) - 8px)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                     font: "var(--fw-medium) var(--fs-micro)/1 var(--font-sans)",
                     letterSpacing: "var(--ls-rail)",
                     textTransform: "uppercase",
