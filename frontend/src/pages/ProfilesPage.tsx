@@ -20,6 +20,7 @@ import { StatusMessage } from "../components/StatusMessage"
 import { ProfileCard } from "../components/profiles/ProfileCard"
 import { ProfileFormModal } from "../components/profiles/ProfileFormModal"
 import { ConfirmModal } from "../components/profiles/ConfirmModal"
+import { BackupSection } from "../components/profiles/BackupSection"
 
 const errMsg = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback)
 
@@ -239,6 +240,8 @@ export function ProfilesPage() {
           Excluir o perfil <strong>{deletingProfile.nome}</strong>? Esta ação não pode ser desfeita.
         </ConfirmModal>
       )}
+
+      <BackupSection />
 
       {user?.access !== "ADMIN" ? (
         <div style={{ textAlign: "center", padding: "48px 0", color: "var(--text-muted)" }}>
