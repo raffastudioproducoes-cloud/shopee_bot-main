@@ -164,6 +164,9 @@ def test_generate_copy_is_rate_limited_per_user(auth_client, monkeypatch):
 
     _fake_supabase(monkeypatch, {"products": {"id": 1, "name": "x"}})
     monkeypatch.setattr(apis.llm, "generate_product_copy", lambda *_a, **_k: "texto")
+    # chave de IA agora é por usuário (ai_credentials): aqui só importa o limite
+    from api.routers import credentials as credentials_module
+    monkeypatch.setattr(credentials_module, "resolve_ai_key", lambda *_a, **_k: ("gemini", "k", None))
 
     codes = [
         auth_client.post("/posts/generate-copy", json={"product_id": 1}).status_code
