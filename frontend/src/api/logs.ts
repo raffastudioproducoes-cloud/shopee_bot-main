@@ -2,7 +2,7 @@ import { api } from '../lib/api'
 
 export interface LogEntry {
   id: number
-  user_id: number | null
+  user_id: string | null
   username: string | null
   method: string
   path: string
@@ -25,7 +25,7 @@ export interface LogsResponse {
 export interface LogsFilters {
   limit?: number
   offset?: number
-  user_id?: number
+  user_id?: string // UUID
   username?: string
   status_code?: number
   created_from?: string

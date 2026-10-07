@@ -892,9 +892,11 @@ def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
     qualquer usuário."""
     result = (
         supabase.table("users").select("access").eq("id", user_id)
-        .single().execute()
+        .maybe_single().execute()
     )
-    if not result.data or result.data.get("access") != "ADMIN":
+    # maybe_single: linha inexistente vira 403, não 500 (.single() levanta
+    # APIError quando não acha a linha do usuário).
+    if not result or not result.data or result.data.get("access") != "ADMIN":
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     return user_id
 
