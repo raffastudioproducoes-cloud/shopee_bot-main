@@ -36,6 +36,7 @@ from typing import Literal
 
 import fleep
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, model_validator, field_validator
 
 from .auth import _check_login_rate_limit, get_current_user_id
@@ -152,6 +153,9 @@ class PostUpdate(BaseModel):
 class GenerateCopyBody(BaseModel):
     product_id: int
     persona: str = "casual"
+    # Provedor de IA (gemini/openai/anthropic). Omitido: o único salvo ou o
+    # salvo mais recentemente pelo usuário/perfil (ver resolve_ai_key).
+    provider: str | None = None
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
@@ -400,8 +404,11 @@ async def generate_copy(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Gera texto de post via IA (Gemini) para um produto, por persona."""
-    from apis.llm import generate_product_copy
+    """Gera texto de post via IA para um produto, por persona, com a chave de
+    IA do PRÓPRIO usuário/perfil (Credenciais). Sem chave global: sem chave
+    cadastrada -> 400 pedindo pra cadastrar."""
+    from apis.llm import generate_product_copy, LLMError
+    from .credentials import resolve_ai_key
 
     # Cada chamada custa uma requisição paga de LLM: limite por usuário.
     _check_login_rate_limit(
@@ -420,11 +427,15 @@ async def generate_copy(
     if not product_result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
+    provider, api_key, model = resolve_ai_key(user_id, profile_id, body.provider)
     try:
-        text = generate_product_copy(product_result.data, body.persona)
-    except Exception:
-        logger.exception("Falha ao gerar texto do produto %s", body.product_id)
-        raise HTTPException(status_code=400, detail="Não foi possível gerar o texto agora.")
+        text = await run_in_threadpool(
+            generate_product_copy, product_result.data, body.persona, provider, api_key, model,
+        )
+    except LLMError as e:
+        # mensagem do LLMError já é segura (sem chave nem corpo do provedor)
+        logger.warning("Falha ao gerar texto do produto %s (%s): %s", body.product_id, provider, e.kind)
+        raise HTTPException(status_code=400, detail=str(e))
 
     return {"text": text}
 

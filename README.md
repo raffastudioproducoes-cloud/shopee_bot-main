@@ -78,7 +78,7 @@ Tirar o trabalho manual de quem divulga produto de afiliado:
 | **Produtos** | Cadastro, edição, listagem com busca — origem manual ou vinda do garimpo. Aba "Pesquisa Avançada" busca em tempo real no catálogo da Shopee (API de afiliados), com filtros e importação direta pro catálogo pessoal |
 | **Listas de produtos** | Agrupamento de produtos reaproveitável entre posts |
 | **Posts** | Criação, agendamento (cron/data), publicação sob demanda, retry e log de falha |
-| **Copywriter IA** | Geração de texto de post via Gemini, por persona (`apis/llm.py`) |
+| **Copywriter IA** | Geração de texto de post por persona com a chave de IA do próprio usuário (Gemini, OpenAI ou Anthropic — Credenciais; `apis/llm.py`) |
 | **Credenciais** | Shopee, Threads, X, Facebook, Instagram, TikTok, Kwai — cifradas em repouso (Fernet), nunca reexibidas |
 | **Atividades** | Histórico auditável de ações do usuário |
 | **Perfis e Configurações** | Até 3 perfis por conta (1 principal + 2 secundários, com avatar), editar/excluir/ativar sem recarregar a página e perfil ativo na TopBar; o perfil ativo escopa produtos, listas, posts, mídias, credenciais das redes, dashboard, notificações, logs e backup/restore (ver [Multi-perfil](#multi-perfil)). Página `/settings` com troca de senha. Administração de acesso (ADMIN/USER) na página Perfis |
@@ -223,7 +223,7 @@ Principais grupos: Supabase (`SUPABASE_URL`, `SUPABASE_KEY`), JWT da API (`API_S
 Postgres do Flask/scheduler (`SHOPEE_PG_*`), bridge interno (`INTERNAL_API_SECRET`,
 `FLASK_INTERNAL_URL`, `API_INTERNAL_URL`), OAuth de app único (`THREADS_*`, `X_CLIENT_ID/SECRET`,
 `INSTAGRAM_*`, `FACEBOOK_*`, `TIKTOK_CLIENT_KEY/SECRET`, mais as `*_CALLBACK_URL`),
-criptografia (`APP_ENCRYPTION_KEY`), mídia (`CLOUDINARY_*`), IA (`GEMINI_API_KEY`),
+criptografia (`APP_ENCRYPTION_KEY`), mídia (`CLOUDINARY_*`) (IA: sem env — chave por usuário em Credenciais),
 `FRONTEND_URL`, `CORS_ORIGINS` e `REQUEST_LOGGING_ENABLED`. Nunca versionar valores reais.
 
 ### Processo no container

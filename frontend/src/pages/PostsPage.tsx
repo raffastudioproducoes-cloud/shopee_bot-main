@@ -14,6 +14,7 @@ import {
   type NetworkState,
 } from "../components/posts/NetworkPicker"
 import { productsApi, type Product } from "../api/products"
+import { aiCredentialsApi } from "../api/credentials"
 import { Panel, PanelHeader, Divider } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { IconButton } from "../components/ui/IconButton"
@@ -498,6 +499,14 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
     enabled: !post,
   })
 
+  // Sem chave de IA própria não há o que chamar (não existe chave global):
+  // em vez do botão, atalho pra Credenciais.
+  const { data: aiStatus } = useQuery({
+    queryKey: ["credentials", "ai"],
+    queryFn: () => aiCredentialsApi.list(),
+  })
+  const hasAiKey = aiStatus ? aiStatus.active !== null : true
+
   const generateMutation = useMutation({
     mutationFn: (productId: number) => postsApi.generateCopy(productId, persona),
     onSuccess: (res) => setTexts((prev) => [res.text, ...prev.slice(1)]),
@@ -649,15 +658,26 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
             options={PERSONAS}
             width={200}
           />
-          <Button
-            type="button"
-            variant="secondary"
-            icon={generateMutation.isPending ? "loader-2" : "sparkles"}
-            disabled={selectedProductIds.length === 0 || generateMutation.isPending}
-            onClick={() => generateMutation.mutate(selectedProductIds[0])}
-          >
-            {generateMutation.isPending ? "Gerando..." : "Gerar texto com IA"}
-          </Button>
+          {hasAiKey ? (
+            <Button
+              type="button"
+              variant="secondary"
+              icon={generateMutation.isPending ? "loader-2" : "sparkles"}
+              disabled={selectedProductIds.length === 0 || generateMutation.isPending}
+              onClick={() => generateMutation.mutate(selectedProductIds[0])}
+            >
+              {generateMutation.isPending ? "Gerando..." : "Gerar texto com IA"}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              icon="sparkles"
+              onClick={() => router.navigate({ to: "/credentials" })}
+            >
+              Cadastre sua chave de IA em Credenciais
+            </Button>
+          )}
         </div>
         {generateMutation.isError && (
           <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{generateMutation.error.message}</p>

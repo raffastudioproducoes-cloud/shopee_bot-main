@@ -4,7 +4,10 @@ import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import {
   credentialsApi,
+  aiCredentialsApi,
+  AI_PROVIDERS,
   CREDENTIAL_HELP_LINKS,
+  type AiProvider,
   type SimpleNetwork,
   type CredentialStatusWithLight,
 } from "../api/credentials"
@@ -14,6 +17,7 @@ import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { StatusBadge } from "../components/ui/StatusBadge"
 import { ConnectionLight } from "../components/ui/ConnectionLight"
+import { Select } from "../components/ui/Select"
 
 // X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
 // FacebookCredentialCard — mesmo padrão de TikTok/Instagram) porque usam
@@ -245,6 +249,8 @@ export function CredentialsPage() {
             setBanner={setBanner}
           />
         ))}
+
+        <AiCredentialCard onAuthError={onAuthError} setBanner={setBanner} />
 
         <ThreadsCredentialCard
           status={status?.threads ?? EMPTY_STATUS}
@@ -548,6 +554,140 @@ function SimpleCredentialCard({
             variant="primary"
             disabled={saveMutation.isPending || !appId || !secret}
           >
+            {saveMutation.isPending ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+      </form>
+    </CredPanel>
+  )
+}
+
+// ── Card da chave de IA (admin E usuário comum): cada um usa a PRÓPRIA chave
+// no "Gerar texto com IA" (Posts). Sem chave global no servidor. ──────────────
+
+function AiCredentialCard({
+  onAuthError,
+  setBanner,
+}: {
+  onAuthError: (err: Error) => void
+  setBanner: (b: { ok: boolean; text: string } | null) => void
+}) {
+  const queryClient = useQueryClient()
+  const [provider, setProvider] = useState<AiProvider>("gemini")
+  const [apiKey, setApiKey] = useState("")
+  const [model, setModel] = useState("")
+  const { data } = useQuery({ queryKey: ["credentials", "ai"], queryFn: () => aiCredentialsApi.list() })
+  const info = AI_PROVIDERS.find((p) => p.key === provider)!
+  const status = data?.providers[provider] ?? { ...EMPTY_STATUS, model: null, default_model: "" }
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["credentials", "ai"] })
+
+  const saveMutation = useMutation({
+    mutationFn: () => aiCredentialsApi.save(provider, apiKey, model.trim()),
+    onSuccess: () => {
+      setApiKey("")
+      setModel("")
+      setBanner({ ok: true, text: `Chave de IA (${info.label}) salva. Clique em Testar conexão.` })
+      refresh()
+    },
+    onError: onAuthError,
+  })
+  const deleteMutation = useMutation({
+    mutationFn: () => aiCredentialsApi.delete(provider),
+    onSuccess: () => {
+      setBanner({ ok: true, text: `Chave de IA (${info.label}) removida.` })
+      refresh()
+    },
+    onError: onAuthError,
+  })
+  const testMutation = useMutation({
+    mutationFn: () => aiCredentialsApi.test(provider),
+    onSuccess: (result) => {
+      setBanner({ ok: result.light === "green", text: `${info.label}: ${result.message}` })
+      refresh()
+    },
+    onError: onAuthError,
+  })
+
+  return (
+    <CredPanel id="Inteligência Artificial">
+      <CredHeader
+        title="Inteligência Artificial"
+        trailing={
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <ConnectionLight state={status.light} title={status.check_message ?? undefined} />
+            <StatusBadge
+              tone={status.light === "green" ? "positive" : "neutral"}
+              icon={status.light === "green" ? "check-circle-2" : "x-circle"}
+            >
+              {status.status_text ?? (status.connected ? "Conectado" : "Desconectado")}
+            </StatusBadge>
+            {status.connected && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={testMutation.isPending}
+                onClick={() => testMutation.mutate()}
+              >
+                {testMutation.isPending ? "Testando..." : "Testar conexão"}
+              </Button>
+            )}
+          </div>
+        }
+      />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          saveMutation.mutate()
+        }}
+        style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}
+      >
+        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+          Usada no "Gerar texto com IA" dos Posts. A chave é sua: o consumo é cobrado na sua conta do provedor.
+          {data?.active ? ` Em uso agora: ${AI_PROVIDERS.find((p) => p.key === data.active)?.label}.` : ""}
+        </p>
+        <Select
+          label="Provedor"
+          value={provider}
+          onChange={(e) => setProvider(e.target.value as AiProvider)}
+          options={AI_PROVIDERS.map((p) => ({
+            value: p.key,
+            label: data?.providers[p.key]?.connected ? `${p.label} (salva)` : p.label,
+          }))}
+        />
+        <a href={info.helpUrl} target="_blank" rel="noreferrer" style={{ font: "var(--text-role-body)", color: "var(--accent-500)" }}>
+          Como obter a chave da {info.label} ↗
+        </a>
+        <div style={FIELD_GRID}>
+          <TextInput
+            label="Chave de API"
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={status.connected ? "Salva — cole uma nova para trocar" : "Cole sua chave"}
+            autoComplete="off"
+            required
+          />
+          <TextInput
+            label="Modelo (opcional)"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            placeholder={status.model || status.default_model || "padrão"}
+            autoComplete="off"
+          />
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          {status.connected && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+              style={{ color: "var(--red-300)" }}
+            >
+              {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
+            </Button>
+          )}
+          <Button type="submit" variant="primary" disabled={saveMutation.isPending || !apiKey.trim()}>
             {saveMutation.isPending ? "Salvando..." : "Salvar"}
           </Button>
         </div>

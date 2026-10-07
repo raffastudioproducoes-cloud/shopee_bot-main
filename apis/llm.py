@@ -1,12 +1,42 @@
-import os
+"""Copywriter IA: gera o texto de um post de afiliado com a chave do PRÓPRIO
+usuário (Gemini, OpenAI ou Anthropic). Não existe chave global do servidor:
+quem chama passa provedor, chave e modelo (ver api/routers/credentials.py,
+tabela ai_credentials).
 
-import requests
+Endpoints e modelos padrão conferidos nas docs oficiais em 2026-10-07:
+- Gemini: POST generativelanguage.googleapis.com/v1beta/models/{model}:generateContent,
+  header x-goog-api-key (ai.google.dev/api/generate-content). Padrão
+  gemini-3.5-flash-lite (estável, o mais barato da linha 3.5).
+- OpenAI: POST api.openai.com/v1/responses, Authorization: Bearer
+  (developers.openai.com/api/reference). Padrão gpt-6-luna (o mais barato).
+- Anthropic: POST api.anthropic.com/v1/messages, x-api-key +
+  anthropic-version: 2023-06-01 (platform.claude.com/docs). Padrão
+  claude-sonnet-5-5 (Haiku 4.5 é mais barato mas tem aposentadoria prevista
+  a partir de 15/10/2026; dá pra trocar o modelo por credencial).
 
+Nunca inclui a chave nem o corpo cru da resposta do provedor nas mensagens de
+erro (o corpo pode ecoar dados da requisição).
+"""
 
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/"
-    "models/gemini-3.6-flash:generateContent"
-)
+import re
+
+import httpx
+
+PROVIDERS = ("gemini", "openai", "anthropic")
+
+DEFAULT_MODELS = {
+    "gemini": "gemini-3.5-flash-lite",
+    "openai": "gpt-6-luna",
+    "anthropic": "claude-sonnet-5-5",
+}
+
+# Sobra pra modelos que "pensam" antes de responder (Gemini 3.x, gpt-6-*,
+# Claude 5.x): os tokens de raciocínio contam no mesmo limite de saída.
+MAX_OUTPUT_TOKENS = 2048
+TIMEOUT_SECONDS = 60
+
+# id de modelo vira parte da URL do Gemini: só caracteres seguros.
+_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$")
 
 # Tom de escrita por persona. Ajusta a voz do copy gerado.
 PERSONA_TONES = {
@@ -17,6 +47,19 @@ PERSONA_TONES = {
         "tom altamente persuasivo, com gatilhos de urgência e prova social"
     ),
 }
+
+
+class LLMError(Exception):
+    """Falha ao chamar o provedor. `kind`: invalid_key | quota | model |
+    network | bad_response | provider. Mensagem segura pra mostrar ao usuário."""
+
+    def __init__(self, kind: str, message: str):
+        super().__init__(message)
+        self.kind = kind
+
+
+def valid_model(model: str | None) -> bool:
+    return bool(model and _MODEL_RE.match(model))
 
 
 def _build_prompt(product, persona):
@@ -44,55 +87,98 @@ def _build_prompt(product, persona):
     )
 
 
-def _call_gemini(prompt, api_key):
-    if not api_key:
-        raise Exception("GEMINI_API_KEY não configurada no servidor.")
-
-    headers = {
-        "x-goog-api-key": api_key,
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.9,
-            "maxOutputTokens": 600,
-        },
-    }
-
-    try:
-        res = requests.post(
-            GEMINI_URL, headers=headers, json=payload, timeout=60
+def _request(provider: str, api_key: str, model: str, prompt: str, max_tokens: int):
+    """(url, headers, json) da chamada de cada provedor."""
+    if provider == "gemini":
+        return (
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+            {"x-goog-api-key": api_key, "Content-Type": "application/json"},
+            {
+                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generationConfig": {"maxOutputTokens": max_tokens},
+            },
         )
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Falha de conexão com a API Gemini: {e}")
+    if provider == "openai":
+        return (
+            "https://api.openai.com/v1/responses",
+            {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            {"model": model, "input": prompt, "max_output_tokens": max_tokens},
+        )
+    return (
+        "https://api.anthropic.com/v1/messages",
+        {
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        },
+        {
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
+        },
+    )
+
+
+def _extract_text(provider: str, data: dict) -> str:
+    if provider == "gemini":
+        parts = data["candidates"][0]["content"]["parts"]
+        return "".join(p.get("text", "") for p in parts if not p.get("thought"))
+    if provider == "openai":
+        return "".join(
+            c.get("text", "")
+            for item in data.get("output", []) if item.get("type") == "message"
+            for c in item.get("content", []) if c.get("type") == "output_text"
+        )
+    return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+
+
+def _error_for_status(status: int, body: str) -> LLMError:
+    low = body.lower()
+    if status in (401, 403) or "api_key_invalid" in low or "api key not valid" in low:
+        return LLMError("invalid_key", "Chave de IA inválida ou sem permissão. Confira a chave em Credenciais.")
+    if status == 429 or "insufficient_quota" in low or "resource_exhausted" in low:
+        return LLMError("quota", "Sem cota ou limite de uso atingido no provedor de IA. Verifique seu plano/créditos.")
+    if status == 404 or (status == 400 and "model" in low):
+        return LLMError(
+            "model", "Modelo de IA não encontrado ou indisponível para esta chave. Confira o modelo em Credenciais."
+        )
+    return LLMError("provider", f"O provedor de IA recusou a requisição (status {status}). Tente novamente.")
+
+
+def complete(provider: str, api_key: str, model: str | None, prompt: str,
+             max_tokens: int = MAX_OUTPUT_TOKENS) -> str:
+    if provider not in PROVIDERS:
+        raise LLMError("provider", "Provedor de IA não suportado.")
+    if not api_key:
+        raise LLMError("invalid_key", "Nenhuma chave de IA cadastrada. Cadastre sua chave em Credenciais.")
+    model = model or DEFAULT_MODELS[provider]
+    if not valid_model(model):
+        raise LLMError("model", "Nome de modelo de IA inválido.")
+
+    url, headers, payload = _request(provider, api_key, model, prompt, max_tokens)
+    try:
+        res = httpx.post(url, headers=headers, json=payload, timeout=TIMEOUT_SECONDS)
+    except httpx.HTTPError:
+        raise LLMError("network", "Falha de rede ao falar com o provedor de IA. Tente novamente.") from None
 
     if res.status_code != 200:
-        raise Exception(
-            f"Erro na API Gemini (status {res.status_code}): "
-            f"{res.text[:300]}"
-        )
+        raise _error_for_status(res.status_code, res.text)
 
-    data = res.json()
     try:
-        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except (KeyError, IndexError, TypeError):
-        raise Exception("Resposta inesperada da API Gemini.")
+        text = _extract_text(provider, res.json()).strip()
+    except (ValueError, KeyError, IndexError, TypeError, AttributeError):
+        raise LLMError("bad_response", "Resposta inesperada do provedor de IA.") from None
+    if not text:
+        raise LLMError("bad_response", "O provedor de IA não devolveu texto.")
+    return text
 
 
-def generate_product_copy(product, persona="casual"):
-    """Gera o texto de um post de afiliado Shopee a partir de um produto.
+def generate_product_copy(product, persona, provider, api_key, model=None):
+    """Texto de post de afiliado Shopee a partir de um produto, com a chave
+    do usuário. Levanta LLMError com mensagem segura em caso de falha."""
+    return complete(provider, api_key, model, _build_prompt(product, persona))
 
-    Lê a chave de API de os.environ (GEMINI_API_KEY) e o provedor de
-    LLM_PROVIDER (padrão 'gemini'). Retorna apenas o texto do post ou levanta
-    Exception clara em caso de falha.
-    """
-    provider = os.environ.get("LLM_PROVIDER", "gemini").lower()
-    api_key = os.environ.get("GEMINI_API_KEY")
-    prompt = _build_prompt(product, persona)
 
-    if provider == "gemini":
-        return _call_gemini(prompt, api_key)
-
-    # Ponto de extensão: openai/ollama poderiam ser adicionados aqui.
-    raise Exception(f"Provedor de LLM '{provider}' não suportado.")
+def check_key(provider, api_key, model=None):
+    """Chamada mínima pra validar chave + modelo ("Testar conexão")."""
+    complete(provider, api_key, model, "Responda apenas: ok", max_tokens=256)

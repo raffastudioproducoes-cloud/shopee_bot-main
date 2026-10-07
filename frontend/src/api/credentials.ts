@@ -133,3 +133,39 @@ export const credentialsApi = {
     })
   },
 }
+
+// ── Chave de IA do próprio usuário/perfil (sem chave global no servidor) ──
+
+export type AiProvider = 'gemini' | 'openai' | 'anthropic'
+
+export const AI_PROVIDERS: { key: AiProvider; label: string; helpUrl: string }[] = [
+  { key: 'gemini', label: 'Google Gemini', helpUrl: 'https://aistudio.google.com/apikey' },
+  { key: 'openai', label: 'OpenAI', helpUrl: 'https://platform.openai.com/api-keys' },
+  { key: 'anthropic', label: 'Anthropic (Claude)', helpUrl: 'https://platform.claude.com/docs/en/get-api-key' },
+]
+
+export interface AiProviderStatus extends CredentialStatusWithLight {
+  model: string | null
+  default_model: string
+}
+
+export interface AiCredentialsStatus {
+  providers: Record<AiProvider, AiProviderStatus>
+  /** Provedor usado pelo "Gerar texto com IA" (último salvo); null = sem chave. */
+  active: AiProvider | null
+}
+
+export const aiCredentialsApi = {
+  async list(): Promise<AiCredentialsStatus> {
+    return api.get<AiCredentialsStatus>('/credentials/ai')
+  },
+  async save(provider: AiProvider, apiKey: string, model?: string): Promise<CredentialStatus> {
+    return api.put<CredentialStatus>(`/credentials/ai/${provider}`, { api_key: apiKey, model: model || undefined })
+  },
+  async delete(provider: AiProvider): Promise<CredentialStatus> {
+    return api.delete<CredentialStatus>(`/credentials/ai/${provider}`)
+  },
+  async test(provider: AiProvider): Promise<TestConnectionResult> {
+    return api.post<TestConnectionResult>(`/credentials/ai/${provider}/test`, undefined)
+  },
+}
