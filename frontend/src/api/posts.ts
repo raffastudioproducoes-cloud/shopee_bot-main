@@ -5,9 +5,9 @@ export interface PostProduct {
   product_id: string
   name: string
   image: string | null
-  price_min: number | null
-  price_max: number | null
-  commission: number | null
+  price_min: number | string | null
+  price_max: number | string | null
+  commission: number | string | null
 }
 
 export interface PostMedia {

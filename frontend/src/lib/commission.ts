@@ -7,7 +7,8 @@ const pct = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 })
 
 export function toNumber(value: number | string | null | undefined): number | null {
   if (value == null || value === "") return null
-  const n = Number(value)
+  // O backend guarda preço/comissão como TEXT: aceita "49.99" e "49,99".
+  const n = typeof value === "string" ? Number(value.includes(",") ? value.replace(/\./g, "").replace(",", ".") : value) : value
   return Number.isFinite(n) ? n : null
 }
 

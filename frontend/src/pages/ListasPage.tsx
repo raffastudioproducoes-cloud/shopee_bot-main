@@ -4,6 +4,7 @@ import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { listsApi, type ProductList, type ProductListsResponse } from "../api/lists"
 import { productsApi, type ProductsResponse } from "../api/products"
+import { formatBRL, formatPriceRange, toNumber } from "../lib/commission"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { IconButton } from "../components/ui/IconButton"
@@ -15,8 +16,8 @@ import { ViewSwitcher, useViewMode, viewContainerStyle } from "../components/ui/
 
 function estimatedListValue(list: ProductList): string {
   if (!list.products || list.products.length === 0) return "—"
-  const total = list.products.reduce((acc, p) => acc + (p.price_min ?? 0), 0)
-  return total > 0 ? `R$ ${total.toFixed(2)}` : "—"
+  const total = list.products.reduce((acc, p) => acc + (toNumber(p.price_min) ?? 0), 0)
+  return total > 0 ? formatBRL(total) : "—"
 }
 
 export function ListasPage() {
@@ -238,7 +239,7 @@ export function ListasPage() {
                           <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
                             <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>
-                              {p.price_min != null ? `R$ ${p.price_min.toFixed(2)}` : "—"}
+                              {formatPriceRange(p.price_min, null)}
                             </span>
                           </div>
                         ))}
