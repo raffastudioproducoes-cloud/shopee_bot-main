@@ -2,7 +2,9 @@ import { api } from '../lib/api'
 
 /** Um resultado bruto de busca no catálogo real da Shopee (Affiliate Open
  * API) — NÃO é um `Product` da tabela `products` (ver api/products.ts).
- * Campos best-effort (sales/rating_star/shop_name/commission_rate) podem
+ * `commission` = TAXA em % (6 = 6%); `commission_amount` = R$ por venda
+ * segundo a Shopee (só exibição, não é salvo).
+ * Campos best-effort (sales/rating_star/shop_name) podem
  * vir `null` quando a Shopee não aceitou esses campos extra na consulta
  * (ver fallback de schema em api/shopee_catalog.py) — sempre renderizar
  * condicionalmente, nunca assumir presença. */
@@ -11,14 +13,14 @@ export interface CatalogProduct {
   name: string
   original_link: string | null
   commission_link: string | null
-  commission: string | null
+  commission: number | null
+  commission_amount: number | null
   image: string | null
   price_min: string | null
   price_max: string | null
   sales: number | null
-  rating_star: number | null
+  rating_star: number | string | null
   shop_name: string | null
-  commission_rate: string | null
 }
 
 export interface CatalogSearchResponse {

@@ -97,26 +97,52 @@ def _get_shopee_credential(user_id: int, profile_id: str | None = None) -> tuple
     return app_id, secret
 
 
+def _to_float(value) -> float | None:
+    try:
+        return float(value) if value not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _commission_percent(node: dict) -> float | None:
+    """Taxa de comissão em % (semântica de `products.commission`).
+
+    Doc da Affiliate API (productOfferV2): `commissionRate` = taxa ("0.06" =
+    6%) e `commission` = VALOR em moeda local (= preço × commissionRate).
+    Sem `commissionRate` (fallback de schema), estima pela razão
+    valor/preço máximo."""
+    rate = _to_float(node.get("commissionRate"))
+    if rate is not None:
+        return round(rate * 100, 2)
+    amount = _to_float(node.get("commission"))
+    price = _to_float(node.get("priceMax")) or _to_float(node.get("priceMin"))
+    if amount is None or not price:
+        return None
+    return round(amount / price * 100, 2)
+
+
 def _map_catalog_node(node: dict) -> dict:
     """Mapeia o retorno cru do GraphQL da Shopee pros campos que o frontend
     espera — quase 1:1 com o schema de `products` (ver
-    database/migrations/002_create_products_table.sql), mais os campos
-    best-effort (sales/rating_star/shop_name/commission_rate), que ficam
-    None quando a Shopee não devolveu (fallback de schema, ver
-    shopee_catalog.py)."""
+    database/migrations/002_create_products_table.sql). `commission` sai
+    como TAXA em % e `commission_amount` como R$ por venda (só exibição).
+    Campos best-effort (sales/rating_star/shop_name) ficam None quando a
+    Shopee não devolveu (fallback de schema, ver shopee_catalog.py)."""
+    amount = _to_float(node.get("commission"))
+    item_id = node.get("itemId")
     return {
-        "product_id": node.get("itemId"),
+        "product_id": str(item_id) if item_id is not None else None,
         "name": node.get("productName"),
         "original_link": node.get("productLink"),
         "commission_link": node.get("offerLink"),
-        "commission": node.get("commission"),
+        "commission": _commission_percent(node),
+        "commission_amount": round(amount, 2) if amount is not None else None,
         "image": node.get("imageUrl"),
         "price_min": node.get("priceMin"),
         "price_max": node.get("priceMax"),
         "sales": node.get("sales"),
         "rating_star": node.get("ratingStar"),
         "shop_name": node.get("shopName"),
-        "commission_rate": node.get("commissionRate"),
     }
 
 

@@ -48,6 +48,7 @@ export function ListasPage() {
       const created = await listsApi.create({ name })
       return productIds && productIds.length > 0 ? listsApi.update(created.id, { name, product_ids: productIds }) : created
     },
+    meta: { toast: { pending: "Criando lista…", success: "Lista criada", error: "Não foi possível criar a lista" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lists"] })
       setModalOpen(false)
@@ -60,6 +61,7 @@ export function ListasPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, name, productIds }: { id: number; name: string; productIds?: number[] }) =>
       listsApi.update(id, { name, product_ids: productIds }),
+    meta: { toast: { pending: "Salvando lista…", success: "Lista atualizada", error: "Não foi possível salvar a lista" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lists"] })
       setModalOpen(false)
@@ -72,6 +74,7 @@ export function ListasPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => listsApi.delete(id),
+    meta: { toast: { pending: "Removendo lista…", success: "Lista removida", error: "Não foi possível remover a lista" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lists"] })
       setDeleteConfirm(null)
