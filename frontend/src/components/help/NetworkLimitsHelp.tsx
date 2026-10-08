@@ -41,6 +41,10 @@ function Intro() {
       <p style={{ margin: 0, font: body, color: "var(--text-muted)" }}>
         O criador de post usa exatamente estes limites para bloquear redes incompatíveis com o seu texto e a sua mídia.
       </p>
+      <p style={{ margin: 0, font: body, color: "var(--text-muted)" }}>
+        Se as redes marcadas têm limites de texto diferentes (ex.: X com 280 e Instagram com 2.200), a caixa "Texto do post" ganha abas:
+        um texto por faixa de limite, e cada rede publica o texto da sua aba. O "Gerar texto com IA" já preenche todas as abas de uma vez.
+      </p>
     </div>
   )
 }

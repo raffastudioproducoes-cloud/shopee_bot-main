@@ -32,6 +32,8 @@ export interface Post {
   scheduled: boolean
   parts_count?: number
   network?: PostNetwork
+  /** Mesmo UUID nos posts de um envio multi-rede (null em posts antigos). */
+  group_id?: string | null
   /** Resultado real da última execução (o /publish só dispara o job). */
   last_result?: PostPublishResult | null
 }
@@ -57,6 +59,17 @@ export interface PostCreate {
   network?: PostNetwork
   /** Multi-rede: mídia já enviada pro 1º post do grupo, reaproveitada. */
   media_ids?: number[]
+  group_id?: string
+}
+
+/** Um texto por faixa de limite das redes marcadas (o 1º é o principal). */
+export interface GeneratedVariant {
+  key: string
+  max_chars: number
+  networks: PostNetwork[]
+  text: string
+  over_limit: boolean
+  issues: string[]
 }
 
 export interface PostUpdate {
@@ -95,10 +108,15 @@ export const postsApi = {
     return api.delete<{ msg: string }>(`/posts/${id}`)
   },
 
-  async generateCopy(productId: number, persona: string): Promise<{ text: string }> {
-    return api.post<{ text: string }>('/posts/generate-copy', {
+  async generateCopy(
+    productId: number,
+    persona: string,
+    networks: PostNetwork[] = [],
+  ): Promise<{ text: string; variants: GeneratedVariant[] }> {
+    return api.post<{ text: string; variants: GeneratedVariant[] }>('/posts/generate-copy', {
       product_id: productId,
       persona,
+      networks,
     })
   },
 

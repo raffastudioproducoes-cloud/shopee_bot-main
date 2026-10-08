@@ -5,7 +5,16 @@ import { router } from "../router"
 import { postsApi, type Post, type PostSchedule, type PostNetwork } from "../api/posts"
 import { credentialsApi } from "../api/credentials"
 import { ApiError } from "../lib/api"
-import { NETWORK_RULES, mediaKind, readMediaInfo, validateForNetwork, type Issue, type MediaInfo } from "../lib/networkLimits"
+import {
+  NETWORK_RULES,
+  mediaKind,
+  planVariants,
+  readMediaInfo,
+  validateForNetwork,
+  type Issue,
+  type MediaInfo,
+} from "../lib/networkLimits"
+import { TextVariantTabs } from "../components/posts/TextVariantTabs"
 import {
   NetworkLimitsPanel,
   NetworkLogo,
@@ -44,17 +53,28 @@ const SP_OFFSET = "-03:00"
 const todayInSaoPaulo = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date())
 
-// Posts do mesmo envio multi-rede: mesmo texto, criados juntos, redes
-// diferentes. ponytail: heurística na lista (o schema não tem coluna de
-// grupo); vira coluna group_id se precisar agrupar com certeza.
+// Posts do mesmo envio multi-rede: `group_id` (UUID gerado por envio,
+// migração 044). Posts antigos sem group_id: heurística de antes (mesmo
+// texto, criados juntos, redes diferentes).
 const GROUP_WINDOW_MS = 2 * 60 * 1000
 function groupPosts(posts: Post[]): Map<number, { key: number; size: number }> {
   const groups: Post[][] = []
+  const byId = new Map<string, Post[]>()
   for (const p of posts) {
+    if (p.group_id) {
+      const g = byId.get(p.group_id)
+      if (g) g.push(p)
+      else {
+        byId.set(p.group_id, [p])
+        groups.push(byId.get(p.group_id)!)
+      }
+      continue
+    }
     const g = groups[groups.length - 1]
     const head = g?.[0]
     const sameGroup =
       head &&
+      !head.group_id &&
       head.text === p.text &&
       Math.abs(new Date(head.created_at).getTime() - new Date(p.created_at).getTime()) < GROUP_WINDOW_MS &&
       !g.some((x) => (x.network ?? "threads") === (p.network ?? "threads"))
@@ -129,12 +149,13 @@ export function PostsPage() {
     // redes reaproveitam os mesmos media_ids. Falha numa rede não cancela as
     // outras: cada uma volta com seu resultado.
     mutationFn: async (data: {
-      texts: string[]
+      textsByNetwork: Partial<Record<PostNetwork, string[]>>
       product_ids: number[]
       schedule: PostSchedule
       networks: PostNetwork[]
       files: File[]
       publishNow: boolean
+      groupId: string
     }): Promise<NetworkResult[]> => {
       const results: NetworkResult[] = []
       let mediaIds: number[] | null = data.files.length > 0 ? null : []
@@ -142,11 +163,12 @@ export function PostsPage() {
         let createdId: number | null = null
         try {
           const created = await postsApi.create({
-            texts: data.texts,
+            texts: data.textsByNetwork[network] ?? [],
             product_ids: data.product_ids,
             schedule: data.schedule,
             network,
             media_ids: mediaIds ?? [],
+            group_id: data.groupId,
           })
           createdId = created.id
           if (mediaIds === null) {
@@ -228,17 +250,19 @@ export function PostsPage() {
 
   const handleSave = useCallback(
     (
-      texts: string[],
+      textsByNetwork: Partial<Record<PostNetwork, string[]>>,
       productIds: number[],
       schedule: PostSchedule,
       networks: PostNetwork[],
       files: File[],
       publishNow: boolean,
+      groupId: string,
     ) => {
       if (editingPost) {
+        const texts = textsByNetwork[editingPost.network ?? "threads"] ?? []
         updateMutation.mutate({ id: editingPost.id, texts, product_ids: productIds })
       } else {
-        createMutation.mutate({ texts, product_ids: productIds, schedule, networks, files, publishNow })
+        createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, publishNow, groupId })
       }
     },
     [editingPost, createMutation, updateMutation],
@@ -353,7 +377,7 @@ export function PostsPage() {
                     </Badge>
                     {groups.has(post.id) && (
                       <Badge tone="glass">
-                        Grupo #{groups.get(post.id)!.key} · {groups.get(post.id)!.size} redes
+                        Grupo · {groups.get(post.id)!.size} redes
                       </Badge>
                     )}
                     <span style={metaTextStyle}>{new Date(post.created_at).toLocaleString("pt-BR")}</span>
@@ -462,12 +486,13 @@ interface PostModalProps {
   post: Post | null
   onClose: () => void
   onSave: (
-    texts: string[],
+    textsByNetwork: Partial<Record<PostNetwork, string[]>>,
     productIds: number[],
     schedule: PostSchedule,
     networks: PostNetwork[],
     files: File[],
     publishNow: boolean,
+    groupId: string,
   ) => void
   loading: boolean
   error?: string
@@ -482,6 +507,11 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
   const [texts, setTexts] = useState<string[]>(
     post?.texts && post.texts.length > 0 ? post.texts : [""],
   )
+  // Textos das abas além da principal (texts[0]), por chave de faixa de
+  // limite (planVariants). Sem entrada = começa igual ao texto principal.
+  const [variantTexts, setVariantTexts] = useState<Record<string, string>>({})
+  // Um UUID por modal: reenviar só as redes que falharam mantém o grupo.
+  const [groupId] = useState(() => crypto.randomUUID())
   const [persona, setPersona] = useState("casual")
   const [networks, setNetworks] = useState<PostNetwork[]>(post ? [post.network ?? "threads"] : [])
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>(
@@ -522,8 +552,12 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
   const hasAiKey = aiStatus ? aiStatus.active !== null : true
 
   const generateMutation = useMutation({
-    mutationFn: (productId: number) => postsApi.generateCopy(productId, persona),
-    onSuccess: (res) => setTexts((prev) => [res.text, ...prev.slice(1)]),
+    mutationFn: (productId: number) => postsApi.generateCopy(productId, persona, networks),
+    onSuccess: (res) => {
+      setTexts((prev) => [res.text, ...prev.slice(1)])
+      const rest = (res.variants ?? []).slice(1)
+      setVariantTexts((prev) => ({ ...prev, ...Object.fromEntries(rest.map((v) => [v.key, v.text])) }))
+    },
   })
 
   // upload/remoção de mídia num post já existente (edição) rodam na
@@ -576,12 +610,42 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
           ? "Essa data/hora já passou (horário de Brasília)."
           : null
 
-  // Validação por rede em tempo real (lib/networkLimits.ts).
+  // Conjunto mínimo de textos pras redes marcadas: abas só com 2+ faixas.
+  const plans = planVariants(networks)
+  const hasTabs = !post && plans.length > 1
+  const variantValue = (i: number) => (i === 0 ? texts[0] : (variantTexts[plans[i].key] ?? texts[0]))
+  const setVariantValue = (i: number, value: string) =>
+    i === 0 ? setPartText(0, value) : setVariantTexts((prev) => ({ ...prev, [plans[i].key]: value }))
+
+  // Parte 1 que cada rede publica. Rede ainda não marcada que formaria uma
+  // faixa nova ganharia a própria aba: o texto dela não bloqueia marcá-la.
+  const headFor = (n: PostNetwork): string => {
+    const selected = networks.includes(n)
+    const p = selected ? plans : planVariants([...networks, n])
+    const i = p.findIndex((v) => v.networks.includes(n))
+    if (post || p.length < 2 || i <= 0) return texts[0]
+    return variantTexts[p[i].key] ?? (selected ? texts[0] : "")
+  }
+  const textsFor = (n: PostNetwork) => [headFor(n), ...texts.slice(1)].map((t) => t.trim()).filter(Boolean)
+
+  // Validação por rede em tempo real (lib/networkLimits.ts), cada uma com o seu texto.
   const media: MediaInfo[] = post
     ? post.medias.map((m) => ({ name: m.file_name, size: m.size, kind: m.type === "VIDEO" ? "video" : mediaKind(m.file_name) }))
     : pendingFiles.map((p) => p.info)
-  const draft = { texts: trimmedTexts.length ? trimmedTexts : [""], media, productCount: selectedProductIds.length }
-  const issues = Object.fromEntries(PICKER_NETWORKS.map((n) => [n, validateForNetwork(n, draft)])) as Record<
+  const draftFor = (n: PostNetwork) => {
+    const t = textsFor(n)
+    return { texts: t.length ? t : [""], media, productCount: selectedProductIds.length }
+  }
+  // Na aba: só o que o TEXTO causa (erros com o texto menos erros sem ele).
+  const variantIssues = plans.map((plan, i) =>
+    plan.networks.flatMap((n) => {
+      const check = (text: string) =>
+        validateForNetwork(n, { texts: [text], media: [], productCount: 1 }).filter((x) => x.level === "error")
+      const base = new Set(check("").map((x) => x.message))
+      return check(variantValue(i).trim()).filter((x) => !base.has(x.message))
+    }),
+  )
+  const issues = Object.fromEntries(PICKER_NETWORKS.map((n) => [n, validateForNetwork(n, draftFor(n))])) as Record<
     PostNetwork,
     Issue[]
   >
@@ -597,18 +661,24 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
     setNetworks((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]))
 
   const canSubmit =
-    !loading && trimmedTexts.length > 0 && !dateError && networks.length > 0 && blockedNetworks.length === 0
+    !loading &&
+    trimmedTexts.length > 0 &&
+    networks.every((n) => textsFor(n).length > 0) &&
+    !dateError &&
+    networks.length > 0 &&
+    blockedNetworks.length === 0
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
     onSave(
-      trimmedTexts,
+      Object.fromEntries(networks.map((n) => [n, textsFor(n)])),
       selectedProductIds,
       buildSchedule(),
       networks,
       pendingFiles.map((p) => p.file),
       when === "now",
+      groupId,
     )
   }
 
@@ -698,7 +768,18 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {texts.map((partText, index) => (
+          {texts.map((partText, index) =>
+            index === 0 && hasTabs ? (
+              <div key={index} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ ...labelStyle, marginBottom: 0 }}>Texto do post *</span>
+                <TextVariantTabs
+                  plans={plans}
+                  values={plans.map((_, i) => variantValue(i))}
+                  onChange={setVariantValue}
+                  issues={variantIssues}
+                />
+              </div>
+            ) : (
             <div key={index} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ ...labelStyle, marginBottom: 0 }}>
@@ -728,7 +809,8 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
                 rows={index === 0 ? 6 : 3}
               />
             </div>
-          ))}
+            ),
+          )}
           <Button type="button" variant="ghost" icon="plus" onClick={addPart} style={{ alignSelf: "flex-start", padding: 0 }}>
             Adicionar parte (thread)
           </Button>
@@ -848,7 +930,7 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
 
         <NetworkLimitsPanel
           selected={networks}
-          headText={trimmedTexts[0] ?? ""}
+          textFor={(n) => textsFor(n)[0] ?? ""}
           mediaCount={media.length}
           issues={issues}
         />

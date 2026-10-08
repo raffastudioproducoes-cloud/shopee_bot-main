@@ -296,3 +296,37 @@ export function readMediaInfo(file: File): Promise<MediaInfo> {
     }
   })
 }
+
+// ── Textos por faixa de limite (espelho de api/text_variants.py) ─────────────
+// Conjunto MÍNIMO de textos que atende as redes marcadas: redes com o mesmo
+// limite efetivo compartilham um texto; cada faixa diferente ganha o seu.
+
+/** Teto de uma copy de vendas: o Facebook aceita 63 mil, não precisa. */
+export const PRACTICAL_MAX_CHARS = 2200
+
+export interface TextVariantPlan {
+  /** Mesmo `key` que o backend devolve em /posts/generate-copy. */
+  key: string
+  maxChars: number
+  networks: PostNetwork[]
+}
+
+const NETWORK_ORDER = Object.keys(NETWORK_RULES) as PostNetwork[]
+
+export function planVariants(networks: PostNetwork[]): TextVariantPlan[] {
+  const byLimit = new Map<number, PostNetwork[]>()
+  for (const n of NETWORK_ORDER.filter((x) => networks.includes(x))) {
+    const limit = Math.min(NETWORK_RULES[n].maxChars, PRACTICAL_MAX_CHARS)
+    byLimit.set(limit, [...(byLimit.get(limit) ?? []), n])
+  }
+  return [...byLimit.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([maxChars, nets]) => ({ key: String(maxChars), maxChars, networks: nets }))
+}
+
+/** Nome da aba: "Texto longo" / "médio" / "curto" (4+ faixas: numeradas). */
+export function variantTitle(index: number, total: number): string {
+  if (total === 2) return index === 0 ? "Texto longo" : "Texto curto"
+  if (total === 3) return ["Texto longo", "Texto médio", "Texto curto"][index]
+  return `Texto ${index + 1}`
+}
