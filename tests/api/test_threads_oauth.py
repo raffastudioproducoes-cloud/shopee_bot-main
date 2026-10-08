@@ -22,7 +22,10 @@ def client():
     return TestClient(app)
 
 
-def test_threads_authorize_returns_url_and_sets_state_cookie(client):
+def test_threads_authorize_returns_url_and_sets_state_cookie(client, monkeypatch):
+    monkeypatch.setattr(credentials_module.threads_oauth, "APP_ID", "app")
+    monkeypatch.setattr(credentials_module.threads_oauth, "SECRET", "sec")
+    monkeypatch.setattr(credentials_module.threads_oauth, "CALLBACK_URL", "https://h/cb")
     res = client.get("/credentials/threads/authorize")
 
     assert res.status_code == 200

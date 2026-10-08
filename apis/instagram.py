@@ -43,9 +43,10 @@ Recomendação do README:
 
 import time
 import requests
-from shopee_bot.utils import retry_with_backoff
+from shopee_bot.utils import ConnectionTestError, retry_with_backoff
 
-API_BASE = "https://graph.facebook.com/v18.0"
+# Mesma versão do OAuth (api/instagram_oauth.py::API_VERSION).
+API_BASE = "https://graph.facebook.com/v19.0"
 
 # Tokens: app_id = Instagram App ID, secret = Instagram App Secret.
 # user_access_token salvo em env ou em coluna extra da tabela futura.
@@ -94,31 +95,59 @@ def _user_id_from_token(user_access_token, _cache={}):
     data = res.json()
     return data.get("id")
 
-def validate_credentials(app_id, secret, user_access_token=None):
-    """Valida credenciais Instagram.
-
-    Se user_access_token fornecido, testa obter o usuário e a conta.
-    Se não, só valida App Token (só app-level).
-    """
-    app_token = _app_access_token(app_id, secret)
-    url_app = f"{API_BASE}/me"
-    params_app = {"access_token": app_token, "fields": "id"}
-    res_app = retry_with_backoff(
-        requests.get, url_app, params=params_app,
+def _graph_get(path, user_access_token, fields):
+    return retry_with_backoff(
+        requests.get, f"{API_BASE}/{path}",
+        params={"access_token": user_access_token, "fields": fields},
         exceptions=(requests.exceptions.RequestException,),
         timeout=15,
     )
-    if res_app.status_code != 200:
-        raise Exception(
-            f"Instagram: App Token inválido (status {res_app.status_code}): "
-            f"{res_app.text[:300]}"
+
+
+def _raise_graph_error(res, what):
+    """Traduz erro da Graph API sem ecoar o corpo (pode citar o token)."""
+    try:
+        code = ((res.json() or {}).get("error") or {}).get("code")
+    except ValueError:
+        code = None
+    if code == 190:
+        raise ConnectionTestError(
+            "Token do Instagram/Facebook expirado ou revogado — reconecte"
         )
-    app_data = res_app.json()
-    result = {"app": app_data.get("id")}
-    if user_access_token:
-        user_id = _user_id_from_token(user_access_token)
-        result["user_id"] = user_id
-    return result
+    if code in (10, 200, 283):
+        raise ConnectionTestError(
+            "Permissões insuficientes no token do Instagram — reconecte "
+            "aceitando todas as permissões"
+        )
+    raise ConnectionTestError(f"Instagram: falha ao {what} (status {res.status_code})")
+
+
+def validate_user_token(user_access_token, ig_user_id=None):
+    """Valida o token do USUÁRIO (Facebook Login for Business), não o app.
+
+    App access token não resolve /me. Confere /me com o token do usuário e
+    a conta Instagram Business: a salva (ig_user_id) ou, se faltar, alguma
+    Página do usuário com instagram_business_account. Levanta
+    ConnectionTestError (mensagem sem token)."""
+    res = _graph_get("me", user_access_token, "id")
+    if res.status_code != 200:
+        _raise_graph_error(res, "validar o token")
+    if ig_user_id:
+        res = _graph_get(ig_user_id, user_access_token, "id,username")
+        if res.status_code != 200:
+            _raise_graph_error(res, "acessar a conta Instagram vinculada")
+        return {"ig_user_id": ig_user_id}
+    res = _graph_get("me/accounts", user_access_token, "id,instagram_business_account")
+    if res.status_code != 200:
+        _raise_graph_error(res, "listar as Páginas")
+    for page in (res.json() or {}).get("data", []):
+        account = page.get("instagram_business_account") or {}
+        if account.get("id"):
+            return {"ig_user_id": account["id"]}
+    raise ConnectionTestError(
+        "Nenhuma Página com conta Instagram Business vinculada — vincule e reconecte"
+    )
+
 
 def _create_text_media_container(ig_user_id, user_access_token, text):
     """Cria container de mídia de TEXTO para publicação no Instagram."""

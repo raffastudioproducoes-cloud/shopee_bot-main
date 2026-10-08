@@ -402,6 +402,18 @@ async def delete_threads_credential(user_id: int = Depends(get_current_user_id),
     return {"connected": False}
 
 
+def _require_oauth_config(label: str, *values) -> None:
+    """503 claro quando falta env var do app único (ID/segredo/callback), em
+    vez de montar URL de autorização com "None" que a rede rejeita com erro
+    genérico. Só testa presença — nunca lê nem loga os valores."""
+    if not all(values):
+        logger.error("OAuth %s sem configuração do servidor completa (variável de ambiente ausente)", label)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Conexão com {label} indisponível: configuração do servidor incompleta",
+        )
+
+
 @router.get("/threads/authorize")
 async def threads_authorize(
     response: Response,
@@ -410,6 +422,8 @@ async def threads_authorize(
     """URL de autorização do OAuth do Threads (Meta) — o frontend redireciona
     o usuário pra cá. Gera `state` + cookie httponly assinado (CSRF
     binding do account-linking, 10 min) pro /callback validar."""
+    _require_oauth_config("Threads", threads_oauth.APP_ID, threads_oauth.SECRET, threads_oauth.CALLBACK_URL)
+
     state, cookie_value = _sign_oauth_state(user_id)
 
     response.set_cookie(
@@ -490,6 +504,11 @@ async def instagram_authorize(
 
     Gera `state` + cookie httponly assinado (CSRF binding do
     account-linking, 10 min) pro /callback validar."""
+    _require_oauth_config(
+        "Instagram", instagram_oauth.APP_ID, instagram_oauth.SECRET,
+        instagram_oauth.CALLBACK_URL, instagram_oauth.CONFIG_ID,
+    )
+
     state, cookie_value = _sign_oauth_state(user_id)
 
     response.set_cookie(
@@ -583,6 +602,11 @@ async def facebook_authorize(
 
     Gera `state` + cookie httponly assinado (CSRF binding do
     account-linking, 10 min) pro /callback validar."""
+    _require_oauth_config(
+        "Facebook", instagram_oauth.APP_ID, instagram_oauth.SECRET,
+        facebook_oauth.CALLBACK_URL, facebook_oauth.CONFIG_ID,
+    )
+
     state, cookie_value = _sign_oauth_state(user_id)
 
     response.set_cookie(
@@ -820,6 +844,8 @@ async def x_authorize(
     exige guardar o code_verifier gerado aqui até o /callback: vai num
     cookie httponly assinado (10 min).
     """
+    _require_oauth_config("X", x_oauth.CLIENT_ID, x_oauth.CLIENT_SECRET, x_oauth.CALLBACK_URL)
+
     code_verifier, code_challenge = x_oauth.generate_pkce_pair()
     state, cookie_value = _sign_oauth_state(user_id, {"code_verifier": code_verifier})
 
@@ -1173,6 +1199,36 @@ _OAUTH_GLOBAL_APP = {
 }
 
 
+# Colunas extras lidas pro teste: coluna -> (chave no payload, cifrada?).
+# O refresh token deixa o teste renovar um access token expirado (X ~2h,
+# TikTok ~24h); ig_user_id é a conta Instagram Business já resolvida no OAuth.
+_TEST_EXTRA_COLUMNS = {
+    "x": {"user_refresh_token": ("refresh_token", True)},
+    "tiktok": {"refresh_token": ("refresh_token", True)},
+    "instagram": {"ig_user_id": ("ig_user_id", False)},
+}
+
+
+def _persist_refreshed_tokens(network: str, user_id, profile_id: str | None, tokens: dict | None) -> None:
+    """Grava os tokens que o teste renovou. Refresh token rotaciona (X): se
+    não persistir, o próximo uso falha mesmo com o teste "verde"."""
+    if not tokens or not tokens.get("access_token"):
+        return
+    data = {"user_access_token": encrypt(tokens["access_token"])}
+    refresh_column = "user_refresh_token" if network == "x" else "refresh_token"
+    if tokens.get("refresh_token"):
+        data[refresh_column] = encrypt(tokens["refresh_token"])
+    if network == "x" and tokens.get("expires_in"):
+        data["token_expires_at"] = (
+            datetime.now(timezone.utc) + timedelta(seconds=int(tokens["expires_in"]))
+        ).isoformat()
+    table = _TEST_NETWORKS[network]
+    try:
+        scope_owner(supabase.table(table).update(data), user_id, profile_id).execute()
+    except Exception as e:
+        logger.warning("teste %s: não gravou tokens renovados: %s", network, type(e).__name__)
+
+
 def _test_payload(network: str, user_id: int, profile_id: str | None = None) -> dict | None:
     """Busca e descriptografa só os campos necessários pra chamar a API
     real da rede via bridge interno (ver web/routes/internal.py). None
@@ -1212,13 +1268,18 @@ def _test_payload(network: str, user_id: int, profile_id: str | None = None) -> 
             # ausente) — nada a testar, mesmo efeito de "credencial não
             # salva" pro usuário (luz fica vermelha).
             return None
+        extra = _TEST_EXTRA_COLUMNS.get(network, {})
+        columns = ", ".join(["user_access_token", *extra])
         row = (
-            scope_owner(supabase.table(table).select("user_access_token"), user_id, profile_id).maybe_single().execute()
+            scope_owner(supabase.table(table).select(columns), user_id, profile_id).maybe_single().execute()
         )
-        token = row.data.get("user_access_token") if row and row.data else None
+        data = row.data if row and row.data else {}
         payload: dict = {"app_id": app_id, "secret": secret}
-        if token:
-            payload["user_access_token"] = decrypt(token)
+        if data.get("user_access_token"):
+            payload["user_access_token"] = decrypt(data["user_access_token"])
+        for column, (key, encrypted) in extra.items():
+            if data.get(column):
+                payload[key] = decrypt(data[column]) if encrypted else data[column]
         return payload
 
     row = (
@@ -1267,6 +1328,7 @@ def _autotest_outcome(network: str, user_id, profile_id: str | None) -> tuple[st
     result = _call_with_timeout(
         lambda: asyncio.run(validate_network_credential(network, payload)),
     )
+    _persist_refreshed_tokens(network, user_id, profile_id, result.get("refreshed_tokens"))
     return result.get("state") or "error", result.get("message") or ""
 
 
@@ -1352,6 +1414,7 @@ async def test_credential(network: str, user_id: int = Depends(get_current_user_
             detail="Não foi possível testar a conexão agora. Tente novamente.",
         )
 
+    _persist_refreshed_tokens(network, user_id, profile_id, result.get("refreshed_tokens"))
     state = result.get("state") or "error"
     message = result.get("message") or ""
     checked_at = _save_check(user_id, profile_id, network, state, message)

@@ -22,7 +22,11 @@ def client():
     return TestClient(app)
 
 
-def test_instagram_authorize_returns_url_and_sets_state_cookie(client):
+def test_instagram_authorize_returns_url_and_sets_state_cookie(client, monkeypatch):
+    monkeypatch.setattr(credentials_module.instagram_oauth, "APP_ID", "app")
+    monkeypatch.setattr(credentials_module.instagram_oauth, "SECRET", "sec")
+    monkeypatch.setattr(credentials_module.instagram_oauth, "CALLBACK_URL", "https://h/cb")
+    monkeypatch.setattr(credentials_module.instagram_oauth, "CONFIG_ID", "cfg")
     res = client.get("/credentials/instagram/authorize")
 
     assert res.status_code == 200
