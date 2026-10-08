@@ -7,10 +7,10 @@ export interface Product {
   name: string
   original_link: string | null
   commission_link: string | null
-  commission: number | null
+  commission: number | string | null
   image: string | null
-  price_min: number | null
-  price_max: number | null
+  price_min: number | string | null
+  price_max: number | string | null
   category: string | null
   created_at: string
   updated_at: string | null
@@ -21,10 +21,10 @@ export interface ProductCreate {
   name: string
   original_link?: string | null
   commission_link?: string | null
-  commission?: number | null
+  commission?: number | string | null
   image?: string | null
-  price_min?: number | null
-  price_max?: number | null
+  price_min?: number | string | null
+  price_max?: number | string | null
   category?: string | null
 }
 
@@ -33,10 +33,10 @@ export interface ProductUpdate {
   name?: string | null
   original_link?: string | null
   commission_link?: string | null
-  commission?: number | null
+  commission?: number | string | null
   image?: string | null
-  price_min?: number | null
-  price_max?: number | null
+  price_min?: number | string | null
+  price_max?: number | string | null
   category?: string | null
 }
 

@@ -4,6 +4,7 @@ import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { listsApi, type ProductList, type ProductListsResponse } from "../api/lists"
 import { productsApi, type ProductsResponse } from "../api/products"
+import { formatBRL, formatPriceRange, toNumber } from "../lib/commission"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { IconButton } from "../components/ui/IconButton"
@@ -15,8 +16,8 @@ import { ViewSwitcher, useViewMode, viewContainerStyle } from "../components/ui/
 
 function estimatedListValue(list: ProductList): string {
   if (!list.products || list.products.length === 0) return "—"
-  const total = list.products.reduce((acc, p) => acc + (p.price_min ?? 0), 0)
-  return total > 0 ? `R$ ${total.toFixed(2)}` : "—"
+  const total = list.products.reduce((acc, p) => acc + (toNumber(p.price_min) ?? 0), 0)
+  return total > 0 ? formatBRL(total) : "—"
 }
 
 export function ListasPage() {
@@ -44,11 +45,19 @@ export function ListasPage() {
   // ── Create mutation ─────────────────────────────────────────────────────────────
 
   const createMutation = useMutation({
-    mutationFn: async ({ name, productIds }: { name: string; productIds?: number[] }) => {
-      const created = await listsApi.create({ name })
-      return productIds && productIds.length > 0 ? listsApi.update(created.id, { name, product_ids: productIds }) : created
+    // Uma única chamada: o backend cria lista + produtos de forma atômica (sem lista vazia em caso de erro).
+    mutationFn: ({ name, productIds }: { name: string; productIds?: number[] }) =>
+      listsApi.create({ name, product_ids: productIds }),
+    meta: {
+      toast: {
+        pending: "Criando lista…",
+        success: (data: unknown) => {
+          const n = (data as { product_count?: number } | undefined)?.product_count ?? 0
+          return n > 0 ? `Lista criada com ${n} ${n === 1 ? "produto" : "produtos"}` : "Lista criada"
+        },
+        error: "Não foi possível criar a lista",
+      },
     },
-    meta: { toast: { pending: "Criando lista…", success: "Lista criada", error: "Não foi possível criar a lista" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lists"] })
       setModalOpen(false)
@@ -230,7 +239,7 @@ export function ListasPage() {
                           <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
                             <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>
-                              {p.price_min != null ? `R$ ${p.price_min.toFixed(2)}` : "—"}
+                              {formatPriceRange(p.price_min, null)}
                             </span>
                           </div>
                         ))}
@@ -320,6 +329,7 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return // evita criar a lista várias vezes em cliques repetidos
     if (name.trim()) {
       onSave(name.trim(), Array.from(selectedIds))
     }
