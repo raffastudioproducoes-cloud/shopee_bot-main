@@ -147,12 +147,12 @@ class TestCatalogSearchFieldFallback:
         assert product["image"] == "https://img/1.jpg"
         assert product["price_min"] == "99.90"
         assert product["price_max"] == "129.90"
-        assert product["commission"] == "12.5"
+        assert product["commission"] == 9.62  # 12.5 / 129.90, em %
+        assert product["commission_amount"] == 12.5
         # Campos best-effort ausentes no fallback mínimo -> None, sem quebrar.
         assert product["sales"] is None
         assert product["rating_star"] is None
         assert product["shop_name"] is None
-        assert product["commission_rate"] is None
         # Confirma que o fallback realmente foi exercitado (2 chamadas).
         assert responses == []
 
@@ -216,7 +216,7 @@ class TestCatalogSearchFieldFallback:
         assert product["sales"] == 1500
         assert product["rating_star"] == 4.8
         assert product["shop_name"] == "Loja XYZ"
-        assert product["commission_rate"] == "0.1"
+        assert product["commission"] == 10.0
 
     def test_search_auth_error_returns_422(self, auth_client, monkeypatch):
         monkeypatch.setattr(

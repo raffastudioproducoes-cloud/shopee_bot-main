@@ -167,6 +167,18 @@ export function PostsPage() {
       }
       return results
     },
+    // Resultado por rede continua no modal; o aviso só resume.
+    meta: {
+      toast: {
+        pending: "Criando post…",
+        success: (results: unknown) => {
+          const list = results as NetworkResult[]
+          const failed = list.filter((r) => !r.ok).length
+          return failed === 0 ? "Post criado" : failed === list.length ? null : `Post criado em ${list.length - failed} de ${list.length} redes`
+        },
+        error: "Não foi possível criar o post",
+      },
+    },
     onSuccess: (results, data) => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
       if (data.publishNow) refreshPublishResult()
@@ -178,6 +190,7 @@ export function PostsPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, texts, product_ids }: { id: number; texts: string[]; product_ids: number[] }) =>
       postsApi.update(id, { texts, product_ids }),
+    meta: { toast: { pending: "Salvando post…", success: "Post atualizado", error: "Não foi possível salvar o post" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
       setModalOpen(false)
@@ -188,6 +201,7 @@ export function PostsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => postsApi.delete(id),
+    meta: { toast: { pending: "Removendo post…", success: "Post removido", error: "Não foi possível remover o post" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
       setDeleteConfirm(null)

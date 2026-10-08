@@ -10,6 +10,7 @@ import { Select } from "../ui/Select"
 import { Badge } from "../ui/Badge"
 import { Icon } from "../ui/Icon"
 import { Modal } from "../ui/Modal"
+import { formatEarnings, formatPriceRange, formatRate, round2, toNumber } from "../../lib/commission"
 
 // A API da Shopee não tem paginação nativa (só `limit`, ver
 // api/shopee_catalog.py) — busca 1 vez com limite alto e pagina os
@@ -17,18 +18,20 @@ import { Modal } from "../ui/Modal"
 const CLIENT_PAGE_SIZE = 50
 const SEARCH_LIMIT = 150
 
-function toNullableNumber(value: string | null): number | null {
-  if (value == null || value === "") return null
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
+function formatCatalogPrice(product: CatalogProduct): string {
+  return formatPriceRange(product.price_min, product.price_max)
 }
 
-function formatCatalogPrice(product: CatalogProduct): string {
-  const min = toNullableNumber(product.price_min)
-  const max = toNullableNumber(product.price_max)
-  if (min != null && max != null) return `R$ ${min.toFixed(2)} – R$ ${max.toFixed(2)}`
-  if (min != null) return `R$ ${min.toFixed(2)}+`
-  return "—"
+/** Ganho por venda: preço × taxa; sem preço, usa o valor que a Shopee devolveu. */
+function formatCatalogEarnings(product: CatalogProduct): string {
+  const fromRate = formatEarnings(product.price_min, product.price_max, product.commission)
+  if (fromRate !== "—") return fromRate
+  return product.commission_amount != null ? formatPriceRange(product.commission_amount, null) : "—"
+}
+
+function toPrice(value: string | null): number | null {
+  const n = toNumber(value)
+  return n == null ? null : round2(n)
 }
 
 interface CatalogCardProps {
@@ -52,8 +55,10 @@ function CatalogBadges({ product }: { product: CatalogProduct }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
       <Badge tone="outline">{formatCatalogPrice(product)}</Badge>
-      {product.commission != null ? <Badge tone="outline">Comissão {product.commission}%</Badge> : null}
-      {product.commission_rate != null ? <Badge tone="outline">Taxa {product.commission_rate}</Badge> : null}
+      {product.commission != null ? <Badge tone="outline">Comissão {formatRate(product.commission)}</Badge> : null}
+      {product.commission != null || product.commission_amount != null ? (
+        <Badge tone="outline">Ganho {formatCatalogEarnings(product)}/venda</Badge>
+      ) : null}
       {product.sales != null ? <Badge tone="outline">{product.sales} vendas</Badge> : null}
       {product.rating_star != null ? <Badge tone="outline">★ {product.rating_star}</Badge> : null}
     </div>
@@ -145,7 +150,8 @@ function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfi
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
             <DetailRow label="ID Shopee">{product.product_id}</DetailRow>
             <DetailRow label="Preço">{formatCatalogPrice(product)}</DetailRow>
-            <DetailRow label="Comissão">{product.commission != null ? `${product.commission}%` : "—"}</DetailRow>
+            <DetailRow label="Taxa de comissão">{formatRate(product.commission)}</DetailRow>
+            <DetailRow label="Ganho estimado por venda">{formatCatalogEarnings(product)}</DetailRow>
           </div>
           {product.original_link || product.commission_link ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -157,16 +163,17 @@ function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfi
               ) : null}
             </div>
           ) : null}
-          {error ? <div style={{ color: "var(--negative)", font: "var(--text-role-body)" }}>{error}</div> : null}
+          {error ? <div role="alert" style={{ color: "var(--negative)", font: "var(--text-role-body)" }}>{error}</div> : null}
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 12 }}>
-            <Button type="button" variant="ghost" onClick={() => onEdit(product)} disabled={added}>
+            <Button type="button" variant="ghost" onClick={() => onEdit(product)} disabled={added || isAdding}>
               Editar antes de salvar
             </Button>
             <Button
               type="button"
               variant="primary"
               icon={added ? "check" : "plus"}
-              disabled={added || isAdding}
+              loading={isAdding}
+              disabled={added}
               onClick={() => onConfirm(product)}
             >
               {added ? "Adicionado" : isAdding ? "Adicionando..." : "Adicionar aos meus produtos"}
@@ -221,14 +228,16 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
         name: product.name,
         original_link: product.original_link,
         commission_link: product.commission_link,
-        commission: toNullableNumber(product.commission),
+        commission: product.commission != null ? round2(product.commission) : null,
         image: product.image,
-        price_min: toNullableNumber(product.price_min),
-        price_max: toNullableNumber(product.price_max),
+        price_min: toPrice(product.price_min),
+        price_max: toPrice(product.price_max),
       }),
+    meta: { toast: { pending: "Salvando produto…", success: "Produto adicionado a Meus Produtos", error: "Não foi possível adicionar" } },
     onSuccess: (_data, product) => {
       setAddedIds((prev) => new Set(prev).add(product.product_id))
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      setSelected(null)
     },
   })
 

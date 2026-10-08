@@ -23,6 +23,9 @@ export interface TextInputProps {
   min?: string | number
   max?: string | number
   step?: string | number
+  inputMode?: InputHTMLAttributes<HTMLInputElement>["inputMode"]
+  pattern?: string
+  title?: string
   width?: number | string
   className?: string
   style?: CSSProperties
@@ -45,6 +48,9 @@ export function TextInput({
   min,
   max,
   step,
+  inputMode,
+  pattern,
+  title,
   width = "100%",
   className = "",
   style,
@@ -105,6 +111,9 @@ export function TextInput({
           min={min}
           max={max}
           step={step}
+          inputMode={inputMode}
+          pattern={pattern}
+          title={title}
           onMouseEnter={() => setHot(true)}
           onMouseLeave={() => setHot(false)}
           onFocus={() => setFocused(true)}
