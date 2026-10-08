@@ -71,3 +71,40 @@ def update(
         user_id
     )
     return execute_db(query, args, open_conn)
+
+
+def update_tokens(user_id, profile_id, tokens, open_conn=None):
+    """Grava (cifrados) os tokens renovados pelo scheduler. O TikTok pode
+    rotacionar o refresh_token: só sobrescreve quando vier um novo."""
+    query = """
+        UPDATE tiktok_credentials
+        SET user_access_token = %s,
+            refresh_token = COALESCE(%s, refresh_token),
+            updated_at = %s
+        WHERE user_id = %s AND (%s::uuid IS NULL OR profile_id = %s::uuid)
+        RETURNING id
+    """
+    new_refresh = tokens.get("refresh_token")
+    args = (
+        encrypt(tokens["access_token"]),
+        encrypt(new_refresh) if new_refresh else None,
+        datetime.now(pytz.timezone('America/Sao_Paulo')),
+        user_id, profile_id, profile_id
+    )
+    return execute_db(query, args, open_conn)
+
+
+def mark_needs_reconnect(user_id, profile_id, message, open_conn=None):
+    """Acende a luz de erro da credencial (credential_checks) pra o usuário
+    ver que precisa reconectar. Só atualiza se já existe um check."""
+    query = """
+        UPDATE credential_checks
+        SET state = 'error', message = %s, checked_at = %s
+        WHERE user_id = %s AND network = 'tiktok'
+            AND (%s::uuid IS NULL OR profile_id = %s::uuid)
+        RETURNING id
+    """
+    args = (
+        message, datetime.now(pytz.utc), user_id, profile_id, profile_id
+    )
+    return execute_db(query, args, open_conn)
