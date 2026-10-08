@@ -1,4 +1,5 @@
 import { api, ApiError } from '../lib/api'
+import { formatApiError } from '../lib/apiError'
 
 export interface User {
   id: number
@@ -42,7 +43,7 @@ export const authApi = {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Erro no login' }))
-      throw new ApiError(response.status, error.detail)
+      throw new ApiError(response.status, formatApiError(error, response.status))
     }
 
     const data = await response.json()
@@ -57,7 +58,7 @@ export const authApi = {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Erro no logout' }))
-      throw new ApiError(response.status, error.detail)
+      throw new ApiError(response.status, formatApiError(error, response.status))
     }
   },
 

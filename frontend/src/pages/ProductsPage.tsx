@@ -16,6 +16,7 @@ import { Badge } from "../components/ui/Badge"
 import { Icon } from "../components/ui/Icon"
 import { CatalogSearchTab } from "../components/products/CatalogSearchTab"
 import type { CatalogProduct } from "../api/catalog"
+import { formatEarnings, formatPriceRange as formatRange, formatRate, round2, toNumber } from "../lib/commission"
 
 type ProductsTab = "mine" | "catalog"
 
@@ -36,12 +37,16 @@ const emptyForm = {
 }
 
 function formatPriceRange(product: Product): string {
-  if (product.price_min != null && product.price_max != null) {
-    return `R$ ${product.price_min.toFixed(2)} – R$ ${product.price_max.toFixed(2)}`
-  }
-  if (product.price_min != null) return `R$ ${product.price_min.toFixed(2)}+`
-  return "—"
+  return formatRange(product.price_min, product.price_max)
 }
+
+/** Texto do input number com no máx. 2 casas (evita o aviso do navegador com step=0.01). */
+function toFormNumber(value: number | string | null | undefined): string {
+  const n = toNumber(value)
+  return n == null ? "" : String(round2(n))
+}
+
+const formNumber = (value: string) => (value ? round2(Number(value)) : null)
 
 export function ProductsPage() {
   const { isAuthenticated, logout } = useAuthStore()
@@ -75,6 +80,7 @@ export function ProductsPage() {
   const createMutation = useMutation({
     mutationFn: (body: Omit<Product, 'id' | 'user_id' | 'created_at' | 'updated_at'>) =>
       productsApi.create(body),
+    meta: { toast: { pending: "Salvando produto…", success: "Produto adicionado a Meus Produtos", error: "Não foi possível salvar" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
       setModalOpen(false)
@@ -86,6 +92,7 @@ export function ProductsPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, body }: { id: number; body: Partial<Product> }) =>
       productsApi.update(id, body),
+    meta: { toast: { pending: "Salvando alterações…", success: "Produto atualizado", error: "Não foi possível salvar" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
       setEditingId(null)
@@ -97,6 +104,7 @@ export function ProductsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => productsApi.delete(id),
+    meta: { toast: { pending: "Removendo produto…", success: "Produto removido", error: "Não foi possível remover" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
       setDeleteId(null)
@@ -112,10 +120,10 @@ export function ProductsPage() {
         product_id: form.product_id,
         original_link: form.original_link || null,
         commission_link: form.commission_link || null,
-        commission: form.commission ? Number(form.commission) : null,
+        commission: formNumber(form.commission),
         image: form.image || null,
-        price_min: form.price_min ? Number(form.price_min) : null,
-        price_max: form.price_max ? Number(form.price_max) : null,
+        price_min: formNumber(form.price_min),
+        price_max: formNumber(form.price_max),
         category: null,
       })
     }, [form, createMutation])
@@ -129,10 +137,10 @@ export function ProductsPage() {
         product_id: form.product_id,
         original_link: form.original_link || null,
         commission_link: form.commission_link || null,
-        commission: form.commission ? Number(form.commission) : null,
+        commission: formNumber(form.commission),
         image: form.image || null,
-        price_min: form.price_min ? Number(form.price_min) : null,
-        price_max: form.price_max ? Number(form.price_max) : null,
+        price_min: formNumber(form.price_min),
+        price_max: formNumber(form.price_max),
       },
     })
   }, [form, editingId, updateMutation])
@@ -148,10 +156,10 @@ export function ProductsPage() {
       product_id: product.product_id || "",
       original_link: product.original_link || "",
       commission_link: product.commission_link || "",
-      commission: product.commission != null ? String(product.commission) : "",
+      commission: toFormNumber(product.commission),
       image: product.image || "",
-      price_min: product.price_min != null ? String(product.price_min) : "",
-      price_max: product.price_max != null ? String(product.price_max) : "",
+      price_min: toFormNumber(product.price_min),
+      price_max: toFormNumber(product.price_max),
     })
     setModalOpen(true)
   }, [])
@@ -163,10 +171,10 @@ export function ProductsPage() {
       product_id: p.product_id,
       original_link: p.original_link || "",
       commission_link: p.commission_link || "",
-      commission: p.commission ?? "",
+      commission: toFormNumber(p.commission),
       image: p.image || "",
-      price_min: p.price_min ?? "",
-      price_max: p.price_max ?? "",
+      price_min: toFormNumber(p.price_min),
+      price_max: toFormNumber(p.price_max),
     })
     setModalOpen(true)
   }, [])
@@ -305,13 +313,18 @@ export function ProductsPage() {
               stats={[
                 { icon: "hash", label: "ID Shopee", value: product.product_id },
                 { icon: "dollar-sign", label: "Preço", value: formatPriceRange(product) },
-                { icon: "percent", label: "Comissão", value: product.commission != null ? `${product.commission}%` : "—" },
+                { icon: "percent", label: "Comissão", value: formatRate(product.commission) },
+                { icon: "dollar-sign", label: "Ganho/venda", value: formatEarnings(product.price_min, product.price_max, product.commission) },
                 { icon: "calendar", label: "Cadastrado", value: new Date(product.created_at).toLocaleDateString("pt-BR") },
               ]}
               sections={[
                 { label: "Produto", category: product.category || undefined, content: product.name },
                 { label: "Preço", category: "Faixa", content: formatPriceRange(product) },
-                { label: "Comissão", category: "Percentual", content: product.commission != null ? `${product.commission}%` : "—" },
+                {
+                  label: "Comissão",
+                  category: "Taxa e ganho",
+                  content: `${formatRate(product.commission)} · ganho estimado ${formatEarnings(product.price_min, product.price_max, product.commission)} por venda`,
+                },
                 {
                   label: "Links",
                   category: "Afiliado",
@@ -367,6 +380,9 @@ export function ProductsPage() {
             />
             <TextInput
               label="ID Shopee *"
+              inputMode="numeric"
+              pattern="[0-9]+"
+              title="Somente números (ID do item na Shopee)"
               value={form.product_id}
               onChange={(e) => setForm((f) => ({ ...f, product_id: e.target.value }))}
               required
@@ -375,16 +391,18 @@ export function ProductsPage() {
           </div>
 
           <TextInput
-            label="Link original"
+            label="Link original *"
             type="url"
+            required
             value={form.original_link}
             onChange={(e) => setForm((f) => ({ ...f, original_link: e.target.value }))}
             placeholder="https://..."
           />
 
           <TextInput
-            label="Link de comissão"
+            label="Link de comissão *"
             type="url"
+            required
             value={form.commission_link}
             onChange={(e) => setForm((f) => ({ ...f, commission_link: e.target.value }))}
             placeholder="https://..."
@@ -392,10 +410,11 @@ export function ProductsPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <TextInput
-              label="Comissão (%)"
+              label="Taxa de comissão (%)"
               type="number"
               step="0.01"
               min="0"
+              max="100"
               value={form.commission}
               onChange={(e) => setForm((f) => ({ ...f, commission: e.target.value }))}
               placeholder="0"
@@ -430,11 +449,15 @@ export function ProductsPage() {
             />
           </div>
 
+          <p aria-live="polite" style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+            Ganho estimado por venda: <strong style={{ color: "var(--text-body)" }}>{formatEarnings(form.price_min, form.price_max, form.commission)}</strong>
+          </p>
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 8 }}>
             <Button type="button" variant="ghost" onClick={handleCancel}>
               Cancelar
             </Button>
-            <Button type="submit" variant="primary" disabled={createMutation.isPending || updateMutation.isPending}>
+            <Button type="submit" variant="primary" loading={createMutation.isPending || updateMutation.isPending}>
               {createMutation.isPending || updateMutation.isPending ? "Salvando..." : editingId ? "Salvar" : "Criar"}
             </Button>
           </div>
@@ -450,7 +473,7 @@ export function ProductsPage() {
           <Button variant="ghost" onClick={() => setDeleteId(null)}>
             Cancelar
           </Button>
-          <Button variant="send" onClick={handleDelete} disabled={deleteMutation.isPending}>
+          <Button variant="send" onClick={handleDelete} loading={deleteMutation.isPending}>
             {deleteMutation.isPending ? "Removendo..." : "Remover"}
           </Button>
         </div>
