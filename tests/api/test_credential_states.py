@@ -57,7 +57,8 @@ def test_x_expired_token_with_refresh_is_not_expired():
     assert status["state"] == "untested"
 
 
-def test_upsert_resets_previous_check():
+def test_upsert_resets_previous_check(monkeypatch):
+    monkeypatch.setattr(cred, "_start_autotest", lambda *a, **k: None)
     fake = MagicMock()
     calls = []
 

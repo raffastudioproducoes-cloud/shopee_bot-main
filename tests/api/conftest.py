@@ -229,6 +229,16 @@ def fake_db():
 
 
 @pytest.fixture(autouse=True)
+def _no_background_autotest(monkeypatch):
+    """O teste automático pós-salvar roda num worker; fora dos testes dele,
+    nada de thread solta tocando em fake/DB depois do monkeypatch ser
+    desfeito. Os testes de autotest restauram `_autotest_submit` inline."""
+    from api.routers import credentials
+
+    monkeypatch.setattr(credentials, "_autotest_submit", lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True)
 def _clear_rate_limit_state():
     """O rate limit em memória (api/routers/auth.py) é global de módulo;
     limpa entre testes pra não vazar contagem de um teste pro outro."""
