@@ -91,4 +91,14 @@
   --chart-grid:rgba(255,255,255,.08);
 
   --focus-ring:rgba(129,189,250,.55);
+
+  /* Campos de formulário. O Chrome pinta o autofill e o popup nativo do <select>
+     por cima do campo, então aqui precisam ser OPACOS (o --surface-inset é
+     translúcido). --field-bg-solid = --surface-inset composto sobre --surface-card. */
+  --field-bg-solid:#222C39;
+  --field-bg-disabled:rgba(255,255,255,.05);
+  --option-bg:var(--navy-900);
+  --option-text:var(--white);
+  --option-active-bg:var(--steel-600);
+  --option-active-text:var(--white);
 }

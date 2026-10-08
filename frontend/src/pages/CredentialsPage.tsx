@@ -17,6 +17,7 @@ import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { StatusBadge } from "../components/ui/StatusBadge"
 import { ConnectionLight } from "../components/ui/ConnectionLight"
+import { Icon } from "../components/ui/Icon"
 import { Select } from "../components/ui/Select"
 
 // X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
@@ -100,6 +101,40 @@ function CredHeader({ title, trailing }: { title: ReactNode; trailing?: ReactNod
   )
 }
 
+const TESTING_POLL_MS = 1500
+
+function anyTesting(map?: Record<string, { state?: string }>): boolean {
+  return !!map && Object.values(map).some((s) => s?.state === "testing")
+}
+
+// Luz + selo + data do teste, iguais em todos os cards. Em "testing" a luz vira
+// um spinner e o selo anuncia "Testando…" (região viva, lida por leitor de tela).
+function ConnectionStatus({ status }: { status: CredentialStatusWithLight }) {
+  const testing = status.state === "testing"
+  return (
+    <>
+      {testing ? (
+        <Icon name="loader-2" size={14} className="animate-spin" style={{ color: "var(--amber-300)", flexShrink: 0 }} />
+      ) : (
+        <ConnectionLight state={status.light} title={status.check_message ?? undefined} />
+      )}
+      <span role="status" aria-live="polite" style={{ display: "inline-flex" }}>
+        <StatusBadge
+          tone={status.light === "green" ? "positive" : "neutral"}
+          icon={testing ? undefined : status.light === "green" ? "check-circle-2" : "x-circle"}
+        >
+          {status.status_text ?? (status.connected ? "Conectado" : "Desconectado")}
+        </StatusBadge>
+      </span>
+      {status.checked_at && !testing && (
+        <span style={{ font: "var(--text-role-body)", color: "var(--text-muted)" }}>
+          Testado em {new Date(status.checked_at).toLocaleString("pt-BR")}
+        </span>
+      )}
+    </>
+  )
+}
+
 const EMPTY_STATUS: CredentialStatusWithLight = {
   connected: false,
   light: "red",
@@ -116,6 +151,10 @@ export function CredentialsPage() {
   const { data: status, isLoading } = useQuery({
     queryKey: ["credentials"],
     queryFn: () => credentialsApi.list(),
+    // Salvar/reconectar dispara teste automático no backend: enquanto algum
+    // card estiver "testando", consulta de novo (o backend encerra o estado
+    // sozinho em até ~45 s, então o polling nunca fica infinito).
+    refetchInterval: (q) => (anyTesting(q.state.data) ? TESTING_POLL_MS : false),
   })
 
   useEffect(() => {
@@ -345,27 +384,16 @@ function CredentialTrailing({
 
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap", gap: 10 }}>
-      <ConnectionLight state={status.light} title={status.check_message ?? undefined} />
-      <StatusBadge
-        tone={status.light === "green" ? "positive" : "neutral"}
-        icon={status.light === "green" ? "check-circle-2" : "x-circle"}
-      >
-        {status.status_text ?? (status.connected ? "Conectado" : "Desconectado")}
-      </StatusBadge>
-      {status.checked_at && (
-        <span style={{ font: "var(--text-role-body)", color: "var(--text-muted)" }}>
-          Testado em {new Date(status.checked_at).toLocaleString("pt-BR")}
-        </span>
-      )}
+      <ConnectionStatus status={status} />
       {/* Qualquer usuário testa a própria conexão (backend escopa por usuário). */}
       {(isAdmin || status.connected) && (
         <Button
           type="button"
           variant="ghost"
-          disabled={testMutation.isPending}
+          disabled={testMutation.isPending || status.state === "testing"}
           onClick={() => testMutation.mutate()}
         >
-          {testMutation.isPending ? "Testando..." : "Testar conexão"}
+          {testMutation.isPending || status.state === "testing" ? "Testando..." : "Testar conexão"}
         </Button>
       )}
     </div>
@@ -424,7 +452,7 @@ function SimpleCredentialCard({
     onSuccess: () => {
       setAppId("")
       setSecret("")
-      setBanner({ ok: true, text: `${label} conectado com sucesso.` })
+      setBanner({ ok: true, text: `${label} salvo. Testando a conexão…` })
       onSaved()
     },
     onError: onAuthError,
@@ -576,7 +604,11 @@ function AiCredentialCard({
   const [provider, setProvider] = useState<AiProvider>("gemini")
   const [apiKey, setApiKey] = useState("")
   const [model, setModel] = useState("")
-  const { data } = useQuery({ queryKey: ["credentials", "ai"], queryFn: () => aiCredentialsApi.list() })
+  const { data } = useQuery({
+    queryKey: ["credentials", "ai"],
+    queryFn: () => aiCredentialsApi.list(),
+    refetchInterval: (q) => (anyTesting(q.state.data?.providers) ? TESTING_POLL_MS : false),
+  })
   const info = AI_PROVIDERS.find((p) => p.key === provider)!
   const status = data?.providers[provider] ?? { ...EMPTY_STATUS, model: null, default_model: "" }
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["credentials", "ai"] })
@@ -586,7 +618,7 @@ function AiCredentialCard({
     onSuccess: () => {
       setApiKey("")
       setModel("")
-      setBanner({ ok: true, text: `Chave de IA (${info.label}) salva. Clique em Testar conexão.` })
+      setBanner({ ok: true, text: `Chave de IA (${info.label}) salva. Testando a conexão…` })
       refresh()
     },
     onError: onAuthError,
@@ -614,21 +646,15 @@ function AiCredentialCard({
         title="Inteligência Artificial"
         trailing={
           <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-            <ConnectionLight state={status.light} title={status.check_message ?? undefined} />
-            <StatusBadge
-              tone={status.light === "green" ? "positive" : "neutral"}
-              icon={status.light === "green" ? "check-circle-2" : "x-circle"}
-            >
-              {status.status_text ?? (status.connected ? "Conectado" : "Desconectado")}
-            </StatusBadge>
+            <ConnectionStatus status={status} />
             {status.connected && (
               <Button
                 type="button"
                 variant="ghost"
-                disabled={testMutation.isPending}
+                disabled={testMutation.isPending || status.state === "testing"}
                 onClick={() => testMutation.mutate()}
               >
-                {testMutation.isPending ? "Testando..." : "Testar conexão"}
+                {testMutation.isPending || status.state === "testing" ? "Testando..." : "Testar conexão"}
               </Button>
             )}
           </div>
@@ -728,7 +754,7 @@ function ThreadsCredentialCard({
     onSuccess: () => {
       setTUserId("")
       setAccessToken("")
-      setBanner({ ok: true, text: "Threads conectado com sucesso." })
+      setBanner({ ok: true, text: "Threads salvo. Testando a conexão…" })
       onSaved()
     },
     onError: onAuthError,
@@ -877,7 +903,7 @@ function XCredentialCard({
     onSuccess: () => {
       setUserAccessToken("")
       setUserRefreshToken("")
-      setBanner({ ok: true, text: "X conectado com sucesso (override manual)." })
+      setBanner({ ok: true, text: "X salvo (override manual). Testando a conexão…" })
       onSaved()
     },
     onError: onAuthError,
@@ -1018,7 +1044,7 @@ function FacebookCredentialCard({
       setPageId("")
       setPageAccessToken("")
       setPageName("")
-      setBanner({ ok: true, text: "Facebook conectado com sucesso (override manual)." })
+      setBanner({ ok: true, text: "Facebook salvo (override manual). Testando a conexão…" })
       onSaved()
     },
     onError: onAuthError,
@@ -1165,7 +1191,7 @@ function TikTokCredentialCard({
       setOpenId("")
       setUserAccessToken("")
       setRefreshToken("")
-      setBanner({ ok: true, text: "TikTok conectado com sucesso (override manual)." })
+      setBanner({ ok: true, text: "TikTok salvo (override manual). Testando a conexão…" })
       onSaved()
     },
     onError: onAuthError,
@@ -1327,7 +1353,7 @@ function InstagramCredentialCard({
     onSuccess: () => {
       setIgUserId("")
       setUserAccessToken("")
-      setBanner({ ok: true, text: "Instagram conectado com sucesso (override manual)." })
+      setBanner({ ok: true, text: "Instagram salvo (override manual). Testando a conexão…" })
       onSaved()
     },
     onError: onAuthError,
