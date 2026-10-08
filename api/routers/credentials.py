@@ -13,9 +13,11 @@ Shopee falha com 502 em vez de salvar sem validar — melhor recusar do
 que gravar uma credencial nunca verificada.
 """
 
+import asyncio
 import logging
 import secrets
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
@@ -119,6 +121,12 @@ def _simple_table(network: str) -> str:
 # alterado): a luz volta pra amarelo pedindo novo teste.
 CHECK_STALE_AFTER = timedelta(days=7)
 
+# Teste automático pós-salvar: o limite do teste (AUTOTEST_TIMEOUT_SECONDS) é
+# menor que TESTING_MAX_AGE, que por sua vez é a garantia de que a UI nunca
+# fica presa em "Testando…" (ex: processo reiniciado no meio do teste).
+AUTOTEST_TIMEOUT_SECONDS = 20
+TESTING_MAX_AGE = timedelta(seconds=45)
+
 # Redes com expiração de token gravada: (coluna de expiração, coluna de
 # refresh). Token vencido SEM refresh = precisa reconectar; com refresh o
 # bot renova sozinho na próxima publicação (scheduler/bot_post_x.py).
@@ -160,6 +168,11 @@ def _connection_state(connected: bool, check: dict | None, token_expired: bool =
         return "red", "disconnected", "Desconectado"
     if token_expired:
         return "yellow", "expired", "Token expirado — reconecte"
+    if check and check.get("state") == "testing":
+        started = _parse_ts(check.get("checked_at"))
+        if started and datetime.now(timezone.utc) - started <= TESTING_MAX_AGE:
+            return "yellow", "testing", "Testando…"
+        return "yellow", "error", "Erro: o teste não terminou — clique em Testar conexão"
     if not check:
         return "red", "untested", "Salva, nunca testada — clique em Testar conexão"
     if check.get("state") != "ok":
@@ -241,6 +254,9 @@ def _upsert_by_user(table: str, user_id: int, data: dict, profile_id: str | None
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao salvar credencial")
     _reset_credential_check(table, user_id, profile_id)
+    network = _TABLE_TO_NETWORK.get(table)
+    if network:
+        _start_autotest(network, user_id, profile_id)
     return result.data[0]
 
 
@@ -1071,8 +1087,8 @@ async def save_ai_credential(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Salva (cifrada) a chave do provedor. Não chama o provedor: o teste é
-    o botão "Testar conexão". Nunca devolve nem loga a chave."""
+    """Salva (cifrada) a chave do provedor e dispara o teste automático em
+    segundo plano (estado "testing" -> resultado). Nunca devolve nem loga a chave."""
     provider = _ai_provider(provider)
     api_key = body.api_key.strip()
     if not api_key or len(api_key) > _AI_KEY_MAX_LEN:
@@ -1097,8 +1113,7 @@ async def save_ai_credential(
         result = supabase.table(AI_TABLE).insert(row).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao salvar a chave de IA")
-    scope_owner(supabase.table("credential_checks").delete(), user_id, profile_id).eq(
-        "network", f"ai_{provider}").execute()
+    _start_autotest(f"ai_{provider}", user_id, profile_id)
     log_action("ai_credential_saved", provider, user_id=user_id, profile_id=profile_id)
     return {"connected": True}
 
@@ -1214,6 +1229,91 @@ def _test_payload(network: str, user_id: int, profile_id: str | None = None) -> 
         return None
 
     return {"app_id": data["app_id"], "secret": decrypt(data["secret"])}
+
+
+# ── Teste automático pós-salvar/reconectar ───────────────────────────────────
+# Salvar grava credential_checks.state="testing" (síncrono, então o GET
+# seguinte já mostra "Testando…") e um worker faz o teste real (mesma chamada
+# do botão "Testar conexão"). Não passa pelo rate limit manual: vários saves
+# seguidos precisam testar todos. Qualquer falha vira state="error".
+_AUTOTEST_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="cred-autotest")
+
+
+def _autotest_submit(fn, *args) -> None:
+    _AUTOTEST_EXECUTOR.submit(fn, *args)
+
+
+def _call_with_timeout(fn, *args):
+    """Roda `fn` num thread descartável e desiste após AUTOTEST_TIMEOUT_SECONDS
+    (o thread órfão termina sozinho pelo timeout HTTP do provedor)."""
+    pool = ThreadPoolExecutor(max_workers=1)
+    try:
+        return pool.submit(fn, *args).result(timeout=AUTOTEST_TIMEOUT_SECONDS)
+    finally:
+        pool.shutdown(wait=False)
+
+
+def _autotest_outcome(network: str, user_id, profile_id: str | None) -> tuple[str, str]:
+    if network.startswith("ai_"):
+        _, api_key, model = resolve_ai_key(user_id, profile_id, network[3:])
+        try:
+            _call_with_timeout(ai_llm.check_key, network[3:], api_key, model)
+        except ai_llm.LLMError as e:
+            return "error", str(e)
+        return "ok", "Chave funcionando"
+    payload = _test_payload(network, user_id, profile_id)
+    if payload is None:
+        return "error", "Credencial incompleta — nada para testar"
+    result = _call_with_timeout(
+        lambda: asyncio.run(validate_network_credential(network, payload)),
+    )
+    return result.get("state") or "error", result.get("message") or ""
+
+
+def _run_autotest(network: str, user_id, profile_id: str | None, started_at: str) -> None:
+    try:
+        state, message = _autotest_outcome(network, user_id, profile_id)
+    except FutureTimeout:
+        state, message = "error", "O teste excedeu o tempo limite"
+    except HTTPException as e:
+        state, message = "error", str(e.detail)
+    except InternalApiError:
+        state, message = "error", "Não foi possível testar a conexão agora"
+    except Exception as e:  # nunca deixar o selo preso em "Testando…"
+        logger.warning("autotest %s falhou: %s", network, type(e).__name__)
+        state, message = "error", "Falha inesperada ao testar"
+    try:
+        _finish_check(user_id, profile_id, network, started_at, state, message)
+    except Exception as e:
+        logger.warning("autotest %s: não gravou resultado: %s", network, type(e).__name__)
+
+
+def _finish_check(user_id, profile_id: str | None, network: str, started_at: str, state: str, message: str) -> None:
+    """Grava o resultado só se a linha ainda é o MESMO "testing" que este
+    worker iniciou (credencial regravada/desconectada/testada à mão no meio
+    do caminho = resultado velho, descartado)."""
+    row = (
+        scope_owner(supabase.table("credential_checks").select("id, state, checked_at"), user_id, profile_id)
+        .eq("network", network).maybe_single().execute()
+    )
+    current = row.data if row else None
+    if not current or current.get("state") != "testing":
+        return
+    if _parse_ts(current.get("checked_at")) != _parse_ts(started_at):
+        return
+    supabase.table("credential_checks").update({
+        "state": state, "message": message, "checked_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", current["id"]).execute()
+
+
+def _start_autotest(network: str, user_id, profile_id: str | None) -> None:
+    """Best-effort: o save já foi feito, então falha aqui não derruba a
+    resposta — o selo cai em "nunca testada" e o botão manual continua."""
+    try:
+        started_at = _save_check(user_id, profile_id, network, "testing", "")
+        _autotest_submit(_run_autotest, network, user_id, profile_id, started_at)
+    except Exception as e:
+        logger.warning("autotest %s: não iniciou: %s", network, type(e).__name__)
 
 
 # ponytail: rate limit em memória de processo (mesmo padrão de
