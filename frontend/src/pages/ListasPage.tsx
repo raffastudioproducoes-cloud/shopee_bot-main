@@ -44,11 +44,19 @@ export function ListasPage() {
   // ── Create mutation ─────────────────────────────────────────────────────────────
 
   const createMutation = useMutation({
-    mutationFn: async ({ name, productIds }: { name: string; productIds?: number[] }) => {
-      const created = await listsApi.create({ name })
-      return productIds && productIds.length > 0 ? listsApi.update(created.id, { name, product_ids: productIds }) : created
+    // Uma única chamada: o backend cria lista + produtos de forma atômica (sem lista vazia em caso de erro).
+    mutationFn: ({ name, productIds }: { name: string; productIds?: number[] }) =>
+      listsApi.create({ name, product_ids: productIds }),
+    meta: {
+      toast: {
+        pending: "Criando lista…",
+        success: (data: unknown) => {
+          const n = (data as { product_count?: number } | undefined)?.product_count ?? 0
+          return n > 0 ? `Lista criada com ${n} ${n === 1 ? "produto" : "produtos"}` : "Lista criada"
+        },
+        error: "Não foi possível criar a lista",
+      },
     },
-    meta: { toast: { pending: "Criando lista…", success: "Lista criada", error: "Não foi possível criar a lista" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lists"] })
       setModalOpen(false)
@@ -320,6 +328,7 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return // evita criar a lista várias vezes em cliques repetidos
     if (name.trim()) {
       onSave(name.trim(), Array.from(selectedIds))
     }
