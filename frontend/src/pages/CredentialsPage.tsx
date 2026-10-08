@@ -284,10 +284,8 @@ export function CredentialsPage() {
           setBanner={setBanner}
         />
 
-        {/* TikTok e Kwai por último, de propósito: ligação com o usuário
-            comum ainda não está pronta (TikTok em revisão externa, Kwai sem
-            API pública de postagem) — card mostra aviso "em breve" pra
-            quem não é admin, ver isAdmin dentro de cada componente. */}
+        {/* Kwai por último: sem API pública de postagem — card mostra
+            "em breve" pra quem não é admin (comingSoonForNonAdmin). */}
         <TikTokCredentialCard
           status={status?.tiktok ?? EMPTY_STATUS}
           isAdmin={isAdmin}
@@ -1171,22 +1169,8 @@ function TikTokCredentialCard({
     onError: onAuthError,
   })
 
-  // App em revisão na TikTok for Developers (bloqueio externo) — usuário
-  // comum não vê botão "Conectar" nem status, só o aviso. Admin continua
-  // vendo tudo pra acompanhar/testar assim que a revisão aprovar.
-  if (!isAdmin) {
-    return (
-      <CredPanel id="TikTok">
-        <CredHeader title="TikTok" />
-        <div style={{ padding: "0 16px 16px" }}>
-          <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
-            Em breve — a ligação com TikTok ainda não está disponível.
-          </p>
-        </div>
-      </CredPanel>
-    )
-  }
-
+  // Conectar/Desconectar/Testar: qualquer usuário (cada um a PRÓPRIA conta).
+  // Admin-only: link do portal de devs e override manual (403 no backend).
   return (
     <CredPanel id="TikTok">
       <CredHeader

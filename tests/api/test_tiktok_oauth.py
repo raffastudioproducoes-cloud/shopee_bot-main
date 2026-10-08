@@ -35,6 +35,7 @@ def test_tiktok_domain_verification_file_is_public_and_unauthenticated(client):
 
 def test_tiktok_authorize_returns_url_and_sets_state_cookie(client, monkeypatch):
     monkeypatch.setattr(credentials_module.tiktok_oauth, "CLIENT_KEY", "client-key-123")
+    monkeypatch.setattr(credentials_module.tiktok_oauth, "CALLBACK_URL", "https://x.test/cb")
 
     res = client.get("/credentials/tiktok/authorize")
 
@@ -196,3 +197,35 @@ def test_tiktok_callback_requires_auth():
         "/credentials/tiktok/callback", params={"code": "x"}
     )
     assert res.status_code == 401
+
+
+@pytest.mark.parametrize("access", ["USER", "ADMIN"])
+def test_tiktok_authorize_open_to_regular_user_and_admin(client, monkeypatch, access):
+    """Conectar TikTok não é admin-only: qualquer usuário logado inicia o
+    OAuth da PRÓPRIA conta (state amarrado ao user_id da sessão). Não
+    consulta o papel — nenhum execute no Supabase é necessário."""
+    monkeypatch.setattr(credentials_module.tiktok_oauth, "CLIENT_KEY", "ck")
+    monkeypatch.setattr(credentials_module.tiktok_oauth, "CALLBACK_URL", "https://x.test/cb")
+
+    res = client.get("/credentials/tiktok/authorize")
+
+    assert res.status_code == 200
+    url = res.json()["url"]
+    assert url.startswith("https://www.tiktok.com/v2/auth/authorize/?client_key=ck")
+    assert "redirect_uri=https%3A%2F%2Fx.test%2Fcb" in url
+    assert "response_type=code" in url
+
+
+@pytest.mark.parametrize("missing", ["CLIENT_KEY", "CALLBACK_URL"])
+def test_tiktok_authorize_returns_503_when_platform_app_not_configured(client, monkeypatch, missing):
+    """Sem TIKTOK_CLIENT_KEY/TIKTOK_CALLBACK_URL no servidor a URL saía com
+    client_key=None / redirect_uri vazio e o TikTok mostrava erro genérico.
+    Agora falha claro, antes de mandar o usuário pro TikTok."""
+    monkeypatch.setattr(credentials_module.tiktok_oauth, "CLIENT_KEY", "ck")
+    monkeypatch.setattr(credentials_module.tiktok_oauth, "CALLBACK_URL", "https://x.test/cb")
+    monkeypatch.setattr(credentials_module.tiktok_oauth, missing, None)
+
+    res = client.get("/credentials/tiktok/authorize")
+
+    assert res.status_code == 503
+    assert "tiktok_oauth_state" not in res.cookies

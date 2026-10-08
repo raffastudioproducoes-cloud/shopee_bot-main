@@ -261,3 +261,50 @@ class TestDedicatedOAuthDeleteEndpoints:
         assert update_data["page_access_token"] is None
         assert update_data["page_id"] is None
         assert update_data["page_name"] is None
+
+
+class TestRoleSeparation:
+    """Matriz papel x funcionalidade checada no BACKEND (não só no front):
+    rotas administrativas devolvem 403 pro usuário comum antes de qualquer
+    efeito; as da própria conexão (conectar/desconectar/testar) são de
+    qualquer usuário, sempre escopadas no user_id da sessão."""
+
+    _ADMIN_ONLY = [
+        ("get", "/logs", None),
+        ("get", "/users", None),
+        ("post", "/users", {"username": "u", "password": "p" * 12, "access": "USER"}),
+        ("get", "/users/7", None),
+        ("put", "/users/7", {"access": "ADMIN"}),
+        ("delete", "/users/7", None),
+        ("put", "/credentials/tiktok/manual", {"open_id": "a", "user_access_token": "t"}),
+        ("put", "/credentials/x/manual", {"user_access_token": "t"}),
+        ("put", "/credentials/facebook/manual", {"page_id": "1", "page_access_token": "t"}),
+        ("put", "/credentials/instagram/manual", {"ig_user_id": "a", "user_access_token": "t"}),
+    ]
+
+    @pytest.mark.parametrize("method,path,body", _ADMIN_ONLY)
+    def test_regular_user_gets_403_on_admin_only(self, monkeypatch, auth_client, method, path, body):
+        query = _mock_supabase(monkeypatch, [{"access": "USER"}])
+        kwargs = {"json": body} if body is not None else {}
+        res = getattr(auth_client, method)(path, **kwargs)
+        assert res.status_code == 403
+        query.insert.assert_not_called()
+        query.update.assert_not_called()
+        query.delete.assert_not_called()
+
+    def test_regular_user_disconnects_only_own_tiktok(self, monkeypatch, auth_client):
+        query = _mock_supabase(monkeypatch, [[{"id": 1}]])
+        res = auth_client.delete("/credentials/tiktok")
+        assert res.status_code == 200
+        query.eq.assert_any_call("user_id", 42)
+
+    @pytest.mark.parametrize("access,sees_detail", [("USER", False), ("ADMIN", True)])
+    def test_check_message_detail_is_admin_only(self, monkeypatch, auth_client, access, sees_detail):
+        check = {"network": "tiktok", "state": "error", "message": "detalhe interno", "checked_at": None}
+        # users(access), credential_checks, depois 1 select por rede (2 simples + 5 OAuth)
+        _mock_supabase(monkeypatch, [{"access": access}, [check]] + [None] * 7)
+        res = auth_client.get("/credentials")
+        assert res.status_code == 200
+        tiktok = res.json()["tiktok"]
+        assert (tiktok["check_message"] == "detalhe interno") is sees_detail
+        assert tiktok["light"] == "red"  # sem token salvo
