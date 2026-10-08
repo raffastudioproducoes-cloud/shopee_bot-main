@@ -160,3 +160,124 @@ def test_bot_post_tiktok_api_failure_records_activity_and_does_not_raise(monkeyp
     _, activity_type, metadata = activities[0]
     assert activity_type == ActivityType.BOT_POST_FAILURE
     assert "falha simulada de rede" in metadata["metadata"]["error"]
+
+
+# --- refresh de token expirado (access_token ~24h) ---------------------
+
+def _setup_refresh(monkeypatch, post_video, refresh):
+    video = {"type": "VIDEO", "file_path": "/tmp/v.mp4"}
+    _patch_common(monkeypatch, _user_data(), [{"text": "t", "medias": [video]}])
+    monkeypatch.setattr(module.TikTokAPI, "post_video", post_video)
+    monkeypatch.setattr(module.TikTokAPI, "refresh_user_token", refresh)
+    saved, marked, acts = [], [], []
+    monkeypatch.setattr(
+        module.tiktok_credentials, "update_tokens",
+        lambda uid, pid, tokens: saved.append((uid, pid, tokens)),
+    )
+    monkeypatch.setattr(
+        module.tiktok_credentials, "mark_needs_reconnect",
+        lambda uid, pid, msg: marked.append((uid, pid, msg)),
+    )
+    monkeypatch.setattr(
+        module, "insert_activities",
+        lambda uid, typ, meta, profile_id=None: acts.append((typ, meta)),
+    )
+    monkeypatch.setenv("TIKTOK_CLIENT_KEY", "ck")
+    monkeypatch.setenv("TIKTOK_CLIENT_SECRET", "cs")
+    return saved, marked, acts
+
+
+def _expired():
+    return module.TikTokAPI.TikTokAPIError(
+        'Failed to Init Video Post:\nStatus: 401\nText: {"error":{"code":"access_token_invalid"}}'
+    )
+
+
+def test_expired_token_refreshes_saves_and_retries_once(monkeypatch):
+    tokens_used = []
+
+    def post_video(token, path, text):
+        tokens_used.append(token)
+        if token == "user-token-1":
+            raise _expired()
+        return "pub-1"
+
+    saved, marked, acts = _setup_refresh(
+        monkeypatch, post_video,
+        lambda ck, cs, rt: {"access_token": "new-at", "refresh_token": "new-rt"},
+    )
+    module.bot_post_tiktok("j")
+
+    assert tokens_used == ["user-token-1", "new-at"]
+    assert saved == [(42, None, {"access_token": "new-at", "refresh_token": "new-rt"})]
+    assert not marked
+    assert acts[0][0] == ActivityType.BOT_POST_SUCCESS
+
+
+def test_refresh_failure_marks_reconnect_and_fails_without_secrets(monkeypatch):
+    def refresh(ck, cs, rt):
+        raise module.TikTokAPI.TikTokAPIError("boom refresh-1 secret-1")
+
+    def post_video(token, path, text):
+        raise _expired()
+
+    saved, marked, acts = _setup_refresh(monkeypatch, post_video, refresh)
+    module.bot_post_tiktok("j")
+
+    assert not saved
+    assert marked == [(42, None, module.RECONNECT_MESSAGE)]
+    typ, meta = acts[0]
+    assert typ == ActivityType.BOT_POST_FAILURE
+    error = meta["metadata"]["error"]
+    assert error == module.RECONNECT_MESSAGE
+    assert "refresh-1" not in error and "secret-1" not in error
+
+
+def test_new_tokens_saved_even_if_retry_fails(monkeypatch):
+    def post_video(token, path, text):
+        raise _expired() if token == "user-token-1" else RuntimeError("falha 2")
+
+    saved, marked, acts = _setup_refresh(
+        monkeypatch, post_video,
+        lambda ck, cs, rt: {"access_token": "new-at", "refresh_token": "new-rt"},
+    )
+    module.bot_post_tiktok("j")
+
+    assert saved and saved[0][2]["refresh_token"] == "new-rt"
+    assert acts[0][0] == ActivityType.BOT_POST_FAILURE
+
+
+def test_non_auth_error_does_not_refresh(monkeypatch):
+    def refresh(*a):
+        raise AssertionError("não deveria renovar")
+
+    def post_video(token, path, text):
+        raise RuntimeError("rede caiu")
+
+    _setup_refresh(monkeypatch, post_video, refresh)
+    module.bot_post_tiktok("j")
+
+
+def test_refresh_is_scoped_by_profile(monkeypatch):
+    video = {"type": "VIDEO", "file_path": "/tmp/v.mp4"}
+    _patch_common(monkeypatch, _user_data(), [{"text": "t", "medias": [video]}])
+    monkeypatch.setattr(
+        module.schedulers, "get_by_id",
+        lambda j: {"user_id": 42, "post_id": 7, "profile_id": "prof-9"},
+    )
+    monkeypatch.setattr(
+        module.TikTokAPI, "post_video",
+        lambda t, p, x: "ok" if t == "n" else (_ for _ in ()).throw(_expired()),
+    )
+    monkeypatch.setattr(
+        module.TikTokAPI, "refresh_user_token",
+        lambda *a: {"access_token": "n"},
+    )
+    saved = []
+    monkeypatch.setattr(
+        module.tiktok_credentials, "update_tokens",
+        lambda uid, pid, t: saved.append((uid, pid)),
+    )
+    monkeypatch.setattr(module, "insert_activities", lambda *a, **k: None)
+    module.bot_post_tiktok("j")
+    assert saved == [(42, "prof-9")]

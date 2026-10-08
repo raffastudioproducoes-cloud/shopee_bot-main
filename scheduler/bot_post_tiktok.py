@@ -6,6 +6,8 @@ multi-parte como o Threads (reply chain) — só a head do post (parte 0)
 é publicada; partes seguintes, se existirem, são ignoradas.
 """
 
+import os
+
 from shopee_bot.apis import tiktok as TikTokAPI
 from shopee_bot.clogging import logger
 from shopee_bot.database import schedulers, tiktok_credentials, posts
@@ -20,6 +22,61 @@ def _video_media(post):
         if media.get("type") == "VIDEO":
             return media
     return None
+
+
+RECONNECT_MESSAGE = "Autorização do TikTok expirada — reconecte em Credenciais"
+
+
+def _is_token_expired(err):
+    text = str(err)
+    return "access_token_invalid" in text or "Status: 401" in text
+
+
+def _refresh_tokens(user_id, profile_id, user_data):
+    """Renova o access_token e grava os novos tokens ANTES de qualquer
+    nova tentativa (o refresh_token pode rotacionar). Devolve o novo
+    access_token ou None se a renovação falhou."""
+    refresh_token = user_data.get("tiktok_refresh_token")
+    if not refresh_token:
+        return None
+    # App único da plataforma (env); cai pro app da credencial se faltar
+    client_key = os.environ.get("TIKTOK_CLIENT_KEY") or user_data["tiktok_app_id"]
+    client_secret = (
+        os.environ.get("TIKTOK_CLIENT_SECRET") or user_data["tiktok_secret"]
+    )
+    try:
+        tokens = TikTokAPI.refresh_user_token(
+            client_key, client_secret, refresh_token
+        )
+        if not tokens.get("access_token"):
+            return None
+        tiktok_credentials.update_tokens(user_id, profile_id, tokens)
+    except Exception as err:
+        # sem str(err): o corpo da resposta pode citar tokens
+        logger.warning(f"TikTok refresh falhou: {type(err).__name__}")
+        return None
+    return tokens["access_token"]
+
+
+def _post_with_refresh(user_id, profile_id, user_data, media, text):
+    try:
+        return TikTokAPI.post_video(
+            user_data["tiktok_user_access_token"], media["file_path"], text
+        )
+    except Exception as err:
+        if not _is_token_expired(err):
+            raise
+    logger.info("TikTok access token expirado — renovando com refresh token.")
+    new_token = _refresh_tokens(user_id, profile_id, user_data)
+    if not new_token:
+        try:
+            tiktok_credentials.mark_needs_reconnect(
+                user_id, profile_id, RECONNECT_MESSAGE
+            )
+        except Exception as err:
+            logger.warning(f"TikTok: não marcou reconexão: {type(err).__name__}")
+        raise TikTokAPI.TikTokAPIError(RECONNECT_MESSAGE)
+    return TikTokAPI.post_video(new_token, media["file_path"], text)
 
 
 def bot_post_tiktok(job_id):
@@ -62,10 +119,8 @@ def bot_post_tiktok(job_id):
         return
 
     try:
-        publish_id = TikTokAPI.post_video(
-            user_data["tiktok_user_access_token"],
-            media["file_path"],
-            head_post["text"],
+        publish_id = _post_with_refresh(
+            user_id, profile_id, user_data, media, head_post["text"]
         )
     except Exception as err:
         logger.exception(
