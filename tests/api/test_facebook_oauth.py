@@ -21,7 +21,11 @@ def client():
     return TestClient(app)
 
 
-def test_facebook_authorize_returns_url_and_sets_state_cookie(client):
+def test_facebook_authorize_returns_url_and_sets_state_cookie(client, monkeypatch):
+    monkeypatch.setattr(credentials_module.instagram_oauth, "APP_ID", "app")
+    monkeypatch.setattr(credentials_module.instagram_oauth, "SECRET", "sec")
+    monkeypatch.setattr(credentials_module.facebook_oauth, "CALLBACK_URL", "https://h/cb")
+    monkeypatch.setattr(credentials_module.facebook_oauth, "CONFIG_ID", "cfg")
     res = client.get("/credentials/facebook/authorize")
 
     assert res.status_code == 200

@@ -26,15 +26,15 @@ import base64
 import hashlib
 import os
 import secrets
-import time
 from urllib.parse import urlencode
 
 import requests
-from shopee_bot.utils import retry_with_backoff
+from shopee_bot.utils import ConnectionTestError, retry_with_backoff
 
 API_BASE = "https://api.twitter.com/2"
 AUTH_URL = "https://twitter.com/i/oauth2/authorize"
 TOKEN_URL = "https://api.twitter.com/2/oauth2/token"
+USERS_ME_URL = "https://api.x.com/2/users/me"
 CALLBACK_URL = os.environ.get("X_CALLBACK_URL")
 DEFAULT_SCOPES = "tweet.read tweet.write users.read offline.access"
 
@@ -44,59 +44,51 @@ def _basic_auth_header(app_id, secret):
     return {"Authorization": f"Basic {credentials}"}
 
 
-def _bearer_token(app_id, secret, _cache={}):
-    """Obtém Bearer Token via OAuth 2.0 Client Credentials.
+def validate_user_token(client_id, client_secret, access_token, refresh_token=None):
+    """Valida o token do USUÁRIO (o que publica) com GET /2/users/me.
 
-    App-only: só serve para validar app_id/secret (validate_credentials)
-    e endpoints de leitura pública. NÃO usar para postar (ver bloqueio
-    externo no topo do arquivo).
-    Cache por (app_id, secret) para não renovar a cada chamada."""
-    key = (app_id, secret)
-    if key in _cache and time.time() - _cache[key]["_t"] < 3300:
-        return _cache[key]["token"]
-    url = "https://api.twitter.com/oauth2/token"
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        **_basic_auth_header(app_id, secret),
-    }
-    body = {"grant_type": "client_credentials"}
-    res = retry_with_backoff(
-        requests.post, url, headers=headers, data=body,
-        exceptions=(requests.exceptions.RequestException,),
-    )
-    if res.status_code not in (200, 201):
-        raise Exception(
-            f"X: falha ao obter Bearer Token (status {res.status_code}): "
-            f"{res.text[:300]}"
+    O token OAuth 2.0 do X dura ~2h; em 401 renova com o refresh_token
+    (offline.access) e tenta de novo uma vez. Retorna (usuário, tokens
+    renovados ou None). Em falha levanta ConnectionTestError com mensagem
+    sem token; `refreshed` leva os tokens já renovados (o refresh token
+    rotaciona, então quem chama precisa persistí-los mesmo na falha)."""
+    refreshed = None
+    res = _users_me(access_token)
+    if res.status_code == 401:
+        if not refresh_token:
+            raise ConnectionTestError("Token do X expirado e sem refresh — reconecte")
+        try:
+            refreshed = refresh_access_token(client_id, client_secret, refresh_token)
+        except Exception:
+            raise ConnectionTestError("Token do X expirado e a renovação falhou — reconecte")
+        res = _users_me(refreshed["access_token"])
+        if res.status_code == 401:
+            raise ConnectionTestError("O X recusou o token renovado — reconecte", refreshed)
+    if res.status_code == 403:
+        raise ConnectionTestError(
+            "O X negou o acesso (403): habilite Read and write nas "
+            "configurações de autenticação do app no X Developer Portal e "
+            "reconecte", refreshed,
         )
-    data = res.json()
-    token = data.get("access_token")
-    if not token:
-        raise Exception(f"X: resposta inesperada ao obter Bearer Token: {data}")
-    _cache[key] = {"token": token, "_t": time.time()}
-    return token
+    if res.status_code == 429:
+        raise ConnectionTestError(
+            "Limite de requisições do X atingido — tente novamente mais tarde", refreshed
+        )
+    if res.status_code != 200:
+        raise ConnectionTestError(f"O X respondeu com status {res.status_code}", refreshed)
+    user = (res.json() or {}).get("data")
+    if not user or "id" not in user:
+        raise ConnectionTestError("Resposta inesperada do X ao validar o token", refreshed)
+    return user, refreshed
 
-def validate_credentials(app_id, secret):
-    """Valida Bearer Token obtendo user me.
-    Usa um request leve para confirmar que o app_id/secret funcionam
-    (app-only) — não confirma permissão de postagem, que exige o fluxo
-    de usuário abaixo."""
-    token = _bearer_token(app_id, secret)
-    headers = {"Authorization": f"Bearer {token}"}
-    res = retry_with_backoff(
-        requests.get, f"{API_BASE}/users/me", headers=headers,
+
+def _users_me(access_token):
+    return retry_with_backoff(
+        requests.get, USERS_ME_URL,
+        headers={"Authorization": f"Bearer {access_token}"},
         exceptions=(requests.exceptions.RequestException,),
         timeout=15,
     )
-    if res.status_code != 200:
-        raise Exception(
-            f"X: credenciais inválidas (status {res.status_code}): "
-            f"{res.text[:300]}"
-        )
-    data = res.json()
-    if "data" not in data or "id" not in data["data"]:
-        raise Exception(f"X: resposta inesperada ao validar credenciais: {data}")
-    return data["data"]
 
 
 ###
