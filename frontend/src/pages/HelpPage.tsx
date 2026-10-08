@@ -2,18 +2,20 @@ import { useState } from "react"
 import { Panel, PanelHeader } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { Icon } from "../components/ui/Icon"
+import { NetworkLimitsHelp } from "../components/help/NetworkLimitsHelp"
 import { SegmentedToggle, type SegmentedOption } from "../components/ui/SegmentedToggle"
 
 const SUPPORT_EMAIL = "contato.raffasp@gmail.com"
 const SUPPORT_CNPJ = "63.621.332/0001-03"
 
-type HelpTab = "shopee" | "primeiros-passos" | "modulos" | "faq" | "lgpd"
+type HelpTab = "shopee" | "primeiros-passos" | "modulos" | "faq" | "limites" | "lgpd"
 
 const TABS: SegmentedOption[] = [
   { value: "shopee", label: "Tutorial Shopee", icon: "key-round" },
   { value: "primeiros-passos", label: "Primeiros Passos", icon: "sparkles" },
   { value: "modulos", label: "Guia dos Módulos", icon: "layout-grid" },
   { value: "faq", label: "FAQ", icon: "message-square" },
+  { value: "limites", label: "Limites das redes", icon: "sliders-horizontal" },
   { value: "lgpd", label: "Proteção de Dados", icon: "lock" },
 ]
 
@@ -246,6 +248,7 @@ export function HelpPage() {
               })}
             </div>
           )}
+          {tab === "limites" && <NetworkLimitsHelp />}
           {tab === "lgpd" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
