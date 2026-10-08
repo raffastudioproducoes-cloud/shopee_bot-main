@@ -23,6 +23,7 @@ export interface Product {
 
 export interface ProductListCreate {
   name: string
+  product_ids?: number[]
 }
 
 export interface ProductListUpdate {
@@ -45,8 +46,8 @@ export const listsApi = {
     return api.get<ProductListsResponse>(`/lists${query ? `?${query}` : ''}`)
   },
 
-  async create(data: ProductListCreate): Promise<ProductList> {
-    return api.post<ProductList>('/lists', data)
+  async create(data: ProductListCreate): Promise<ProductList & { product_count?: number }> {
+    return api.post<ProductList & { product_count?: number }>('/lists', data)
   },
 
   async get(id: number): Promise<ProductList> {

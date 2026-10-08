@@ -53,7 +53,7 @@ class TestListsEndpointPresence:
 
 class TestListProductsSync:
     def test_put_with_new_product_ids_associates_products(self, auth_client, monkeypatch):
-        product_lists_query = _query_mock(MagicMock(data={"id": 1, "name": "Nova", "updated_at": None}))
+        product_lists_query = _query_mock(MagicMock(data=[{"id": 1, "name": "Nova", "updated_at": None}]))
         products_query = _query_mock(MagicMock(data=[{"id": 10}, {"id": 20}]))
         current_assoc_query = _query_mock(MagicMock(data=[]))  # nenhum produto associado ainda
         insert_query = _query_mock(MagicMock(data=[{"product_list_id": 1, "product_id": 10}]))
@@ -88,7 +88,7 @@ class TestListProductsSync:
         assert {row["product_id"] for row in inserted_rows} == {10, 20}
 
     def test_put_removing_id_from_product_ids_disassociates(self, auth_client, monkeypatch):
-        product_lists_query = _query_mock(MagicMock(data={"id": 1, "name": "Lista", "updated_at": None}))
+        product_lists_query = _query_mock(MagicMock(data=[{"id": 1, "name": "Lista", "updated_at": None}]))
         products_query = _query_mock(MagicMock(data=[{"id": 10}]))  # só o 10 pertence ao usuário
         current_assoc_query = _query_mock(MagicMock(data=[{"product_id": 10}, {"product_id": 20}]))
         delete_query = _query_mock(MagicMock(data=[{"product_id": 20}]))
@@ -121,7 +121,7 @@ class TestListProductsSync:
         delete_query.in_.assert_any_call("product_id", [20])
 
     def test_put_without_product_ids_does_not_touch_association(self, auth_client, monkeypatch):
-        product_lists_query = _query_mock(MagicMock(data={"id": 1, "name": "Renomeada", "updated_at": None}))
+        product_lists_query = _query_mock(MagicMock(data=[{"id": 1, "name": "Renomeada", "updated_at": None}]))
 
         fake_client = MagicMock()
 
@@ -139,7 +139,7 @@ class TestListProductsSync:
         assert res.json()["name"] == "Renomeada"
 
     def test_put_with_empty_product_ids_removes_all_associations(self, auth_client, monkeypatch):
-        product_lists_query = _query_mock(MagicMock(data={"id": 1, "name": "Lista", "updated_at": None}))
+        product_lists_query = _query_mock(MagicMock(data=[{"id": 1, "name": "Lista", "updated_at": None}]))
         current_assoc_query = _query_mock(MagicMock(data=[{"product_id": 10}, {"product_id": 20}]))
         delete_query = _query_mock(MagicMock(data=[]))
 
