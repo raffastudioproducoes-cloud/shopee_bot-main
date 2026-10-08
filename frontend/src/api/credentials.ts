@@ -94,7 +94,7 @@ export const credentialsApi = {
     return api.get<{ url: string }>('/credentials/facebook/authorize')
   },
 
-  /** "Testar conexão" — admin-only no backend (403 pra quem não é ADMIN). */
+  /** "Testar conexão" — qualquer usuário testa a PRÓPRIA credencial (backend escopa por user_id/perfil). */
   async testConnection(network: SimpleNetwork | 'threads'): Promise<TestConnectionResult> {
     return api.post<TestConnectionResult>(`/credentials/${network}/test`, undefined)
   },

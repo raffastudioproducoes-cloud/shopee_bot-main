@@ -700,7 +700,16 @@ async def tiktok_authorize(
 
     Gera `state` + cookie httponly assinado (CSRF binding do
     account-linking, 10 min) pro /callback validar.
+
+    Sem gate de papel: usuário comum e admin conectam cada um a PRÓPRIA
+    conta (state amarrado ao user_id da sessão).
     """
+    if not tiktok_oauth.CLIENT_KEY or not tiktok_oauth.CALLBACK_URL:
+        # Sem isso a URL saía com client_key=None / redirect_uri vazio e o
+        # TikTok devolvia erro genérico na tela dele.
+        logger.error("TikTok OAuth sem TIKTOK_CLIENT_KEY/TIKTOK_CALLBACK_URL configurados")
+        raise HTTPException(status_code=503, detail="Conexão com TikTok indisponível no momento.")
+
     state, cookie_value = _sign_oauth_state(user_id)
 
     response.set_cookie(

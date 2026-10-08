@@ -112,9 +112,9 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
       "Não. A Shopee é a única credencial obrigatória (é dela que vêm os produtos). As redes sociais são opcionais — conecte só as que você usa pra publicar.",
   },
   {
-    question: "Por que o TikTok e o Kwai aparecem como \"em breve\"?",
+    question: "Por que o Kwai aparece como \"em breve\"?",
     answer:
-      "O TikTok está com o app em revisão externa na TikTok for Developers, e o Kwai ainda não tem API pública de postagem disponível. Assim que isso mudar, os cards ficam disponíveis pra todo mundo.",
+      "O Kwai ainda não tem API pública de postagem disponível. Assim que isso mudar, o card fica disponível pra todo mundo.",
   },
 ]
 
