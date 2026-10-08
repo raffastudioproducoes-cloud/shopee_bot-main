@@ -18,6 +18,8 @@ export interface TextareaProps {
   className?: string
   style?: CSSProperties
   textareaStyle?: CSSProperties
+  /** Nome acessível quando não há `label` visível. */
+  ariaLabel?: string
 }
 
 /** Multi-line text field, same surface treatment as TextInput. */
@@ -34,6 +36,7 @@ export function Textarea({
   className = "",
   style,
   textareaStyle,
+  ariaLabel,
 }: TextareaProps) {
   const [hot, setHot] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -56,6 +59,7 @@ export function Textarea({
       ) : null}
       <textarea
         name={name}
+        aria-label={ariaLabel}
         value={value}
         onChange={onChange}
         placeholder={placeholder}

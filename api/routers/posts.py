@@ -46,6 +46,7 @@ from ..audit_log import log_action
 from ..database import supabase
 from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail
+from ..text_variants import generate_variants
 from ..internal_client import (
     create_scheduler_job,
     remove_scheduler_job,
@@ -129,6 +130,8 @@ class PostCreate(BaseModel):
     # Publicação multi-rede: os posts das outras redes reaproveitam a mídia
     # já enviada pro primeiro (mesma linha em `medias`, sem reenviar).
     media_ids: list[int] = []
+    # Mesmo UUID em todos os posts de um envio multi-rede (selo "Grupo").
+    group_id: uuid.UUID | None = None
 
     @field_validator("texts")
     @classmethod
@@ -156,6 +159,8 @@ class GenerateCopyBody(BaseModel):
     # Provedor de IA (gemini/openai/anthropic). Omitido: o único salvo ou o
     # salvo mais recentemente pelo usuário/perfil (ver resolve_ai_key).
     provider: str | None = None
+    # Redes marcadas: um texto por faixa de limite (api/text_variants.py).
+    networks: list[NetworkLiteral] = []
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
@@ -338,7 +343,8 @@ def _get_post_by_id_only(post_id: int) -> dict:
 
 
 def _create_thread(
-    user_id: int, texts: list[str], network: str = "threads", profile_id: str | None = None
+    user_id: int, texts: list[str], network: str = "threads", profile_id: str | None = None,
+    group_id: str | None = None,
 ) -> dict:
     """Insere a thread inteira, encadeando post_id. Retorna a head.
 
@@ -353,6 +359,8 @@ def _create_thread(
             row_data["profile_id"] = profile_id
         if parent_id is None:
             row_data["network"] = network
+            if group_id:  # só quando veio: sem a coluna (migração 044) nada muda
+                row_data["group_id"] = group_id
         result = (
             supabase.table("posts")
             .insert(row_data)
@@ -406,8 +414,12 @@ async def generate_copy(
 ):
     """Gera texto de post via IA para um produto, por persona, com a chave de
     IA do PRÓPRIO usuário/perfil (Credenciais). Sem chave global: sem chave
-    cadastrada -> 400 pedindo pra cadastrar."""
-    from apis.llm import generate_product_copy, LLMError
+    cadastrada -> 400 pedindo pra cadastrar.
+
+    Com `networks`, devolve o conjunto mínimo de textos (`variants`, um por
+    faixa de limite) numa só chamada; `text` = variante principal (a mais
+    longa), compatível com o front antigo."""
+    from apis import llm
     from .credentials import resolve_ai_key
 
     # Cada chamada custa uma requisição paga de LLM: limite por usuário.
@@ -428,16 +440,20 @@ async def generate_copy(
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
     provider, api_key, model = resolve_ai_key(user_id, profile_id, body.provider)
+
+    def complete(prompt: str, max_tokens: int) -> str:
+        return llm.complete(provider, api_key, model, prompt, max_tokens)
+
     try:
-        text = await run_in_threadpool(
-            generate_product_copy, product_result.data, body.persona, provider, api_key, model,
+        variants = await run_in_threadpool(
+            generate_variants, product_result.data, body.persona, body.networks, complete,
         )
-    except LLMError as e:
+    except llm.LLMError as e:
         # mensagem do LLMError já é segura (sem chave nem corpo do provedor)
         logger.warning("Falha ao gerar texto do produto %s (%s): %s", body.product_id, provider, e.kind)
         raise HTTPException(status_code=400, detail=str(e))
 
-    return {"text": text}
+    return {"text": variants[0]["text"], "variants": variants}
 
 
 @router.get("")
@@ -492,7 +508,10 @@ async def create_post(
     _validate_product_ids(user_id, body.product_ids, profile_id)
     medias = _get_owned_medias(user_id, body.media_ids, profile_id)
     _check_network_rules(body.network, body.texts, medias, len(body.product_ids))
-    head = _create_thread(user_id, body.texts, body.network, profile_id)
+    head = _create_thread(
+        user_id, body.texts, body.network, profile_id,
+        str(body.group_id) if body.group_id else None,
+    )
     _set_post_products(head["id"], body.product_ids)
     if medias:
         supabase.table("posts_medias").insert([

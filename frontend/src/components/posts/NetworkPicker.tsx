@@ -161,7 +161,8 @@ export function NetworkPicker({ selected, states, onToggle, readOnly }: NetworkP
 
 interface LimitsPanelProps {
   selected: PostNetwork[]
-  headText: string
+  /** Texto (parte 1) que vai pra cada rede: com abas, cada grupo tem o seu. */
+  textFor: (network: PostNetwork) => string
   mediaCount: number
   issues: Record<PostNetwork, Issue[]>
 }
@@ -169,7 +170,7 @@ interface LimitsPanelProps {
 const caption = "var(--fw-regular) var(--fs-caption)/1.4 var(--font-sans)"
 
 /** Contadores por rede marcada + motivos. aria-live: avisa leitor de tela. */
-export function NetworkLimitsPanel({ selected, headText, mediaCount, issues }: LimitsPanelProps) {
+export function NetworkLimitsPanel({ selected, textFor, mediaCount, issues }: LimitsPanelProps) {
   if (selected.length === 0) return null
   const all = selected.flatMap((n) => issues[n])
   return (
@@ -188,7 +189,7 @@ export function NetworkLimitsPanel({ selected, headText, mediaCount, issues }: L
       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px" }}>
         {selected.map((n) => {
           const rule = NETWORK_RULES[n]
-          const used = textLength(rule, headText)
+          const used = textLength(rule, textFor(n))
           const maxMedia = rule.maxMedia ?? (rule.maxImages != null ? Math.max(rule.maxImages, rule.maxVideos ?? 0) : undefined)
           const bad = issues[n].some((i) => i.level === "error")
           return (

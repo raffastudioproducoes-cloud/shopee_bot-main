@@ -110,7 +110,7 @@ def test_generate_copy_uses_own_key_and_does_not_leak_it(db, client, provider_ca
     with caplog.at_level(logging.DEBUG):
         res = client.post("/posts/generate-copy", json={"product_id": 1, "persona": "divertido"})
 
-    assert res.status_code == 200 and res.json() == {"text": "Texto IA"}
+    assert res.status_code == 200 and res.json()["text"] == "Texto IA"
     assert provider_calls[0]["headers"]["x-goog-api-key"] == SECRET
     assert SECRET not in res.text and SECRET not in caplog.text
 
