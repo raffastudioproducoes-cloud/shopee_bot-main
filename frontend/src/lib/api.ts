@@ -1,3 +1,5 @@
+import { formatApiError } from './apiError'
+
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
 export class ApiError extends Error {
@@ -23,8 +25,8 @@ async function request<T>(
   })
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Erro desconhecido' }))
-    throw new ApiError(response.status, error.detail || `HTTP ${response.status}`)
+    const error = await response.json().catch(() => null)
+    throw new ApiError(response.status, formatApiError(error, response.status))
   }
 
   if (response.status === 204) {
@@ -52,8 +54,8 @@ export const api = {
       credentials: 'include',
     })
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Erro desconhecido' }))
-      throw new ApiError(response.status, error.detail || `HTTP ${response.status}`)
+      const error = await response.json().catch(() => null)
+      throw new ApiError(response.status, formatApiError(error, response.status))
     }
     return response.json()
   },

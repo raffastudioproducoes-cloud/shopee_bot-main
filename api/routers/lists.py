@@ -19,6 +19,7 @@ router = APIRouter(prefix="/lists", tags=["lists"])
 
 class ProductListCreate(BaseModel):
     name: str
+    product_ids: list[int] | None = None
 
 
 class ProductListUpdate(BaseModel):
@@ -75,24 +76,40 @@ def _get_list_products(list_id: int) -> list[dict]:
     return products
 
 
+def _validate_owned_products(
+    user_id: int, product_ids: list[int], profile_id: str | None = None
+) -> set[int]:
+    """Garante que todos os `product_ids` pertencem ao usuário (e ao perfil ativo).
+
+    Levanta 400 listando os ids inválidos/de outro dono, antes de qualquer escrita
+    (evita IDOR e 500 por violação de FK)."""
+    wanted = set(product_ids)
+    if not wanted:
+        return set()
+    owned_result = (
+        scope_owner(supabase.table("products").select("id"), user_id, profile_id)
+        .in_("id", list(wanted))
+        .execute()
+    )
+    owned = {row["id"] for row in (owned_result.data or [])}
+    invalid = sorted(wanted - owned)
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Produtos inválidos ou que não pertencem a você: {', '.join(map(str, invalid))}",
+        )
+    return owned
+
+
 def _sync_list_products(
     user_id: int, list_id: int, product_ids: list[int], profile_id: str | None = None
 ) -> None:
     """Sincroniza `product_lists_products` com `product_ids`.
 
-    Só associa produtos pertencentes ao usuário (e ao perfil ativo, quando
-    houver — evita IDOR via produto de outro usuário ou de outro perfil). O client Supabase REST não expõe transação (mesma
-    limitação dos outros endpoints deste router) — insert e delete são duas
-    chamadas separadas, não atômicas.
+    Valida a posse de todos os produtos antes de escrever. O client Supabase REST
+    não expõe transação — insert e delete são chamadas separadas, não atômicas.
     """
-    owned_ids: set[int] = set()
-    if product_ids:
-        owned_result = (
-            scope_owner(supabase.table("products").select("id"), user_id, profile_id)
-            .in_("id", product_ids)
-            .execute()
-        )
-        owned_ids = {row["id"] for row in (owned_result.data or [])}
+    owned_ids = _validate_owned_products(user_id, product_ids, profile_id)
 
     current_result = (
         supabase.table("product_lists_products")
@@ -166,14 +183,28 @@ async def create_product_list(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Cria uma nova lista de produtos."""
+    """Cria uma lista (com produtos opcionais) de forma atômica.
+
+    Sem transação no client REST: valida os produtos antes de inserir e, se a
+    associação falhar, apaga a lista recém-criada (compensação) — nunca fica lista vazia."""
+    product_ids = body.product_ids or []
+    _validate_owned_products(user_id, product_ids, profile_id)
+
     data = {"user_id": user_id, "name": body.name}
     if profile_id:
         data["profile_id"] = profile_id
     result = supabase.table("product_lists").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar lista")
-    return result.data[0]
+    created = result.data[0]
+
+    if product_ids:
+        try:
+            _sync_list_products(user_id, created["id"], product_ids, profile_id)
+        except Exception:
+            supabase.table("product_lists").delete().eq("id", created["id"]).execute()
+            raise
+    return {**created, "product_count": len(set(product_ids))}
 
 
 @router.get("/{product_list_id}")
@@ -202,7 +233,7 @@ async def update_product_list(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Atualiza o nome de uma lista."""
+    """Atualiza o nome (e, se enviado, os produtos) de uma lista."""
     _get_list(user_id, product_list_id, profile_id)  # ownership check
 
     update_query = (
@@ -213,14 +244,14 @@ async def update_product_list(
     )
     if profile_id:
         update_query = update_query.eq("profile_id", profile_id)
-    result = update_query.single().execute()
+    result = update_query.execute()  # update() não tem .single() no postgrest-py
     if not result.data:
         raise HTTPException(status_code=404, detail="Lista não encontrada")
 
     if body.product_ids is not None:
         _sync_list_products(user_id, product_list_id, body.product_ids, profile_id)
 
-    return result.data
+    return result.data[0]
 
 
 @router.delete("/{product_list_id}")

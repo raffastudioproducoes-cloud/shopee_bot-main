@@ -20,7 +20,10 @@ _TIMEOUT = 30
 
 # headers que não devem ser repassados 1:1 entre Flask e o FastAPI
 # interno — hop-by-hop ou recalculados pelo lado que recebe
-_REQUEST_HEADERS_TO_DROP = {"host", "content-length"}
+# x-forwarded-for: o valor vindo do browser é forjável; é substituído
+# abaixo pelo IP já resolvido pelo ProxyFix (web/__init__.py), que o
+# FastAPI usa como IP real nos rate limits (api/routers/auth.py::client_ip).
+_REQUEST_HEADERS_TO_DROP = {"host", "content-length", "x-forwarded-for"}
 _RESPONSE_HEADERS_TO_DROP = {
     "content-encoding", "content-length", "transfer-encoding", "connection",
 }
@@ -37,6 +40,8 @@ def proxy(subpath):
         k: v for k, v in request.headers.items()
         if k.lower() not in _REQUEST_HEADERS_TO_DROP
     }
+    if request.remote_addr:
+        headers["X-Forwarded-For"] = request.remote_addr
     try:
         # ponytail: get_data() carrega o corpo inteiro em memória; ok
         # porque Flask já limita isso via MAX_CONTENT_LENGTH (mesmo

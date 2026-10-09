@@ -37,6 +37,8 @@ import {
   Package,
   Link2,
   ChevronDown,
+  ChevronUp,
+  ChevronLeft,
   List,
   Menu,
   Download,
@@ -117,6 +119,8 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   package: Package,
   "link-2": Link2,
   "chevron-down": ChevronDown,
+  "chevron-up": ChevronUp,
+  "chevron-left": ChevronLeft,
   // Extrapolação: adicionados para o seletor de visualização (lista/grade) do
   // ProductsPage.tsx (padrão Windows Explorer) — não fazem parte do mapa original.
   list: List,

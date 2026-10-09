@@ -14,15 +14,16 @@ export interface Product {
   product_id: string
   name: string
   image: string | null
-  price_min: number | null
-  price_max: number | null
-  commission: number | null
+  price_min: number | string | null
+  price_max: number | string | null
+  commission: number | string | null
   commission_link: string | null
   original_link: string | null
 }
 
 export interface ProductListCreate {
   name: string
+  product_ids?: number[]
 }
 
 export interface ProductListUpdate {
@@ -45,8 +46,8 @@ export const listsApi = {
     return api.get<ProductListsResponse>(`/lists${query ? `?${query}` : ''}`)
   },
 
-  async create(data: ProductListCreate): Promise<ProductList> {
-    return api.post<ProductList>('/lists', data)
+  async create(data: ProductListCreate): Promise<ProductList & { product_count?: number }> {
+    return api.post<ProductList & { product_count?: number }>('/lists', data)
   },
 
   async get(id: number): Promise<ProductList> {

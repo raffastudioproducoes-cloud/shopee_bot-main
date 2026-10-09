@@ -13,13 +13,17 @@ Shopee falha com 502 em vez de salvar sem validar — melhor recusar do
 que gravar uma credencial nunca verificada.
 """
 
+import asyncio
 import logging
 import secrets
+import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from .auth import get_current_user_id
@@ -34,6 +38,8 @@ from .. import x_oauth
 from ..config import settings
 from ..database import supabase
 from ..crypto import encrypt, decrypt
+from apis import llm as ai_llm
+from ..utils.log_sanitizer import sanitize_log_data
 from ..internal_client import (
     validate_shopee_credential,
     validate_network_credential,
@@ -111,21 +117,79 @@ def _simple_table(network: str) -> str:
     return table
 
 
+# Teste com mais de uma semana não garante mais nada (token revogado, app
+# alterado): a luz volta pra amarelo pedindo novo teste.
+CHECK_STALE_AFTER = timedelta(days=7)
+
+# Teste automático pós-salvar: o limite do teste (AUTOTEST_TIMEOUT_SECONDS) é
+# menor que TESTING_MAX_AGE, que por sua vez é a garantia de que a UI nunca
+# fica presa em "Testando…" (ex: processo reiniciado no meio do teste).
+AUTOTEST_TIMEOUT_SECONDS = 20
+TESTING_MAX_AGE = timedelta(seconds=45)
+
+# Redes com expiração de token gravada: (coluna de expiração, coluna de
+# refresh). Token vencido SEM refresh = precisa reconectar; com refresh o
+# bot renova sozinho na próxima publicação (scheduler/bot_post_x.py).
+_TOKEN_EXPIRY_FIELDS = {"x": ("token_expires_at", "user_refresh_token")}
+
+
+def _parse_ts(value) -> datetime | None:
+    if not value:
+        return None
+    try:
+        ts = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+
+
+def _token_expired(network: str, row: dict | None) -> bool:
+    fields = _TOKEN_EXPIRY_FIELDS.get(network)
+    if not fields or not row:
+        return False
+    expires_at = _parse_ts(row.get(fields[0]))
+    return bool(expires_at and expires_at <= datetime.now(timezone.utc) and not row.get(fields[1]))
+
+
+def _short_reason(message: str | None) -> str:
+    text = sanitize_log_data(message or "").strip()
+    return (text[:117] + "...") if len(text) > 120 else (text or "falha no teste")
+
+
+def _connection_state(connected: bool, check: dict | None, token_expired: bool = False) -> tuple[str, str, str]:
+    """(light, state, status_text) — uma fonte só pra luz E selo, pra nunca
+    mostrar "Conectado" verde com bolinha vermelha sem explicação.
+
+    red: sem credencial, ou salva e nunca testada. yellow: token expirado,
+    teste com erro ou teste antigo (> CHECK_STALE_AFTER). green: teste OK
+    recente. O teste (POST /{network}/test) é a única fonte de 'ok'/'error'
+    e é zerado sempre que a credencial é salva/reconectada."""
+    if not connected:
+        return "red", "disconnected", "Desconectado"
+    if token_expired:
+        return "yellow", "expired", "Token expirado — reconecte"
+    if check and check.get("state") == "testing":
+        started = _parse_ts(check.get("checked_at"))
+        if started and datetime.now(timezone.utc) - started <= TESTING_MAX_AGE:
+            return "yellow", "testing", "Testando…"
+        return "yellow", "error", "Erro: o teste não terminou — clique em Testar conexão"
+    if not check:
+        return "red", "untested", "Salva, nunca testada — clique em Testar conexão"
+    if check.get("state") != "ok":
+        return "yellow", "error", f"Erro: {_short_reason(check.get('message'))}"
+    checked_at = _parse_ts(check.get("checked_at"))
+    if checked_at and datetime.now(timezone.utc) - checked_at > CHECK_STALE_AFTER:
+        return "yellow", "stale", "Testada há mais de 7 dias — teste de novo"
+    return "green", "ok", "Funcionando"
+
+
 def _light_for(connected: bool, check: dict | None) -> str:
-    """Cor do sinalizador (visível pra todo usuário, não só admin).
-
-    'red': sem credencial salva, OU salva mas nunca testada ainda ('fez
-    conexão' não confirmado). 'yellow': testada e o teste encontrou um
-    problema (API incorreta, falta autorização OAuth, instável). 'green':
-    testada e funcionando. Nunca inferido só de `status` — só um teste
-    real (POST /{network}/test, admin-only) grava 'ok'/'error' em
-    credential_checks."""
-    if not connected or not check:
-        return "red"
-    return "green" if check.get("state") == "ok" else "yellow"
+    return _connection_state(connected, check)[0]
 
 
-def _status_only(row: dict | None, check: dict | None = None, *, token_field: str | None = None) -> dict:
+def _status_only(
+    row: dict | None, check: dict | None = None, *, token_field: str | None = None, network: str | None = None,
+) -> dict:
     """`token_field`: pra redes onde `status` é setado por PUT /credentials/{network}
     (só salva app_id/secret do app — TikTok Client Key/Secret, Instagram App ID/
     Secret) mas a conexão real só existe depois do OAuth (authorize/callback).
@@ -137,12 +201,35 @@ def _status_only(row: dict | None, check: dict | None = None, *, token_field: st
         connected = bool(row.get(token_field)) if row else False
     else:
         connected = bool(row.get("status")) if row else False
+    light, state, status_text = _connection_state(
+        connected, check, _token_expired(network, row) if network else False,
+    )
     return {
         "connected": connected,
-        "light": _light_for(connected, check),
+        "light": light,
+        "state": state,
+        "status_text": status_text,
         "checked_at": check.get("checked_at") if check else None,
         "check_message": check.get("message") if check else None,
     }
+
+
+# tabela de credencial -> rede (pra zerar o teste ao salvar/reconectar)
+_TABLE_TO_NETWORK = {
+    **{t: n for n, t in SIMPLE_NETWORKS.items()},
+    **{t: n for n, (t, _) in OAUTH_NETWORKS.items()},
+}
+
+
+def _reset_credential_check(table: str, user_id: int, profile_id: str | None) -> None:
+    """Credencial nova/reconectada invalida o teste anterior (senão a luz
+    verde de um token antigo continuava valendo pro novo)."""
+    network = _TABLE_TO_NETWORK.get(table)
+    if not network:
+        return
+    scope_owner(
+        supabase.table("credential_checks").delete(), user_id, profile_id,
+    ).eq("network", network).execute()
 
 
 def _upsert_by_user(table: str, user_id: int, data: dict, profile_id: str | None = None) -> dict:
@@ -166,6 +253,10 @@ def _upsert_by_user(table: str, user_id: int, data: dict, profile_id: str | None
         result = supabase.table(table).insert(row).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao salvar credencial")
+    _reset_credential_check(table, user_id, profile_id)
+    network = _TABLE_TO_NETWORK.get(table)
+    if network:
+        _start_autotest(network, user_id, profile_id)
     return result.data[0]
 
 
@@ -261,12 +352,14 @@ async def list_credentials(user_id: int = Depends(get_current_user_id), profile_
     # Threads é setado junto com o token, mas nas outras 3 não existe mais
     # nenhum campo além do token — ver OAUTH_NETWORKS acima).
     for network, (table, token_field) in OAUTH_NETWORKS.items():
+        expiry_cols = "".join(f", {c}" for c in _TOKEN_EXPIRY_FIELDS.get(network, ()))
         row = (
-            scope_owner(supabase.table(table).select(f"status, {token_field}"), user_id, profile_id)
+            scope_owner(supabase.table(table).select(f"status, {token_field}{expiry_cols}"), user_id, profile_id)
             .maybe_single().execute()
         )
         result[network] = _status_only(
-            row.data if row else None, checks_by_network.get(network), token_field=token_field
+            row.data if row else None, checks_by_network.get(network),
+            token_field=token_field, network=network,
         )
 
     if not is_admin:
@@ -309,6 +402,18 @@ async def delete_threads_credential(user_id: int = Depends(get_current_user_id),
     return {"connected": False}
 
 
+def _require_oauth_config(label: str, *values) -> None:
+    """503 claro quando falta env var do app único (ID/segredo/callback), em
+    vez de montar URL de autorização com "None" que a rede rejeita com erro
+    genérico. Só testa presença — nunca lê nem loga os valores."""
+    if not all(values):
+        logger.error("OAuth %s sem configuração do servidor completa (variável de ambiente ausente)", label)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Conexão com {label} indisponível: configuração do servidor incompleta",
+        )
+
+
 @router.get("/threads/authorize")
 async def threads_authorize(
     response: Response,
@@ -317,6 +422,8 @@ async def threads_authorize(
     """URL de autorização do OAuth do Threads (Meta) — o frontend redireciona
     o usuário pra cá. Gera `state` + cookie httponly assinado (CSRF
     binding do account-linking, 10 min) pro /callback validar."""
+    _require_oauth_config("Threads", threads_oauth.APP_ID, threads_oauth.SECRET, threads_oauth.CALLBACK_URL)
+
     state, cookie_value = _sign_oauth_state(user_id)
 
     response.set_cookie(
@@ -397,6 +504,11 @@ async def instagram_authorize(
 
     Gera `state` + cookie httponly assinado (CSRF binding do
     account-linking, 10 min) pro /callback validar."""
+    _require_oauth_config(
+        "Instagram", instagram_oauth.APP_ID, instagram_oauth.SECRET,
+        instagram_oauth.CALLBACK_URL, instagram_oauth.CONFIG_ID,
+    )
+
     state, cookie_value = _sign_oauth_state(user_id)
 
     response.set_cookie(
@@ -490,6 +602,11 @@ async def facebook_authorize(
 
     Gera `state` + cookie httponly assinado (CSRF binding do
     account-linking, 10 min) pro /callback validar."""
+    _require_oauth_config(
+        "Facebook", instagram_oauth.APP_ID, instagram_oauth.SECRET,
+        facebook_oauth.CALLBACK_URL, facebook_oauth.CONFIG_ID,
+    )
+
     state, cookie_value = _sign_oauth_state(user_id)
 
     response.set_cookie(
@@ -607,7 +724,16 @@ async def tiktok_authorize(
 
     Gera `state` + cookie httponly assinado (CSRF binding do
     account-linking, 10 min) pro /callback validar.
+
+    Sem gate de papel: usuário comum e admin conectam cada um a PRÓPRIA
+    conta (state amarrado ao user_id da sessão).
     """
+    if not tiktok_oauth.CLIENT_KEY or not tiktok_oauth.CALLBACK_URL:
+        # Sem isso a URL saía com client_key=None / redirect_uri vazio e o
+        # TikTok devolvia erro genérico na tela dele.
+        logger.error("TikTok OAuth sem TIKTOK_CLIENT_KEY/TIKTOK_CALLBACK_URL configurados")
+        raise HTTPException(status_code=503, detail="Conexão com TikTok indisponível no momento.")
+
     state, cookie_value = _sign_oauth_state(user_id)
 
     response.set_cookie(
@@ -718,6 +844,8 @@ async def x_authorize(
     exige guardar o code_verifier gerado aqui até o /callback: vai num
     cookie httponly assinado (10 min).
     """
+    _require_oauth_config("X", x_oauth.CLIENT_ID, x_oauth.CLIENT_SECRET, x_oauth.CALLBACK_URL)
+
     code_verifier, code_challenge = x_oauth.generate_pkce_pair()
     state, cookie_value = _sign_oauth_state(user_id, {"code_verifier": code_verifier})
 
@@ -817,9 +945,11 @@ def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
     qualquer usuário."""
     result = (
         supabase.table("users").select("access").eq("id", user_id)
-        .single().execute()
+        .maybe_single().execute()
     )
-    if not result.data or result.data.get("access") != "ADMIN":
+    # maybe_single: linha inexistente vira 403, não 500 (.single() levanta
+    # APIError quando não acha a linha do usuário).
+    if not result or not result.data or result.data.get("access") != "ADMIN":
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     return user_id
 
@@ -890,6 +1020,172 @@ async def save_instagram_credential_manual(
     return {"connected": True}
 
 
+# ── Chave de IA por usuário/perfil (Gemini/OpenAI/Anthropic) ──────────────────
+# Sem chave global do servidor: cada usuário (admin ou comum) cadastra a
+# própria; "Gerar texto com IA" (api/routers/posts.py) usa resolve_ai_key.
+# O resultado do "Testar conexão" vai pra credential_checks com network
+# "ai_<provedor>", mesma luz/estado das outras redes (_connection_state).
+
+AI_TABLE = "ai_credentials"
+_AI_KEY_MAX_LEN = 500
+
+
+class AiCredentialBody(BaseModel):
+    api_key: str
+    model: str | None = None
+
+
+def _ai_provider(provider: str) -> str:
+    if provider not in ai_llm.PROVIDERS:
+        raise HTTPException(status_code=404, detail=f"Provedor de IA '{provider}' não suportado")
+    return provider
+
+
+def _ai_rows(user_id, profile_id: str | None) -> list[dict]:
+    return scope_owner(
+        supabase.table(AI_TABLE).select("provider, secret, model, status, updated_at"), user_id, profile_id,
+    ).execute().data or []
+
+
+def resolve_ai_key(user_id, profile_id: str | None, provider: str | None = None) -> tuple[str, str, str | None]:
+    """(provedor, chave decifrada, modelo) do usuário/perfil. Com `provider`,
+    usa só aquele; sem, o único salvo ou o salvo mais recentemente. Nunca cai
+    pra chave global: sem chave -> 400 acionável."""
+    rows = [r for r in _ai_rows(user_id, profile_id) if r.get("status") and r.get("secret")]
+    if provider:
+        rows = [r for r in rows if r.get("provider") == _ai_provider(provider)]
+    if not rows:
+        raise HTTPException(
+            status_code=400,
+            detail="Nenhuma chave de IA cadastrada. Cadastre sua chave em Credenciais → Inteligência Artificial.",
+        )
+    row = max(rows, key=lambda r: str(r.get("updated_at") or ""))
+    return row["provider"], decrypt(row["secret"]), row.get("model")
+
+
+def _save_check(user_id, profile_id: str | None, network: str, state: str, message: str) -> str:
+    checked_at = datetime.now(timezone.utc).isoformat()
+    check_data = {"state": state, "message": message, "checked_at": checked_at}
+    existing = (
+        scope_owner(supabase.table("credential_checks").select("id"), user_id, profile_id)
+        .eq("network", network).maybe_single().execute()
+    )
+    if existing and existing.data:
+        supabase.table("credential_checks").update(check_data).eq("id", existing.data["id"]).execute()
+    else:
+        supabase.table("credential_checks").insert({
+            **check_data, "user_id": user_id, "network": network,
+            **({"profile_id": profile_id} if profile_id else {}),
+        }).execute()
+    return checked_at
+
+
+@router.get("/ai")
+async def list_ai_credentials(
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Status por provedor (sem a chave) + qual seria usado no "Gerar texto"."""
+    rows = {r["provider"]: r for r in _ai_rows(user_id, profile_id)}
+    checks = scope_owner(
+        supabase.table("credential_checks").select("network, state, message, checked_at"), user_id, profile_id,
+    ).execute().data or []
+    checks_by_network = {c["network"]: c for c in checks}
+    providers = {}
+    for provider in ai_llm.PROVIDERS:
+        row = rows.get(provider)
+        status = _status_only(
+            {"status": bool(row and row.get("status") and row.get("secret"))},
+            checks_by_network.get(f"ai_{provider}"),
+        )
+        status["model"] = row.get("model") if row else None
+        status["default_model"] = ai_llm.DEFAULT_MODELS[provider]
+        providers[provider] = status
+    connected = [rows[p] for p in rows if providers.get(p, {}).get("connected")]
+    active = max(connected, key=lambda r: str(r.get("updated_at") or ""))["provider"] if connected else None
+    return {"providers": providers, "active": active}
+
+
+@router.put("/ai/{provider}")
+async def save_ai_credential(
+    provider: str,
+    body: AiCredentialBody,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Salva (cifrada) a chave do provedor e dispara o teste automático em
+    segundo plano (estado "testing" -> resultado). Nunca devolve nem loga a chave."""
+    provider = _ai_provider(provider)
+    api_key = body.api_key.strip()
+    if not api_key or len(api_key) > _AI_KEY_MAX_LEN:
+        raise HTTPException(status_code=400, detail="Informe uma chave de API válida.")
+    model = (body.model or "").strip() or None
+    if model and not ai_llm.valid_model(model):
+        raise HTTPException(status_code=400, detail="Nome de modelo inválido.")
+
+    data = {
+        "secret": encrypt(api_key), "model": model, "status": True,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    existing = scope_owner(
+        supabase.table(AI_TABLE).select("id"), user_id, profile_id,
+    ).eq("provider", provider).execute().data or []
+    if existing:
+        result = supabase.table(AI_TABLE).update(data).eq("id", existing[0]["id"]).execute()
+    else:
+        row = {**data, "user_id": user_id, "provider": provider}
+        if profile_id:
+            row["profile_id"] = profile_id
+        result = supabase.table(AI_TABLE).insert(row).execute()
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Falha ao salvar a chave de IA")
+    _start_autotest(f"ai_{provider}", user_id, profile_id)
+    log_action("ai_credential_saved", provider, user_id=user_id, profile_id=profile_id)
+    return {"connected": True}
+
+
+@router.delete("/ai/{provider}")
+async def delete_ai_credential(
+    provider: str,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Desconecta (apaga a chave cifrada, mantém a linha)."""
+    provider = _ai_provider(provider)
+    result = scope_owner(
+        supabase.table(AI_TABLE).update({"secret": None, "status": False}), user_id, profile_id,
+    ).eq("provider", provider).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Chave de IA não encontrada")
+    scope_owner(supabase.table("credential_checks").delete(), user_id, profile_id).eq(
+        "network", f"ai_{provider}").execute()
+    log_action("ai_credential_deleted", provider, user_id=user_id, profile_id=profile_id)
+    return {"connected": False}
+
+
+@router.post("/ai/{provider}/test")
+async def test_ai_credential(
+    provider: str,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Chamada mínima ao provedor com a chave do próprio usuário/perfil."""
+    provider = _ai_provider(provider)
+    _check_test_rate_limit(user_id)
+    _, api_key, model = resolve_ai_key(user_id, profile_id, provider)
+    try:
+        await run_in_threadpool(ai_llm.check_key, provider, api_key, model)
+        state, message = "ok", "Chave funcionando"
+    except ai_llm.LLMError as e:
+        state, message = "error", str(e)
+    checked_at = _save_check(user_id, profile_id, f"ai_{provider}", state, message)
+    light, conn_state, status_text = _connection_state(True, {"state": state, "message": message})
+    return {
+        "light": light, "state": conn_state, "status_text": status_text,
+        "message": message, "checked_at": checked_at,
+    }
+
+
 _TEST_NETWORKS = {**SIMPLE_NETWORKS, **{n: t for n, (t, _) in OAUTH_NETWORKS.items()}}
 
 # App único da plataforma pra cada rede OAuth — app_id/secret vêm de env
@@ -901,6 +1197,36 @@ _OAUTH_GLOBAL_APP = {
     "tiktok": (tiktok_oauth.CLIENT_KEY, tiktok_oauth.CLIENT_SECRET),
     "instagram": (instagram_oauth.APP_ID, instagram_oauth.SECRET),
 }
+
+
+# Colunas extras lidas pro teste: coluna -> (chave no payload, cifrada?).
+# O refresh token deixa o teste renovar um access token expirado (X ~2h,
+# TikTok ~24h); ig_user_id é a conta Instagram Business já resolvida no OAuth.
+_TEST_EXTRA_COLUMNS = {
+    "x": {"user_refresh_token": ("refresh_token", True)},
+    "tiktok": {"refresh_token": ("refresh_token", True)},
+    "instagram": {"ig_user_id": ("ig_user_id", False)},
+}
+
+
+def _persist_refreshed_tokens(network: str, user_id, profile_id: str | None, tokens: dict | None) -> None:
+    """Grava os tokens que o teste renovou. Refresh token rotaciona (X): se
+    não persistir, o próximo uso falha mesmo com o teste "verde"."""
+    if not tokens or not tokens.get("access_token"):
+        return
+    data = {"user_access_token": encrypt(tokens["access_token"])}
+    refresh_column = "user_refresh_token" if network == "x" else "refresh_token"
+    if tokens.get("refresh_token"):
+        data[refresh_column] = encrypt(tokens["refresh_token"])
+    if network == "x" and tokens.get("expires_in"):
+        data["token_expires_at"] = (
+            datetime.now(timezone.utc) + timedelta(seconds=int(tokens["expires_in"]))
+        ).isoformat()
+    table = _TEST_NETWORKS[network]
+    try:
+        scope_owner(supabase.table(table).update(data), user_id, profile_id).execute()
+    except Exception as e:
+        logger.warning("teste %s: não gravou tokens renovados: %s", network, type(e).__name__)
 
 
 def _test_payload(network: str, user_id: int, profile_id: str | None = None) -> dict | None:
@@ -942,13 +1268,18 @@ def _test_payload(network: str, user_id: int, profile_id: str | None = None) -> 
             # ausente) — nada a testar, mesmo efeito de "credencial não
             # salva" pro usuário (luz fica vermelha).
             return None
+        extra = _TEST_EXTRA_COLUMNS.get(network, {})
+        columns = ", ".join(["user_access_token", *extra])
         row = (
-            scope_owner(supabase.table(table).select("user_access_token"), user_id, profile_id).maybe_single().execute()
+            scope_owner(supabase.table(table).select(columns), user_id, profile_id).maybe_single().execute()
         )
-        token = row.data.get("user_access_token") if row and row.data else None
+        data = row.data if row and row.data else {}
         payload: dict = {"app_id": app_id, "secret": secret}
-        if token:
-            payload["user_access_token"] = decrypt(token)
+        if data.get("user_access_token"):
+            payload["user_access_token"] = decrypt(data["user_access_token"])
+        for column, (key, encrypted) in extra.items():
+            if data.get(column):
+                payload[key] = decrypt(data[column]) if encrypted else data[column]
         return payload
 
     row = (
@@ -961,13 +1292,116 @@ def _test_payload(network: str, user_id: int, profile_id: str | None = None) -> 
     return {"app_id": data["app_id"], "secret": decrypt(data["secret"])}
 
 
+# ── Teste automático pós-salvar/reconectar ───────────────────────────────────
+# Salvar grava credential_checks.state="testing" (síncrono, então o GET
+# seguinte já mostra "Testando…") e um worker faz o teste real (mesma chamada
+# do botão "Testar conexão"). Não passa pelo rate limit manual: vários saves
+# seguidos precisam testar todos. Qualquer falha vira state="error".
+_AUTOTEST_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="cred-autotest")
+
+
+def _autotest_submit(fn, *args) -> None:
+    _AUTOTEST_EXECUTOR.submit(fn, *args)
+
+
+def _call_with_timeout(fn, *args):
+    """Roda `fn` num thread descartável e desiste após AUTOTEST_TIMEOUT_SECONDS
+    (o thread órfão termina sozinho pelo timeout HTTP do provedor)."""
+    pool = ThreadPoolExecutor(max_workers=1)
+    try:
+        return pool.submit(fn, *args).result(timeout=AUTOTEST_TIMEOUT_SECONDS)
+    finally:
+        pool.shutdown(wait=False)
+
+
+def _autotest_outcome(network: str, user_id, profile_id: str | None) -> tuple[str, str]:
+    if network.startswith("ai_"):
+        _, api_key, model = resolve_ai_key(user_id, profile_id, network[3:])
+        try:
+            _call_with_timeout(ai_llm.check_key, network[3:], api_key, model)
+        except ai_llm.LLMError as e:
+            return "error", str(e)
+        return "ok", "Chave funcionando"
+    payload = _test_payload(network, user_id, profile_id)
+    if payload is None:
+        return "error", "Credencial incompleta — nada para testar"
+    result = _call_with_timeout(
+        lambda: asyncio.run(validate_network_credential(network, payload)),
+    )
+    _persist_refreshed_tokens(network, user_id, profile_id, result.get("refreshed_tokens"))
+    return result.get("state") or "error", result.get("message") or ""
+
+
+def _run_autotest(network: str, user_id, profile_id: str | None, started_at: str) -> None:
+    try:
+        state, message = _autotest_outcome(network, user_id, profile_id)
+    except FutureTimeout:
+        state, message = "error", "O teste excedeu o tempo limite"
+    except HTTPException as e:
+        state, message = "error", str(e.detail)
+    except InternalApiError:
+        state, message = "error", "Não foi possível testar a conexão agora"
+    except Exception as e:  # nunca deixar o selo preso em "Testando…"
+        logger.warning("autotest %s falhou: %s", network, type(e).__name__)
+        state, message = "error", "Falha inesperada ao testar"
+    try:
+        _finish_check(user_id, profile_id, network, started_at, state, message)
+    except Exception as e:
+        logger.warning("autotest %s: não gravou resultado: %s", network, type(e).__name__)
+
+
+def _finish_check(user_id, profile_id: str | None, network: str, started_at: str, state: str, message: str) -> None:
+    """Grava o resultado só se a linha ainda é o MESMO "testing" que este
+    worker iniciou (credencial regravada/desconectada/testada à mão no meio
+    do caminho = resultado velho, descartado)."""
+    row = (
+        scope_owner(supabase.table("credential_checks").select("id, state, checked_at"), user_id, profile_id)
+        .eq("network", network).maybe_single().execute()
+    )
+    current = row.data if row else None
+    if not current or current.get("state") != "testing":
+        return
+    if _parse_ts(current.get("checked_at")) != _parse_ts(started_at):
+        return
+    supabase.table("credential_checks").update({
+        "state": state, "message": message, "checked_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", current["id"]).execute()
+
+
+def _start_autotest(network: str, user_id, profile_id: str | None) -> None:
+    """Best-effort: o save já foi feito, então falha aqui não derruba a
+    resposta — o selo cai em "nunca testada" e o botão manual continua."""
+    try:
+        started_at = _save_check(user_id, profile_id, network, "testing", "")
+        _autotest_submit(_run_autotest, network, user_id, profile_id, started_at)
+    except Exception as e:
+        logger.warning("autotest %s: não iniciou: %s", network, type(e).__name__)
+
+
+# ponytail: rate limit em memória de processo (mesmo padrão de
+# catalog.py/auth.py) — 1 worker hoje; Redis se virar multi-instância.
+_TEST_RATE_LIMIT_ATTEMPTS = 6
+_TEST_RATE_LIMIT_WINDOW_SECONDS = 60
+_test_attempts: dict = {}
+
+
+def _check_test_rate_limit(user_id) -> None:
+    now = time.monotonic()
+    attempts = [t for t in _test_attempts.get(user_id, []) if now - t < _TEST_RATE_LIMIT_WINDOW_SECONDS]
+    if len(attempts) >= _TEST_RATE_LIMIT_ATTEMPTS:
+        _test_attempts[user_id] = attempts
+        raise HTTPException(status_code=429, detail="Muitos testes em pouco tempo. Aguarde um minuto.")
+    _test_attempts[user_id] = attempts + [now]
+
+
 @router.post("/{network}/test")
-async def test_credential(network: str, user_id: int = Depends(_require_admin), profile_id: str | None = Depends(get_current_profile_id)):
+async def test_credential(network: str, user_id: int = Depends(get_current_user_id), profile_id: str | None = Depends(get_current_profile_id)):
     """"Testar conexão" — chama a API real da rede (via bridge interno) e
     grava o resultado em credential_checks, que é o que alimenta a luz do
-    sinalizador pra todo mundo (GET /credentials). Admin-only: só quem
-    pode clicar o botão decide quando gastar uma chamada real contra a
-    API de cada rede."""
+    sinalizador (GET /credentials). Qualquer usuário testa a PRÓPRIA
+    credencial (escopo user_id/perfil em _test_payload — nunca a de outro),
+    com rate limit pra não gastar chamada real à toa."""
+    _check_test_rate_limit(user_id)
     payload = _test_payload(network, user_id, profile_id)
     if payload is None:
         raise HTTPException(status_code=400, detail="Nenhuma credencial salva para esta rede.")
@@ -980,23 +1414,16 @@ async def test_credential(network: str, user_id: int = Depends(_require_admin), 
             detail="Não foi possível testar a conexão agora. Tente novamente.",
         )
 
+    _persist_refreshed_tokens(network, user_id, profile_id, result.get("refreshed_tokens"))
     state = result.get("state") or "error"
     message = result.get("message") or ""
-    checked_at = datetime.now(timezone.utc).isoformat()
-    check_data = {"state": state, "message": message, "checked_at": checked_at}
+    checked_at = _save_check(user_id, profile_id, network, state, message)
 
-    existing = (
-        scope_owner(supabase.table("credential_checks").select("id"), user_id, profile_id).eq("network", network).maybe_single().execute()
-    )
-    if existing and existing.data:
-        supabase.table("credential_checks").update(check_data).eq("id", existing.data["id"]).execute()
-    else:
-        supabase.table("credential_checks").insert({
-            **check_data, "user_id": user_id, "network": network,
-            **({"profile_id": profile_id} if profile_id else {}),
-        }).execute()
-
-    return {"light": "green" if state == "ok" else "yellow", "message": message, "checked_at": checked_at}
+    light, conn_state, status_text = _connection_state(True, {"state": state, "message": message})
+    return {
+        "light": light, "state": conn_state, "status_text": status_text,
+        "message": status_text if conn_state != "ok" else message, "checked_at": checked_at,
+    }
 
 
 @router.put("/{network}")

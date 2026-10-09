@@ -13,6 +13,7 @@ credencial+GraphQL da Shopee não tem nada a ver com o CRUD Supabase de
 products.py, e manter os dois num arquivo só passaria de 250 linhas.
 """
 
+import logging
 import time
 
 from cryptography.fernet import InvalidToken
@@ -26,12 +27,14 @@ from ..database import supabase
 from ..profiles import scope_owner
 
 router = APIRouter(prefix="/products", tags=["catalog"])
+logger = logging.getLogger(__name__)
 
-# Limite alto o bastante pra paginação client-side (o frontend pagina em
-# blocos de até 50), mas capado pra não abusar da API da Shopee — ela não
-# tem paginação nativa (só `limit`), então cada busca é uma chamada só.
-DEFAULT_SEARCH_LIMIT = 150
+# O frontend pagina client-side em blocos de 50 e pede até 150 de uma vez;
+# cada chamada à Shopee vai com no máximo SHOPEE_PAGE_LIMIT (50) itens —
+# pedidos maiores viram páginas sequenciais (ver shopee_catalog.search_products).
+DEFAULT_SEARCH_LIMIT = shopee_catalog.SHOPEE_PAGE_LIMIT
 MAX_SEARCH_LIMIT = 200
+_INT32_MAX = 2**31 - 1
 
 # Tamanho máximo do termo de busca livre — sem isso, uma string arbitrária
 # entra tanto na query GraphQL quanto no cálculo da assinatura sem limite
@@ -94,27 +97,69 @@ def _get_shopee_credential(user_id: int, profile_id: str | None = None) -> tuple
     return app_id, secret
 
 
+def _to_float(value) -> float | None:
+    try:
+        return float(value) if value not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _commission_percent(node: dict) -> float | None:
+    """Taxa de comissão em % (semântica de `products.commission`).
+
+    Doc da Affiliate API (productOfferV2): `commissionRate` = taxa ("0.06" =
+    6%) e `commission` = VALOR em moeda local (= preço × commissionRate).
+    Sem `commissionRate` (fallback de schema), estima pela razão
+    valor/preço máximo."""
+    rate = _to_float(node.get("commissionRate"))
+    if rate is not None:
+        return round(rate * 100, 2)
+    amount = _to_float(node.get("commission"))
+    price = _to_float(node.get("priceMax")) or _to_float(node.get("priceMin"))
+    if amount is None or not price:
+        return None
+    return round(amount / price * 100, 2)
+
+
 def _map_catalog_node(node: dict) -> dict:
     """Mapeia o retorno cru do GraphQL da Shopee pros campos que o frontend
     espera — quase 1:1 com o schema de `products` (ver
-    database/migrations/002_create_products_table.sql), mais os campos
-    best-effort (sales/rating_star/shop_name/commission_rate), que ficam
-    None quando a Shopee não devolveu (fallback de schema, ver
-    shopee_catalog.py)."""
+    database/migrations/002_create_products_table.sql). `commission` sai
+    como TAXA em % e `commission_amount` como R$ por venda (só exibição).
+    Campos best-effort (sales/rating_star/shop_name) ficam None quando a
+    Shopee não devolveu (fallback de schema, ver shopee_catalog.py)."""
+    amount = _to_float(node.get("commission"))
+    item_id = node.get("itemId")
     return {
-        "product_id": node.get("itemId"),
+        "product_id": str(item_id) if item_id is not None else None,
         "name": node.get("productName"),
         "original_link": node.get("productLink"),
         "commission_link": node.get("offerLink"),
-        "commission": node.get("commission"),
+        "commission": _commission_percent(node),
+        "commission_amount": round(amount, 2) if amount is not None else None,
         "image": node.get("imageUrl"),
         "price_min": node.get("priceMin"),
         "price_max": node.get("priceMax"),
         "sales": node.get("sales"),
         "rating_star": node.get("ratingStar"),
         "shop_name": node.get("shopName"),
-        "commission_rate": node.get("commissionRate"),
     }
+
+
+def _error_status(exc: Exception) -> int:
+    return 422 if isinstance(exc, shopee_catalog.ShopeeAuthError) else 502
+
+
+def _error_detail(exc: Exception) -> str:
+    """Mensagem específica por causa, sem detalhe interno/segredo."""
+    if isinstance(exc, shopee_catalog.ShopeeAuthError):
+        return ("Credencial da Shopee inválida, expirada ou sem acesso à API de afiliados. "
+                "Reconecte em Credenciais.")
+    if isinstance(exc, shopee_catalog.ShopeeRateLimitError):
+        return "A Shopee limitou as buscas por alguns instantes. Aguarde um minuto e tente de novo."
+    if exc.errors:
+        return "A Shopee recusou a busca com esses filtros. Tente outra categoria/ordenação ou outro termo."
+    return "A Shopee está indisponível no momento. Tente novamente em alguns minutos."
 
 
 @router.get("/catalog-search")
@@ -124,11 +169,14 @@ async def catalog_search(
     keyword: str | None = Query(
         None, description="Termo de busca livre", max_length=MAX_KEYWORD_LENGTH,
     ),
-    product_cat_id: int | None = Query(None, description="ID de categoria da Shopee"),
+    product_cat_id: int | None = Query(
+        None, ge=1, le=_INT32_MAX, description="ID de categoria da Shopee (Int32)",
+    ),
     sort_type: int = Query(
         1, description="1=Relevância, 2=Mais vendidos, 3=Preço desc, 4=Preço asc, 5=Comissão",
     ),
     limit: int = Query(DEFAULT_SEARCH_LIMIT, ge=1, le=MAX_SEARCH_LIMIT),
+    page: int = Query(1, ge=1, le=100, description="Página da Shopee (tamanho = min(limit, 50))"),
 ):
     """Busca produtos no catálogo real da Shopee usando a credencial de
     afiliado do próprio usuário. Não persiste nada — o frontend decide o
@@ -157,17 +205,17 @@ async def catalog_search(
             product_cat_id=product_cat_id,
             sort_type=sort_type,
             limit=limit,
+            page=page,
         )
-    except shopee_catalog.ShopeeAuthError:
-        raise HTTPException(
-            status_code=422,
-            detail="Credencial da Shopee inválida ou sem permissão para buscar produtos.",
+    except shopee_catalog.ShopeeCatalogError as exc:
+        # Loga o motivo real (só message/code dos erros GraphQL, sem
+        # credencial) — antes o 502 escondia a causa (Int64 x Int32).
+        logger.warning(
+            "catalog-search falhou (%s): %s errors=%s",
+            type(exc).__name__, str(exc)[:200] if not exc.errors else "-",
+            shopee_catalog.summarize_errors(exc.errors),
         )
-    except shopee_catalog.ShopeeCatalogError:
-        raise HTTPException(
-            status_code=502,
-            detail="Não foi possível buscar produtos na Shopee agora. Tente novamente.",
-        )
+        raise HTTPException(status_code=_error_status(exc), detail=_error_detail(exc))
 
     return {"data": [_map_catalog_node(node) for node in nodes]}
 

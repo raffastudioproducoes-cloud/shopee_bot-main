@@ -3,7 +3,13 @@ Settings para a API Python do Shopee Auto Vendas.
 Carrega variáveis de ambiente via pydantic-settings.
 """
 
+import os
+
+from cryptography.fernet import Fernet
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# HS256 com segredo curto/vazio deixa qualquer um forjar o JWT de sessão.
+MIN_API_SECRET_KEY_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -20,4 +26,23 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
 
+def validate_secrets(cfg) -> None:
+    """Aborta o startup se faltar segredo obrigatório. Mensagens nunca
+    incluem o valor (vão parar no log do Render)."""
+    if len(cfg.api_secret_key or "") < MIN_API_SECRET_KEY_LENGTH:
+        raise RuntimeError(
+            f"API_SECRET_KEY ausente ou curta (mínimo {MIN_API_SECRET_KEY_LENGTH} "
+            "caracteres). Defina a variável de ambiente antes de subir a API."
+        )
+    # Mesma leitura de api/crypto.py (os.environ, não o .env do pydantic).
+    try:
+        Fernet(os.environ.get("APP_ENCRYPTION_KEY", "").encode("ascii"))
+    except ValueError:  # inclui binascii.Error e UnicodeEncodeError
+        raise RuntimeError(
+            "APP_ENCRYPTION_KEY ausente ou inválida (precisa ser uma chave "
+            "Fernet: 32 bytes em base64 url-safe). Defina a variável de ambiente."
+        ) from None
+
+
 settings = Settings()
+validate_secrets(settings)

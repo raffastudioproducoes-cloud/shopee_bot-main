@@ -29,7 +29,6 @@ As seguintes variáveis de ambiente são necessárias:
 - `SUPABASE_KEY` — API key (service role ou anon).
 - `FLASK_SESSION_SECRET` — chave secreta da sessão Flask.
 - `APP_ENCRYPTION_KEY` — chave de criptografia da aplicação.
-- `GEMINI_API_KEY` — chave da API Gemini.
 
 ## Regras de uso
 

@@ -30,19 +30,23 @@ sem API pública confirmada).
 """
 
 import logging
-import os
+import uuid
 from pathlib import Path
 from typing import Literal
 
 import fleep
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, model_validator, field_validator
 
-from .auth import get_current_user_id
+from .auth import _check_login_rate_limit, get_current_user_id
 from .profiles import get_current_profile_id
 from ..profiles import scope_owner
 from ..audit_log import log_action
 from ..database import supabase
+from ..utils.log_sanitizer import sanitize_log_data
+from ..network_limits import validate_post, errors_detail
+from ..text_variants import generate_variants
 from ..internal_client import (
     create_scheduler_job,
     remove_scheduler_job,
@@ -68,20 +72,34 @@ NETWORK_FUNC_MAP = {
 NetworkLiteral = Literal[tuple(NETWORK_FUNC_MAP.keys())]
 
 MEDIA_ROOT = Path("web/media")
-ALLOWED_MEDIA_EXTS = {".webp", ".jpg", ".jpeg", ".png", ".gif", ".mp4"}
 MAX_MEDIA_BYTES = 50 * 1024 * 1024  # 50MB, mesmo teto do Flask (FLASK_MAX_CONTENT_LENGTH)
 
-# Segunda camada de defesa (além da extensão): MIME real detectado por magic
-# bytes via fleep, restrito aos tipos que ALLOWED_MEDIA_EXTS já cobre
-# (imagem/vídeo). webp e gif reportam variações de MIME dependendo da versão
-# do fleep/libmagic, por isso a lista cobre os aliases conhecidos.
+# MIME real detectado por magic bytes (fleep) -> extensão gravada em disco.
+# O nome do arquivo é gerado no servidor (uuid + esta extensão), NUNCA vem de
+# `file.filename` (path traversal: "../../x.png", absoluto, "..\\x.png").
+# Mesmo padrão do avatar em api/routers/profiles.py.
 ALLOWED_MEDIA_MIMES = {
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "video/mp4",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "video/mp4": ".mp4",
 }
+
+
+def _remove_media_file(file_path: str) -> None:
+    """Apaga um arquivo de mídia só se ele estiver dentro de MEDIA_ROOT —
+    `file_path` vem do banco e pode ter sido gravado por versões antigas
+    sem sanitização (ex.: "web/media/1/../../../x")."""
+    resolved = Path(file_path).resolve()
+    if not resolved.is_relative_to(MEDIA_ROOT.resolve()):
+        logger.warning("Remoção de mídia fora de MEDIA_ROOT recusada: %s", file_path)
+        return
+    try:
+        resolved.unlink(missing_ok=True)  # já sumiu: não bloqueia a remoção do post
+    except OSError:
+        logger.warning("Falha ao remover arquivo de mídia %s", file_path, exc_info=True)
+
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 
@@ -109,6 +127,11 @@ class PostCreate(BaseModel):
     product_ids: list[int] = []
     schedule: PostSchedule
     network: NetworkLiteral = "threads"
+    # Publicação multi-rede: os posts das outras redes reaproveitam a mídia
+    # já enviada pro primeiro (mesma linha em `medias`, sem reenviar).
+    media_ids: list[int] = []
+    # Mesmo UUID em todos os posts de um envio multi-rede (selo "Grupo").
+    group_id: uuid.UUID | None = None
 
     @field_validator("texts")
     @classmethod
@@ -133,6 +156,11 @@ class PostUpdate(BaseModel):
 class GenerateCopyBody(BaseModel):
     product_id: int
     persona: str = "casual"
+    # Provedor de IA (gemini/openai/anthropic). Omitido: o único salvo ou o
+    # salvo mais recentemente pelo usuário/perfil (ver resolve_ai_key).
+    provider: str | None = None
+    # Redes marcadas: um texto por faixa de limite (api/text_variants.py).
+    networks: list[NetworkLiteral] = []
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
@@ -208,12 +236,84 @@ def _set_post_products(post_id: int, product_ids: list[int]) -> None:
         ]).execute()
 
 
+def _check_network_rules(
+    network: str, texts: list[str], medias: list[dict], product_count: int,
+    check_required_media: bool = False,
+) -> None:
+    """422 com o motivo por rede se o post não passa nas regras da rede
+    (api/network_limits.py, espelho do front)."""
+    detail = errors_detail(
+        validate_post(network, texts, medias, product_count, check_required_media)
+    )
+    if detail:
+        raise HTTPException(status_code=422, detail=detail)
+
+
+def _get_owned_medias(user_id: int, media_ids: list[int], profile_id: str | None) -> list[dict]:
+    """Mídias reaproveitadas na criação multi-rede: 400 se alguma não é do
+    usuário/perfil (IDOR)."""
+    if not media_ids:
+        return []
+    owned = (
+        scope_owner(supabase.table("medias").select("id, file_name, size, type"), user_id, profile_id)
+        .in_("id", list(set(media_ids)))
+        .execute()
+    )
+    by_id = {row["id"]: row for row in (owned.data or [])}
+    if set(media_ids) - set(by_id):
+        raise HTTPException(status_code=400, detail="Mídia inválida")
+    return [by_id[mid] for mid in media_ids]
+
+
+def _media_shared_elsewhere(media_id: int, post_id: int) -> bool:
+    """A mesma mídia pode estar ligada a vários posts (grupo multi-rede):
+    arquivo e linha em `medias` só somem quando ninguém mais usa."""
+    rows = (
+        supabase.table("posts_medias").select("post_id").eq("media_id", media_id).execute()
+    )
+    return any(r.get("post_id") != post_id for r in (rows.data or []))
+
+
 def _get_scheduler_job(post_id: int) -> dict | None:
     result = (
         supabase.table("schedulers").select("id")
         .eq("post_id", post_id).maybe_single().execute()
     )
     return result.data if result else None
+
+
+# activity_types (migração 005): 1=bot_post_success, 2=bot_post_failure —
+# gravados pelos bots do scheduler (Flask) e pelo listener de erro/missed.
+_PUBLISH_ACTIVITY_STATUS = {1: "published", 2: "failed"}
+
+
+def _get_last_publish_result(user_id: int, post_id: int) -> dict | None:
+    """Último resultado REAL da publicação do post (a execução acontece no
+    scheduler, depois do 200 de /publish). Best-effort: falha aqui não
+    derruba a listagem."""
+    try:
+        result = (
+            supabase.table("activities").select("activity_id, metadata, created_at")
+            .eq("user_id", user_id)
+            .in_("activity_id", list(_PUBLISH_ACTIVITY_STATUS))
+            .eq("metadata->>post_id", str(post_id))
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        logger.warning("Falha ao ler resultado de publicação do post %s", post_id, exc_info=True)
+        return None
+    rows = result.data if isinstance(getattr(result, "data", None), list) else []
+    if not rows:
+        return None
+    row = rows[0]
+    error = (row.get("metadata") or {}).get("error")
+    return {
+        "status": _PUBLISH_ACTIVITY_STATUS.get(row.get("activity_id")),
+        "at": row.get("created_at"),
+        "error": sanitize_log_data(str(error))[:200] if error else None,
+    }
 
 
 def _get_thread_chain(head_id: int) -> list[dict]:
@@ -243,7 +343,8 @@ def _get_post_by_id_only(post_id: int) -> dict:
 
 
 def _create_thread(
-    user_id: int, texts: list[str], network: str = "threads", profile_id: str | None = None
+    user_id: int, texts: list[str], network: str = "threads", profile_id: str | None = None,
+    group_id: str | None = None,
 ) -> dict:
     """Insere a thread inteira, encadeando post_id. Retorna a head.
 
@@ -258,6 +359,8 @@ def _create_thread(
             row_data["profile_id"] = profile_id
         if parent_id is None:
             row_data["network"] = network
+            if group_id:  # só quando veio: sem a coluna (migração 044) nada muda
+                row_data["group_id"] = group_id
         result = (
             supabase.table("posts")
             .insert(row_data)
@@ -286,11 +389,10 @@ def _delete_thread_cascade(head_id: int) -> None:
     )
     for item in media_rows.data or []:
         media = item.get("medias")
+        if media and _media_shared_elsewhere(media["id"], head_id):
+            continue  # outro post do grupo ainda usa: só o vínculo sai
         if media and media.get("file_path"):
-            try:
-                os.remove(media["file_path"])
-            except OSError:
-                pass  # arquivo já sumiu — não bloqueia a remoção do post
+            _remove_media_file(media["file_path"])
         if media:
             supabase.table("medias").delete().eq("id", media["id"]).execute()
 
@@ -310,8 +412,21 @@ async def generate_copy(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Gera texto de post via IA (Gemini) para um produto, por persona."""
-    from apis.llm import generate_product_copy
+    """Gera texto de post via IA para um produto, por persona, com a chave de
+    IA do PRÓPRIO usuário/perfil (Credenciais). Sem chave global: sem chave
+    cadastrada -> 400 pedindo pra cadastrar.
+
+    Com `networks`, devolve o conjunto mínimo de textos (`variants`, um por
+    faixa de limite) numa só chamada; `text` = variante principal (a mais
+    longa), compatível com o front antigo."""
+    from apis import llm
+    from .credentials import resolve_ai_key
+
+    # Cada chamada custa uma requisição paga de LLM: limite por usuário.
+    _check_login_rate_limit(
+        f"generate-copy:{user_id}",
+        detail="Muitas gerações de texto em pouco tempo. Aguarde um minuto.",
+    )
 
     product_result = (
         scope_owner(
@@ -324,13 +439,21 @@ async def generate_copy(
     if not product_result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-    try:
-        text = generate_product_copy(product_result.data, body.persona)
-    except Exception:
-        logger.exception("Falha ao gerar texto do produto %s", body.product_id)
-        raise HTTPException(status_code=400, detail="Não foi possível gerar o texto agora.")
+    provider, api_key, model = resolve_ai_key(user_id, profile_id, body.provider)
 
-    return {"text": text}
+    def complete(prompt: str, max_tokens: int) -> str:
+        return llm.complete(provider, api_key, model, prompt, max_tokens)
+
+    try:
+        variants = await run_in_threadpool(
+            generate_variants, product_result.data, body.persona, body.networks, complete,
+        )
+    except llm.LLMError as e:
+        # mensagem do LLMError já é segura (sem chave nem corpo do provedor)
+        logger.warning("Falha ao gerar texto do produto %s (%s): %s", body.product_id, provider, e.kind)
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"text": variants[0]["text"], "variants": variants}
 
 
 @router.get("")
@@ -363,6 +486,7 @@ async def list_posts(
             "medias": _get_post_medias(item["id"]),
             "scheduled": job is not None,
             "parts_count": len(chain),
+            "last_result": _get_last_publish_result(user_id, item["id"]),
         })
 
     next_cursor = None
@@ -382,8 +506,18 @@ async def create_post(
     publicação. Se o agendamento falhar, desfaz a criação inteira —
     melhor não criar do que criar um post que nunca vai publicar."""
     _validate_product_ids(user_id, body.product_ids, profile_id)
-    head = _create_thread(user_id, body.texts, body.network, profile_id)
+    medias = _get_owned_medias(user_id, body.media_ids, profile_id)
+    _check_network_rules(body.network, body.texts, medias, len(body.product_ids))
+    head = _create_thread(
+        user_id, body.texts, body.network, profile_id,
+        str(body.group_id) if body.group_id else None,
+    )
     _set_post_products(head["id"], body.product_ids)
+    if medias:
+        supabase.table("posts_medias").insert([
+            {"post_id": head["id"], "media_id": m["id"], "display_order": i}
+            for i, m in enumerate(medias)
+        ]).execute()
 
     try:
         await create_scheduler_job(
@@ -408,7 +542,7 @@ async def create_post(
         **head,
         "texts": body.texts,
         "products": _get_post_products(head["id"]),
-        "medias": [],
+        "medias": medias,
         "scheduled": True,
     }
 
@@ -428,6 +562,7 @@ async def get_post(
         "products": _get_post_products(post_id),
         "medias": _get_post_medias(post_id),
         "scheduled": job is not None,
+        "last_result": _get_last_publish_result(user_id, post_id),
     }
 
 
@@ -441,8 +576,12 @@ async def update_post(
     """Atualiza a head (id fixo — mantém agendamento/produtos válidos)
     e substitui as partes seguintes (apaga e recria — simplificação:
     não tenta casar partes antigas com as novas por id)."""
-    _get_post(user_id, post_id, profile_id)  # ownership check
+    post = _get_post(user_id, post_id, profile_id)  # ownership check
     _validate_product_ids(user_id, body.product_ids, profile_id)
+    _check_network_rules(
+        post.get("network") or "threads", body.texts,
+        _get_post_medias(post_id), len(body.product_ids),
+    )
 
     chain = _get_thread_chain(post_id)
     for row in reversed(chain[1:]):
@@ -488,33 +627,37 @@ async def upload_media(
     """Anexa uma mídia à HEAD do post (não a partes de thread — ver
     docstring do módulo). Grava em disco no mesmo caminho relativo que
     o Flask usa (`web/media/<post_id>/`)."""
-    _get_post(user_id, post_id, profile_id)  # ownership check
-
-    filename = file.filename or ""
-    ext = Path(filename).suffix.lower()
-    if ext not in ALLOWED_MEDIA_EXTS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Formato de arquivo inválido: {filename}. Permitidos: {sorted(ALLOWED_MEDIA_EXTS)}",
-        )
+    post = _get_post(user_id, post_id, profile_id)  # ownership check
 
     content = await file.read()
     if len(content) > MAX_MEDIA_BYTES:
         raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
 
     detected = fleep.get(content[:128])
-    if not any(mime in ALLOWED_MEDIA_MIMES for mime in detected.mime):
+    mime = next((m for m in detected.mime if m in ALLOWED_MEDIA_MIMES), None)
+    if not mime:
         raise HTTPException(
             status_code=400,
             detail="Conteúdo do arquivo não corresponde a uma mídia permitida.",
         )
 
+    # regras da rede do post com o formato REAL (magic bytes), não o nome enviado
+    shown_name = f"{Path(file.filename or 'arquivo').stem}{ALLOWED_MEDIA_MIMES[mime]}"
+    _check_network_rules(
+        post.get("network") or "threads", [post.get("text") or ""],
+        [*_get_post_medias(post_id), {"file_name": shown_name, "size": len(content)}],
+        0,
+    )
+
     post_dir = MEDIA_ROOT / str(post_id)
     post_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}{ALLOWED_MEDIA_MIMES[mime]}"
     file_path = post_dir / filename
+    if not file_path.resolve().is_relative_to(post_dir.resolve()):  # defesa extra
+        raise HTTPException(status_code=400, detail="Nome de arquivo inválido.")
     file_path.write_bytes(content)
 
-    media_type = "VIDEO" if ext == ".mp4" else "IMAGE"
+    media_type = "VIDEO" if mime.startswith("video/") else "IMAGE"
     media_result = (
         supabase.table("medias")
         .insert({
@@ -562,14 +705,13 @@ async def delete_media(
         raise HTTPException(status_code=404, detail="Mídia não encontrada")
 
     supabase.table("posts_medias").delete().eq("post_id", post_id).eq("media_id", media_id).execute()
+    if _media_shared_elsewhere(media_id, post_id):
+        return {"msg": "Mídia removida"}
     supabase.table("medias").delete().eq("id", media_id).execute()
 
     file_path = media_result.data.get("file_path")
     if file_path:
-        try:
-            os.remove(file_path)
-        except OSError:
-            logger.warning("Falha ao remover arquivo de mídia %s", file_path, exc_info=True)
+        _remove_media_file(file_path)
 
     return {"msg": "Mídia removida"}
 
@@ -581,7 +723,13 @@ async def publish_post_now(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Força a publicação imediata de um post já agendado."""
-    _get_post(user_id, post_id, profile_id)  # ownership check
+    post = _get_post(user_id, post_id, profile_id)  # ownership check
+    _check_network_rules(
+        post.get("network") or "threads",
+        [row.get("text") or "" for row in _get_thread_chain(post_id)],
+        _get_post_medias(post_id), len(_get_post_products(post_id)),
+        check_required_media=True,
+    )
     job = _get_scheduler_job(post_id)
     if not job:
         raise HTTPException(status_code=409, detail="Post não tem agendamento — nada pra publicar")
@@ -592,7 +740,9 @@ async def publish_post_now(
         raise HTTPException(status_code=502, detail="Não foi possível publicar agora. Tente novamente.")
 
     log_action("post_published", f"post_id={post_id}", user_id=user_id, profile_id=profile_id)
-    return {"msg": "Publicação disparada"}
+    # 200 aqui = job disparado, não publicado: o resultado real chega em
+    # segundos em `last_result` (GET /posts) e em Atividade.
+    return {"msg": "Publicação iniciada. O resultado aparece no post em instantes."}
 
 
 @router.delete("/{post_id}")

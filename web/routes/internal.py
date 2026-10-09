@@ -17,6 +17,7 @@ Flask (alias de pacote via Docker ou conftest.py) — chamar por HTTP evita
 precisar replicar esse alias na API nova.
 """
 
+import hmac
 import os
 from datetime import datetime, time as dt_time
 from functools import wraps
@@ -47,7 +48,9 @@ def _require_internal_secret(fn):
     def wrapper(*args, **kwargs):
         secret = os.environ.get("INTERNAL_API_SECRET")
         given = request.headers.get("X-Internal-Secret")
-        if not secret or not given or given != secret:
+        if not secret or not given or not hmac.compare_digest(
+            given.encode("utf-8"), secret.encode("utf-8")
+        ):
             return jsonify({"error": "Não autorizado"}), 403
         return fn(*args, **kwargs)
     return wrapper
@@ -128,11 +131,20 @@ def validate_shopee():
 def validate_credential(network):
     body = request.get_json(force=True)
 
-    def ok(message):
-        return jsonify({"state": "ok", "message": message}), 200
+    # `refreshed_tokens`: tokens renovados durante o teste (X/TikTok rotacionam
+    # o refresh token) — a API nova persiste; nunca vão pro usuário.
+    def ok(message, refreshed=None):
+        return jsonify({"state": "ok", "message": message, "refreshed_tokens": refreshed}), 200
 
-    def error(message):
-        return jsonify({"state": "error", "message": str(message)[:300]}), 200
+    def error(message, refreshed=None):
+        message = str(message)
+        # exceções de rede (requests) citam a URL, que leva o token em query
+        for key in ("user_access_token", "refresh_token", "access_token", "page_access_token", "secret"):
+            if body.get(key):
+                message = message.replace(str(body[key]), "***")
+        return jsonify({
+            "state": "error", "message": message[:300], "refreshed_tokens": refreshed,
+        }), 200
 
     try:
         if network == "shopee":
@@ -140,13 +152,12 @@ def validate_credential(network):
             return ok("Credencial válida") if valid else error("Credencial inválida")
 
         if network == "x":
-            XAPI.validate_credentials(body["app_id"], body["secret"])
             if not body.get("user_access_token"):
-                return error(
-                    "App ID/Secret válidos, mas falta autorizar via OAuth "
-                    "(Conectar X) — sem isso não é possível publicar."
-                )
-            return ok("Conectado")
+                return error("Falta autorizar via OAuth (Conectar X) — sem isso não é possível publicar.")
+            _, refreshed = XAPI.validate_user_token(
+                body["app_id"], body["secret"], body["user_access_token"], body.get("refresh_token")
+            )
+            return ok("Conectado", refreshed)
 
         if network == "facebook":
             if not body.get("page_access_token"):
@@ -166,24 +177,18 @@ def validate_credential(network):
             return ok("Conectado")
 
         if network == "instagram":
-            InstagramAPI.validate_credentials(
-                body["app_id"], body["secret"], body.get("user_access_token")
-            )
             if not body.get("user_access_token"):
-                return error(
-                    "App ID/Secret válidos, mas falta autorizar via OAuth "
-                    "(Conectar Instagram) — sem isso não é possível publicar."
-                )
+                return error("Falta autorizar via OAuth (Conectar Instagram) — sem isso não é possível publicar.")
+            InstagramAPI.validate_user_token(body["user_access_token"], body.get("ig_user_id"))
             return ok("Conectado")
 
         if network == "tiktok":
             if not body.get("user_access_token"):
-                return error(
-                    "Client Key/Secret salvos, mas falta autorizar via OAuth "
-                    "(Conectar TikTok) — sem isso não é possível publicar."
-                )
-            TikTokAPI.get_user_info(body["user_access_token"])
-            return ok("Conectado")
+                return error("Falta autorizar via OAuth (Conectar TikTok) — sem isso não é possível publicar.")
+            _, refreshed = TikTokAPI.validate_user_token(
+                body["app_id"], body["secret"], body["user_access_token"], body.get("refresh_token")
+            )
+            return ok("Conectado", refreshed)
 
         if network == "kwai":
             return error(
@@ -192,4 +197,4 @@ def validate_credential(network):
 
         return jsonify({"error": f"Rede '{network}' não suportada"}), 400
     except Exception as e:
-        return error(e)
+        return error(e, getattr(e, "refreshed", None))

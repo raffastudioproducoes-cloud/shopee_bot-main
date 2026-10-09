@@ -1,0 +1,20 @@
+name: CD Staging — Deploy no Render
+
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Render Deploy (staging)
+        env:
+          RENDER_STAGING_DEPLOY_HOOK_URL: ${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_STAGING_DEPLOY_HOOK_URL" ]; then
+            echo "::warning::RENDER_STAGING_DEPLOY_HOOK_URL nao configurado. Ignoring deploy."
+            exit 0
+          fi
+          curl -s -X POST "$RENDER_STAGING_DEPLOY_HOOK_URL"

@@ -1,18 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import {
   credentialsApi,
+  aiCredentialsApi,
+  AI_PROVIDERS,
   CREDENTIAL_HELP_LINKS,
+  type AiProvider,
   type SimpleNetwork,
   type CredentialStatusWithLight,
 } from "../api/credentials"
-import { Panel, PanelHeader } from "../components/ui/Panel"
+import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
+import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { StatusBadge } from "../components/ui/StatusBadge"
 import { ConnectionLight } from "../components/ui/ConnectionLight"
+import { Icon } from "../components/ui/Icon"
+import { Select } from "../components/ui/Select"
 
 // X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
 // FacebookCredentialCard — mesmo padrão de TikTok/Instagram) porque usam
@@ -31,6 +37,104 @@ const FIELD_GRID = {
   gap: 12,
 } as const
 
+const CARD_GRID = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))",
+  gap: 16,
+  alignItems: "start",
+} as const
+
+// ── Card recolhivel: estado por card em localStorage; recolhido mostra so
+// titulo + status (o corpo e escondido por CSS, ver .cred-card em index.css). ──
+
+const COLLAPSE_KEY = "credentials-collapsed:"
+const CollapseCtx = createContext<{ collapsed: boolean; toggle: () => void }>({ collapsed: false, toggle: () => {} })
+
+function readCollapsed(id: string): boolean {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY + id) === "1"
+  } catch {
+    return false
+  }
+}
+
+function CredPanel({ id, children }: { id: string; children: ReactNode }) {
+  const [collapsed, setCollapsed] = useState(() => readCollapsed(id))
+  const toggle = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    try {
+      localStorage.setItem(COLLAPSE_KEY + id, next ? "1" : "0")
+    } catch {
+      // sem localStorage: so nao persiste
+    }
+  }
+  return (
+    <CollapseCtx.Provider value={{ collapsed, toggle }}>
+      <Panel surface="dark" className={collapsed ? "cred-card is-collapsed" : "cred-card"}>
+        {children}
+      </Panel>
+    </CollapseCtx.Provider>
+  )
+}
+
+function CredHeader({ title, trailing }: { title: ReactNode; trailing?: ReactNode }) {
+  const { collapsed, toggle } = useContext(CollapseCtx)
+  return (
+    <header style={{ display: "flex", flexDirection: "column", gap: 8, padding: "14px 16px 12px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
+        <span style={{ font: "var(--text-role-title)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {title}
+        </span>
+        <IconButton
+          icon={collapsed ? "chevron-down" : "chevron-up"}
+          label={collapsed ? "Expandir card" : "Recolher card"}
+          tone="plain"
+          size={30}
+          aria-expanded={!collapsed}
+          onClick={toggle}
+          style={{ flexShrink: 0 }}
+        />
+      </div>
+      {trailing}
+    </header>
+  )
+}
+
+const TESTING_POLL_MS = 1500
+
+function anyTesting(map?: Record<string, { state?: string }>): boolean {
+  return !!map && Object.values(map).some((s) => s?.state === "testing")
+}
+
+// Luz + selo + data do teste, iguais em todos os cards. Em "testing" a luz vira
+// um spinner e o selo anuncia "Testando…" (região viva, lida por leitor de tela).
+function ConnectionStatus({ status }: { status: CredentialStatusWithLight }) {
+  const testing = status.state === "testing"
+  return (
+    <>
+      {testing ? (
+        <Icon name="loader-2" size={14} className="animate-spin" style={{ color: "var(--amber-300)", flexShrink: 0 }} />
+      ) : (
+        <ConnectionLight state={status.light} title={status.check_message ?? undefined} />
+      )}
+      <span role="status" aria-live="polite" style={{ display: "inline-flex" }}>
+        <StatusBadge
+          tone={status.light === "green" ? "positive" : "neutral"}
+          icon={testing ? undefined : status.light === "green" ? "check-circle-2" : "x-circle"}
+        >
+          {status.status_text ?? (status.connected ? "Conectado" : "Desconectado")}
+        </StatusBadge>
+      </span>
+      {status.checked_at && !testing && (
+        <span style={{ font: "var(--text-role-body)", color: "var(--text-muted)" }}>
+          Testado em {new Date(status.checked_at).toLocaleString("pt-BR")}
+        </span>
+      )}
+    </>
+  )
+}
+
 const EMPTY_STATUS: CredentialStatusWithLight = {
   connected: false,
   light: "red",
@@ -47,6 +151,10 @@ export function CredentialsPage() {
   const { data: status, isLoading } = useQuery({
     queryKey: ["credentials"],
     queryFn: () => credentialsApi.list(),
+    // Salvar/reconectar dispara teste automático no backend: enquanto algum
+    // card estiver "testando", consulta de novo (o backend encerra o estado
+    // sozinho em até ~45 s, então o polling nunca fica infinito).
+    refetchInterval: (q) => (anyTesting(q.state.data) ? TESTING_POLL_MS : false),
   })
 
   useEffect(() => {
@@ -165,7 +273,9 @@ export function CredentialsPage() {
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Grade responsiva: cards lado a lado no desktop, 1 coluna no celular.
+          Um novo card (ex.: chave de IA) entra como mais um filho desta grade. */}
+      <div style={CARD_GRID}>
         {SIMPLE_NETWORKS.map((network) => (
           <SimpleCredentialCard
             key={network.key}
@@ -178,6 +288,8 @@ export function CredentialsPage() {
             setBanner={setBanner}
           />
         ))}
+
+        <AiCredentialCard onAuthError={onAuthError} setBanner={setBanner} />
 
         <ThreadsCredentialCard
           status={status?.threads ?? EMPTY_STATUS}
@@ -211,10 +323,8 @@ export function CredentialsPage() {
           setBanner={setBanner}
         />
 
-        {/* TikTok e Kwai por último, de propósito: ligação com o usuário
-            comum ainda não está pronta (TikTok em revisão externa, Kwai sem
-            API pública de postagem) — card mostra aviso "em breve" pra
-            quem não é admin, ver isAdmin dentro de cada componente. */}
+        {/* Kwai por último: sem API pública de postagem — card mostra
+            "em breve" pra quem não é admin (comingSoonForNonAdmin). */}
         <TikTokCredentialCard
           status={status?.tiktok ?? EMPTY_STATUS}
           isAdmin={isAdmin}
@@ -271,19 +381,17 @@ function CredentialTrailing({
   })
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: 10 }}>
-      <ConnectionLight state={status.light} title={status.check_message ?? undefined} />
-      <StatusBadge tone={status.connected ? "positive" : "neutral"} icon={status.connected ? "check-circle-2" : "x-circle"}>
-        {status.connected ? "Conectado" : "Desconectado"}
-      </StatusBadge>
-      {isAdmin && (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap", gap: 10 }}>
+      <ConnectionStatus status={status} />
+      {/* Qualquer usuário testa a própria conexão (backend escopa por usuário). */}
+      {(isAdmin || status.connected) && (
         <Button
           type="button"
           variant="ghost"
-          disabled={testMutation.isPending}
+          disabled={testMutation.isPending || status.state === "testing"}
           onClick={() => testMutation.mutate()}
         >
-          {testMutation.isPending ? "Testando..." : "Testar conexão"}
+          {testMutation.isPending || status.state === "testing" ? "Testando..." : "Testar conexão"}
         </Button>
       )}
     </div>
@@ -342,7 +450,7 @@ function SimpleCredentialCard({
     onSuccess: () => {
       setAppId("")
       setSecret("")
-      setBanner({ ok: true, text: `${label} conectado com sucesso.` })
+      setBanner({ ok: true, text: `${label} salvo. Testando a conexão…` })
       onSaved()
     },
     onError: onAuthError,
@@ -362,20 +470,20 @@ function SimpleCredentialCard({
   // continua vendo tudo normal (pode testar App ID/Secret de afiliado).
   if (comingSoonForNonAdmin && !isAdmin) {
     return (
-      <Panel surface="dark">
-        <PanelHeader title={label} />
+      <CredPanel id={label}>
+        <CredHeader title={label} />
         <div style={{ padding: "0 16px 16px" }}>
           <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
             Em breve — a ligação com {label} ainda não está disponível.
           </p>
         </div>
-      </Panel>
+      </CredPanel>
     )
   }
 
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id={label}>
+      <CredHeader
         title={label}
         trailing={
           <CredentialTrailing
@@ -476,7 +584,139 @@ function SimpleCredentialCard({
           </Button>
         </div>
       </form>
-    </Panel>
+    </CredPanel>
+  )
+}
+
+// ── Card da chave de IA (admin E usuário comum): cada um usa a PRÓPRIA chave
+// no "Gerar texto com IA" (Posts). Sem chave global no servidor. ──────────────
+
+function AiCredentialCard({
+  onAuthError,
+  setBanner,
+}: {
+  onAuthError: (err: Error) => void
+  setBanner: (b: { ok: boolean; text: string } | null) => void
+}) {
+  const queryClient = useQueryClient()
+  const [provider, setProvider] = useState<AiProvider>("gemini")
+  const [apiKey, setApiKey] = useState("")
+  const [model, setModel] = useState("")
+  const { data } = useQuery({
+    queryKey: ["credentials", "ai"],
+    queryFn: () => aiCredentialsApi.list(),
+    refetchInterval: (q) => (anyTesting(q.state.data?.providers) ? TESTING_POLL_MS : false),
+  })
+  const info = AI_PROVIDERS.find((p) => p.key === provider)!
+  const status = data?.providers[provider] ?? { ...EMPTY_STATUS, model: null, default_model: "" }
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["credentials", "ai"] })
+
+  const saveMutation = useMutation({
+    mutationFn: () => aiCredentialsApi.save(provider, apiKey, model.trim()),
+    onSuccess: () => {
+      setApiKey("")
+      setModel("")
+      setBanner({ ok: true, text: `Chave de IA (${info.label}) salva. Testando a conexão…` })
+      refresh()
+    },
+    onError: onAuthError,
+  })
+  const deleteMutation = useMutation({
+    mutationFn: () => aiCredentialsApi.delete(provider),
+    onSuccess: () => {
+      setBanner({ ok: true, text: `Chave de IA (${info.label}) removida.` })
+      refresh()
+    },
+    onError: onAuthError,
+  })
+  const testMutation = useMutation({
+    mutationFn: () => aiCredentialsApi.test(provider),
+    onSuccess: (result) => {
+      setBanner({ ok: result.light === "green", text: `${info.label}: ${result.message}` })
+      refresh()
+    },
+    onError: onAuthError,
+  })
+
+  return (
+    <CredPanel id="Inteligência Artificial">
+      <CredHeader
+        title="Inteligência Artificial"
+        trailing={
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <ConnectionStatus status={status} />
+            {status.connected && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={testMutation.isPending || status.state === "testing"}
+                onClick={() => testMutation.mutate()}
+              >
+                {testMutation.isPending || status.state === "testing" ? "Testando..." : "Testar conexão"}
+              </Button>
+            )}
+          </div>
+        }
+      />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          saveMutation.mutate()
+        }}
+        style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}
+      >
+        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+          Usada no "Gerar texto com IA" dos Posts. A chave é sua: o consumo é cobrado na sua conta do provedor.
+          {data?.active ? ` Em uso agora: ${AI_PROVIDERS.find((p) => p.key === data.active)?.label}.` : ""}
+        </p>
+        <Select
+          label="Provedor"
+          value={provider}
+          onChange={(e) => setProvider(e.target.value as AiProvider)}
+          options={AI_PROVIDERS.map((p) => ({
+            value: p.key,
+            label: data?.providers[p.key]?.connected ? `${p.label} (salva)` : p.label,
+          }))}
+        />
+        <a href={info.helpUrl} target="_blank" rel="noreferrer" style={{ font: "var(--text-role-body)", color: "var(--accent-500)" }}>
+          Como obter a chave da {info.label} ↗
+        </a>
+        <div style={FIELD_GRID}>
+          <TextInput
+            label="Chave de API"
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={status.connected ? "Salva — cole uma nova para trocar" : "Cole sua chave"}
+            autoComplete="off"
+            required
+          />
+          <TextInput
+            label="Modelo (opcional)"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            placeholder={status.model || status.default_model || "padrão"}
+            autoComplete="off"
+          />
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          {status.connected && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+              style={{ color: "var(--red-300)" }}
+            >
+              {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
+            </Button>
+          )}
+          <Button type="submit" variant="primary" disabled={saveMutation.isPending || !apiKey.trim()}>
+            {saveMutation.isPending ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+      </form>
+    </CredPanel>
   )
 }
 
@@ -512,7 +752,7 @@ function ThreadsCredentialCard({
     onSuccess: () => {
       setTUserId("")
       setAccessToken("")
-      setBanner({ ok: true, text: "Threads conectado com sucesso." })
+      setBanner({ ok: true, text: "Threads salvo. Testando a conexão…" })
       onSaved()
     },
     onError: onAuthError,
@@ -528,8 +768,8 @@ function ThreadsCredentialCard({
   })
 
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id="Threads">
+      <CredHeader
         title="Threads"
         trailing={
           <CredentialTrailing
@@ -616,7 +856,7 @@ function ThreadsCredentialCard({
           </form>
         )}
       </div>
-    </Panel>
+    </CredPanel>
   )
 }
 
@@ -661,15 +901,15 @@ function XCredentialCard({
     onSuccess: () => {
       setUserAccessToken("")
       setUserRefreshToken("")
-      setBanner({ ok: true, text: "X conectado com sucesso (override manual)." })
+      setBanner({ ok: true, text: "X salvo (override manual). Testando a conexão…" })
       onSaved()
     },
     onError: onAuthError,
   })
 
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id="X (Twitter)">
+      <CredHeader
         title="X (Twitter)"
         trailing={
           <CredentialTrailing
@@ -755,7 +995,7 @@ function XCredentialCard({
           </form>
         )}
       </div>
-    </Panel>
+    </CredPanel>
   )
 }
 
@@ -802,15 +1042,15 @@ function FacebookCredentialCard({
       setPageId("")
       setPageAccessToken("")
       setPageName("")
-      setBanner({ ok: true, text: "Facebook conectado com sucesso (override manual)." })
+      setBanner({ ok: true, text: "Facebook salvo (override manual). Testando a conexão…" })
       onSaved()
     },
     onError: onAuthError,
   })
 
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id="Facebook">
+      <CredHeader
         title="Facebook"
         trailing={
           <CredentialTrailing
@@ -902,7 +1142,7 @@ function FacebookCredentialCard({
           </form>
         )}
       </div>
-    </Panel>
+    </CredPanel>
   )
 }
 
@@ -949,31 +1189,17 @@ function TikTokCredentialCard({
       setOpenId("")
       setUserAccessToken("")
       setRefreshToken("")
-      setBanner({ ok: true, text: "TikTok conectado com sucesso (override manual)." })
+      setBanner({ ok: true, text: "TikTok salvo (override manual). Testando a conexão…" })
       onSaved()
     },
     onError: onAuthError,
   })
 
-  // App em revisão na TikTok for Developers (bloqueio externo) — usuário
-  // comum não vê botão "Conectar" nem status, só o aviso. Admin continua
-  // vendo tudo pra acompanhar/testar assim que a revisão aprovar.
-  if (!isAdmin) {
-    return (
-      <Panel surface="dark">
-        <PanelHeader title="TikTok" />
-        <div style={{ padding: "0 16px 16px" }}>
-          <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
-            Em breve — a ligação com TikTok ainda não está disponível.
-          </p>
-        </div>
-      </Panel>
-    )
-  }
-
+  // Conectar/Desconectar/Testar: qualquer usuário (cada um a PRÓPRIA conta).
+  // Admin-only: link do portal de devs e override manual (403 no backend).
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id="TikTok">
+      <CredHeader
         title="TikTok"
         trailing={
           <CredentialTrailing
@@ -1066,7 +1292,7 @@ function TikTokCredentialCard({
           </form>
         )}
       </div>
-    </Panel>
+    </CredPanel>
   )
 }
 
@@ -1111,15 +1337,15 @@ function InstagramCredentialCard({
     onSuccess: () => {
       setIgUserId("")
       setUserAccessToken("")
-      setBanner({ ok: true, text: "Instagram conectado com sucesso (override manual)." })
+      setBanner({ ok: true, text: "Instagram salvo (override manual). Testando a conexão…" })
       onSaved()
     },
     onError: onAuthError,
   })
 
   return (
-    <Panel surface="dark">
-      <PanelHeader
+    <CredPanel id="Instagram">
+      <CredHeader
         title="Instagram"
         trailing={
           <CredentialTrailing
@@ -1205,6 +1431,6 @@ function InstagramCredentialCard({
           </form>
         )}
       </div>
-    </Panel>
+    </CredPanel>
   )
 }

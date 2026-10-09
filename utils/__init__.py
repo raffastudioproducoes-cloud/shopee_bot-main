@@ -29,6 +29,16 @@ def get_cursor_limit_from_args(request: Request):
     return cursor, limit
 
 
+class ConnectionTestError(Exception):
+    """Falha do "Testar conexão" com mensagem segura para o usuário (sem
+    token). `refreshed` guarda os tokens renovados no meio do teste: refresh
+    token rotaciona, então mesmo uma falha posterior precisa persistí-los."""
+
+    def __init__(self, message, refreshed=None):
+        super().__init__(message)
+        self.refreshed = refreshed
+
+
 def retry_with_backoff(
     func,
     *args,

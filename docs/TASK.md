@@ -40,6 +40,10 @@ app do Instagram (`api/facebook_oauth.py`). Evidência: `git log` (`89e542b`, `2
   painel de desenvolvedor correspondente (X Developer Portal, Meta for Developers, TikTok
   for Developers) — env var já configurada no Render, falta o app de cada plataforma
   reconhecer a URL como redirect válido.
+  Callbacks por ambiente (`rede` = `threads`, `x`, `facebook`, `instagram`, `tiktok`):
+  - **Staging:** `https://shopee-bot-staging.onrender.com/api/credentials/<rede>/callback`
+  - **Produção:** `https://shopee-bot-fj0w.onrender.com/api/credentials/<rede>/callback`
+  - TikTok: cadastrar também a variante com barra final (`.../tiktok/callback/`).
 - [ ] **Conectar de fato** X, Instagram, TikTok e validar Facebook/Threads em produção —
   ação humana (clicar "Conectar", autorizar), não pendência de código. Ver `docs/MEMORY.md`
   para o estado rede a rede.

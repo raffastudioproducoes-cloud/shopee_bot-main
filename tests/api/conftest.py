@@ -35,6 +35,8 @@ import pytest
 os.environ.setdefault(
     "APP_ENCRYPTION_KEY", "e7lc8f3AsY0VNg7Kpy1K5umJirUK6jwqkJg7_xhn0IY="
 )
+# api/config.py aborta o import sem segredo de JWT (>= 32 chars).
+os.environ.setdefault("API_SECRET_KEY", "test-only-api-secret-key-0123456789abcdef")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -224,6 +226,16 @@ class _FakeTable:
 @pytest.fixture
 def fake_db():
     return FakeDB
+
+
+@pytest.fixture(autouse=True)
+def _no_background_autotest(monkeypatch):
+    """O teste automático pós-salvar roda num worker; fora dos testes dele,
+    nada de thread solta tocando em fake/DB depois do monkeypatch ser
+    desfeito. Os testes de autotest restauram `_autotest_submit` inline."""
+    from api.routers import credentials
+
+    monkeypatch.setattr(credentials, "_autotest_submit", lambda *a, **k: None)
 
 
 @pytest.fixture(autouse=True)

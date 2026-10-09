@@ -15,6 +15,7 @@ passou por lá).
 """
 
 from datetime import datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -31,9 +32,11 @@ def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
     """Mesmo padrão de api/routers/users.py e api/routers/credentials.py."""
     result = (
         supabase.table("users").select("access").eq("id", user_id)
-        .single().execute()
+        .maybe_single().execute()
     )
-    if not result.data or result.data.get("access") != "ADMIN":
+    # maybe_single: linha inexistente vira 403, não 500 (.single() levanta
+    # APIError quando não acha a linha do usuário).
+    if not result or not result.data or result.data.get("access") != "ADMIN":
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     return user_id
 
@@ -43,7 +46,8 @@ async def list_logs(
     _admin_id: int = Depends(_require_admin),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    user_id: int | None = Query(None),
+    # IDs de usuário são UUID (users.id) — `int` aqui rejeitava todo filtro real.
+    user_id: UUID | None = Query(None, description="UUID do usuário"),
     profile_id: str | None = Query(None, description="Filtra por perfil (opcional)"),
     username: str | None = Query(None),
     status_code: int | None = Query(None),
@@ -53,7 +57,7 @@ async def list_logs(
     query = supabase.table("request_logs").select(_FIELDS, count="exact")
 
     if user_id is not None:
-        query = query.eq("user_id", user_id)
+        query = query.eq("user_id", str(user_id))
     if profile_id:
         query = query.eq("profile_id", profile_id)
     if username:

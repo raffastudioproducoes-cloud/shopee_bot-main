@@ -63,6 +63,10 @@ class ShopeeAuthError(ShopeeCatalogError):
     """Credencial (app_id/secret) inválida ou sem permissão."""
 
 
+class ShopeeRateLimitError(ShopeeCatalogError):
+    """Shopee limitou a taxa de chamadas (HTTP 429 ou código 10030)."""
+
+
 def _gen_authorization(app_id: str, secret: str, payload: str) -> str:
     timestamp = int(time.time())
     sign_factor = f"{app_id}{timestamp}{payload}{secret}"
@@ -77,20 +81,31 @@ def _is_unknown_field_error(errors: list[dict]) -> bool:
     )
 
 
-# Códigos de erro (`errors[].extensions.code`) confirmados pela Shopee como
-# credencial/assinatura inválida — vazio de propósito: nenhum foi confirmado
-# contra a API real deste projeto (sem credencial de teste disponível, ver
-# cabeçalho do módulo). Não adivinhar o significado de um código: um erro
-# GraphQL sem `extensions.code` reconhecido cai no branch genérico (502),
-# nunca em "credencial inválida" (422) — ver LOW-1 do relatório de segurança.
-_AUTH_EXTENSION_CODES: frozenset[int] = frozenset()
+# Códigos de erro (`errors[].extensions.code`) da Shopee Affiliate Open API
+# (tabela "Error Codes" documentada em github.com/bcat95/shopee-aff):
+# 10020 = assinatura/credencial/timestamp inválidos ou app desativado;
+# 10031..10035 = acesso negado / afiliado inválido, congelado, bloqueado ou
+# sem acesso à Open API — todos exigem ação do usuário na credencial.
+_AUTH_EXTENSION_CODES: frozenset[int] = frozenset({10020, 10031, 10032, 10033, 10034, 10035})
+# 10030 = rate limit da Shopee — não é problema de credencial.
+_RATE_LIMIT_EXTENSION_CODES: frozenset[int] = frozenset({10030})
+
+
+def _has_code(errors: list[dict], codes: frozenset[int]) -> bool:
+    return any((err.get("extensions") or {}).get("code") in codes for err in errors)
 
 
 def _is_auth_error(errors: list[dict]) -> bool:
-    return any(
-        (err.get("extensions") or {}).get("code") in _AUTH_EXTENSION_CODES
+    return _has_code(errors, _AUTH_EXTENSION_CODES)
+
+
+def summarize_errors(errors: list[dict]) -> list[dict]:
+    """Só `message` + `extensions.code` de cada erro GraphQL — seguro pra
+    log (a Shopee não ecoa app_id/secret/assinatura nesses campos)."""
+    return [
+        {"message": (err.get("message") or "")[:300], "code": (err.get("extensions") or {}).get("code")}
         for err in errors
-    )
+    ]
 
 
 async def _post_graphql(app_id: str, secret: str, query: str, variables: dict) -> dict:
@@ -119,6 +134,8 @@ async def _post_graphql(app_id: str, secret: str, query: str, variables: dict) -
         raise ShopeeAuthError(
             f"Shopee respondeu {resp.status_code} — credencial inválida ou sem permissão."
         )
+    if resp.status_code == 429:
+        raise ShopeeRateLimitError("Shopee respondeu 429 — limite de chamadas atingido.")
     if resp.status_code != 200:
         raise ShopeeCatalogError(
             f"Shopee respondeu {resp.status_code} — tente novamente mais tarde."
@@ -132,43 +149,84 @@ async def _post_graphql(app_id: str, secret: str, query: str, variables: dict) -
     errors = body.get("errors")
     if errors:
         if _is_auth_error(errors):
-            raise ShopeeAuthError(f"Shopee rejeitou a credencial/assinatura: {errors}")
+            raise ShopeeAuthError(f"Shopee rejeitou a credencial/assinatura: {errors}", errors=errors)
+        if _has_code(errors, _RATE_LIMIT_EXTENSION_CODES):
+            raise ShopeeRateLimitError(f"Shopee limitou as chamadas: {errors}", errors=errors)
         raise ShopeeCatalogError(f"Shopee retornou erros GraphQL: {errors}", errors=errors)
     if "data" not in body:
         raise ShopeeCatalogError("Resposta inesperada da Shopee (sem campo 'data').")
     return body["data"]
 
 
-def _build_search_query(fields: tuple[str, ...]) -> str:
-    """Query GraphQL parametrizada — nenhum valor do usuário é interpolado
-    na string da query (ver MEDIUM-1 do relatório de segurança: escapar só
-    aspas duplas no `keyword` não é suficiente, `\\"` quebra o escape e
-    fecha o bloco antes do esperado). Os valores reais entram só via
-    `variables` no payload, montado por `_build_search_variables`."""
-    fields_block = "".join(f"      {f}\n" for f in fields)
-    return (
-        "query($kw: String, $cat: Int64, $sort: Int, $limit: Int) {{"
-        "  productOfferV2(keyword: $kw, productCatId: $cat, sortType: $sort, limit: $limit) {{"
-        "    nodes {{\n"
-        "{0}"
-        "    }}"
-        "  }}"
-        "}}"
-    ).format(fields_block)
+# Máximo de itens por chamada que usamos na Shopee (a doc não publica teto
+# pro productOfferV2; 50 é o maior valor usado por integrações de
+# referência). Pedidos maiores viram várias páginas (`page`).
+SHOPEE_PAGE_LIMIT = 50
 
 
-def _build_search_variables(
-    keyword: str | None,
+def _build_search_query(
+    fields: tuple[str, ...],
+    *,
+    has_keyword: bool,
     product_cat_id: int | None,
     sort_type: int,
+    page: int,
     limit: int,
-) -> dict:
-    return {
-        "kw": keyword,
-        "cat": product_cat_id,
-        "sort": sort_type,
-        "limit": limit,
-    }
+) -> str:
+    """Query GraphQL de `productOfferV2`.
+
+    `keyword` (texto livre do usuário) entra SÓ via variável `$kw` — nunca
+    interpolado na string (ver MEDIUM-1 do relatório de segurança). Os
+    argumentos numéricos entram como literais inteiros (já validados como
+    `int` por quem chama — sem risco de injeção): declarar variável com o
+    tipo errado quebra a validação GraphQL inteira. Era a causa do 502 em
+    produção — `$cat: Int64` contra `productCatId: Int32` no schema da
+    Shopee. Literal inteiro serve pra qualquer escalar inteiro, e
+    `productCatId` só vai na query quando há categoria."""
+    args = []
+    if has_keyword:
+        args.append("keyword: $kw")
+    if product_cat_id is not None:
+        args.append(f"productCatId: {int(product_cat_id)}")
+    args.append(f"sortType: {int(sort_type)}")
+    args.append(f"page: {int(page)}")
+    args.append(f"limit: {int(limit)}")
+    signature = "query($kw: String)" if has_keyword else "query"
+    fields_block = "".join(f"      {f}\n" for f in fields)
+    return (
+        f"{signature} {{"
+        f"  productOfferV2({', '.join(args)}) {{"
+        "    nodes {\n"
+        f"{fields_block}"
+        "    }"
+        "  }"
+        "}"
+    )
+
+
+async def _search_page(
+    app_id: str, secret: str, *, keyword: str | None, product_cat_id: int | None,
+    sort_type: int, page: int, limit: int,
+) -> list[dict]:
+    """Uma página do productOfferV2. Tenta o conjunto de campos "rico"
+    primeiro; se a Shopee rejeitar por schema (`Cannot query field...`),
+    refaz com o conjunto mínimo garantido."""
+    variables = {"kw": keyword} if keyword else {}
+    common = dict(
+        has_keyword=bool(keyword), product_cat_id=product_cat_id,
+        sort_type=sort_type, page=page, limit=limit,
+    )
+    try:
+        data = await _post_graphql(
+            app_id, secret, _build_search_query(_MINIMAL_FIELDS + _RICH_EXTRA_FIELDS, **common), variables,
+        )
+    except ShopeeAuthError:
+        raise
+    except ShopeeCatalogError as exc:
+        if not _is_unknown_field_error(exc.errors):
+            raise
+        data = await _post_graphql(app_id, secret, _build_search_query(_MINIMAL_FIELDS, **common), variables)
+    return (data.get("productOfferV2") or {}).get("nodes") or []
 
 
 async def search_products(
@@ -179,24 +237,26 @@ async def search_products(
     product_cat_id: int | None = None,
     sort_type: int = 1,
     limit: int = 20,
+    page: int = 1,
 ) -> list[dict]:
-    """Busca produtos no catálogo real da Shopee. Tenta o conjunto de campos
-    "rico" primeiro; se a Shopee rejeitar por schema (`Cannot query
-    field...`), refaz com o conjunto mínimo garantido — nunca deixa a busca
-    inteira falhar por causa de um campo best-effort."""
-    variables = _build_search_variables(keyword, product_cat_id, sort_type, limit)
-    rich_query = _build_search_query(_MINIMAL_FIELDS + _RICH_EXTRA_FIELDS)
-    try:
-        data = await _post_graphql(app_id, secret, rich_query, variables)
-    except ShopeeAuthError:
-        raise
-    except ShopeeCatalogError as exc:
-        if not _is_unknown_field_error(exc.errors):
-            raise
-        minimal_query = _build_search_query(_MINIMAL_FIELDS)
-        data = await _post_graphql(app_id, secret, minimal_query, variables)
-
-    return data.get("productOfferV2", {}).get("nodes", [])
+    """Busca produtos no catálogo real da Shopee. `limit` acima de
+    `SHOPEE_PAGE_LIMIT` é atendido em várias páginas sequenciais a partir
+    de `page`, parando quando uma página vem incompleta (fim dos
+    resultados)."""
+    nodes: list[dict] = []
+    current = page
+    # Tamanho de página constante: `page` da Shopee é relativo ao `limit`.
+    per_page = min(SHOPEE_PAGE_LIMIT, limit)
+    while len(nodes) < limit:
+        batch = await _search_page(
+            app_id, secret, keyword=keyword, product_cat_id=product_cat_id,
+            sort_type=sort_type, page=current, limit=per_page,
+        )
+        nodes.extend(batch)
+        if len(batch) < per_page:
+            break
+        current += 1
+    return nodes[:limit]
 
 
 async def _get_global_category_list(page: int, size: int = 1000) -> dict | None:

@@ -29,6 +29,8 @@ def client():
 
 def test_x_authorize_returns_pkce_url_and_sets_state_cookie(client, monkeypatch):
     monkeypatch.setattr(credentials_module.x_oauth, "CLIENT_ID", "client-id-123")
+    monkeypatch.setattr(credentials_module.x_oauth, "CLIENT_SECRET", "sec")
+    monkeypatch.setattr(credentials_module.x_oauth, "CALLBACK_URL", "https://h/cb")
 
     res = client.get("/credentials/x/authorize")
 

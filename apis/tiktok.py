@@ -52,7 +52,7 @@ from urllib.parse import quote
 
 import requests
 
-from shopee_bot.utils import retry_with_backoff
+from shopee_bot.utils import ConnectionTestError, retry_with_backoff
 
 AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
 TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
@@ -174,6 +174,65 @@ def validate_credentials(app_id, secret):
         "flow não é suportada pela API. Complete o fluxo de autorização "
         "(GET /credentials/tiktok/authorize) pra validar de verdade."
     )
+
+
+_USER_INFO_ERRORS = {
+    "access_token_invalid": (
+        "Autorização do TikTok inválida ou expirada  verifique o app do "
+        "TikTok (sandbox/Target Users) e reconecte"
+    ),
+    "scope_not_authorized": (
+        "O TikTok não autorizou o escopo user.info.basic  verifique o app "
+        "(Login Kit, sandbox/Target Users) e reconecte"
+    ),
+    "rate_limit_exceeded": "Limite de requisições do TikTok atingido  tente mais tarde",
+}
+
+
+def _user_info(access_token):
+    res = retry_with_backoff(
+        requests.get,
+        USER_INFO_URL,
+        params={"fields": "open_id,display_name"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    try:
+        body = res.json() or {}
+    except ValueError:
+        body = {}
+    code = (body.get("error") or {}).get("code") or ""
+    return res, code, body
+
+
+def validate_user_token(client_key, client_secret, access_token, refresh_token=None):
+    """Valida o token do USUÁRIO com /v2/user/info/ (escopo user.info.basic).
+
+    Traduz o `error.code` do corpo (o HTTP 401 sozinho não diz a causa) e,
+    em access_token_invalid, renova com o refresh_token e repete uma vez.
+    Retorna (usuário, tokens renovados ou None); em falha levanta
+    ConnectionTestError sem token, com `refreshed` se já renovou."""
+    refreshed = None
+    res, code, body = _user_info(access_token)
+    if code == "access_token_invalid" and refresh_token:
+        try:
+            refreshed = refresh_user_token(client_key, client_secret, refresh_token)
+            if not refreshed.get("access_token"):
+                raise ValueError("sem access_token")
+        except Exception:
+            raise ConnectionTestError(
+                "Token do TikTok expirado e a renovação falhou  reconecte"
+            )
+        res, code, body = _user_info(refreshed["access_token"])
+    if res.status_code == 200 and code in ("", "ok"):
+        user = (body.get("data") or {}).get("user")
+        if user:
+            return user, refreshed
+        raise ConnectionTestError("Resposta inesperada do TikTok ao validar o token", refreshed)
+    message = _USER_INFO_ERRORS.get(code) or (
+        f"O TikTok recusou a verificação (status {res.status_code}"
+        + (f", código {code}" if code else "") + ")"
+    )
+    raise ConnectionTestError(message, refreshed)
 
 
 def post_text(app_id, secret, text):

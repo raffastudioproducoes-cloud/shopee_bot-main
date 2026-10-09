@@ -1,16 +1,22 @@
 import os
+from datetime import datetime
+
 import pytz
 from dotenv import load_dotenv
 from psycopg import Connection
 from psycopg.pq import TransactionStatus
 
+from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED
 from apscheduler.schedulers.gevent import GeventScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.jobstores.memory import MemoryJobStore
+from apscheduler.triggers.date import DateTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
 
 from shopee_bot.database import get_conn, put_conn, schedulers
 from shopee_bot.clogging import logger
+from shopee_bot.database.activities import insert_activities, activity_metadata_wrapper
+from shopee_bot.database.activity_types import ActivityType
 # dynamic called functions | DO NOT REMOVE
 from shopee_bot.scheduler.bot_post import bot_post
 from shopee_bot.scheduler.bot_post_facebook import bot_post_facebook
@@ -27,6 +33,42 @@ PASSWORD = os.environ.get("SHOPEE_PG_PASSWORD")
 REDIS_HOST = os.environ.get("REDIS_HOST")
 
 _scheduler = None
+
+# Job "date" com run_date = agora (botão "Agora" do front) chega ao
+# scheduler alguns ms/s depois do horário e o default do APScheduler
+# (misfire_grace_time=1s) descartava com "was missed by 0:00:01".
+# 5 min de tolerância + coalesce (várias execuções perdidas viram uma).
+JOB_DEFAULTS = {"misfire_grace_time": 300, "coalesce": True}
+
+MISSED_JOB_MESSAGE = "Horário de publicação perdido (servidor ocupado ou reiniciando). Publique de novo."
+
+
+def _on_job_problem(event):
+    """Registra falha de publicação que escapou do try/except dos bots
+    (ex.: credencial ausente antes do loop) ou job perdido — sem isso o
+    usuário via "Publicação disparada" e nada acontecia, sem rastro em
+    Atividade."""
+    try:
+        job_data = schedulers.get_by_id(event.job_id)
+        if not job_data or not job_data.get("post_id"):
+            return
+        if event.code == EVENT_JOB_MISSED:
+            error = MISSED_JOB_MESSAGE
+        else:
+            exc = event.exception
+            error = f"{type(exc).__name__}: {exc}"[:300]
+        insert_activities(
+            job_data["user_id"],
+            ActivityType.BOT_POST_FAILURE,
+            activity_metadata_wrapper({
+                "job_id": str(event.job_id),
+                "post_id": job_data["post_id"],
+                "error": error,
+            }),
+            profile_id=job_data.get("profile_id"),
+        )
+    except Exception:
+        logger.exception(f"falha ao registrar erro do job #{event.job_id}")
 
 
 def _remove_job(user_id, job_id, conn):
@@ -56,6 +98,14 @@ def remove_job(user_id, job_id, open_conn=None):
 
 def run_job(job_id):
     global _scheduler
+
+    # Job "date" ainda pendente (fluxo "Agora": post criado com run_date de
+    # segurança, mídia enviada, e só então disparado): antecipa o próprio
+    # job em vez de criar uma cópia on_demand — senão publicava 2 vezes.
+    pending = _scheduler.get_job(str(job_id), jobstore="default")
+    if pending and isinstance(pending.trigger, DateTrigger):
+        pending.modify(next_run_time=datetime.now(_scheduler.timezone))
+        return
 
     job_data = schedulers.get_by_id(job_id)
     func = job_data["func"]
@@ -143,7 +193,9 @@ def init():
             "default": ThreadPoolExecutor(20),
             "on_demand": ThreadPoolExecutor(5)
         },
+        job_defaults=JOB_DEFAULTS,
         timezone=pytz.timezone("America/Sao_Paulo"),
         logger=logger
     )
+    _scheduler.add_listener(_on_job_problem, EVENT_JOB_ERROR | EVENT_JOB_MISSED)
     _scheduler.start()

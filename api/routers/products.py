@@ -4,7 +4,7 @@ CRUD completo de produtos da Shopee com Supabase.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Any
 
 from .auth import get_current_user_id
@@ -17,7 +17,18 @@ router = APIRouter(prefix="/products", tags=["products"])
 
 # ── Pydantic schemas ──────────────────────────────────────────────────────────────
 
-class ProductCreate(BaseModel):
+# `itemId` da Shopee chega como número (Int64) -> aceita e guarda como texto.
+# `commission` = TAXA de comissão em % (6 = 6%), não o valor em R$.
+class _ProductFields(BaseModel):
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+    @field_validator("commission", "price_min", "price_max", check_fields=False)
+    @classmethod
+    def _round_two_decimals(cls, value: float | None) -> float | None:
+        return None if value is None else round(value, 2)
+
+
+class ProductCreate(_ProductFields):
     product_id: str
     name: str
     original_link: str | None = None
@@ -28,7 +39,7 @@ class ProductCreate(BaseModel):
     price_max: float | None = None
 
 
-class ProductUpdate(BaseModel):
+class ProductUpdate(_ProductFields):
     product_id: str | None = None
     name: str | None = None
     original_link: str | None = None
