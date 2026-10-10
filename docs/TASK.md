@@ -19,6 +19,19 @@
 - [x] Evidência local: 20 testes do scheduler e 100 testes de OAuth/credenciais/posts verdes.
   Não há merge para `main` nesta tarefa; validação funcional no staging permanece necessária.
 
+## Atualização 2026-10-10 — contrato do cliente e cobertura de mídia
+
+- [x] Usuário comum conecta Threads, X, Facebook, Instagram e TikTok exclusivamente por OAuth,
+  após aviso de consentimento da rede. Shopee e IA permanecem as exceções manuais.
+- [x] Overrides manuais sociais e Kwai são ADMIN-only também na API; não dependem de campos
+  escondidos no frontend como controle de segurança.
+- [x] Caminho local de imagem: Threads, Facebook e Instagram enviam mídia por URL pública
+  temporária. Falta validar publicação real no staging antes de declarar a cobertura concluída.
+- [ ] X ainda precisa de upload de mídia e de acesso/crédito na API. TikTok Photo Direct Post
+  requer URL em domínio/prefixo verificado e Creator Info renderizado no fluxo do usuário.
+- [ ] Vídeo: manter como tarefa separada. Não declarar cobertura de vídeo a partir de testes com
+  imagem.
+
 ## Fase 0-8.1 — Migração Flask → React + FastAPI
 
 Todas concluídas (evidência: `docs/ROADMAP_MIGRACAO.md`, código presente e testado).

@@ -22,11 +22,10 @@ parte seguinte tem `post_id` apontando pra parte ANTERIOR (lista
 encadeada por trás pra frente, não por índice). Produtos, agendamento
 e `network` sempre grudam na head. `network` escolhe a função chamada
 pelo scheduler via `NETWORK_FUNC_MAP` (definido neste módulo).
-Publicação de verdade hoje só existe pra Threads (`func="bot_post"`,
-`scheduler/bot_post.py`) — as outras 4 redes do mapa (x, facebook,
-instagram, tiktok) já têm credencial e roteamento, mas nenhum wrapper
-de publicação ligado ao scheduler ainda (kwai fica de fora do mapa,
-sem API pública confirmada).
+Os cinco publicadores do mapa são acionados pelo scheduler. Threads, Facebook
+e Instagram têm caminho de imagem; X ainda precisa de upload de mídia e acesso
+à API, e TikTok Photo Direct Post exige URL pública verificada e Creator Info no
+fluxo do usuário. Kwai fica de fora do mapa, sem API pública confirmada.
 """
 
 import logging

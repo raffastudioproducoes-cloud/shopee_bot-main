@@ -381,14 +381,30 @@ async def list_credentials(user_id: int = Depends(get_current_user_id), profile_
     return result
 
 
+def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
+    """Restringe overrides manuais e diagnósticos administrativos.
+
+    O status das conexões continua disponível para o dono do perfil, mas
+    somente administradores podem inserir credenciais emitidas fora do OAuth.
+    """
+    result = (
+        supabase.table("users").select("access").eq("id", user_id)
+        .maybe_single().execute()
+    )
+    if not result or not result.data or result.data.get("access") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    return user_id
+
+
 @router.put("/threads")
 async def save_threads_credential(
     body: ThreadsCredentialBody,
-    user_id: int = Depends(get_current_user_id),
+    user_id: int = Depends(_require_admin),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Threads usa OAuth (token obtido via callback do Flask, não por
-    formulário) — este endpoint só permite colar um token já emitido.
+    """Override administrativo de Threads com token já emitido.
+
+    Usuários comuns conectam Threads exclusivamente pelo OAuth do app.
 
     Rota literal registrada ANTES de "/{network}": no Starlette, rotas
     casam na ordem de registro, e "/{network}" aceitaria "threads" como
@@ -975,27 +991,12 @@ async def delete_x_credential(user_id: int = Depends(get_current_user_id), profi
     return {"connected": False}
 
 
-def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
-    """Mesma regra de api/routers/users.py — "Testar conexão" é admin-only,
-    a luz do sinalizador (GET /credentials acima) continua visível pra
-    qualquer usuário."""
-    result = (
-        supabase.table("users").select("access").eq("id", user_id)
-        .maybe_single().execute()
-    )
-    # maybe_single: linha inexistente vira 403, não 500 (.single() levanta
-    # APIError quando não acha a linha do usuário).
-    if not result or not result.data or result.data.get("access") != "ADMIN":
-        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
-    return user_id
-
-
 # Overrides manuais admin-only pra debug/emergência (testar com uma conta
 # específica sem completar o OAuth inteiro, ou recuperar de um estado
 # quebrado) — mesmo padrão do PUT /credentials/threads (cola token já
 # emitido), mas admin-only (mesma dependência de POST /{network}/test)
-# porque aqui, ao contrário do Threads, o usuário comum nunca vê esse
-# formulário (só o botão "Conectar"). Path "/manual" (não literal "/x" etc)
+# porque o usuário comum nunca vê esses formulários (só o botão "Conectar").
+# Path "/manual" (não literal "/x" etc)
 # pra não roubar a rota PUT /{network} genérica (SIMPLE_NETWORKS) nem o
 # teste que confirma que ela devolve 404 pra essas redes.
 @router.put("/x/manual")
@@ -1471,6 +1472,8 @@ async def save_credential(
 ):
     """Cria ou atualiza a credencial (update-or-insert por user_id). Cifra o secret."""
     table = _simple_table(network)
+    if network == "kwai":
+        _require_admin(user_id)
 
     # .strip(): copiar/colar do painel da rede (Shopee Affiliate, Meta for
     # Developers) facilmente traz espaço em branco líder/de trás — isso
@@ -1516,6 +1519,8 @@ async def delete_credential(
     antes desta rota) porque saíram de SIMPLE_NETWORKS na migração pro
     app único."""
     table = _simple_table(network)
+    if network == "kwai":
+        _require_admin(user_id)
     update_data = {"app_id": None, "secret": None, "status": False}
     result = (
         scope_owner(supabase.table(table)

@@ -1,4 +1,6 @@
 from shopee_bot.apis import instagram as InstagramAPI
+from shopee_bot.apis.cloudinary import cloudinary as CloudinaryAPI
+from shopee_bot.apis.cloudinary import ensure_configured as ensure_media_storage
 from shopee_bot.clogging import logger
 from shopee_bot.database import schedulers, instagram_credentials, posts, products
 from shopee_bot.database.activities import (
@@ -6,6 +8,22 @@ from shopee_bot.database.activities import (
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
+from shopee_bot.utils import retry_with_backoff
+
+
+def _first_image(post):
+    return next((media for media in post.get("medias") or [] if media.get("type") == "IMAGE"), None)
+
+
+def _publish_image(app_id, secret, user_access_token, ig_user_id, media, caption):
+    ensure_media_storage()
+    upload = retry_with_backoff(CloudinaryAPI.uploader.upload, media["file_path"], format="jpg")
+    try:
+        return InstagramAPI.post_image(
+            app_id, secret, user_access_token, upload.get("secure_url") or upload["url"], caption, ig_user_id
+        )
+    finally:
+        CloudinaryAPI.uploader.destroy(upload["public_id"])
 
 
 def bot_post_instagram(job_id):
@@ -33,9 +51,14 @@ def bot_post_instagram(job_id):
 
     post_data = posts.get(user_id, post_id, profile_id)
     root_post = post_data[0]
+    image = _first_image(root_post)
 
     try:
-        if root_post["product_ids"]:
+        if image:
+            _publish_image(
+                app_id, secret, user_access_token, ig_user_id, image, root_post["text"]
+            )
+        elif root_post["product_ids"]:
             product = products.get(user_id, root_post["product_ids"][0], profile_id)
             InstagramAPI.post_product(
                 app_id, secret, user_access_token, product, ig_user_id

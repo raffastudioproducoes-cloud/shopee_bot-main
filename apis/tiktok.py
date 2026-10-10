@@ -16,10 +16,8 @@ implementar):
   https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
 
 Schema de credenciais (tabela tiktok_credentials):
-  - app_id: Client Key (por usuário — cada um cadastra seu próprio app no
-    TikTok for Developers, mesmo modelo já usado pras outras redes
-    "simples" deste projeto).
-  - secret: Client Secret.
+  - app_id: Client Key global do aplicativo SaaS (configurado só no servidor).
+  - secret: Client Secret global, também só no servidor.
   - user_access_token / refresh_token / open_id: obtidos via OAuth
     Authorization Code depois que o usuário autoriza o app (ver
     get_user_auth_url / get_user_auth_id_token abaixo, e o espelho async
@@ -44,6 +42,11 @@ TODO: upload em múltiplos chunks pra vídeos grandes — hoje só sobe o
 arquivo inteiro num chunk único (funciona pra vídeos curtos de afiliado;
 a TikTok pede chunk_size entre 5MB-64MB pra arquivos maiores). Ver
 https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
+
+Photo Direct Post fica pendente de uma tela que consulte Creator Info e mostre
+as opções de privacidade exigidas pelo TikTok, além de URL pública em domínio
+ou prefixo verificado. Não tratar uma imagem enviada localmente como pronta
+para publicação no TikTok.
 """
 
 import os

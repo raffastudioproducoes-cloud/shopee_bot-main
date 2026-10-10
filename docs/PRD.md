@@ -13,9 +13,14 @@ IA, agendar ou publicar na hora, e acompanhar tudo por histórico de atividades.
 
 Para o usuário leigo, conectar uma rede social é um clique em "Conectar [rede]" — ele nunca
 vê nem cola Client ID/Secret de app nenhum (modelo de **app único**: o dono do SaaS registra
-um único app por rede social, o usuário final apenas autoriza via OAuth). Exceção: Shopee e
-Kwai não têm OAuth público — o usuário cola manualmente o App ID/Secret do seu próprio
-Portal de Afiliados.
+um único app por rede social, o usuário final apenas autoriza via OAuth). Antes do redirecionamento,
+o produto explica quais dados e permissões serão solicitados. As exceções manuais do cliente
+padrão são a credencial da Shopee e a chave de IA do provedor escolhido. Kwai não possui
+postagem automática enquanto não houver API pública adequada.
+
+ADMIN também usa o mesmo OAuth por perfil, mas pode usar overrides manuais de diagnóstico
+para Threads, X, Facebook, Instagram, TikTok e Kwai. Essa possibilidade é protegida no backend;
+esconder o formulário no frontend não é considerado controle de acesso.
 
 ## 2. Por quê (problema)
 
@@ -37,8 +42,8 @@ Dois níveis de acesso (`api/routers/auth.py:246`, `api/routers/users.py`):
 
 | Papel | O que vê/faz |
 | --- | --- |
-| **ADMIN** | Tudo: cria/edita usuários, vê diagnóstico cru de conexão ("Testar conexão"), gerencia credenciais de qualquer rede |
-| **USER** | Só status (luz verde/amarela/vermelha) + botão "Conectar" por rede; nunca vê o texto de erro cru (`check_message: null` pra não-admin) |
+| **ADMIN** | Tudo: cria/edita usuários, vê diagnóstico cru de conexão, usa OAuth por perfil e pode inserir override técnico manual quando necessário para teste |
+| **USER** | Status da própria conexão + "Conectar/Desconectar" OAuth por rede. Nunca vê nem envia token social, e nunca vê o texto de erro cru (`check_message: null` pra não-admin) |
 
 Cadastro público (`POST /auth/register` em `api/routers/auth.py`) **sempre** cria com
 `access="USER"` — o cliente nunca consegue se auto-promover a ADMIN pelo formulário.
@@ -56,7 +61,7 @@ Multi-tenant com múltiplos usuários pagantes é visão pós-MVP, não implemen
 | Listas de produtos | Agrupamento reaproveitável entre posts | `database/product_lists*.py` |
 | Posts | Criação, thread multi-parte, upload de mídia, agendamento (cron/data) ou publicação imediata, retry e log de falha | `api/routers/posts.py`, `scheduler/` |
 | Copywriter IA | Geração de texto de post por persona com a chave de IA do próprio usuário (Gemini/OpenAI/Anthropic, `apis/llm.py`) | `README.md` |
-| Credenciais | Conectar rede social (OAuth de app único) ou colar credencial manual (Shopee/Kwai), nunca reexibida | `api/routers/credentials.py` |
+| Credenciais | Shopee e IA por valor manual do próprio usuário; redes sociais por OAuth do app único. Overrides sociais/Kwai são ADMIN-only e nunca reexibem segredo | `api/routers/credentials.py` |
 | Atividades | Histórico auditável de ações do usuário | `database/activities.py` |
 | Usuários | Administração de acesso ADMIN/USER | `api/routers/users.py` |
 | Perfis | Até 3 perfis (lojas) por conta, com avatar. Atualização 2026-10-05 (branch `chore/phase-12-integration`): o isolamento por perfil cobre também posts, mídias, credenciais das redes, dashboard, notificações, logs e backup/restore; a versão anterior desta linha dizia só produtos e listas | `api/routers/profiles.py`, `database/migrations/038`, frontend `ProfilesPage` |
@@ -84,10 +89,10 @@ Multi-tenant com múltiplos usuários pagantes é visão pós-MVP, não implemen
 > de Rafa/usuário em produção, não um gap de código. Ver `docs/MEMORY.md` para o detalhe
 > completo.
 
-No frontend, TikTok e Kwai aparecem como "em breve" para o usuário comum (admin vê tudo) —
-confirmado em `git log` (`514d84a feat(credentials): TikTok/Kwai viram 'em breve' pra
-usuario comum`). Para X, Facebook e Instagram, o frontend já expõe o card de conexão
-completo — a limitação é a ausência de token de usuário salvo, não uma restrição de UI.
+TikTok está disponível por OAuth para usuário comum. Kwai permanece fora da publicação automática
+por não haver API pública apropriada. X, Facebook e Instagram também usam cards completos de
+conexão OAuth; a autorização e o token resultante pertencem exclusivamente ao usuário e perfil
+que iniciaram o fluxo.
 
 > **Atualização 2026-10-05**: a seção 4 acima descreve 2026-09-29. Desde então, nesta branch
 > (ainda não mergeada em `main`), o multi-perfil passou a isolar quase todos os dados por
@@ -106,7 +111,7 @@ completo — a limitação é a ausência de token de usuário salvo, não uma r
 ## 6. Critérios de sucesso
 
 - Usuário conecta uma rede social clicando em "Conectar" e sem colar segredo nenhum
-  (exceto Shopee/Kwai).
+  (exceto Shopee e a chave de IA escolhida pelo próprio usuário).
 - Post agendado é publicado no horário certo pelo scheduler, com log de falha visível.
 - Credencial de rede social nunca é reexibida em nenhuma resposta da API.
 - Cadastro público nunca cria usuário ADMIN.

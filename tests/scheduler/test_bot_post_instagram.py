@@ -105,6 +105,29 @@ def test_bot_post_instagram_with_product_calls_post_product(monkeypatch):
     )
 
 
+def test_bot_post_instagram_with_image_uses_image_publisher(monkeypatch):
+    user_data = _user_data()
+    image = {"type": "IMAGE", "file_path": "web/media/7/image.jpg"}
+    root_post = {"text": "foto", "product_ids": [], "medias": [image]}
+    _patch_common(monkeypatch, user_data, root_post)
+
+    calls = {}
+    monkeypatch.setattr(
+        module,
+        "_publish_image",
+        lambda app_id, secret, token, ig_user_id, media, caption: calls.update(
+            args=(app_id, secret, token, ig_user_id, media, caption)
+        ),
+    )
+    monkeypatch.setattr(module, "insert_activities", lambda *a, **k: None)
+
+    module.bot_post_instagram("job-image")
+
+    assert calls["args"] == (
+        "app-1", "secret-1", "user-token-1", "ig-user-1", image, "foto"
+    )
+
+
 def test_bot_post_instagram_failure_records_activity_and_does_not_raise(monkeypatch):
     user_data = _user_data()
     root_post = {"text": "oi", "product_ids": []}

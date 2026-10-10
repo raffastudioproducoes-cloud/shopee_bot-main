@@ -96,6 +96,7 @@ class TestSaveCredentialStripsWhitespace:
         from api.routers import credentials as credentials_module
 
         monkeypatch.setattr(credentials_module, "_upsert_by_user", fake_upsert)
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}])
 
         res = auth_client.put(
             "/credentials/kwai",
@@ -162,15 +163,17 @@ class TestSimpleNetworksNoLongerAcceptXTiktokInstagram:
 
 
 class TestManualOverrideAdminGate:
-    """PUT /credentials/{network}/manual (X/Facebook/TikTok/Instagram) —
+    """Entradas manuais de redes sociais (incluindo Threads/Kwai) —
     override manual admin-only, mesma dependência de POST /{network}/test.
     Requer auth + ADMIN antes de qualquer coisa; usuário comum recebe 403."""
 
     _BODIES = {
+        "threads": {"t_user_id": "123", "access_token": "tok"},
         "x/manual": {"user_access_token": "tok"},
         "facebook/manual": {"page_id": "123", "page_access_token": "tok"},
         "tiktok/manual": {"open_id": "abc", "user_access_token": "tok"},
         "instagram/manual": {"ig_user_id": "abc", "user_access_token": "tok"},
+        "kwai": {"app_id": "app", "secret": "secret"},
     }
 
     @pytest.mark.parametrize("path", list(_BODIES.keys()))
@@ -191,6 +194,15 @@ class TestManualOverrideAdminGate:
         res = auth_client.put(
             "/credentials/x/manual",
             json={"user_access_token": "tok", "user_refresh_token": "refresh"},
+        )
+        assert res.status_code == 200
+        assert res.json() == {"connected": True}
+
+    def test_admin_can_save_threads_manual(self, monkeypatch, auth_client):
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}], None])
+        res = auth_client.put(
+            "/credentials/threads",
+            json={"t_user_id": "123", "access_token": "tok"},
         )
         assert res.status_code == 200
         assert res.json() == {"connected": True}
@@ -218,6 +230,15 @@ class TestManualOverrideAdminGate:
         res = auth_client.put(
             "/credentials/instagram/manual",
             json={"ig_user_id": "abc", "user_access_token": "tok"},
+        )
+        assert res.status_code == 200
+        assert res.json() == {"connected": True}
+
+    def test_admin_can_save_kwai_manual(self, monkeypatch, auth_client):
+        _mock_supabase(monkeypatch, [{"access": "ADMIN"}, None, [{"id": 1}], None])
+        res = auth_client.put(
+            "/credentials/kwai",
+            json={"app_id": "app", "secret": "secret"},
         )
         assert res.status_code == 200
         assert res.json() == {"connected": True}
@@ -276,10 +297,13 @@ class TestRoleSeparation:
         ("get", "/users/7", None),
         ("put", "/users/7", {"access": "ADMIN"}),
         ("delete", "/users/7", None),
+        ("put", "/credentials/threads", {"t_user_id": "1", "access_token": "t"}),
         ("put", "/credentials/tiktok/manual", {"open_id": "a", "user_access_token": "t"}),
         ("put", "/credentials/x/manual", {"user_access_token": "t"}),
         ("put", "/credentials/facebook/manual", {"page_id": "1", "page_access_token": "t"}),
         ("put", "/credentials/instagram/manual", {"ig_user_id": "a", "user_access_token": "t"}),
+        ("put", "/credentials/kwai", {"app_id": "a", "secret": "t"}),
+        ("delete", "/credentials/kwai", None),
     ]
 
     @pytest.mark.parametrize("method,path,body", _ADMIN_ONLY)

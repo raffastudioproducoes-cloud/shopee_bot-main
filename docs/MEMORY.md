@@ -58,8 +58,20 @@ Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via
    decisão por custo/complexidade (plano Free do Render).
 4. **Scheduler in-process** mantido (ADR 19, vault) — sem worker separado; gatilho de
    revisão ainda não disparou.
-5. **TikTok/Kwai virarem "em breve" para usuário comum** — última mudança visível no
-   `git log` (`514d84a`), movidos para o fim da lista de credenciais no frontend.
+5. **Fluxo padrão de credenciais** — TikTok é OAuth disponível para usuário comum, como
+   Threads, X, Facebook e Instagram. Shopee e chave de IA são as únicas entradas manuais do
+   cliente padrão; overrides sociais/Kwai são ferramentas ADMIN-only protegidas também no backend.
+
+## Atualização 2026-10-10 — contrato de OAuth e mídia
+
+- Antes de abrir qualquer provedor OAuth, a tela de Credenciais mostra um aviso de consentimento
+  com rede, dados solicitados, autorização de publicação e como desconectar.
+- Cada token, status e publicação continua isolado por `user_id` + `profile_id`; a configuração
+  do aplicativo OAuth é global apenas no servidor.
+- Threads, Facebook e Instagram têm caminho de imagem no código. X ainda exige implementação
+  de upload de mídia e crédito/API habilitada; TikTok Photo Direct Post exige URL pública no
+  domínio/prefixo verificado e Creator Info no fluxo de usuário. Vídeos seguem pendência
+  explícita e não podem ser tratados como validados por testes de imagem.
 
 ## O que falta (real, não aspiracional)
 
