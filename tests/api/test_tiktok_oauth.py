@@ -22,15 +22,20 @@ def client():
     return TestClient(app)
 
 
-def test_tiktok_domain_verification_file_is_public_and_unauthenticated(client):
+@pytest.mark.parametrize(
+    ("filename", "token"),
+    [
+        ("tiktokiuKagbtH1lO37DxIynSn02EABvEKz1PM.txt", "iuKagbtH1lO37DxIynSn02EABvEKz1PM"),
+        ("tiktoksuFLmrUFUxZQioEp5TCgDiOi0VAiY2e1.txt", "suFLmrUFUxZQioEp5TCgDiOi0VAiY2e1"),
+    ],
+)
+def test_tiktok_domain_verification_file_is_public_and_unauthenticated(client, filename, token):
     """Arquivo de verificação de domínio do TikTok Login Kit — precisa ser
     acessível sem login (o crawler do TikTok não manda cookie nenhum)."""
     app.dependency_overrides.clear()  # sem override de auth nenhum
-    res = TestClient(app).get(
-        "/credentials/tiktok/callback/tiktokiuKagbtH1lO37DxIynSn02EABvEKz1PM.txt"
-    )
+    res = TestClient(app).get(f"/credentials/tiktok/callback/{filename}")
     assert res.status_code == 200
-    assert res.text == "tiktok-developers-site-verification=iuKagbtH1lO37DxIynSn02EABvEKz1PM"
+    assert res.text == f"tiktok-developers-site-verification={token}"
 
 
 def test_tiktok_authorize_returns_url_and_sets_state_cookie(client, monkeypatch):

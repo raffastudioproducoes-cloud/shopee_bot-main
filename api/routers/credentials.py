@@ -711,6 +711,13 @@ async def tiktok_domain_verification():
     )
 
 
+@router.get("/tiktok/callback/tiktoksuFLmrUFUxZQioEp5TCgDiOi0VAiY2e1.txt")
+async def tiktok_domain_verification_staging_20261009():
+    return PlainTextResponse(
+        "tiktok-developers-site-verification=suFLmrUFUxZQioEp5TCgDiOi0VAiY2e1"
+    )
+
+
 @router.get("/tiktok/authorize")
 async def tiktok_authorize(
     response: Response,
