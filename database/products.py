@@ -13,7 +13,7 @@ def count_by_id(user_id, ids=None):
     return query_db(query, (user_id, ids), True)["count"]
 
 
-def get(user_id, product_id):
+def get(user_id, product_id, profile_id=None):
     query = """
         SELECT id, product_id, name, original_link,
             commission_link, commission, image, price_min, price_max,
@@ -21,12 +21,13 @@ def get(user_id, product_id):
             updated_at - interval '3 hours' AS updated_at
         FROM products
         WHERE id = %s AND user_id = %s
+          AND (%s::uuid IS NULL OR profile_id = %s::uuid)
     """
-    args = (product_id, user_id)
+    args = (product_id, user_id, profile_id, profile_id)
     return query_db(query, args, True)
 
 
-def gets(user_id):
+def gets(user_id, profile_id=None):
     query = """
         SELECT id, product_id, name, original_link,
             commission_link, commission, image, price_min, price_max,
@@ -34,8 +35,9 @@ def gets(user_id):
             updated_at - interval '3 hours' AS updated_at
         FROM products
         WHERE user_id = %s
+          AND (%s::uuid IS NULL OR profile_id = %s::uuid)
     """
-    args = (user_id, )
+    args = (user_id, profile_id, profile_id)
     return query_db(query, args)
 
 
@@ -229,7 +231,7 @@ def insert(user_id, product, open_conn=None):
     return execute_db(query, args, open_conn)
 
 
-def update(user_id, product_id, product, open_conn=None):
+def update(user_id, product_id, product, open_conn=None, profile_id=None):
     query = """
         UPDATE products
         SET
@@ -237,6 +239,7 @@ def update(user_id, product_id, product, open_conn=None):
             commission_link = %s, commission = %s, image = %s, price_min = %s,
             price_max = %s, updated_at = %s
         WHERE id = %s AND user_id = %s
+          AND (%s::uuid IS NULL OR profile_id = %s::uuid)
         RETURNING id
     """
     args = (
@@ -251,7 +254,9 @@ def update(user_id, product_id, product, open_conn=None):
         # Atualiza o updated_at
         datetime.now(pytz.timezone('America/Sao_Paulo')),
         product_id,
-        user_id
+        user_id,
+        profile_id,
+        profile_id,
     )
     return execute_db(query, args, open_conn)
 

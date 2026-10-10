@@ -14,6 +14,20 @@
 - Flask (legado, produção) e FastAPI (novo) coexistem no **mesmo container Docker** —
   implementado no código (Fase 8.1), validação em produção real ainda pendente.
 
+## Atualização 2026-10-10 — Regra de isolamento
+
+- A interface e API primárias são React/FastAPI. O OAuth usa configurações globais do app de
+  cada rede, mas cada autorização, token, luz de status e publicação pertence ao par
+  `user_id` + `profile_id` que iniciou o fluxo.
+- Callback OAuth com `state` de outro perfil é rejeitado. Publicadores e atualização Shopee
+  recusam jobs sem perfil, em vez de procurar uma credencial por usuário e arriscar misturar
+  contas entre perfis.
+- O painel Flask legado de credenciais permanece desligado por padrão
+  (`LEGACY_PANEL_ENABLED=false`). Não reativar sem tornar todas as suas leituras/escritas
+  explicitamente multi-perfil.
+- Evidência local desta alteração: 20 testes do scheduler e 100 testes API focados em OAuth,
+  credenciais e posts. Ainda é necessário validar o fluxo completo no staging antes de merge.
+
 ## Redes sociais conectadas — estado real (não o desejado)
 
 | Rede | Estado real |

@@ -35,7 +35,9 @@ def test_expired_x_token_refreshes_with_global_oauth_and_scopes_saved_tokens(mon
             "x_secret": "legacy-client-secret",
         },
     )
-    monkeypatch.setattr(module.posts, "get", lambda user_id, post_id: [{"text": "teste"}])
+    monkeypatch.setattr(
+        module.posts, "get", lambda user_id, post_id, saved_profile_id: [{"text": "teste"}]
+    )
     async def refresh_access_token(token):
         assert token == "refresh-token"
         return {"access_token": "fresh-access-token", "refresh_token": "fresh-refresh-token"}

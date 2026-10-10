@@ -277,17 +277,21 @@ _TIKTOK_OAUTH_COOKIE = "tiktok_oauth_state"
 _FACEBOOK_OAUTH_COOKIE = "facebook_oauth_state"
 
 
-def _sign_oauth_state(user_id: int, extra: dict | None = None) -> tuple[str, str]:
+def _sign_oauth_state(
+    user_id: int, extra: dict | None = None, *, profile_id: str | None = None,
+) -> tuple[str, str]:
     """Gera um `state` aleatório + cookie assinado (JWT) pra CSRF binding
     do account-linking OAuth. Retorna (state, valor do cookie) — o
     state vai na URL de autorização (ecoado pelo provedor no
     /callback), o cookie guarda esse mesmo state (e `extra`, ex.
     code_verifier do PKCE do X) até o /callback validar os dois
-    batendo."""
+    batendo. O perfil ativo também é fixado: uma autorização iniciada
+    em um perfil não pode ser concluída em outro perfil da mesma conta."""
     state = secrets.token_urlsafe(16)
     payload = {
         "uid": user_id,
         "state": state,
+        "profile_id": profile_id,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=10),
         **(extra or {}),
     }
@@ -298,7 +302,11 @@ def _sign_oauth_state(user_id: int, extra: dict | None = None) -> tuple[str, str
 
 
 def _verify_oauth_state(
-    request: Request, cookie_name: str, state: str | None, user_id: int
+    request: Request,
+    cookie_name: str,
+    state: str | None,
+    user_id: int,
+    profile_id: str | None,
 ) -> dict | None:
     """Valida o cookie assinado do /authorize contra o `state` da query
     (CSRF) e o `user_id` da sessão atual. Retorna o payload decodificado
@@ -313,7 +321,11 @@ def _verify_oauth_state(
         payload = jwt.decode(token, settings.api_secret_key, algorithms=["HS256"])
     except Exception:
         return None
-    if payload.get("uid") != user_id or payload.get("state") != state:
+    if (
+        payload.get("uid") != user_id
+        or payload.get("state") != state
+        or payload.get("profile_id") != profile_id
+    ):
         return None
     return payload
 
@@ -418,13 +430,14 @@ def _require_oauth_config(label: str, *values) -> None:
 async def threads_authorize(
     response: Response,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """URL de autorização do OAuth do Threads (Meta) — o frontend redireciona
     o usuário pra cá. Gera `state` + cookie httponly assinado (CSRF
     binding do account-linking, 10 min) pro /callback validar."""
     _require_oauth_config("Threads", threads_oauth.APP_ID, threads_oauth.SECRET, threads_oauth.CALLBACK_URL)
 
-    state, cookie_value = _sign_oauth_state(user_id)
+    state, cookie_value = _sign_oauth_state(user_id, profile_id=profile_id)
 
     response.set_cookie(
         key=_THREADS_OAUTH_COOKIE,
@@ -472,7 +485,9 @@ async def threads_callback(
     if not code:
         return _redirect("threads=error&message=missing_code")
 
-    if not _verify_oauth_state(request, _THREADS_OAUTH_COOKIE, state, user_id):
+    if not _verify_oauth_state(
+        request, _THREADS_OAUTH_COOKIE, state, user_id, profile_id,
+    ):
         return _redirect("threads=error&message=invalid_state")
 
     try:
@@ -494,6 +509,7 @@ async def threads_callback(
 async def instagram_authorize(
     response: Response,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """URL de autorização do Facebook Login for Business — Instagram Graph
     API não tem OAuth próprio, publica via conta Business/Creator vinculada
@@ -509,7 +525,7 @@ async def instagram_authorize(
         instagram_oauth.CALLBACK_URL, instagram_oauth.CONFIG_ID,
     )
 
-    state, cookie_value = _sign_oauth_state(user_id)
+    state, cookie_value = _sign_oauth_state(user_id, profile_id=profile_id)
 
     response.set_cookie(
         key=_INSTAGRAM_OAUTH_COOKIE,
@@ -555,7 +571,9 @@ async def instagram_callback(
     if not code:
         return _redirect("instagram=error&message=missing_code")
 
-    if not _verify_oauth_state(request, _INSTAGRAM_OAUTH_COOKIE, state, user_id):
+    if not _verify_oauth_state(
+        request, _INSTAGRAM_OAUTH_COOKIE, state, user_id, profile_id,
+    ):
         return _redirect("instagram=error&message=invalid_state")
 
     try:
@@ -595,6 +613,7 @@ async def delete_instagram_credential(user_id: int = Depends(get_current_user_id
 async def facebook_authorize(
     response: Response,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """URL de autorização do Login do Facebook (mesmo app do Instagram,
     ver api/facebook_oauth.py). App único da plataforma — não depende de
@@ -607,7 +626,7 @@ async def facebook_authorize(
         facebook_oauth.CALLBACK_URL, facebook_oauth.CONFIG_ID,
     )
 
-    state, cookie_value = _sign_oauth_state(user_id)
+    state, cookie_value = _sign_oauth_state(user_id, profile_id=profile_id)
 
     response.set_cookie(
         key=_FACEBOOK_OAUTH_COOKIE,
@@ -653,7 +672,9 @@ async def facebook_callback(
     if not code:
         return _redirect("facebook=error&message=missing_code")
 
-    if not _verify_oauth_state(request, _FACEBOOK_OAUTH_COOKIE, state, user_id):
+    if not _verify_oauth_state(
+        request, _FACEBOOK_OAUTH_COOKIE, state, user_id, profile_id,
+    ):
         return _redirect("facebook=error&message=invalid_state")
 
     try:
@@ -722,6 +743,7 @@ async def tiktok_domain_verification_staging_20261009():
 async def tiktok_authorize(
     response: Response,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """URL de autorização do TikTok Login Kit.
 
@@ -741,7 +763,7 @@ async def tiktok_authorize(
         logger.error("TikTok OAuth sem TIKTOK_CLIENT_KEY/TIKTOK_CALLBACK_URL configurados")
         raise HTTPException(status_code=503, detail="Conexão com TikTok indisponível no momento.")
 
-    state, cookie_value = _sign_oauth_state(user_id)
+    state, cookie_value = _sign_oauth_state(user_id, profile_id=profile_id)
 
     response.set_cookie(
         key=_TIKTOK_OAUTH_COOKIE,
@@ -802,7 +824,9 @@ async def tiktok_callback(
     if not code:
         return _redirect("tiktok=error&message=missing_code")
 
-    if not _verify_oauth_state(request, _TIKTOK_OAUTH_COOKIE, state, user_id):
+    if not _verify_oauth_state(
+        request, _TIKTOK_OAUTH_COOKIE, state, user_id, profile_id,
+    ):
         return _redirect("tiktok=error&message=invalid_state")
 
     try:
@@ -843,6 +867,7 @@ async def delete_tiktok_credential(user_id: int = Depends(get_current_user_id), 
 async def x_authorize(
     response: Response,
     user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
 ):
     """URL de autorização OAuth 2.0 + PKCE do X.
 
@@ -854,7 +879,9 @@ async def x_authorize(
     _require_oauth_config("X", x_oauth.CLIENT_ID, x_oauth.CLIENT_SECRET, x_oauth.CALLBACK_URL)
 
     code_verifier, code_challenge = x_oauth.generate_pkce_pair()
-    state, cookie_value = _sign_oauth_state(user_id, {"code_verifier": code_verifier})
+    state, cookie_value = _sign_oauth_state(
+        user_id, {"code_verifier": code_verifier}, profile_id=profile_id,
+    )
 
     response.set_cookie(
         key=_X_OAUTH_COOKIE,
@@ -900,7 +927,9 @@ async def x_callback(
     if not code:
         return _redirect("x=error&message=missing_code")
 
-    oauth_state = _verify_oauth_state(request, _X_OAUTH_COOKIE, state, user_id)
+    oauth_state = _verify_oauth_state(
+        request, _X_OAUTH_COOKIE, state, user_id, profile_id,
+    )
     if not oauth_state:
         return _redirect("x=error&message=invalid_state")
 

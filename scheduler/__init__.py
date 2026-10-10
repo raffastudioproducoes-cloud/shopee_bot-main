@@ -41,6 +41,9 @@ _scheduler = None
 JOB_DEFAULTS = {"misfire_grace_time": 300, "coalesce": True}
 
 MISSED_JOB_MESSAGE = "Horário de publicação perdido (servidor ocupado ou reiniciando). Publique de novo."
+PROFILE_SCOPED_FUNCS = frozenset({
+    "bot_post", "bot_post_x", "bot_post_facebook", "bot_post_instagram", "bot_post_tiktok",
+})
 
 
 def _on_job_problem(event):
@@ -124,6 +127,8 @@ def _add_job(user_id, job, conn):
 
     func = job["func"]
     trigger = job["trigger"]
+    if func in PROFILE_SCOPED_FUNCS and not job.get("profile_id"):
+        raise ValueError("profile_id obrigatorio para publicacao em rede social")
     job_id = schedulers.insert(user_id, job, conn)
 
     if trigger == "cron":

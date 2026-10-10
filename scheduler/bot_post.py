@@ -9,6 +9,7 @@ from shopee_bot.database.activities import (
     insert_activities, activity_metadata_wrapper
 )
 from shopee_bot.database.activity_types import ActivityType
+from shopee_bot.scheduler.profile_scope import require_profile_id
 from shopee_bot.utils import retry_with_backoff
 
 
@@ -128,8 +129,7 @@ def bot_post(job_id):
     job_data = schedulers.get_by_id(job_id)
     user_id = job_data["user_id"]
     post_id = job_data["post_id"]
-    # perfil dono do post: credencial e atividades ficam nele (None = job antigo)
-    profile_id = job_data.get("profile_id")
+    profile_id = require_profile_id(job_data)
 
     user_data = threads_credentials.get_by_user_id(user_id, profile_id)
     if not user_data:
@@ -139,7 +139,7 @@ def bot_post(job_id):
     logger.info(f"job #{job_id} is {username}'s.")
 
     last_post_id = None
-    post_data = posts.get(user_id, post_id)
+    post_data = posts.get(user_id, post_id, profile_id)
     published_parts = 0
 
     for part_index, post in enumerate(post_data):

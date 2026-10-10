@@ -5,6 +5,7 @@ from shopee_bot.database.activities import (
     insert_activities, activity_metadata_wrapper
 )
 from shopee_bot.database.activity_types import ActivityType
+from shopee_bot.scheduler.profile_scope import require_profile_id
 
 
 def bot_post_facebook(job_id):
@@ -19,8 +20,7 @@ def bot_post_facebook(job_id):
     job_data = schedulers.get_by_id(job_id)
     user_id = job_data["user_id"]
     post_id = job_data["post_id"]
-    # perfil dono do post: credencial e atividades ficam nele (None = job antigo)
-    profile_id = job_data.get("profile_id")
+    profile_id = require_profile_id(job_data)
 
     user_data = facebook_credentials.get_by_user_id(user_id, profile_id)
     username = user_data["username"]
@@ -30,7 +30,7 @@ def bot_post_facebook(job_id):
     page_access_token = user_data["facebook_page_access_token"]
     logger.info(f"job #{job_id} is {username}'s.")
 
-    post_data = posts.get(user_id, post_id)
+    post_data = posts.get(user_id, post_id, profile_id)
     root_post = post_data[0]
 
     try:
@@ -41,7 +41,7 @@ def bot_post_facebook(job_id):
             # histórico do problema que isso resolve (App Token só
             # enxergava Páginas do PRÓPRIO app).
             if root_post["product_ids"]:
-                product = products.get(user_id, root_post["product_ids"][0])
+                product = products.get(user_id, root_post["product_ids"][0], profile_id)
                 FacebookAPI.post_product_as_page(page_access_token, page_id, product)
             else:
                 FacebookAPI.post_text_as_page(page_access_token, page_id, root_post["text"])
@@ -50,7 +50,7 @@ def bot_post_facebook(job_id):
             # migração pro app único — só funciona pra Páginas que o app
             # do Rafa administra.
             if root_post["product_ids"]:
-                product = products.get(user_id, root_post["product_ids"][0])
+                product = products.get(user_id, root_post["product_ids"][0], profile_id)
                 FacebookAPI.post_product(app_id, secret, page_id, product)
             else:
                 FacebookAPI.post_text(app_id, secret, page_id, root_post["text"])

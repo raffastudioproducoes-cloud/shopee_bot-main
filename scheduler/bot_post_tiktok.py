@@ -15,6 +15,7 @@ from shopee_bot.database.activities import (
     insert_activities, activity_metadata_wrapper
 )
 from shopee_bot.database.activity_types import ActivityType
+from shopee_bot.scheduler.profile_scope import require_profile_id
 
 
 def _video_media(post):
@@ -86,13 +87,13 @@ def bot_post_tiktok(job_id):
     user_id = job_data["user_id"]
     post_id = job_data["post_id"]
     # perfil dono do post: credencial e atividades ficam nele (None = job antigo)
-    profile_id = job_data.get("profile_id")
+    profile_id = require_profile_id(job_data)
 
     user_data = tiktok_credentials.get_by_user_id(user_id, profile_id)
     username = user_data["username"]
     logger.info(f"TikTok job #{job_id} is {username}'s.")
 
-    post_data = posts.get(user_id, post_id)
+    post_data = posts.get(user_id, post_id, profile_id)
     head_post = post_data[0]
     media = _video_media(head_post)
 

@@ -3,7 +3,21 @@
 > Fases e tarefas derivadas do PRD e do histórico real (`git log`, `docs/ROADMAP_MIGRACAO.md`,
 > `docs/CHECKLIST_MIGRACAO.md`, vault Obsidian `00-INDICE-Estado-Atual.md`). Uma tarefa só é
 > marcada **Concluída** com evidência de código ou teste passando; senão fica **Bloqueada** ou
-> **Pendente**. Última verificação: 2026-10-05.
+> **Pendente**. Última verificação: 2026-10-10.
+
+## Atualização 2026-10-10 — Isolamento obrigatório de credenciais e publicação
+
+- [x] OAuth passa o `profile_id` assinado no `state` e rejeita callback concluído sob outro
+  perfil. O app OAuth é global, mas o token emitido pertence exclusivamente ao usuário e
+  perfil que iniciou a autorização.
+- [x] Jobs de publicação e atualização de catálogo sem `profile_id` agora falham fechados;
+  não escolhem credencial, post, produto nem token "por usuário" como compatibilidade.
+- [x] Os cinco publicadores consultam post e produto pelo perfil do job. Renovação de token X
+  e TikTok atualiza somente a linha do mesmo perfil.
+- [x] O painel Flask legado de credenciais só é registrado quando
+  `LEGACY_PANEL_ENABLED=true`; a superfície padrão é React/FastAPI escopada.
+- [x] Evidência local: 20 testes do scheduler e 100 testes de OAuth/credenciais/posts verdes.
+  Não há merge para `main` nesta tarefa; validação funcional no staging permanece necessária.
 
 ## Fase 0-8.1 — Migração Flask → React + FastAPI
 

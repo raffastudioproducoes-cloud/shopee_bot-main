@@ -33,14 +33,14 @@ def _user_data(**overrides):
 def _patch_common(monkeypatch, user_data, root_post):
     monkeypatch.setattr(
         module.schedulers, "get_by_id",
-        lambda job_id: {"user_id": 42, "post_id": 7},
+        lambda job_id: {"user_id": 42, "post_id": 7, "profile_id": "profile-1"},
     )
     monkeypatch.setattr(
         module.instagram_credentials, "get_by_user_id",
         lambda user_id, profile_id=None: user_data,
     )
     monkeypatch.setattr(
-        module.posts, "get", lambda user_id, post_id: [root_post],
+        module.posts, "get", lambda user_id, post_id, profile_id: [root_post],
     )
 
 
@@ -84,7 +84,7 @@ def test_bot_post_instagram_with_product_calls_post_product(monkeypatch):
 
     product = {"name": "Produto X", "commission_link": "http://x"}
     monkeypatch.setattr(
-        module.products, "get", lambda user_id, product_id: product,
+        module.products, "get", lambda user_id, product_id, profile_id: product,
     )
 
     calls = {}

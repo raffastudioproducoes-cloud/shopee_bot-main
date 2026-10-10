@@ -48,9 +48,31 @@ def test_create_job_accepts_whitelisted_func(client, monkeypatch):
                 "func": "bot_post_x",
                 "trigger": "date",
                 "run_date": "2026-01-01T00:00:00",
+                "profile_id": "11111111-1111-1111-1111-111111111111",
             },
             headers=_headers(),
         )
 
     assert res.status_code == 201
     mock_add_job.assert_called_once()
+
+
+def test_create_job_rejects_missing_profile_id(client, monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_SECRET", INTERNAL_SECRET)
+
+    with patch("shopee_bot.web.routes.internal.add_job") as mock_add_job:
+        res = client.post(
+            "/internal/scheduler/jobs",
+            json={
+                "user_id": 1,
+                "post_id": 1,
+                "func": "bot_post_x",
+                "trigger": "date",
+                "run_date": "2026-01-01T00:00:00",
+            },
+            headers=_headers(),
+        )
+
+    assert res.status_code == 400
+    assert res.json["error"] == "profile_id obrigatorio"
+    mock_add_job.assert_not_called()

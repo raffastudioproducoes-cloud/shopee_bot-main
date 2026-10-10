@@ -8,13 +8,14 @@ def count(user_id):
     return query_db(query, (user_id, ), True)["count"]
 
 
-def get(user_id, post_id):
+def get(user_id, post_id, profile_id):
     query = """
         WITH RECURSIVE post_hierarchy AS (
             -- parent node
             SELECT id, text, created_at, updated_at, post_id, 0 as depth
             FROM posts
-            WHERE id = %s AND user_id = %s AND post_id IS NULL
+            WHERE id = %s AND user_id = %s AND profile_id = %s::uuid
+              AND post_id IS NULL
 
             UNION ALL
 
@@ -24,6 +25,7 @@ def get(user_id, post_id):
                 ph.depth + 1
             FROM posts p
             INNER JOIN post_hierarchy ph ON p.post_id = ph.id
+            WHERE p.profile_id = %s::uuid
         )
         SELECT
             ph.id,
@@ -74,7 +76,7 @@ def get(user_id, post_id):
             ph.depth, pp.post_id, pm.post_id, s.id
         ORDER BY ph.depth ASC
     """
-    args = (post_id, user_id)
+    args = (post_id, user_id, profile_id, profile_id)
     return query_db(query, args)
 
 
