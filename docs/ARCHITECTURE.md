@@ -138,10 +138,13 @@ sequenceDiagram
     A-->>U: redirect para /panel/credentials com sucesso
 ```
 
-**Estado real (2026-09-29)**: o fluxo acima está implementado nas 5 redes, mas só o
-**Threads** tem um `access_token` de fato salvo no Supabase para o único usuário de
-produção — as outras quatro (X, Instagram, TikTok, Facebook) têm o app único configurado e a
-UI de "Conectar" pronta, porém ninguém completou o handshake ainda (ver `docs/MEMORY.md`).
+**Estado real (2026-10-09)**: o fluxo acima está implementado nas 5 redes. Threads conecta
+para a conta `rafastudio`/AMD, mas usuário comum pode ser bloqueado pelo próprio Meta quando
+o app ainda exige convite de tester aceito (`error_code=1349245`). TikTok chega ao provedor,
+mas a tela atual mostra bloqueio de `redirect_uri`: o painel TikTok precisa reconhecer
+exatamente a URL cadastrada em `TIKTOK_CALLBACK_URL` antes de emitir o `code` de OAuth. O
+backend registra as duas variantes de callback do TikTok, com e sem barra final; token novo
+vem de novo OAuth, não de cópia manual do portal (ver `docs/MEMORY.md`).
 
 ## 5. Bridge interno Flask ↔ FastAPI
 

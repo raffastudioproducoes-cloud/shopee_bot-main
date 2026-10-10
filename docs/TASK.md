@@ -33,6 +33,24 @@ app do Instagram (`api/facebook_oauth.py`). Evidência: `git log` (`89e542b`, `2
 
 ## Validação em produção — pendente real
 
+**Atualização 2026-10-09 — OAuth observado em staging/produção antes de corrigir código:**
+
+- [ ] **Threads para usuário comum:** resolver no Meta/Threads o erro externo
+  `error_code=1349245` (`The user has not accepted the invite to test the app`). A conta
+  `rafastudio`/AMD conecta; usuário comum precisa aceitar convite de teste/role no app ou o
+  app precisa sair do modo restrito/aprovar acesso público. Depois disso, retestar
+  `Conectar Threads` no usuário normal.
+- [ ] **TikTok redirect URI:** corrigir no TikTok for Developers o erro de `redirect_uri`.
+  O backend aceita `.../api/credentials/tiktok/callback` e
+  `.../api/credentials/tiktok/callback/`; cadastrar exatamente a URL do ambiente usada em
+  `TIKTOK_CALLBACK_URL` e manter a variante com barra final quando o painel exigir prefixo.
+  Depois clicar em `Conectar TikTok` de novo para gravar novo token de usuário.
+- [ ] **TikTok token expirado:** não colar token manualmente no app. O caminho correto é
+  refazer o OAuth depois de corrigir o `redirect_uri`; a renovação automática do scheduler
+  depende de `refresh_token` já salvo por conexão bem-sucedida.
+- [ ] **Teste de conexão com token do próprio usuário:** ainda validar X, Instagram e TikTok
+  depois que houver tokens reais por usuário.
+
 - [ ] **Validar no Render** que os dois processos (Flask + FastAPI) sobem corretamente no
   mesmo container e que `FLASK_INTERNAL_URL`/`INTERNAL_API_SECRET` estão configurados lá.
   Só confirmado em dev local até a última verificação.

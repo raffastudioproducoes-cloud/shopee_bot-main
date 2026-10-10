@@ -116,6 +116,12 @@ completo — a limitação é a ausência de token de usuário salvo, não uma r
   Meta/Facebook/Instagram, TikTok) — fora do controle do time.
 - TikTok "Direct Post" público exige aprovação de parceiro da TikTok for Developers
   (`requirements.txt`/`.env-example` — comentário em `apis/tiktok.py`) — bloqueio externo.
+- TikTok Login Kit também exige que o `redirect_uri` cadastrado no painel bata exatamente com
+  `TIKTOK_CALLBACK_URL`; em 2026-10-09 o provedor estava rejeitando a conexão por
+  `redirect_uri` antes de devolver o callback.
+- Threads pode bloquear contas que não aceitaram convite de tester/role enquanto o app Meta
+  não estiver público/aprovado; erro observado em usuário comum:
+  `The user has not accepted the invite to test the app` (`error_code=1349245`).
 - Coexistência Flask (legado, produção) + FastAPI (nova API) no mesmo container é uma
   topologia ainda não validada 100% em produção no Render (ver `docs/MEMORY.md`).
 

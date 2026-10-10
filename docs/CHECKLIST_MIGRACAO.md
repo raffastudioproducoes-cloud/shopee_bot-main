@@ -115,3 +115,14 @@ Critérios gerais aplicados a cada módulo abaixo:
   - [ ] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado) — GitHub Pro ativo (confirmado pelo Rafa, 2026-10-05), mas branch protection ainda não configurada (possível agora, ainda não ativada).
   - [x] Aplicar as migrações 037, 038, 039, 040, 041 e 042 no Supabase — **concluído 2026-10-06**. Verificado via MCP Supabase: 6 migrações registradas em `public.migrations` (linhas); nenhum `profile_id` NULL em `posts`/`shopee_credentials` após backfill; staging e produção compartilham MESMO banco. Ver `docs/RULES.md` item 11 para procedimento e **risco conhecido** sobre restore com código antigo de produção. Disco/permissão do container não-root: o Dockerfile já cria e dá `chown app` a `/shopee_bot/upload` e `/shopee_bot/web/media` (únicos pontos de escrita local; mídia vai para disco, avatar para Supabase Storage). Sem disco persistente do Render, conteúdo é efêmero (some a cada deploy).
   - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
+
+## Atualizado 2026-10-09 — OAuth Threads/TikTok observado
+
+- [ ] Threads em usuário comum: resolver no painel Meta/Threads o convite de tester/role.
+  Erro atual do provedor: `error_code=1349245`, usuário não aceitou convite para testar o app.
+  Conta `rafastudio`/AMD conecta, então o bloqueio é por conta/permissão externa.
+- [ ] TikTok: corrigir `redirect_uri` no TikTok for Developers. O backend aceita callback com
+  e sem barra final; cadastrar a URL exata de staging/produção usada em `TIKTOK_CALLBACK_URL`
+  e, se o painel exigir prefixo, manter também a variante com barra final.
+- [ ] Após corrigir o painel TikTok, clicar `Conectar TikTok` novamente para gerar token novo.
+  Não há token manual para copiar do portal; o app salva token cifrado apenas no callback OAuth.

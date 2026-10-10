@@ -94,6 +94,29 @@ contexto inicial.
   - [CONCLUÍDO, 2026-10-06] Aplicar as migrações 037, 038, 039, 040, 041 e 042 no Supabase — verificado via MCP: 6 migrações registradas em `public.migrations` (linhas); nenhum `profile_id` NULL em `posts`/`shopee_credentials` após backfill. Ver `docs/RULES.md` item 11 para procedimento e risco conhecido sobre restore com código antigo.
   - Merge dos PRs da branch `chore/phase-12-integration` em `main`.
 
+## Atualização 2026-10-09 — evidência atual de OAuth Threads/TikTok
+
+Registro feito antes de qualquer correção de código, a partir das telas enviadas pelo Rafa e
+da leitura do fluxo em `api/routers/credentials.py`, `api/threads_oauth.py` e
+`api/tiktok_oauth.py`. Nenhum token, segredo ou valor sensível foi lido ou salvo.
+
+- **Threads:** a conta `rafastudio`/AMD conecta e aparece como `Funcionando` em staging.
+  A conta de usuário comum falha no provedor com
+  `Invalid Request: The user has not accepted the invite to test the app.`
+  (`error_code=1349245`). Isso aponta para bloqueio externo do app Threads/Meta em modo de
+  teste: o usuário precisa ser adicionado como tester/role e aceitar o convite, ou o app
+  precisa estar aprovado/liberado para público. Não é evidência de token ou callback quebrado
+  no backend.
+- **TikTok:** o botão `Conectar TikTok` chega ao provedor, mas o TikTok rejeita antes do
+  callback com erro de `redirect_uri`. O backend aceita `/api/credentials/tiktok/callback`
+  e `/api/credentials/tiktok/callback/`; o painel TikTok precisa ter exatamente a URL que
+  está em `TIKTOK_CALLBACK_URL` para cada ambiente, e para TikTok também convém manter a
+  variante com barra final por causa da verificação de prefixo. Só depois disso o usuário
+  deve clicar em `Conectar TikTok`/`Reconectar TikTok` para gerar novo token via OAuth.
+- **Renovação de token TikTok:** não se troca token manualmente pelo portal. O token novo é
+  obtido pelo OAuth; o scheduler só consegue renovar quando já existe `refresh_token` salvo
+  por uma conexão anterior bem-sucedida.
+
 ## Referências
 
 - Vault Obsidian: `00-INDICE-Estado-Atual.md` (fonte viva mais detalhada, rede a rede,
