@@ -41,6 +41,10 @@ class TikTokOAuthError(Exception):
     pass
 
 
+def _callback_url() -> str:
+    return (CALLBACK_URL or "").rstrip("/") + "/"
+
+
 def get_user_auth_url(state: str) -> str:
     # https://developers.tiktok.com/doc/login-kit-web
     #
@@ -52,7 +56,7 @@ def get_user_auth_url(state: str) -> str:
         f"{AUTH_URL}?client_key={CLIENT_KEY}"
         f"&scope={quote(DEFAULT_SCOPE, safe=',')}"
         "&response_type=code"
-        f"&redirect_uri={quote(CALLBACK_URL or '', safe='')}"
+        f"&redirect_uri={quote(_callback_url(), safe='')}"
         f"&state={quote(state, safe='')}"
     )
 
@@ -70,7 +74,7 @@ async def get_user_auth_id_token(code: str) -> tuple[str, str | None, str]:
                 "client_secret": CLIENT_SECRET,
                 "code": code,
                 "grant_type": "authorization_code",
-                "redirect_uri": CALLBACK_URL,
+                "redirect_uri": _callback_url(),
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )

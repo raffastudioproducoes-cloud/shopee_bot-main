@@ -763,9 +763,9 @@ async def tiktok_callback(
     Mesma semântica dos callbacks de Threads/Instagram acima.
 
     Valida o `state` contra o cookie assinado do /authorize (CSRF)
-    ANTES de trocar code por token. Precisa do Client Key/Secret que o
-    usuário já salvou (PUT /credentials/tiktok) pra essa troca — nunca
-    expõe token nem detalhe de erro sensível pro frontend.
+    ANTES de trocar code por token. Usa o Client Key/Secret globais do
+    app único (`api/tiktok_oauth.py`) — nunca expõe token nem detalhe
+    de erro sensível pro frontend.
 
     Registrado nos DOIS formatos (com e sem barra final): a "Verify URL
     prefix" do TikTok Login Kit foi registrada como

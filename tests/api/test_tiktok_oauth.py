@@ -45,6 +45,30 @@ def test_tiktok_authorize_returns_url_and_sets_state_cookie(client, monkeypatch)
     assert "tiktok_oauth_state" in res.cookies
 
 
+def test_tiktok_authorize_uses_trailing_slash_callback_for_verified_prefix(client, monkeypatch):
+    """TikTok valida o redirect_uri contra o prefixo verificado com barra final."""
+    monkeypatch.setattr(credentials_module.tiktok_oauth, "CLIENT_KEY", "client-key-123")
+    monkeypatch.setattr(
+        credentials_module.tiktok_oauth,
+        "CALLBACK_URL",
+        "https://shopee-bot-staging.onrender.com/api/credentials/tiktok/callback",
+    )
+
+    res = client.get("/credentials/tiktok/authorize")
+
+    assert res.status_code == 200
+    assert (
+        "redirect_uri=https%3A%2F%2Fshopee-bot-staging.onrender.com"
+        "%2Fapi%2Fcredentials%2Ftiktok%2Fcallback%2F"
+    ) in res.json()["url"]
+
+
+def test_tiktok_callback_url_normalization_is_idempotent(monkeypatch):
+    monkeypatch.setattr(credentials_module.tiktok_oauth, "CALLBACK_URL", "https://x.test/cb/")
+
+    assert credentials_module.tiktok_oauth._callback_url() == "https://x.test/cb/"
+
+
 def test_tiktok_callback_success_saves_credential_and_redirects(client, monkeypatch):
     saved = {}
 
