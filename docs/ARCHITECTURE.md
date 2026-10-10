@@ -140,11 +140,14 @@ sequenceDiagram
 
 **Estado real (2026-10-09)**: o fluxo acima está implementado nas 5 redes. Threads conecta
 para a conta `rafastudio`/AMD, mas usuário comum pode ser bloqueado pelo próprio Meta quando
-o app ainda exige convite de tester aceito (`error_code=1349245`). TikTok chega ao provedor,
-mas a tela atual mostra bloqueio de `redirect_uri`: o painel TikTok precisa reconhecer
-exatamente a URL cadastrada em `TIKTOK_CALLBACK_URL` antes de emitir o `code` de OAuth. O
-backend registra as duas variantes de callback do TikTok, com e sem barra final; token novo
-vem de novo OAuth, não de cópia manual do portal (ver `docs/MEMORY.md`).
+o app ainda exige convite de tester aceito (`error_code=1349245`). TikTok chegou a falhar no
+provedor por `redirect_uri`: o Live do Login Kit tinha apenas a URI de produção, enquanto o
+staging envia `https://shopee-bot-staging.onrender.com/api/credentials/tiktok/callback`.
+Depois de cadastrar também a URI de staging e servir o arquivo de verificação de URL prefix,
+Rafa confirmou que a conexão/autorização TikTok funcionou no staging e a conta ficou
+conectada. O `redirect_uri` enviado ao TikTok deve continuar preservado exatamente como
+`TIKTOK_CALLBACK_URL`, porque o Login Kit valida a URI cadastrada. Token novo vem de novo
+OAuth, não de cópia manual do portal (ver `docs/MEMORY.md`).
 
 ## 5. Bridge interno Flask ↔ FastAPI
 

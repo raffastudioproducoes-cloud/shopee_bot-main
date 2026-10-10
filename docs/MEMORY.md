@@ -22,7 +22,7 @@
 | **X (Twitter)** | App único configurado (env vars), botão "Conectar X" existe no frontend, mas `user_access_token` está nulo — nenhum usuário concluiu o OAuth. |
 | **Instagram** | Mesma situação do X — app configurado, `user_access_token` nulo. |
 | **Facebook** | Migrado de token de Página colado manualmente para OAuth de app único (reaproveita o app do Instagram). Credencial nunca validada com sucesso confirmado ("Testar conexão"). |
-| **TikTok** | App único configurado, domínio verificado no painel TikTok for Developers. `user_access_token` nulo. Aprovação de parceiro para "Direct Post" público pode ser um bloqueio adicional externo (`apis/tiktok.py`, `.env-example`). |
+| **TikTok** | App único configurado, domínio/prefixo e redirect staging validados. Rafa confirmou conexão/autorização no staging em 2026-10-09; publicação real/Direct Post ainda precisa de teste separado (`apis/tiktok.py`, `.env-example`). |
 | **Kwai** | Sem API pública de postagem confirmada (só API de anunciantes/ads). Frontend mostra "em breve" para usuário comum. |
 
 Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via SQL read-only.
@@ -82,8 +82,9 @@ contexto inicial.
   até 041, backup/restore e bots por perfil), UI de perfis (editar/excluir/ativar/TopBar),
   segurança do servidor (claim `pwv`, validação do `profile_id`, trigger 037, rate limits),
   Dockerfile não-root + `HEALTHCHECK`, gunicorn com timeout e supervisão, CI/CD endurecidos.
-- **Estado das redes**: sem alteração desde a verificação de 2026-09-28 (só o Threads tem token
-  de usuário salvo); esta rodada não consultou o Supabase.
+- **Estado das redes**: TikTok passou a ter conexão/autorização confirmada no staging em
+  2026-10-09. X/Instagram ainda dependem de alguém clicar "Conectar" depois do painel de
+  desenvolvedor aceitar a callback URL. Threads continua conectado para `rafastudio`/AMD.
 - **Pendências manuais de Rafa (não são código) — atualizado 2026-10-05**:
   - [CONCLUÍDO] Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção) — confirmado pelo Rafa, 2026-10-05.
   - [CONCLUÍDO] Trocar o branch de produção do serviço no Render de `master` para `main` — confirmado pelo Rafa, 2026-10-05.
@@ -116,6 +117,26 @@ da leitura do fluxo em `api/routers/credentials.py`, `api/threads_oauth.py` e
 - **Renovação de token TikTok:** não se troca token manualmente pelo portal. O token novo é
   obtido pelo OAuth; o scheduler só consegue renovar quando já existe `refresh_token` salvo
   por uma conexão anterior bem-sucedida.
+
+### Atualização dentro de 2026-10-09 — causa real do staging TikTok
+
+- A tela do TikTok for Developers mostrou que o **Login Kit > Production > Live** tinha
+  somente a Redirect URI de produção cadastrada:
+  `https://shopee-bot-fj0w.onrender.com/api/credentials/tiktok/callback`.
+- O staging usa outra Redirect URI:
+  `https://shopee-bot-staging.onrender.com/api/credentials/tiktok/callback`.
+  Enquanto essa URL não estiver cadastrada na revisão Live do Login Kit, o TikTok rejeita
+  `Conectar TikTok` no staging com erro de `redirect_uri`.
+- O botão `URL properties`/`URL prefix` pediu um arquivo novo:
+  `tiktoksuFLmrUFUxZQioEp5TCgDiOi0VAiY2e1.txt`, servido em staging por
+  `/api/credentials/tiktok/callback/tiktoksuFLmrUFUxZQioEp5TCgDiOi0VAiY2e1.txt`
+  no commit `12d1720`. A URL pública respondeu `200` com o conteúdo esperado antes de orientar
+  o Rafa a clicar em `Verify`.
+- Próxima ação operacional: criar revisão no TikTok for Developers, adicionar a Redirect URI
+  de staging na aba Web do Login Kit sem remover a de produção, salvar/publicar a revisão e só
+  então testar `Conectar TikTok` no staging.
+- **Resolvido no staging:** Rafa confirmou em 2026-10-09 que a conexão/autorização do TikTok
+  funcionou, o app voltou do provedor e a conta ficou conectada.
 
 ## Referências
 

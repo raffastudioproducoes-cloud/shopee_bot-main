@@ -40,14 +40,18 @@ app do Instagram (`api/facebook_oauth.py`). Evidência: `git log` (`89e542b`, `2
   `rafastudio`/AMD conecta; usuário comum precisa aceitar convite de teste/role no app ou o
   app precisa sair do modo restrito/aprovar acesso público. Depois disso, retestar
   `Conectar Threads` no usuário normal.
-- [ ] **TikTok redirect URI:** corrigir no TikTok for Developers o erro de `redirect_uri`.
-  O backend aceita `.../api/credentials/tiktok/callback` e
-  `.../api/credentials/tiktok/callback/`; cadastrar exatamente a URL do ambiente usada em
-  `TIKTOK_CALLBACK_URL` e manter a variante com barra final quando o painel exigir prefixo.
-  Depois clicar em `Conectar TikTok` de novo para gravar novo token de usuário.
-- [ ] **TikTok token expirado:** não colar token manualmente no app. O caminho correto é
-  refazer o OAuth depois de corrigir o `redirect_uri`; a renovação automática do scheduler
-  depende de `refresh_token` já salvo por conexão bem-sucedida.
+- [x] **TikTok redirect URI:** corrigir no TikTok for Developers o erro de `redirect_uri`.
+  Achado real em 2026-10-09: o Login Kit Live tinha só a URL de produção
+  (`https://shopee-bot-fj0w.onrender.com/api/credentials/tiktok/callback`). Para testar
+  staging, adicionar também
+  `https://shopee-bot-staging.onrender.com/api/credentials/tiktok/callback` na aba Web do
+  Login Kit, sem remover a produção. O arquivo de URL prefix pedido pelo TikTok para staging
+  (`tiktoksuFLmrUFUxZQioEp5TCgDiOi0VAiY2e1.txt`) já foi servido no commit `12d1720`.
+  **Resolvido:** Rafa testou no staging em 2026-10-09; a autorização funcionou e a conta
+  ficou conectada.
+- [x] **TikTok token expirado no staging:** resolvido por novo OAuth após corrigir o
+  `redirect_uri`; não houve cópia manual de token do portal. A renovação automática do
+  scheduler depende do `refresh_token` salvo por essa conexão bem-sucedida.
 - [ ] **Teste de conexão com token do próprio usuário:** ainda validar X, Instagram e TikTok
   depois que houver tokens reais por usuário.
 
@@ -61,7 +65,8 @@ app do Instagram (`api/facebook_oauth.py`). Evidência: `git log` (`89e542b`, `2
   Callbacks por ambiente (`rede` = `threads`, `x`, `facebook`, `instagram`, `tiktok`):
   - **Staging:** `https://shopee-bot-staging.onrender.com/api/credentials/<rede>/callback`
   - **Produção:** `https://shopee-bot-fj0w.onrender.com/api/credentials/<rede>/callback`
-  - TikTok: cadastrar também a variante com barra final (`.../tiktok/callback/`).
+  - TikTok: a aba Web do Login Kit Live precisa listar explicitamente produção e staging;
+    `URL prefix`/arquivo `.txt` prova posse do prefixo, mas não substitui a Redirect URI.
 - [ ] **Conectar de fato** X, Instagram, TikTok e validar Facebook/Threads em produção —
   ação humana (clicar "Conectar", autorizar), não pendência de código. Ver `docs/MEMORY.md`
   para o estado rede a rede.
@@ -76,7 +81,7 @@ app do Instagram (`api/facebook_oauth.py`). Evidência: `git log` (`89e542b`, `2
 | X | `scheduler/bot_post_x.py` | Sim | Sim | Não | **Bloqueada** — aguardando usuário concluir "Conectar" |
 | Instagram | `scheduler/bot_post_instagram.py` | Sim | Sim | Não | **Bloqueada** — idem |
 | Facebook | `scheduler/bot_post_facebook.py` | Sim | Sim (migrado) | Não confirmado | **Bloqueada** — nunca validado com sucesso |
-| TikTok | `scheduler/bot_post_tiktok.py` | Sim | Sim; domínio verificado no painel | Não | **Bloqueada** — usuário + possível aprovação de parceiro (Direct Post) pendente |
+| TikTok | `scheduler/bot_post_tiktok.py` | Sim | Sim; domínio/prefixo e redirect staging validados | **Sim no staging** | Conexão/autorização confirmada em staging; publicação real ainda depende de teste/post e política Direct Post |
 | Kwai | Não existe | — | — | — | **Bloqueada — sem API pública de postagem disponível** (decisão antiga, não é pendência nova) |
 
 ## Outras pendências reais (vault, 2026-09-28)

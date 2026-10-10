@@ -72,16 +72,17 @@ Multi-tenant com múltiplos usuários pagantes é visão pós-MVP, não implemen
 | **X (Twitter)** | Sim, app único (migrado de per-user) | Não — `user_access_token` nulo | Não |
 | **Instagram** | Sim, app único (Facebook Login for Business) | Não — `user_access_token` nulo | Não |
 | **Facebook** | Sim, app único (reaproveita app do Instagram, migrado depois do token de Página manual) | Não confirmado — credencial existe mas nunca validada | Não |
-| **TikTok** | Sim, app único; domínio verificado no painel TikTok for Developers | Não — `user_access_token` nulo | Não |
+| **TikTok** | Sim, app único; domínio/prefixo e redirect staging validados | Sim no staging — Rafa confirmou conexão/autorização em 2026-10-09 | Não |
 | **Kwai** | Não — sem API pública de postagem confirmada (só API de anunciantes/ads) | N/A | N/A |
 
 > **Nota de precisão**: um contexto de sessão anterior, fornecido junto com esta tarefa,
 > afirmava que "Threads, X, Facebook, Instagram" estavam "funcionando end-to-end, testado e
 > confirmado". Essa afirmação **não é sustentada pela evidência real** (código +
-> consulta SQL). O único caso com token de usuário de fato salvo é o Threads. As demais
-> redes (exceto Kwai) têm o app único implementado e a UI de "Conectar" pronta, mas
-> **nenhum usuário concluiu o fluxo OAuth ainda** — isso é uma ação pendente de Rafa/usuário
-> em produção, não um gap de código. Ver `docs/MEMORY.md` para o detalhe completo.
+> consulta SQL). Desde 2026-10-09, TikTok também tem conexão/autorização confirmada no
+> staging por teste do Rafa. X/Instagram ainda têm o app único implementado e a UI de
+> "Conectar" pronta, mas dependem de alguém concluir o fluxo OAuth — isso é uma ação pendente
+> de Rafa/usuário em produção, não um gap de código. Ver `docs/MEMORY.md` para o detalhe
+> completo.
 
 No frontend, TikTok e Kwai aparecem como "em breve" para o usuário comum (admin vê tudo) —
 confirmado em `git log` (`514d84a feat(credentials): TikTok/Kwai viram 'em breve' pra
@@ -118,7 +119,10 @@ completo — a limitação é a ausência de token de usuário salvo, não uma r
   (`requirements.txt`/`.env-example` — comentário em `apis/tiktok.py`) — bloqueio externo.
 - TikTok Login Kit também exige que o `redirect_uri` cadastrado no painel bata exatamente com
   `TIKTOK_CALLBACK_URL`; em 2026-10-09 o provedor estava rejeitando a conexão por
-  `redirect_uri` antes de devolver o callback.
+  `redirect_uri` antes de devolver o callback. A causa operacional confirmada no staging foi
+  que o app Live do TikTok tinha só a URL de produção cadastrada; staging precisa estar
+  cadastrado como Redirect URI adicional no Login Kit. Resolvido no staging em 2026-10-09:
+  Rafa confirmou autorização concluída e conta conectada.
 - Threads pode bloquear contas que não aceitaram convite de tester/role enquanto o app Meta
   não estiver público/aprovado; erro observado em usuário comum:
   `The user has not accepted the invite to test the app` (`error_code=1349245`).

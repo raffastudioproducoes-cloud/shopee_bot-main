@@ -121,8 +121,11 @@ Critérios gerais aplicados a cada módulo abaixo:
 - [ ] Threads em usuário comum: resolver no painel Meta/Threads o convite de tester/role.
   Erro atual do provedor: `error_code=1349245`, usuário não aceitou convite para testar o app.
   Conta `rafastudio`/AMD conecta, então o bloqueio é por conta/permissão externa.
-- [ ] TikTok: corrigir `redirect_uri` no TikTok for Developers. O backend aceita callback com
-  e sem barra final; cadastrar a URL exata de staging/produção usada em `TIKTOK_CALLBACK_URL`
-  e, se o painel exigir prefixo, manter também a variante com barra final.
-- [ ] Após corrigir o painel TikTok, clicar `Conectar TikTok` novamente para gerar token novo.
-  Não há token manual para copiar do portal; o app salva token cifrado apenas no callback OAuth.
+- [x] TikTok: corrigir `redirect_uri` no TikTok for Developers. O backend aceita callback com
+  e sem barra final, mas o Login Kit valida a Redirect URI exata. Achado real: Live tinha só
+  `https://shopee-bot-fj0w.onrender.com/api/credentials/tiktok/callback`; adicionar também
+  `https://shopee-bot-staging.onrender.com/api/credentials/tiktok/callback` em uma revisão.
+  O arquivo de `URL prefix` novo foi servido no staging no commit `12d1720`. Rafa confirmou
+  conexão/autorização funcionando no staging em 2026-10-09.
+- [x] Após corrigir o painel TikTok, clicar `Conectar TikTok` novamente para gerar token novo.
+  Concluído no staging; o app salva token cifrado apenas no callback OAuth.
