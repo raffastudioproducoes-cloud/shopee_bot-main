@@ -67,15 +67,16 @@ def update(
     return execute_db(query, args, open_conn)
 
 
-def update_tokens(user_id, tokens, open_conn=None):
+def update_tokens(user_id, profile_id, tokens, open_conn=None):
     """Persiste access/refresh token de usuário renovados via
-    apis.x.refresh_access_token. Usado pelo scheduler (bot_post_x) antes
+    api.x_oauth.refresh_access_token. Usado pelo scheduler (bot_post_x) antes
     de publicar, quando token_expires_at já passou."""
     query = """
         UPDATE x_credentials
         SET user_access_token = %s, user_refresh_token = %s,
             token_expires_at = %s, updated_at = %s
         WHERE user_id = %s
+          AND (%s::uuid IS NULL OR profile_id = %s::uuid)
         RETURNING id
     """
     expires_at = datetime.now(pytz.utc) + timedelta(
@@ -87,5 +88,7 @@ def update_tokens(user_id, tokens, open_conn=None):
         expires_at,
         datetime.now(pytz.timezone('America/Sao_Paulo')),
         user_id,
+        profile_id,
+        profile_id,
     )
     return execute_db(query, args, open_conn)
