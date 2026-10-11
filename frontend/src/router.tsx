@@ -1,4 +1,7 @@
-import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router"
+import { lazy } from "react"
+import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router"
+import { authApi } from "./api/auth"
+import { useAuthStore } from "./stores/authStore"
 import LoginPage from "./pages/LoginPage"
 import DashboardPage from "./pages/DashboardPage"
 import { PanelPage } from "./pages/PanelPage"
@@ -7,11 +10,32 @@ import { ListasPage } from "./pages/ListasPage"
 import { PostsPage } from "./pages/PostsPage"
 import { CredentialsPage } from "./pages/CredentialsPage"
 import { ProfilesPage } from "./pages/ProfilesPage"
-import { LogsPage } from "./pages/LogsPage"
 import { HelpPage } from "./pages/HelpPage"
 import { SettingsPage } from "./pages/SettingsPage"
 import { TermsPage } from "./pages/legal/TermsPage"
 import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage"
+
+const UsersPage = lazy(() => import("./pages/UsersPage"))
+const LogsPage = lazy(() => import("./pages/LogsPage"))
+
+async function requireAdmin() {
+  let user
+
+  try {
+    user = await authApi.me()
+  } catch {
+    useAuthStore.getState().logout()
+    throw redirect({ to: "/login" })
+  }
+
+  const authStore = useAuthStore.getState()
+  authStore.setUser(user)
+  authStore.setRoleVerified(true)
+
+  if (user.access !== "ADMIN") {
+    throw redirect({ to: "/" })
+  }
+}
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -82,9 +106,17 @@ const profilesRoute = createRoute({
   component: ProfilesPage,
 })
 
+const usersRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: "/users",
+  beforeLoad: requireAdmin,
+  component: UsersPage,
+})
+
 const logsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/logs",
+  beforeLoad: requireAdmin,
   component: LogsPage,
 })
 
@@ -111,6 +143,7 @@ const routeTree = rootRoute.addChildren([
     postsRoute,
     credentialsRoute,
     profilesRoute,
+    usersRoute,
     logsRoute,
     helpRoute,
     settingsRoute,
