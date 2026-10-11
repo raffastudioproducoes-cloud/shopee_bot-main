@@ -1,5 +1,7 @@
+import asyncio
 from datetime import datetime, timezone
 
+from shopee_bot.api import x_oauth
 from shopee_bot.apis import x as XAPI
 from shopee_bot.clogging import logger
 from shopee_bot.database import schedulers, x_credentials, posts
@@ -7,9 +9,10 @@ from shopee_bot.database.activities import (
     insert_activities, activity_metadata_wrapper
 )
 from shopee_bot.database.activity_types import ActivityType
+from shopee_bot.scheduler.profile_scope import require_profile_id
 
 
-def _ensure_fresh_token(user_id, user_data):
+def _ensure_fresh_token(user_id, profile_id, user_data):
     """Renova o access_token de usuário se já expirou.
 
     ponytail: checagem simples de expiração, sem lock entre workers
@@ -31,12 +34,14 @@ def _ensure_fresh_token(user_id, user_data):
     if datetime.now(timezone.utc) < expires_at:
         return user_data
 
-    token_data = XAPI.refresh_access_token(
-        user_data["x_app_id"],
-        user_data["x_secret"],
-        user_data["x_refresh_token"],
+    # O token nasceu no OAuth global (X_CLIENT_ID/X_CLIENT_SECRET), que
+    # tambem alimenta o teste de conexao. Nao reutilizar app_id/secret
+    # legados da tabela: eles podem pertencer a outro app e o X recusaria
+    # a renovacao com invalid_client.
+    token_data = asyncio.run(
+        x_oauth.refresh_access_token(user_data["x_refresh_token"])
     )
-    x_credentials.update_tokens(user_id, token_data)
+    x_credentials.update_tokens(user_id, profile_id, token_data)
     user_data["x_access_token"] = token_data["access_token"]
     return user_data
 
@@ -47,15 +52,14 @@ def bot_post_x(job_id):
     job_data = schedulers.get_by_id(job_id)
     user_id = job_data["user_id"]
     post_id = job_data["post_id"]
-    # perfil dono do post: credencial e atividades ficam nele (None = job antigo)
-    profile_id = job_data.get("profile_id")
+    profile_id = require_profile_id(job_data)
 
     user_data = x_credentials.get_by_user_id(user_id, profile_id)
     username = user_data["username"]
     logger.info(f"job #{job_id} is {username}'s (X).")
 
     try:
-        user_data = _ensure_fresh_token(user_id, user_data)
+        user_data = _ensure_fresh_token(user_id, profile_id, user_data)
     except Exception as err:
         logger.exception(
             f"job #{job_id} for {username} falhou ao renovar token X: {err}"
@@ -73,7 +77,7 @@ def bot_post_x(job_id):
         return
 
     last_tweet_id = None
-    post_data = posts.get(user_id, post_id)
+    post_data = posts.get(user_id, post_id, profile_id)
     published_parts = 0
 
     for part_index, post in enumerate(post_data):

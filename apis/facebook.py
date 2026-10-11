@@ -208,6 +208,19 @@ def post_text_as_page(page_access_token, page_id, text):
         )
     return res.json()
 
+def post_photo_as_page(page_access_token, page_id, image_url, caption):
+    """Publica uma foto por URL pública usando o Page Access Token OAuth."""
+    url = f"{API_BASE}/{page_id}/photos"
+    params = {"url": image_url, "caption": caption, "access_token": page_access_token}
+    res = retry_with_backoff(
+        requests.post, url, params=params,
+        exceptions=(requests.exceptions.RequestException,), timeout=30,
+    )
+    if res.status_code not in (200, 201):
+        raise Exception(f"Facebook: falha ao publicar imagem (status {res.status_code}): {res.text[:300]}")
+    return res.json()
+
+
 def post_product_as_page(page_access_token, page_id, product):
     """Mesmo texto de post_product, mas publicando com Page Access Token
     (fluxo OAuth novo) em vez de app_id/secret (fluxo antigo per-user)."""

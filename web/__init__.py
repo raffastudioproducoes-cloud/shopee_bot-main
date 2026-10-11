@@ -131,8 +131,8 @@ if LEGACY_PANEL_ENABLED:
     app.register_blueprint(users_bp)
     app.register_blueprint(products_bp)
     app.register_blueprint(posts_bp)
+    app.register_blueprint(panel_bp)
 app.register_blueprint(product_lists_bp)
-app.register_blueprint(panel_bp)
 # rotas internas (chamadas só pela API nova, via secret — não sessão de
 # browser) precisam ficar fora do CSRF, que exige token de sessão
 app.register_blueprint(internal_bp)

@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from api.main import app
 from api.routers import credentials as credentials_module
 from api.routers.auth import get_current_user_id
+from api.routers.profiles import get_current_profile_id
 
 
 @pytest.fixture
@@ -135,6 +136,38 @@ def test_threads_callback_state_mismatch_redirects_without_saving(client, monkey
     res = client.get(
         "/credentials/threads/callback",
         params={"code": "meta-code-123", "state": "attacker-controlled-state"},
+        follow_redirects=False,
+    )
+
+    assert res.status_code == 307
+    assert "threads=error" in res.headers["location"]
+    assert "invalid_state" in res.headers["location"]
+    assert upsert_called is False
+
+
+def test_threads_callback_rejects_oauth_started_in_another_profile(client, monkeypatch):
+    """A conta social deve ficar no perfil que iniciou o OAuth.
+
+    Trocar de perfil em outra aba antes do callback não pode fazer a
+    autorização gravar no perfil recém-ativo.
+    """
+    upsert_called = False
+
+    def fake_upsert(*args, **kwargs):
+        nonlocal upsert_called
+        upsert_called = True
+
+    app.dependency_overrides[get_current_profile_id] = lambda: "profile-b"
+    monkeypatch.setattr(credentials_module, "_upsert_by_user", fake_upsert)
+
+    state, cookie_value = credentials_module._sign_oauth_state(
+        42, profile_id="profile-a"
+    )
+    client.cookies.set("threads_oauth_state", cookie_value)
+
+    res = client.get(
+        "/credentials/threads/callback",
+        params={"code": "meta-code-123", "state": state},
         follow_redirects=False,
     )
 

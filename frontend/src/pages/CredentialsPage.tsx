@@ -19,6 +19,7 @@ import { StatusBadge } from "../components/ui/StatusBadge"
 import { ConnectionLight } from "../components/ui/ConnectionLight"
 import { Icon } from "../components/ui/Icon"
 import { Select } from "../components/ui/Select"
+import { Modal } from "../components/ui/Modal"
 
 // X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
 // FacebookCredentialCard — mesmo padrão de TikTok/Instagram) porque usam
@@ -43,6 +44,50 @@ const CARD_GRID = {
   gap: 16,
   alignItems: "start",
 } as const
+
+type OAuthNetwork = "threads" | "x" | "facebook" | "tiktok" | "instagram"
+
+const OAUTH_CONSENT: Record<OAuthNetwork, { label: string; details: string }> = {
+  threads: { label: "Threads", details: "sua identidade no Threads e autorização para publicar posts em seu nome" },
+  x: { label: "X", details: "sua identidade no X e autorização para publicar posts em seu nome" },
+  facebook: { label: "Facebook", details: "a Página que você administra e autorização para publicar nela em seu nome" },
+  tiktok: { label: "TikTok", details: "sua identidade no TikTok e autorização para publicar conteúdo em seu nome" },
+  instagram: { label: "Instagram", details: "sua conta Business/Creator e autorização para publicar conteúdo em seu nome" },
+}
+
+function OAuthConsentModal({
+  network,
+  open,
+  busy,
+  onClose,
+  onContinue,
+}: {
+  network: OAuthNetwork
+  open: boolean
+  busy: boolean
+  onClose: () => void
+  onContinue: () => void
+}) {
+  const consent = OAUTH_CONSENT[network]
+  return (
+    <Modal open={open} onClose={onClose} title={`Conectar ${consent.label}`}>
+      <div role="dialog" aria-modal="true" aria-label={`Autorização ${consent.label}`} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <p style={{ margin: 0, color: "var(--text-body)", font: "var(--text-role-body)" }}>
+          Você será levado ao {consent.label} para autorizar esta conexão.
+        </p>
+        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+          O Shopee Auto Vendas solicitará {consent.details}. A conexão é vinculada somente ao seu perfil ativo e pode ser removida a qualquer momento em “Desconectar”.
+        </p>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>Cancelar</Button>
+          <Button type="button" variant="primary" disabled={busy} onClick={onContinue}>
+            {busy ? "Redirecionando..." : `Continuar para ${consent.label}`}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
 
 // ── Card recolhivel: estado por card em localStorage; recolhido mostra so
 // titulo + status (o corpo e escondido por CSS, ver .cred-card em index.css). ──
@@ -738,6 +783,7 @@ function ThreadsCredentialCard({
   const connected = status.connected
   const [tUserId, setTUserId] = useState("")
   const [accessToken, setAccessToken] = useState("")
+  const [consentOpen, setConsentOpen] = useState(false)
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeThreads(),
@@ -796,7 +842,7 @@ function ThreadsCredentialCard({
             type="button"
             variant="primary"
             disabled={authorizeMutation.isPending}
-            onClick={() => authorizeMutation.mutate()}
+            onClick={() => setConsentOpen(true)}
           >
             {authorizeMutation.isPending ? "Conectando..." : "Conectar Threads"}
           </Button>
@@ -856,6 +902,13 @@ function ThreadsCredentialCard({
           </form>
         )}
       </div>
+      <OAuthConsentModal
+        network="threads"
+        open={consentOpen}
+        busy={authorizeMutation.isPending}
+        onClose={() => setConsentOpen(false)}
+        onContinue={() => authorizeMutation.mutate()}
+      />
     </CredPanel>
   )
 }
@@ -878,6 +931,7 @@ function XCredentialCard({
   const connected = status.connected
   const [userAccessToken, setUserAccessToken] = useState("")
   const [userRefreshToken, setUserRefreshToken] = useState("")
+  const [consentOpen, setConsentOpen] = useState(false)
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeX(),
@@ -936,7 +990,7 @@ function XCredentialCard({
             type="button"
             variant="primary"
             disabled={authorizeMutation.isPending}
-            onClick={() => authorizeMutation.mutate()}
+            onClick={() => setConsentOpen(true)}
           >
             {authorizeMutation.isPending ? "Conectando..." : connected ? "Reconectar X" : "Conectar X"}
           </Button>
@@ -995,6 +1049,13 @@ function XCredentialCard({
           </form>
         )}
       </div>
+      <OAuthConsentModal
+        network="x"
+        open={consentOpen}
+        busy={authorizeMutation.isPending}
+        onClose={() => setConsentOpen(false)}
+        onContinue={() => authorizeMutation.mutate()}
+      />
     </CredPanel>
   )
 }
@@ -1018,6 +1079,7 @@ function FacebookCredentialCard({
   const [pageId, setPageId] = useState("")
   const [pageAccessToken, setPageAccessToken] = useState("")
   const [pageName, setPageName] = useState("")
+  const [consentOpen, setConsentOpen] = useState(false)
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeFacebook(),
@@ -1078,7 +1140,7 @@ function FacebookCredentialCard({
             type="button"
             variant="primary"
             disabled={authorizeMutation.isPending}
-            onClick={() => authorizeMutation.mutate()}
+            onClick={() => setConsentOpen(true)}
           >
             {authorizeMutation.isPending ? "Conectando..." : connected ? "Reconectar Facebook" : "Conectar Facebook"}
           </Button>
@@ -1142,6 +1204,13 @@ function FacebookCredentialCard({
           </form>
         )}
       </div>
+      <OAuthConsentModal
+        network="facebook"
+        open={consentOpen}
+        busy={authorizeMutation.isPending}
+        onClose={() => setConsentOpen(false)}
+        onContinue={() => authorizeMutation.mutate()}
+      />
     </CredPanel>
   )
 }
@@ -1165,6 +1234,7 @@ function TikTokCredentialCard({
   const [openId, setOpenId] = useState("")
   const [userAccessToken, setUserAccessToken] = useState("")
   const [refreshToken, setRefreshToken] = useState("")
+  const [consentOpen, setConsentOpen] = useState(false)
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeTiktok(),
@@ -1226,7 +1296,7 @@ function TikTokCredentialCard({
             type="button"
             variant="primary"
             disabled={authorizeMutation.isPending}
-            onClick={() => authorizeMutation.mutate()}
+            onClick={() => setConsentOpen(true)}
           >
             {authorizeMutation.isPending ? "Conectando..." : connected ? "Reconectar TikTok" : "Conectar TikTok"}
           </Button>
@@ -1292,6 +1362,13 @@ function TikTokCredentialCard({
           </form>
         )}
       </div>
+      <OAuthConsentModal
+        network="tiktok"
+        open={consentOpen}
+        busy={authorizeMutation.isPending}
+        onClose={() => setConsentOpen(false)}
+        onContinue={() => authorizeMutation.mutate()}
+      />
     </CredPanel>
   )
 }
@@ -1314,6 +1391,7 @@ function InstagramCredentialCard({
   const connected = status.connected
   const [igUserId, setIgUserId] = useState("")
   const [userAccessToken, setUserAccessToken] = useState("")
+  const [consentOpen, setConsentOpen] = useState(false)
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeInstagram(),
@@ -1373,7 +1451,7 @@ function InstagramCredentialCard({
             type="button"
             variant="primary"
             disabled={authorizeMutation.isPending}
-            onClick={() => authorizeMutation.mutate()}
+            onClick={() => setConsentOpen(true)}
           >
             {authorizeMutation.isPending ? "Conectando..." : connected ? "Reconectar Instagram" : "Conectar Instagram"}
           </Button>
@@ -1431,6 +1509,13 @@ function InstagramCredentialCard({
           </form>
         )}
       </div>
+      <OAuthConsentModal
+        network="instagram"
+        open={consentOpen}
+        busy={authorizeMutation.isPending}
+        onClose={() => setConsentOpen(false)}
+        onContinue={() => authorizeMutation.mutate()}
+      />
     </CredPanel>
   )
 }

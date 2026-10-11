@@ -3,7 +3,47 @@
 > Fases e tarefas derivadas do PRD e do histórico real (`git log`, `docs/ROADMAP_MIGRACAO.md`,
 > `docs/CHECKLIST_MIGRACAO.md`, vault Obsidian `00-INDICE-Estado-Atual.md`). Uma tarefa só é
 > marcada **Concluída** com evidência de código ou teste passando; senão fica **Bloqueada** ou
-> **Pendente**. Última verificação: 2026-10-05.
+> **Pendente**. Última verificação: 2026-10-11.
+
+## Atualização 2026-10-11 — composição de mídia por rede
+
+- [ ] Implementar planejador de compatibilidade por rede para foto única, carrossel e vídeo,
+  reaproveitando arquivos sem misturar `user_id` ou `profile_id`. A especificação aprovada é
+  `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`.
+- [ ] Criar preview com abas de mídia somente quando houver composição diferente por rede e
+  alertas prévios que informem formato, limite ou tamanho incompatível.
+- [ ] Aplicar o fallback aprovado: rede com mídia incompatível publica somente o texto válido
+  quando a API da rede suportar texto sem mídia; sem esse modo ou sem texto válido, ela fica fora
+  sem cancelar as outras.
+- [ ] Implementar e validar publicadores por modo compatível. Vídeo continua pendência separada
+  até existir teste real aprovado para cada rede; Kwai segue fora por não ter API pública.
+
+## Atualização 2026-10-10 — Isolamento obrigatório de credenciais e publicação
+
+- [x] OAuth passa o `profile_id` assinado no `state` e rejeita callback concluído sob outro
+  perfil. O app OAuth é global, mas o token emitido pertence exclusivamente ao usuário e
+  perfil que iniciou a autorização.
+- [x] Jobs de publicação e atualização de catálogo sem `profile_id` agora falham fechados;
+  não escolhem credencial, post, produto nem token "por usuário" como compatibilidade.
+- [x] Os cinco publicadores consultam post e produto pelo perfil do job. Renovação de token X
+  e TikTok atualiza somente a linha do mesmo perfil.
+- [x] O painel Flask legado de credenciais só é registrado quando
+  `LEGACY_PANEL_ENABLED=true`; a superfície padrão é React/FastAPI escopada.
+- [x] Evidência local: 20 testes do scheduler e 100 testes de OAuth/credenciais/posts verdes.
+  Não há merge para `main` nesta tarefa; validação funcional no staging permanece necessária.
+
+## Atualização 2026-10-10 — contrato do cliente e cobertura de mídia
+
+- [x] Usuário comum conecta Threads, X, Facebook, Instagram e TikTok exclusivamente por OAuth,
+  após aviso de consentimento da rede. Shopee e IA permanecem as exceções manuais.
+- [x] Overrides manuais sociais e Kwai são ADMIN-only também na API; não dependem de campos
+  escondidos no frontend como controle de segurança.
+- [x] Caminho local de imagem: Threads, Facebook e Instagram enviam mídia por URL pública
+  temporária. Falta validar publicação real no staging antes de declarar a cobertura concluída.
+- [ ] X ainda precisa de upload de mídia e de acesso/crédito na API. TikTok Photo Direct Post
+  requer URL em domínio/prefixo verificado e Creator Info renderizado no fluxo do usuário.
+- [ ] Vídeo: manter como tarefa separada. Não declarar cobertura de vídeo a partir de testes com
+  imagem.
 
 ## Fase 0-8.1 — Migração Flask → React + FastAPI
 
@@ -33,6 +73,28 @@ app do Instagram (`api/facebook_oauth.py`). Evidência: `git log` (`89e542b`, `2
 
 ## Validação em produção — pendente real
 
+**Atualização 2026-10-09 — OAuth observado em staging/produção antes de corrigir código:**
+
+- [ ] **Threads para usuário comum:** resolver no Meta/Threads o erro externo
+  `error_code=1349245` (`The user has not accepted the invite to test the app`). A conta
+  `rafastudio`/AMD conecta; usuário comum precisa aceitar convite de teste/role no app ou o
+  app precisa sair do modo restrito/aprovar acesso público. Depois disso, retestar
+  `Conectar Threads` no usuário normal.
+- [x] **TikTok redirect URI:** corrigir no TikTok for Developers o erro de `redirect_uri`.
+  Achado real em 2026-10-09: o Login Kit Live tinha só a URL de produção
+  (`https://shopee-bot-fj0w.onrender.com/api/credentials/tiktok/callback`). Para testar
+  staging, adicionar também
+  `https://shopee-bot-staging.onrender.com/api/credentials/tiktok/callback` na aba Web do
+  Login Kit, sem remover a produção. O arquivo de URL prefix pedido pelo TikTok para staging
+  (`tiktoksuFLmrUFUxZQioEp5TCgDiOi0VAiY2e1.txt`) já foi servido no commit `12d1720`.
+  **Resolvido:** Rafa testou no staging em 2026-10-09; a autorização funcionou e a conta
+  ficou conectada.
+- [x] **TikTok token expirado no staging:** resolvido por novo OAuth após corrigir o
+  `redirect_uri`; não houve cópia manual de token do portal. A renovação automática do
+  scheduler depende do `refresh_token` salvo por essa conexão bem-sucedida.
+- [ ] **Teste de conexão com token do próprio usuário:** ainda validar X, Instagram e TikTok
+  depois que houver tokens reais por usuário.
+
 - [ ] **Validar no Render** que os dois processos (Flask + FastAPI) sobem corretamente no
   mesmo container e que `FLASK_INTERNAL_URL`/`INTERNAL_API_SECRET` estão configurados lá.
   Só confirmado em dev local até a última verificação.
@@ -43,7 +105,8 @@ app do Instagram (`api/facebook_oauth.py`). Evidência: `git log` (`89e542b`, `2
   Callbacks por ambiente (`rede` = `threads`, `x`, `facebook`, `instagram`, `tiktok`):
   - **Staging:** `https://shopee-bot-staging.onrender.com/api/credentials/<rede>/callback`
   - **Produção:** `https://shopee-bot-fj0w.onrender.com/api/credentials/<rede>/callback`
-  - TikTok: cadastrar também a variante com barra final (`.../tiktok/callback/`).
+  - TikTok: a aba Web do Login Kit Live precisa listar explicitamente produção e staging;
+    `URL prefix`/arquivo `.txt` prova posse do prefixo, mas não substitui a Redirect URI.
 - [ ] **Conectar de fato** X, Instagram, TikTok e validar Facebook/Threads em produção —
   ação humana (clicar "Conectar", autorizar), não pendência de código. Ver `docs/MEMORY.md`
   para o estado rede a rede.
@@ -58,7 +121,7 @@ app do Instagram (`api/facebook_oauth.py`). Evidência: `git log` (`89e542b`, `2
 | X | `scheduler/bot_post_x.py` | Sim | Sim | Não | **Bloqueada** — aguardando usuário concluir "Conectar" |
 | Instagram | `scheduler/bot_post_instagram.py` | Sim | Sim | Não | **Bloqueada** — idem |
 | Facebook | `scheduler/bot_post_facebook.py` | Sim | Sim (migrado) | Não confirmado | **Bloqueada** — nunca validado com sucesso |
-| TikTok | `scheduler/bot_post_tiktok.py` | Sim | Sim; domínio verificado no painel | Não | **Bloqueada** — usuário + possível aprovação de parceiro (Direct Post) pendente |
+| TikTok | `scheduler/bot_post_tiktok.py` | Sim | Sim; domínio/prefixo e redirect staging validados | **Sim no staging** | Conexão/autorização confirmada em staging; publicação real ainda depende de teste/post e política Direct Post |
 | Kwai | Não existe | — | — | — | **Bloqueada — sem API pública de postagem disponível** (decisão antiga, não é pendência nova) |
 
 ## Outras pendências reais (vault, 2026-09-28)

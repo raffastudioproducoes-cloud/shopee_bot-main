@@ -173,6 +173,24 @@ def _create_text_media_container(ig_user_id, user_access_token, text):
         raise Exception(f"Instagram: resposta inesperada ao criar container: {data}")
     return creation_id
 
+def _create_image_media_container(ig_user_id, user_access_token, image_url, caption):
+    """Cria um container IMAGE a partir de URL pública para a Graph API."""
+    url = f"{API_BASE}/{ig_user_id}/media"
+    params = {"access_token": user_access_token, "image_url": image_url, "caption": caption}
+    res = retry_with_backoff(
+        requests.post, url, params=params,
+        exceptions=(requests.exceptions.RequestException,), timeout=30,
+    )
+    if res.status_code not in (200, 201):
+        raise Exception(
+            f"Instagram: falha ao criar container de imagem (status {res.status_code}): {res.text[:300]}"
+        )
+    creation_id = (res.json() or {}).get("id")
+    if not creation_id:
+        raise Exception("Instagram: resposta inesperada ao criar container de imagem")
+    return creation_id
+
+
 def _poll_media_container(user_access_token, creation_id):
     """Polla até o container de mídia estar READY."""
     while True:
@@ -309,3 +327,16 @@ def post_product(app_id, secret, user_access_token, product, ig_user_id=None):
         text += f"\n{commission_link}"
 
     return post_text(app_id, secret, user_access_token, text, ig_user_id)
+
+
+def post_image(app_id, secret, user_access_token, image_url, caption, ig_user_id=None):
+    """Publica imagem por URL pública e espera o container ficar pronto."""
+    if not user_access_token:
+        raise NotImplementedError("Instagram: user_access_token é obrigatório para publicar.")
+    _app_access_token(app_id, secret)
+    ig_user_id = _resolve_ig_user_id(user_access_token, ig_user_id)
+    creation_id = _create_image_media_container(
+        ig_user_id, user_access_token, image_url, caption
+    )
+    _poll_media_container(user_access_token, creation_id)
+    return _publish_media_container(ig_user_id, user_access_token, creation_id)

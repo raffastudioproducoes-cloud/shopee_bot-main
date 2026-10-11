@@ -138,10 +138,16 @@ sequenceDiagram
     A-->>U: redirect para /panel/credentials com sucesso
 ```
 
-**Estado real (2026-09-29)**: o fluxo acima está implementado nas 5 redes, mas só o
-**Threads** tem um `access_token` de fato salvo no Supabase para o único usuário de
-produção — as outras quatro (X, Instagram, TikTok, Facebook) têm o app único configurado e a
-UI de "Conectar" pronta, porém ninguém completou o handshake ainda (ver `docs/MEMORY.md`).
+**Estado real (2026-10-09)**: o fluxo acima está implementado nas 5 redes. Threads conecta
+para a conta `rafastudio`/AMD, mas usuário comum pode ser bloqueado pelo próprio Meta quando
+o app ainda exige convite de tester aceito (`error_code=1349245`). TikTok chegou a falhar no
+provedor por `redirect_uri`: o Live do Login Kit tinha apenas a URI de produção, enquanto o
+staging envia `https://shopee-bot-staging.onrender.com/api/credentials/tiktok/callback`.
+Depois de cadastrar também a URI de staging e servir o arquivo de verificação de URL prefix,
+Rafa confirmou que a conexão/autorização TikTok funcionou no staging e a conta ficou
+conectada. O `redirect_uri` enviado ao TikTok deve continuar preservado exatamente como
+`TIKTOK_CALLBACK_URL`, porque o Login Kit valida a URI cadastrada. Token novo vem de novo
+OAuth, não de cópia manual do portal (ver `docs/MEMORY.md`).
 
 ## 5. Bridge interno Flask ↔ FastAPI
 
@@ -200,6 +206,22 @@ via bridge.
   com backoff.
 - **CI/CD**: ver `docs/RULES.md` itens 2 e 3 (flake8 bloqueante, job `frontend`, CD via
   `workflow_run`).
+
+## 9. Composição de mídia por rede (design aprovado, 2026-10-11)
+
+O criador de posts passará a montar um plano de publicação para cada rede escolhida. O navegador
+mostra variantes e alertas, mas o backend recalcula a compatibilidade antes de criar os posts e
+antes de disparar o scheduler. Cada post do mesmo `group_id` poderá apontar para uma seleção e
+ordem próprias em `posts_medias`, sempre escopadas pelo par `user_id` + `profile_id`.
+
+Mídia incompatível não é erro global: quando houver endpoint textual, o plano marca a rede como
+`text_only`; quando a API exigir mídia, marca `blocked_reason` e mantém as demais redes em
+publicação. Sem variante de texto válida, somente a rede afetada é excluída do envio. O design
+também prevê upload temporário antes de criar posts, pois o endpoint atual anexa o arquivo
+imediatamente ao primeiro post e não permite seleção distinta por rede.
+
+Detalhes, contratos e critérios de aceite:
+`docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`.
 
 ## Referências
 

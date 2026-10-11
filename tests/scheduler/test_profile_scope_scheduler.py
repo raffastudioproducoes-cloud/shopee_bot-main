@@ -5,13 +5,17 @@ Tudo mockado (sem banco nem rede).
 """
 
 import sys
+import importlib
+
+import pytest
 
 import shopee_bot.scheduler.bot_post_instagram  # noqa: F401
 from shopee_bot.database import (
     activities, facebook_credentials, instagram_credentials, kwai_credentials,
-    schedulers, shopee_credentials, threads_credentials, tiktok_credentials,
+    posts, schedulers, shopee_credentials, threads_credentials, tiktok_credentials,
     x_credentials,
 )
+update_products_module = importlib.import_module("shopee_bot.scheduler.update_products")
 
 bot = sys.modules["shopee_bot.scheduler.bot_post_instagram"]
 
@@ -32,13 +36,6 @@ def test_scheduler_insert_persists_profile_id(monkeypatch):
     assert captured["args"][-1] == "profile-a"
 
 
-def test_scheduler_insert_without_profile_stores_null(monkeypatch):
-    captured = {}
-    monkeypatch.setattr(schedulers, "execute_db", lambda q, args, conn=None: captured.update(args=args))
-    schedulers.insert("user-1", {"post_id": 7, "func": "bot_post", "trigger": "date"})
-    assert captured["args"][-1] is None
-
-
 def test_every_credential_lookup_can_be_scoped_by_profile(monkeypatch):
     for module in CREDENTIAL_MODULES:
         captured = {}
@@ -47,11 +44,43 @@ def test_every_credential_lookup_can_be_scoped_by_profile(monkeypatch):
         )
         module.get_by_user_id("user-1", "profile-a")
         assert "profile_id = %s::uuid" in captured["q"], module.__name__
-        assert captured["args"] == ("profile-a", "profile-a", "user-1")
+        expected_args = (
+            ("profile-a", "user-1")
+            if module in (x_credentials, tiktok_credentials)
+            else ("profile-a", "profile-a", "user-1")
+        )
+        assert captured["args"] == expected_args
 
-        module.get_by_user_id("user-1")  # job antigo: sem perfil
-        assert captured["args"] == (None, None, "user-1")
 
+def test_scheduler_post_query_requires_the_jobs_profile(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        posts, "query_db", lambda query, args: captured.update(query=query, args=args)
+    )
+
+    posts.get("user-1", 7, "profile-a")
+
+    assert "profile_id = %s::uuid" in captured["query"]
+    assert captured["args"] == (7, "user-1", "profile-a", "profile-a")
+
+
+def test_shopee_refresh_requires_and_forwards_profile(monkeypatch):
+    captured = {}
+
+    monkeypatch.setattr(
+        update_products_module.shopee_credentials,
+        "get_by_user_id",
+        lambda user_id, profile_id: captured.update(credential=(user_id, profile_id)) or {
+            "username": "cliente", "shopee_app_id": None, "shopee_secret": None,
+            "shopee_status": False,
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="profile_id"):
+        update_products_module.update_products("user-1", None)
+
+    update_products_module.update_products("user-1", "profile-a")
+    assert captured["credential"] == ("user-1", "profile-a")
 
 def _run_bot(monkeypatch, job):
     seen = {}
@@ -65,7 +94,7 @@ def _run_bot(monkeypatch, job):
         }
 
     monkeypatch.setattr(bot.instagram_credentials, "get_by_user_id", fake_creds)
-    monkeypatch.setattr(bot.posts, "get", lambda u, p: [{"text": "oi", "product_ids": []}])
+    monkeypatch.setattr(bot.posts, "get", lambda u, p, profile_id: [{"text": "oi", "product_ids": []}])
     monkeypatch.setattr(bot.InstagramAPI, "post_text", lambda *a, **k: "media-1")
 
     def fake_activity(user_id, activity_type, metadata, profile_id=None):
@@ -81,9 +110,9 @@ def test_bot_uses_credential_and_activity_of_the_jobs_profile(monkeypatch):
     assert seen == {"creds_profile": "profile-a", "activity_profile": "profile-a"}
 
 
-def test_bot_falls_back_to_user_scope_for_legacy_job(monkeypatch):
-    seen = _run_bot(monkeypatch, {"user_id": 42, "post_id": 7})
-    assert seen == {"creds_profile": None, "activity_profile": None}
+def test_bot_rejects_legacy_job_without_profile(monkeypatch):
+    with pytest.raises(RuntimeError, match="profile_id"):
+        _run_bot(monkeypatch, {"user_id": 42, "post_id": 7})
 
 
 def test_insert_activities_persists_profile_id(monkeypatch):

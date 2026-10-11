@@ -22,15 +22,20 @@ def client():
     return TestClient(app)
 
 
-def test_tiktok_domain_verification_file_is_public_and_unauthenticated(client):
+@pytest.mark.parametrize(
+    ("filename", "token"),
+    [
+        ("tiktokiuKagbtH1lO37DxIynSn02EABvEKz1PM.txt", "iuKagbtH1lO37DxIynSn02EABvEKz1PM"),
+        ("tiktoksuFLmrUFUxZQioEp5TCgDiOi0VAiY2e1.txt", "suFLmrUFUxZQioEp5TCgDiOi0VAiY2e1"),
+    ],
+)
+def test_tiktok_domain_verification_file_is_public_and_unauthenticated(client, filename, token):
     """Arquivo de verificação de domínio do TikTok Login Kit — precisa ser
     acessível sem login (o crawler do TikTok não manda cookie nenhum)."""
     app.dependency_overrides.clear()  # sem override de auth nenhum
-    res = TestClient(app).get(
-        "/credentials/tiktok/callback/tiktokiuKagbtH1lO37DxIynSn02EABvEKz1PM.txt"
-    )
+    res = TestClient(app).get(f"/credentials/tiktok/callback/{filename}")
     assert res.status_code == 200
-    assert res.text == "tiktok-developers-site-verification=iuKagbtH1lO37DxIynSn02EABvEKz1PM"
+    assert res.text == f"tiktok-developers-site-verification={token}"
 
 
 def test_tiktok_authorize_returns_url_and_sets_state_cookie(client, monkeypatch):
@@ -43,6 +48,34 @@ def test_tiktok_authorize_returns_url_and_sets_state_cookie(client, monkeypatch)
     assert "client-key-123" in res.json()["url"]
     assert "state=" in res.json()["url"]
     assert "tiktok_oauth_state" in res.cookies
+
+
+def test_tiktok_authorize_preserves_configured_redirect_uri_exactly(client, monkeypatch):
+    """TikTok exige que redirect_uri bata exatamente com uma URI cadastrada."""
+    monkeypatch.setattr(credentials_module.tiktok_oauth, "CLIENT_KEY", "client-key-123")
+    monkeypatch.setattr(
+        credentials_module.tiktok_oauth,
+        "CALLBACK_URL",
+        "https://shopee-bot-staging.onrender.com/api/credentials/tiktok/callback",
+    )
+
+    res = client.get("/credentials/tiktok/authorize")
+
+    assert res.status_code == 200
+    assert (
+        "redirect_uri=https%3A%2F%2Fshopee-bot-staging.onrender.com"
+        "%2Fapi%2Fcredentials%2Ftiktok%2Fcallback&"
+    ) in res.json()["url"]
+
+
+def test_tiktok_authorize_preserves_configured_trailing_slash(client, monkeypatch):
+    monkeypatch.setattr(credentials_module.tiktok_oauth, "CLIENT_KEY", "client-key-123")
+    monkeypatch.setattr(credentials_module.tiktok_oauth, "CALLBACK_URL", "https://x.test/cb/")
+
+    res = client.get("/credentials/tiktok/authorize")
+
+    assert res.status_code == 200
+    assert "redirect_uri=https%3A%2F%2Fx.test%2Fcb%2F&" in res.json()["url"]
 
 
 def test_tiktok_callback_success_saves_credential_and_redirects(client, monkeypatch):

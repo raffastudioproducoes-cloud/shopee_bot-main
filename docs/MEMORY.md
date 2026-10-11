@@ -14,6 +14,20 @@
 - Flask (legado, produção) e FastAPI (novo) coexistem no **mesmo container Docker** —
   implementado no código (Fase 8.1), validação em produção real ainda pendente.
 
+## Atualização 2026-10-10 — Regra de isolamento
+
+- A interface e API primárias são React/FastAPI. O OAuth usa configurações globais do app de
+  cada rede, mas cada autorização, token, luz de status e publicação pertence ao par
+  `user_id` + `profile_id` que iniciou o fluxo.
+- Callback OAuth com `state` de outro perfil é rejeitado. Publicadores e atualização Shopee
+  recusam jobs sem perfil, em vez de procurar uma credencial por usuário e arriscar misturar
+  contas entre perfis.
+- O painel Flask legado de credenciais permanece desligado por padrão
+  (`LEGACY_PANEL_ENABLED=false`). Não reativar sem tornar todas as suas leituras/escritas
+  explicitamente multi-perfil.
+- Evidência local desta alteração: 20 testes do scheduler e 100 testes API focados em OAuth,
+  credenciais e posts. Ainda é necessário validar o fluxo completo no staging antes de merge.
+
 ## Redes sociais conectadas — estado real (não o desejado)
 
 | Rede | Estado real |
@@ -22,7 +36,7 @@
 | **X (Twitter)** | App único configurado (env vars), botão "Conectar X" existe no frontend, mas `user_access_token` está nulo — nenhum usuário concluiu o OAuth. |
 | **Instagram** | Mesma situação do X — app configurado, `user_access_token` nulo. |
 | **Facebook** | Migrado de token de Página colado manualmente para OAuth de app único (reaproveita o app do Instagram). Credencial nunca validada com sucesso confirmado ("Testar conexão"). |
-| **TikTok** | App único configurado, domínio verificado no painel TikTok for Developers. `user_access_token` nulo. Aprovação de parceiro para "Direct Post" público pode ser um bloqueio adicional externo (`apis/tiktok.py`, `.env-example`). |
+| **TikTok** | App único configurado, domínio/prefixo e redirect staging validados. Rafa confirmou conexão/autorização no staging em 2026-10-09; publicação real/Direct Post ainda precisa de teste separado (`apis/tiktok.py`, `.env-example`). |
 | **Kwai** | Sem API pública de postagem confirmada (só API de anunciantes/ads). Frontend mostra "em breve" para usuário comum. |
 
 Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via SQL read-only.
@@ -44,8 +58,34 @@ Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via
    decisão por custo/complexidade (plano Free do Render).
 4. **Scheduler in-process** mantido (ADR 19, vault) — sem worker separado; gatilho de
    revisão ainda não disparou.
-5. **TikTok/Kwai virarem "em breve" para usuário comum** — última mudança visível no
-   `git log` (`514d84a`), movidos para o fim da lista de credenciais no frontend.
+5. **Fluxo padrão de credenciais** — TikTok é OAuth disponível para usuário comum, como
+   Threads, X, Facebook e Instagram. Shopee e chave de IA são as únicas entradas manuais do
+   cliente padrão; overrides sociais/Kwai são ferramentas ADMIN-only protegidas também no backend.
+
+## Atualização 2026-10-10 — contrato de OAuth e mídia
+
+- Antes de abrir qualquer provedor OAuth, a tela de Credenciais mostra um aviso de consentimento
+  com rede, dados solicitados, autorização de publicação e como desconectar.
+- Cada token, status e publicação continua isolado por `user_id` + `profile_id`; a configuração
+  do aplicativo OAuth é global apenas no servidor.
+- Threads, Facebook e Instagram têm caminho de imagem no código. X ainda exige implementação
+  de upload de mídia e crédito/API habilitada; TikTok Photo Direct Post exige URL pública no
+  domínio/prefixo verificado e Creator Info no fluxo de usuário. Vídeos seguem pendência
+  explícita e não podem ser tratados como validados por testes de imagem.
+
+## Atualização 2026-10-11 — composição de mídia multi-rede
+
+- A criação multi-rede passa a tratar texto e mídia como uma composição por rede, não como a
+  mesma lista de arquivos enviada indistintamente a todas elas.
+- A decisão de produto é publicar nas redes compatíveis mesmo que outra tenha restrição. Quando
+  a mídia não for aceita, essa rede recebe somente texto válido quando sua API permitir post
+  textual; caso contrário, ou se não houver variante válida, apenas ela fica fora do envio.
+- As abas de texto existentes seguem por limite. Abas adicionais de mídia só aparecem quando
+  redes selecionadas precisarem de formatos diferentes, como foto única, carrossel ou vídeo.
+- O backend precisa repetir a validação e manter cada ativo no mesmo `user_id` + `profile_id`.
+  A especificação aprovada está em
+  `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`; implementação ainda
+  não começou neste registro.
 
 ## O que falta (real, não aspiracional)
 
@@ -82,8 +122,9 @@ contexto inicial.
   até 041, backup/restore e bots por perfil), UI de perfis (editar/excluir/ativar/TopBar),
   segurança do servidor (claim `pwv`, validação do `profile_id`, trigger 037, rate limits),
   Dockerfile não-root + `HEALTHCHECK`, gunicorn com timeout e supervisão, CI/CD endurecidos.
-- **Estado das redes**: sem alteração desde a verificação de 2026-09-28 (só o Threads tem token
-  de usuário salvo); esta rodada não consultou o Supabase.
+- **Estado das redes**: TikTok passou a ter conexão/autorização confirmada no staging em
+  2026-10-09. X/Instagram ainda dependem de alguém clicar "Conectar" depois do painel de
+  desenvolvedor aceitar a callback URL. Threads continua conectado para `rafastudio`/AMD.
 - **Pendências manuais de Rafa (não são código) — atualizado 2026-10-05**:
   - [CONCLUÍDO] Env vars do serviço `shopee-bot-staging` no Render (copiar as de produção) — confirmado pelo Rafa, 2026-10-05.
   - [CONCLUÍDO] Trocar o branch de produção do serviço no Render de `master` para `main` — confirmado pelo Rafa, 2026-10-05.
@@ -113,6 +154,49 @@ contexto inicial.
 - Pendências acompanhadas pelo Rafa: renovar token TikTok pelo OAuth do usuário; validar teste
   de conexão com tokens reais de X/Instagram/TikTok; testar criador multi-rede ponta a ponta;
   validar hardening com ambiente configurado; aguardar deploy automático de staging.
+
+## Atualização 2026-10-09 — evidência atual de OAuth Threads/TikTok
+
+Registro feito antes de qualquer correção de código, a partir das telas enviadas pelo Rafa e
+da leitura do fluxo em `api/routers/credentials.py`, `api/threads_oauth.py` e
+`api/tiktok_oauth.py`. Nenhum token, segredo ou valor sensível foi lido ou salvo.
+
+- **Threads:** a conta `rafastudio`/AMD conecta e aparece como `Funcionando` em staging.
+  A conta de usuário comum falha no provedor com
+  `Invalid Request: The user has not accepted the invite to test the app.`
+  (`error_code=1349245`). Isso aponta para bloqueio externo do app Threads/Meta em modo de
+  teste: o usuário precisa ser adicionado como tester/role e aceitar o convite, ou o app
+  precisa estar aprovado/liberado para público. Não é evidência de token ou callback quebrado
+  no backend.
+- **TikTok:** o botão `Conectar TikTok` chega ao provedor, mas o TikTok rejeita antes do
+  callback com erro de `redirect_uri`. O backend aceita `/api/credentials/tiktok/callback`
+  e `/api/credentials/tiktok/callback/`; o painel TikTok precisa ter exatamente a URL que
+  está em `TIKTOK_CALLBACK_URL` para cada ambiente, e para TikTok também convém manter a
+  variante com barra final por causa da verificação de prefixo. Só depois disso o usuário
+  deve clicar em `Conectar TikTok`/`Reconectar TikTok` para gerar novo token via OAuth.
+- **Renovação de token TikTok:** não se troca token manualmente pelo portal. O token novo é
+  obtido pelo OAuth; o scheduler só consegue renovar quando já existe `refresh_token` salvo
+  por uma conexão anterior bem-sucedida.
+
+### Atualização dentro de 2026-10-09 — causa real do staging TikTok
+
+- A tela do TikTok for Developers mostrou que o **Login Kit > Production > Live** tinha
+  somente a Redirect URI de produção cadastrada:
+  `https://shopee-bot-fj0w.onrender.com/api/credentials/tiktok/callback`.
+- O staging usa outra Redirect URI:
+  `https://shopee-bot-staging.onrender.com/api/credentials/tiktok/callback`.
+  Enquanto essa URL não estiver cadastrada na revisão Live do Login Kit, o TikTok rejeita
+  `Conectar TikTok` no staging com erro de `redirect_uri`.
+- O botão `URL properties`/`URL prefix` pediu um arquivo novo:
+  `tiktoksuFLmrUFUxZQioEp5TCgDiOi0VAiY2e1.txt`, servido em staging por
+  `/api/credentials/tiktok/callback/tiktoksuFLmrUFUxZQioEp5TCgDiOi0VAiY2e1.txt`
+  no commit `12d1720`. A URL pública respondeu `200` com o conteúdo esperado antes de orientar
+  o Rafa a clicar em `Verify`.
+- Próxima ação operacional: criar revisão no TikTok for Developers, adicionar a Redirect URI
+  de staging na aba Web do Login Kit sem remover a de produção, salvar/publicar a revisão e só
+  então testar `Conectar TikTok` no staging.
+- **Resolvido no staging:** Rafa confirmou em 2026-10-09 que a conexão/autorização do TikTok
+  funcionou, o app voltou do provedor e a conta ficou conectada.
 
 ## Referências
 

@@ -80,6 +80,9 @@ def create_job():
         # (web/__init__.py) engole HTTPException e devolve 500 genérico
         # — mesmo padrão já usado em _require_internal_secret acima.
         return jsonify({"error": f"func '{func}' não permitido"}), 400
+    profile_id = body.get("profile_id")
+    if not profile_id:
+        return jsonify({"error": "profile_id obrigatorio"}), 400
     job = {
         "post_id": body["post_id"],
         "func": func,
@@ -88,7 +91,7 @@ def create_job():
         "day_of_week": body.get("day_of_week"),
         "start_date": _parse_datetime(body.get("start_date")),
         "run_date": _parse_datetime(body.get("run_date")),
-        "profile_id": body.get("profile_id"),
+        "profile_id": profile_id,
     }
     job_id = add_job(user_id, job)
     return jsonify({"job_id": str(job_id)}), 201

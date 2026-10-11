@@ -33,14 +33,14 @@ def _user_data(**overrides):
 def _patch_common(monkeypatch, user_data, root_post):
     monkeypatch.setattr(
         module.schedulers, "get_by_id",
-        lambda job_id: {"user_id": 42, "post_id": 7},
+        lambda job_id: {"user_id": 42, "post_id": 7, "profile_id": "profile-1"},
     )
     monkeypatch.setattr(
         module.instagram_credentials, "get_by_user_id",
         lambda user_id, profile_id=None: user_data,
     )
     monkeypatch.setattr(
-        module.posts, "get", lambda user_id, post_id: [root_post],
+        module.posts, "get", lambda user_id, post_id, profile_id: [root_post],
     )
 
 
@@ -84,7 +84,7 @@ def test_bot_post_instagram_with_product_calls_post_product(monkeypatch):
 
     product = {"name": "Produto X", "commission_link": "http://x"}
     monkeypatch.setattr(
-        module.products, "get", lambda user_id, product_id: product,
+        module.products, "get", lambda user_id, product_id, profile_id: product,
     )
 
     calls = {}
@@ -102,6 +102,29 @@ def test_bot_post_instagram_with_product_calls_post_product(monkeypatch):
 
     assert calls["args"] == (
         "app-1", "secret-1", "user-token-1", product, "ig-user-1"
+    )
+
+
+def test_bot_post_instagram_with_image_uses_image_publisher(monkeypatch):
+    user_data = _user_data()
+    image = {"type": "IMAGE", "file_path": "web/media/7/image.jpg"}
+    root_post = {"text": "foto", "product_ids": [], "medias": [image]}
+    _patch_common(monkeypatch, user_data, root_post)
+
+    calls = {}
+    monkeypatch.setattr(
+        module,
+        "_publish_image",
+        lambda app_id, secret, token, ig_user_id, media, caption: calls.update(
+            args=(app_id, secret, token, ig_user_id, media, caption)
+        ),
+    )
+    monkeypatch.setattr(module, "insert_activities", lambda *a, **k: None)
+
+    module.bot_post_instagram("job-image")
+
+    assert calls["args"] == (
+        "app-1", "secret-1", "user-token-1", "ig-user-1", image, "foto"
     )
 
 

@@ -4,9 +4,8 @@ from shopee_bot.database import query_db, execute_db
 from shopee_bot.utils.crypto import encrypt, decrypt
 
 
-def get_by_user_id(user_id, profile_id=None):
-    """`profile_id` opcional: com perfil, usa a credencial DO PERFIL; sem
-    perfil (job antigo), comportamento anterior (por user_id)."""
+def get_by_user_id(user_id, profile_id):
+    """Retorna somente a credencial OAuth do perfil informado."""
     query = """
         SELECT
             u.username username,
@@ -18,10 +17,10 @@ def get_by_user_id(user_id, profile_id=None):
             tc.open_id tiktok_open_id
         FROM users u
         LEFT JOIN tiktok_credentials tc ON tc.user_id = u.id
-            AND (%s::uuid IS NULL OR tc.profile_id = %s::uuid)
+            AND tc.profile_id = %s::uuid
         WHERE u.id = %s
     """
-    args = (profile_id, profile_id, user_id)
+    args = (profile_id, user_id)
     result = query_db(query, args, True)
     if result:
         result["tiktok_secret"] = decrypt(result["tiktok_secret"])
@@ -81,7 +80,7 @@ def update_tokens(user_id, profile_id, tokens, open_conn=None):
         SET user_access_token = %s,
             refresh_token = COALESCE(%s, refresh_token),
             updated_at = %s
-        WHERE user_id = %s AND (%s::uuid IS NULL OR profile_id = %s::uuid)
+        WHERE user_id = %s AND profile_id = %s::uuid
         RETURNING id
     """
     new_refresh = tokens.get("refresh_token")
@@ -89,7 +88,7 @@ def update_tokens(user_id, profile_id, tokens, open_conn=None):
         encrypt(tokens["access_token"]),
         encrypt(new_refresh) if new_refresh else None,
         datetime.now(pytz.timezone('America/Sao_Paulo')),
-        user_id, profile_id, profile_id
+        user_id, profile_id
     )
     return execute_db(query, args, open_conn)
 
@@ -101,10 +100,10 @@ def mark_needs_reconnect(user_id, profile_id, message, open_conn=None):
         UPDATE credential_checks
         SET state = 'error', message = %s, checked_at = %s
         WHERE user_id = %s AND network = 'tiktok'
-            AND (%s::uuid IS NULL OR profile_id = %s::uuid)
+            AND profile_id = %s::uuid
         RETURNING id
     """
     args = (
-        message, datetime.now(pytz.utc), user_id, profile_id, profile_id
+        message, datetime.now(pytz.utc), user_id, profile_id
     )
     return execute_db(query, args, open_conn)

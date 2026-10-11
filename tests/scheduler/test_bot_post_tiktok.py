@@ -35,14 +35,14 @@ def _user_data(**overrides):
 def _patch_common(monkeypatch, user_data, post_data):
     monkeypatch.setattr(
         module.schedulers, "get_by_id",
-        lambda job_id: {"user_id": 42, "post_id": 7},
+        lambda job_id: {"user_id": 42, "post_id": 7, "profile_id": "profile-1"},
     )
     monkeypatch.setattr(
         module.tiktok_credentials, "get_by_user_id",
         lambda user_id, profile_id=None: user_data,
     )
     monkeypatch.setattr(
-        module.posts, "get", lambda user_id, post_id: post_data,
+        module.posts, "get", lambda user_id, post_id, profile_id: post_data,
     )
 
 
@@ -209,7 +209,7 @@ def test_expired_token_refreshes_saves_and_retries_once(monkeypatch):
     module.bot_post_tiktok("j")
 
     assert tokens_used == ["user-token-1", "new-at"]
-    assert saved == [(42, None, {"access_token": "new-at", "refresh_token": "new-rt"})]
+    assert saved == [(42, "profile-1", {"access_token": "new-at", "refresh_token": "new-rt"})]
     assert not marked
     assert acts[0][0] == ActivityType.BOT_POST_SUCCESS
 
@@ -225,7 +225,7 @@ def test_refresh_failure_marks_reconnect_and_fails_without_secrets(monkeypatch):
     module.bot_post_tiktok("j")
 
     assert not saved
-    assert marked == [(42, None, module.RECONNECT_MESSAGE)]
+    assert marked == [(42, "profile-1", module.RECONNECT_MESSAGE)]
     typ, meta = acts[0]
     assert typ == ActivityType.BOT_POST_FAILURE
     error = meta["metadata"]["error"]

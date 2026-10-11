@@ -4,9 +4,8 @@ from shopee_bot.database import query_db, execute_db
 from shopee_bot.utils.crypto import encrypt, decrypt
 
 
-def get_by_user_id(user_id, profile_id=None):
-    """`profile_id` opcional: com perfil, usa a credencial DO PERFIL; sem
-    perfil (job antigo), comportamento anterior (por user_id)."""
+def get_by_user_id(user_id, profile_id):
+    """Retorna somente a credencial OAuth do perfil informado."""
     query = """
         SELECT
             u.username username,
@@ -18,10 +17,10 @@ def get_by_user_id(user_id, profile_id=None):
             xc.token_expires_at token_expires_at
         FROM users u
         LEFT JOIN x_credentials xc ON xc.user_id = u.id
-            AND (%s::uuid IS NULL OR xc.profile_id = %s::uuid)
+            AND xc.profile_id = %s::uuid
         WHERE u.id = %s
     """
-    args = (profile_id, profile_id, user_id)
+    args = (profile_id, user_id)
     result = query_db(query, args, True)
     if result:
         result["x_secret"] = decrypt(result["x_secret"])
@@ -67,15 +66,15 @@ def update(
     return execute_db(query, args, open_conn)
 
 
-def update_tokens(user_id, tokens, open_conn=None):
+def update_tokens(user_id, profile_id, tokens, open_conn=None):
     """Persiste access/refresh token de usuário renovados via
-    apis.x.refresh_access_token. Usado pelo scheduler (bot_post_x) antes
+    api.x_oauth.refresh_access_token. Usado pelo scheduler (bot_post_x) antes
     de publicar, quando token_expires_at já passou."""
     query = """
         UPDATE x_credentials
         SET user_access_token = %s, user_refresh_token = %s,
             token_expires_at = %s, updated_at = %s
-        WHERE user_id = %s
+        WHERE user_id = %s AND profile_id = %s::uuid
         RETURNING id
     """
     expires_at = datetime.now(pytz.utc) + timedelta(
@@ -87,5 +86,6 @@ def update_tokens(user_id, tokens, open_conn=None):
         expires_at,
         datetime.now(pytz.timezone('America/Sao_Paulo')),
         user_id,
+        profile_id,
     )
     return execute_db(query, args, open_conn)
