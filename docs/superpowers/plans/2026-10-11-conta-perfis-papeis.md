@@ -19,6 +19,7 @@
 - USER não recebe texto, rota navegável ou módulo que revele administração técnica.
 - Alterações de schema são aditivas, transacionais e falham fechadas diante de conflito de dados; não registrar segredos.
 - Commits e push somente em `staging`; nenhuma promoção para `main` sem autorização posterior do Rafa.
+- A versão do produto permanece em `2.0.0` durante as Tasks 1-6. Somente após a migração, regressão, documentação e revisão final, a Task 7 eleva a versão para `2.1.0` no commit de fechamento antes do único push para `staging`.
 
 ## Review Focus
 
@@ -150,7 +151,7 @@
 - [ ] **Step 5: Commit**
   `git commit -m "feat: isola overrides sociais de administrador"`
 
-### Task 6: Regressão, documentação e validação de staging
+### Task 6: Regressão, documentação e validação local
 
 **Files:**
 - Modify: `docs/ARCHITECTURE.md`, `docs/PRD.md`, `docs/TASK.md`, `docs/MEMORY.md`
@@ -166,16 +167,37 @@
   Expected: PASS sem regressão de isolamento social.
 - [ ] **Step 2: Atualizar documentação e Vault sem valores sensíveis**
   Registrar matriz conta/perfil/papel, migração aplicada, limites e evidências. Copiar documentos ao backup Drive e verificar hashes.
-- [ ] **Step 3: Validar manualmente em staging**
-  USER cria/alternar perfil e usa catálogo comum; ADMIN usa Users/Logs/override; tentativa direta USER continua bloqueada.
-- [ ] **Step 4: Commit e push em staging**
+- [ ] **Step 3: Preparar validação manual de staging**
+  Registrar o roteiro para USER criar/alternar perfil e usar catálogo comum; ADMIN usar Users/Logs/override; tentativa direta USER continuar bloqueada. A validação remota acontece após o push final da Task 7.
+- [ ] **Step 4: Commit local de documentação**
   `git commit -m "docs: registra migracao de conta e perfis"`
+  Não fazer push nem criar merge para `main` nesta tarefa.
+
+### Task 7: Fechamento de versão e envio para staging
+
+**Files:**
+- Modify: `VERSION`, `frontend/package.json` se o produto expuser a versão do frontend
+- Verify: diff consolidado, revisão final e estado do repositório
+
+**Interfaces:**
+- Consumes: Tasks 1-6 validadas e revisão final limpa.
+- Produces: versão `2.1.0` identificando a migração completa, enviada somente para `staging`.
+
+- [ ] **Step 1: Confirmar que todas as tasks e revisões estão completas**
+  Não alterar versão com teste, revisão ou documentação pendente.
+- [ ] **Step 2: Atualizar a versão de fechamento**
+  Elevar `VERSION` de `2.0.0` para `2.1.0`. Atualizar a versão do frontend apenas se ela representar a versão pública do produto e mantê-la coerente.
+- [ ] **Step 3: Reexecutar a verificação afetada pela versão e revisar o diff final**
+  Run: testes/build pertinentes e `git diff --check`.
+  Expected: PASS; nenhum segredo, nenhuma alteração em `main`.
+- [ ] **Step 4: Commit e push final em staging**
+  `git commit -m "chore: release 2.1.0"`
   `git push origin staging`
   Não criar merge para `main` nesta tarefa.
 
 ## Self-review do plano
 
-- Cobertura do spec: Tasks 1-3 cobrem dados compartilhados e isolamento; Tasks 4-5 cobrem papéis, carregamento e ausência de pistas; Task 6 cobre regressão, documentação e staging.
+- Cobertura do spec: Tasks 1-3 cobrem dados compartilhados e isolamento; Tasks 4-5 cobrem papéis, carregamento e ausência de pistas; Task 6 cobre regressão e documentação; Task 7 aplica a versão somente ao fechamento e envia a entrega para staging.
 - Consistência: `user_id` é o escopo de conta; `user_id` + `profile_id` é o escopo operacional; apenas os três recursos definidos usam escopo de conta.
 - Riscos do Review Focus: conflito de migração está na Task 1; associação de lista e jobs nas Tasks 3; tentativa de USER e mudança de papel nas Tasks 4-5.
-- Proporção: seis entregas testáveis e reversíveis; nenhuma promove código para `main`.
+- Proporção: sete entregas testáveis e reversíveis; nenhuma promove código para `main`.
