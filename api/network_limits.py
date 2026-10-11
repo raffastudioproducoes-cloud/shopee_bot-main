@@ -19,6 +19,7 @@ GB = 1024 * MB
 NETWORK_RULES = {
     "threads": {
         "label": "Threads", "max_chars": 500, "count": "codepoints", "thread_parts": True,
+        "supports_text_only": True,
         "max_links": 5, "max_hashtags": 1, "max_media": 20, "allow_mix": True,
         "exts": {"jpg", "jpeg", "png", "mp4"},
         "max_bytes": {"image": 8 * MB, "video": 1 * GB},
@@ -26,6 +27,7 @@ NETWORK_RULES = {
     },
     "x": {
         "label": "X", "max_chars": 280, "count": "weighted", "thread_parts": True,
+        "supports_text_only": True,
         "max_image": 4, "max_gif": 1, "max_video": 1, "allow_mix": False,
         "exts": {"jpg", "jpeg", "png", "webp", "gif", "mp4"},
         "max_bytes": {"image": 5 * MB, "gif": 15 * MB, "video": 8 * GB},
@@ -33,12 +35,14 @@ NETWORK_RULES = {
     },
     "facebook": {
         "label": "Facebook", "max_chars": 63206, "count": "codepoints", "thread_parts": False,
+        "supports_text_only": True,
         "exts": {"jpg", "jpeg", "png", "gif", "mp4"},
         "max_bytes": {"image": 4 * MB, "gif": 4 * MB},
         "unverified": {"max_chars"},
     },
     "instagram": {
         "label": "Instagram", "max_chars": 2200, "count": "codepoints", "thread_parts": False,
+        "supports_text_only": False,
         "max_hashtags": 30, "max_mentions": 20, "max_media": 10, "allow_mix": True,
         "requires_media": "media-or-product",
         "exts": {"jpg", "jpeg", "mp4"},
@@ -47,6 +51,7 @@ NETWORK_RULES = {
     },
     "tiktok": {
         "label": "TikTok", "max_chars": 2200, "count": "utf16", "thread_parts": False,
+        "supports_text_only": False,
         "max_image": 0, "max_gif": 0, "max_video": 1, "allow_mix": False,
         "requires_media": "video",
         "exts": {"mp4"},
