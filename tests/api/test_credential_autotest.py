@@ -178,18 +178,18 @@ def test_autotest_does_not_consume_manual_rate_limit(db, client, inline, monkeyp
     assert client.post("/credentials/ai/gemini/test").status_code == 200
 
 
-def test_autotest_is_scoped_by_profile(db, client, deferred, monkeypatch, profile_cookie):
+def test_ai_autotest_is_shared_by_account(db, client, deferred, monkeypatch, profile_cookie):
     monkeypatch.setattr(llm, "check_key", lambda *a, **k: None)
     client.cookies.update(profile_cookie("profile-a"))
     client.put("/credentials/ai/gemini", json={"api_key": SECRET})
     other = TestClient(app)
     other.cookies.update(profile_cookie("profile-b"))
 
-    assert _check(db, "ai_gemini")["profile_id"] == "profile-a"
-    assert other.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "disconnected"
+    assert "profile_id" not in _check(db, "ai_gemini")
+    assert other.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "testing"
     for fn, args in deferred:
         fn(*args)
-    assert other.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "disconnected"
+    assert other.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "ok"
     assert client.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "ok"
 
 

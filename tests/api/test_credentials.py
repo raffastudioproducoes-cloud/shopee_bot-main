@@ -325,8 +325,9 @@ class TestRoleSeparation:
     @pytest.mark.parametrize("access,sees_detail", [("USER", False), ("ADMIN", True)])
     def test_check_message_detail_is_admin_only(self, monkeypatch, auth_client, access, sees_detail):
         check = {"network": "tiktok", "state": "error", "message": "detalhe interno", "checked_at": None}
-        # users(access), credential_checks, depois 1 select por rede (2 simples + 5 OAuth)
-        _mock_supabase(monkeypatch, [{"access": access}, [check]] + [None] * 7)
+        # users(access), checks por perfil e Shopee, depois 1 select por rede
+        # (2 simples + 5 OAuth).
+        _mock_supabase(monkeypatch, [{"access": access}, [check]] + [None] * 8)
         res = auth_client.get("/credentials")
         assert res.status_code == 200
         tiktok = res.json()["tiktok"]

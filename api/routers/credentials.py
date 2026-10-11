@@ -28,7 +28,7 @@ from pydantic import BaseModel
 
 from .auth import get_current_user_id
 from .profiles import get_current_profile_id
-from ..profiles import scope_owner
+from ..profiles import scope_account, scope_owner
 from ..audit_log import log_action
 from .. import threads_oauth
 from .. import instagram_oauth
@@ -221,14 +221,22 @@ _TABLE_TO_NETWORK = {
 }
 
 
+def _is_account_network(network: str) -> bool:
+    return network == "shopee" or network.startswith("ai_")
+
+
+def _scope_check(query, user_id: int, profile_id: str | None, network: str):
+    return scope_account(query, user_id) if _is_account_network(network) else scope_owner(query, user_id, profile_id)
+
+
 def _reset_credential_check(table: str, user_id: int, profile_id: str | None) -> None:
     """Credencial nova/reconectada invalida o teste anterior (senão a luz
     verde de um token antigo continuava valendo pro novo)."""
     network = _TABLE_TO_NETWORK.get(table)
     if not network:
         return
-    scope_owner(
-        supabase.table("credential_checks").delete(), user_id, profile_id,
+    _scope_check(
+        supabase.table("credential_checks").delete(), user_id, profile_id, network,
     ).eq("network", network).execute()
 
 
@@ -236,19 +244,23 @@ def _upsert_by_user(table: str, user_id: int, data: dict, profile_id: str | None
     """update-or-insert por user_id (e por perfil ativo, quando houver). Não
     existe unique constraint em user_id nessas tabelas (só em app_id/
     t_user_id) — upsert nativo do Postgres via on_conflict não se aplica
-    aqui. Com perfil ativo, a linha é a do perfil (cada perfil tem as
-    próprias credenciais) e o insert grava `profile_id`."""
+    aqui. A Shopee é compartilhada pela conta; as demais continuam por
+    perfil ativo e o insert grava `profile_id`."""
+    account_scoped = table == "shopee_credentials"
+    scope = scope_account if account_scoped else scope_owner
     existing = (
-        scope_owner(supabase.table(table).select("id"), user_id, profile_id)
-        .maybe_single().execute()
+        scope(supabase.table(table).select("id"), user_id) if account_scoped
+        else scope(supabase.table(table).select("id"), user_id, profile_id)
     )
+    existing = existing.maybe_single().execute()
     if existing and existing.data:
-        result = (
-            scope_owner(supabase.table(table).update(data), user_id, profile_id).execute()
+        query = scope(supabase.table(table).update(data), user_id) if account_scoped else scope(
+            supabase.table(table).update(data), user_id, profile_id,
         )
+        result = query.execute()
     else:
         row = {**data, "user_id": user_id}
-        if profile_id:
+        if profile_id and not account_scoped:
             row["profile_id"] = profile_id
         result = supabase.table(table).insert(row).execute()
     if not result.data:
@@ -349,14 +361,18 @@ async def list_credentials(user_id: int = Depends(get_current_user_id), profile_
         scope_owner(supabase.table("credential_checks").select("network, state, message, checked_at"), user_id, profile_id).execute()
     )
     checks_by_network = {c["network"]: c for c in (checks_row.data or [])}
+    shopee_checks = scope_account(
+        supabase.table("credential_checks").select("network, state, message, checked_at"), user_id,
+    ).eq("network", "shopee").execute()
+    checks_by_network.update({c["network"]: c for c in (shopee_checks.data or [])})
 
     result: dict[str, dict] = {}
 
     for network, table in SIMPLE_NETWORKS.items():
-        row = (
-            scope_owner(supabase.table(table).select("status"), user_id, profile_id)
-            .maybe_single().execute()
+        query = scope_account(supabase.table(table).select("status"), user_id) if network == "shopee" else scope_owner(
+            supabase.table(table).select("status"), user_id, profile_id,
         )
+        row = query.maybe_single().execute()
         result[network] = _status_only(row.data if row else None, checks_by_network.get(network))
 
     # Threads/X/TikTok/Instagram são OAuth de app único: "conectado" tem que
@@ -1079,8 +1095,8 @@ def _ai_provider(provider: str) -> str:
 
 
 def _ai_rows(user_id, profile_id: str | None) -> list[dict]:
-    return scope_owner(
-        supabase.table(AI_TABLE).select("provider, secret, model, status, updated_at"), user_id, profile_id,
+    return scope_account(
+        supabase.table(AI_TABLE).select("provider, secret, model, status, updated_at"), user_id,
     ).execute().data or []
 
 
@@ -1103,16 +1119,15 @@ def resolve_ai_key(user_id, profile_id: str | None, provider: str | None = None)
 def _save_check(user_id, profile_id: str | None, network: str, state: str, message: str) -> str:
     checked_at = datetime.now(timezone.utc).isoformat()
     check_data = {"state": state, "message": message, "checked_at": checked_at}
-    existing = (
-        scope_owner(supabase.table("credential_checks").select("id"), user_id, profile_id)
-        .eq("network", network).maybe_single().execute()
-    )
+    existing = _scope_check(
+        supabase.table("credential_checks").select("id"), user_id, profile_id, network,
+    ).eq("network", network).maybe_single().execute()
     if existing and existing.data:
         supabase.table("credential_checks").update(check_data).eq("id", existing.data["id"]).execute()
     else:
         supabase.table("credential_checks").insert({
             **check_data, "user_id": user_id, "network": network,
-            **({"profile_id": profile_id} if profile_id else {}),
+            **({"profile_id": profile_id} if profile_id and not _is_account_network(network) else {}),
         }).execute()
     return checked_at
 
@@ -1124,8 +1139,8 @@ async def list_ai_credentials(
 ):
     """Status por provedor (sem a chave) + qual seria usado no "Gerar texto"."""
     rows = {r["provider"]: r for r in _ai_rows(user_id, profile_id)}
-    checks = scope_owner(
-        supabase.table("credential_checks").select("network, state, message, checked_at"), user_id, profile_id,
+    checks = scope_account(
+        supabase.table("credential_checks").select("network, state, message, checked_at"), user_id,
     ).execute().data or []
     checks_by_network = {c["network"]: c for c in checks}
     providers = {}
@@ -1164,15 +1179,13 @@ async def save_ai_credential(
         "secret": encrypt(api_key), "model": model, "status": True,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
-    existing = scope_owner(
-        supabase.table(AI_TABLE).select("id"), user_id, profile_id,
+    existing = scope_account(
+        supabase.table(AI_TABLE).select("id"), user_id,
     ).eq("provider", provider).execute().data or []
     if existing:
         result = supabase.table(AI_TABLE).update(data).eq("id", existing[0]["id"]).execute()
     else:
         row = {**data, "user_id": user_id, "provider": provider}
-        if profile_id:
-            row["profile_id"] = profile_id
         result = supabase.table(AI_TABLE).insert(row).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao salvar a chave de IA")
@@ -1189,12 +1202,12 @@ async def delete_ai_credential(
 ):
     """Desconecta (apaga a chave cifrada, mantém a linha)."""
     provider = _ai_provider(provider)
-    result = scope_owner(
-        supabase.table(AI_TABLE).update({"secret": None, "status": False}), user_id, profile_id,
+    result = scope_account(
+        supabase.table(AI_TABLE).update({"secret": None, "status": False}), user_id,
     ).eq("provider", provider).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Chave de IA não encontrada")
-    scope_owner(supabase.table("credential_checks").delete(), user_id, profile_id).eq(
+    scope_account(supabase.table("credential_checks").delete(), user_id).eq(
         "network", f"ai_{provider}").execute()
     log_action("ai_credential_deleted", provider, user_id=user_id, profile_id=profile_id)
     return {"connected": False}
@@ -1261,7 +1274,9 @@ def _persist_refreshed_tokens(network: str, user_id, profile_id: str | None, tok
         ).isoformat()
     table = _TEST_NETWORKS[network]
     try:
-        scope_owner(supabase.table(table).update(data), user_id, profile_id).execute()
+        (scope_account(supabase.table(table).update(data), user_id) if network == "shopee" else scope_owner(
+            supabase.table(table).update(data), user_id, profile_id,
+        )).execute()
     except Exception as e:
         logger.warning("teste %s: não gravou tokens renovados: %s", network, type(e).__name__)
 
@@ -1319,9 +1334,10 @@ def _test_payload(network: str, user_id: int, profile_id: str | None = None) -> 
                 payload[key] = decrypt(data[column]) if encrypted else data[column]
         return payload
 
-    row = (
-        scope_owner(supabase.table(table).select("app_id, secret"), user_id, profile_id).maybe_single().execute()
+    query = scope_account(supabase.table(table).select("app_id, secret"), user_id) if network == "shopee" else scope_owner(
+        supabase.table(table).select("app_id, secret"), user_id, profile_id,
     )
+    row = query.maybe_single().execute()
     data = row.data if row and row.data else None
     if not data or not data.get("app_id") or not data.get("secret"):
         return None
@@ -1391,10 +1407,9 @@ def _finish_check(user_id, profile_id: str | None, network: str, started_at: str
     """Grava o resultado só se a linha ainda é o MESMO "testing" que este
     worker iniciou (credencial regravada/desconectada/testada à mão no meio
     do caminho = resultado velho, descartado)."""
-    row = (
-        scope_owner(supabase.table("credential_checks").select("id, state, checked_at"), user_id, profile_id)
-        .eq("network", network).maybe_single().execute()
-    )
+    row = _scope_check(
+        supabase.table("credential_checks").select("id, state, checked_at"), user_id, profile_id, network,
+    ).eq("network", network).maybe_single().execute()
     current = row.data if row else None
     if not current or current.get("state") != "testing":
         return
@@ -1522,11 +1537,10 @@ async def delete_credential(
     if network == "kwai":
         _require_admin(user_id)
     update_data = {"app_id": None, "secret": None, "status": False}
-    result = (
-        scope_owner(supabase.table(table)
-        .update(update_data), user_id, profile_id)
-        .execute()
+    query = scope_account(supabase.table(table).update(update_data), user_id) if network == "shopee" else scope_owner(
+        supabase.table(table).update(update_data), user_id, profile_id,
     )
+    result = query.execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Credencial não encontrada")
     return {"connected": False}
