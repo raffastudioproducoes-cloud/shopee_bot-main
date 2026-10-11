@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.internal_client import InternalApiError
+from api.crypto import encrypt
 from api.main import app
 from api.routers import credentials as cred
 from api.routers.auth import get_current_user_id
@@ -191,6 +192,50 @@ def test_ai_autotest_is_shared_by_account(db, client, deferred, monkeypatch, pro
         fn(*args)
     assert other.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "ok"
     assert client.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "ok"
+
+
+def test_legacy_account_checks_are_shared_and_consolidated(db, client, profile_cookie):
+    db.tables["shopee_credentials"].append({"id": 1, "user_id": 42, "status": True})
+    db.tables["ai_credentials"].append({
+        "id": 2, "user_id": 42, "provider": "gemini", "secret": encrypt(SECRET), "status": True,
+    })
+    db.tables["threads_credentials"] = [
+        {"id": 3, "user_id": 42, "profile_id": "profile-a", "status": True, "access_token": "a"},
+        {"id": 4, "user_id": 42, "profile_id": "profile-b", "status": True, "access_token": "b"},
+    ]
+    db.tables["credential_checks"] = [
+        {"id": 2, "user_id": 42, "profile_id": "profile-b", "network": "shopee", "state": "ok", "message": "novo", "checked_at": "2026-10-11T10:00:00+00:00"},
+        {"id": 1, "user_id": 42, "profile_id": "profile-a", "network": "shopee", "state": "error", "message": "antigo", "checked_at": "2026-10-11T09:00:00+00:00"},
+        {"id": 4, "user_id": 42, "profile_id": "profile-b", "network": "ai_gemini", "state": "ok", "message": "novo", "checked_at": "2026-10-11T10:00:00+00:00"},
+        {"id": 3, "user_id": 42, "profile_id": "profile-a", "network": "ai_gemini", "state": "error", "message": "antigo", "checked_at": "2026-10-11T09:00:00+00:00"},
+        {"id": 5, "user_id": 42, "profile_id": "profile-a", "network": "threads", "state": "ok", "message": "a", "checked_at": "2026-10-11T08:00:00+00:00"},
+        {"id": 6, "user_id": 42, "profile_id": "profile-b", "network": "threads", "state": "error", "message": "b", "checked_at": "2026-10-11T07:00:00+00:00"},
+    ]
+    client.cookies.update(profile_cookie("profile-a"))
+    other = TestClient(app)
+    other.cookies.update(profile_cookie("profile-b"))
+
+    assert client.get("/credentials").json()["shopee"]["state"] == "ok"
+    assert other.get("/credentials").json()["shopee"]["state"] == "ok"
+    assert client.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "ok"
+    assert other.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "ok"
+    assert client.get("/credentials").json()["threads"]["state"] == "ok"
+    assert other.get("/credentials").json()["threads"]["state"] == "error"
+
+    cred._save_check(42, "profile-b", "shopee", "error", "atual")
+    cred._save_check(42, "profile-b", "ai_gemini", "error", "atual")
+
+    for network in ("shopee", "ai_gemini"):
+        checks = [row for row in db.tables["credential_checks"] if row["network"] == network]
+        assert len(checks) == 1 and checks[0].get("profile_id") is None
+    assert {row["profile_id"] for row in db.tables["credential_checks"] if row["network"] == "threads"} == {"profile-a", "profile-b"}
+
+
+def test_user_cannot_override_social_credential(db, client):
+    response = client.put("/credentials/threads", json={"t_user_id": "1", "access_token": "token"})
+
+    assert response.status_code == 403
+    assert db.tables.get("threads_credentials", []) == []
 
 
 def test_save_still_succeeds_when_autotest_cannot_start(db, client, monkeypatch):
