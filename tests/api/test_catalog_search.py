@@ -65,6 +65,21 @@ class TestCatalogEndpointsAuthRequirement:
 
 
 class TestCatalogSearchCredential:
+    def test_search_uses_account_shopee_credential_with_an_active_profile(
+        self, auth_client, monkeypatch, profile_cookie
+    ):
+        fake_client = _fake_supabase_with_credential()
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        async def no_results(*_args, **_kwargs):
+            return []
+
+        monkeypatch.setattr(shopee_catalog, "search_products", no_results)
+        auth_client.cookies.update(profile_cookie("profile-b"))
+
+        assert auth_client.get("/products/catalog-search").status_code == 200
+        assert all(call.args[0] != "profile_id" for call in fake_client.table.return_value.eq.call_args_list)
+
     def test_search_without_shopee_credential_returns_clear_error(self, auth_client, monkeypatch):
         monkeypatch.setattr(
             database_module, "get_supabase", lambda: _fake_supabase_without_credential()
