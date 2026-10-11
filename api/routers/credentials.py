@@ -229,6 +229,28 @@ def _scope_check(query, user_id: int, profile_id: str | None, network: str):
     return scope_account(query, user_id) if _is_account_network(network) else scope_owner(query, user_id, profile_id)
 
 
+def _latest_check(checks: list[dict]) -> dict | None:
+    return max(
+        checks,
+        key=lambda check: (str(check.get("checked_at") or ""), str(check.get("id") or "")),
+        default=None,
+    )
+
+
+def _account_checks(user_id: int) -> dict[str, dict]:
+    rows = scope_account(
+        supabase.table("credential_checks").select("id, network, state, message, checked_at"), user_id,
+    ).execute().data or []
+    checks: dict[str, dict] = {}
+    for row in rows:
+        network = row.get("network")
+        if not isinstance(network, str) or not _is_account_network(network):
+            continue
+        latest = _latest_check([checks[network], row]) if network in checks else row
+        checks[network] = latest
+    return checks
+
+
 def _reset_credential_check(table: str, user_id: int, profile_id: str | None) -> None:
     """Credencial nova/reconectada invalida o teste anterior (senão a luz
     verde de um token antigo continuava valendo pro novo)."""
@@ -361,10 +383,7 @@ async def list_credentials(user_id: int = Depends(get_current_user_id), profile_
         scope_owner(supabase.table("credential_checks").select("network, state, message, checked_at"), user_id, profile_id).execute()
     )
     checks_by_network = {c["network"]: c for c in (checks_row.data or [])}
-    shopee_checks = scope_account(
-        supabase.table("credential_checks").select("network, state, message, checked_at"), user_id,
-    ).eq("network", "shopee").execute()
-    checks_by_network.update({c["network"]: c for c in (shopee_checks.data or [])})
+    checks_by_network.update(_account_checks(user_id))
 
     result: dict[str, dict] = {}
 
@@ -1119,16 +1138,35 @@ def resolve_ai_key(user_id, profile_id: str | None, provider: str | None = None)
 def _save_check(user_id, profile_id: str | None, network: str, state: str, message: str) -> str:
     checked_at = datetime.now(timezone.utc).isoformat()
     check_data = {"state": state, "message": message, "checked_at": checked_at}
-    existing = _scope_check(
-        supabase.table("credential_checks").select("id"), user_id, profile_id, network,
-    ).eq("network", network).maybe_single().execute()
-    if existing and existing.data:
-        supabase.table("credential_checks").update(check_data).eq("id", existing.data["id"]).execute()
+    if _is_account_network(network):
+        existing_rows = scope_account(
+            supabase.table("credential_checks").select("id, checked_at"), user_id,
+        ).eq("network", network).execute().data or []
+        existing = _latest_check(existing_rows)
+        if existing:
+            supabase.table("credential_checks").update({**check_data, "profile_id": None}).eq(
+                "id", existing["id"],
+            ).execute()
+            duplicate_ids = [row["id"] for row in existing_rows if row["id"] != existing["id"]]
+            if duplicate_ids:
+                scope_account(supabase.table("credential_checks").delete(), user_id).eq(
+                    "network", network,
+                ).in_("id", duplicate_ids).execute()
+        else:
+            supabase.table("credential_checks").insert({
+                **check_data, "user_id": user_id, "network": network,
+            }).execute()
     else:
-        supabase.table("credential_checks").insert({
-            **check_data, "user_id": user_id, "network": network,
-            **({"profile_id": profile_id} if profile_id and not _is_account_network(network) else {}),
-        }).execute()
+        existing = _scope_check(
+            supabase.table("credential_checks").select("id"), user_id, profile_id, network,
+        ).eq("network", network).maybe_single().execute()
+        if existing and existing.data:
+            supabase.table("credential_checks").update(check_data).eq("id", existing.data["id"]).execute()
+        else:
+            supabase.table("credential_checks").insert({
+                **check_data, "user_id": user_id, "network": network,
+                **({"profile_id": profile_id} if profile_id else {}),
+            }).execute()
     return checked_at
 
 
@@ -1139,10 +1177,7 @@ async def list_ai_credentials(
 ):
     """Status por provedor (sem a chave) + qual seria usado no "Gerar texto"."""
     rows = {r["provider"]: r for r in _ai_rows(user_id, profile_id)}
-    checks = scope_account(
-        supabase.table("credential_checks").select("network, state, message, checked_at"), user_id,
-    ).execute().data or []
-    checks_by_network = {c["network"]: c for c in checks}
+    checks_by_network = _account_checks(user_id)
     providers = {}
     for provider in ai_llm.PROVIDERS:
         row = rows.get(provider)
