@@ -10,7 +10,7 @@ from .auth import get_current_user_id
 from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..database import supabase
-from ..profiles import scope_owner
+from ..profiles import scope_account
 
 router = APIRouter(prefix="/lists", tags=["lists"])
 
@@ -36,6 +36,12 @@ class ProductListOut(BaseModel):
 
 class ProductListWithProducts(ProductListOut):
     products: list[dict] = []
+
+
+def _require_profile_id(profile_id: str | None) -> str:
+    if not profile_id:
+        raise HTTPException(status_code=400, detail="Perfil ativo obrigatório")
+    return profile_id
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
@@ -76,10 +82,8 @@ def _get_list_products(list_id: int) -> list[dict]:
     return products
 
 
-def _validate_owned_products(
-    user_id: int, product_ids: list[int], profile_id: str | None = None
-) -> set[int]:
-    """Garante que todos os `product_ids` pertencem ao usuário (e ao perfil ativo).
+def _validate_owned_products(user_id: int, product_ids: list[int]) -> set[int]:
+    """Garante que todos os `product_ids` pertencem à conta do usuário.
 
     Levanta 400 listando os ids inválidos/de outro dono, antes de qualquer escrita
     (evita IDOR e 500 por violação de FK)."""
@@ -87,7 +91,7 @@ def _validate_owned_products(
     if not wanted:
         return set()
     owned_result = (
-        scope_owner(supabase.table("products").select("id"), user_id, profile_id)
+        scope_account(supabase.table("products").select("id"), user_id)
         .in_("id", list(wanted))
         .execute()
     )
@@ -101,15 +105,13 @@ def _validate_owned_products(
     return owned
 
 
-def _sync_list_products(
-    user_id: int, list_id: int, product_ids: list[int], profile_id: str | None = None
-) -> None:
+def _sync_list_products(user_id: int, list_id: int, product_ids: list[int]) -> None:
     """Sincroniza `product_lists_products` com `product_ids`.
 
     Valida a posse de todos os produtos antes de escrever. O client Supabase REST
     não expõe transação — insert e delete são chamadas separadas, não atômicas.
     """
-    owned_ids = _validate_owned_products(user_id, product_ids, profile_id)
+    owned_ids = _validate_owned_products(user_id, product_ids)
 
     current_result = (
         supabase.table("product_lists_products")
@@ -187,12 +189,11 @@ async def create_product_list(
 
     Sem transação no client REST: valida os produtos antes de inserir e, se a
     associação falhar, apaga a lista recém-criada (compensação) — nunca fica lista vazia."""
+    profile_id = _require_profile_id(profile_id)
     product_ids = body.product_ids or []
-    _validate_owned_products(user_id, product_ids, profile_id)
+    _validate_owned_products(user_id, product_ids)
 
-    data = {"user_id": user_id, "name": body.name}
-    if profile_id:
-        data["profile_id"] = profile_id
+    data = {"user_id": user_id, "profile_id": profile_id, "name": body.name}
     result = supabase.table("product_lists").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar lista")
@@ -200,7 +201,7 @@ async def create_product_list(
 
     if product_ids:
         try:
-            _sync_list_products(user_id, created["id"], product_ids, profile_id)
+            _sync_list_products(user_id, created["id"], product_ids)
         except Exception:
             supabase.table("product_lists").delete().eq("id", created["id"]).execute()
             raise
@@ -249,7 +250,7 @@ async def update_product_list(
         raise HTTPException(status_code=404, detail="Lista não encontrada")
 
     if body.product_ids is not None:
-        _sync_list_products(user_id, product_list_id, body.product_ids, profile_id)
+        _sync_list_products(user_id, product_list_id, body.product_ids)
 
     return result.data[0]
 

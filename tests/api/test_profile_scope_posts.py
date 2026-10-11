@@ -89,7 +89,7 @@ def test_create_post_stores_profile_id_and_forwards_it_to_scheduler(make_client,
     assert sent["profile_id"] == "profile-a"
 
 
-def test_create_post_without_profile_omits_profile_id(make_client, old_token_without_profile_claim, monkeypatch):
+def test_create_post_without_profile_is_rejected_before_creating_a_job(make_client, old_token_without_profile_claim, monkeypatch):
     db, make = make_client
     sent = {}
 
@@ -98,12 +98,12 @@ def test_create_post_without_profile_omits_profile_id(make_client, old_token_wit
         return "job-1"
 
     monkeypatch.setattr(posts_module, "create_scheduler_job", fake_create_job)
-    make(old_token_without_profile_claim).post("/posts", json={
+    res = make(old_token_without_profile_claim).post("/posts", json={
         "texts": ["x"], "schedule": {"trigger": "date", "run_date": "2026-12-01T10:00:00"},
     })
-    created = [p for p in db.tables["posts"] if p["id"] > 1000]
-    assert "profile_id" not in created[0]
-    assert "profile_id" not in sent
+    assert res.status_code == 400
+    assert [p for p in db.tables["posts"] if p["id"] > 1000] == []
+    assert sent == {}
 
 
 @pytest.fixture
@@ -126,11 +126,20 @@ def product_db(fake_db, monkeypatch):
 def test_update_post_rejects_products_not_owned_and_keeps_post(product_db, profile_cookie):
     c = TestClient(app)
     c.cookies.update(profile_cookie("profile-a"))
-    for bad in (11, 12):
-        res = c.put("/posts/1", json={"texts": ["novo"], "product_ids": [10, bad]})
-        assert res.status_code == 400
+    res = c.put("/posts/1", json={"texts": ["novo"], "product_ids": [10, 11]})
+    assert res.status_code == 400
     assert product_db.tables["posts"][0]["text"] == "do A"
     assert product_db.tables.get("posts_products", []) == []
+
+
+def test_update_post_accepts_product_from_another_profile_of_same_account(product_db, profile_cookie):
+    c = TestClient(app)
+    c.cookies.update(profile_cookie("profile-a"))
+
+    res = c.put("/posts/1", json={"texts": ["novo"], "product_ids": [12]})
+
+    assert res.status_code == 200
+    assert [r["product_id"] for r in product_db.tables["posts_products"]] == [12]
 
 
 def test_update_post_accepts_own_products(product_db, profile_cookie):

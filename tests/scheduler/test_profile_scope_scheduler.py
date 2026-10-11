@@ -20,7 +20,7 @@ update_products_module = importlib.import_module("shopee_bot.scheduler.update_pr
 bot = sys.modules["shopee_bot.scheduler.bot_post_instagram"]
 
 CREDENTIAL_MODULES = [
-    facebook_credentials, instagram_credentials, kwai_credentials, shopee_credentials,
+    facebook_credentials, instagram_credentials, kwai_credentials,
     threads_credentials, tiktok_credentials, x_credentials,
 ]
 
@@ -52,6 +52,18 @@ def test_every_credential_lookup_can_be_scoped_by_profile(monkeypatch):
         assert captured["args"] == expected_args
 
 
+def test_shopee_credential_lookup_is_shared_by_account(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        shopee_credentials, "query_db", lambda q, args, one=False: captured.update(q=q, args=args)
+    )
+
+    shopee_credentials.get_by_user_id("user-1")
+
+    assert "profile_id" not in captured["q"]
+    assert captured["args"] == ("user-1",)
+
+
 def test_scheduler_post_query_requires_the_jobs_profile(monkeypatch):
     captured = {}
     monkeypatch.setattr(
@@ -64,13 +76,13 @@ def test_scheduler_post_query_requires_the_jobs_profile(monkeypatch):
     assert captured["args"] == (7, "user-1", "profile-a", "profile-a")
 
 
-def test_shopee_refresh_requires_and_forwards_profile(monkeypatch):
+def test_shopee_refresh_requires_profile_but_reads_shared_catalog(monkeypatch):
     captured = {}
 
     monkeypatch.setattr(
         update_products_module.shopee_credentials,
         "get_by_user_id",
-        lambda user_id, profile_id: captured.update(credential=(user_id, profile_id)) or {
+        lambda user_id: captured.update(credential=user_id) or {
             "username": "cliente", "shopee_app_id": None, "shopee_secret": None,
             "shopee_status": False,
         },
@@ -80,7 +92,7 @@ def test_shopee_refresh_requires_and_forwards_profile(monkeypatch):
         update_products_module.update_products("user-1", None)
 
     update_products_module.update_products("user-1", "profile-a")
-    assert captured["credential"] == ("user-1", "profile-a")
+    assert captured["credential"] == "user-1"
 
 def _run_bot(monkeypatch, job):
     seen = {}
