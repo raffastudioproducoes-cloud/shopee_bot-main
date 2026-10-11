@@ -194,6 +194,15 @@ def test_ai_autotest_is_shared_by_account(db, client, deferred, monkeypatch, pro
     assert client.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "ok"
 
 
+def test_latest_check_uses_numeric_serial_id_when_timestamps_tie():
+    latest = cred._latest_check([
+        {"id": 9, "checked_at": "2026-10-11T12:00:00+00:00"},
+        {"id": 10, "checked_at": "2026-10-11T12:00:00+00:00"},
+    ])
+
+    assert latest["id"] == 10
+
+
 def test_legacy_account_checks_are_shared_and_consolidated(db, client, profile_cookie):
     db.tables["shopee_credentials"].append({"id": 1, "user_id": 42, "status": True})
     db.tables["ai_credentials"].append({

@@ -230,9 +230,16 @@ def _scope_check(query, user_id: int, profile_id: str | None, network: str):
 
 
 def _latest_check(checks: list[dict]) -> dict | None:
+    def sort_key(check: dict) -> tuple[str, int]:
+        try:
+            check_id = int(check.get("id"))
+        except (TypeError, ValueError):
+            check_id = -1
+        return str(check.get("checked_at") or ""), check_id
+
     return max(
         checks,
-        key=lambda check: (str(check.get("checked_at") or ""), str(check.get("id") or "")),
+        key=sort_key,
         default=None,
     )
 
