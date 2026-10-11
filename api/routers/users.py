@@ -79,6 +79,7 @@ class BackupData(BaseModel):
     posts: list[dict[str, Any]] = Field(max_length=_MAX_BACKUP_POSTS)
     exported_at: str
     checksum: str
+    source_profile_id: str | None = None
 
 
 class _BackupProductList(BaseModel):
@@ -166,12 +167,15 @@ def _collect_backup_data(user_id: str, profile_id: str | None = None) -> dict[st
                 "product_ids": [p["id"] for p in _get_post_products(item["id"])],
             })
 
-    return {
+    data = {
         "products": products,
         "product_lists": product_lists,
         "posts": posts,
         "exported_at": datetime.now(timezone.utc).isoformat(),
     }
+    if profile_id:
+        data["source_profile_id"] = profile_id
+    return data
 
 
 def _checksum(data: dict[str, Any]) -> str:
@@ -339,7 +343,10 @@ def restore_backup(
 ):
     """Importa um backup gerado por export_backup. Rejeita com 400 (e não
     importa nada) se o checksum não bater — arquivo adulterado/corrompido
-    (comparação com `hmac.compare_digest`, constante no tempo).
+    (comparação com `hmac.compare_digest`, constante no tempo). Quando há
+    listas ou posts, `source_profile_id` é protegido pelo mesmo HMAC e precisa
+    corresponder ao perfil ativo; catálogo compartilhado pode ser restaurado
+    sem esse marcador.
 
     Restore é ADITIVO: sempre cria registros novos (nunca sobrescreve ou
     apaga dado existente do usuário) — política mais simples e mais segura
@@ -377,10 +384,14 @@ def restore_backup(
         "posts": body.posts,
         "exported_at": body.exported_at,
     }
+    if "source_profile_id" in body.model_fields_set:
+        payload["source_profile_id"] = body.source_profile_id
     if not hmac.compare_digest(_checksum(payload), body.checksum):
         raise HTTPException(status_code=400, detail="Arquivo de backup corrompido ou inválido.")
     if (body.product_lists or body.posts) and not profile_id:
         raise HTTPException(status_code=400, detail="Perfil ativo obrigatório para restaurar listas ou posts.")
+    if (body.product_lists or body.posts) and body.source_profile_id != profile_id:
+        raise HTTPException(status_code=400, detail="Backup contém dados isolados de outro perfil.")
 
     id_map: dict[Any, int] = {}
     for product in body.products:
