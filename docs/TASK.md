@@ -3,7 +3,20 @@
 > Fases e tarefas derivadas do PRD e do histórico real (`git log`, `docs/ROADMAP_MIGRACAO.md`,
 > `docs/CHECKLIST_MIGRACAO.md`, vault Obsidian `00-INDICE-Estado-Atual.md`). Uma tarefa só é
 > marcada **Concluída** com evidência de código ou teste passando; senão fica **Bloqueada** ou
-> **Pendente**. Última verificação: 2026-10-10.
+> **Pendente**. Última verificação: 2026-10-11.
+
+## Atualização 2026-10-11 — composição de mídia por rede
+
+- [ ] Implementar planejador de compatibilidade por rede para foto única, carrossel e vídeo,
+  reaproveitando arquivos sem misturar `user_id` ou `profile_id`. A especificação aprovada é
+  `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`.
+- [ ] Criar preview com abas de mídia somente quando houver composição diferente por rede e
+  alertas prévios que informem formato, limite ou tamanho incompatível.
+- [ ] Aplicar o fallback aprovado: rede com mídia incompatível publica somente o texto válido
+  quando a API da rede suportar texto sem mídia; sem esse modo ou sem texto válido, ela fica fora
+  sem cancelar as outras.
+- [ ] Implementar e validar publicadores por modo compatível. Vídeo continua pendência separada
+  até existir teste real aprovado para cada rede; Kwai segue fora por não ter API pública.
 
 ## Atualização 2026-10-10 — Isolamento obrigatório de credenciais e publicação
 

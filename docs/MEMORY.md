@@ -73,6 +73,20 @@ Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via
   domínio/prefixo verificado e Creator Info no fluxo de usuário. Vídeos seguem pendência
   explícita e não podem ser tratados como validados por testes de imagem.
 
+## Atualização 2026-10-11 — composição de mídia multi-rede
+
+- A criação multi-rede passa a tratar texto e mídia como uma composição por rede, não como a
+  mesma lista de arquivos enviada indistintamente a todas elas.
+- A decisão de produto é publicar nas redes compatíveis mesmo que outra tenha restrição. Quando
+  a mídia não for aceita, essa rede recebe somente texto válido quando sua API permitir post
+  textual; caso contrário, ou se não houver variante válida, apenas ela fica fora do envio.
+- As abas de texto existentes seguem por limite. Abas adicionais de mídia só aparecem quando
+  redes selecionadas precisarem de formatos diferentes, como foto única, carrossel ou vídeo.
+- O backend precisa repetir a validação e manter cada ativo no mesmo `user_id` + `profile_id`.
+  A especificação aprovada está em
+  `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`; implementação ainda
+  não começou neste registro.
+
 ## O que falta (real, não aspiracional)
 
 - Cadastrar a callback URL de cada rede no painel de desenvolvedor correspondente (X

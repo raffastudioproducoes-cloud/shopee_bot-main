@@ -59,7 +59,7 @@ Multi-tenant com múltiplos usuários pagantes é visão pós-MVP, não implemen
 | --- | --- | --- |
 | Garimpo/Produtos | Cadastro/edição de produto Shopee (URL colada, valida contra a API deles) | `README.md`, `database/products.py` |
 | Listas de produtos | Agrupamento reaproveitável entre posts | `database/product_lists*.py` |
-| Posts | Criação, thread multi-parte, upload de mídia, agendamento (cron/data) ou publicação imediata, retry e log de falha | `api/routers/posts.py`, `scheduler/` |
+| Posts | Criação, thread multi-parte, composição por rede de texto/mídia, agendamento (cron/data) ou publicação imediata, retry e log de falha. Rede incompatível não bloqueia as demais: recebe texto válido com aviso quando a API suporta publicação sem mídia, ou fica fora com motivo claro | `api/routers/posts.py`, `scheduler/`, `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md` |
 | Copywriter IA | Geração de texto de post por persona com a chave de IA do próprio usuário (Gemini/OpenAI/Anthropic, `apis/llm.py`) | `README.md` |
 | Credenciais | Shopee e IA por valor manual do próprio usuário; redes sociais por OAuth do app único. Overrides sociais/Kwai são ADMIN-only e nunca reexibem segredo | `api/routers/credentials.py` |
 | Atividades | Histórico auditável de ações do usuário | `database/activities.py` |

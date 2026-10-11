@@ -207,6 +207,22 @@ via bridge.
 - **CI/CD**: ver `docs/RULES.md` itens 2 e 3 (flake8 bloqueante, job `frontend`, CD via
   `workflow_run`).
 
+## 9. Composição de mídia por rede (design aprovado, 2026-10-11)
+
+O criador de posts passará a montar um plano de publicação para cada rede escolhida. O navegador
+mostra variantes e alertas, mas o backend recalcula a compatibilidade antes de criar os posts e
+antes de disparar o scheduler. Cada post do mesmo `group_id` poderá apontar para uma seleção e
+ordem próprias em `posts_medias`, sempre escopadas pelo par `user_id` + `profile_id`.
+
+Mídia incompatível não é erro global: quando houver endpoint textual, o plano marca a rede como
+`text_only`; quando a API exigir mídia, marca `blocked_reason` e mantém as demais redes em
+publicação. Sem variante de texto válida, somente a rede afetada é excluída do envio. O design
+também prevê upload temporário antes de criar posts, pois o endpoint atual anexa o arquivo
+imediatamente ao primeiro post e não permite seleção distinta por rede.
+
+Detalhes, contratos e critérios de aceite:
+`docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`.
+
 ## Referências
 
 - `README.md`, `api/README.md`, `docs/ROADMAP_MIGRACAO.md`
