@@ -86,3 +86,56 @@ def test_expired_cleanup_deletes_only_expired_drafts(fake_db, monkeypatch):
     assert removed == 1
     assert [row["id"] for row in db.tables["temporary_media_uploads"]] == ["2"]
     db.storage.from_.return_value.remove.assert_called_once_with(["drafts/42/profile-a/remove.jpg"])
+
+
+def _batch_body():
+    return {
+        "compositions": [
+            {"network": "threads", "texts": ["copy"]},
+            {"network": "x", "texts": ["copy"]},
+        ],
+        "draft_media_ids": ["draft-1"],
+        "schedule": {"trigger": "date", "run_date": "2030-01-01T10:00:00"},
+    }
+
+
+def _batch_client(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    db.tables["temporary_media_uploads"].append({
+        "id": "draft-1", "user_id": 42, "profile_id": "profile-a", "status": "ready",
+        "storage_bucket": "post-media", "storage_key": "drafts/42/profile-a/offer.jpg",
+        "file_name": "offer.jpg", "size_bytes": 12, "media_type": "IMAGE",
+        "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+    })
+
+    async def fake_job(**_kwargs):
+        return "job-1"
+
+    monkeypatch.setattr(posts_module, "create_scheduler_job", fake_job)
+    return client, db
+
+
+def test_preview_is_read_only_and_shows_per_network_fallback(fake_db, monkeypatch):
+    client, db = _batch_client(fake_db, monkeypatch)
+
+    response = client.post("/posts/preview", json=_batch_body())
+
+    assert response.status_code == 200
+    plans = {plan["network"]: plan for plan in response.json()["plans"]}
+    assert plans["threads"]["mode"] == "single_image"
+    assert plans["x"]["mode"] == "text_only"
+    assert db.tables.get("posts", []) == []
+    assert db.tables.get("medias", []) == []
+
+
+def test_batch_creates_all_deliverable_networks_with_one_server_group(fake_db, monkeypatch):
+    client, db = _batch_client(fake_db, monkeypatch)
+
+    response = client.post("/posts/batch", json=_batch_body())
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["group_id"]
+    assert {row["network"] for row in payload["created"]} == {"threads", "x"}
+    assert len(db.tables["medias"]) == 1
+    assert db.tables["temporary_media_uploads"][0]["status"] == "consumed"

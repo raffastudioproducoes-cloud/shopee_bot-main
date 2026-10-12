@@ -46,6 +46,7 @@ from ..audit_log import log_action
 from ..database import supabase
 from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail
+from ..media_composition import plan_network_composition
 from ..text_variants import generate_variants
 from ..internal_client import (
     create_scheduler_job,
@@ -213,6 +214,34 @@ class PostCreate(BaseModel):
         return v
 
 
+class PostComposition(BaseModel):
+    network: NetworkLiteral
+    texts: list[str]
+
+    @field_validator("texts")
+    @classmethod
+    def _texts_not_empty(cls, value):
+        if not value or not any(text.strip() for text in value):
+            raise ValueError("texts precisa ter ao menos um item com texto")
+        return value
+
+
+class PostBatchCreate(BaseModel):
+    compositions: list[PostComposition]
+    product_ids: list[int] = []
+    draft_media_ids: list[str] = []
+    schedule: PostSchedule
+
+    @model_validator(mode="after")
+    def _check_networks(self):
+        networks = [composition.network for composition in self.compositions]
+        if not networks:
+            raise ValueError("Escolha ao menos uma rede")
+        if len(networks) != len(set(networks)):
+            raise ValueError("Cada rede pode aparecer apenas uma vez")
+        return self
+
+
 class PostUpdate(BaseModel):
     texts: list[str]
     product_ids: list[int] = []
@@ -339,6 +368,47 @@ def _get_owned_medias(user_id: int, media_ids: list[int], profile_id: str | None
     if set(media_ids) - set(by_id):
         raise HTTPException(status_code=400, detail="Mídia inválida")
     return [by_id[mid] for mid in media_ids]
+
+
+def _get_owned_ready_drafts(user_id: int, draft_ids: list[str], profile_id: str) -> list[dict]:
+    """Rascunhos só podem ser consumidos uma vez, pelo mesmo perfil."""
+    if not draft_ids:
+        return []
+    result = (
+        scope_owner(
+            supabase.table("temporary_media_uploads").select("*").in_("id", list(set(draft_ids))),
+            user_id,
+            profile_id,
+        )
+        .eq("status", "ready")
+        .execute()
+    )
+    by_id = {str(row["id"]): row for row in (result.data or [])}
+    if set(draft_ids) - set(by_id):
+        raise HTTPException(status_code=400, detail="Rascunho de mídia inválido")
+    now = datetime.now(timezone.utc)
+    if any(_expired_at(by_id[draft_id].get("expires_at"), now) for draft_id in draft_ids):
+        raise HTTPException(status_code=400, detail="Um rascunho de mídia expirou. Envie-o novamente.")
+    return [by_id[draft_id] for draft_id in draft_ids]
+
+
+def _create_media_from_draft(draft: dict, user_id: int, profile_id: str) -> dict:
+    """Materializa a referência durável sem expor ou copiar o objeto privado."""
+    result = (
+        supabase.table("medias")
+        .insert({
+            "user_id": user_id,
+            "profile_id": profile_id,
+            "file_name": draft["file_name"],
+            "file_path": f"storage://{draft['storage_bucket']}/{draft['storage_key']}",
+            "size": draft["size_bytes"],
+            "type": draft["media_type"],
+        })
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Não foi possível preparar a mídia para publicação.")
+    return result.data[0]
 
 
 def _media_shared_elsewhere(media_id: int, post_id: int) -> bool:
@@ -622,6 +692,112 @@ async def create_post(
         "medias": medias,
         "scheduled": True,
     }
+
+
+def _preview_batch(body: PostBatchCreate, drafts: list[dict]) -> list[dict]:
+    plans: list[dict] = []
+    media = [
+        {"id": str(draft["id"]), "file_name": draft["file_name"], "size": draft["size_bytes"]}
+        for draft in drafts
+    ]
+    for composition in body.compositions:
+        plan = plan_network_composition(
+            composition.network,
+            composition.texts,
+            media,
+            len(body.product_ids),
+        )
+        plans.append({
+            "network": composition.network,
+            "texts": composition.texts,
+            "mode": plan.mode,
+            "media_draft_ids": [str(media_id) for media_id in plan.media_ids],
+            "warnings": plan.warnings,
+            "blocked_reason": plan.blocked_reason,
+        })
+    return plans
+
+
+@router.post("/preview")
+async def preview_post_batch(
+    body: PostBatchCreate,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Calcula resultados por rede sem criar post, job ou vínculo de mídia."""
+    profile_id = _require_profile_id(profile_id)
+    _validate_product_ids(user_id, body.product_ids)
+    drafts = _get_owned_ready_drafts(user_id, body.draft_media_ids, profile_id)
+    return {"plans": _preview_batch(body, drafts)}
+
+
+@router.post("/batch", status_code=status.HTTP_201_CREATED)
+async def create_posts_batch(
+    body: PostBatchCreate,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Cria somente as redes entregáveis; falhas de uma não cancelam as outras."""
+    profile_id = _require_profile_id(profile_id)
+    _validate_product_ids(user_id, body.product_ids)
+    drafts = _get_owned_ready_drafts(user_id, body.draft_media_ids, profile_id)
+    drafts_by_id = {str(draft["id"]): draft for draft in drafts}
+    plans = _preview_batch(body, drafts)
+    deliverable = [plan for plan in plans if plan["mode"] != "blocked"]
+    if not deliverable:
+        return {"group_id": None, "created": [], "blocked": plans}
+
+    group_id = str(uuid.uuid4())
+    materialized: dict[str, dict] = {}
+    created: list[dict] = []
+    blocked = [plan for plan in plans if plan["mode"] == "blocked"]
+    for plan in deliverable:
+        head = _create_thread(user_id, plan["texts"], plan["network"], profile_id, group_id)
+        _set_post_products(head["id"], body.product_ids)
+        try:
+            await create_scheduler_job(
+                user_id=user_id,
+                post_id=head["id"],
+                func=NETWORK_FUNC_MAP[plan["network"]],
+                trigger=body.schedule.trigger,
+                time=body.schedule.time,
+                day_of_week=body.schedule.day_of_week,
+                start_date=body.schedule.start_date,
+                run_date=body.schedule.run_date,
+                profile_id=profile_id,
+            )
+        except InternalApiError:
+            _delete_thread_cascade(head["id"])
+            blocked.append({
+                **plan,
+                "mode": "blocked",
+                "blocked_reason": "Não foi possível agendar esta rede agora.",
+            })
+            continue
+
+        medias = []
+        for order, draft_id in enumerate(plan["media_draft_ids"]):
+            media = materialized.get(draft_id)
+            if not media:
+                media = _create_media_from_draft(drafts_by_id[draft_id], user_id, profile_id)
+                materialized[draft_id] = media
+            medias.append(media)
+            supabase.table("posts_medias").insert({
+                "post_id": head["id"], "media_id": media["id"], "display_order": order,
+            }).execute()
+        created.append({
+            "network": plan["network"],
+            "post_id": head["id"],
+            "mode": plan["mode"],
+            "warnings": plan["warnings"],
+            "medias": medias,
+        })
+
+    if materialized:
+        supabase.table("temporary_media_uploads").update({
+            "status": "consumed", "consumed_at": datetime.now(timezone.utc).isoformat(),
+        }).in_("id", list(materialized)).eq("user_id", user_id).eq("profile_id", profile_id).eq("status", "ready").execute()
+    return {"group_id": group_id if created else None, "created": created, "blocked": blocked}
 
 
 @router.post("/media-drafts", status_code=status.HTTP_201_CREATED)
