@@ -369,6 +369,22 @@ class TestBackupExport:
         data = {k: body[k] for k in ("products", "product_lists", "posts", "exported_at")}
         assert users_router._checksum(data) == body["checksum"]
 
+    def test_export_without_active_profile_excludes_isolated_lists_and_posts(
+        self, auth_client, monkeypatch
+    ):
+        tables = {
+            "products": _query_mock(MagicMock(data=[{"id": 1, "user_id": 42, "name": "Produto"}])),
+            "product_lists": _query_mock(MagicMock(data=[{"id": 2, "user_id": 42, "name": "Lista"}])),
+            "posts": _query_mock(MagicMock(data=[{"id": 3, "user_id": 42, "text": "Post"}])),
+        }
+        monkeypatch.setattr(database_module, "get_supabase", lambda: _make_fake_supabase(tables))
+
+        body = auth_client.get("/users/me/backup").json()
+
+        assert body["products"]
+        assert body["product_lists"] == []
+        assert body["posts"] == []
+
 
 class TestBackupRestore:
     """POST /users/me/restore — item 10.8 do backlog."""
@@ -425,6 +441,39 @@ class TestBackupRestore:
         assert inserted["user_id"] == 42  # nunca o user_id vindo do backup (999)
         assert "id" not in inserted  # allowlist do ProductCreate: sem `id` solto
         assert inserted["name"] == "Produto restaurado"
+
+    def test_restore_shared_product_does_not_attach_it_to_active_profile(
+        self, auth_client, profile_cookie, monkeypatch
+    ):
+        data = {
+            "products": [{"id": 1, "product_id": "123", "name": "Produto restaurado"}],
+            "product_lists": [],
+            "posts": [],
+            "exported_at": "2026-01-01T00:00:00+00:00",
+        }
+        tables = {"products": _query_mock([MagicMock(data=[]), MagicMock(data=[{"id": 55}])])}
+        monkeypatch.setattr(database_module, "get_supabase", lambda: _make_fake_supabase(tables))
+        auth_client.cookies.update(profile_cookie("profile-a"))
+
+        res = auth_client.post("/users/me/restore", json={**data, "checksum": users_router._checksum(data)})
+
+        assert res.status_code == 200
+        assert "profile_id" not in tables["products"].insert.call_args.args[0]
+
+    def test_restore_without_active_profile_rejects_isolated_content(self, auth_client, monkeypatch):
+        data = {
+            "products": [],
+            "product_lists": [{"name": "Lista", "product_ids": []}],
+            "posts": [],
+            "exported_at": "2026-01-01T00:00:00+00:00",
+        }
+        fake_client = MagicMock()
+        monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+
+        res = auth_client.post("/users/me/restore", json={**data, "checksum": users_router._checksum(data)})
+
+        assert res.status_code == 400
+        fake_client.table.assert_not_called()
 
     def test_malformed_product_item_returns_422_not_500(self, auth_client, monkeypatch):
         """`product_id` ausente (fora do schema `ProductCreate`) vira 422

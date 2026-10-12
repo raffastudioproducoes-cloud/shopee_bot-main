@@ -68,8 +68,10 @@ def bot_post_x(job_id):
             user_id,
             ActivityType.BOT_POST_FAILURE,
             activity_metadata_wrapper({
+                "network": "x",
                 "job_id": str(job_id),
                 "post_id": post_id,
+                "stage": "token_refresh",
                 "error": f"refresh_token: {err}",
             }),
             profile_id=profile_id
@@ -98,8 +100,10 @@ def bot_post_x(job_id):
                 user_id,
                 ActivityType.BOT_POST_FAILURE,
                 activity_metadata_wrapper({
+                    "network": "x",
                     "job_id": str(job_id),
                     "post_id": post_id,
+                    "stage": "publish",
                     "part_index": part_index,
                     "total_parts": len(post_data),
                     "published_parts": published_parts,
@@ -115,8 +119,10 @@ def bot_post_x(job_id):
         user_id,
         ActivityType.BOT_POST_SUCCESS,
         activity_metadata_wrapper({
+            "network": "x",
             "job_id": str(job_id),
             "post_id": post_id,
+            "stage": "publish",
             "published_parts": published_parts,
         }),
         profile_id=profile_id

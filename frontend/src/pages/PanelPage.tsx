@@ -8,6 +8,7 @@ import { IconButton } from '../components/ui/IconButton'
 import { NotificationsBell } from '../components/ui/NotificationsBell'
 import { ActiveProfileChip } from '../components/profiles/ActiveProfileChip'
 import { Icon } from '../components/ui/Icon'
+import { AppFooter } from '../components/layout/AppFooter'
 
 const navItems: SideRailItem[] = [
   { value: '/', label: 'Dashboard', icon: 'house' },
@@ -15,19 +16,20 @@ const navItems: SideRailItem[] = [
   { value: '/lists', label: 'Listas', icon: 'sliders-horizontal' },
   { value: '/posts', label: 'Posts', icon: 'file-text' },
   { value: '/credentials', label: 'Credenciais', icon: 'key-round' },
+  { value: '/profiles', label: 'Perfis', icon: 'users' },
   { value: '/settings', label: 'Configurações', icon: 'lock' },
   { value: '/ajuda', label: 'Ajuda & FAQ', icon: 'help-circle' },
 ]
 
 const adminNavItems: SideRailItem[] = [
-  { value: '/profiles', label: 'Perfis', icon: 'users' },
+  { value: '/users', label: 'Usuários', icon: 'users' },
   { value: '/logs', label: 'Logs', icon: 'scroll-text' },
 ]
 
 export function PanelPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout, setUser, isAuthenticated } = useAuthStore()
+  const { user, logout, setUser, isAuthenticated, isRoleVerified, setRoleVerified } = useAuthStore()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
 
@@ -53,17 +55,24 @@ export function PanelPage() {
       return
     }
 
-    if (!user) {
-      authApi.me()
-        .then((userData) => {
-          setUser(userData)
-        })
-        .catch(() => {
-          logout()
-          navigate({ to: '/login' })
-        })
-    }
-  }, [isAuthenticated, navigate, logout, user, setUser])
+    authApi.me()
+      .then((userData) => {
+        setUser(userData)
+        setRoleVerified(true)
+      })
+      .catch(() => {
+        logout()
+        navigate({ to: '/login' })
+      })
+  }, [isAuthenticated, navigate, logout, setRoleVerified, setUser])
+
+  if (!isAuthenticated) {
+    return null
+  }
+
+  if (!isRoleVerified) {
+    return null
+  }
 
   const items = user?.access === 'ADMIN' ? [...navItems, ...adminNavItems] : navItems
 
@@ -135,6 +144,7 @@ export function PanelPage() {
         <main style={{ flex: 1, minWidth: 0 }}>
           <Outlet />
         </main>
+        <AppFooter variant="app" />
       </div>
 
     </div>

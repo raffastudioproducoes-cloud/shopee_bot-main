@@ -11,6 +11,8 @@ FROM node:22-slim AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
+# O Vite injeta a versao definida na raiz do repositorio no bundle.
+COPY VERSION /app/VERSION
 COPY frontend/ ./
 RUN npm run build
 

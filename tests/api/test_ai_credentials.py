@@ -1,4 +1,4 @@
-"""Chave de IA por usuário/perfil: cifrada, escopada, sem chave global e sem
+"""Chave de IA por conta: cifrada, escopada, sem chave global e sem
 vazar o segredo em resposta/log. Provedores mockados (nenhuma chamada real)."""
 import logging
 
@@ -139,18 +139,15 @@ def test_user_cannot_use_another_users_key(db):
     assert getattr(exc.value, "status_code", None) == 400
 
 
-def test_profile_cannot_use_another_profiles_key(db, client, profile_cookie):
+def test_profiles_share_the_account_ai_key(db, client, profile_cookie):
     client.cookies.update(profile_cookie("profile-a"))
     client.put("/credentials/ai/gemini", json={"api_key": SECRET})
-    assert db.tables["ai_credentials"][0]["profile_id"] == "profile-a"
+    assert db.tables["ai_credentials"][0].get("profile_id") is None
 
     other = TestClient(app)
     other.cookies.update(profile_cookie("profile-b"))
-    assert other.get("/credentials/ai").json()["providers"]["gemini"]["connected"] is False
-    with pytest.raises(Exception) as exc:
-        credentials_module.resolve_ai_key(42, "profile-b")
-    assert getattr(exc.value, "status_code", None) == 400
-    assert credentials_module.resolve_ai_key(42, "profile-a")[1] == SECRET
+    assert other.get("/credentials/ai").json()["providers"]["gemini"]["connected"] is True
+    assert credentials_module.resolve_ai_key(42, "profile-b")[1] == SECRET
 
 
 @pytest.mark.parametrize("provider,url,key_header,key_value", [

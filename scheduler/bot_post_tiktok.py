@@ -111,8 +111,10 @@ def bot_post_tiktok(job_id):
             user_id,
             ActivityType.BOT_POST_FAILURE,
             activity_metadata_wrapper({
+                "network": "tiktok",
                 "job_id": str(job_id),
                 "post_id": post_id,
+                "stage": "preflight",
                 "error": message,
             }),
             profile_id=profile_id
@@ -131,8 +133,10 @@ def bot_post_tiktok(job_id):
             user_id,
             ActivityType.BOT_POST_FAILURE,
             activity_metadata_wrapper({
+                "network": "tiktok",
                 "job_id": str(job_id),
                 "post_id": post_id,
+                "stage": "publish",
                 "error": str(err),
             }),
             profile_id=profile_id
@@ -143,8 +147,10 @@ def bot_post_tiktok(job_id):
         user_id,
         ActivityType.BOT_POST_SUCCESS,
         activity_metadata_wrapper({
+            "network": "tiktok",
             "job_id": str(job_id),
             "post_id": post_id,
+            "stage": "publish",
             "publish_id": publish_id,
         }),
         profile_id=profile_id

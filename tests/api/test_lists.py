@@ -52,6 +52,38 @@ class TestListsEndpointPresence:
 
 
 class TestListProductsSync:
+    def test_put_accepts_product_from_another_profile_of_same_account(
+        self, auth_client, fake_db, profile_cookie, monkeypatch
+    ):
+        db = fake_db({
+            "product_lists": [{"id": 1, "user_id": 42, "profile_id": "profile-a", "name": "Lista"}],
+            "products": [{"id": 10, "user_id": 42, "profile_id": "profile-b"}],
+            "product_lists_products": [],
+        })
+        monkeypatch.setattr(lists_router, "supabase", db)
+        auth_client.cookies.update(profile_cookie("profile-a"))
+
+        res = auth_client.put("/lists/1", json={"name": "Lista", "product_ids": [10]})
+
+        assert res.status_code == 200
+        assert db.tables["product_lists_products"] == [{"id": 1001, "product_list_id": 1, "product_id": 10}]
+
+    def test_put_rejects_product_from_another_account(
+        self, auth_client, fake_db, profile_cookie, monkeypatch
+    ):
+        db = fake_db({
+            "product_lists": [{"id": 1, "user_id": 42, "profile_id": "profile-a", "name": "Lista"}],
+            "products": [{"id": 10, "user_id": 99, "profile_id": "profile-x"}],
+            "product_lists_products": [],
+        })
+        monkeypatch.setattr(lists_router, "supabase", db)
+        auth_client.cookies.update(profile_cookie("profile-a"))
+
+        res = auth_client.put("/lists/1", json={"name": "Lista", "product_ids": [10]})
+
+        assert res.status_code == 400
+        assert db.tables["product_lists_products"] == []
+
     def test_put_with_new_product_ids_associates_products(self, auth_client, monkeypatch):
         product_lists_query = _query_mock(MagicMock(data=[{"id": 1, "name": "Nova", "updated_at": None}]))
         products_query = _query_mock(MagicMock(data=[{"id": 10}, {"id": 20}]))
@@ -224,7 +256,7 @@ class TestListsScopedByActiveProfile:
         inserted = product_lists_query.insert.call_args[0][0]
         assert inserted["profile_id"] == "profile-a"
 
-    def test_create_product_list_omits_profile_id_when_token_has_no_profile_id(
+    def test_create_product_list_without_active_profile_is_rejected(
         self, auth_client, monkeypatch
     ):
         product_lists_query = _query_mock(
@@ -236,9 +268,8 @@ class TestListsScopedByActiveProfile:
 
         res = auth_client.post("/lists", json={"name": "Nova"})
 
-        assert res.status_code == 200
-        inserted = product_lists_query.insert.call_args[0][0]
-        assert "profile_id" not in inserted
+        assert res.status_code == 400
+        product_lists_query.insert.assert_not_called()
 
     def test_list_product_lists_result_actually_filtered_by_profile(
         self, auth_client, auth_headers_with_profile, fake_query_builder, monkeypatch

@@ -68,6 +68,18 @@ class TestSanitizeFreeString:
         assert "abc123.def456-ghi789" not in result
         assert "Bearer ***REDACTED***" in result
 
+    def test_masks_basic_authorization_and_oauth_query_values(self):
+        text = (
+            "upstream recusou Authorization: Basic Y2xpZW50OnNlZ3JlZG8= "
+            "em https://example.test/callback?code=oauth-code-123&state=csrf-state&hash=hash-value"
+        )
+
+        result = sanitize_log_data(text)
+
+        for secret in ("Y2xpZW50OnNlZ3JlZG8=", "oauth-code-123", "csrf-state", "hash-value"):
+            assert secret not in result
+        assert "code=***REDACTED***" in result
+
 
 class TestSanitizePassthrough:
     def test_none_and_numbers_pass_through(self):

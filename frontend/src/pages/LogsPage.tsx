@@ -13,7 +13,7 @@ const PAGE_SIZE = 50
 const TABLE_MAX_HEIGHT = 500
 const STICKY_TH = { padding: "10px 16px", position: "sticky", top: 0, zIndex: 1, background: "var(--surface-card)", boxShadow: "inset 0 -1px 0 var(--border-hairline)" } as const
 
-export function LogsPage() {
+export default function LogsPage() {
   const { user } = useAuthStore()
   const [offset, setOffset] = useState(0)
   const [username, setUsername] = useState("")

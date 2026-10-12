@@ -114,9 +114,20 @@ def test_publish_message_does_not_claim_success(auth_client, monkeypatch):
         return None
 
     monkeypatch.setattr(posts_module, "run_scheduler_job", fake_run)
-    monkeypatch.setattr(posts_module, "log_action", lambda *a, **kw: None)
+    actions = []
+    monkeypatch.setattr(
+        posts_module,
+        "log_action",
+        lambda *args, **kwargs: actions.append((args, kwargs)),
+    )
 
     res = auth_client.post("/posts/7/publish")
     assert res.status_code == 200
     assert "disparada" not in res.json()["msg"]
     assert "resultado" in res.json()["msg"]
+    assert actions == [
+        (("post_publish_requested", "network=threads post_id=7 job_id=job-1"), {
+            "user_id": USER,
+            "profile_id": None,
+        })
+    ]

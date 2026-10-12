@@ -5,8 +5,7 @@ from shopee_bot.utils.crypto import encrypt, decrypt
 
 
 def get_by_user_id(user_id, profile_id=None):
-    """`profile_id` opcional: com perfil, usa a credencial DO PERFIL; sem
-    perfil (job antigo), comportamento anterior (por user_id)."""
+    """Retorna a credencial Shopee compartilhada pela conta."""
     query = """
         SELECT
             u.username username,
@@ -15,10 +14,9 @@ def get_by_user_id(user_id, profile_id=None):
             sc.status shopee_status
         FROM users u
         LEFT JOIN shopee_credentials sc ON sc.user_id = u.id
-            AND (%s::uuid IS NULL OR sc.profile_id = %s::uuid)
         WHERE u.id = %s
     """
-    args = (profile_id, profile_id, user_id)
+    args = (user_id,)
     result = query_db(query, args, True)
     if result:
         result["shopee_secret"] = decrypt(result["shopee_secret"])

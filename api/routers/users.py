@@ -23,12 +23,12 @@ from .auth import (
 )
 from .lists import _get_list_products, _sync_list_products
 from .posts import _create_thread, _get_post_products, _get_thread_chain, _set_post_products
-from .products import ProductCreate, _normalize_numeric_fields, find_product_in_profile
+from .products import ProductCreate, _normalize_numeric_fields, find_product_in_account
 from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..config import settings
 from ..database import supabase
-from ..profiles import scope_owner
+from ..profiles import scope_account, scope_owner
 from ..utils.log_sanitizer import sanitize_log_data
 
 # Tetos de item por lista no restore (item 2 da revisão de segurança):
@@ -79,6 +79,7 @@ class BackupData(BaseModel):
     posts: list[dict[str, Any]] = Field(max_length=_MAX_BACKUP_POSTS)
     exported_at: str
     checksum: str
+    source_profile_id: str | None = None
 
 
 class _BackupProductList(BaseModel):
@@ -133,45 +134,48 @@ def _delete_user_row(user_id: str | int):
 
 def _collect_backup_data(user_id: str, profile_id: str | None = None) -> dict[str, Any]:
     """Reúne os próprios dados do usuário (item 10.8 do backlog) — só os do
-    perfil ativo quando houver (token antigo, sem perfil: conta inteira) — reusando
+    perfil ativo quando houver. Sem perfil ativo, exporta apenas o catálogo
+    compartilhado da conta — nunca listas/posts de outro perfil. Reusando
     as mesmas queries/helpers dos routers de produtos/listas/posts — nunca
     inclui mídia binária nem dado de agendamento (ver docstring de
     restore_backup sobre o porquê de agendamento ficar de fora)."""
-    products_result = scope_owner(
-        supabase.table("products").select("*"), user_id, profile_id
-    ).execute()
+    products_result = scope_account(supabase.table("products").select("*"), user_id).execute()
     products = [_normalize_numeric_fields(dict(row)) for row in (products_result.data or [])]
 
-    lists_result = scope_owner(
-        supabase.table("product_lists").select("*"), user_id, profile_id
-    ).execute()
     product_lists = []
-    for item in lists_result.data or []:
-        list_products = _get_list_products(item["id"])
-        product_lists.append({
-            "name": item["name"],
-            "product_ids": [p["id"] for p in list_products],
-        })
-
-    posts_result = (
-        scope_owner(supabase.table("posts").select("*"), user_id, profile_id)
-        .is_("post_id", "null").execute()
-    )
     posts = []
-    for item in posts_result.data or []:
-        chain = _get_thread_chain(item["id"])
-        posts.append({
-            "network": item.get("network"),
-            "texts": [row["text"] for row in chain],
-            "product_ids": [p["id"] for p in _get_post_products(item["id"])],
-        })
+    if profile_id:
+        lists_result = scope_owner(
+            supabase.table("product_lists").select("*"), user_id, profile_id
+        ).execute()
+        for item in lists_result.data or []:
+            list_products = _get_list_products(item["id"])
+            product_lists.append({
+                "name": item["name"],
+                "product_ids": [p["id"] for p in list_products],
+            })
 
-    return {
+        posts_result = (
+            scope_owner(supabase.table("posts").select("*"), user_id, profile_id)
+            .is_("post_id", "null").execute()
+        )
+        for item in posts_result.data or []:
+            chain = _get_thread_chain(item["id"])
+            posts.append({
+                "network": item.get("network"),
+                "texts": [row["text"] for row in chain],
+                "product_ids": [p["id"] for p in _get_post_products(item["id"])],
+            })
+
+    data = {
         "products": products,
         "product_lists": product_lists,
         "posts": posts,
         "exported_at": datetime.now(timezone.utc).isoformat(),
     }
+    if profile_id:
+        data["source_profile_id"] = profile_id
+    return data
 
 
 def _checksum(data: dict[str, Any]) -> str:
@@ -339,7 +343,10 @@ def restore_backup(
 ):
     """Importa um backup gerado por export_backup. Rejeita com 400 (e não
     importa nada) se o checksum não bater — arquivo adulterado/corrompido
-    (comparação com `hmac.compare_digest`, constante no tempo).
+    (comparação com `hmac.compare_digest`, constante no tempo). Quando há
+    listas ou posts, `source_profile_id` é protegido pelo mesmo HMAC e precisa
+    corresponder ao perfil ativo; catálogo compartilhado pode ser restaurado
+    sem esse marcador.
 
     Restore é ADITIVO: sempre cria registros novos (nunca sobrescreve ou
     apaga dado existente do usuário) — política mais simples e mais segura
@@ -377,19 +384,22 @@ def restore_backup(
         "posts": body.posts,
         "exported_at": body.exported_at,
     }
+    if "source_profile_id" in body.model_fields_set:
+        payload["source_profile_id"] = body.source_profile_id
     if not hmac.compare_digest(_checksum(payload), body.checksum):
         raise HTTPException(status_code=400, detail="Arquivo de backup corrompido ou inválido.")
+    if (body.product_lists or body.posts) and not profile_id:
+        raise HTTPException(status_code=400, detail="Perfil ativo obrigatório para restaurar listas ou posts.")
+    if (body.product_lists or body.posts) and body.source_profile_id != profile_id:
+        raise HTTPException(status_code=400, detail="Backup contém dados isolados de outro perfil.")
 
     id_map: dict[Any, int] = {}
     for product in body.products:
         validated = _validate_backup_item(ProductCreate, product, "products")
         new_row = validated.model_dump()
         new_row["user_id"] = user_id
-        if profile_id:
-            new_row["profile_id"] = profile_id
-        # Sem on_conflict: o índice único (041) usa coalesce(profile_id), que o
-        # PostgREST não aceita como alvo. Procura no perfil ativo e atualiza/cria.
-        existing = find_product_in_profile(supabase, user_id, new_row["product_id"], profile_id)
+        # Sem on_conflict: procura o produto compartilhado da conta e atualiza/cria.
+        existing = find_product_in_account(supabase, user_id, new_row["product_id"])
         if existing:
             result = supabase.table("products").update(new_row).eq("id", existing["id"]).execute()
         else:
@@ -403,7 +413,7 @@ def restore_backup(
             supabase.table("product_lists")
             .insert({
                 "user_id": user_id, "name": validated_list.name,
-                **({"profile_id": profile_id} if profile_id else {}),
+                "profile_id": profile_id,
             })
             .execute()
         )
@@ -413,7 +423,7 @@ def restore_backup(
             id_map[pid] for pid in validated_list.product_ids if pid in id_map
         ]
         if new_product_ids:
-            _sync_list_products(user_id, result.data[0]["id"], new_product_ids, profile_id)
+            _sync_list_products(user_id, result.data[0]["id"], new_product_ids)
 
     for post in body.posts:
         validated_post = _validate_backup_item(_BackupPost, post, "posts")

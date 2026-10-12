@@ -40,7 +40,7 @@ from pydantic import BaseModel, model_validator, field_validator
 
 from .auth import _check_login_rate_limit, get_current_user_id
 from .profiles import get_current_profile_id
-from ..profiles import scope_owner
+from ..profiles import scope_account, scope_owner
 from ..audit_log import log_action
 from ..database import supabase
 from ..utils.log_sanitizer import sanitize_log_data
@@ -209,16 +209,14 @@ def _get_post_medias(post_id: int) -> list[dict]:
     return medias
 
 
-def _validate_product_ids(
-    user_id: int, product_ids: list[int], profile_id: str | None
-) -> None:
-    """400 se algum produto não pertence ao usuário (e ao perfil ativo);
+def _validate_product_ids(user_id: int, product_ids: list[int]) -> None:
+    """400 se algum produto não pertence à conta do usuário;
     evita associar produto alheio ao post (IDOR). Chamar ANTES de qualquer escrita."""
     wanted = set(product_ids)
     if not wanted:
         return
     owned = (
-        scope_owner(supabase.table("products").select("id"), user_id, profile_id)
+        scope_account(supabase.table("products").select("id"), user_id)
         .in_("id", list(wanted))
         .execute()
     )
@@ -233,6 +231,12 @@ def _set_post_products(post_id: int, product_ids: list[int]) -> None:
             {"post_id": post_id, "product_id": pid, "display_order": i}
             for i, pid in enumerate(product_ids)
         ]).execute()
+
+
+def _require_profile_id(profile_id: str | None) -> str:
+    if not profile_id:
+        raise HTTPException(status_code=400, detail="Perfil ativo obrigatório")
+    return profile_id
 
 
 def _check_network_rules(
@@ -342,7 +346,7 @@ def _get_post_by_id_only(post_id: int) -> dict:
 
 
 def _create_thread(
-    user_id: int, texts: list[str], network: str = "threads", profile_id: str | None = None,
+    user_id: int, texts: list[str], network: str, profile_id: str,
     group_id: str | None = None,
 ) -> dict:
     """Insere a thread inteira, encadeando post_id. Retorna a head.
@@ -350,12 +354,12 @@ def _create_thread(
     `network` só é gravada na head (post_id IS NULL) — é lá que
     agendamento e produtos vivem, mesma simplificação já usada pro
     resto da thread (ver docstring do módulo)."""
+    profile_id = _require_profile_id(profile_id)
     parent_id = None
     head = None
     for text in texts:
         row_data = {"user_id": user_id, "text": text, "post_id": parent_id}
-        if profile_id:
-            row_data["profile_id"] = profile_id
+        row_data["profile_id"] = profile_id
         if parent_id is None:
             row_data["network"] = network
             if group_id:  # só quando veio: sem a coluna (migração 044) nada muda
@@ -428,9 +432,9 @@ async def generate_copy(
     )
 
     product_result = (
-        scope_owner(
+        scope_account(
             supabase.table("products").select("*").eq("id", body.product_id),
-            user_id, profile_id,
+            user_id,
         )
         .single()
         .execute()
@@ -504,7 +508,8 @@ async def create_post(
     """Cria a thread (1+ partes, ver docstring do módulo) e agenda a
     publicação. Se o agendamento falhar, desfaz a criação inteira —
     melhor não criar do que criar um post que nunca vai publicar."""
-    _validate_product_ids(user_id, body.product_ids, profile_id)
+    profile_id = _require_profile_id(profile_id)
+    _validate_product_ids(user_id, body.product_ids)
     medias = _get_owned_medias(user_id, body.media_ids, profile_id)
     _check_network_rules(body.network, body.texts, medias, len(body.product_ids))
     head = _create_thread(
@@ -528,7 +533,7 @@ async def create_post(
             day_of_week=body.schedule.day_of_week,
             start_date=body.schedule.start_date,
             run_date=body.schedule.run_date,
-            **({"profile_id": profile_id} if profile_id else {}),
+            profile_id=profile_id,
         )
     except InternalApiError:
         _delete_thread_cascade(head["id"])
@@ -575,8 +580,9 @@ async def update_post(
     """Atualiza a head (id fixo — mantém agendamento/produtos válidos)
     e substitui as partes seguintes (apaga e recria — simplificação:
     não tenta casar partes antigas com as novas por id)."""
+    profile_id = _require_profile_id(profile_id)
     post = _get_post(user_id, post_id, profile_id)  # ownership check
-    _validate_product_ids(user_id, body.product_ids, profile_id)
+    _validate_product_ids(user_id, body.product_ids)
     _check_network_rules(
         post.get("network") or "threads", body.texts,
         _get_post_medias(post_id), len(body.product_ids),
@@ -602,7 +608,7 @@ async def update_post(
             supabase.table("posts")
             .insert({
                 "user_id": user_id, "text": text, "post_id": parent_id,
-                **({"profile_id": profile_id} if profile_id else {}),
+                "profile_id": profile_id,
             })
             .execute()
         )
@@ -626,6 +632,7 @@ async def upload_media(
     """Anexa uma mídia à HEAD do post (não a partes de thread — ver
     docstring do módulo). Grava em disco no mesmo caminho relativo que
     o Flask usa (`web/media/<post_id>/`)."""
+    profile_id = _require_profile_id(profile_id)
     post = _get_post(user_id, post_id, profile_id)  # ownership check
 
     content = await file.read()
@@ -661,7 +668,7 @@ async def upload_media(
         supabase.table("medias")
         .insert({
             "user_id": user_id,
-            **({"profile_id": profile_id} if profile_id else {}),
+            "profile_id": profile_id,
             "file_name": filename,
             "file_path": str(file_path),
             "size": len(content),
@@ -733,12 +740,25 @@ async def publish_post_now(
     if not job:
         raise HTTPException(status_code=409, detail="Post não tem agendamento — nada pra publicar")
 
+    network = post.get("network") or "threads"
+    log_action(
+        "post_publish_requested",
+        f"network={network} post_id={post_id} job_id={job['id']}",
+        user_id=user_id,
+        profile_id=profile_id,
+    )
+
     try:
         await run_scheduler_job(job["id"])
-    except InternalApiError:
+    except InternalApiError as err:
+        log_action(
+            "post_publish_dispatch_failed",
+            f"network={network} post_id={post_id} job_id={job['id']} stage=dispatch error={err}",
+            user_id=user_id,
+            profile_id=profile_id,
+        )
         raise HTTPException(status_code=502, detail="Não foi possível publicar agora. Tente novamente.")
 
-    log_action("post_published", f"post_id={post_id}", user_id=user_id, profile_id=profile_id)
     # 200 aqui = job disparado, não publicado: o resultado real chega em
     # segundos em `last_result` (GET /posts) e em Atividade.
     return {"msg": "Publicação iniciada. O resultado aparece no post em instantes."}

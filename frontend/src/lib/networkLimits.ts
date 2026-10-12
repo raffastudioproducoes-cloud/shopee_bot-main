@@ -34,6 +34,8 @@ export interface MediaInfo {
 export interface NetworkRule {
   label: string
   maxChars: number
+  /** A API permite publicar texto sem arquivo de mídia. */
+  supportsTextOnly: boolean
   /** "weighted" = contagem do X (URL = 23, emoji/CJK = 2); "utf16" = TikTok. */
   charCount: "codepoints" | "weighted" | "utf16"
   /** true = cada parte vira resposta (thread); senão só a 1ª parte sai. */
@@ -66,6 +68,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
   threads: {
     label: "Threads",
     maxChars: 500,
+    supportsTextOnly: true,
     charCount: "codepoints",
     threadParts: true,
     maxLinks: 5,
@@ -81,6 +84,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
   x: {
     label: "X",
     maxChars: 280,
+    supportsTextOnly: true,
     charCount: "weighted",
     threadParts: true,
     maxImages: 4,
@@ -97,6 +101,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
   facebook: {
     label: "Facebook",
     maxChars: 63206,
+    supportsTextOnly: true,
     charCount: "codepoints",
     threadParts: false,
     exts: ["jpg", "jpeg", "png", "gif", "mp4"],
@@ -110,6 +115,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
   instagram: {
     label: "Instagram",
     maxChars: 2200,
+    supportsTextOnly: false,
     charCount: "codepoints",
     threadParts: false,
     maxHashtags: 30,
@@ -129,6 +135,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
   tiktok: {
     label: "TikTok",
     maxChars: 2200,
+    supportsTextOnly: false,
     charCount: "utf16",
     threadParts: false,
     // A API aceita fotos (até 35), mas o publicador deste app só envia vídeo.

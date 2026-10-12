@@ -23,6 +23,11 @@ def scope_owner(query, user_id, profile_id: str | None):
     return query.eq("profile_id", profile_id) if profile_id else query
 
 
+def scope_account(query, user_id):
+    """Filtra um recurso compartilhado pelo dono da conta."""
+    return query.eq("user_id", user_id)
+
+
 def is_principal(profile: dict) -> bool:
     return profile.get("kind") == "principal"
 
@@ -38,6 +43,7 @@ def _demo() -> None:
 
     assert scope_owner(_Q(), 1, None).calls == [("user_id", 1)]
     assert scope_owner(_Q(), 1, "p").calls == [("user_id", 1), ("profile_id", "p")]
+    assert scope_account(_Q(), 1).calls == [("user_id", 1)]
     assert can_create_profile(0) is True
     assert can_create_profile(2) is True
     assert can_create_profile(3) is False

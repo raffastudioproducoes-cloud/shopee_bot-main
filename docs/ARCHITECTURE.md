@@ -223,6 +223,31 @@ imediatamente ao primeiro post e não permite seleção distinta por rede.
 Detalhes, contratos e critérios de aceite:
 `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`.
 
+## 10. Conta, perfis e papeis (migracao em staging, 2026-10-11)
+
+O usuario possui uma conta e no maximo tres perfis, contando o perfil principal. A conta e dona
+dos recursos que devem acompanhar qualquer perfil: credencial Shopee, configuracao/chave do
+assistente e catalogo de produtos salvos. Esses recursos usam somente `user_id`.
+
+Os recursos operacionais usam sempre `user_id` + `profile_id`: conexoes OAuth e seus checks,
+listas, posts, midias, agendamentos, resultados, notificacoes e preferencias de publicacao.
+Assim, trocar de perfil reutiliza produtos, Shopee e IA, mas nunca mistura contas sociais ou
+historico de publicacao.
+
+O frontend entrega as telas comuns para qualquer pessoa. `Perfis` continua comum; `Usuarios`,
+`Logs` e overrides manuais de redes sociais sao modulos ADMIN carregados sob demanda. Uma URL
+administrativa acessada por USER volta silenciosamente a area comum. Isso e somente uma camada
+de experiencia: cada rota administrativa tambem exige ADMIN no backend.
+
+Para USER, redes sociais sao conectadas exclusivamente pelo OAuth da conta ativa. Somente
+Shopee e IA recebem chave informada pelo proprio usuario. ADMIN tambem pode usar os overrides
+manuais das redes para homologacao, sem que esse codigo ou pistas de administracao sejam
+carregados na sessao comum.
+
+A migracao `045_share_account_catalog_credentials.sql` esta pronta no branch `staging` e falha
+antes de escrever se encontrar dados compartilhados divergentes. Sua aplicacao no Supabase e a
+validacao em staging continuam pendentes da promocao/deploy deste conjunto.
+
 ## Referências
 
 - `README.md`, `api/README.md`, `docs/ROADMAP_MIGRACAO.md`

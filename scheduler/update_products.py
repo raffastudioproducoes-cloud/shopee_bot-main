@@ -7,7 +7,7 @@ from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.clogging import logger
 
 
-def refresh_product(user_id, product, app_id, secret, profile_id=None):
+def refresh_product(user_id, product, app_id, secret):
     """Consulta a Shopee API pro produto e persiste o resultado.
 
     `product` precisa ter `id` e `original_link` (formato de
@@ -17,9 +17,7 @@ def refresh_product(user_id, product, app_id, secret, profile_id=None):
     updated_product = ShopeeAPI.query_product(
         app_id, secret, product["original_link"]
     )
-    products.update(
-        user_id, product["id"], updated_product, profile_id=profile_id
-    )
+    products.update(user_id, product["id"], updated_product)
     return updated_product
 
 
@@ -27,7 +25,7 @@ def update_products(user_id, profile_id):
     if not profile_id:
         raise RuntimeError("profile_id obrigatorio para atualizar produtos")
 
-    user_data = shopee_credentials.get_by_user_id(user_id, profile_id)
+    user_data = shopee_credentials.get_by_user_id(user_id)
     username = user_data["username"]
     app_id = user_data["shopee_app_id"]
     secret = user_data["shopee_secret"]
@@ -43,7 +41,7 @@ def update_products(user_id, profile_id):
         )
         return
 
-    products_data = products.gets(user_id, profile_id)
+    products_data = products.gets(user_id)
 
     if len(products_data) == 0:
         logger.info(f"{username} has no products to update.")
@@ -54,9 +52,7 @@ def update_products(user_id, profile_id):
         id = product["id"]
 
         try:
-            updated_product = refresh_product(
-                user_id, product, app_id, secret, profile_id
-            )
+            updated_product = refresh_product(user_id, product, app_id, secret)
             logger.debug(
                 "Product {0} from {1} updated.".format(
                     updated_product["name"],

@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from api.main import app
 from api.routers import lists as lists_router
 from api.routers.auth import get_current_user_id
+from api.routers.profiles import get_current_profile_id
 
 USER = 42
 
@@ -98,7 +99,7 @@ class FakeSupabase:
         self.seq = 100
         self.fail_insert_on = None
         self.tables = {
-            "product_lists": [{"id": 1, "name": "Antiga", "user_id": USER, "created_at": "x"}],
+            "product_lists": [{"id": 1, "name": "Antiga", "user_id": USER, "profile_id": "profile-a", "created_at": "x"}],
             "product_lists_products": [],
             "products": [
                 {"id": 10, "user_id": USER},
@@ -117,6 +118,7 @@ def fake(monkeypatch):
     monkeypatch.setattr(lists_router, "supabase", db)
     app.dependency_overrides.clear()
     app.dependency_overrides[get_current_user_id] = lambda: USER
+    app.dependency_overrides[get_current_profile_id] = lambda: "profile-a"
     yield db
     app.dependency_overrides.clear()
 

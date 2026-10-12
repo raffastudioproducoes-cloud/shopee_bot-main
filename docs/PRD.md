@@ -108,6 +108,18 @@ que iniciaram o fluxo.
   (clique/comissão) — mesma visão pós-MVP, não implementados no código atual.
 - Mobile app.
 
+## 5.1 Conta, perfis e papeis
+
+- Uma conta pode manter o perfil principal e mais dois perfis.
+- Produtos salvos, credencial Shopee e configuracao/chave de IA pertencem a conta e sao
+  reutilizados pelos tres perfis.
+- Cada perfil preserva suas proprias redes conectadas, listas, posts, midias, agendamentos,
+  resultados, notificacoes e preferencias de publicacao.
+- Usuario comum conecta redes por OAuth; nao recebe formulario de token manual, portal de
+  desenvolvedor, log tecnico nem mensagem que revele uma area administrativa.
+- ADMIN usa a mesma experiencia comum e, apos autorizacao confirmada pelo servidor, recebe
+  modulos adicionais para contas, logs e homologacao manual de redes.
+
 ## 6. Critérios de sucesso
 
 - Usuário conecta uma rede social clicando em "Conectar" e sem colar segredo nenhum
@@ -115,6 +127,9 @@ que iniciaram o fluxo.
 - Post agendado é publicado no horário certo pelo scheduler, com log de falha visível.
 - Credencial de rede social nunca é reexibida em nenhuma resposta da API.
 - Cadastro público nunca cria usuário ADMIN.
+- A troca de perfil nao permite ler, publicar ou testar uma conexao social de outro perfil.
+- Uma pessoa comum nao recebe bundle administrativo; acesso direto a rota administrativa retorna
+  para a area comum e o backend continua recusando a operacao protegida.
 
 ## 7. Riscos e dependências
 

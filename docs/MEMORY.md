@@ -61,6 +61,10 @@ Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via
 5. **Fluxo padrão de credenciais** — TikTok é OAuth disponível para usuário comum, como
    Threads, X, Facebook e Instagram. Shopee e chave de IA são as únicas entradas manuais do
    cliente padrão; overrides sociais/Kwai são ferramentas ADMIN-only protegidas também no backend.
+6. **Telemetria de publicação sem segredos** — cada disparo manual e cada resultado do
+   scheduler registra rede, post, job e etapa em `request_logs`/`activities`; o erro do
+   provedor é preservado para diagnóstico, mas tokens, senhas, chaves, hashes, cabeçalhos
+   Basic/Bearer e parâmetros OAuth são mascarados antes da persistência.
 
 ## Atualização 2026-10-10 — contrato de OAuth e mídia
 
@@ -197,6 +201,23 @@ da leitura do fluxo em `api/routers/credentials.py`, `api/threads_oauth.py` e
   então testar `Conectar TikTok` no staging.
 - **Resolvido no staging:** Rafa confirmou em 2026-10-09 que a conexão/autorização do TikTok
   funcionou, o app voltou do provedor e a conta ficou conectada.
+
+## Atualização 2026-10-11 — contrato de conta, perfil e acesso
+
+- O limite é de três perfis por conta, incluindo o principal.
+- Shopee, IA e produtos salvos pertencem a `user_id`; ao criar ou alternar perfil eles continuam
+  disponíveis sem duplicar segredo ou catálogo.
+- Redes OAuth, checks/status, listas, posts, mídias, jobs, resultados e preferências pertencem
+  ao par `user_id` + `profile_id`. Nunca usar credencial social de outro perfil.
+- USER vê apenas fluxo OAuth para redes sociais e formulários próprios de Shopee/IA. ADMIN tem,
+  em módulos carregados somente depois da confirmação de papel pelo servidor, gestão de contas,
+  logs e overrides manuais para homologação.
+- A migração 045 está pronta no `staging`, com preflight de divergência. Ainda precisa ser
+  aplicada/confirmada no banco de staging após o deploy. A versão do produto foi elevada para
+  `2.1.0` somente no fechamento das tarefas da migração.
+- Evidência local da migração: 511 testes de API passaram; build do frontend passou e gerou
+  chunks separados para UsersPage, LogsPage e AdminOverrides. O scheduler requer PostgreSQL de
+  teste configurado e não foi apontado a nenhum banco remoto nesta validação.
 
 ## Referências
 

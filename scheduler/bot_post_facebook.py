@@ -83,8 +83,10 @@ def bot_post_facebook(job_id):
             user_id,
             ActivityType.BOT_POST_FAILURE,
             activity_metadata_wrapper({
+                "network": "facebook",
                 "job_id": str(job_id),
                 "post_id": post_id,
+                "stage": "publish",
                 "error": str(err),
             }),
             profile_id=profile_id
@@ -95,8 +97,10 @@ def bot_post_facebook(job_id):
         user_id,
         ActivityType.BOT_POST_SUCCESS,
         activity_metadata_wrapper({
+            "network": "facebook",
             "job_id": str(job_id),
             "post_id": post_id,
+            "stage": "publish",
         }),
         profile_id=profile_id
     )

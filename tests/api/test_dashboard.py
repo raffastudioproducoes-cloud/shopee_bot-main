@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from api import database as database_module
 from api.main import app
+from api.routers import dashboard as dashboard_router
 from api.routers.auth import get_current_user_id
 
 
@@ -85,6 +86,17 @@ class TestDashboardStats:
 
         posts_query = fake_client.table("posts")
         posts_query.is_.assert_called_with("post_id", "null")
+
+    def test_products_count_is_shared_by_account_not_active_profile(self, monkeypatch):
+        """O catálogo permanece visível em todos os perfis da mesma conta."""
+        fake_client = _mock_supabase(monkeypatch, {"products": 3})
+
+        count = dashboard_router._count(
+            "products", 42, "profile-a", account_owned=True
+        )
+
+        assert count == 3
+        fake_client.table("products").eq.assert_called_once_with("user_id", 42)
 
     def test_none_count_from_supabase_is_treated_as_zero(self, auth_client, monkeypatch):
         """Postgrest pode devolver count=None (ex: sem header Content-Range);
