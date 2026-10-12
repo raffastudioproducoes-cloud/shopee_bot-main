@@ -1,4 +1,4 @@
-"""Multi-perfil: dashboard, notificações e catálogo respeitam o perfil ativo."""
+"""Multi-perfil: catálogo é da conta; recursos operacionais respeitam o perfil ativo."""
 import pytest
 from fastapi.testclient import TestClient
 
@@ -43,9 +43,9 @@ def _client(cookie):
     return c
 
 
-def test_dashboard_counts_only_active_profile(env, profile_cookie):
+def test_dashboard_counts_shared_products_and_active_profile_resources(env, profile_cookie):
     stats = _client(profile_cookie("profile-b")).get("/dashboard/stats").json()
-    assert stats == {"products_count": 2, "posts_count": 0, "lists_count": 1, "scheduled_posts": 1}
+    assert stats == {"products_count": 3, "posts_count": 0, "lists_count": 1, "scheduled_posts": 1}
 
 
 def test_dashboard_without_profile_counts_whole_account(env, old_token_without_profile_claim):
