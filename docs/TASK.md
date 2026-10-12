@@ -263,6 +263,25 @@ em execução.
   - [x] Aplicar as migrações 037, 038, 039, 040, 041 e 042 no Supabase — **concluído 2026-10-06**. Verificado via MCP: 6 migrações registradas em `public.migrations`; nenhum `profile_id` NULL em `posts`/`shopee_credentials` após backfill. Ver `docs/RULES.md` item 11 para procedimento + risco conhecido.
   - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
 
+## Migração conta, perfis e papéis — 2026-10-11
+
+- [x] Preparar migração 045 para consolidar credencial Shopee, IA e catálogo por `user_id`, com
+  preflight que interrompe em caso de divergência.
+- [x] Fazer serviços, rotas, listas, posts e restore respeitarem recursos compartilhados por
+  conta e operação isolada por `user_id` + `profile_id`.
+- [x] Separar módulos de ADMIN do frontend, com revalidação do papel no bootstrap e autorização
+  mantida no backend.
+- [x] Mover overrides manuais de redes para chunk ADMIN; USER usa OAuth para redes e formulários
+  próprios apenas para Shopee e IA.
+- [x] Regressão local: 511 testes da API passaram; build do frontend passou com chunks separados
+  de Usuários, Logs e overrides.
+- [ ] Aplicar a migração 045 no Supabase de staging durante o deploy e validar manualmente:
+  três perfis, catálogo/IA/Shopee compartilhados e redes/listas/posts isolados.
+- [ ] Validar o scheduler contra PostgreSQL configurado. O ambiente local não possui a conexão
+  de teste; nenhum segredo foi lido nem reproduzido.
+- [ ] Depois de todas as validações em staging, promover para `main` somente com aprovação
+  explícita do responsável.
+
 Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
 existente — diretriz, não tarefa isolada).
 

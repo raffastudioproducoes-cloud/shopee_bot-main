@@ -14,6 +14,7 @@ from api.main import app
 from api.routers import auth as auth_module
 from api.routers import posts as posts_module
 from api.routers.auth import get_current_user_id
+from api.routers.profiles import get_current_profile_id
 
 JPEG = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01" + b"\x00" * 32
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
@@ -23,6 +24,7 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 def auth_client():
     app.dependency_overrides.clear()
     app.dependency_overrides[get_current_user_id] = lambda: 42
+    app.dependency_overrides[get_current_profile_id] = lambda: "profile-a"
     yield TestClient(app)
     app.dependency_overrides.clear()
 

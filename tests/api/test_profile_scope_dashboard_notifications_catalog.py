@@ -28,7 +28,7 @@ def env(fake_db, monkeypatch):
             {"id": 2, "user_id": 42, "profile_id": "profile-b", "metadata": {}, "created_at": "2026-01-02"},
         ],
         "shopee_credentials": [
-            {"id": 1, "user_id": 42, "profile_id": "profile-a", "app_id": "app-a", "secret": encrypt("sec-a")},
+            {"id": 1, "user_id": 42, "profile_id": None, "app_id": "app-a", "secret": encrypt("sec-a")},
         ],
     })
     for module in (dashboard_module, notifications_module, catalog_module):
@@ -63,7 +63,7 @@ def test_notifications_without_profile_fallback(env, old_token_without_profile_c
     assert {n["id"] for n in data} == {1, 2}
 
 
-def test_catalog_uses_credential_of_active_profile_only(env, profile_cookie, monkeypatch):
+def test_catalog_uses_account_credential_from_every_profile(env, profile_cookie, monkeypatch):
     seen = {}
 
     async def fake_search(app_id, secret, **_kw):
@@ -75,5 +75,5 @@ def test_catalog_uses_credential_of_active_profile_only(env, profile_cookie, mon
     assert _client(profile_cookie("profile-a")).get("/products/catalog-search").status_code == 200
     assert seen["cred"] == ("app-a", "sec-a")
 
-    res = _client(profile_cookie("profile-b")).get("/products/catalog-search")
-    assert res.status_code == 400  # perfil B não tem credencial Shopee própria
+    assert _client(profile_cookie("profile-b")).get("/products/catalog-search").status_code == 200
+    assert seen["cred"] == ("app-a", "sec-a")

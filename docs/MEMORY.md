@@ -178,6 +178,23 @@ da leitura do fluxo em `api/routers/credentials.py`, `api/threads_oauth.py` e
 - **Resolvido no staging:** Rafa confirmou em 2026-10-09 que a conexão/autorização do TikTok
   funcionou, o app voltou do provedor e a conta ficou conectada.
 
+## Atualização 2026-10-11 — contrato de conta, perfil e acesso
+
+- O limite é de três perfis por conta, incluindo o principal.
+- Shopee, IA e produtos salvos pertencem a `user_id`; ao criar ou alternar perfil eles continuam
+  disponíveis sem duplicar segredo ou catálogo.
+- Redes OAuth, checks/status, listas, posts, mídias, jobs, resultados e preferências pertencem
+  ao par `user_id` + `profile_id`. Nunca usar credencial social de outro perfil.
+- USER vê apenas fluxo OAuth para redes sociais e formulários próprios de Shopee/IA. ADMIN tem,
+  em módulos carregados somente depois da confirmação de papel pelo servidor, gestão de contas,
+  logs e overrides manuais para homologação.
+- A migração 045 está pronta no `staging`, com preflight de divergência. Ainda precisa ser
+  aplicada/confirmada no banco de staging após o deploy. Versão do produto fica em `2.0.0` até
+  o fechamento de todas as tarefas; o aumento para `2.1.0` é uma etapa final única.
+- Evidência local da migração: 511 testes de API passaram; build do frontend passou e gerou
+  chunks separados para UsersPage, LogsPage e AdminOverrides. O scheduler requer PostgreSQL de
+  teste configurado e não foi apontado a nenhum banco remoto nesta validação.
+
 ## Referências
 
 - Vault Obsidian: `00-INDICE-Estado-Atual.md` (fonte viva mais detalhada, rede a rede,

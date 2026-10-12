@@ -11,6 +11,7 @@ from api.main import app
 from api.network_limits import NETWORK_RULES, text_length
 from api.routers import posts as posts_module
 from api.routers.auth import get_current_user_id
+from api.routers.profiles import get_current_profile_id
 from api.text_variants import PRACTICAL_MAX_CHARS, generate_variants, plan_variants, variant_issues
 from apis.llm import LLMError
 
@@ -133,6 +134,7 @@ def api(fake_db, monkeypatch):
 
     monkeypatch.setattr(posts_module, "create_scheduler_job", fake_job)
     app.dependency_overrides[get_current_user_id] = lambda: 42
+    app.dependency_overrides[get_current_profile_id] = lambda: "profile-a"
     yield TestClient(app), db, monkeypatch
     app.dependency_overrides.clear()
 

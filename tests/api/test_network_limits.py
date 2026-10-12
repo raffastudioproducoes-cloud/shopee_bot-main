@@ -8,6 +8,7 @@ from api.main import app
 from api.network_limits import GB, MB, errors_detail, text_length, validate_post, NETWORK_RULES
 from api.routers import posts as posts_module
 from api.routers.auth import get_current_user_id
+from api.routers.profiles import get_current_profile_id
 
 
 def _errors(*args, **kw):
@@ -80,7 +81,8 @@ class TestMedia:
 @pytest.fixture
 def client(fake_db, monkeypatch):
     app.dependency_overrides[get_current_user_id] = lambda: 42
-    db = fake_db({"posts": [], "medias": [{"id": 5, "user_id": 42, "file_name": "a.png", "size": MB}]})
+    app.dependency_overrides[get_current_profile_id] = lambda: "profile-a"
+    db = fake_db({"posts": [], "medias": [{"id": 5, "user_id": 42, "profile_id": "profile-a", "file_name": "a.png", "size": MB}]})
     monkeypatch.setattr(posts_module, "supabase", db)
 
     async def fake_job(**kw):
@@ -120,7 +122,7 @@ def test_create_rejects_reused_media_invalid_for_network(client):
 def test_upload_rejects_format_not_accepted_by_post_network(client, monkeypatch, tmp_path):
     c, db = client
     monkeypatch.setattr(posts_module, "MEDIA_ROOT", tmp_path)
-    db.tables["posts"].append({"id": 7, "user_id": 42, "text": "oi", "post_id": None, "network": "instagram"})
+    db.tables["posts"].append({"id": 7, "user_id": 42, "profile_id": "profile-a", "text": "oi", "post_id": None, "network": "instagram"})
     png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
     res = c.post("/posts/7/media", files={"file": ("foto.png", png, "image/png")})
     assert res.status_code == 422

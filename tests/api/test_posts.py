@@ -9,6 +9,7 @@ from api import database as database_module
 from api.main import app
 from api.routers import posts as posts_module
 from api.routers.auth import get_current_user_id
+from api.routers.profiles import get_current_profile_id
 
 
 @pytest.fixture
@@ -22,6 +23,7 @@ def auth_client():
     """Cliente autenticado (user_id=42) com Supabase mockado."""
     app.dependency_overrides.clear()
     app.dependency_overrides[get_current_user_id] = lambda: 42
+    app.dependency_overrides[get_current_profile_id] = lambda: "profile-a"
     return TestClient(app)
 
 
