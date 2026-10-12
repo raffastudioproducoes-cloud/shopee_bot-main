@@ -1,7 +1,6 @@
 import os
 
 from shopee_bot.apis import threads as ThreadsAPI
-from shopee_bot.apis.cloudinary import cloudinary as CloudinaryAPI
 from shopee_bot.apis.cloudinary import ensure_configured as ensure_media_storage
 from shopee_bot.clogging import logger
 from shopee_bot.database import schedulers, threads_credentials, posts
@@ -10,7 +9,7 @@ from shopee_bot.database.activities import (
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
-from shopee_bot.utils import retry_with_backoff
+from shopee_bot.scheduler.media_delivery import STORAGE_PREFIX, delivery_url
 
 
 MEDIA_FILE_MISSING_MESSAGE = (
@@ -20,95 +19,53 @@ MEDIA_FILE_MISSING_MESSAGE = (
 
 
 def _ensure_media_ready(medias):
-    """Pré-condições do upload, com mensagem clara em vez de stack trace."""
+    """Pré-condições do upload legado, com mensagem clara em vez de stack trace.
+    Mídia durável (storage://) não depende de disco nem do Cloudinary."""
+    legacy = [m for m in medias if not m["file_path"].startswith(STORAGE_PREFIX)]
+    if not legacy:
+        return
     ensure_media_storage()
-    if any(not os.path.isfile(m["file_path"]) for m in medias):
+    if any(not os.path.isfile(m["file_path"]) for m in legacy):
         raise FileNotFoundError(MEDIA_FILE_MISSING_MESSAGE)
 
 
 def _carousel_post(user_data, post, reply_to_id=None):
-    threads_user_id = user_data["threads_user_id"]
-    threads_access_token = user_data["threads_access_token"]
     _ensure_media_ready(post["medias"])
-
-    medias = list()
-    media_ids = list()
-    for media in post["medias"]:
-        res = None
-        if media["type"] == "IMAGE":
-            res = retry_with_backoff(
-                CloudinaryAPI.uploader.upload,
-                media["file_path"],
-                format="jpg"
-            )
-        else:
-            res = retry_with_backoff(
-                CloudinaryAPI.uploader.upload,
-                media["file_path"],
-                resource_type="video"
-            )
-
-        medias.append({
-            "type": media["type"],
-            "url": res["url"]
-        })
-        media_ids.append(res["public_id"])
-
-    item_id = ThreadsAPI.make_carousel_post(
-        threads_user_id,
-        threads_access_token,
-        post["text"],
-        medias,
-        reply_to_id
-    )
-
-    for media_id in media_ids:
-        CloudinaryAPI.uploader.destroy(media_id)
-
-    return item_id
+    medias, cleanups = [], []
+    try:
+        for media in post["medias"]:
+            url, cleanup = delivery_url(media)
+            cleanups.append(cleanup)
+            medias.append({"type": media["type"], "url": url})
+        return ThreadsAPI.make_carousel_post(
+            user_data["threads_user_id"],
+            user_data["threads_access_token"],
+            post["text"],
+            medias,
+            reply_to_id
+        )
+    finally:
+        for cleanup in cleanups:
+            cleanup()
 
 
 def _media_post(user_data, post, reply_to_id=None):
-    threads_user_id = user_data["threads_user_id"]
-    threads_access_token = user_data["threads_access_token"]
-
     _ensure_media_ready(post["medias"])
-    res = None
-    item_id = None
     media = post["medias"][0]
-    if media["type"] == "IMAGE":
-        res = retry_with_backoff(
-            CloudinaryAPI.uploader.upload,
-            media["file_path"],
-            format="jpg"
-        )
-
-        item_id = ThreadsAPI.make_post(
-            threads_user_id,
-            threads_access_token,
+    url, cleanup = delivery_url(media)
+    kind = {"IMAGE": {"media_type": "IMAGE", "image_url": url}}.get(
+        media["type"], {"media_type": "VIDEO", "video_url": url}
+    )
+    try:
+        return ThreadsAPI.make_post(
+            user_data["threads_user_id"],
+            user_data["threads_access_token"],
             post["text"],
-            media_type="IMAGE",
-            image_url=res["url"],
-            reply_to_id=reply_to_id
+            reply_to_id=reply_to_id,
+            **kind
         )
-    else:
-        res = retry_with_backoff(
-            CloudinaryAPI.uploader.upload,
-            media["file_path"],
-            resource_type="video"
-        )
-
-        item_id = ThreadsAPI.make_post(
-            threads_user_id,
-            threads_access_token,
-            post["text"],
-            media_type="VIDEO",
-            video_url=res["url"],
-            reply_to_id=reply_to_id
-        )
-
-    CloudinaryAPI.uploader.destroy(res["public_id"])
-    return item_id
+    finally:
+        cleanup()
 
 
 def _text_post(user_data, post, reply_to_id=None):
