@@ -152,3 +152,26 @@ def test_bot_post_instagram_failure_records_activity_and_does_not_raise(monkeypa
     user_id, activity_type, metadata = activities[0]
     assert activity_type == ActivityType.BOT_POST_FAILURE
     assert "instagram_content_publish" in metadata["metadata"]["error"]
+
+
+def test_publish_image_uses_delivery_url_and_cleans_up(monkeypatch):
+    cleaned = []
+    monkeypatch.setattr(
+        module, "delivery_url",
+        lambda media: ("https://signed.example/a.jpg", lambda: cleaned.append(media["file_path"])),
+    )
+    calls = []
+
+    def fake_post_image(app_id, secret, token, image_url, caption, ig_user_id):
+        calls.append((app_id, secret, token, image_url, caption, ig_user_id))
+        return "media-1"
+
+    monkeypatch.setattr(module.InstagramAPI, "post_image", fake_post_image)
+
+    module._publish_image(
+        "app-1", "secret-1", "tok", "ig-1",
+        {"type": "IMAGE", "file_path": "storage://post-media/k.jpg"}, "legenda",
+    )
+
+    assert calls == [("app-1", "secret-1", "tok", "https://signed.example/a.jpg", "legenda", "ig-1")]
+    assert cleaned == ["storage://post-media/k.jpg"]

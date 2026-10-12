@@ -1,6 +1,4 @@
 from shopee_bot.apis import facebook as FacebookAPI
-from shopee_bot.apis.cloudinary import cloudinary as CloudinaryAPI
-from shopee_bot.apis.cloudinary import ensure_configured as ensure_media_storage
 from shopee_bot.clogging import logger
 from shopee_bot.database import schedulers, facebook_credentials, posts, products
 from shopee_bot.database.activities import (
@@ -8,7 +6,7 @@ from shopee_bot.database.activities import (
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
-from shopee_bot.utils import retry_with_backoff
+from shopee_bot.scheduler.media_delivery import delivery_url
 
 
 def _first_image(post):
@@ -16,14 +14,11 @@ def _first_image(post):
 
 
 def _publish_image(page_access_token, page_id, media, caption):
-    ensure_media_storage()
-    upload = retry_with_backoff(CloudinaryAPI.uploader.upload, media["file_path"], format="jpg")
+    url, cleanup = delivery_url(media)
     try:
-        return FacebookAPI.post_photo_as_page(
-            page_access_token, page_id, upload.get("secure_url") or upload["url"], caption
-        )
+        return FacebookAPI.post_photo_as_page(page_access_token, page_id, url, caption)
     finally:
-        CloudinaryAPI.uploader.destroy(upload["public_id"])
+        cleanup()
 
 
 def bot_post_facebook(job_id):

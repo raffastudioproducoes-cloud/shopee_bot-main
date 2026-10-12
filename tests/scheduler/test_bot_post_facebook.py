@@ -54,3 +54,43 @@ def test_bot_post_facebook_with_image_uses_page_token(monkeypatch):
     assert calls["args"] == ("page-token-1", "page-1", image, "foto")
     assert activities[0][1] == ActivityType.BOT_POST_SUCCESS
     assert activities[0][3] == "profile-1"
+
+
+class _PhotoRecorder:
+    def __init__(self):
+        self.calls = []
+
+    def post_photo_as_page(self, page_access_token, page_id, image_url, caption):
+        self.calls.append((page_access_token, page_id, image_url, caption))
+        return {"id": "photo-1"}
+
+
+def test_publish_image_uses_delivery_url_and_cleans_up(monkeypatch):
+    cleaned = []
+    monkeypatch.setattr(
+        module, "delivery_url",
+        lambda media: ("https://signed.example/a.jpg", lambda: cleaned.append(media["file_path"])),
+    )
+    recorder = _PhotoRecorder()
+    monkeypatch.setattr(module.FacebookAPI, "post_photo_as_page", recorder.post_photo_as_page)
+
+    module._publish_image("tok", "page-1", {"type": "IMAGE", "file_path": "storage://post-media/k.jpg"}, "legenda")
+
+    assert recorder.calls == [("tok", "page-1", "https://signed.example/a.jpg", "legenda")]
+    assert cleaned == ["storage://post-media/k.jpg"]
+
+
+def test_publish_image_cleans_up_when_graph_fails(monkeypatch):
+    cleaned = []
+    monkeypatch.setattr(module, "delivery_url", lambda media: ("https://u", lambda: cleaned.append(1)))
+
+    def boom(*args):
+        raise RuntimeError("graph")
+
+    monkeypatch.setattr(module.FacebookAPI, "post_photo_as_page", boom)
+
+    try:
+        module._publish_image("tok", "page-1", {"type": "IMAGE", "file_path": "x"}, "c")
+    except RuntimeError:
+        pass
+    assert cleaned == [1]
