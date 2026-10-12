@@ -40,6 +40,9 @@ _SENSITIVE_KEYS = {
     "set_cookie",
     "code_verifier",
     "code_challenge",
+    "code",
+    "state",
+    "hash",
     "private_key",
 }
 
@@ -47,6 +50,13 @@ _SENSITIVE_KEYS = {
 # JWT (header.payload.signature, cada parte base64url) e "Bearer <token>".
 _JWT_RE = re.compile(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
 _BEARER_RE = re.compile(r"Bearer\s+[A-Za-z0-9._~+/-]+=*", re.IGNORECASE)
+_BASIC_RE = re.compile(r"Basic\s+[A-Za-z0-9._~+/-]+=*", re.IGNORECASE)
+# Callbacks e erros de provedores por vezes devolvem a URL inteira. Código
+# OAuth, state e hashes nela são credenciais transitórias, não diagnóstico.
+_SENSITIVE_QUERY_RE = re.compile(
+    r"(?i)([?&](?:code|authorization_code|state|hash|token|access_token|refresh_token|"
+    r"id_token|api_key|apikey|client_secret|code_verifier|code_challenge)=)([^&#\s]+)"
+)
 
 # Chave sensível dentro de TEXTO LIVRE (ex: payload serializado colado
 # numa mensagem de erro) — casa `"password": "xxx"`, `password=xxx`,
@@ -54,7 +64,8 @@ _BEARER_RE = re.compile(r"Bearer\s+[A-Za-z0-9._~+/-]+=*", re.IGNORECASE)
 # (ajuda debug: sabe QUE campo era segredo, sem expor o segredo).
 _KEY_VALUE_RE = re.compile(
     r"""(?i)(["']?(?:password|senha|secret|token|access_token|refresh_token|
-    user_access_token|user_refresh_token|client_secret|api_key|apikey)["']?
+    user_access_token|user_refresh_token|client_secret|api_key|apikey|
+    code|state|hash)["']?
     \s*[:=]\s*)(["']?)([^"',}\s]+)\2""",
     re.VERBOSE,
 )
@@ -82,9 +93,11 @@ def _is_sensitive_key(key: str) -> bool:
 
 
 def _sanitize_string(value: str) -> str:
-    value = _KEY_VALUE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{_MASK}{m.group(2)}", value)
-    value = _JWT_RE.sub(_MASK, value)
     value = _BEARER_RE.sub(f"Bearer {_MASK}", value)
+    value = _BASIC_RE.sub(f"Basic {_MASK}", value)
+    value = _KEY_VALUE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{_MASK}{m.group(2)}", value)
+    value = _SENSITIVE_QUERY_RE.sub(lambda m: f"{m.group(1)}{_MASK}", value)
+    value = _JWT_RE.sub(_MASK, value)
     return value
 
 

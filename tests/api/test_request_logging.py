@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 
 from api import middleware as middleware_module
 from api.config import settings
@@ -98,3 +99,35 @@ class TestEnabled:
         inserted = table.insert.call_args[0][0]
         assert inserted["path"] == "/credentials"
         assert inserted["status_code"] == 401
+
+    def test_persisted_error_and_redirect_are_sanitized(self, monkeypatch):
+        settings.request_logging_enabled = True
+        fake_client = MagicMock()
+        table = fake_client.table.return_value
+        table.insert.return_value = table
+        monkeypatch.setattr(middleware_module, "get_supabase", lambda: fake_client)
+
+        request = Request({
+            "type": "http",
+            "method": "GET",
+            "path": "/credentials/x/callback",
+            "headers": [],
+            "client": ("127.0.0.1", 1234),
+            "scheme": "https",
+            "server": ("testserver", 443),
+        })
+        middleware = middleware_module.RequestLoggingMiddleware(app)
+        middleware._save(
+            request,
+            None,
+            None,
+            500,
+            1,
+            "falhou: Authorization: Basic Y2xpZW50OnNlZ3JlZG8=",
+            "https://app.test/login?code=oauth-code-123&state=csrf-state",
+        )
+
+        inserted = table.insert.call_args[0][0]
+        assert "Y2xpZW50OnNlZ3JlZG8=" not in inserted["error"]
+        assert "oauth-code-123" not in inserted["redirect_to"]
+        assert "csrf-state" not in inserted["redirect_to"]

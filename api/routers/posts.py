@@ -740,12 +740,25 @@ async def publish_post_now(
     if not job:
         raise HTTPException(status_code=409, detail="Post não tem agendamento — nada pra publicar")
 
+    network = post.get("network") or "threads"
+    log_action(
+        "post_publish_requested",
+        f"network={network} post_id={post_id} job_id={job['id']}",
+        user_id=user_id,
+        profile_id=profile_id,
+    )
+
     try:
         await run_scheduler_job(job["id"])
-    except InternalApiError:
+    except InternalApiError as err:
+        log_action(
+            "post_publish_dispatch_failed",
+            f"network={network} post_id={post_id} job_id={job['id']} stage=dispatch error={err}",
+            user_id=user_id,
+            profile_id=profile_id,
+        )
         raise HTTPException(status_code=502, detail="Não foi possível publicar agora. Tente novamente.")
 
-    log_action("post_published", f"post_id={post_id}", user_id=user_id, profile_id=profile_id)
     # 200 aqui = job disparado, não publicado: o resultado real chega em
     # segundos em `last_result` (GET /posts) e em Atividade.
     return {"msg": "Publicação iniciada. O resultado aparece no post em instantes."}

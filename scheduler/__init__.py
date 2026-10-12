@@ -44,6 +44,13 @@ MISSED_JOB_MESSAGE = "Horário de publicação perdido (servidor ocupado ou rein
 PROFILE_SCOPED_FUNCS = frozenset({
     "bot_post", "bot_post_x", "bot_post_facebook", "bot_post_instagram", "bot_post_tiktok",
 })
+NETWORK_BY_FUNC = {
+    "bot_post": "threads",
+    "bot_post_x": "x",
+    "bot_post_facebook": "facebook",
+    "bot_post_instagram": "instagram",
+    "bot_post_tiktok": "tiktok",
+}
 
 
 def _on_job_problem(event):
@@ -64,8 +71,10 @@ def _on_job_problem(event):
             job_data["user_id"],
             ActivityType.BOT_POST_FAILURE,
             activity_metadata_wrapper({
+                "network": NETWORK_BY_FUNC.get(job_data.get("func"), "unknown"),
                 "job_id": str(event.job_id),
                 "post_id": job_data["post_id"],
+                "stage": "scheduler",
                 "error": error,
             }),
             profile_id=job_data.get("profile_id"),

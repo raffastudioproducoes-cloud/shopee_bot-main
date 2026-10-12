@@ -61,6 +61,10 @@ Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via
 5. **Fluxo padrão de credenciais** — TikTok é OAuth disponível para usuário comum, como
    Threads, X, Facebook e Instagram. Shopee e chave de IA são as únicas entradas manuais do
    cliente padrão; overrides sociais/Kwai são ferramentas ADMIN-only protegidas também no backend.
+6. **Telemetria de publicação sem segredos** — cada disparo manual e cada resultado do
+   scheduler registra rede, post, job e etapa em `request_logs`/`activities`; o erro do
+   provedor é preservado para diagnóstico, mas tokens, senhas, chaves, hashes, cabeçalhos
+   Basic/Bearer e parâmetros OAuth são mascarados antes da persistência.
 
 ## Atualização 2026-10-10 — contrato de OAuth e mídia
 

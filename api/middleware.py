@@ -24,6 +24,7 @@ from starlette.requests import Request
 from .config import settings
 from .database import get_supabase
 from .routers.auth import client_ip
+from .utils.log_sanitizer import sanitize_log_data
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -64,10 +65,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 # Callbacks OAuth (instagram/x/tiktok) sempre redirecionam com
                 # 307 e colocam o resultado real (?error=... ou sucesso) na
                 # query string do redirect, não no status code.
-                redirect_to = location[:_MAX_TEXT_LEN]
+                redirect_to = location
             return response
         except Exception as exc:
-            error = str(exc)[:_MAX_TEXT_LEN]
+            error = str(exc)
             raise
         finally:
             duration_ms = int((time.monotonic() - start) * 1000)
@@ -81,6 +82,12 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         profile_id=None,
     ):
         try:
+            # Centraliza a defesa: qualquer chamador de _save, inclusive testes
+            # e futuros middlewares, grava somente uma versao segura do contexto.
+            safe_error = sanitize_log_data(error)[:_MAX_TEXT_LEN] if error else None
+            safe_redirect_to = (
+                sanitize_log_data(redirect_to)[:_MAX_TEXT_LEN] if redirect_to else None
+            )
             supabase = get_supabase()
             supabase.table("request_logs").insert(
                 {
@@ -90,8 +97,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "path": request.url.path,
                     "status_code": status_code,
                     "duration_ms": duration_ms,
-                    "error": error,
-                    "redirect_to": redirect_to,
+                    "error": safe_error,
+                    "redirect_to": safe_redirect_to,
                     "client_ip": client_ip(request) if request.client else None,
                     **({"profile_id": profile_id} if profile_id else {}),
                 }
