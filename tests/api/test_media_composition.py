@@ -17,6 +17,27 @@ def test_five_images_for_x_falls_back_without_mutating_ids():
     assert [media["id"] for media in medias] == [1, 2, 3, 4, 5]
 
 
+def test_x_blocks_invalid_text_instead_of_falling_back_from_invalid_media():
+    plan = plan_network_composition("x", ["x" * 281], [_image(index) for index in range(1, 6)])
+
+    assert plan.mode == "blocked"
+    assert "texto máx. 280" in plan.blocked_reason
+
+
+def test_x_falls_back_to_delivered_text_only_when_image_mode_is_not_delivered():
+    plan = plan_network_composition("x", ["copy"], [_image(1)])
+
+    assert plan.mode == "text_only"
+    assert "ainda não é entregue" in plan.warnings[0]
+
+
+def test_instagram_blocks_a_platform_compatible_carousel_that_is_not_delivered():
+    plan = plan_network_composition("instagram", ["copy"], [_image(1), _image(2)])
+
+    assert plan.mode == "blocked"
+    assert "ainda não é entregue" in plan.blocked_reason
+
+
 def test_tiktok_photo_is_blocked_when_text_only_is_not_supported():
     plan = plan_network_composition("tiktok", ["copy"], [_image(1)])
 

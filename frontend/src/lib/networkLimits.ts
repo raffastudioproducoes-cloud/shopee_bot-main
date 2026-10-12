@@ -21,6 +21,7 @@
 import type { PostNetwork } from "../api/posts"
 
 export type MediaKind = "image" | "gif" | "video"
+export type DeliveredMediaMode = "none" | "single_image" | "carousel" | "video" | "text_only"
 
 export interface MediaInfo {
   name: string
@@ -36,6 +37,8 @@ export interface NetworkRule {
   maxChars: number
   /** A API permite publicar texto sem arquivo de mídia. */
   supportsTextOnly: boolean
+  /** Modos que o publicador deste aplicativo realmente entrega hoje. */
+  deliveredModes: DeliveredMediaMode[]
   /** "weighted" = contagem do X (URL = 23, emoji/CJK = 2); "utf16" = TikTok. */
   charCount: "codepoints" | "weighted" | "utf16"
   /** true = cada parte vira resposta (thread); senão só a 1ª parte sai. */
@@ -69,6 +72,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     label: "Threads",
     maxChars: 500,
     supportsTextOnly: true,
+    deliveredModes: ["none", "single_image", "carousel", "video", "text_only"],
     charCount: "codepoints",
     threadParts: true,
     maxLinks: 5,
@@ -85,6 +89,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     label: "X",
     maxChars: 280,
     supportsTextOnly: true,
+    deliveredModes: ["none", "text_only"],
     charCount: "weighted",
     threadParts: true,
     maxImages: 4,
@@ -102,6 +107,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     label: "Facebook",
     maxChars: 63206,
     supportsTextOnly: true,
+    deliveredModes: ["none", "single_image", "text_only"],
     charCount: "codepoints",
     threadParts: false,
     exts: ["jpg", "jpeg", "png", "gif", "mp4"],
@@ -116,6 +122,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     label: "Instagram",
     maxChars: 2200,
     supportsTextOnly: false,
+    deliveredModes: ["single_image"],
     charCount: "codepoints",
     threadParts: false,
     maxHashtags: 30,
@@ -136,6 +143,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     label: "TikTok",
     maxChars: 2200,
     supportsTextOnly: false,
+    deliveredModes: ["video"],
     charCount: "utf16",
     threadParts: false,
     // A API aceita fotos (até 35), mas o publicador deste app só envia vídeo.
@@ -184,6 +192,7 @@ export function mediaKind(name: string): MediaKind {
 }
 
 export interface Issue {
+  key: string
   level: "error" | "warn"
   message: string
 }
@@ -203,6 +212,7 @@ export function validateForNetwork(network: PostNetwork, draft: PostDraft): Issu
   const add = (key: string, message: string) => {
     const soft = rule.unverified.includes(key)
     issues.push({
+      key,
       level: soft ? "warn" : "error",
       message: `${rule.label}: ${message}${soft ? " (limite não confirmado)" : ""}`,
     })
@@ -221,7 +231,7 @@ export function validateForNetwork(network: PostNetwork, draft: PostDraft): Issu
     if (rule.maxMentions != null && mentions > rule.maxMentions) add("maxMentions", `máx. ${rule.maxMentions} @menções${where} (você tem ${mentions})`)
   })
   if (!rule.threadParts && draft.texts.length > 1) {
-    issues.push({ level: "warn", message: `${rule.label}: só a 1ª parte é publicada (sem thread)` })
+    issues.push({ key: "threadParts", level: "warn", message: `${rule.label}: só a 1ª parte é publicada (sem thread)` })
   }
 
   const media = draft.media
