@@ -29,6 +29,21 @@ def _publish_video(app_id, secret, user_access_token, ig_user_id, media, caption
         cleanup()
 
 
+def _publish_carousel(app_id, secret, user_access_token, ig_user_id, medias, caption):
+    items, cleanups = [], []
+    try:
+        for media in medias:
+            url, cleanup = delivery_url(media)
+            cleanups.append(cleanup)
+            items.append({"type": media["type"], "url": url})
+        return InstagramAPI.post_carousel(
+            app_id, secret, user_access_token, items, caption, ig_user_id
+        )
+    finally:
+        for cleanup in cleanups:
+            cleanup()
+
+
 def bot_post_instagram(job_id):
     """Publica um post no Instagram (conta Business/Creator do usuário).
 
@@ -58,7 +73,11 @@ def bot_post_instagram(job_id):
     medias = root_post.get("medias") or []
 
     try:
-        if len(medias) == 1 and medias[0].get("type") == "VIDEO":
+        if len(medias) > 1:
+            _publish_carousel(
+                app_id, secret, user_access_token, ig_user_id, medias, root_post["text"]
+            )
+        elif len(medias) == 1 and medias[0].get("type") == "VIDEO":
             _publish_video(
                 app_id, secret, user_access_token, ig_user_id, medias[0], root_post["text"]
             )

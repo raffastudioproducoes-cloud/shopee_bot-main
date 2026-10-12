@@ -47,7 +47,7 @@ NETWORK_RULES = {
     "instagram": {
         "label": "Instagram", "max_chars": 2200, "count": "codepoints", "thread_parts": False,
         "supports_text_only": False,
-        "delivered_modes": {"single_image", "video"},
+        "delivered_modes": {"single_image", "carousel", "video"},
         "max_hashtags": 30, "max_mentions": 20, "max_media": 10, "allow_mix": True,
         "requires_media": "media-or-product",
         "exts": {"jpg", "jpeg", "mp4"},

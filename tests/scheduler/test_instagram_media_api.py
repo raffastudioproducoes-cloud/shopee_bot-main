@@ -90,3 +90,58 @@ def test_video_waits_longer_than_image(monkeypatch):
     })
 
     assert InstagramAPI.post_video("app-x", "secret-x", "tok", "https://u/v.mp4", "c", IG) == "m-v"
+
+
+def test_carousel_creates_children_then_parent_then_publishes(monkeypatch):
+    graph = _install(monkeypatch, {
+        ("POST", f"{BASE}/{IG}/media"): [{"id": "c-1"}, {"id": "c-2"}, {"id": "c-parent"}],
+        ("GET", f"{BASE}/c-1"): [{"status_code": "FINISHED"}],
+        ("GET", f"{BASE}/c-2"): [{"status_code": "IN_PROGRESS"}, {"status_code": "FINISHED"}],
+        ("GET", f"{BASE}/c-parent"): [{"status_code": "FINISHED"}],
+        ("POST", f"{BASE}/{IG}/media_publish"): [{"id": "m-car"}],
+    })
+    items = [
+        {"type": "IMAGE", "url": "https://u/1.jpg"},
+        {"type": "VIDEO", "url": "https://u/2.mp4"},
+    ]
+
+    media_id = InstagramAPI.post_carousel("app-x", "secret-x", "tok", items, "legenda", IG)
+
+    assert media_id == "m-car"
+    creates = [c["params"] for c in graph.calls if c["url"] == f"{BASE}/{IG}/media"]
+    assert creates[0]["image_url"] == "https://u/1.jpg"
+    assert creates[0]["is_carousel_item"] == "true"
+    assert "caption" not in creates[0]
+    assert creates[1]["media_type"] == "VIDEO"
+    assert creates[1]["video_url"] == "https://u/2.mp4"
+    assert creates[1]["is_carousel_item"] == "true"
+    assert creates[2]["media_type"] == "CAROUSEL"
+    assert creates[2]["children"] == "c-1,c-2"
+    assert creates[2]["caption"] == "legenda"
+    assert graph.calls[-1]["params"]["creation_id"] == "c-parent"
+
+
+def test_carousel_rejects_fewer_than_two_or_more_than_ten_items(monkeypatch):
+    graph = _install(monkeypatch, {})
+    one = [{"type": "IMAGE", "url": "https://u/1.jpg"}]
+    eleven = one * 11
+
+    for items in (one, eleven):
+        with pytest.raises(ValueError, match="2 a 10"):
+            InstagramAPI.post_carousel("app-x", "secret-x", "tok", items, "c", IG)
+
+    assert f"{BASE}/{IG}/media" not in graph.urls("POST")
+
+
+def test_carousel_does_not_publish_when_a_child_fails(monkeypatch):
+    graph = _install(monkeypatch, {
+        ("POST", f"{BASE}/{IG}/media"): [{"id": "c-1"}, {"id": "c-2"}],
+        ("GET", f"{BASE}/c-1"): [{"status_code": "FINISHED"}],
+        ("GET", f"{BASE}/c-2"): [{"status_code": "ERROR"}],
+    })
+    items = [{"type": "IMAGE", "url": "https://u/1.jpg"}, {"type": "IMAGE", "url": "https://u/2.jpg"}]
+
+    with pytest.raises(Exception, match="ERROR"):
+        InstagramAPI.post_carousel("app-x", "secret-x", "tok", items, "c", IG)
+
+    assert f"{BASE}/{IG}/media_publish" not in graph.urls("POST")

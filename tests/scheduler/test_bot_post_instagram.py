@@ -225,3 +225,47 @@ def test_publish_video_uses_delivery_url_and_cleans_up(monkeypatch):
 
     assert seen["args"] == ("app-1", "secret-1", "tok", "https://signed/v.mp4", "c", "ig-1")
     assert cleaned == [1]
+
+
+def test_bot_post_instagram_with_several_medias_publishes_carousel(monkeypatch):
+    medias = [_media("a.jpg"), _media("b.mp4", "VIDEO")]
+    _patch_common(monkeypatch, _user_data(), {"text": "car", "product_ids": [], "medias": medias})
+    calls = {}
+    monkeypatch.setattr(
+        module, "_publish_carousel",
+        lambda app_id, secret, token, ig_user_id, items, caption: calls.update(
+            args=(app_id, secret, token, ig_user_id, items, caption)
+        ),
+    )
+    activities = _capture_activities(monkeypatch)
+
+    module.bot_post_instagram("job-carousel")
+
+    assert calls["args"] == ("app-1", "secret-1", "user-token-1", "ig-user-1", medias, "car")
+    assert activities[0][0] == ActivityType.BOT_POST_SUCCESS
+
+
+def test_publish_carousel_keeps_order_types_and_cleans_up_all(monkeypatch):
+    cleaned = []
+    monkeypatch.setattr(
+        module, "delivery_url",
+        lambda media: (f"https://signed/{media['file_name']}", lambda: cleaned.append(media["file_name"])),
+    )
+    seen = {}
+    monkeypatch.setattr(
+        module.InstagramAPI, "post_carousel",
+        lambda app_id, secret, token, items, caption, ig_user_id: seen.update(
+            args=(app_id, secret, token, items, caption, ig_user_id)
+        ),
+    )
+
+    module._publish_carousel(
+        "app-1", "secret-1", "tok", "ig-1", [_media("a.jpg"), _media("b.mp4", "VIDEO")], "c"
+    )
+
+    assert seen["args"] == (
+        "app-1", "secret-1", "tok",
+        [{"type": "IMAGE", "url": "https://signed/a.jpg"}, {"type": "VIDEO", "url": "https://signed/b.mp4"}],
+        "c", "ig-1",
+    )
+    assert cleaned == ["a.jpg", "b.mp4"]

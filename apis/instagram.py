@@ -371,3 +371,57 @@ def post_video(app_id, secret, user_access_token, video_url, caption, ig_user_id
     creation_id = _create_video_media_container(ig_user_id, user_access_token, video_url, caption)
     _poll_media_container(user_access_token, creation_id, VIDEO_POLL_ATTEMPTS)
     return _publish_media_container(ig_user_id, user_access_token, creation_id)
+
+
+CAROUSEL_MIN_ITEMS, CAROUSEL_MAX_ITEMS = 2, 10
+
+
+def _create_carousel_child(ig_user_id, user_access_token, item):
+    params = {"access_token": user_access_token, "is_carousel_item": "true"}
+    if item["type"] == "VIDEO":
+        params.update(media_type="VIDEO", video_url=item["url"])
+    else:
+        params["image_url"] = item["url"]
+    res = retry_with_backoff(
+        requests.post, f"{API_BASE}/{ig_user_id}/media", params=params,
+        exceptions=(requests.exceptions.RequestException,), timeout=30,
+    )
+    child_id = (res.json() or {}).get("id") if res.status_code in (200, 201) else None
+    if not child_id:
+        raise Exception(f"Instagram: falha ao criar item do carrossel (status {res.status_code})")
+    return child_id
+
+
+def post_carousel(app_id, secret, user_access_token, items, caption, ig_user_id=None):
+    """Publica carrossel: um container por item (`is_carousel_item`), um
+    container CAROUSEL com `children` na ordem recebida, e media_publish.
+    `items`: [{"type": "IMAGE"|"VIDEO", "url": str}]. Nada é publicado se
+    qualquer item falhar."""
+    if not CAROUSEL_MIN_ITEMS <= len(items) <= CAROUSEL_MAX_ITEMS:
+        raise ValueError(
+            f"Instagram: carrossel exige de {CAROUSEL_MIN_ITEMS} a {CAROUSEL_MAX_ITEMS} itens "
+            f"(recebeu {len(items)})"
+        )
+    if not user_access_token:
+        raise NotImplementedError("Instagram: user_access_token é obrigatório para publicar.")
+    _app_access_token(app_id, secret)
+    ig_user_id = _resolve_ig_user_id(user_access_token, ig_user_id)
+    child_ids = []
+    for item in items:
+        child_id = _create_carousel_child(ig_user_id, user_access_token, item)
+        attempts = VIDEO_POLL_ATTEMPTS if item["type"] == "VIDEO" else IMAGE_POLL_ATTEMPTS
+        _poll_media_container(user_access_token, child_id, attempts)
+        child_ids.append(child_id)
+    res = retry_with_backoff(
+        requests.post, f"{API_BASE}/{ig_user_id}/media",
+        params={
+            "access_token": user_access_token, "media_type": "CAROUSEL",
+            "children": ",".join(child_ids), "caption": caption,
+        },
+        exceptions=(requests.exceptions.RequestException,), timeout=30,
+    )
+    creation_id = (res.json() or {}).get("id") if res.status_code in (200, 201) else None
+    if not creation_id:
+        raise Exception(f"Instagram: falha ao criar container do carrossel (status {res.status_code})")
+    _poll_media_container(user_access_token, creation_id)
+    return _publish_media_container(ig_user_id, user_access_token, creation_id)

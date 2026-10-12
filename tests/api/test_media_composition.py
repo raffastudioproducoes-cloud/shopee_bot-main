@@ -31,11 +31,18 @@ def test_x_falls_back_to_delivered_text_only_when_image_mode_is_not_delivered():
     assert "ainda não é entregue" in plan.warnings[0]
 
 
-def test_instagram_blocks_a_platform_compatible_carousel_that_is_not_delivered():
-    plan = plan_network_composition("instagram", ["copy"], [_image(1), _image(2)])
+def test_instagram_carousel_keeps_the_original_order_and_allows_mixed_media():
+    plan = plan_network_composition("instagram", ["copy"], [_image(3), _image(1, "clipe.mp4")])
+
+    assert plan.mode == "carousel"
+    assert plan.media_ids == [3, 1]
+
+
+def test_instagram_blocks_more_than_ten_medias_without_dropping_files():
+    plan = plan_network_composition("instagram", ["copy"], [_image(i) for i in range(1, 12)])
 
     assert plan.mode == "blocked"
-    assert "ainda não é entregue" in plan.blocked_reason
+    assert "máx. 10" in plan.blocked_reason
 
 
 def test_tiktok_photo_is_blocked_when_text_only_is_not_supported():
