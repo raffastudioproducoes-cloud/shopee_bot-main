@@ -48,6 +48,7 @@ import {
   ScrollText,
   HelpCircle,
   Camera,
+  ShieldCheck,
   type LucideProps,
 } from "lucide-react"
 
@@ -135,6 +136,7 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   // Extrapolação: adicionado para o botão de upload de avatar em ProfilesPage.tsx
   // — não faz parte do mapa original.
   camera: Camera,
+  "shield-check": ShieldCheck,
 }
 
 export function Icon({ name, size = 20, strokeWidth = 1.75, className = "", style }: IconProps) {

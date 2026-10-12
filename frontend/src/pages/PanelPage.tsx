@@ -8,6 +8,7 @@ import { IconButton } from '../components/ui/IconButton'
 import { NotificationsBell } from '../components/ui/NotificationsBell'
 import { ActiveProfileChip } from '../components/profiles/ActiveProfileChip'
 import { Icon } from '../components/ui/Icon'
+import { AppFooter } from '../components/layout/AppFooter'
 
 const navItems: SideRailItem[] = [
   { value: '/', label: 'Dashboard', icon: 'house' },
@@ -143,6 +144,7 @@ export function PanelPage() {
         <main style={{ flex: 1, minWidth: 0 }}>
           <Outlet />
         </main>
+        <AppFooter variant="app" />
       </div>
 
     </div>
