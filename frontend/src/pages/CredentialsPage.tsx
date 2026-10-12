@@ -1,12 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, lazy, Suspense, useContext, useEffect, useState, type ReactNode } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import {
   credentialsApi,
   aiCredentialsApi,
   AI_PROVIDERS,
-  CREDENTIAL_HELP_LINKS,
   type AiProvider,
   type SimpleNetwork,
   type CredentialStatusWithLight,
@@ -20,6 +19,8 @@ import { ConnectionLight } from "../components/ui/ConnectionLight"
 import { Icon } from "../components/ui/Icon"
 import { Select } from "../components/ui/Select"
 import { Modal } from "../components/ui/Modal"
+
+const AdminOverrides = lazy(() => import("../components/credentials/AdminOverrides").then(({ AdminOverrides }) => ({ default: AdminOverrides })))
 
 // X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
 // FacebookCredentialCard — mesmo padrão de TikTok/Instagram) porque usam
@@ -327,7 +328,6 @@ export function CredentialsPage() {
             network={network.key}
             label={network.label}
             status={status?.[network.key] ?? EMPTY_STATUS}
-            isAdmin={isAdmin}
             onSaved={invalidate}
             onAuthError={onAuthError}
             setBanner={setBanner}
@@ -338,7 +338,6 @@ export function CredentialsPage() {
 
         <ThreadsCredentialCard
           status={status?.threads ?? EMPTY_STATUS}
-          isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
           setBanner={setBanner}
@@ -346,7 +345,6 @@ export function CredentialsPage() {
 
         <XCredentialCard
           status={status?.x ?? EMPTY_STATUS}
-          isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
           setBanner={setBanner}
@@ -354,7 +352,6 @@ export function CredentialsPage() {
 
         <FacebookCredentialCard
           status={status?.facebook ?? EMPTY_STATUS}
-          isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
           setBanner={setBanner}
@@ -362,17 +359,13 @@ export function CredentialsPage() {
 
         <InstagramCredentialCard
           status={status?.instagram ?? EMPTY_STATUS}
-          isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
           setBanner={setBanner}
         />
 
-        {/* Kwai por último: sem API pública de postagem — card mostra
-            "em breve" pra quem não é admin (comingSoonForNonAdmin). */}
         <TikTokCredentialCard
           status={status?.tiktok ?? EMPTY_STATUS}
-          isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
           setBanner={setBanner}
@@ -382,25 +375,28 @@ export function CredentialsPage() {
           network="kwai"
           label="Kwai"
           status={status?.kwai ?? EMPTY_STATUS}
-          isAdmin={isAdmin}
           onSaved={invalidate}
           onAuthError={onAuthError}
           setBanner={setBanner}
-          comingSoonForNonAdmin
+          comingSoon
         />
       </div>
+
+      {isAdmin && (
+        <Suspense fallback={null}>
+          <AdminOverrides onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />
+        </Suspense>
+      )}
     </div>
   )
 }
 
-// ── Sinalizador (luz, visível a todo mundo) + botão "Testar conexão"
-// (admin-only) compartilhados entre os 7 cards de rede. ─────────────────────
+// ── Sinalizador (luz, visível a todo mundo) + botão "Testar conexão". ─────
 
 function CredentialTrailing({
   network,
   label,
   status,
-  isAdmin,
   onSaved,
   onAuthError,
   setBanner,
@@ -408,7 +404,6 @@ function CredentialTrailing({
   network: SimpleNetwork | "threads"
   label: string
   status: CredentialStatusWithLight
-  isAdmin: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
@@ -428,8 +423,7 @@ function CredentialTrailing({
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap", gap: 10 }}>
       <ConnectionStatus status={status} />
-      {/* Qualquer usuário testa a própria conexão (backend escopa por usuário). */}
-      {(isAdmin || status.connected) && (
+      {status.connected && (
         <Button
           type="button"
           variant="ghost"
@@ -443,52 +437,29 @@ function CredentialTrailing({
   )
 }
 
-// ── Link admin-only pro portal de desenvolvedores de cada rede OAuth de app
-// único (Threads/X/Facebook/TikTok/Instagram). Quem clica "Conectar" nunca
-// precisa disso — é só referência pra quem administra o app da plataforma
-// (env vars em api/x_oauth.py, api/tiktok_oauth.py, etc). Não existe pro
-// usuário comum: ele só tem o botão OAuth. ────────────────────────────────
-
-function AdminHelpLink({ network, label }: { network: SimpleNetwork | "threads"; label: string }) {
-  const helpUrl = CREDENTIAL_HELP_LINKS[network]
-  if (!helpUrl) return null
-  return (
-    <a
-      href={helpUrl}
-      target="_blank"
-      rel="noreferrer"
-      style={{ font: "var(--text-role-body)", color: "var(--accent-500)" }}
-    >
-      Abrir portal de desenvolvedores da {label} (gerenciar app da plataforma) ↗
-    </a>
-  )
-}
-
 // ── Card genérico (Shopee, X, Facebook, Kwai) ────────────────────────────────
 
 function SimpleCredentialCard({
   network,
   label,
   status,
-  isAdmin,
   onSaved,
   onAuthError,
   setBanner,
-  comingSoonForNonAdmin,
+  comingSoon,
 }: {
   network: SimpleNetwork
   label: string
   status: CredentialStatusWithLight
-  isAdmin: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
-  comingSoonForNonAdmin?: boolean
+  comingSoon?: boolean
 }) {
   const [appId, setAppId] = useState("")
   const [secret, setSecret] = useState("")
   const connected = status.connected
-  const helpUrl = CREDENTIAL_HELP_LINKS[network]
+  const helpUrl = network === "shopee" ? "https://affiliate.shopee.com.br/" : undefined
 
   const saveMutation = useMutation({
     mutationFn: () => credentialsApi.save(network, appId, secret),
@@ -510,10 +481,7 @@ function SimpleCredentialCard({
     onError: onAuthError,
   })
 
-  // Kwai (única rede com essa flag hoje): sem API pública de postagem, então
-  // usuário comum não vê formulário/status nenhum, só o aviso. Admin
-  // continua vendo tudo normal (pode testar App ID/Secret de afiliado).
-  if (comingSoonForNonAdmin && !isAdmin) {
+  if (comingSoon) {
     return (
       <CredPanel id={label}>
         <CredHeader title={label} />
@@ -535,7 +503,6 @@ function SimpleCredentialCard({
             network={network}
             label={label}
             status={status}
-            isAdmin={isAdmin}
             onSaved={onSaved}
             onAuthError={onAuthError}
             setBanner={setBanner}
@@ -769,37 +736,22 @@ function AiCredentialCard({
 
 function ThreadsCredentialCard({
   status,
-  isAdmin,
   onSaved,
   onAuthError,
   setBanner,
 }: {
   status: CredentialStatusWithLight
-  isAdmin: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
-  const [tUserId, setTUserId] = useState("")
-  const [accessToken, setAccessToken] = useState("")
   const [consentOpen, setConsentOpen] = useState(false)
 
   const authorizeMutation = useMutation({
     mutationFn: () => credentialsApi.authorizeThreads(),
     onSuccess: ({ url }) => {
       window.location.href = url
-    },
-    onError: onAuthError,
-  })
-
-  const saveMutation = useMutation({
-    mutationFn: () => credentialsApi.saveThreads(tUserId, accessToken),
-    onSuccess: () => {
-      setTUserId("")
-      setAccessToken("")
-      setBanner({ ok: true, text: "Threads salvo. Testando a conexão…" })
-      onSaved()
     },
     onError: onAuthError,
   })
@@ -822,7 +774,6 @@ function ThreadsCredentialCard({
             network="threads"
             label="Threads"
             status={status}
-            isAdmin={isAdmin}
             onSaved={onSaved}
             onAuthError={onAuthError}
             setBanner={setBanner}
@@ -832,10 +783,8 @@ function ThreadsCredentialCard({
 
       <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
         <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
-          Threads usa OAuth — conecte pela Meta ou, se preferir, cole um token já emitido.
+          Conecte sua conta do Threads com um clique — nenhuma configuração técnica necessária.
         </p>
-
-        {isAdmin && <AdminHelpLink network="threads" label="Threads" />}
 
         <div style={{ display: "flex", gap: 8 }}>
           <Button
@@ -859,48 +808,6 @@ function ThreadsCredentialCard({
           )}
         </div>
 
-        {/* Colar token manualmente é a exceção admin-only aqui: pra usuário
-            comum, o fluxo é só o botão OAuth acima (mesma regra das outras
-            redes de app único — luz, status e "Conectar", sem caixa de
-            token). Admin mantém isso como fallback/debug (ex: token gerado
-            fora do fluxo normal). */}
-        {isAdmin && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              saveMutation.mutate()
-            }}
-            style={{ display: "flex", flexDirection: "column", gap: 12 }}
-          >
-            <div style={FIELD_GRID}>
-              <TextInput
-                label="Threads User ID"
-                value={tUserId}
-                onChange={(e) => setTUserId(e.target.value)}
-                placeholder="Threads User ID"
-                required
-              />
-              <TextInput
-                label="Access Token"
-                type="password"
-                value={accessToken}
-                onChange={(e) => setAccessToken(e.target.value)}
-                placeholder="Access Token"
-                autoComplete="off"
-                required
-              />
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={saveMutation.isPending || !tUserId || !accessToken}
-              >
-                {saveMutation.isPending ? "Salvando..." : "Salvar"}
-              </Button>
-            </div>
-          </form>
-        )}
       </div>
       <OAuthConsentModal
         network="threads"
@@ -917,20 +824,16 @@ function ThreadsCredentialCard({
 
 function XCredentialCard({
   status,
-  isAdmin,
   onSaved,
   onAuthError,
   setBanner,
 }: {
   status: CredentialStatusWithLight
-  isAdmin: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
-  const [userAccessToken, setUserAccessToken] = useState("")
-  const [userRefreshToken, setUserRefreshToken] = useState("")
   const [consentOpen, setConsentOpen] = useState(false)
 
   const authorizeMutation = useMutation({
@@ -950,17 +853,6 @@ function XCredentialCard({
     onError: onAuthError,
   })
 
-  const saveManualMutation = useMutation({
-    mutationFn: () => credentialsApi.saveXManual(userAccessToken, userRefreshToken || undefined),
-    onSuccess: () => {
-      setUserAccessToken("")
-      setUserRefreshToken("")
-      setBanner({ ok: true, text: "X salvo (override manual). Testando a conexão…" })
-      onSaved()
-    },
-    onError: onAuthError,
-  })
-
   return (
     <CredPanel id="X (Twitter)">
       <CredHeader
@@ -970,7 +862,6 @@ function XCredentialCard({
             network="x"
             label="X"
             status={status}
-            isAdmin={isAdmin}
             onSaved={onSaved}
             onAuthError={onAuthError}
             setBanner={setBanner}
@@ -982,8 +873,6 @@ function XCredentialCard({
         <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
           Conecte sua conta do X com um clique — nenhuma configuração técnica necessária.
         </p>
-
-        {isAdmin && <AdminHelpLink network="x" label="X" />}
 
         <div style={{ display: "flex", gap: 8 }}>
           <Button
@@ -1007,47 +896,6 @@ function XCredentialCard({
           )}
         </div>
 
-        {/* Override manual admin-only — colar token direto, sem passar pelo
-            OAuth (debug/emergência, ex: testar com uma conta específica).
-            Mesma exceção admin-only do Threads acima. */}
-        {isAdmin && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              saveManualMutation.mutate()
-            }}
-            style={{ display: "flex", flexDirection: "column", gap: 12 }}
-          >
-            <div style={FIELD_GRID}>
-              <TextInput
-                label="Access Token"
-                type="password"
-                value={userAccessToken}
-                onChange={(e) => setUserAccessToken(e.target.value)}
-                placeholder="Access Token"
-                autoComplete="off"
-                required
-              />
-              <TextInput
-                label="Refresh Token (opcional)"
-                type="password"
-                value={userRefreshToken}
-                onChange={(e) => setUserRefreshToken(e.target.value)}
-                placeholder="Refresh Token"
-                autoComplete="off"
-              />
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={saveManualMutation.isPending || !userAccessToken}
-              >
-                {saveManualMutation.isPending ? "Salvando..." : "Salvar (override manual)"}
-              </Button>
-            </div>
-          </form>
-        )}
       </div>
       <OAuthConsentModal
         network="x"
@@ -1064,21 +912,16 @@ function XCredentialCard({
 
 function FacebookCredentialCard({
   status,
-  isAdmin,
   onSaved,
   onAuthError,
   setBanner,
 }: {
   status: CredentialStatusWithLight
-  isAdmin: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
-  const [pageId, setPageId] = useState("")
-  const [pageAccessToken, setPageAccessToken] = useState("")
-  const [pageName, setPageName] = useState("")
   const [consentOpen, setConsentOpen] = useState(false)
 
   const authorizeMutation = useMutation({
@@ -1098,18 +941,6 @@ function FacebookCredentialCard({
     onError: onAuthError,
   })
 
-  const saveManualMutation = useMutation({
-    mutationFn: () => credentialsApi.saveFacebookManual(pageId, pageAccessToken, pageName || undefined),
-    onSuccess: () => {
-      setPageId("")
-      setPageAccessToken("")
-      setPageName("")
-      setBanner({ ok: true, text: "Facebook salvo (override manual). Testando a conexão…" })
-      onSaved()
-    },
-    onError: onAuthError,
-  })
-
   return (
     <CredPanel id="Facebook">
       <CredHeader
@@ -1119,7 +950,6 @@ function FacebookCredentialCard({
             network="facebook"
             label="Facebook"
             status={status}
-            isAdmin={isAdmin}
             onSaved={onSaved}
             onAuthError={onAuthError}
             setBanner={setBanner}
@@ -1132,8 +962,6 @@ function FacebookCredentialCard({
           Conecte a Página do Facebook com um clique — nenhuma configuração técnica necessária.
           Se você administra mais de uma Página, a primeira encontrada é conectada automaticamente.
         </p>
-
-        {isAdmin && <AdminHelpLink network="facebook" label="Facebook" />}
 
         <div style={{ display: "flex", gap: 8 }}>
           <Button
@@ -1157,52 +985,6 @@ function FacebookCredentialCard({
           )}
         </div>
 
-        {/* Override manual admin-only — colar page_id/page_access_token
-            direto, sem passar pelo OAuth (debug/emergência). Mesma exceção
-            admin-only do Threads acima. */}
-        {isAdmin && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              saveManualMutation.mutate()
-            }}
-            style={{ display: "flex", flexDirection: "column", gap: 12 }}
-          >
-            <div style={FIELD_GRID}>
-              <TextInput
-                label="Page ID"
-                value={pageId}
-                onChange={(e) => setPageId(e.target.value)}
-                placeholder="Page ID"
-                required
-              />
-              <TextInput
-                label="Page Access Token"
-                type="password"
-                value={pageAccessToken}
-                onChange={(e) => setPageAccessToken(e.target.value)}
-                placeholder="Page Access Token"
-                autoComplete="off"
-                required
-              />
-              <TextInput
-                label="Page Name (opcional)"
-                value={pageName}
-                onChange={(e) => setPageName(e.target.value)}
-                placeholder="Page Name"
-              />
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={saveManualMutation.isPending || !pageId || !pageAccessToken}
-              >
-                {saveManualMutation.isPending ? "Salvando..." : "Salvar (override manual)"}
-              </Button>
-            </div>
-          </form>
-        )}
       </div>
       <OAuthConsentModal
         network="facebook"
@@ -1219,21 +1001,16 @@ function FacebookCredentialCard({
 
 function TikTokCredentialCard({
   status,
-  isAdmin,
   onSaved,
   onAuthError,
   setBanner,
 }: {
   status: CredentialStatusWithLight
-  isAdmin: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
-  const [openId, setOpenId] = useState("")
-  const [userAccessToken, setUserAccessToken] = useState("")
-  const [refreshToken, setRefreshToken] = useState("")
   const [consentOpen, setConsentOpen] = useState(false)
 
   const authorizeMutation = useMutation({
@@ -1253,20 +1030,6 @@ function TikTokCredentialCard({
     onError: onAuthError,
   })
 
-  const saveManualMutation = useMutation({
-    mutationFn: () => credentialsApi.saveTiktokManual(openId, userAccessToken, refreshToken || undefined),
-    onSuccess: () => {
-      setOpenId("")
-      setUserAccessToken("")
-      setRefreshToken("")
-      setBanner({ ok: true, text: "TikTok salvo (override manual). Testando a conexão…" })
-      onSaved()
-    },
-    onError: onAuthError,
-  })
-
-  // Conectar/Desconectar/Testar: qualquer usuário (cada um a PRÓPRIA conta).
-  // Admin-only: link do portal de devs e override manual (403 no backend).
   return (
     <CredPanel id="TikTok">
       <CredHeader
@@ -1276,7 +1039,6 @@ function TikTokCredentialCard({
             network="tiktok"
             label="TikTok"
             status={status}
-            isAdmin={isAdmin}
             onSaved={onSaved}
             onAuthError={onAuthError}
             setBanner={setBanner}
@@ -1288,8 +1050,6 @@ function TikTokCredentialCard({
         <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
           Conecte sua conta do TikTok com um clique — nenhuma configuração técnica necessária.
         </p>
-
-        {isAdmin && <AdminHelpLink network="tiktok" label="TikTok" />}
 
         <div style={{ display: "flex", gap: 8 }}>
           <Button
@@ -1313,54 +1073,6 @@ function TikTokCredentialCard({
           )}
         </div>
 
-        {/* Override manual admin-only — colar open_id/access_token direto,
-            sem passar pelo OAuth (debug/emergência). Mesma exceção
-            admin-only do Threads acima. */}
-        {isAdmin && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              saveManualMutation.mutate()
-            }}
-            style={{ display: "flex", flexDirection: "column", gap: 12 }}
-          >
-            <div style={FIELD_GRID}>
-              <TextInput
-                label="Open ID"
-                value={openId}
-                onChange={(e) => setOpenId(e.target.value)}
-                placeholder="Open ID"
-                required
-              />
-              <TextInput
-                label="Access Token"
-                type="password"
-                value={userAccessToken}
-                onChange={(e) => setUserAccessToken(e.target.value)}
-                placeholder="Access Token"
-                autoComplete="off"
-                required
-              />
-              <TextInput
-                label="Refresh Token (opcional)"
-                type="password"
-                value={refreshToken}
-                onChange={(e) => setRefreshToken(e.target.value)}
-                placeholder="Refresh Token"
-                autoComplete="off"
-              />
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={saveManualMutation.isPending || !openId || !userAccessToken}
-              >
-                {saveManualMutation.isPending ? "Salvando..." : "Salvar (override manual)"}
-              </Button>
-            </div>
-          </form>
-        )}
       </div>
       <OAuthConsentModal
         network="tiktok"
@@ -1377,20 +1089,16 @@ function TikTokCredentialCard({
 
 function InstagramCredentialCard({
   status,
-  isAdmin,
   onSaved,
   onAuthError,
   setBanner,
 }: {
   status: CredentialStatusWithLight
-  isAdmin: boolean
   onSaved: () => void
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
-  const [igUserId, setIgUserId] = useState("")
-  const [userAccessToken, setUserAccessToken] = useState("")
   const [consentOpen, setConsentOpen] = useState(false)
 
   const authorizeMutation = useMutation({
@@ -1410,17 +1118,6 @@ function InstagramCredentialCard({
     onError: onAuthError,
   })
 
-  const saveManualMutation = useMutation({
-    mutationFn: () => credentialsApi.saveInstagramManual(igUserId, userAccessToken),
-    onSuccess: () => {
-      setIgUserId("")
-      setUserAccessToken("")
-      setBanner({ ok: true, text: "Instagram salvo (override manual). Testando a conexão…" })
-      onSaved()
-    },
-    onError: onAuthError,
-  })
-
   return (
     <CredPanel id="Instagram">
       <CredHeader
@@ -1430,7 +1127,6 @@ function InstagramCredentialCard({
             network="instagram"
             label="Instagram"
             status={status}
-            isAdmin={isAdmin}
             onSaved={onSaved}
             onAuthError={onAuthError}
             setBanner={setBanner}
@@ -1443,8 +1139,6 @@ function InstagramCredentialCard({
           Publicar exige uma conta Business/Creator vinculada a uma Página do Facebook — conecte
           com um clique, nenhuma configuração técnica necessária.
         </p>
-
-        {isAdmin && <AdminHelpLink network="instagram" label="Instagram" />}
 
         <div style={{ display: "flex", gap: 8 }}>
           <Button
@@ -1468,46 +1162,6 @@ function InstagramCredentialCard({
           )}
         </div>
 
-        {/* Override manual admin-only — colar ig_user_id/access_token
-            direto, sem passar pelo OAuth (debug/emergência). Mesma
-            exceção admin-only do Threads acima. */}
-        {isAdmin && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              saveManualMutation.mutate()
-            }}
-            style={{ display: "flex", flexDirection: "column", gap: 12 }}
-          >
-            <div style={FIELD_GRID}>
-              <TextInput
-                label="Instagram User ID"
-                value={igUserId}
-                onChange={(e) => setIgUserId(e.target.value)}
-                placeholder="IG User ID"
-                required
-              />
-              <TextInput
-                label="Access Token"
-                type="password"
-                value={userAccessToken}
-                onChange={(e) => setUserAccessToken(e.target.value)}
-                placeholder="Access Token"
-                autoComplete="off"
-                required
-              />
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={saveManualMutation.isPending || !igUserId || !userAccessToken}
-              >
-                {saveManualMutation.isPending ? "Salvando..." : "Salvar (override manual)"}
-              </Button>
-            </div>
-          </form>
-        )}
       </div>
       <OAuthConsentModal
         network="instagram"
