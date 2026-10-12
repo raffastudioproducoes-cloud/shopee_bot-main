@@ -189,8 +189,8 @@ da leitura do fluxo em `api/routers/credentials.py`, `api/threads_oauth.py` e
   em módulos carregados somente depois da confirmação de papel pelo servidor, gestão de contas,
   logs e overrides manuais para homologação.
 - A migração 045 está pronta no `staging`, com preflight de divergência. Ainda precisa ser
-  aplicada/confirmada no banco de staging após o deploy. Versão do produto fica em `2.0.0` até
-  o fechamento de todas as tarefas; o aumento para `2.1.0` é uma etapa final única.
+  aplicada/confirmada no banco de staging após o deploy. A versão do produto foi elevada para
+  `2.1.0` somente no fechamento das tarefas da migração.
 - Evidência local da migração: 511 testes de API passaram; build do frontend passou e gerou
   chunks separados para UsersPage, LogsPage e AdminOverrides. O scheduler requer PostgreSQL de
   teste configurado e não foi apontado a nenhum banco remoto nesta validação.

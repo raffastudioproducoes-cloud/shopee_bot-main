@@ -275,6 +275,8 @@ em execução.
   próprios apenas para Shopee e IA.
 - [x] Regressão local: 511 testes da API passaram; build do frontend passou com chunks separados
   de Usuários, Logs e overrides.
+- [x] Fechamento técnico: versão do produto elevada de `2.0.0` para `2.1.0` após as seis etapas
+  anteriores; envio para `staging` e acompanhamento do deploy seguem esta tarefa.
 - [ ] Aplicar a migração 045 no Supabase de staging durante o deploy e validar manualmente:
   três perfis, catálogo/IA/Shopee compartilhados e redes/listas/posts isolados.
 - [ ] Validar o scheduler contra PostgreSQL configurado. O ambiente local não possui a conexão
