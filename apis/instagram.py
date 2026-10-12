@@ -191,16 +191,18 @@ def _create_image_media_container(ig_user_id, user_access_token, image_url, capt
     return creation_id
 
 
-def _poll_media_container(user_access_token, creation_id):
-    """Polla até o container de mídia estar READY."""
-    while True:
-        url = f"{API_BASE}/{creation_id}"
-        params = {
-            "access_token": user_access_token,
-            "fields": "status_code",
-        }
+IMAGE_POLL_ATTEMPTS = 60    # ~1 min
+VIDEO_POLL_ATTEMPTS = 300   # ~5 min; vídeo/Reels demora a processar
+
+
+def _poll_media_container(user_access_token, creation_id, attempts=IMAGE_POLL_ATTEMPTS):
+    """Espera o container ficar FINISHED (status_code da Graph API:
+    IN_PROGRESS, FINISHED, ERROR, EXPIRED, PUBLISHED). Falha em ERROR/EXPIRED
+    e desiste ao fim das tentativas, em vez de travar o job."""
+    for _ in range(attempts):
         res = retry_with_backoff(
-            requests.get, url, params=params,
+            requests.get, f"{API_BASE}/{creation_id}",
+            params={"access_token": user_access_token, "fields": "status_code"},
             exceptions=(requests.exceptions.RequestException,),
             timeout=15,
         )
@@ -209,13 +211,13 @@ def _poll_media_container(user_access_token, creation_id):
                 f"Instagram: falha ao consultar container "
                 f"(status {res.status_code}): {res.text[:300]}"
             )
-        data = res.json()
-        status_code = data.get("status_code")
-        if status_code == "READY":
+        status_code = res.json().get("status_code")
+        if status_code == "FINISHED":
             return True
-        if status_code in ("ERROR",):
+        if status_code in ("ERROR", "EXPIRED"):
             raise Exception(f"Instagram: container em estado {status_code}")
         time.sleep(1)
+    raise Exception("Instagram: tempo esgotado esperando o container ficar pronto")
 
 def _publish_media_container(ig_user_id, user_access_token, creation_id):
     """Publica o container de mídia no Instagram."""
