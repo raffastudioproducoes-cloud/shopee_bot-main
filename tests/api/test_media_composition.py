@@ -74,3 +74,19 @@ def test_facebook_album_does_not_mix_images_with_gif_or_video():
 
     assert gif.mode == "text_only" and gif.media_ids == []
     assert video.mode == "text_only" and video.media_ids == []
+
+
+def test_facebook_single_video_is_delivered():
+    plan = plan_network_composition("facebook", ["copy"], [_image(4, "clipe.mp4")])
+
+    assert plan.mode == "video"
+    assert plan.media_ids == [4]
+
+
+def test_facebook_two_videos_are_not_published_as_an_album():
+    plan = plan_network_composition(
+        "facebook", ["copy"], [_image(1, "a.mp4"), _image(2, "b.mp4")]
+    )
+
+    assert plan.mode == "text_only"
+    assert plan.media_ids == []

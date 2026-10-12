@@ -47,3 +47,26 @@ def test_album_does_not_publish_feed_post_when_a_photo_fails(monkeypatch):
         FacebookAPI.post_album_as_page("tok", "page-1", ["https://u/1.jpg", "https://u/2.jpg"], "x")
 
     assert f"{BASE}/page-1/feed" not in graph.urls("POST")
+
+
+def test_video_posts_file_url_to_page_videos_endpoint(monkeypatch):
+    graph = _install(monkeypatch, {("POST", f"{BASE}/page-1/videos"): [{"id": "vid-1"}]})
+
+    result = FacebookAPI.post_video_as_page("tok", "page-1", "https://signed/v.mp4", "legenda")
+
+    assert result == {"id": "vid-1"}
+    assert graph.calls[0]["params"] == {
+        "file_url": "https://signed/v.mp4", "description": "legenda", "access_token": "tok",
+    }
+
+
+def test_video_failure_does_not_echo_the_token(monkeypatch):
+    _install(monkeypatch, {
+        ("POST", f"{BASE}/page-1/videos"): [FakeResponse({"error": {"message": "nope"}}, 400)],
+    })
+
+    with pytest.raises(Exception) as err:
+        FacebookAPI.post_video_as_page("segredo-tok", "page-1", "https://signed/v.mp4", "x")
+
+    assert "status 400" in str(err.value)
+    assert "segredo-tok" not in str(err.value)

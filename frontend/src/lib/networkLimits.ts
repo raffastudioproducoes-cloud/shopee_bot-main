@@ -107,7 +107,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     label: "Facebook",
     maxChars: 63206,
     supportsTextOnly: true,
-    deliveredModes: ["none", "single_image", "carousel", "text_only"],
+    deliveredModes: ["none", "single_image", "carousel", "video", "text_only"],
     charCount: "codepoints",
     threadParts: false,
     // Álbum: só fotos; GIF e vídeo não se misturam a elas (attached_media).

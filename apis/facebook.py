@@ -250,6 +250,19 @@ def post_album_as_page(page_access_token, page_id, image_urls, caption):
     return res.json()
 
 
+def post_video_as_page(page_access_token, page_id, video_url, caption):
+    """Publica vídeo por URL (`file_url`) em /{page}/videos. O Facebook baixa
+    e processa depois; a resposta traz só o id do vídeo."""
+    res = retry_with_backoff(
+        requests.post, f"{API_BASE}/{page_id}/videos",
+        params={"file_url": video_url, "description": caption, "access_token": page_access_token},
+        exceptions=(requests.exceptions.RequestException,), timeout=60,
+    )
+    if res.status_code not in (200, 201):
+        raise Exception(f"Facebook: falha ao publicar vídeo (status {res.status_code})")
+    return res.json()
+
+
 def post_product_as_page(page_access_token, page_id, product):
     """Mesmo texto de post_product, mas publicando com Page Access Token
     (fluxo OAuth novo) em vez de app_id/secret (fluxo antigo per-user)."""

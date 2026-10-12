@@ -155,3 +155,54 @@ def test_album_refuses_video_or_gif_instead_of_dropping_files(monkeypatch):
 
     assert activities[0][0] == ActivityType.BOT_POST_FAILURE
     assert "álbum" in activities[0][1]["metadata"]["error"]
+
+
+def test_bot_post_facebook_with_single_video_publishes_video(monkeypatch):
+    video = _media("v.mp4", "VIDEO")
+    _patch_common(monkeypatch, {"text": "clipe", "product_ids": [], "medias": [video]})
+    calls = {}
+    monkeypatch.setattr(
+        module, "_publish_video",
+        lambda token, page_id, media, caption: calls.update(args=(token, page_id, media, caption)),
+    )
+    activities = _capture_activities(monkeypatch)
+
+    module.bot_post_facebook("job-video")
+
+    assert calls["args"] == ("page-token-1", "page-1", video, "clipe")
+    assert activities[0][0] == ActivityType.BOT_POST_SUCCESS
+
+
+def test_publish_video_uses_delivery_url_and_cleans_up(monkeypatch):
+    cleaned = []
+    monkeypatch.setattr(
+        module, "delivery_url", lambda media: ("https://signed/v.mp4", lambda: cleaned.append(1)),
+    )
+    seen = {}
+    monkeypatch.setattr(
+        module.FacebookAPI, "post_video_as_page",
+        lambda token, page_id, url, caption: seen.update(args=(token, page_id, url, caption)),
+    )
+
+    module._publish_video("tok", "page-1", _media("v.mp4", "VIDEO"), "c")
+
+    assert seen["args"] == ("tok", "page-1", "https://signed/v.mp4", "c")
+    assert cleaned == [1]
+
+
+def test_video_without_page_token_fails_instead_of_publishing_text(monkeypatch):
+    _patch_common(monkeypatch, {"text": "clipe", "product_ids": [], "medias": [_media("v.mp4", "VIDEO")]})
+    monkeypatch.setattr(
+        module.facebook_credentials, "get_by_user_id",
+        lambda user_id, profile_id=None: {
+            "username": "f", "facebook_app_id": "a", "facebook_secret": "s",
+            "facebook_page_id": "page-1", "facebook_page_access_token": None,
+        },
+    )
+    monkeypatch.setattr(module.FacebookAPI, "post_text", lambda *a: (_ for _ in ()).throw(AssertionError("texto")))
+    activities = _capture_activities(monkeypatch)
+
+    module.bot_post_facebook("job-video-legacy")
+
+    assert activities[0][0] == ActivityType.BOT_POST_FAILURE
+    assert "vídeo" in activities[0][1]["metadata"]["error"]

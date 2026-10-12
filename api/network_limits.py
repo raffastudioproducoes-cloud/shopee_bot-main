@@ -38,7 +38,7 @@ NETWORK_RULES = {
     "facebook": {
         "label": "Facebook", "max_chars": 63206, "count": "codepoints", "thread_parts": False,
         "supports_text_only": True,
-        "delivered_modes": {"none", "single_image", "carousel", "text_only"},
+        "delivered_modes": {"none", "single_image", "carousel", "video", "text_only"},
         "max_gif": 1, "max_video": 1, "allow_mix": False,
         "exts": {"jpg", "jpeg", "png", "gif", "mp4"},
         "max_bytes": {"image": 4 * MB, "gif": 4 * MB},

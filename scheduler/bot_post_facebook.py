@@ -37,6 +37,14 @@ def _publish_album(page_access_token, page_id, medias, caption):
             cleanup()
 
 
+def _publish_video(page_access_token, page_id, media, caption):
+    url, cleanup = delivery_url(media)
+    try:
+        return FacebookAPI.post_video_as_page(page_access_token, page_id, url, caption)
+    finally:
+        cleanup()
+
+
 def _is_album_image(media):
     name = media.get("file_name") or media.get("file_path") or ""
     return media.get("type") == "IMAGE" and name.rsplit(".", 1)[-1].lower() in ALBUM_EXTS
@@ -76,6 +84,10 @@ def bot_post_facebook(job_id):
             if not all(_is_album_image(media) for media in medias):
                 raise RuntimeError("Facebook: álbum só aceita imagens JPG/PNG; vídeo e GIF não entram no álbum.")
             _publish_album(page_access_token, page_id, medias, root_post["text"])
+        elif medias and medias[0].get("type") == "VIDEO":
+            if not page_access_token:
+                raise RuntimeError("Facebook: vídeo exige conexão OAuth com token de Página.")
+            _publish_video(page_access_token, page_id, medias[0], root_post["text"])
         elif image:
             if not page_access_token:
                 raise RuntimeError("Facebook: imagem exige conexão OAuth com token de Página.")
