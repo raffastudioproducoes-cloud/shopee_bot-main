@@ -30,6 +30,7 @@ fluxo do usuário. Kwai fica de fora do mapa, sem API pública confirmada.
 
 import logging
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -72,6 +73,8 @@ NetworkLiteral = Literal[tuple(NETWORK_FUNC_MAP.keys())]
 
 MEDIA_ROOT = Path("web/media")
 MAX_MEDIA_BYTES = 50 * 1024 * 1024  # 50MB, mesmo teto do Flask (FLASK_MAX_CONTENT_LENGTH)
+MEDIA_DRAFT_BUCKET = "post-media"
+MEDIA_DRAFT_TTL = timedelta(hours=24)
 
 # MIME real detectado por magic bytes (fleep) -> extensão gravada em disco.
 # O nome do arquivo é gerado no servidor (uuid + esta extensão), NUNCA vem de
@@ -98,6 +101,76 @@ def _remove_media_file(file_path: str) -> None:
         resolved.unlink(missing_ok=True)  # já sumiu: não bloqueia a remoção do post
     except OSError:
         logger.warning("Falha ao remover arquivo de mídia %s", file_path, exc_info=True)
+
+
+def _remove_draft_from_storage(draft: dict) -> None:
+    bucket, key = draft.get("storage_bucket"), draft.get("storage_key")
+    if bucket and key:
+        supabase.storage.from_(bucket).remove([key])
+
+
+def _draft_response(draft: dict) -> dict:
+    """Não entrega chave de Storage, URL assinada nem MIME interno ao cliente."""
+    return {
+        key: draft.get(key)
+        for key in ("id", "file_name", "size_bytes", "media_type", "profile_id", "status", "expires_at", "created_at")
+    }
+
+
+def _expired_at(value: object, now: datetime) -> bool:
+    if not value:
+        return False
+    if isinstance(value, datetime):
+        moment = value
+    else:
+        try:
+            moment = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment <= now
+
+
+async def _read_media_content(file: UploadFile) -> bytes:
+    """Lê em blocos e recusa um upload antes de acumular mais de 50 MB."""
+    content = bytearray()
+    while chunk := await file.read(1024 * 1024):
+        content.extend(chunk)
+        if len(content) > MAX_MEDIA_BYTES:
+            raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
+    return bytes(content)
+
+
+def cleanup_expired_media_drafts(now: datetime | None = None) -> int:
+    """Limpa somente rascunhos vencidos e prontos, sem tocar em posts.
+
+    A tabela temporária é separada de `medias`, portanto não aciona o trigger
+    histórico de `posts_medias` e não pode remover mídia confirmada.
+    """
+    now = now or datetime.now(timezone.utc)
+    result = (
+        supabase.table("temporary_media_uploads")
+        .select("id, storage_bucket, storage_key, expires_at")
+        .in_("status", ["uploading", "ready", "delete_failed"])
+        .lte("expires_at", now.isoformat())
+        .order("expires_at")
+        .limit(100)
+        .execute()
+    )
+    removed = 0
+    for draft in result.data or []:
+        if not _expired_at(draft.get("expires_at"), now):
+            continue
+        try:
+            _remove_draft_from_storage(draft)
+        except Exception:
+            logger.warning("Falha ao limpar rascunho de mídia expirado", exc_info=True)
+            supabase.table("temporary_media_uploads").update({"status": "delete_failed"}).eq("id", draft["id"]).execute()
+            continue
+        supabase.table("temporary_media_uploads").delete().eq("id", draft["id"]).execute()
+        removed += 1
+    return removed
 
 
 router = APIRouter(prefix="/posts", tags=["posts"])
@@ -551,6 +624,111 @@ async def create_post(
     }
 
 
+@router.post("/media-drafts", status_code=status.HTTP_201_CREATED)
+async def upload_media_draft(
+    file: UploadFile,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Armazena uma mídia privada antes de existir um post.
+
+    A chave do Storage é gerada no servidor, pertence ao perfil ativo e vence
+    em 24 horas. A Task 3 será a única responsável por consumi-la em posts.
+    """
+    profile_id = _require_profile_id(profile_id)
+    cleanup_expired_media_drafts()
+    content = await _read_media_content(file)
+
+    detected = fleep.get(content[:128])
+    mime = next((m for m in detected.mime if m in ALLOWED_MEDIA_MIMES), None)
+    if not mime:
+        raise HTTPException(
+            status_code=400,
+            detail="Conteúdo do arquivo não corresponde a uma mídia permitida.",
+        )
+
+    upload_id = str(uuid.uuid4())
+    suffix = ALLOWED_MEDIA_MIMES[mime]
+    storage_key = f"drafts/{user_id}/{profile_id}/{upload_id}{suffix}"
+    expires_at = (datetime.now(timezone.utc) + MEDIA_DRAFT_TTL).isoformat()
+    media_type = "VIDEO" if mime.startswith("video/") else "IMAGE"
+    create = (
+        supabase.table("temporary_media_uploads")
+        .insert({
+            "id": upload_id,
+            "user_id": user_id,
+            "profile_id": profile_id,
+            "storage_bucket": MEDIA_DRAFT_BUCKET,
+            "storage_key": storage_key,
+            "file_name": f"{Path(file.filename or 'arquivo').stem}{suffix}",
+            "mime_type": mime,
+            "size_bytes": len(content),
+            "media_type": media_type,
+            "status": "uploading",
+            "expires_at": expires_at,
+        })
+        .execute()
+    )
+    if not create.data:
+        raise HTTPException(status_code=500, detail="Não foi possível preparar a mídia.")
+
+    try:
+        supabase.storage.from_(MEDIA_DRAFT_BUCKET).upload(
+            storage_key, content, {"content-type": mime, "upsert": "false"}
+        )
+    except Exception:
+        supabase.table("temporary_media_uploads").delete().eq("id", upload_id).eq("status", "uploading").execute()
+        logger.warning("Falha ao guardar rascunho de mídia", exc_info=True)
+        raise HTTPException(status_code=502, detail="Não foi possível enviar a mídia agora. Tente novamente.")
+
+    updated = (
+        supabase.table("temporary_media_uploads")
+        .update({"status": "ready"})
+        .eq("id", upload_id)
+        .eq("user_id", user_id)
+        .eq("profile_id", profile_id)
+        .eq("status", "uploading")
+        .execute()
+    )
+    if not updated.data:
+        try:
+            _remove_draft_from_storage({"storage_bucket": MEDIA_DRAFT_BUCKET, "storage_key": storage_key})
+        except Exception:
+            logger.warning("Falha ao desfazer upload de rascunho", exc_info=True)
+        raise HTTPException(status_code=500, detail="Não foi possível preparar a mídia.")
+    return _draft_response(updated.data[0])
+
+
+@router.delete("/media-drafts/{media_id}")
+async def delete_media_draft(
+    media_id: str,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Cancela somente o rascunho privado do perfil ativo."""
+    profile_id = _require_profile_id(profile_id)
+    result = (
+        scope_owner(
+            supabase.table("temporary_media_uploads").select("*").eq("id", media_id),
+            user_id,
+            profile_id,
+        )
+        .eq("status", "ready")
+        .maybe_single()
+        .execute()
+    )
+    draft = result.data if result else None
+    if not draft:
+        raise HTTPException(status_code=404, detail="Rascunho de mídia não encontrado")
+    try:
+        _remove_draft_from_storage(draft)
+    except Exception:
+        logger.warning("Falha ao remover rascunho de mídia", exc_info=True)
+        raise HTTPException(status_code=502, detail="Não foi possível remover a mídia agora. Tente novamente.")
+    supabase.table("temporary_media_uploads").delete().eq("id", media_id).eq("user_id", user_id).eq("profile_id", profile_id).eq("status", "ready").execute()
+    return {"msg": "Rascunho de mídia removido"}
+
+
 @router.get("/{post_id}")
 async def get_post(
     post_id: int,
@@ -635,9 +813,7 @@ async def upload_media(
     profile_id = _require_profile_id(profile_id)
     post = _get_post(user_id, post_id, profile_id)  # ownership check
 
-    content = await file.read()
-    if len(content) > MAX_MEDIA_BYTES:
-        raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
+    content = await _read_media_content(file)
 
     detected = fleep.get(content[:128])
     mime = next((m for m in detected.mime if m in ALLOWED_MEDIA_MIMES), None)
