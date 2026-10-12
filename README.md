@@ -81,7 +81,7 @@ Tirar o trabalho manual de quem divulga produto de afiliado:
 | **Copywriter IA** | Geração de texto de post por persona com a chave de IA do próprio usuário (Gemini, OpenAI ou Anthropic — Credenciais; `apis/llm.py`) |
 | **Credenciais** | Shopee, Threads, X, Facebook, Instagram, TikTok, Kwai — cifradas em repouso (Fernet), nunca reexibidas |
 | **Atividades** | Histórico auditável de ações do usuário |
-| **Perfis e Configurações** | Até 3 perfis por conta (1 principal + 2 secundários, com avatar), editar/excluir/ativar sem recarregar a página e perfil ativo na TopBar; o perfil ativo escopa produtos, listas, posts, mídias, credenciais das redes, dashboard, notificações, logs e backup/restore (ver [Multi-perfil](#multi-perfil)). Página `/settings` com troca de senha. Administração de acesso (ADMIN/USER) na página Perfis |
+| **Perfis e Configurações** | Até 3 perfis por conta (1 principal + 2 secundários, com avatar), editar/excluir/ativar sem recarregar a página e perfil ativo na TopBar; Shopee, assistente/IA e catálogo de produtos são compartilhados pela conta. Listas, posts, mídias, credenciais sociais, dashboard operacional, notificações, logs e backup/restore usam o perfil ativo (ver [Multi-perfil](#multi-perfil)). Página `/settings` com troca de senha. Administração de acesso (ADMIN/USER) na página Perfis |
 | **Scheduler** | Jobs agendados in-process (APScheduler, jobstore em Postgres) — ADR em `19-ADR-Scheduler-In-Process.md` (Vault) |
 
 ## Tecnologias
