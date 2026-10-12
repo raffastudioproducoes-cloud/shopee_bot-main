@@ -90,3 +90,10 @@ def test_facebook_two_videos_are_not_published_as_an_album():
 
     assert plan.mode == "text_only"
     assert plan.media_ids == []
+
+
+def test_instagram_single_video_is_delivered():
+    plan = plan_network_composition("instagram", ["copy"], [_image(4, "clipe.mp4")])
+
+    assert plan.mode == "video"
+    assert plan.media_ids == [4]

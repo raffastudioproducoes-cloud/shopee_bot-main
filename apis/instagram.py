@@ -342,3 +342,32 @@ def post_image(app_id, secret, user_access_token, image_url, caption, ig_user_id
     )
     _poll_media_container(user_access_token, creation_id)
     return _publish_media_container(ig_user_id, user_access_token, creation_id)
+
+
+def _create_video_media_container(ig_user_id, user_access_token, video_url, caption):
+    """Cria um container REELS (vídeo no feed do Instagram é publicado como Reels)."""
+    res = retry_with_backoff(
+        requests.post, f"{API_BASE}/{ig_user_id}/media",
+        params={
+            "access_token": user_access_token, "media_type": "REELS",
+            "video_url": video_url, "caption": caption,
+        },
+        exceptions=(requests.exceptions.RequestException,), timeout=30,
+    )
+    if res.status_code not in (200, 201):
+        raise Exception(f"Instagram: falha ao criar container de vídeo (status {res.status_code})")
+    creation_id = (res.json() or {}).get("id")
+    if not creation_id:
+        raise Exception("Instagram: resposta inesperada ao criar container de vídeo")
+    return creation_id
+
+
+def post_video(app_id, secret, user_access_token, video_url, caption, ig_user_id=None):
+    """Publica vídeo por URL como Reels e espera o processamento terminar."""
+    if not user_access_token:
+        raise NotImplementedError("Instagram: user_access_token é obrigatório para publicar.")
+    _app_access_token(app_id, secret)
+    ig_user_id = _resolve_ig_user_id(user_access_token, ig_user_id)
+    creation_id = _create_video_media_container(ig_user_id, user_access_token, video_url, caption)
+    _poll_media_container(user_access_token, creation_id, VIDEO_POLL_ATTEMPTS)
+    return _publish_media_container(ig_user_id, user_access_token, creation_id)

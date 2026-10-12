@@ -63,3 +63,30 @@ def test_polling_gives_up_instead_of_looping_forever(monkeypatch):
 
     with pytest.raises(Exception, match="tempo"):
         _post_image()
+
+
+def test_video_is_published_as_reels_after_container_finishes(monkeypatch):
+    graph = _install(monkeypatch, {
+        ("POST", f"{BASE}/{IG}/media"): [{"id": "c-v"}],
+        ("GET", f"{BASE}/c-v"): [{"status_code": "IN_PROGRESS"}, {"status_code": "FINISHED"}],
+        ("POST", f"{BASE}/{IG}/media_publish"): [{"id": "m-v"}],
+    })
+
+    media_id = InstagramAPI.post_video("app-x", "secret-x", "tok", "https://u/v.mp4", "legenda", IG)
+
+    assert media_id == "m-v"
+    create = next(c for c in graph.calls if c["url"] == f"{BASE}/{IG}/media")["params"]
+    assert create["media_type"] == "REELS"
+    assert create["video_url"] == "https://u/v.mp4"
+    assert create["caption"] == "legenda"
+    assert "image_url" not in create
+
+
+def test_video_waits_longer_than_image(monkeypatch):
+    _install(monkeypatch, {
+        ("POST", f"{BASE}/{IG}/media"): [{"id": "c-v"}],
+        ("GET", f"{BASE}/c-v"): [{"status_code": "IN_PROGRESS"}] * 100 + [{"status_code": "FINISHED"}],
+        ("POST", f"{BASE}/{IG}/media_publish"): [{"id": "m-v"}],
+    })
+
+    assert InstagramAPI.post_video("app-x", "secret-x", "tok", "https://u/v.mp4", "c", IG) == "m-v"

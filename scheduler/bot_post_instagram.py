@@ -21,6 +21,14 @@ def _publish_image(app_id, secret, user_access_token, ig_user_id, media, caption
         cleanup()
 
 
+def _publish_video(app_id, secret, user_access_token, ig_user_id, media, caption):
+    url, cleanup = delivery_url(media)
+    try:
+        return InstagramAPI.post_video(app_id, secret, user_access_token, url, caption, ig_user_id)
+    finally:
+        cleanup()
+
+
 def bot_post_instagram(job_id):
     """Publica um post no Instagram (conta Business/Creator do usuário).
 
@@ -47,9 +55,14 @@ def bot_post_instagram(job_id):
     post_data = posts.get(user_id, post_id, profile_id)
     root_post = post_data[0]
     image = _first_image(root_post)
+    medias = root_post.get("medias") or []
 
     try:
-        if image:
+        if len(medias) == 1 and medias[0].get("type") == "VIDEO":
+            _publish_video(
+                app_id, secret, user_access_token, ig_user_id, medias[0], root_post["text"]
+            )
+        elif image:
             _publish_image(
                 app_id, secret, user_access_token, ig_user_id, image, root_post["text"]
             )

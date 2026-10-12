@@ -175,3 +175,53 @@ def test_publish_image_uses_delivery_url_and_cleans_up(monkeypatch):
 
     assert calls == [("app-1", "secret-1", "tok", "https://signed.example/a.jpg", "legenda", "ig-1")]
     assert cleaned == ["storage://post-media/k.jpg"]
+
+
+def _media(name, kind="IMAGE"):
+    return {"type": kind, "file_name": name, "file_path": f"storage://post-media/{name}"}
+
+
+def _capture_activities(monkeypatch):
+    activities = []
+    monkeypatch.setattr(
+        module, "insert_activities",
+        lambda user_id, activity_type, metadata, profile_id=None: activities.append((activity_type, metadata)),
+    )
+    return activities
+
+
+def test_bot_post_instagram_with_single_video_publishes_reels(monkeypatch):
+    video = _media("v.mp4", "VIDEO")
+    _patch_common(monkeypatch, _user_data(), {"text": "clipe", "product_ids": [], "medias": [video]})
+    calls = {}
+    monkeypatch.setattr(
+        module, "_publish_video",
+        lambda app_id, secret, token, ig_user_id, media, caption: calls.update(
+            args=(app_id, secret, token, ig_user_id, media, caption)
+        ),
+    )
+    activities = _capture_activities(monkeypatch)
+
+    module.bot_post_instagram("job-video")
+
+    assert calls["args"] == ("app-1", "secret-1", "user-token-1", "ig-user-1", video, "clipe")
+    assert activities[0][0] == ActivityType.BOT_POST_SUCCESS
+
+
+def test_publish_video_uses_delivery_url_and_cleans_up(monkeypatch):
+    cleaned = []
+    monkeypatch.setattr(
+        module, "delivery_url", lambda media: ("https://signed/v.mp4", lambda: cleaned.append(1)),
+    )
+    seen = {}
+    monkeypatch.setattr(
+        module.InstagramAPI, "post_video",
+        lambda app_id, secret, token, url, caption, ig_user_id: seen.update(
+            args=(app_id, secret, token, url, caption, ig_user_id)
+        ),
+    )
+
+    module._publish_video("app-1", "secret-1", "tok", "ig-1", _media("v.mp4", "VIDEO"), "c")
+
+    assert seen["args"] == ("app-1", "secret-1", "tok", "https://signed/v.mp4", "c", "ig-1")
+    assert cleaned == [1]

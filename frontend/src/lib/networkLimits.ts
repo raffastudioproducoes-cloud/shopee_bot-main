@@ -126,7 +126,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     label: "Instagram",
     maxChars: 2200,
     supportsTextOnly: false,
-    deliveredModes: ["single_image"],
+    deliveredModes: ["single_image", "video"],
     charCount: "codepoints",
     threadParts: false,
     maxHashtags: 30,
