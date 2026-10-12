@@ -59,3 +59,18 @@ def test_instagram_without_media_or_product_is_blocked():
 
     assert plan.mode == "blocked"
     assert "exige imagem" in plan.blocked_reason
+
+
+def test_facebook_images_become_an_album_in_the_original_order():
+    plan = plan_network_composition("facebook", ["copy"], [_image(3), _image(1)])
+
+    assert plan.mode == "carousel"
+    assert plan.media_ids == [3, 1]
+
+
+def test_facebook_album_does_not_mix_images_with_gif_or_video():
+    gif = plan_network_composition("facebook", ["copy"], [_image(1), _image(2, "a.gif")])
+    video = plan_network_composition("facebook", ["copy"], [_image(1), _image(2, "a.mp4")])
+
+    assert gif.mode == "text_only" and gif.media_ids == []
+    assert video.mode == "text_only" and video.media_ids == []

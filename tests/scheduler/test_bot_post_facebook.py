@@ -94,3 +94,64 @@ def test_publish_image_cleans_up_when_graph_fails(monkeypatch):
     except RuntimeError:
         pass
     assert cleaned == [1]
+
+
+def _media(name, kind="IMAGE"):
+    return {"type": kind, "file_name": name, "file_path": f"storage://post-media/{name}"}
+
+
+def _capture_activities(monkeypatch):
+    activities = []
+    monkeypatch.setattr(
+        module, "insert_activities",
+        lambda user_id, activity_type, metadata, profile_id=None: activities.append((activity_type, metadata)),
+    )
+    return activities
+
+
+def test_bot_post_facebook_with_several_images_publishes_album(monkeypatch):
+    medias = [_media("a.jpg"), _media("b.png")]
+    _patch_common(monkeypatch, {"text": "álbum", "product_ids": [], "medias": medias})
+    calls = {}
+    monkeypatch.setattr(
+        module, "_publish_album",
+        lambda token, page_id, items, caption: calls.update(args=(token, page_id, items, caption)),
+    )
+    activities = _capture_activities(monkeypatch)
+
+    module.bot_post_facebook("job-album")
+
+    assert calls["args"] == ("page-token-1", "page-1", medias, "álbum")
+    assert activities[0][0] == ActivityType.BOT_POST_SUCCESS
+
+
+def test_publish_album_resolves_every_url_and_cleans_up_all(monkeypatch):
+    cleaned = []
+    monkeypatch.setattr(
+        module, "delivery_url",
+        lambda media: (f"https://signed/{media['file_name']}", lambda: cleaned.append(media["file_name"])),
+    )
+    seen = {}
+    monkeypatch.setattr(
+        module.FacebookAPI, "post_album_as_page",
+        lambda token, page_id, urls, caption: seen.update(args=(token, page_id, urls, caption)),
+    )
+
+    module._publish_album("tok", "page-1", [_media("a.jpg"), _media("b.jpg")], "c")
+
+    assert seen["args"] == ("tok", "page-1", ["https://signed/a.jpg", "https://signed/b.jpg"], "c")
+    assert cleaned == ["a.jpg", "b.jpg"]
+
+
+def test_album_refuses_video_or_gif_instead_of_dropping_files(monkeypatch):
+    _patch_common(monkeypatch, {
+        "text": "x", "product_ids": [],
+        "medias": [_media("a.jpg"), _media("b.gif")],
+    })
+    monkeypatch.setattr(module, "_publish_album", lambda *a: (_ for _ in ()).throw(AssertionError("não publicar")))
+    activities = _capture_activities(monkeypatch)
+
+    module.bot_post_facebook("job-gif")
+
+    assert activities[0][0] == ActivityType.BOT_POST_FAILURE
+    assert "álbum" in activities[0][1]["metadata"]["error"]

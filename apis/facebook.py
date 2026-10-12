@@ -12,6 +12,7 @@ permissão da Graph API. Isso é uma limitação da Meta, não deste código;
 não há workaround client-side.
 """
 
+import json
 import time
 import requests
 from shopee_bot.utils import retry_with_backoff
@@ -218,6 +219,34 @@ def post_photo_as_page(page_access_token, page_id, image_url, caption):
     )
     if res.status_code not in (200, 201):
         raise Exception(f"Facebook: falha ao publicar imagem (status {res.status_code}): {res.text[:300]}")
+    return res.json()
+
+
+def post_album_as_page(page_access_token, page_id, image_urls, caption):
+    """Publica várias fotos num único post: cada foto sobe sem publicar
+    (`published=false`) e o post do feed anexa todas via `attached_media`.
+    Se alguma foto falhar nada vai ao feed (fotos não publicadas ficam
+    invisíveis)."""
+    photo_ids = []
+    for index, image_url in enumerate(image_urls, start=1):
+        res = retry_with_backoff(
+            requests.post, f"{API_BASE}/{page_id}/photos",
+            params={"url": image_url, "published": "false", "access_token": page_access_token},
+            exceptions=(requests.exceptions.RequestException,), timeout=30,
+        )
+        photo_id = (res.json() or {}).get("id") if res.status_code in (200, 201) else None
+        if not photo_id:
+            raise Exception(f"Facebook: falha ao enviar imagem {index} do álbum (status {res.status_code})")
+        photo_ids.append(photo_id)
+    params = {"message": caption, "access_token": page_access_token}
+    for index, photo_id in enumerate(photo_ids):
+        params[f"attached_media[{index}]"] = json.dumps({"media_fbid": photo_id})
+    res = retry_with_backoff(
+        requests.post, f"{API_BASE}/{page_id}/feed", params=params,
+        exceptions=(requests.exceptions.RequestException,), timeout=30,
+    )
+    if res.status_code not in (200, 201):
+        raise Exception(f"Facebook: falha ao publicar álbum (status {res.status_code}): {res.text[:300]}")
     return res.json()
 
 

@@ -21,6 +21,27 @@ def _publish_image(page_access_token, page_id, media, caption):
         cleanup()
 
 
+ALBUM_EXTS = {"jpg", "jpeg", "png"}
+
+
+def _publish_album(page_access_token, page_id, medias, caption):
+    urls, cleanups = [], []
+    try:
+        for media in medias:
+            url, cleanup = delivery_url(media)
+            urls.append(url)
+            cleanups.append(cleanup)
+        return FacebookAPI.post_album_as_page(page_access_token, page_id, urls, caption)
+    finally:
+        for cleanup in cleanups:
+            cleanup()
+
+
+def _is_album_image(media):
+    name = media.get("file_name") or media.get("file_path") or ""
+    return media.get("type") == "IMAGE" and name.rsplit(".", 1)[-1].lower() in ALBUM_EXTS
+
+
 def bot_post_facebook(job_id):
     """Publica um post na Página do Facebook do usuário.
 
@@ -46,9 +67,16 @@ def bot_post_facebook(job_id):
     post_data = posts.get(user_id, post_id, profile_id)
     root_post = post_data[0]
     image = _first_image(root_post)
+    medias = root_post.get("medias") or []
 
     try:
-        if image:
+        if len(medias) > 1:
+            if not page_access_token:
+                raise RuntimeError("Facebook: álbum exige conexão OAuth com token de Página.")
+            if not all(_is_album_image(media) for media in medias):
+                raise RuntimeError("Facebook: álbum só aceita imagens JPG/PNG; vídeo e GIF não entram no álbum.")
+            _publish_album(page_access_token, page_id, medias, root_post["text"])
+        elif image:
             if not page_access_token:
                 raise RuntimeError("Facebook: imagem exige conexão OAuth com token de Página.")
             _publish_image(page_access_token, page_id, image, root_post["text"])
