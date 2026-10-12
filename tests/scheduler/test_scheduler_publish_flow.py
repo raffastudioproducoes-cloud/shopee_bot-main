@@ -3,7 +3,7 @@ Fluxo "Agora" e falhas de publicação no scheduler (tudo mockado).
 """
 
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 
 import pytz
@@ -22,6 +22,30 @@ bot = sys.modules["shopee_bot.scheduler.bot_post"]
 def test_job_defaults_tolerate_now_jobs():
     assert sched.JOB_DEFAULTS["misfire_grace_time"] >= 60
     assert sched.JOB_DEFAULTS["coalesce"] is True
+
+
+def test_recurring_job_uses_all_selected_weekdays_without_changing_legacy_jobs(monkeypatch):
+    calls = []
+
+    class SchedulerRecorder:
+        def add_job(self, **kwargs):
+            calls.append(kwargs)
+
+    monkeypatch.setattr(sched, "_scheduler", SchedulerRecorder())
+    monkeypatch.setattr(sched.schedulers, "insert", lambda *_args: 77)
+    common = {
+        "post_id": 7,
+        "func": "bot_post",
+        "trigger": "cron",
+        "time": time(9, 0),
+        "profile_id": "profile-a",
+    }
+
+    sched._add_job("user-1", {**common, "days_of_week": [0, 2, 4]}, object())
+    sched._add_job("user-1", {**common, "day_of_week": 0}, object())
+
+    assert calls[0]["day_of_week"] == "0,2,4"
+    assert calls[1]["day_of_week"] == "0"
 
 
 def _capture_activities(monkeypatch, module):

@@ -50,3 +50,10 @@ def test_040_recreates_unique_index_with_coalesce_and_dedupes_nulls():
     assert "create unique index if not exists uq_credential_checks_user_profile_network" in sql
     assert "coalesce(profile_id, '00000000-0000-0000-0000-000000000000'::uuid)" in sql
     assert sql.index("delete from") < sql.index("create unique index")
+
+
+def test_047_adds_multi_day_recurrence_without_removing_legacy_day():
+    sql = (MIGRATIONS / "047_add_scheduler_days_of_week.sql").read_text(encoding="utf-8").lower()
+    assert "add column if not exists days_of_week smallint[]" in sql
+    assert "cardinality(days_of_week) between 1 and 7" in sql
+    assert "array[day_of_week]" in sql

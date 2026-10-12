@@ -144,6 +144,10 @@ def _add_job(user_id, job, conn):
         minute = job["time"].minute
         hour = job["time"].hour
         start_date = job["start_date"] if "start_date" in job else None
+        days = job.get("days_of_week") or [job["day_of_week"]]
+        # APScheduler aceita a lista como expressão cron. Jobs legados seguem
+        # chegando só com day_of_week e continuam sendo executados iguais.
+        days_expression = ",".join(str(day) for day in days)
 
         _scheduler.add_job(
             id=str(job_id),
@@ -152,7 +156,7 @@ def _add_job(user_id, job, conn):
             trigger=trigger,
             minute=minute,
             hour=hour,
-            day_of_week=job["day_of_week"],
+            day_of_week=days_expression,
             start_date=start_date
         )
     elif trigger == "date":

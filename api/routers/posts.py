@@ -182,14 +182,25 @@ router = APIRouter(prefix="/posts", tags=["posts"])
 class PostSchedule(BaseModel):
     trigger: Literal["cron", "date"]
     time: str | None = None  # "HH:MM", obrigatório se trigger=cron
-    day_of_week: int | None = None  # 0-6, obrigatório se trigger=cron
+    # Campo legado: permanece para jobs antigos e para o primeiro dia da lista.
+    day_of_week: int | None = None
+    # Novo contrato: um a sete dias, 0=segunda-feira ... 6=domingo.
+    days_of_week: list[int] | None = None
     start_date: str | None = None  # ISO 8601, opcional em cron
     run_date: str | None = None  # ISO 8601, obrigatório se trigger=date
 
     @model_validator(mode="after")
     def _check_required_fields(self):
-        if self.trigger == "cron" and (self.time is None or self.day_of_week is None):
-            raise ValueError("time e day_of_week são obrigatórios para trigger 'cron'")
+        if self.trigger == "cron":
+            days = self.days_of_week if self.days_of_week is not None else ([self.day_of_week] if self.day_of_week is not None else None)
+            if self.time is None or not days:
+                raise ValueError("time e ao menos um dia da semana são obrigatórios para trigger 'cron'")
+            if len(days) > 7 or len(set(days)) != len(days) or any(not isinstance(day, int) or day < 0 or day > 6 for day in days):
+                raise ValueError("days_of_week deve ter de um a sete dias únicos entre 0 e 6")
+            if self.day_of_week is not None and self.days_of_week is not None and self.day_of_week != days[0]:
+                raise ValueError("day_of_week deve corresponder ao primeiro item de days_of_week")
+            self.days_of_week = days
+            self.day_of_week = days[0]
         if self.trigger == "date" and self.run_date is None:
             raise ValueError("run_date é obrigatório para trigger 'date'")
         return self
@@ -674,6 +685,7 @@ async def create_post(
             trigger=body.schedule.trigger,
             time=body.schedule.time,
             day_of_week=body.schedule.day_of_week,
+            days_of_week=body.schedule.days_of_week,
             start_date=body.schedule.start_date,
             run_date=body.schedule.run_date,
             profile_id=profile_id,
@@ -762,6 +774,7 @@ async def create_posts_batch(
                 trigger=body.schedule.trigger,
                 time=body.schedule.time,
                 day_of_week=body.schedule.day_of_week,
+                days_of_week=body.schedule.days_of_week,
                 start_date=body.schedule.start_date,
                 run_date=body.schedule.run_date,
                 profile_id=profile_id,

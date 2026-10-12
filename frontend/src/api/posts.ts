@@ -49,6 +49,7 @@ export interface PostSchedule {
   run_date?: string | null // ISO 8601, obrigatório se trigger=date
   time?: string | null // "HH:MM", obrigatório se trigger=cron
   day_of_week?: number | null // 0-6, obrigatório se trigger=cron
+  days_of_week?: number[] | null // 0-6, um a sete dias para trigger=cron
   start_date?: string | null // ISO 8601, opcional em cron
 }
 

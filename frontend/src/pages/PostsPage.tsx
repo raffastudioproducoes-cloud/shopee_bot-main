@@ -52,6 +52,19 @@ const PERSONAS = [
 const SP_OFFSET = "-03:00"
 const todayInSaoPaulo = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date())
+const nowInSaoPaulo = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date())
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? ""
+  return { day: `${value("year")}-${value("month")}-${value("day")}`, time: `${value("hour")}:${value("minute")}` }
+}
 
 // Posts do mesmo envio multi-rede: `group_id` (UUID gerado por envio,
 // migração 044). Posts antigos sem group_id: heurística de antes (mesmo
@@ -97,13 +110,13 @@ export interface NetworkResult {
 }
 
 const WEEKDAYS = [
-  { value: 0, label: "Domingo" },
-  { value: 1, label: "Segunda" },
-  { value: 2, label: "Terça" },
-  { value: 3, label: "Quarta" },
-  { value: 4, label: "Quinta" },
-  { value: 5, label: "Sexta" },
-  { value: 6, label: "Sábado" },
+  { value: 0, label: "Segunda" },
+  { value: 1, label: "Terça" },
+  { value: 2, label: "Quarta" },
+  { value: 3, label: "Quinta" },
+  { value: 4, label: "Sexta" },
+  { value: 5, label: "Sábado" },
+  { value: 6, label: "Domingo" },
 ]
 
 const labelStyle = {
@@ -130,6 +143,13 @@ export function PostsPage() {
   const { data: postsData, isLoading } = useQuery({
     queryKey: ["posts"],
     queryFn: () => postsApi.list(),
+  })
+  // Carrega antes da abertura do modal: uma conexão já testada não fica
+  // momentaneamente parecendo indisponível no compositor.
+  const { data: credentials } = useQuery({
+    queryKey: ["credentials"],
+    queryFn: () => credentialsApi.list(),
+    staleTime: 30_000,
   })
 
   const posts = postsData?.data ?? []
@@ -456,6 +476,7 @@ export function PostsPage() {
           loading={createMutation.isPending || updateMutation.isPending}
           error={createMutation.error?.message ?? updateMutation.error?.message}
           results={createMutation.data}
+          credentials={credentials}
         />
       )}
 
@@ -498,11 +519,12 @@ interface PostModalProps {
   error?: string
   /** Resultado por rede do último envio (só falhas mantêm o modal aberto). */
   results?: NetworkResult[]
+  credentials?: Awaited<ReturnType<typeof credentialsApi.list>>
 }
 
 type WhenOption = "now" | "date" | "cron"
 
-function PostModal({ post, onClose, onSave, loading, error, results }: PostModalProps) {
+function PostModal({ post, onClose, onSave, loading, error, results, credentials }: PostModalProps) {
   const queryClient = useQueryClient()
   const [texts, setTexts] = useState<string[]>(
     post?.texts && post.texts.length > 0 ? post.texts : [""],
@@ -518,10 +540,10 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
     post?.products.map((p) => p.id) ?? [],
   )
   const [when, setWhen] = useState<WhenOption>("now")
-  const [runDay, setRunDay] = useState("")
-  const [runTime, setRunTime] = useState("")
+  const [runDay, setRunDay] = useState(() => nowInSaoPaulo().day)
+  const [runTime, setRunTime] = useState(() => nowInSaoPaulo().time)
   const [cronTime, setCronTime] = useState("09:00")
-  const [cronDay, setCronDay] = useState(1)
+  const [cronDays, setCronDays] = useState<number[]>([0])
   const [pendingFiles, setPendingFiles] = useState<{ file: File; info: MediaInfo }[]>([])
   // Redes que já deram certo no último envio saem da seleção: reenviar só
   // repete as que falharam, sem duplicar post.
@@ -536,12 +558,6 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
     queryFn: () => productsApi.list(),
   })
   const products = productsData?.data ?? []
-
-  const { data: credentials } = useQuery({
-    queryKey: ["credentials"],
-    queryFn: () => credentialsApi.list(),
-    enabled: !post,
-  })
 
   // Sem chave de IA própria não há o que chamar (não existe chave global):
   // em vez do botão, atalho pra Credenciais.
@@ -588,7 +604,7 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
 
   const buildSchedule = (): PostSchedule => {
     if (when === "cron") {
-      return { trigger: "cron", time: cronTime, day_of_week: cronDay }
+      return { trigger: "cron", time: cronTime, days_of_week: cronDays }
     }
     // "Agora" = rede de segurança de 5 min: o post é disparado explicitamente
     // logo após o envio da mídia (ver createMutation), sem duplicar.
@@ -650,10 +666,19 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
     Issue[]
   >
   const states = Object.fromEntries(
-    PICKER_NETWORKS.map((n) => [
-      n,
-      { connected: credentials?.[n]?.connected, errors: issues[n].filter((i) => i.level === "error") },
-    ]),
+    PICKER_NETWORKS.map((n) => {
+      const status = credentials?.[n]
+      const loaded = credentials !== undefined
+      const functional = status?.state === "ok"
+      const connectionReason = !loaded
+        ? "verificando conexão"
+        : functional
+          ? undefined
+          : status?.state === "disconnected"
+            ? "conecte em Credenciais"
+            : status?.status_text ?? "teste a conexão em Credenciais"
+      return [n, { connected: loaded ? functional : undefined, connectionReason, errors: issues[n].filter((i) => i.level === "error") }]
+    }),
   ) as Record<PostNetwork, NetworkState>
   const blockedNetworks = networks.filter((n) => states[n].errors.length > 0)
 
@@ -664,6 +689,7 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
     !loading &&
     trimmedTexts.length > 0 &&
     networks.every((n) => textsFor(n).length > 0) &&
+    networks.every((n) => states[n].connected === true) &&
     !dateError &&
     networks.length > 0 &&
     blockedNetworks.length === 0
@@ -942,7 +968,7 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
               <SegmentedToggle
                 options={[
                   { value: "now", label: "Agora" },
-                  { value: "date", label: "Data específica" },
+                  { value: "date", label: "Agendar" },
                   { value: "cron", label: "Recorrente" },
                 ]}
                 value={when}
@@ -971,13 +997,35 @@ function PostModal({ post, onClose, onSave, loading, error, results }: PostModal
             )}
 
             {when === "cron" && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <Select
-                  value={String(cronDay)}
-                  onChange={(e) => setCronDay(Number(e.target.value))}
-                  options={WEEKDAYS.map((d) => ({ value: String(d.value), label: d.label }))}
-                />
-                <TextInput type="time" value={cronTime} onChange={(e) => setCronTime(e.target.value)} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ ...labelStyle, marginBottom: 0 }}>Dias da semana</span>
+                  <button
+                    type="button"
+                    onClick={() => setCronDays((days) => (days.length === WEEKDAYS.length ? [0] : WEEKDAYS.map((day) => day.value)))}
+                    style={{ background: "none", border: "none", padding: 0, color: "var(--accent)", cursor: "pointer", font: "var(--text-role-caption)" }}
+                  >
+                    {cronDays.length === WEEKDAYS.length ? "Somente segunda" : "Semana inteira"}
+                  </button>
+                </div>
+                <div role="group" aria-label="Dias recorrentes" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
+                  {WEEKDAYS.map((day) => {
+                    const selected = cronDays.includes(day.value)
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        aria-pressed={selected}
+                        title={day.label}
+                        onClick={() => setCronDays((days) => selected ? (days.length === 1 ? days : days.filter((value) => value !== day.value)) : [...days, day.value].sort((a, b) => a - b))}
+                        style={{ minHeight: 36, borderRadius: "var(--r-sm)", border: `1px solid ${selected ? "var(--accent)" : "var(--border-hairline)"}`, background: selected ? "rgba(129,189,250,.14)" : "var(--surface-inset)", color: selected ? "var(--accent)" : "var(--text-body)", cursor: "pointer", font: "var(--text-role-caption)" }}
+                      >
+                        {day.label.slice(0, 3)}
+                      </button>
+                    )
+                  })}
+                </div>
+                <TextInput label="Hora" type="time" value={cronTime} onChange={(e) => setCronTime(e.target.value)} />
               </div>
             )}
           </div>

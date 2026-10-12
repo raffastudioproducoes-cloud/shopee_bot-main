@@ -30,6 +30,18 @@ def _schedule() -> PostSchedule:
 
 
 class TestApiNetworkDefaultsToThreads:
+    def test_recurring_schedule_accepts_one_or_more_weekdays(self):
+        schedule = PostSchedule(trigger="cron", time="09:00", days_of_week=[1, 3, 5])
+
+        assert schedule.days_of_week == [1, 3, 5]
+        # Compatibilidade com o job antigo e com a coluna legada.
+        assert schedule.day_of_week == 1
+
+    @pytest.mark.parametrize("days", [[], [7], [-1], [1, 1], [0, 1, 2, 3, 4, 5, 6, 0]])
+    def test_recurring_schedule_rejects_invalid_weekday_sets(self, days):
+        with pytest.raises(ValidationError):
+            PostSchedule(trigger="cron", time="09:00", days_of_week=days)
+
     def test_network_omitted_defaults_to_threads(self):
         body = PostCreate(texts=["oi"], schedule=_schedule())
         assert body.network == "threads"

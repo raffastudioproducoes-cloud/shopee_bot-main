@@ -61,6 +61,7 @@ def get(user_id, post_id, profile_id):
                     'trigger', s.trigger,
                     'time', to_char(s.time, 'HH24:MI'),
                     'day_of_week', s.day_of_week,
+                    'days_of_week', s.days_of_week,
                     'start_date', s.start_date,
                     'run_date', s.run_date
                 ),
@@ -163,6 +164,7 @@ def query_paginated(user_id, cursor, limit):
                     'trigger', s.trigger,
                     'time', s.time,
                     'day_of_week', s.day_of_week,
+                    'days_of_week', s.days_of_week,
                     'start_date', s.start_date,
                     'run_date', s.run_date
                 ),
