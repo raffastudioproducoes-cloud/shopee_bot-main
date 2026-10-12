@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useCallback } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
-import { postsApi, type Post, type PostSchedule, type PostNetwork } from "../api/posts"
+import { postsApi, type Post, type PostBatchResult, type PostSchedule, type PostNetwork } from "../api/posts"
 import { credentialsApi } from "../api/credentials"
 import { ApiError } from "../lib/api"
 import {
@@ -15,6 +15,8 @@ import {
   type MediaInfo,
 } from "../lib/networkLimits"
 import { TextVariantTabs } from "../components/posts/TextVariantTabs"
+import { MediaVariantTabs } from "../components/posts/MediaVariantTabs"
+import { planMediaComposition } from "../lib/mediaComposition"
 import {
   NetworkLimitsPanel,
   NetworkLogo,
@@ -175,39 +177,35 @@ export function PostsPage() {
       networks: PostNetwork[]
       files: File[]
       publishNow: boolean
-      groupId: string
     }): Promise<NetworkResult[]> => {
-      const results: NetworkResult[] = []
-      let mediaIds: number[] | null = data.files.length > 0 ? null : []
-      for (const network of data.networks) {
-        let createdId: number | null = null
-        try {
-          const created = await postsApi.create({
-            texts: data.textsByNetwork[network] ?? [],
-            product_ids: data.product_ids,
-            schedule: data.schedule,
-            network,
-            media_ids: mediaIds ?? [],
-            group_id: data.groupId,
-          })
-          createdId = created.id
-          if (mediaIds === null) {
-            const uploaded = []
-            for (const file of data.files) uploaded.push(await postsApi.uploadMedia(created.id, file))
-            mediaIds = uploaded.map((m) => m.id)
-          }
-          // "Agora": o job foi criado com run_date de segurança no futuro; só
-          // dispara depois que a mídia já está no servidor.
-          if (data.publishNow) await postsApi.publishNow(created.id)
-          results.push({ network, ok: true })
-        } catch (err) {
-          if (err instanceof ApiError && err.status === 401) onAuthError(err)
-          // mídia não subiu: desfaz pra não publicar sem mídia pela rede de segurança
-          if (createdId != null && mediaIds === null) await postsApi.delete(createdId).catch(() => undefined)
-          results.push({ network, ok: false, error: err instanceof Error ? err.message : String(err) })
+      const draftMedia = []
+      try {
+        for (const file of data.files) draftMedia.push(await postsApi.uploadDraftMedia(file))
+        const payload = {
+          compositions: data.networks.map((network) => ({ network, texts: data.textsByNetwork[network] ?? [] })),
+          product_ids: data.product_ids,
+          draft_media_ids: draftMedia.map((draft) => draft.id),
+          schedule: data.schedule,
         }
+        // O preview compartilha o mesmo planejador do batch; a criação continua
+        // a autoridade final para evitar divergência entre o aviso e o envio.
+        await postsApi.preview(payload)
+        const result: PostBatchResult = await postsApi.createBatch(payload)
+        if (data.publishNow) {
+          await Promise.all(result.created.map((created) => postsApi.publishNow(created.post_id)))
+        }
+        return [
+          ...result.created.map((created) => ({ network: created.network, ok: true })),
+          ...result.blocked.map((blocked) => ({ network: blocked.network, ok: false, error: blocked.blocked_reason ?? blocked.warnings[0] ?? "Esta rede não aceita esta composição." })),
+        ]
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) onAuthError(err)
+        throw err
+      } finally {
+        // Somente drafts ainda prontos são excluídos; os consumidos pelo lote
+        // permanecem ligados aos posts criados pelo servidor.
+        await Promise.all(draftMedia.map((draft) => postsApi.deleteDraftMedia(draft.id).catch(() => undefined)))
       }
-      return results
     },
     // Resultado por rede continua no modal; o aviso só resume.
     meta: {
@@ -276,13 +274,12 @@ export function PostsPage() {
       networks: PostNetwork[],
       files: File[],
       publishNow: boolean,
-      groupId: string,
     ) => {
       if (editingPost) {
         const texts = textsByNetwork[editingPost.network ?? "threads"] ?? []
         updateMutation.mutate({ id: editingPost.id, texts, product_ids: productIds })
       } else {
-        createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, publishNow, groupId })
+        createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, publishNow })
       }
     },
     [editingPost, createMutation, updateMutation],
@@ -477,6 +474,7 @@ export function PostsPage() {
           error={createMutation.error?.message ?? updateMutation.error?.message}
           results={createMutation.data}
           credentials={credentials}
+          onClear={() => createMutation.reset()}
         />
       )}
 
@@ -513,18 +511,18 @@ interface PostModalProps {
     networks: PostNetwork[],
     files: File[],
     publishNow: boolean,
-    groupId: string,
   ) => void
   loading: boolean
   error?: string
   /** Resultado por rede do último envio (só falhas mantêm o modal aberto). */
   results?: NetworkResult[]
   credentials?: Awaited<ReturnType<typeof credentialsApi.list>>
+  onClear: () => void
 }
 
 type WhenOption = "now" | "date" | "cron"
 
-function PostModal({ post, onClose, onSave, loading, error, results, credentials }: PostModalProps) {
+function PostModal({ post, onClose, onSave, loading, error, results, credentials, onClear }: PostModalProps) {
   const queryClient = useQueryClient()
   const [texts, setTexts] = useState<string[]>(
     post?.texts && post.texts.length > 0 ? post.texts : [""],
@@ -532,8 +530,6 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   // Textos das abas além da principal (texts[0]), por chave de faixa de
   // limite (planVariants). Sem entrada = começa igual ao texto principal.
   const [variantTexts, setVariantTexts] = useState<Record<string, string>>({})
-  // Um UUID por modal: reenviar só as redes que falharam mantém o grupo.
-  const [groupId] = useState(() => crypto.randomUUID())
   const [persona, setPersona] = useState("casual")
   const [networks, setNetworks] = useState<PostNetwork[]>(post ? [post.network ?? "threads"] : [])
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>(
@@ -601,6 +597,20 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
 
   const addPart = () => setTexts((prev) => [...prev, ""])
   const removePart = (index: number) => setTexts((prev) => prev.filter((_, i) => i !== index))
+  const clearComposer = () => {
+    const now = nowInSaoPaulo()
+    setTexts([""])
+    setVariantTexts({})
+    setNetworks([])
+    setSelectedProductIds([])
+    setPendingFiles([])
+    setWhen("now")
+    setRunDay(now.day)
+    setRunTime(now.time)
+    setCronTime("09:00")
+    setCronDays([0])
+    onClear()
+  }
 
   const buildSchedule = (): PostSchedule => {
     if (when === "cron") {
@@ -665,6 +675,9 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     PostNetwork,
     Issue[]
   >
+  const compositionPlans = Object.fromEntries(
+    PICKER_NETWORKS.map((n) => [n, planMediaComposition(n, draftFor(n))]),
+  ) as Record<PostNetwork, ReturnType<typeof planMediaComposition>>
   const states = Object.fromEntries(
     PICKER_NETWORKS.map((n) => {
       const status = credentials?.[n]
@@ -677,10 +690,18 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           : status?.state === "disconnected"
             ? "conecte em Credenciais"
             : status?.status_text ?? "teste a conexão em Credenciais"
-      return [n, { connected: loaded ? functional : undefined, connectionReason, errors: issues[n].filter((i) => i.level === "error") }]
+      const plan = compositionPlans[n]
+      const errors = plan.mode === "blocked"
+        ? issues[n].filter((issue) => issue.level === "error").concat(
+          issues[n].some((issue) => issue.message === plan.blockedReason)
+            ? []
+            : plan.blockedReason ? [{ key: "composition", level: "error" as const, message: plan.blockedReason }] : [],
+        )
+        : []
+      return [n, { connected: loaded ? functional : undefined, connectionReason, errors }]
     }),
   ) as Record<PostNetwork, NetworkState>
-  const blockedNetworks = networks.filter((n) => states[n].errors.length > 0)
+  const deliverableNetworks = networks.filter((n) => compositionPlans[n].mode !== "blocked")
 
   const toggleNetwork = (n: PostNetwork) =>
     setNetworks((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]))
@@ -688,11 +709,11 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const canSubmit =
     !loading &&
     trimmedTexts.length > 0 &&
-    networks.every((n) => textsFor(n).length > 0) &&
-    networks.every((n) => states[n].connected === true) &&
-    !dateError &&
-    networks.length > 0 &&
-    blockedNetworks.length === 0
+    // Bloqueadas continuam marcadas (em vermelho, com motivo); basta uma entregável.
+    deliverableNetworks.length > 0 &&
+    deliverableNetworks.every((n) => textsFor(n).length > 0) &&
+    deliverableNetworks.every((n) => states[n].connected === true) &&
+    !dateError
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -704,7 +725,6 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
       networks,
       pendingFiles.map((p) => p.file),
       when === "now",
-      groupId,
     )
   }
 
@@ -960,6 +980,14 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           mediaCount={media.length}
           issues={issues}
         />
+
+        {!post && <MediaVariantTabs networks={networks} plans={compositionPlans} />}
+
+        {!post && (
+          <Button type="button" variant="ghost" icon="x" onClick={clearComposer} style={{ alignSelf: "flex-start" }}>
+            Limpar post
+          </Button>
+        )}
 
         {!post && (
           <div>
