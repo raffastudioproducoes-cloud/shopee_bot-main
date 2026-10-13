@@ -436,16 +436,22 @@ def _create_media_from_draft(draft: dict, user_id: int, profile_id: str) -> dict
 
 def _attach_medias(
     head_id: int, draft_ids: list[str], drafts_by_id: dict, materialized: dict,
-    fresh: list, user_id: int, profile_id: str,
+    fresh: dict, user_id: int, profile_id: str,
 ) -> list[dict]:
-    """Materializa (uma vez por rascunho) e vincula as mídias ao post."""
+    """Consome (uma vez por rascunho), materializa e vincula as mídias ao post.
+
+    `fresh` mapeia rascunho -> mídia criada por este plano (None entre o claim
+    e a criação) pro rollback saber o que desfazer."""
     medias = []
     for order, draft_id in enumerate(draft_ids):
         media = materialized.get(draft_id)
         if not media:
+            if not _claim_draft(draft_id, user_id, profile_id):
+                raise _DraftUnavailable(draft_id)
+            fresh[draft_id] = None
             media = _create_media_from_draft(drafts_by_id[draft_id], user_id, profile_id)
             materialized[draft_id] = media
-            fresh.append((draft_id, media))
+            fresh[draft_id] = media
         supabase.table("posts_medias").insert({
             "post_id": head_id, "media_id": media["id"], "display_order": order,
         }).execute()
@@ -453,14 +459,49 @@ def _attach_medias(
     return medias
 
 
-def _rollback_plan(head_id: int, fresh: list, materialized: dict) -> None:
-    """Desfaz uma rede que falhou: post, vínculos e as mídias criadas só por
-    ela. Nunca apaga objeto do Storage (o rascunho continua utilizável)."""
+def _block_reason(exc: Exception) -> str:
+    if isinstance(exc, InternalApiError):
+        return "Não foi possível agendar esta rede agora."
+    if isinstance(exc, _DraftUnavailable):
+        return "Um rascunho de mídia já foi usado. Envie-o novamente."
+    return "Não foi possível preparar a mídia desta rede. Tente novamente."
+
+
+class _DraftUnavailable(Exception):
+    """Rascunho já consumido por outra requisição (claim afetou 0 linhas)."""
+
+
+def _claim_draft(draft_id: str, user_id: int, profile_id: str) -> bool:
+    """ready -> consumed condicional e atômico: só uma requisição vence."""
+    result = (
+        supabase.table("temporary_media_uploads")
+        .update({"status": "consumed", "consumed_at": datetime.now(timezone.utc).isoformat()})
+        .eq("id", draft_id).eq("user_id", user_id).eq("profile_id", profile_id)
+        .eq("status", "ready")
+        .execute()
+    )
+    return bool(result.data)
+
+
+def _release_draft(draft_id: str, user_id: int, profile_id: str) -> None:
+    supabase.table("temporary_media_uploads").update(
+        {"status": "ready", "consumed_at": None}
+    ).eq("id", draft_id).eq("user_id", user_id).eq("profile_id", profile_id).eq("status", "consumed").execute()
+
+
+def _rollback_plan(
+    head_id: int, fresh: dict, materialized: dict, user_id: int, profile_id: str,
+) -> None:
+    """Desfaz uma rede que falhou: post, vínculos, as mídias criadas só por
+    ela e o claim dos rascunhos (voltam a `ready`). Nunca apaga objeto do
+    Storage (o rascunho continua utilizável pelas próximas redes)."""
     try:
-        for draft_id, media in fresh:
+        for draft_id, media in fresh.items():
             materialized.pop(draft_id, None)
-            supabase.table("posts_medias").delete().eq("media_id", media["id"]).execute()
-            supabase.table("medias").delete().eq("id", media["id"]).execute()
+            if media:
+                supabase.table("posts_medias").delete().eq("media_id", media["id"]).execute()
+                supabase.table("medias").delete().eq("id", media["id"]).execute()
+            _release_draft(draft_id, user_id, profile_id)
         _delete_thread_cascade(head_id)
     except Exception:
         logger.error("Falha ao desfazer post %s após erro no lote", head_id, exc_info=True)
@@ -833,7 +874,7 @@ async def create_posts_batch(
     blocked = [plan for plan in plans if plan["mode"] == "blocked"]
     for plan in deliverable:
         head = _create_thread(user_id, plan["texts"], plan["network"], profile_id, group_id)
-        fresh: list[tuple[str, dict]] = []  # mídias criadas só por este plano
+        fresh: dict[str, dict | None] = {}  # rascunhos consumidos só por este plano
         try:
             _set_post_products(head["id"], body.product_ids)
             medias = _attach_medias(
@@ -854,17 +895,13 @@ async def create_posts_batch(
                 profile_id=profile_id,
             )
         except Exception as exc:
-            if not isinstance(exc, InternalApiError):
+            if not isinstance(exc, (InternalApiError, _DraftUnavailable)):
                 logger.warning("Falha ao montar post da rede %s", plan["network"], exc_info=True)
-            _rollback_plan(head["id"], fresh, materialized)
+            _rollback_plan(head["id"], fresh, materialized, user_id, profile_id)
             blocked.append({
                 **plan,
                 "mode": "blocked",
-                "blocked_reason": (
-                    "Não foi possível agendar esta rede agora."
-                    if isinstance(exc, InternalApiError)
-                    else "Não foi possível preparar a mídia desta rede. Tente novamente."
-                ),
+                "blocked_reason": _block_reason(exc),
             })
             continue
         created.append({
@@ -875,10 +912,6 @@ async def create_posts_batch(
             "medias": medias,
         })
 
-    if materialized:
-        supabase.table("temporary_media_uploads").update({
-            "status": "consumed", "consumed_at": datetime.now(timezone.utc).isoformat(),
-        }).in_("id", list(materialized)).eq("user_id", user_id).eq("profile_id", profile_id).eq("status", "ready").execute()
     return {"group_id": group_id if created else None, "created": created, "blocked": blocked}
 
 

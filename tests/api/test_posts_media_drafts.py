@@ -263,3 +263,66 @@ def test_batch_job_failure_keeps_media_for_next_network(fake_db, monkeypatch):
     assert len(db.tables["medias"]) == 1
     assert [r["post_id"] for r in db.tables["posts_medias"]] == [payload["created"][0]["post_id"]]
     assert db.tables["temporary_media_uploads"][0]["status"] == "consumed"
+
+
+class _RecordingDB:
+    """Registra a ordem de update em rascunhos e insert em medias."""
+
+    def __init__(self, inner, events):
+        self._inner, self._events = inner, events
+        self.storage = inner.storage
+
+    @property
+    def tables(self):
+        return self._inner.tables
+
+    def table(self, name):
+        query = self._inner.table(name)
+        if name == "temporary_media_uploads":
+            real_update = query.update
+            query.update = lambda payload: (self._events.append("claim"), real_update(payload))[1]
+        if name == "medias":
+            real_insert = query.insert
+            query.insert = lambda payload: (self._events.append("media"), real_insert(payload))[1]
+        return query
+
+
+def test_batch_claims_draft_before_materializing_media(fake_db, monkeypatch):
+    client, db = _batch_client(fake_db, monkeypatch)
+    events = []
+    monkeypatch.setattr(posts_module, "supabase", _RecordingDB(db, events))
+
+    assert client.post("/posts/batch", json=_batch_body()).status_code == 201
+
+    assert events[:2] == ["claim", "media"]
+    assert events.count("media") == 1
+
+
+def test_batch_blocks_network_when_draft_was_consumed_concurrently(fake_db, monkeypatch):
+    client, db = _batch_client(fake_db, monkeypatch)
+    stale = dict(db.tables["temporary_media_uploads"][0])
+    db.tables["temporary_media_uploads"][0]["status"] = "consumed"  # outra requisição ganhou
+    monkeypatch.setattr(posts_module, "_get_owned_ready_drafts", lambda *_a: [stale])
+
+    payload = client.post("/posts/batch", json=_batch_body()).json()
+
+    assert payload["created"] == []
+    assert {b["network"] for b in payload["blocked"]} == {"threads", "x"}
+    assert db.tables.get("medias", []) == []
+    assert db.tables.get("posts", []) == []
+    assert db.tables.get("posts_medias", []) == []
+
+
+def test_batch_returns_draft_to_ready_when_every_network_fails(fake_db, monkeypatch):
+    client, db = _batch_client(fake_db, monkeypatch)
+
+    async def down(**_kwargs):
+        raise posts_module.InternalApiError("agendador fora")
+
+    monkeypatch.setattr(posts_module, "create_scheduler_job", down)
+
+    payload = client.post("/posts/batch", json=_batch_body()).json()
+
+    assert payload["created"] == []
+    assert db.tables["temporary_media_uploads"][0]["status"] == "ready"
+    assert db.tables.get("medias", []) == []
