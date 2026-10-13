@@ -7,6 +7,7 @@ import { credentialsApi } from "../api/credentials"
 import { ApiError } from "../lib/api"
 import {
   NETWORK_RULES,
+  isNetworkDisabled,
   mediaKind,
   planVariants,
   readMediaInfo,
@@ -636,6 +637,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   }
 
   const trimmedTexts = texts.map((t) => t.trim()).filter(Boolean)
+  const activeNetworks = networks.filter((n) => !isNetworkDisabled(n))
 
   // Data específica: dia + hora em America/Sao_Paulo; precisa ser futura.
   const scheduledAt = runDay && runTime ? new Date(`${runDay}T${runTime}:00${SP_OFFSET}`) : null
@@ -654,7 +656,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
               : null
 
   // Conjunto mínimo de textos pras redes marcadas: abas só com 2+ faixas.
-  const plans = planVariants(networks)
+  const plans = planVariants(activeNetworks)
   const hasTabs = !post && plans.length > 1
   const variantValue = (i: number) => (i === 0 ? texts[0] : (variantTexts[plans[i].key] ?? texts[0]))
   const setVariantValue = (i: number, value: string) =>
@@ -676,7 +678,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     ? post.medias.map((m) => ({ name: m.file_name, size: m.size, kind: m.type === "VIDEO" ? "video" : mediaKind(m.file_name) }))
     : pendingFiles.map((p) => p.info)
   // Seletor: máximo absoluto por tipo entre as redes marcadas.
-  const limits = pickLimits(networks.map((n) => NETWORK_RULES[n]))
+  const limits = pickLimits(activeNetworks.map((n) => NETWORK_RULES[n]))
   const draftFor = (n: PostNetwork) => {
     const t = textsFor(n)
     return { texts: t.length ? t : [""], media, productCount: selectedProductIds.length }
@@ -728,10 +730,10 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
       return [n, { connected: loaded ? functional : undefined, connectionReason, errors }]
     }),
   ) as Record<PostNetwork, NetworkState>
-  const deliverableNetworks = networks.filter((n) => compositionPlans[n].mode !== "blocked")
+  const deliverableNetworks = activeNetworks.filter((n) => compositionPlans[n].mode !== "blocked")
   const trayItems = pendingFiles.flatMap((p, index) => (p.info.kind === "video" ? [] : [{ file: p.file, index }]))
   const showTray = !post && (trayItems.length >= 2 || trayOpen)
-  const trayNotes = trayItems.length < 2 ? [] : networks.flatMap((n) => {
+  const trayNotes = trayItems.length < 2 ? [] : activeNetworks.flatMap((n) => {
     const plan = compositionPlans[n]
     if (plan.mode === "blocked") return [`${NETWORK_RULES[n].label}: bloqueada`]
     if (plan.mode === "text_only") return [`${NETWORK_RULES[n].label}: só texto`]
@@ -739,8 +741,10 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     return []
   })
 
-  const toggleNetwork = (n: PostNetwork) =>
+  const toggleNetwork = (n: PostNetwork) => {
+    if (isNetworkDisabled(n)) return
     setNetworks((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]))
+  }
 
   const canSubmit =
     !loading &&
@@ -755,10 +759,10 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     e.preventDefault()
     if (!canSubmit) return
     onSave(
-      Object.fromEntries(networks.map((n) => [n, textsFor(n)])),
+      Object.fromEntries(activeNetworks.map((n) => [n, textsFor(n)])),
       selectedProductIds,
       buildSchedule(),
-      networks,
+      activeNetworks,
       pendingFiles.map((p) => p.file),
       when === "now",
     )
@@ -769,7 +773,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
           <span style={labelStyle}>{post ? "Rede social" : "Redes sociais * (uma ou mais)"}</span>
-          <NetworkPicker selected={networks} states={states} onToggle={toggleNetwork} readOnly={!!post} />
+          <NetworkPicker selected={activeNetworks} states={states} onToggle={toggleNetwork} readOnly={!!post} />
         </div>
 
         <div>
@@ -1047,13 +1051,13 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
         </div>
 
         <NetworkLimitsPanel
-          selected={networks}
+          selected={activeNetworks}
           textFor={(n) => textsFor(n)[0] ?? ""}
           mediaCount={(n) => (post ? media.length : compositionPlans[n].media.length)}
           issues={issues}
         />
 
-        {!post && <MediaSummary networks={networks} plans={compositionPlans} />}
+        {!post && <MediaSummary networks={activeNetworks} plans={compositionPlans} />}
 
         {!post && (
           <Button type="button" variant="ghost" icon="x" onClick={clearComposer} style={{ alignSelf: "flex-start" }}>
@@ -1167,7 +1171,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           </ul>
         )}
 
-        {!post && networks.length === 0 && (
+        {!post && activeNetworks.length === 0 && (
           <p style={{ ...metaTextStyle, margin: 0 }}>Escolha ao menos uma rede para publicar.</p>
         )}
 
@@ -1176,7 +1180,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
             Cancelar
           </Button>
           <Button type="submit" variant="primary" disabled={!canSubmit}>
-            {loading ? "Salvando..." : post ? "Salvar" : networks.length > 1 ? `Criar em ${networks.length} redes` : "Criar"}
+            {loading ? "Salvando..." : post ? "Salvar" : activeNetworks.length > 1 ? `Criar em ${activeNetworks.length} redes` : "Criar"}
           </Button>
         </div>
       </form>

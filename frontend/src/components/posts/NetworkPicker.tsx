@@ -3,7 +3,7 @@
 // e textos de erro vêm de lib/networkLimits.ts.
 import type { ReactNode } from "react"
 import type { PostNetwork } from "../../api/posts"
-import { NETWORK_RULES, textLength, type Issue } from "../../lib/networkLimits"
+import { NETWORK_RULES, isNetworkDisabled, textLength, type Issue } from "../../lib/networkLimits"
 
 // Logos simplificadas, monocromáticas (currentColor) — sem asset externo.
 const LOGOS: Record<PostNetwork | "kwai", ReactNode> = {
@@ -72,6 +72,7 @@ interface SquareProps {
 
 function NetworkSquare({ network, label, pressed, invalid, disabledReason, onClick }: SquareProps) {
   const disabled = !!disabledReason
+  const disabledLabel = network === "kwai" ? "em breve" : disabled && network === "x" ? "em breve · plano pago" : undefined
   const border = invalid ? "var(--negative)" : pressed ? "var(--accent)" : "var(--border-hairline)"
   return (
     <button
@@ -103,8 +104,8 @@ function NetworkSquare({ network, label, pressed, invalid, disabledReason, onCli
     >
       <NetworkLogo network={network} />
       <span style={{ textAlign: "center" }}>{label}</span>
-      {network === "kwai" && (
-        <span style={{ position: "absolute", top: 4, right: 6, fontSize: 9, color: "var(--text-muted)" }}>em breve</span>
+      {disabledLabel && (
+        <span style={{ position: "absolute", top: 4, right: 6, fontSize: 9, color: "var(--text-muted)" }}>{disabledLabel}</span>
       )}
     </button>
   )
@@ -128,8 +129,9 @@ export function NetworkPicker({ selected, states, onToggle, readOnly }: NetworkP
         style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))", gap: 8 }}
       >
         {PICKER_NETWORKS.map((n) => {
-          const pressed = selected.includes(n)
-          const st = states[n]
+          const disabledByPlan = isNetworkDisabled(n)
+          const pressed = !disabledByPlan && selected.includes(n)
+          const st = disabledByPlan ? { ...states[n], connected: false as const, connectionReason: disabledByPlan } : states[n]
           let reason: string | undefined
           if (readOnly) reason = "a rede de um post existente não muda"
           else if (st.connected !== true && !pressed) reason = st.connectionReason ?? "verificando conexão"

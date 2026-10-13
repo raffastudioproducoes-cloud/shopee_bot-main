@@ -240,10 +240,12 @@ Detalhes, contratos e critérios de aceite:
   `day_of_week` legado continua válido.
 - **Entrega**: `scheduler/media_delivery.py` transforma `storage://bucket/chave` em URL assinada
   (1 h) para Threads, Facebook e Instagram; mídia legada em disco segue pelo Cloudinary. O X
-  envia foto única por `/2/media/upload` (exige `media.write`). O Instagram espera o container
-  chegar a `FINISHED`, com tempo limite. TikTok foto segue bloqueado até Creator Info + URL
-  verificada.
-- **Pendências**: escopo OAuth do X não persistido; Graph API do Facebook fixa em `v18.0`;
+  permanece no código, mas `DISABLED_NETWORKS` bloqueia criação/lote e faz o scheduler pular sem
+  chamar a API até virar plano pago. Vídeo é somente MP4 neste app; `.mov` é bloqueado. O Instagram
+  espera o container chegar a `FINISHED`, com tempo limite. TikTok foto segue bloqueado até Creator
+  Info + URL verificada; TikTok publica somente vídeo com descrição/link.
+- **Pendências**: reabrir X no plano pago e validar `media.write`; Graph API do Facebook/Instagram
+  está em `v26.0` (`apis/meta_version.py`);
   `display_order` segue a ordem dos rascunhos sem contrato por rede; o scheduler depende de
   `SUPABASE_URL`/`SUPABASE_KEY` para assinar URL.
 

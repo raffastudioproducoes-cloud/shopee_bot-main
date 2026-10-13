@@ -19,6 +19,7 @@ import { ConnectionLight } from "../components/ui/ConnectionLight"
 import { Icon } from "../components/ui/Icon"
 import { Select } from "../components/ui/Select"
 import { Modal } from "../components/ui/Modal"
+import { isNetworkDisabled } from "../lib/networkLimits"
 
 const AdminOverrides = lazy(() => import("../components/credentials/AdminOverrides").then(({ AdminOverrides }) => ({ default: AdminOverrides })))
 
@@ -834,6 +835,7 @@ function XCredentialCard({
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
   const connected = status.connected
+  const disabledReason = isNetworkDisabled("x")
   const [consentOpen, setConsentOpen] = useState(false)
 
   const authorizeMutation = useMutation({
@@ -878,7 +880,7 @@ function XCredentialCard({
           <Button
             type="button"
             variant="primary"
-            disabled={authorizeMutation.isPending}
+            disabled={!!disabledReason || authorizeMutation.isPending}
             onClick={() => setConsentOpen(true)}
           >
             {authorizeMutation.isPending ? "Conectando..." : connected ? "Reconectar X" : "Conectar X"}
@@ -895,6 +897,12 @@ function XCredentialCard({
             </Button>
           )}
         </div>
+
+        {disabledReason && (
+          <p role="status" style={{ margin: 0, color: "var(--amber-300)", font: "var(--text-role-body)" }}>
+            Plano pago em breve; publicação no X pausada.
+          </p>
+        )}
 
         {connected && status.missing_scopes?.includes("media.write") && (
           <p role="alert" style={{ margin: 0, color: "var(--amber-300)", font: "var(--text-role-body)" }}>

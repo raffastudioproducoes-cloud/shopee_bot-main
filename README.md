@@ -55,7 +55,7 @@ Banco: **Supabase** (Postgres gerenciado).
 > (`LEGACY_PANEL_ENABLED=false`) e o painel principal é o React (`frontend/`). Ver
 > [Roadmap da migração](#roadmap-da-migração).
 
-**Versão atual**: 2.0.0 (arquivo `VERSION`). As mudanças da branch de integração
+**Versão atual**: 2.3.0 (arquivo `VERSION`). As mudanças da branch de integração
 (multi-perfil completo, endurecimento de segurança e CI) estão em `CHANGELOG.md` na
 seção "Não lançado" e só viram versão no merge para `main`.
 

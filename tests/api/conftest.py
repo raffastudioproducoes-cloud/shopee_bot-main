@@ -44,6 +44,13 @@ def _init_database():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _enable_all_networks_in_tests(monkeypatch):
+    from api import network_limits
+
+    monkeypatch.setattr(network_limits, "DISABLED_NETWORKS", {})
+
+
 class FakeQueryBuilder:
     """Fake mínimo de query builder do Supabase que APLICA os filtros
     `.eq()` de verdade contra uma lista de linhas em memória — usado para

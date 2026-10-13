@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import requests
 
 from shopee_bot.api import x_oauth
+from shopee_bot.api.network_limits import is_network_disabled
 from shopee_bot.apis import x as XAPI
 from shopee_bot.clogging import logger
 from shopee_bot.database import schedulers, x_credentials, posts
@@ -95,6 +96,12 @@ def bot_post_x(job_id):
     user_id = job_data["user_id"]
     post_id = job_data["post_id"]
     profile_id = require_profile_id(job_data)
+    disabled_reason = is_network_disabled("x")
+    if disabled_reason:
+        logger.warning(
+            f"job #{job_id} for user {user_id} skipped X publish: {disabled_reason}"
+        )
+        return
 
     user_data = x_credentials.get_by_user_id(user_id, profile_id)
     username = user_data["username"]

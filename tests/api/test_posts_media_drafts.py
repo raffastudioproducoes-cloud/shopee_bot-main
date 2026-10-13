@@ -273,6 +273,33 @@ def test_preview_is_read_only_and_shows_per_network_mode(fake_db, monkeypatch):
     assert db.tables.get("medias", []) == []
 
 
+def test_preview_and_batch_block_disabled_x_without_blocking_threads(fake_db, monkeypatch):
+    from api import network_limits
+
+    monkeypatch.setitem(
+        network_limits.DISABLED_NETWORKS,
+        "x",
+        "X estará disponível em um plano pago em breve",
+    )
+    client, db = _batch_client(fake_db, monkeypatch)
+
+    preview = client.post("/posts/preview", json=_batch_body())
+    assert preview.status_code == 200
+    plans = {plan["network"]: plan for plan in preview.json()["plans"]}
+    assert plans["threads"]["mode"] == "single_image"
+    assert plans["x"]["mode"] == "blocked"
+    assert plans["x"]["blocked_reason"] == "X estará disponível em um plano pago em breve"
+
+    batch = client.post("/posts/batch", json=_batch_body())
+    payload = batch.json()
+    assert batch.status_code == 201
+    assert [row["network"] for row in payload["created"]] == ["threads"]
+    assert [(row["network"], row["blocked_reason"]) for row in payload["blocked"]] == [
+        ("x", "X estará disponível em um plano pago em breve")
+    ]
+    assert [row["network"] for row in db.tables["posts"]] == ["threads"]
+
+
 def test_batch_creates_all_deliverable_networks_with_one_server_group(fake_db, monkeypatch):
     client, db = _batch_client(fake_db, monkeypatch)
 

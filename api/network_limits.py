@@ -16,6 +16,13 @@ import re
 MB = 1024 * 1024
 GB = 1024 * MB
 
+DISABLED_NETWORKS = {"x": "X estará disponível em um plano pago em breve"}
+
+
+def is_network_disabled(name: str) -> str | None:
+    return DISABLED_NETWORKS.get(name)
+
+
 NETWORK_RULES = {
     "threads": {
         "label": "Threads", "max_chars": 500, "count": "codepoints", "thread_parts": True,

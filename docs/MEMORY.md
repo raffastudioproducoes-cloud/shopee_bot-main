@@ -93,13 +93,14 @@ Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via
 
 ## Atualização 2026-10-12 — publicação de mídia e agendamento (publicado em `staging` e `main`)
 
-Estado: versão **2.2.0**; `staging` e `main` publicados em 2026-10-12/13; migrações 046, 047 e 048 
+Estado: versão **2.3.0**; `staging` e `main` publicados em 2026-10-12/13; migrações 046, 047 e 048
 aplicadas no Supabase. Testes reais em staging feitos em 2026-10-13 (ver atualização abaixo).
 
 - **Capacidades reais por rede** (`api/network_limits.py`, espelhado em
   `frontend/src/lib/networkLimits.ts`): `platform_modes` é o que a rede aceita;
   `delivered_modes` é o que o publicador realmente entrega, e o planejador só devolve modo
-  entregue. Threads: nenhum, foto única, carrossel, vídeo e só texto. X: nenhum, foto única e só
+  entregue. Threads: nenhum, foto única, carrossel, vídeo e só texto. X está desabilitado por
+  `DISABLED_NETWORKS` até virar plano pago; quando a flag for removida, mantém foto única e só
   texto (sem carrossel nem vídeo). Facebook: nenhum, foto única, carrossel (álbum), vídeo e só
   texto. Instagram: foto única, carrossel e vídeo (Reels), sem texto puro. TikTok: somente
   vídeo; foto bloqueada.
@@ -116,10 +117,12 @@ aplicadas no Supabase. Testes reais em staging feitos em 2026-10-13 (ver atualiz
   `schedulers.days_of_week` (1 a 7 valores de 0 a 6, validada no banco e na API). Jobs legados com
   só `day_of_week` seguem válidos; a migração copia o dia único dos cron existentes.
 - **Publicadores**: Threads, Facebook (foto, álbum, vídeo), Instagram (foto, carrossel, Reels) e
-  X (foto única com `media.write`) entregues no código. Facebook, Instagram e Threads recebem URL
+  X (foto única com `media.write`) permanecem no código, mas X está pausado até o plano pago.
+  Facebook, Instagram e Threads recebem URL
   assinada (1 h, `scheduler/media_delivery.py`) do bucket privado; mídia legada segue pelo
-  Cloudinary. **TikTok foto segue bloqueado** até haver Creator Info no fluxo do usuário e URL em
-  domínio/prefixo verificado; TikTok vídeo não mudou.
+  Cloudinary. Vídeo é somente MP4 neste app; `.mov` é bloqueado. **TikTok foto segue bloqueado**
+  até haver Creator Info no fluxo do usuário e URL em domínio/prefixo verificado; TikTok publica
+  somente vídeo com descrição/link.
 - **Evidência local (2026-10-12)**: `tests/api` 536 passed, `tests/scheduler` 75 passed,
   `tests/database` 3 passed, testes node do frontend 10 passed, `npm run build` ok,
   `git diff --check` limpo, sem segredos nos commits novos. Sem teste real em nenhuma rede.

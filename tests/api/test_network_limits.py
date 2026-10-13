@@ -111,6 +111,23 @@ def test_create_rejects_text_over_network_limit(client):
     assert db.tables["posts"] == []
 
 
+def test_create_rejects_disabled_network(client, monkeypatch):
+    from api import network_limits
+
+    monkeypatch.setitem(
+        network_limits.DISABLED_NETWORKS,
+        "x",
+        "X estará disponível em um plano pago em breve",
+    )
+    c, db = client
+
+    res = c.post("/posts", json={"texts": ["oi"], "schedule": SCHEDULE, "network": "x"})
+
+    assert res.status_code == 422
+    assert res.json()["detail"] == "X estará disponível em um plano pago em breve"
+    assert db.tables["posts"] == []
+
+
 def test_create_reuses_media_without_reupload(client):
     c, db = client
     res = c.post("/posts", json={"texts": ["oi"], "schedule": SCHEDULE, "network": "x", "media_ids": [5]})

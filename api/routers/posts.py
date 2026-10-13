@@ -44,7 +44,7 @@ from ..profiles import scope_account, scope_owner
 from ..audit_log import log_action
 from ..database import supabase
 from ..utils.log_sanitizer import sanitize_log_data
-from ..network_limits import validate_post, errors_detail
+from ..network_limits import validate_post, errors_detail, is_network_disabled
 from ..media_composition import plan_network_composition
 from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload
 from .. import x_oauth
@@ -426,6 +426,12 @@ def _check_network_rules(
         raise HTTPException(status_code=422, detail=detail)
 
 
+def _check_network_enabled(network: str) -> None:
+    reason = is_network_disabled(network)
+    if reason:
+        raise HTTPException(status_code=422, detail=reason)
+
+
 def _get_owned_medias(user_id: int, media_ids: list[int], profile_id: str | None) -> list[dict]:
     """Mídias reaproveitadas na criação multi-rede: 400 se alguma não é do
     usuário/perfil (IDOR)."""
@@ -801,6 +807,7 @@ async def create_post(
     publicação. Se o agendamento falhar, desfaz a criação inteira —
     melhor não criar do que criar um post que nunca vai publicar."""
     profile_id = _require_profile_id(profile_id)
+    _check_network_enabled(body.network)
     _validate_product_ids(user_id, body.product_ids)
     medias = _get_owned_medias(user_id, body.media_ids, profile_id)
     _check_network_rules(body.network, body.texts, medias, len(body.product_ids))
@@ -869,6 +876,18 @@ def _preview_batch(
         for draft in drafts
     ]
     for composition in body.compositions:
+        disabled_reason = is_network_disabled(composition.network)
+        if disabled_reason:
+            plans.append({
+                "network": composition.network,
+                "texts": composition.texts,
+                "mode": "blocked",
+                "media_draft_ids": [],
+                "warnings": [],
+                "blocked_reason": disabled_reason,
+                "dropped": [],
+            })
+            continue
         plan = plan_network_composition(
             composition.network,
             composition.texts,

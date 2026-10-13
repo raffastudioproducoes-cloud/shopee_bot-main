@@ -20,12 +20,12 @@ implementadas localmente em `staging` (sem push); Tarefa 7 parcial.
   (foto única). Evidência: `tests/api` 536, `tests/scheduler` 75, node 10, build ok.
 - [ ] Aplicar migrações 046 e 047 no Supabase de staging (ação humana autorizada).
 - [ ] Validação humana em staging por rede e modo; registrar só o que for observado.
-- [ ] Habilitar `media.write` no portal do X e reconectar a conta de teste; persistir o escopo
-  concedido.
+- [ ] X está desabilitado até virar plano pago; quando reabrir, validar `media.write` e reconectar
+  a conta de teste se necessário.
 - [ ] TikTok foto: Creator Info no fluxo do usuário e URL em domínio/prefixo verificado.
-- [ ] Revisar versão da API do Facebook (`v18.0`), garantir ordem de mídia por contrato e
+- [x] Graph API do Facebook/Instagram revisada para `v26.0`; ainda garantir ordem de mídia por contrato e
   `SUPABASE_URL`/`SUPABASE_KEY` no scheduler do staging.
-- [ ] Mudar `VERSION` para `2.2.0` e fazer o push final só depois de tudo validado.
+- [x] Mudar `VERSION` para `2.3.0` e fazer o push final só depois de tudo validado.
 
 ## Atualização 2026-10-13 — mídia por rede em staging
 
@@ -150,7 +150,7 @@ app do Instagram (`api/facebook_oauth.py`). Evidência: `git log` (`89e542b`, `2
 | Rede | Wrapper de publicação | Registrado no scheduler | OAuth de app único | Usuário conectado (token real) | Status |
 | --- | --- | --- | --- | --- | --- |
 | Threads | `scheduler/bot_post.py` | Sim | Sim | **Sim** | Publicação em produção não confirmada nesta verificação |
-| X | `scheduler/bot_post_x.py` | Sim | Sim | Não | **Bloqueada** — aguardando usuário concluir "Conectar" |
+| X | `scheduler/bot_post_x.py` | Sim | Sim | Não | **Desabilitada** — em breve no plano pago; scheduler pula sem chamar a API |
 | Instagram | `scheduler/bot_post_instagram.py` | Sim | Sim | Não | **Bloqueada** — idem |
 | Facebook | `scheduler/bot_post_facebook.py` | Sim | Sim (migrado) | Não confirmado | **Bloqueada** — nunca validado com sucesso |
 | TikTok | `scheduler/bot_post_tiktok.py` | Sim | Sim; domínio/prefixo e redirect staging validados | **Sim no staging** | Conexão/autorização confirmada em staging; publicação real ainda depende de teste/post e política Direct Post |
