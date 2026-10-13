@@ -139,3 +139,28 @@ def test_batch_creates_all_deliverable_networks_with_one_server_group(fake_db, m
     assert {row["network"] for row in payload["created"]} == {"threads", "x"}
     assert len(db.tables["medias"]) == 1
     assert db.tables["temporary_media_uploads"][0]["status"] == "consumed"
+
+
+def test_batch_persists_display_order_in_received_draft_order(fake_db, monkeypatch):
+    client, db = _batch_client(fake_db, monkeypatch)
+    expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    for name in ("zzz", "aaa", "mmm"):
+        db.tables["temporary_media_uploads"].append({
+            "id": f"d-{name}", "user_id": 42, "profile_id": "profile-a", "status": "ready",
+            "storage_bucket": "post-media", "storage_key": f"drafts/{name}.jpg",
+            "file_name": f"{name}.jpg", "size_bytes": 12, "media_type": "IMAGE",
+            "expires_at": expires,
+        })
+    body = {
+        "compositions": [{"network": "threads", "texts": ["copy"]}],
+        "draft_media_ids": ["d-zzz", "d-aaa", "d-mmm"],
+        "schedule": {"trigger": "date", "run_date": "2030-01-01T10:00:00"},
+    }
+
+    response = client.post("/posts/batch", json=body)
+
+    assert response.status_code == 201
+    names = {m["id"]: m["file_name"] for m in db.tables["medias"]}
+    links = sorted(db.tables["posts_medias"], key=lambda r: r["display_order"])
+    assert [r["display_order"] for r in links] == [0, 1, 2]
+    assert [names[r["media_id"]] for r in links] == ["zzz.jpg", "aaa.jpg", "mmm.jpg"]
