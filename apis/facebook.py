@@ -16,8 +16,9 @@ import json
 import time
 import requests
 from shopee_bot.utils import retry_with_backoff
+from shopee_bot.apis.meta_version import GRAPH_BASE
 
-API_BASE = "https://graph.facebook.com/v18.0"
+API_BASE = GRAPH_BASE
 
 def _app_access_token(app_id, secret, _cache={}):
     """Obtém App Access Token via OAuth client_credentials.

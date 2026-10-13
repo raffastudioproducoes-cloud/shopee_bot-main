@@ -12,6 +12,7 @@ from api.crypto import decrypt
 from api.main import app
 from api.routers import credentials as cred
 from api.routers.auth import get_current_user_id
+from apis.meta_version import GRAPH_VERSION
 from shopee_bot.apis import instagram as igapi
 from shopee_bot.apis import tiktok as ttapi
 from shopee_bot.apis import x as xapi
@@ -124,8 +125,8 @@ def test_x_403_mentions_read_and_write(monkeypatch):
 # -- Instagram ----------------------------------------------------------------
 def test_instagram_valid_user_token_uses_user_token_and_v19(monkeypatch):
     fake = _install(monkeypatch, igapi, [
-        ("GET", "/v19.0/me", [Resp(200, {"id": "10"})]),
-        ("GET", "/v19.0/178", [Resp(200, {"id": "178", "username": "ig"})]),
+        ("GET", f"/{GRAPH_VERSION}/me", [Resp(200, {"id": "10"})]),
+        ("GET", f"/{GRAPH_VERSION}/178", [Resp(200, {"id": "178", "username": "ig"})]),
     ])
     result = igapi.validate_user_token(USER_TOKEN, "178")
     assert result["ig_user_id"] == "178"
@@ -135,7 +136,7 @@ def test_instagram_valid_user_token_uses_user_token_and_v19(monkeypatch):
 
 def test_instagram_expired_token_asks_reconnect_without_leak(monkeypatch):
     err = {"error": {"message": f"Error validating access token {USER_TOKEN}", "code": 190}}
-    _install(monkeypatch, igapi, [("GET", "/v19.0/me", [Resp(400, err)])])
+    _install(monkeypatch, igapi, [("GET", f"/{GRAPH_VERSION}/me", [Resp(400, err)])])
     with pytest.raises(ConnectionTestError) as e:
         igapi.validate_user_token(USER_TOKEN, "178")
     assert "expirado" in str(e.value) and "reconecte" in str(e.value)
@@ -144,8 +145,8 @@ def test_instagram_expired_token_asks_reconnect_without_leak(monkeypatch):
 
 def test_instagram_without_saved_id_and_no_business_page(monkeypatch):
     _install(monkeypatch, igapi, [
-        ("GET", "/v19.0/me/accounts", [Resp(200, {"data": [{"id": "p1"}]})]),
-        ("GET", "/v19.0/me", [Resp(200, {"id": "10"})]),
+        ("GET", f"/{GRAPH_VERSION}/me/accounts", [Resp(200, {"data": [{"id": "p1"}]})]),
+        ("GET", f"/{GRAPH_VERSION}/me", [Resp(200, {"id": "10"})]),
     ])
     with pytest.raises(ConnectionTestError) as e:
         igapi.validate_user_token(USER_TOKEN, None)

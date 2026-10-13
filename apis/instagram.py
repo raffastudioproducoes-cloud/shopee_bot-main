@@ -44,9 +44,10 @@ Recomendação do README:
 import time
 import requests
 from shopee_bot.utils import ConnectionTestError, retry_with_backoff
+from shopee_bot.apis.meta_version import GRAPH_BASE
 
-# Mesma versão do OAuth (api/instagram_oauth.py::API_VERSION).
-API_BASE = "https://graph.facebook.com/v19.0"
+# Mesma versão do OAuth (apis/meta_version.py).
+API_BASE = GRAPH_BASE
 
 # Tokens: app_id = Instagram App ID, secret = Instagram App Secret.
 # user_access_token salvo em env ou em coluna extra da tabela futura.

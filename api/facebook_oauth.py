@@ -40,10 +40,12 @@ from urllib.parse import quote
 
 import httpx
 
+from apis.meta_version import GRAPH_URL, GRAPH_VERSION
+
 from . import instagram_oauth  # reaproveita APP_ID/SECRET — mesmo app Meta
 
-API_URL = "https://graph.facebook.com"
-API_VERSION = "v19.0"
+API_URL = GRAPH_URL
+API_VERSION = GRAPH_VERSION
 CALLBACK_URL = os.environ.get("FACEBOOK_CALLBACK_URL")
 # Meta descontinuou o produto clássico "Facebook Login" (scope= direto)
 # pra apps novos — só "Login do Facebook para Empresas" (Business Login)
