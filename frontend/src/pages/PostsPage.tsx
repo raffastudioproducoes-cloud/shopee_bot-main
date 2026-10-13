@@ -1129,7 +1129,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                         aria-pressed={selected}
                         title={day.label}
                         onClick={() => setCronDays((days) => selected ? (days.length === 1 ? days : days.filter((value) => value !== day.value)) : [...days, day.value].sort((a, b) => a - b))}
-                        style={{ minHeight: 36, borderRadius: "var(--r-sm)", border: `1px solid ${selected ? "var(--accent)" : "var(--border-hairline)"}`, background: selected ? "rgba(129,189,250,.14)" : "var(--surface-inset)", color: selected ? "var(--accent)" : "var(--text-body)", cursor: "pointer", font: "var(--text-role-caption)" }}
+                        style={{ minHeight: 36, borderRadius: "var(--r-sm)", border: `1px solid ${selected ? "var(--accent)" : "var(--border-hairline)"}`, background: selected ? "var(--accent-tint)" : "var(--surface-inset)", color: selected ? "var(--accent)" : "var(--text-body)", cursor: "pointer", font: "var(--text-role-caption)" }}
                       >
                         {day.label.slice(0, 3)}
                       </button>

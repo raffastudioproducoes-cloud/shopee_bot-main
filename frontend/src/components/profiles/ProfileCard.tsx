@@ -37,7 +37,7 @@ export function ProfileCard({ profile, active, activating, onActivate, onEdit, o
         display: "flex",
         flexDirection: "column",
         gap: 8,
-        outline: active ? "2px solid var(--mint-400)" : undefined,
+        outline: active ? "2px solid var(--accent)" : undefined,
         outlineOffset: -2,
       }}
     >

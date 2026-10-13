@@ -75,7 +75,7 @@ export function TextVariantTabs({ plans, values, onChange, issues }: Props) {
                 padding: "6px 10px",
                 borderRadius: "var(--r-md)",
                 border: `${on || invalid ? 2 : 1}px solid ${invalid ? "var(--negative)" : on ? "var(--accent)" : "var(--border-hairline)"}`,
-                background: on ? "rgba(129,189,250,.14)" : "var(--surface-inset)",
+                background: on ? "var(--accent-tint)" : "var(--surface-inset)",
                 color: invalid ? "var(--negative)" : on ? "var(--accent)" : "var(--text-body)",
                 font: `${on ? "var(--fw-medium)" : "var(--fw-regular)"} var(--fs-caption)/1.3 var(--font-sans)`,
                 textAlign: "left",

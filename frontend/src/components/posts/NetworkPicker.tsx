@@ -94,7 +94,7 @@ function NetworkSquare({ network, label, pressed, invalid, disabledReason, onCli
         padding: 6,
         borderRadius: "var(--r-md)",
         border: `${pressed || invalid ? 2 : 1}px solid ${border}`,
-        background: pressed ? "rgba(129,189,250,.14)" : "var(--surface-inset)",
+        background: pressed ? "var(--accent-tint)" : "var(--surface-inset)",
         color: invalid ? "var(--negative)" : pressed ? "var(--accent)" : "var(--text-body)",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled && !pressed ? 0.45 : 1,

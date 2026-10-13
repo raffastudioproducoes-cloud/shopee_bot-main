@@ -38,7 +38,7 @@ const SIZES = {
 }
 
 const TONES: Record<string, { bg: string; fg: string; bd: string; fw: string }> = {
-  primary: { bg: "#E8F1FB", fg: "var(--black)", bd: "1px solid transparent", fw: "var(--fw-semibold)" },
+  primary: { bg: "var(--gradient-cta)", fg: "var(--black)", bd: "1px solid transparent", fw: "var(--fw-semibold)" },
   secondary: { bg: "rgba(255,255,255,.16)", fg: "var(--text-body)", bd: "1px solid transparent", fw: "var(--fw-medium)" },
   dark: { bg: "var(--black)", fg: "var(--white)", bd: "1px solid transparent", fw: "var(--fw-medium)" },
   mint: { bg: "var(--mint-400)", fg: "var(--black)", bd: "1px solid transparent", fw: "var(--fw-semibold)" },
