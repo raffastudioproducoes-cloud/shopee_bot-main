@@ -173,3 +173,79 @@ def test_exif_orientation_is_applied_before_exif_is_dropped():
     result = Image.open(BytesIO(out))
     assert result.size == (2, 4)
     assert 0x0112 not in result.getexif()
+
+
+# ── orçamento de pixels/quadros e exceções inesperadas ───────────────────────
+
+import struct
+import time
+import zlib
+
+
+def _gif_bytes(frame_count: int, size: tuple[int, int]) -> bytes:
+    a, b = Image.new("P", size, 0), Image.new("P", size, 0)
+    for im in (a, b):
+        im.putpalette([0, 0, 0, 255, 0, 0])
+    b.putpixel((0, 0), 1)
+    frames = [a if i % 2 == 0 else b for i in range(frame_count)]
+    buf = BytesIO()
+    frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:])
+    return buf.getvalue()
+
+
+def test_gif_with_total_pixel_budget_exceeded_is_rejected_fast():
+    raw = _gif_bytes(31, (1000, 1000))
+    assert len(raw) < 200_000
+
+    started = time.monotonic()
+    with pytest.raises(MediaSanitizerError, match="dimensões"):
+        sanitize_media_upload(raw, filename="a.gif", content_type="image/gif")
+    assert time.monotonic() - started < 2
+
+
+def test_animation_with_too_many_frames_is_rejected():
+    with pytest.raises(MediaSanitizerError, match="quadros"):
+        sanitize_media_upload(_gif_bytes(201, (2, 2)), filename="a.gif", content_type="image/gif")
+
+
+def test_small_animation_within_budget_passes():
+    media = sanitize_media_upload(_gif_bytes(10, (8, 8)), filename="a.gif", content_type="image/gif")
+    assert Image.open(BytesIO(media.content)).n_frames == 10
+
+
+def test_animated_webp_budget_is_checked_before_decoding():
+    frames = [Image.new("RGB", (3000, 3000), c) for c in ("red", "blue")] * 8
+    buf = BytesIO()
+    frames[0].save(buf, "WEBP", save_all=True, append_images=frames[1:], lossless=True)
+
+    with pytest.raises(MediaSanitizerError, match="dimensões"):
+        sanitize_media_upload(buf.getvalue(), filename="a.webp", content_type="image/webp")
+
+
+def _png_with_ihdr_size(width: int, height: int) -> bytes:
+    raw = bytearray(_image_bytes("PNG"))
+    ihdr = struct.pack(">II", width, height) + bytes(raw[16 + 8:16 + 13])
+    raw[16:24] = ihdr[:8]
+    raw[29:33] = struct.pack(">I", zlib.crc32(b"IHDR" + bytes(raw[16:29])))
+    return bytes(raw)
+
+
+def test_decompression_bomb_is_a_sanitizer_error_not_a_500():
+    raw = _png_with_ihdr_size(60_000, 60_000)
+
+    with pytest.raises(MediaSanitizerError, match="dimensões"):
+        sanitize_media_upload(raw, filename="a.png", content_type="image/png")
+
+
+@pytest.mark.parametrize("exc", [SyntaxError("x"), EOFError("x"), struct.error("x"), RuntimeError("x")])
+def test_unexpected_decoder_errors_become_sanitizer_error(monkeypatch, exc):
+    from api import media_sanitizer
+
+    def boom(*args, **kwargs):
+        raise exc
+
+    monkeypatch.setattr(media_sanitizer.Image, "open", boom)
+
+    with pytest.raises(MediaSanitizerError, match="imagem inválida") as info:
+        sanitize_media_upload(_image_bytes("PNG"), filename="a.png", content_type="image/png")
+    assert str(info.value) == "imagem inválida ou corrompida"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from io import BytesIO
@@ -10,8 +11,12 @@ from typing import Literal
 
 from PIL import Image, ImageOps, ImageSequence, UnidentifiedImageError
 
+logger = logging.getLogger(__name__)
 
-MAX_IMAGE_PIXELS = 40_000_000
+MAX_IMAGE_PIXELS = 16_000_000  # orçamento TOTAL (largura*altura*quadros)
+MAX_FRAMES = 200
+# Pillow só avisa acima do limite e só falha acima do dobro: fixa o teto do módulo.
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 MAX_FILENAME_LENGTH = 120
 
 
@@ -158,15 +163,23 @@ def _sanitize_image(content: bytes, detected: MediaType, max_pixels: int) -> byt
         with Image.open(BytesIO(content)) as image:
             if image.format != detected.pil_format:
                 raise MediaSanitizerError("imagem incompatível com o tipo real")
-            if image.width * image.height > max_pixels:
+            # orçamento checado só com o cabeçalho, ANTES de decodificar pixels
+            frames = getattr(image, "n_frames", 1)
+            if frames > MAX_FRAMES:
+                raise MediaSanitizerError("animação excede o limite de quadros")
+            if image.width * image.height * frames > max_pixels:
                 raise MediaSanitizerError("dimensões da imagem excedem o limite")
             if detected is GIF:
                 return _sanitize_gif(image, max_pixels)
+            if frames > 1:  # ponytail: APNG/WEBP animado vira quadro único (preservar quadros se virar requisito)
+                logger.warning("Animação %s achatada em quadro único (%d quadros)", detected.pil_format, frames)
             image.load()
             return _encode_clean_image(image, detected)
     except MediaSanitizerError:
         raise
-    except (OSError, UnidentifiedImageError, ValueError) as exc:
+    except Image.DecompressionBombError as exc:
+        raise MediaSanitizerError("dimensões da imagem excedem o limite") from exc
+    except Exception as exc:  # decodificadores levantam SyntaxError, EOFError, struct.error...
         raise MediaSanitizerError("imagem inválida ou corrompida") from exc
 
 
@@ -203,8 +216,10 @@ def _sanitize_gif(image: Image.Image, max_pixels: int) -> bytes:
     frames: list[Image.Image] = []
     durations: list[int] = []
     loop = int(image.info.get("loop", 0) or 0)
+    total_pixels = 0
     for frame in ImageSequence.Iterator(image):
-        if frame.width * frame.height > max_pixels:
+        total_pixels += frame.width * frame.height
+        if total_pixels > max_pixels or len(frames) >= MAX_FRAMES:
             raise MediaSanitizerError("dimensões da imagem excedem o limite")
         frame.load()
         frames.append(_clean_frame(frame))
