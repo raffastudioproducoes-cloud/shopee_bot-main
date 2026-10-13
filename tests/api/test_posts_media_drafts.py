@@ -1,11 +1,13 @@
 """Rascunhos duraveis de mídia: propriedade por perfil e limpeza segura."""
 
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 from unittest.mock import MagicMock
 
 import pytest
 
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from api.main import app
 from api.routers import posts as posts_module
@@ -30,11 +32,55 @@ def _client(fake_db, monkeypatch, profile_id="profile-a"):
 
 
 def _jpeg():
-    return b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01" + b"\x00" * 32
+    buf = BytesIO()
+    Image.new("RGB", (2, 2), "red").save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+def _png():
+    buf = BytesIO()
+    Image.new("RGBA", (2, 2), "blue").save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _gif():
+    buf = BytesIO()
+    frames = [Image.new("P", (2, 2), color=i) for i in (1, 2)]
+    frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:], duration=[10, 10], loop=0)
+    return buf.getvalue()
+
+
+def _webp():
+    buf = BytesIO()
+    Image.new("RGB", (2, 2), "green").save(buf, format="WEBP")
+    return buf.getvalue()
+
+
+def _mp4():
+    def box(kind: bytes, payload: bytes = b"") -> bytes:
+        return (len(payload) + 8).to_bytes(4, "big") + kind + payload
+
+    return box(b"ftyp", b"isom\x00\x00\x02\x00isomiso2mp41") + box(b"mdat")
+
+
+class _RecordingStorage:
+    def __init__(self):
+        self.uploads: list[tuple[str, bytes, dict]] = []
+        self.removed: list[list[str]] = []
+
+    def from_(self, _bucket):
+        return self
+
+    def upload(self, key, content, options):
+        self.uploads.append((key, content, options))
+
+    def remove(self, keys):
+        self.removed.append(list(keys))
 
 
 def test_upload_draft_is_private_and_scoped_to_active_profile(fake_db, monkeypatch):
     client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
 
     response = client.post(
         "/posts/media-drafts",
@@ -49,8 +95,94 @@ def test_upload_draft_is_private_and_scoped_to_active_profile(fake_db, monkeypat
     assert db.tables["temporary_media_uploads"][0]["user_id"] == 42
     assert db.tables["temporary_media_uploads"][0]["profile_id"] == "profile-a"
     assert db.tables["temporary_media_uploads"][0]["storage_bucket"] == "post-media"
-    db.storage.from_.assert_called_with("post-media")
-    db.storage.from_.return_value.upload.assert_called_once()
+    assert len(db.storage.uploads) == 1
+
+
+@pytest.mark.parametrize(("name", "content", "mime", "suffix"), [
+    ("foto.jpg", _jpeg(), "image/jpeg", ".jpg"),
+    ("foto.png", _png(), "image/png", ".png"),
+    ("foto.gif", _gif(), "image/gif", ".gif"),
+    ("foto.webp", _webp(), "image/webp", ".webp"),
+    ("video.mp4", _mp4(), "video/mp4", ".mp4"),
+])
+def test_upload_draft_accepts_supported_real_media(fake_db, monkeypatch, name, content, mime, suffix):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+
+    response = client.post("/posts/media-drafts", files={"file": (name, content, mime)})
+
+    assert response.status_code == 201, response.text
+    row = db.tables["temporary_media_uploads"][0]
+    key, uploaded, options = db.storage.uploads[0]
+    assert key.endswith(suffix)
+    assert row["file_name"].endswith(suffix)
+    assert row["size_bytes"] == len(uploaded)
+    assert options["content-type"] == mime
+
+
+def test_upload_draft_rejects_wrong_extension(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+
+    response = client.post(
+        "/posts/media-drafts",
+        files={"file": ("foto.png", _jpeg(), "image/png")},
+    )
+
+    assert response.status_code == 415
+    assert response.json()["detail"].startswith("Arquivo inválido ou não suportado:")
+    assert db.storage.uploads == []
+    assert db.tables["temporary_media_uploads"] == []
+
+
+def test_upload_draft_stores_sanitized_jpeg_without_appended_payload(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+    malicious = _jpeg() + b"<script>alert(1)</script><?php echo 1; ?>SELECT * FROM users"
+
+    response = client.post(
+        "/posts/media-drafts",
+        files={"file": ("oferta.jpg", malicious, "image/jpeg")},
+    )
+
+    assert response.status_code == 201, response.text
+    uploaded = db.storage.uploads[0][1]
+    assert b"<script" not in uploaded
+    assert b"<?php" not in uploaded
+    assert b"SELECT *" not in uploaded
+    assert len(uploaded) < len(malicious)
+    assert db.tables["temporary_media_uploads"][0]["size_bytes"] == len(uploaded)
+
+
+def test_upload_draft_sanitizes_filename_traversal(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+
+    response = client.post(
+        "/posts/media-drafts",
+        files={"file": ("../../evil\x01name.php.jpg", _jpeg(), "image/jpeg")},
+    )
+
+    assert response.status_code == 201, response.text
+    row = db.tables["temporary_media_uploads"][0]
+    assert row["file_name"] == "evilname.php.jpg"
+    assert row["storage_key"].startswith("drafts/42/profile-a/")
+    assert "evil" not in row["storage_key"]
+
+
+@pytest.mark.parametrize(("name", "content", "mime"), [
+    ("broken.jpg", _jpeg()[:12], "image/jpeg"),
+    ("nota.txt", b"isso nao e midia", "text/plain"),
+])
+def test_upload_draft_rejects_invalid_media(fake_db, monkeypatch, name, content, mime):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+
+    response = client.post("/posts/media-drafts", files={"file": (name, content, mime)})
+
+    assert response.status_code in (400, 415)
+    assert response.json()["detail"].startswith("Arquivo inválido ou não suportado:")
+    assert db.storage.uploads == []
+    assert db.tables["temporary_media_uploads"] == []
 
 
 def test_delete_draft_refuses_other_profile_and_never_touches_storage(fake_db, monkeypatch):

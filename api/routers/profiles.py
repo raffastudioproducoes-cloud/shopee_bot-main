@@ -6,11 +6,12 @@ CRUD de perfis (multi-profile) e troca de perfil ativo (`/profiles/{id}/activate
 
 import logging
 
-import fleep
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from ..database import supabase
+from ..media_sanitizer import JPEG, PNG, WEBP, MediaSanitizerError, detect_media_type, sanitize_media_upload
 from ..profiles import PROFILE_LIMIT, can_create_profile, is_principal
 from .auth import (
     _check_login_rate_limit,
@@ -24,15 +25,10 @@ from .auth import (
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 logger = logging.getLogger(__name__)
 
-# Mesmo padrão de validação por magic-byte de api/routers/posts.py
-# (fleep.get + checagem de qualquer mime detectado contra a allowlist).
-# Mapeado pra extensão pra fixar o nome do arquivo no bucket e evitar
-# path traversal via file.filename (perfil so tem 1 avatar por vez).
-ALLOWED_AVATAR_MIMES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-}
+# Avatar: só imagens (JPEG/PNG/WEBP), validadas pelo conteúdo real e reencodadas
+# sem metadados por api/media_sanitizer.py. A extensão no bucket vem do tipo real,
+# nunca de file.filename (path traversal; perfil tem 1 avatar por vez).
+ALLOWED_AVATAR_TYPES = (JPEG, PNG, WEBP)
 AVATAR_BUCKET = "avatars"
 MAX_AVATAR_BYTES = 5 * 1024 * 1024  # 5MB, avatar não precisa do teto de 50MB de posts.py
 
@@ -223,14 +219,24 @@ async def upload_avatar(
     if len(content) > MAX_AVATAR_BYTES:
         raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (5MB)")
 
-    info = fleep.get(content[:128])
-    matched_mime = next((m for m in info.mime if m in ALLOWED_AVATAR_MIMES), None)
-    if not matched_mime:
-        raise HTTPException(status_code=400, detail="Arquivo não é uma imagem válida.")
+    try:
+        detected = detect_media_type(content)
+        if detected not in ALLOWED_AVATAR_TYPES:
+            raise MediaSanitizerError("formato não permitido para avatar")
+        # nome/tipo declarados pelo cliente nunca valeram pro avatar: só o conteúdo real
+        media = await run_in_threadpool(
+            sanitize_media_upload,
+            content,
+            filename=f"avatar{detected.extension}",
+            content_type=detected.mime_type,
+            max_bytes=MAX_AVATAR_BYTES,
+        )
+    except MediaSanitizerError:
+        raise HTTPException(status_code=400, detail="Arquivo não é uma imagem válida.") from None
 
-    path = f"{profile_id}/avatar{ALLOWED_AVATAR_MIMES[matched_mime]}"
+    path = f"{profile_id}/avatar{media.extension}"
     supabase.storage.from_(AVATAR_BUCKET).upload(
-        path, content, {"content-type": matched_mime, "upsert": "true"}
+        path, media.content, {"content-type": media.mime_type, "upsert": "true"}
     )
     public_url = supabase.storage.from_(AVATAR_BUCKET).get_public_url(path)
 
