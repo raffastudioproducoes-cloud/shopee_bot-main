@@ -349,7 +349,7 @@ Decisão aprovada em 2026-10-13: a marca futura do produto será **Auto Orbital*
 
 ## FUTURO (em breve) — Carregamento em esqueleto (skeleton loading) das telas
 
-Pedido do Rafa (2026-10-14, confirmado): trocar as barras/anéis de loading (spinners) por carregamento em esqueleto, como YouTube, LinkedIn, Facebook e Instagram.
+Pedido do Rafa (2026-10-13, confirmado): trocar as barras/anéis de loading (spinners) por carregamento em esqueleto, como YouTube, LinkedIn, Facebook e Instagram.
 
 Comportamento esperado:
 - Enquanto os dados chegam, a tela já mostra a estrutura final com blocos cinza onde ficarão título, cards, linhas de tabela, imagens e textos, com tamanho e posição idênticos ao conteúdo real e um shimmer suave por cima.
