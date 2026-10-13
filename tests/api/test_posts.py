@@ -94,34 +94,43 @@ def _mock_supabase_for_upload(monkeypatch):
     return fake_client
 
 
+def _real_jpeg() -> bytes:
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (2, 2), "red").save(buf, format="JPEG")
+    return buf.getvalue()
+
+
 class TestUploadMediaContentValidation:
     """Auditoria de segurança: extensão .jpg com conteúdo não-imagem deve ser
-    rejeitada por magic bytes (fleep), não só pela extensão do nome."""
+    rejeitada pelo conteúdo real (magic bytes), não só pela extensão do nome."""
 
-    def test_rejects_jpg_extension_with_non_image_content(self, auth_client, monkeypatch, tmp_path):
-        _mock_supabase_for_upload(monkeypatch)
-        monkeypatch.setattr(posts_module, "MEDIA_ROOT", tmp_path)
+    def test_rejects_jpg_extension_with_non_image_content(self, auth_client, monkeypatch):
+        fake = _mock_supabase_for_upload(monkeypatch)
 
         res = auth_client.post(
             "/posts/9999/media",
             files={"file": ("foto.jpg", b"isso aqui e so texto puro, nao imagem", "image/jpeg")},
         )
 
-        assert res.status_code == 400
-        assert "não corresponde a uma mídia permitida" in res.json()["detail"]
+        assert res.status_code == 415
+        assert "Arquivo inválido ou não suportado" in res.json()["detail"]
+        fake.storage.from_.return_value.upload.assert_not_called()
 
-    def test_accepts_jpg_with_real_jpeg_signature(self, auth_client, monkeypatch, tmp_path):
-        _mock_supabase_for_upload(monkeypatch)
-        monkeypatch.setattr(posts_module, "MEDIA_ROOT", tmp_path)
-
-        jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01" + b"\x00" * 32
+    def test_accepts_jpg_with_real_jpeg_and_stores_in_private_bucket(self, auth_client, monkeypatch):
+        fake = _mock_supabase_for_upload(monkeypatch)
 
         res = auth_client.post(
             "/posts/9999/media",
-            files={"file": ("foto.jpg", jpeg_bytes, "image/jpeg")},
+            files={"file": ("foto.jpg", _real_jpeg(), "image/jpeg")},
         )
 
         assert res.status_code == 201
+        fake.storage.from_.assert_called_with("post-media")
+        fake.storage.from_.return_value.upload.assert_called_once()
 
 
 class TestListPostsAuthenticated:

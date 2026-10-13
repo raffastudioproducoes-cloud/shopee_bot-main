@@ -1,6 +1,8 @@
 """Validação por rede no servidor (api/network_limits.py) + recusa em
 POST /posts — o front bloqueia, mas o servidor não pode confiar nele."""
 
+from unittest.mock import MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -123,8 +125,16 @@ def test_upload_rejects_format_not_accepted_by_post_network(client, monkeypatch,
     c, db = client
     monkeypatch.setattr(posts_module, "MEDIA_ROOT", tmp_path)
     db.tables["posts"].append({"id": 7, "user_id": 42, "profile_id": "profile-a", "text": "oi", "post_id": None, "network": "instagram"})
-    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (2, 2)).save(buf, format="PNG")
+    png = buf.getvalue()
+    db.storage = MagicMock()
     res = c.post("/posts/7/media", files={"file": ("foto.png", png, "image/png")})
     assert res.status_code == 422
     assert "Instagram: não aceita .png (foto.png)" in res.json()["detail"]
     assert list(tmp_path.iterdir()) == []
+    db.storage.from_.return_value.upload.assert_not_called()

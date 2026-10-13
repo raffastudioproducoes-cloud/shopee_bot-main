@@ -158,19 +158,28 @@ def test_avatar_upload_rejects_non_image_content(auth_client, monkeypatch):
     assert response.status_code == 400
 
 
+def _img(fmt, **kw):
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (4, 4), "red").save(buf, format=fmt, **kw)
+    return buf.getvalue()
+
+
 def test_avatar_upload_succeeds_and_updates_avatar_url(auth_client, monkeypatch):
-    """PNG real (magic-byte válido via fleep) -- deve subir pro bucket
-    `avatars`, atualizar `profiles.avatar_url` e devolver a URL pública."""
+    """PNG real -- deve subir pro bucket `avatars`, atualizar
+    `profiles.avatar_url` e devolver a URL pública."""
     _mock_supabase(monkeypatch, {"id": "p-1", "user_id": USER_ID})
     fake_client = database_module.get_supabase()
     fake_client.storage.from_.return_value.get_public_url.return_value = (
         "https://supabase.example/storage/v1/object/public/avatars/p-1/avatar.png"
     )
 
-    png_header = b"\x89PNG\r\n\x1a\n" + b"\x00" * 120
     response = auth_client.post(
         "/profiles/p-1/avatar",
-        files={"file": ("avatar.png", png_header, "image/png")},
+        files={"file": ("avatar.png", _img("PNG"), "image/png")},
     )
 
     assert response.status_code == 200
@@ -179,6 +188,39 @@ def test_avatar_upload_succeeds_and_updates_avatar_url(auth_client, monkeypatch)
     }
     fake_client.storage.from_.assert_called_with("avatars")
     fake_client.storage.from_.return_value.upload.assert_called_once()
+
+
+def test_avatar_is_reencoded_without_metadata(auth_client, monkeypatch):
+    from io import BytesIO
+
+    from PIL import Image
+
+    _mock_supabase(monkeypatch, {"id": "p-1", "user_id": USER_ID})
+    fake_client = database_module.get_supabase()
+    raw = _img("JPEG", comment=b"<script>x</script>", icc_profile=b"<script>icc</script>")
+
+    response = auth_client.post("/profiles/p-1/avatar", files={"file": ("a.jpg", raw, "image/jpeg")})
+
+    assert response.status_code == 200
+    path, uploaded, options = fake_client.storage.from_.return_value.upload.call_args.args
+    assert path == "p-1/avatar.jpg" and options["content-type"] == "image/jpeg"
+    assert b"<script>" not in uploaded
+    info = Image.open(BytesIO(uploaded)).info
+    assert not [k for k in ("comment", "icc_profile", "exif", "xmp") if k in info]
+
+
+@pytest.mark.parametrize("content", [
+    _img("GIF"),                              # GIF não é formato de avatar
+    b"\xff\xd8\xff" + bytes(40),  # JPEG truncado/corrompido
+])
+def test_avatar_upload_rejects_disallowed_or_corrupt_images(auth_client, monkeypatch, content):
+    _mock_supabase(monkeypatch, {"id": "p-1", "user_id": USER_ID})
+    fake_client = database_module.get_supabase()
+
+    response = auth_client.post("/profiles/p-1/avatar", files={"file": ("avatar.png", content, "image/png")})
+
+    assert response.status_code == 400
+    fake_client.storage.from_.return_value.upload.assert_not_called()
 
 
 def test_avatar_upload_rejects_file_over_max_size(auth_client, monkeypatch):
