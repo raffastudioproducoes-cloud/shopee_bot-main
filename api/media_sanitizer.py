@@ -95,7 +95,8 @@ MOV = MediaType(
 )
 
 
-_CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f\x7f]")
+# controles (C0/C1), bidi (U+202A-202E, U+2066-2069) e < > (XSS/spoofing ao exibir o nome)
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f\x7f-\x9f‪-‮⁦-⁩<>]")
 _ENCODED_CONTROL_CHARS_RE = re.compile(r"%(?:0[0-9a-fA-F]|1[0-9a-fA-F]|7[fF])")
 
 

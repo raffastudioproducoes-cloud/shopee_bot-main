@@ -295,3 +295,11 @@ def test_video_implausible_ftyp_is_rejected(ftyp_payload):
 
     with pytest.raises(MediaSanitizerError, match="vídeo"):
         sanitize_media_upload(raw, filename="a.mp4", content_type="video/mp4")
+
+
+def test_filename_drops_bidi_overrides_angle_brackets_and_controls():
+    name = "a\u202eexe.gpj\u202c\u2066x\u2069<img src=x>\u0085.jpg"
+
+    safe = sanitize_media_upload(_image_bytes("JPEG"), filename=name, content_type="image/jpeg").safe_filename
+
+    assert safe == "aexe.gpjximg src=x.jpg"
