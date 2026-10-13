@@ -5,6 +5,28 @@
 > marcada **Concluída** com evidência de código ou teste passando; senão fica **Bloqueada** ou
 > **Pendente**. Última verificação: 2026-10-11.
 
+## Atualização 2026-10-12 — publicação de mídia e agendamento
+
+Plano: `docs/superpowers/plans/2026-10-12-publicacao-midia-agendamento.md`. Tarefas 1 a 6
+implementadas localmente em `staging` (sem push); Tarefa 7 parcial.
+
+- [x] Capacidades reais (`delivered_modes`) no backend e no frontend; planejador só devolve
+  modo entregue e não converte texto inválido em `text_only`.
+- [x] Rascunhos de mídia duráveis (migração 046, bucket privado `post-media`, expiração 24 h,
+  escopo por perfil).
+- [x] `POST /posts/preview` e `POST /posts/batch` (criação parcial, `group_id` no servidor).
+- [x] Recorrência de até 7 dias (migração 047; `day_of_week` legado preservado).
+- [x] Publicadores: Threads, Facebook (foto/álbum/vídeo), Instagram (foto/carrossel/Reels) e X
+  (foto única). Evidência: `tests/api` 536, `tests/scheduler` 75, node 10, build ok.
+- [ ] Aplicar migrações 046 e 047 no Supabase de staging (ação humana autorizada).
+- [ ] Validação humana em staging por rede e modo; registrar só o que for observado.
+- [ ] Habilitar `media.write` no portal do X e reconectar a conta de teste; persistir o escopo
+  concedido.
+- [ ] TikTok foto: Creator Info no fluxo do usuário e URL em domínio/prefixo verificado.
+- [ ] Revisar versão da API do Facebook (`v18.0`), garantir ordem de mídia por contrato e
+  `SUPABASE_URL`/`SUPABASE_KEY` no scheduler do staging.
+- [ ] Mudar `VERSION` para `2.2.0` e fazer o push final só depois de tudo validado.
+
 ## Atualização 2026-10-11 — composição de mídia por rede
 
 - [ ] Implementar planejador de compatibilidade por rede para foto única, carrossel e vídeo,

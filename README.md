@@ -77,7 +77,7 @@ Tirar o trabalho manual de quem divulga produto de afiliado:
 | **Garimpo** | Busca de produtos na Shopee Open API por categoria, palavra-chave, comissão mínima e vendas |
 | **Produtos** | Cadastro, edição, listagem com busca — origem manual ou vinda do garimpo. Aba "Pesquisa Avançada" busca em tempo real no catálogo da Shopee (API de afiliados), com filtros e importação direta pro catálogo pessoal |
 | **Listas de produtos** | Agrupamento de produtos reaproveitável entre posts |
-| **Posts** | Criação, agendamento (cron/data), publicação sob demanda, retry e log de falha |
+| **Posts** | Criação, agendamento (imediato, data ou recorrência de até 7 dias), publicação sob demanda, retry e log de falha. Preview e criação em lote por rede com mídia em rascunho durável (bucket privado, expira em 24 h); rede incompatível é bloqueada sem cancelar as demais. Entregues no código: Threads, Facebook, Instagram e X (foto única); TikTok foto bloqueado. Ainda sem validação em staging |
 | **Copywriter IA** | Geração de texto de post por persona com a chave de IA do próprio usuário (Gemini, OpenAI ou Anthropic — Credenciais; `apis/llm.py`) |
 | **Credenciais** | Shopee, Threads, X, Facebook, Instagram, TikTok, Kwai — cifradas em repouso (Fernet), nunca reexibidas |
 | **Atividades** | Histórico auditável de ações do usuário |

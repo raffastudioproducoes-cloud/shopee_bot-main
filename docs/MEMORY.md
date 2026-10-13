@@ -88,8 +88,52 @@ Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via
   redes selecionadas precisarem de formatos diferentes, como foto única, carrossel ou vídeo.
 - O backend precisa repetir a validação e manter cada ativo no mesmo `user_id` + `profile_id`.
   A especificação aprovada está em
-  `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`; implementação ainda
-  não começou neste registro.
+  `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`; a implementação
+  está registrada na atualização de 2026-10-12 abaixo.
+
+## Atualização 2026-10-12 — publicação de mídia e agendamento (branch `staging`, só local)
+
+Estado: implementado e coberto por testes locais; **não validado em staging** e `VERSION`
+continua `2.1.0`. Nada foi enviado ao remoto nem aplicado no Supabase.
+
+- **Capacidades reais por rede** (`api/network_limits.py`, espelhado em
+  `frontend/src/lib/networkLimits.ts`): `platform_modes` é o que a rede aceita;
+  `delivered_modes` é o que o publicador realmente entrega, e o planejador só devolve modo
+  entregue. Threads: nenhum, foto única, carrossel, vídeo e só texto. X: nenhum, foto única e só
+  texto (sem carrossel nem vídeo). Facebook: nenhum, foto única, carrossel (álbum), vídeo e só
+  texto. Instagram: foto única, carrossel e vídeo (Reels), sem texto puro. TikTok: somente
+  vídeo; foto bloqueada.
+- **Rascunhos de mídia** (migração `046_add_durable_media_drafts.sql`): upload antes de criar
+  post, em `temporary_media_uploads` + bucket privado `post-media` (50 MB, jpeg/png/gif/webp/mp4,
+  RLS ligado, sem acesso do navegador). Escopo `user_id` + `profile_id`; expira em 24 h
+  (`MEDIA_DRAFT_TTL`); estados `uploading/ready/consumed/delete_failed`. Cancelar rascunho nunca
+  apaga ativo já vinculado a `posts_medias`.
+- **`POST /posts/preview` e `POST /posts/batch`**: o preview recalcula o plano por rede sem
+  gravar nada; o batch gera o `group_id` no servidor, cria só as redes entregáveis (criação
+  parcial) e devolve `created` e `blocked` sem detalhe bruto de provedor. Falha ao agendar uma
+  rede desfaz só aquela rede.
+- **Recorrência até 7 dias** (migração `047_add_scheduler_days_of_week.sql`): coluna
+  `schedulers.days_of_week` (1 a 7 valores de 0 a 6, validada no banco e na API). Jobs legados com
+  só `day_of_week` seguem válidos; a migração copia o dia único dos cron existentes.
+- **Publicadores**: Threads, Facebook (foto, álbum, vídeo), Instagram (foto, carrossel, Reels) e
+  X (foto única com `media.write`) entregues no código. Facebook, Instagram e Threads recebem URL
+  assinada (1 h, `scheduler/media_delivery.py`) do bucket privado; mídia legada segue pelo
+  Cloudinary. **TikTok foto segue bloqueado** até haver Creator Info no fluxo do usuário e URL em
+  domínio/prefixo verificado; TikTok vídeo não mudou.
+- **Evidência local (2026-10-12)**: `tests/api` 536 passed, `tests/scheduler` 75 passed,
+  `tests/database` 3 passed, testes node do frontend 10 passed, `npm run build` ok,
+  `git diff --check` limpo, sem segredos nos commits novos. Sem teste real em nenhuma rede.
+
+Pendências conhecidas desta entrega:
+
+- X exige o escopo `media.write` habilitado no portal de desenvolvedor; conexões antigas sem
+  ele recebem 401/403 e precisam reconectar. O escopo concedido não é persistido, então o
+  sistema não sabe antecipadamente quais conexões estão sem ele.
+- A API do Facebook segue fixa em `v18.0` (`apis/facebook.py`); revisar versão suportada.
+- A ordem das mídias no post é incidental: `display_order` segue a ordem dos rascunhos no
+  pedido, sem garantia de contrato por rede.
+- O scheduler precisa de `SUPABASE_URL`/`SUPABASE_KEY` (chave de servidor) para assinar URL;
+  sem elas a publicação de mídia durável falha. Conferir no ambiente de staging.
 
 ## O que falta (real, não aspiracional)
 

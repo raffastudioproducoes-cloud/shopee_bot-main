@@ -223,6 +223,30 @@ imediatamente ao primeiro post e não permite seleção distinta por rede.
 Detalhes, contratos e critérios de aceite:
 `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`.
 
+### 9.1 Implementação (2026-10-12, local em `staging`, não validada em staging)
+
+- **Capacidades**: `api/network_limits.py` (espelho em `frontend/src/lib/networkLimits.ts`)
+  separa `platform_modes` de `delivered_modes`; `api/media_composition.py` só planeja modo
+  entregue. Redes com `supports_text_only: false` (Instagram, TikTok) nunca caem em texto puro.
+- **Rascunhos**: `POST /posts/media-drafts` grava o arquivo no bucket privado `post-media` e uma
+  linha em `temporary_media_uploads` (migração 046; RLS ligado, sem policy para anon/authenticated;
+  expira em 24 h; estados `uploading/ready/consumed/delete_failed`). `DELETE
+  /posts/media-drafts/{id}` só remove rascunho do mesmo `user_id` + `profile_id` e nunca ativo
+  vinculado a `posts_medias`.
+- **Lote**: `POST /posts/preview` recalcula o plano por rede sem escrever. `POST /posts/batch`
+  gera `group_id` no servidor, cria post, job e `posts_medias` só das redes entregáveis e marca
+  rascunhos como `consumed`; falha em uma rede vira `blocked` sem cancelar as outras.
+- **Recorrência**: `schedulers.days_of_week SMALLINT[]` (migração 047, 1 a 7 dias entre 0 e 6);
+  `day_of_week` legado continua válido.
+- **Entrega**: `scheduler/media_delivery.py` transforma `storage://bucket/chave` em URL assinada
+  (1 h) para Threads, Facebook e Instagram; mídia legada em disco segue pelo Cloudinary. O X
+  envia foto única por `/2/media/upload` (exige `media.write`). O Instagram espera o container
+  chegar a `FINISHED`, com tempo limite. TikTok foto segue bloqueado até Creator Info + URL
+  verificada.
+- **Pendências**: escopo OAuth do X não persistido; Graph API do Facebook fixa em `v18.0`;
+  `display_order` segue a ordem dos rascunhos sem contrato por rede; o scheduler depende de
+  `SUPABASE_URL`/`SUPABASE_KEY` para assinar URL.
+
 ## 10. Conta, perfis e papeis (migracao em staging, 2026-10-11)
 
 O usuario possui uma conta e no maximo tres perfis, contando o perfil principal. A conta e dona
