@@ -29,7 +29,7 @@ NETWORK_RULES = {
     "x": {
         "label": "X", "max_chars": 280, "count": "weighted", "thread_parts": True,
         "supports_text_only": True,
-        "delivered_modes": {"none", "text_only"},
+        "delivered_modes": {"none", "single_image", "text_only"},
         "max_image": 4, "max_gif": 1, "max_video": 1, "allow_mix": False,
         "exts": {"jpg", "jpeg", "png", "webp", "gif", "mp4"},
         "max_bytes": {"image": 5 * MB, "gif": 15 * MB, "video": 8 * GB},

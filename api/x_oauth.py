@@ -51,7 +51,7 @@ CALLBACK_URL = os.environ.get("X_CALLBACK_URL")
 # leitura via env var, caminho de código diferente.
 CLIENT_ID = (os.environ.get("X_CLIENT_ID") or "").strip() or None
 CLIENT_SECRET = (os.environ.get("X_CLIENT_SECRET") or "").strip() or None
-DEFAULT_SCOPES = "tweet.read tweet.write users.read offline.access"
+DEFAULT_SCOPES = "tweet.read tweet.write users.read media.write offline.access"
 
 
 class XOAuthError(Exception):

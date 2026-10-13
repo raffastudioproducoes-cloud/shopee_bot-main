@@ -24,8 +24,15 @@ def test_x_blocks_invalid_text_instead_of_falling_back_from_invalid_media():
     assert "texto máx. 280" in plan.blocked_reason
 
 
-def test_x_falls_back_to_delivered_text_only_when_image_mode_is_not_delivered():
+def test_x_single_image_is_delivered():
     plan = plan_network_composition("x", ["copy"], [_image(1)])
+
+    assert plan.mode == "single_image"
+    assert plan.media_ids == [1]
+
+
+def test_x_falls_back_to_delivered_text_only_when_carousel_is_not_delivered():
+    plan = plan_network_composition("x", ["copy"], [_image(1), _image(2)])
 
     assert plan.mode == "text_only"
     assert "ainda não é entregue" in plan.warnings[0]

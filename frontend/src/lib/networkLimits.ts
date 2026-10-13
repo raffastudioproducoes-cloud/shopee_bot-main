@@ -89,7 +89,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     label: "X",
     maxChars: 280,
     supportsTextOnly: true,
-    deliveredModes: ["none", "text_only"],
+    deliveredModes: ["none", "single_image", "text_only"],
     charCount: "weighted",
     threadParts: true,
     maxImages: 4,

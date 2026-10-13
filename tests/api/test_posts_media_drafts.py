@@ -115,7 +115,7 @@ def _batch_client(fake_db, monkeypatch):
     return client, db
 
 
-def test_preview_is_read_only_and_shows_per_network_fallback(fake_db, monkeypatch):
+def test_preview_is_read_only_and_shows_per_network_mode(fake_db, monkeypatch):
     client, db = _batch_client(fake_db, monkeypatch)
 
     response = client.post("/posts/preview", json=_batch_body())
@@ -123,7 +123,7 @@ def test_preview_is_read_only_and_shows_per_network_fallback(fake_db, monkeypatc
     assert response.status_code == 200
     plans = {plan["network"]: plan for plan in response.json()["plans"]}
     assert plans["threads"]["mode"] == "single_image"
-    assert plans["x"]["mode"] == "text_only"
+    assert plans["x"]["mode"] == "single_image"
     assert db.tables.get("posts", []) == []
     assert db.tables.get("medias", []) == []
 

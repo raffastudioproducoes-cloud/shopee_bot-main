@@ -68,3 +68,84 @@ def test_expired_x_token_refreshes_with_global_oauth_and_scopes_saved_tokens(mon
     ]
     assert published == [("fresh-access-token", "teste")]
     assert activities[0][1] == ActivityType.BOT_POST_SUCCESS
+
+
+# --- single_image: upload via POST /2/media/upload (escopo media.write) ---
+
+import pytest  # noqa: E402
+
+from shopee_bot.apis import x as xapi  # noqa: E402
+from shopee_bot.scheduler import media_delivery  # noqa: E402
+from tests.scheduler.meta_fakes import FakeGraph, FakeResponse, FakeStorage  # noqa: E402
+
+UPLOAD = ("POST", xapi.MEDIA_UPLOAD_URL)
+TWEET = ("POST", f"{xapi.API_BASE}/tweets")
+
+
+def _setup_image(monkeypatch, graph, medias):
+    monkeypatch.setattr(xapi.requests, "post", graph.post)
+    monkeypatch.setattr(xapi.requests, "get", graph.get)
+    monkeypatch.setattr(module.requests, "get", graph.get)
+    monkeypatch.setattr(media_delivery, "_storage", lambda: FakeStorage())
+    monkeypatch.setattr(module.schedulers, "get_by_id",
+                        lambda j: {"user_id": 1, "post_id": 2, "profile_id": "p"})
+    monkeypatch.setattr(module.x_credentials, "get_by_user_id",
+                        lambda u, p: {"username": "u", "x_access_token": "tok"})
+    monkeypatch.setattr(module.posts, "get", lambda u, post, p: [{"text": "oi", "medias": medias}])
+    acts = []
+    monkeypatch.setattr(module, "insert_activities",
+                        lambda u, t, m, profile_id=None: acts.append((t, m)))
+    return acts
+
+
+def _img(name="a.jpg"):
+    return {"type": "IMAGE", "file_path": f"storage://bucket/{name}", "file_name": name}
+
+
+def _signed_get(name="a.jpg"):
+    return ("GET", f"https://signed.example/bucket/{name}?token=t")
+
+
+def test_imagem_unica_sobe_media_e_publica_com_media_ids(monkeypatch):
+    graph = FakeGraph({
+        _signed_get(): [FakeResponse(content=b"IMG")],
+        UPLOAD: [{"data": {"id": "m1"}}],
+        TWEET: [{"data": {"id": "t1"}}],
+    })
+    acts = _setup_image(monkeypatch, graph, [_img()])
+    module.bot_post_x("j")
+    up = next(c for c in graph.calls if c["url"] == xapi.MEDIA_UPLOAD_URL)
+    assert up["headers"]["Authorization"] == "Bearer tok"
+    assert up["data"] == {"media_category": "tweet_image"}
+    assert up["files"]["media"][1] == b"IMG"
+    tweet = next(c for c in graph.calls if c["url"].endswith("/tweets"))
+    assert tweet["json"]["media"] == {"media_ids": ["m1"]}
+    assert acts[-1][0] == ActivityType.BOT_POST_SUCCESS
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_conexao_sem_media_write_falha_pedindo_reconexao_sem_publicar_texto(monkeypatch, status):
+    graph = FakeGraph({
+        _signed_get(): [FakeResponse(content=b"IMG")],
+        UPLOAD: [FakeResponse({"title": "Forbidden"}, status_code=status)],
+    })
+    acts = _setup_image(monkeypatch, graph, [_img()])
+    module.bot_post_x("j")
+    assert TWEET[1] not in graph.urls("POST")
+    assert acts[-1][0] == ActivityType.BOT_POST_FAILURE
+    err = acts[-1][1]
+    assert "reconecte" in str(err).lower() and "media.write" in str(err)
+
+
+def test_midia_nao_suportada_no_x_falha_sem_cair_para_texto(monkeypatch):
+    graph = FakeGraph({})
+    acts = _setup_image(monkeypatch, graph, [_img("a.jpg"), _img("b.jpg")])
+    module.bot_post_x("j")
+    assert graph.calls == []
+    assert acts[-1][0] == ActivityType.BOT_POST_FAILURE
+
+
+def test_escopo_oauth_inclui_media_write():
+    from shopee_bot.api import x_oauth
+    assert "media.write" in x_oauth.DEFAULT_SCOPES.split()
+    assert "media.write" in xapi.DEFAULT_SCOPES.split()
