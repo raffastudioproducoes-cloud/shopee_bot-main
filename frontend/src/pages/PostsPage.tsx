@@ -16,7 +16,9 @@ import {
 } from "../lib/networkLimits"
 import { TextVariantTabs } from "../components/posts/TextVariantTabs"
 import { MediaVariantTabs } from "../components/posts/MediaVariantTabs"
+import { MediaTray } from "../components/posts/MediaTray"
 import { planMediaComposition } from "../lib/mediaComposition"
+import { moveItem, trayLimit } from "../lib/mediaTray"
 import {
   NetworkLimitsPanel,
   NetworkLogo,
@@ -541,6 +543,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const [cronTime, setCronTime] = useState("09:00")
   const [cronDays, setCronDays] = useState<number[]>([0])
   const [pendingFiles, setPendingFiles] = useState<{ file: File; info: MediaInfo }[]>([])
+  const [trayOpen, setTrayOpen] = useState(false)
   // Redes que já deram certo no último envio saem da seleção: reenviar só
   // repete as que falharam, sem duplicar post.
   const [handledResults, setHandledResults] = useState<NetworkResult[] | undefined>(undefined)
@@ -604,6 +607,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     setNetworks([])
     setSelectedProductIds([])
     setPendingFiles([])
+    setTrayOpen(false)
     setWhen("now")
     setRunDay(now.day)
     setRunTime(now.time)
@@ -707,6 +711,14 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     }),
   ) as Record<PostNetwork, NetworkState>
   const deliverableNetworks = networks.filter((n) => compositionPlans[n].mode !== "blocked")
+  const trayItems = pendingFiles.flatMap((p, index) => (p.info.kind === "video" ? [] : [{ file: p.file, index }]))
+  const showTray = !post && (trayItems.length >= 2 || trayOpen)
+  const trayNotes = trayItems.length < 2 ? [] : networks.flatMap((n) => {
+    const plan = compositionPlans[n]
+    if (plan.mode === "blocked") return [`${NETWORK_RULES[n].label}: bloqueada`]
+    if (plan.mode === "text_only") return [`${NETWORK_RULES[n].label}: só texto`]
+    return []
+  })
 
   const toggleNetwork = (n: PostNetwork) =>
     setNetworks((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]))
@@ -923,22 +935,40 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
             <input
               type="file"
               accept=".webp,.jpg,.jpeg,.png,.gif,.mp4"
+              multiple={!post}
               onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (!file) return
+                const files = Array.from(e.target.files ?? [])
+                if (files.length === 0) return
                 if (post) {
-                  addMediaMutation.mutate(file)
+                  addMediaMutation.mutate(files[0])
                 } else {
-                  readMediaInfo(file).then((info) => setPendingFiles((prev) => [...prev, { file, info }]))
+                  // Promise.all mantém a ordem escolhida no seletor.
+                  Promise.all(files.map(async (file) => ({ file, info: await readMediaInfo(file) }))).then((added) =>
+                    setPendingFiles((prev) => [...prev, ...added]),
+                  )
                 }
                 e.target.value = ""
               }}
               style={{ font: "var(--fw-regular) var(--fs-caption)/1 var(--font-sans)", color: "var(--text-body)" }}
             />
           </div>
-          {!post && pendingFiles.length > 0 && (
+          {showTray && (
+            <MediaTray
+              items={trayItems}
+              limit={trayLimit(networks.map((n) => NETWORK_RULES[n]))}
+              notes={trayNotes}
+              onMove={(from, to) => setPendingFiles((prev) => moveItem(prev, from, to))}
+              onRemove={(index) => setPendingFiles((prev) => prev.filter((_, i) => i !== index))}
+            />
+          )}
+          {!post && !showTray && pendingFiles.some((p) => p.info.kind !== "video") && (
+            <Button type="button" variant="ghost" onClick={() => setTrayOpen(true)} style={{ alignSelf: "flex-start", padding: 0, marginTop: 6 }}>
+              Montar carrossel/álbum
+            </Button>
+          )}
+          {!post && pendingFiles.some((p) => !showTray || p.info.kind === "video") && (
             <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
-              {pendingFiles.map(({ file, info }, index) => (
+              {pendingFiles.map(({ file, info }, index) => !showTray || info.kind === "video" ? (
                 <li
                   key={index}
                   style={{
@@ -969,7 +999,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                     Remover
                   </button>
                 </li>
-              ))}
+              ) : null)}
             </ul>
           )}
           {addMediaMutation.isError && (
