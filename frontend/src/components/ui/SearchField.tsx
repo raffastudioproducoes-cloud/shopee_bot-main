@@ -5,7 +5,7 @@ import { Icon } from "./Icon"
 export interface SearchFieldProps {
   value?: string
   onChange?: (e: ChangeEvent<HTMLInputElement>) => void
-  /** Always the bare word "Search" in the product. */
+  /** Por padrão a palavra "Buscar". */
   placeholder?: string
   /** 220 on desktop top bar; "100%" on mobile. */
   width?: number | string
@@ -20,7 +20,7 @@ export interface SearchFieldProps {
 export function SearchField({
   value,
   onChange,
-  placeholder = "Search",
+  placeholder = "Buscar",
   width = 220,
   size = 36,
   tone = "inset",

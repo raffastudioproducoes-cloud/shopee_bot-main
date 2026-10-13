@@ -1,6 +1,8 @@
 """Validação por rede no servidor (api/network_limits.py) + recusa em
 POST /posts — o front bloqueia, mas o servidor não pode confiar nele."""
 
+from unittest.mock import MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -68,6 +70,11 @@ class TestMedia:
         ]
         assert _errors("threads", ["oi"], [{"file_name": "v.mp4", "size": 2 * GB}]) == ["Threads: v.mp4 passa de 1 GB"]
 
+    def test_mov_is_not_accepted_on_any_network(self):
+        for net in NETWORK_RULES:
+            issues = validate_post(net, ["oi"], [{"file_name": "v.mov", "size": MB}], check_required_media=False)
+            assert any(".mov" in i["message"] and "não aceita" in i["message"] for i in issues), net
+
     def test_tiktok_requires_video_only_on_publish(self):
         assert _errors("tiktok", ["oi"], [], check_required_media=False) == []
         assert _errors("tiktok", ["oi"], []) == ["TikTok: exige 1 vídeo (.mp4)"]
@@ -104,6 +111,23 @@ def test_create_rejects_text_over_network_limit(client):
     assert db.tables["posts"] == []
 
 
+def test_create_rejects_disabled_network(client, monkeypatch):
+    from api import network_limits
+
+    monkeypatch.setitem(
+        network_limits.DISABLED_NETWORKS,
+        "x",
+        "X estará disponível em um plano pago em breve",
+    )
+    c, db = client
+
+    res = c.post("/posts", json={"texts": ["oi"], "schedule": SCHEDULE, "network": "x"})
+
+    assert res.status_code == 422
+    assert res.json()["detail"] == "X estará disponível em um plano pago em breve"
+    assert db.tables["posts"] == []
+
+
 def test_create_reuses_media_without_reupload(client):
     c, db = client
     res = c.post("/posts", json={"texts": ["oi"], "schedule": SCHEDULE, "network": "x", "media_ids": [5]})
@@ -123,8 +147,40 @@ def test_upload_rejects_format_not_accepted_by_post_network(client, monkeypatch,
     c, db = client
     monkeypatch.setattr(posts_module, "MEDIA_ROOT", tmp_path)
     db.tables["posts"].append({"id": 7, "user_id": 42, "profile_id": "profile-a", "text": "oi", "post_id": None, "network": "instagram"})
-    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (2, 2)).save(buf, format="PNG")
+    png = buf.getvalue()
+    db.storage = MagicMock()
     res = c.post("/posts/7/media", files={"file": ("foto.png", png, "image/png")})
     assert res.status_code == 422
     assert "Instagram: não aceita .png (foto.png)" in res.json()["detail"]
     assert list(tmp_path.iterdir()) == []
+    db.storage.from_.return_value.upload.assert_not_called()
+
+
+def _names(medias):
+    return [m["file_name"] for m in medias]
+
+
+def _m(name):
+    return {"id": 1, "file_name": name, "size": 1024}
+
+
+@pytest.mark.parametrize(
+    "network, files, expected",
+    [
+        ("x", ["anim.gif", "clip.mp4"], ["anim.gif"]),  # X não entrega vídeo: fica o GIF
+        ("facebook", ["clip.mp4", "foto.jpg"], ["foto.jpg"]),  # foto primeiro
+        ("tiktok", ["foto.jpg", "clip.mp4"], ["clip.mp4"]),
+        ("instagram", ["foto.jpg", "clip.mp4"], ["foto.jpg", "clip.mp4"]),
+    ],
+)
+def test_adapt_media_escolhe_grupo_entre_os_modos_entregues(network, files, expected):
+    from api.network_limits import adapt_media
+
+    kept, _ = adapt_media(network, [_m(f) for f in files])
+    assert _names(kept) == expected

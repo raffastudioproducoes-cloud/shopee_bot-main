@@ -1,13 +1,15 @@
 """Deterministic media compatibility planning for multi-network posts.
 
-The caller owns persistence. This module only decides what a single network
-can receive, so a rejected composition never cancels compatible networks.
+The caller owns persistence. Each network receives only what it accepts
+(`adapt_media`): the rest is reported in `dropped`, never blocks the network.
+A network is `blocked` only when nothing usable remains and plain text is not
+allowed there.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
-from api.network_limits import NETWORK_RULES, media_kind, validate_post
+from api.network_limits import NETWORK_RULES, adapt_media, drop_reasons, media_kind, validate_post
 
 MediaMode = Literal["none", "single_image", "carousel", "video", "text_only", "blocked"]
 
@@ -20,6 +22,7 @@ class MediaPlan:
     text_variant: list[str]
     warnings: list[str]
     blocked_reason: str | None = None
+    dropped: list[dict] = field(default_factory=list)
 
 
 def _compatible_mode(medias: list[dict]) -> MediaMode:
@@ -55,35 +58,45 @@ def plan_network_composition(
 ) -> MediaPlan:
     """Return the non-mutating plan for one selected network.
 
-    Validation errors become a text-only fallback only when the provider API
-    supports a post without media. Otherwise that network is blocked while the
-    caller remains free to create the other networks' posts.
+    Media the network cannot take is dropped (`dropped`), keeping the user's
+    order for the rest. Text errors still block (the copy would be cut).
     """
     if network not in NETWORK_RULES:
         raise ValueError(f"Rede inválida: {network}")
 
-    issues = validate_post(network, texts, medias, product_count)
+    rule = NETWORK_RULES[network]
+    label = rule["label"]
+    kept, dropped = adapt_media(network, medias)
+    issues = validate_post(network, texts, kept, product_count)
     error_issues = [issue for issue in issues if issue["level"] == "error"]
     errors = [issue["message"] for issue in error_issues]
     warnings = [issue["message"] for issue in issues if issue["level"] == "warn"]
+    if dropped and kept:
+        warnings.insert(0, f"{label}: {len(kept)} de {len(medias)} mídias — {drop_reasons(dropped)}")
 
+    def text_or_block(reason: str, notes: list[str]) -> MediaPlan:
+        if rule["supports_text_only"]:
+            return MediaPlan(network, "text_only", [], list(texts), notes + warnings, None, dropped)
+        return MediaPlan(network, "blocked", [], list(texts), notes + warnings, reason, dropped)
+
+    if any(issue.get("key") in _TEXT_ERROR_KEYS for issue in error_issues):
+        return MediaPlan(network, "blocked", [], list(texts), errors + warnings, errors[0], dropped)
+    if medias and not kept:
+        reason = f"{label}: nenhuma mídia aceita ({drop_reasons(dropped)})"
+        return text_or_block(reason, [reason])
     if errors:
-        has_text_error = any(issue.get("key") in _TEXT_ERROR_KEYS for issue in error_issues)
-        if not has_text_error and NETWORK_RULES[network]["supports_text_only"]:
-            return MediaPlan(network, "text_only", [], list(texts), errors + warnings)
-        return MediaPlan(network, "blocked", [], list(texts), errors + warnings, errors[0])
+        return text_or_block(errors[0], errors)
 
-    mode = _compatible_mode(medias)
-    if mode not in NETWORK_RULES[network]["delivered_modes"]:
+    mode = _compatible_mode(kept)
+    if mode not in rule["delivered_modes"]:
         message = _undelivered_message(network, mode)
-        if NETWORK_RULES[network]["supports_text_only"]:
-            return MediaPlan(network, "text_only", [], list(texts), warnings + [message])
-        return MediaPlan(network, "blocked", [], list(texts), warnings + [message], message)
+        return text_or_block(message, [message])
 
     return MediaPlan(
         network=network,
         mode=mode,
-        media_ids=[media["id"] for media in medias],
+        media_ids=[media["id"] for media in kept],
         text_variant=list(texts),
         warnings=warnings,
+        dropped=dropped,
     )

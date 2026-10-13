@@ -50,6 +50,21 @@ def _is_album_image(media):
     return media.get("type") == "IMAGE" and name.rsplit(".", 1)[-1].lower() in ALBUM_EXTS
 
 
+def _images_when_mixed(job_id, medias):
+    """Facebook não mistura imagem e vídeo no mesmo post: publica o grupo de
+    imagens e registra (nível warning) o que foi omitido."""
+    videos = [m for m in medias if m.get("type") == "VIDEO"]
+    if not videos or len(videos) == len(medias):
+        return medias
+    kept = [m for m in medias if m.get("type") != "VIDEO"]
+    logger.warning(
+        f"job #{job_id}: Facebook não mistura imagem e vídeo; "
+        f"publicando {len(kept)} imagem(ns) e omitindo {len(videos)} vídeo(s): "
+        f"{[m.get('file_name') for m in videos]}"
+    )
+    return kept
+
+
 def bot_post_facebook(job_id):
     """Publica um post na Página do Facebook do usuário.
 
@@ -74,8 +89,8 @@ def bot_post_facebook(job_id):
 
     post_data = posts.get(user_id, post_id, profile_id)
     root_post = post_data[0]
-    image = _first_image(root_post)
-    medias = root_post.get("medias") or []
+    medias = _images_when_mixed(job_id, root_post.get("medias") or [])
+    image = _first_image({"medias": medias})
 
     try:
         if len(medias) > 1:

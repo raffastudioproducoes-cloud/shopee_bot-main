@@ -206,3 +206,38 @@ def test_video_without_page_token_fails_instead_of_publishing_text(monkeypatch):
 
     assert activities[0][0] == ActivityType.BOT_POST_FAILURE
     assert "vídeo" in activities[0][1]["metadata"]["error"]
+
+
+def test_mixed_images_and_video_publishes_image_album_and_warns(monkeypatch):
+    medias = [_media("a.jpg"), _media("b.jpg"), _media("c.jpg"), _media("v.mp4", "VIDEO")]
+    _patch_common(monkeypatch, {"text": "mix", "product_ids": [], "medias": medias})
+    calls = {}
+    monkeypatch.setattr(
+        module, "_publish_album",
+        lambda token, page_id, items, caption: calls.update(items=items),
+    )
+    monkeypatch.setattr(module, "_publish_video", lambda *a: (_ for _ in ()).throw(AssertionError("vídeo")))
+    warnings = []
+    monkeypatch.setattr(module.logger, "warning", warnings.append)
+    activities = _capture_activities(monkeypatch)
+
+    module.bot_post_facebook("job-mix")
+
+    assert [m["file_name"] for m in calls["items"]] == ["a.jpg", "b.jpg", "c.jpg"]
+    assert activities[0][0] == ActivityType.BOT_POST_SUCCESS
+    assert "v.mp4" in warnings[0]
+
+
+def test_graph_error_with_media_is_logged_as_error_not_text_fallback(monkeypatch):
+    medias = [_media("a.jpg"), _media("b.jpg")]
+    _patch_common(monkeypatch, {"text": "x", "product_ids": [], "medias": medias})
+    monkeypatch.setattr(module, "_publish_album", lambda *a: (_ for _ in ()).throw(RuntimeError("signed url")))
+    monkeypatch.setattr(module.FacebookAPI, "post_text_as_page", lambda *a: (_ for _ in ()).throw(AssertionError("texto")))
+    errors = []
+    monkeypatch.setattr(module.logger, "exception", errors.append)
+    activities = _capture_activities(monkeypatch)
+
+    module.bot_post_facebook("job-err")
+
+    assert activities[0][0] == ActivityType.BOT_POST_FAILURE
+    assert "signed url" in errors[0]

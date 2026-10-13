@@ -43,6 +43,10 @@ def log_action(
     try:
         supabase = get_supabase()
         safe_message = sanitize_log_data(message)[:_MAX_TEXT_LEN] if message else None
+        if safe_message:
+            # surrogate solto (ex.: stderr decodificado com surrogateescape) quebra
+            # o json.encode do httpx em build_request, antes de qualquer rede
+            safe_message = safe_message.encode("utf-8", "replace").decode("utf-8")
         supabase.table("request_logs").insert(
             {
                 "user_id": user_id,

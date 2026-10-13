@@ -28,7 +28,7 @@ export const NETWORK_HELP: Record<PostNetwork, NetworkHelp> = {
       { label: "Posts por dia (API)", value: "até 250 em 24 h; um carrossel conta como 1" },
       { label: "Carrossel", value: "de 2 a 20 itens (imagens, vídeos ou mistura)" },
       { label: "Imagem", value: "largura de 320 a 1440 px, proporção até 10:1, sRGB" },
-      { label: "Vídeo", value: "MP4 ou MOV, H.264 ou HEVC, 23 a 60 fps, 9:16 recomendado" },
+      { label: "Vídeo", value: "Somente MP4 neste app; H.264 ou HEVC, 23 a 60 fps, 9:16 recomendado" },
     ],
     tips: [
       "Mais de 5 links no mesmo post faz o Threads recusar a publicação.",
@@ -81,7 +81,7 @@ export const NETWORK_HELP: Record<PostNetwork, NetworkHelp> = {
       { label: "Posts por dia (API)", value: "a doc cita 100 em uma página e 50 em outra: confirme o limite atual da conta", unconfirmed: true },
       { label: "Carrossel", value: "até 10 itens; legenda só no post, não nos itens" },
       { label: "Imagem", value: "somente JPEG, largura de 320 a 1440 px, sRGB" },
-      { label: "Vídeo (Reels)", value: "MP4 ou MOV, H.264 ou HEVC, 23 a 60 fps, 9:16 recomendado" },
+      { label: "Vídeo (Reels)", value: "Somente MP4 neste app; H.264 ou HEVC, 23 a 60 fps, 9:16 recomendado" },
     ],
     tips: [
       "O Instagram não publica sem imagem ou vídeo; por isso o criador de post exige mídia ou um produto com foto.",
@@ -96,7 +96,7 @@ export const NETWORK_HELP: Record<PostNetwork, NetworkHelp> = {
   tiktok: {
     facts: [
       { label: "Posts por dia (API)", value: "cerca de 15 por conta de criador (varia por criador)" },
-      { label: "Vídeo", value: "MP4 (recomendado), WebM ou MOV; H.264 recomendado; 23 a 60 fps" },
+      { label: "Vídeo", value: "Somente MP4 neste app; H.264 recomendado; 23 a 60 fps" },
       { label: "Fotos (API)", value: "WebP ou JPEG, até 20 MB (este app publica só vídeo)" },
       { label: "Limite da legenda", value: "2200 vem da referência da API; as diretrizes não citam número", unconfirmed: true },
     ],

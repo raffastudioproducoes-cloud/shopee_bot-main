@@ -35,7 +35,7 @@ const STEPS: { title: string; text: string }[] = [
   {
     title: "Conecte suas credenciais",
     text:
-      "Na aba Credenciais, conecte a Shopee (obrigatória) com App ID e Secret gerados no Portal de Afiliados — use o botão \"?\" no card da Shopee pra ver o tutorial. As redes sociais (Threads, X, Facebook, Instagram, TikTok) conectam com um clique via OAuth. Kwai ainda está \"em breve\".",
+      "Na aba Credenciais, conecte a Shopee (obrigatória) com App ID e Secret gerados no Portal de Afiliados — use o botão \"?\" no card da Shopee pra ver o tutorial. Threads, Facebook, Instagram e TikTok conectam com um clique via OAuth. X fica em breve no plano pago; Kwai ainda está \"em breve\".",
   },
   {
     title: "Cadastre produtos",
@@ -70,7 +70,7 @@ const MODULES: { icon: string; title: string; text: string }[] = [
   {
     icon: "key-round",
     title: "Credenciais",
-    text: "Conecte a Shopee (App ID/Secret) e as redes sociais (OAuth com um clique).",
+    text: "Conecte a Shopee (App ID/Secret) e as redes sociais disponíveis por OAuth.",
   },
   { icon: "users", title: "Usuários", text: "Gerencie os usuários da conta. Disponível apenas para administradores." },
   { icon: "help-circle", title: "Ajuda & FAQ", text: "Esta página: tutoriais, primeiros passos, dúvidas frequentes e dados." },
@@ -91,7 +91,7 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
     question: "Por que às vezes preciso reconectar uma rede social?",
     answer:
-      "Tokens de OAuth (Threads, X, Facebook, Instagram, TikTok) expiram periodicamente por regra da própria plataforma — isso é normal. Quando expirar, basta clicar em \"Reconectar\" no card da rede em Credenciais.",
+      "Tokens de OAuth (Threads, Facebook, Instagram, TikTok) expiram periodicamente por regra da própria plataforma — isso é normal. Quando expirar, basta clicar em \"Reconectar\" no card da rede em Credenciais. X está pausado até o plano pago.",
   },
   {
     question: "Posso fazer backup dos meus dados?",

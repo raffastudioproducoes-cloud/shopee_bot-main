@@ -54,11 +54,11 @@ export function TopBar({
       <SearchField value={query} onChange={onQuery} width={searchWidth} className="app-topbar-search" />
       <span style={{ flex: 1 }} />
       {trailing}
-      {bell ?? <IconButton icon="bell" label="Notifications" tone="glass" badge={unread} onClick={onBell} />}
+      {bell ?? <IconButton icon="bell" label="Notificações" tone="glass" badge={unread} onClick={onBell} />}
       {avatarSrc ? (
         <img
           src={avatarSrc}
-          alt="Account"
+          alt="Conta"
           style={{
             width: 36,
             height: 36,

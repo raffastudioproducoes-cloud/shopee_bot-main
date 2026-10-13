@@ -67,6 +67,12 @@ export interface NetworkRule {
 const MB = 1024 * 1024
 const GB = 1024 * MB
 
+export const DISABLED_NETWORKS: Partial<Record<PostNetwork, string>> = {
+  x: "X estará disponível em um plano pago em breve",
+}
+
+export const isNetworkDisabled = (network: PostNetwork): string | undefined => DISABLED_NETWORKS[network]
+
 export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
   threads: {
     label: "Threads",

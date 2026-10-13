@@ -1,4 +1,8 @@
+// Espelho de api/media_composition.py: o que cada rede recebe. Mídia que a rede
+// não aceita sai do plano (`dropped`) sem bloquear a rede; só vira `blocked`
+// quando nada serve e nem texto puro é permitido.
 import type { PostNetwork } from "../api/posts"
+import { adaptMedia, dropReasons, type Dropped } from "./mediaAdapt"
 import { NETWORK_RULES, type MediaInfo, type PostDraft, validateForNetwork } from "./networkLimits"
 
 export type MediaCompositionMode = "none" | "single_image" | "carousel" | "video" | "text_only" | "blocked"
@@ -10,6 +14,7 @@ export interface MediaCompositionPlan {
   textVariant: string[]
   warnings: string[]
   blockedReason?: string
+  dropped: Dropped<MediaInfo>[]
 }
 
 const TEXT_ERROR_KEYS = new Set(["maxChars", "maxLinks", "maxHashtags", "maxMentions"])
@@ -25,32 +30,40 @@ function undeliveredMessage(network: PostNetwork, mode: Exclude<MediaComposition
 }
 
 export function planMediaComposition(network: PostNetwork, draft: PostDraft): MediaCompositionPlan {
-  const issues = validateForNetwork(network, draft)
+  const rule = NETWORK_RULES[network]
+  const { kept, dropped } = adaptMedia(rule, draft.media)
+  const issues = validateForNetwork(network, { ...draft, media: kept })
   const errorIssues = issues.filter((issue) => issue.level === "error")
   const errors = errorIssues.map((issue) => issue.message)
   const warnings = issues.filter((issue) => issue.level === "warn").map((issue) => issue.message)
-
-  if (errors.length) {
-    const hasTextError = errorIssues.some((issue) => TEXT_ERROR_KEYS.has(issue.key))
-    if (!hasTextError && NETWORK_RULES[network].supportsTextOnly) {
-      return { network, mode: "text_only", media: [], textVariant: draft.texts, warnings: [...errors, ...warnings] }
-    }
-    return { network, mode: "blocked", media: [], textVariant: draft.texts, warnings: [...errors, ...warnings], blockedReason: errors[0] }
+  if (dropped.length && kept.length) {
+    warnings.unshift(`${rule.label}: ${kept.length} de ${draft.media.length} mídias — ${dropReasons(dropped)}`)
   }
 
-  const media = [...draft.media]
-  const mode: MediaCompositionMode = media.length === 0
+  const base = { network, textVariant: draft.texts, dropped }
+  const textOrBlock = (reason: string, notes: string[]): MediaCompositionPlan =>
+    rule.supportsTextOnly
+      ? { ...base, mode: "text_only", media: [], warnings: [...notes, ...warnings] }
+      : { ...base, mode: "blocked", media: [], warnings: [...notes, ...warnings], blockedReason: reason }
+
+  if (errorIssues.some((issue) => TEXT_ERROR_KEYS.has(issue.key))) {
+    return { ...base, mode: "blocked", media: [], warnings: [...errors, ...warnings], blockedReason: errors[0] }
+  }
+  if (draft.media.length && !kept.length) {
+    const reason = `${rule.label}: nenhuma mídia aceita (${dropReasons(dropped)})`
+    return textOrBlock(reason, [reason])
+  }
+  if (errors.length) return textOrBlock(errors[0], errors)
+
+  const mode: MediaCompositionMode = kept.length === 0
     ? "none"
-    : media.length === 1 && media[0].kind === "video"
+    : kept.length === 1 && kept[0].kind === "video"
       ? "video"
-      : media.length === 1 ? "single_image" : "carousel"
-  if (!NETWORK_RULES[network].deliveredModes.includes(mode)) {
+      : kept.length === 1 ? "single_image" : "carousel"
+  if (!rule.deliveredModes.includes(mode)) {
     const message = undeliveredMessage(network, mode)
-    if (NETWORK_RULES[network].supportsTextOnly) {
-      return { network, mode: "text_only", media: [], textVariant: draft.texts, warnings: [...warnings, message] }
-    }
-    return { network, mode: "blocked", media: [], textVariant: draft.texts, warnings: [...warnings, message], blockedReason: message }
+    return textOrBlock(message, [message])
   }
 
-  return { network, mode, media, textVariant: draft.texts, warnings }
+  return { ...base, mode, media: kept, warnings }
 }

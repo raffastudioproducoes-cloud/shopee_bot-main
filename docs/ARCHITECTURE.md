@@ -240,12 +240,26 @@ Detalhes, contratos e critérios de aceite:
   `day_of_week` legado continua válido.
 - **Entrega**: `scheduler/media_delivery.py` transforma `storage://bucket/chave` em URL assinada
   (1 h) para Threads, Facebook e Instagram; mídia legada em disco segue pelo Cloudinary. O X
-  envia foto única por `/2/media/upload` (exige `media.write`). O Instagram espera o container
-  chegar a `FINISHED`, com tempo limite. TikTok foto segue bloqueado até Creator Info + URL
-  verificada.
-- **Pendências**: escopo OAuth do X não persistido; Graph API do Facebook fixa em `v18.0`;
+  permanece no código, mas `DISABLED_NETWORKS` bloqueia criação/lote e faz o scheduler pular sem
+  chamar a API até virar plano pago. Vídeo é somente MP4 neste app; `.mov` é bloqueado. O Instagram
+  espera o container chegar a `FINISHED`, com tempo limite. TikTok foto segue bloqueado até Creator
+  Info + URL verificada; TikTok publica somente vídeo com descrição/link.
+- **Pendências**: reabrir X no plano pago e validar `media.write`; Graph API do Facebook/Instagram
+  está em `v26.0` (`apis/meta_version.py`);
   `display_order` segue a ordem dos rascunhos sem contrato por rede; o scheduler depende de
   `SUPABASE_URL`/`SUPABASE_KEY` para assinar URL.
+
+### 9.2 Bandeja e adaptação por rede (2026-10-13, validada em staging)
+
+- `frontend/src/components/posts/MediaTray.tsx`: bandeja de fotos reordenável (carrossel/álbum).
+- `adapt_media(network, medias)` (`api/network_limits.py`; espelho `frontend/src/lib/mediaAdapt.ts`)
+  é chamado pelo planejador: devolve `(aceitas, dropped)`; `dropped` traz `id`, `name` e `reason`
+  (formato, tipo, tamanho ou mix). A rede deixa de ser bloqueada por causa de um arquivo; só fica
+  bloqueada se nada restar e não houver texto puro.
+- `NetworkPicker` e `MediaSummary` exibem limites por rede e o resumo do que cada rede receberá.
+- Facebook com imagem+vídeo publica o grupo de imagens (antes caía para texto). Graph API em
+  `v26.0` (`apis/meta_version.py`).
+- Rotas Flask de posts removidas; `/api/posts/*` (FastAPI) é o único caminho de escrita.
 
 ## 10. Conta, perfis e papeis (migracao em staging, 2026-10-11)
 

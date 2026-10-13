@@ -30,3 +30,13 @@ os.environ.setdefault("LOG_LEVEL", "30")
 os.environ.setdefault(
     "APP_ENCRYPTION_KEY", "e7lc8f3AsY0VNg7Kpy1K5umJirUK6jwqkJg7_xhn0IY="
 )
+
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _enable_all_networks_in_tests(monkeypatch):
+    from shopee_bot.api import network_limits
+
+    monkeypatch.setattr(network_limits, "DISABLED_NETWORKS", {})

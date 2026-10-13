@@ -16,6 +16,13 @@ import re
 MB = 1024 * 1024
 GB = 1024 * MB
 
+DISABLED_NETWORKS = {"x": "X estará disponível em um plano pago em breve"}
+
+
+def is_network_disabled(name: str) -> str | None:
+    return DISABLED_NETWORKS.get(name)
+
+
 NETWORK_RULES = {
     "threads": {
         "label": "Threads", "max_chars": 500, "count": "codepoints", "thread_parts": True,
@@ -178,4 +185,75 @@ def errors_detail(issues: list[dict]) -> str | None:
     """Mensagem única pro HTTPException, ou None se só há avisos."""
     errors = [i["message"] for i in issues if i["level"] == "error"]
     return "; ".join(errors) if errors else None
+
+
+_GROUP_PRIORITY = ("image", "video", "gif")
+
+
+def drop_reasons(dropped: list[dict]) -> str:
+    return "; ".join(dict.fromkeys(d["reason"] for d in dropped))
+
+
+def adapt_media(network: str, medias: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Separa o que a rede aceita (ordem do usuário preservada) do que fica de fora.
+
+    `dropped`: `{"id", "name", "reason"}` na ordem original. Nunca muta `medias`.
+    Espelho de frontend/src/lib/mediaAdapt.ts."""
+    rule = NETWORK_RULES[network]
+    delivered = rule["delivered_modes"]
+    gone: dict[int, str] = {}  # índice original -> motivo
+    ok: list[tuple[int, str]] = []
+    for i, media in enumerate(medias):
+        name = media.get("file_name") or ""
+        kind = media_kind(name)
+        max_b = rule["max_bytes"].get(kind)
+        if _ext(name) not in rule["exts"]:
+            gone[i] = "formato não aceito"
+        elif rule.get(f"max_{kind}") == 0:
+            gone[i] = f"não aceita {_KIND_LABEL[kind]}"
+        elif max_b is not None and (media.get("size") or 0) > max_b:
+            gone[i] = f"tamanho acima de {_fmt_bytes(max_b)}"
+        else:
+            ok.append((i, kind))
+
+    if rule.get("allow_mix") is False and ok:
+        # Produto: foto > vídeo > GIF (não a ordem do usuário). Só entra no sorteio
+        # grupo que a rede entrega; vídeo sem modo "video" não vence e some depois.
+        present = {kind for _, kind in ok if kind != "video" or "video" in delivered}
+        group = next((k for k in _GROUP_PRIORITY if k in present), None)
+        if group:
+            for i, kind in ok:
+                if kind != group:
+                    gone[i] = f"não mistura {_KIND_LABEL[kind]} com {_KIND_LABEL[group]}"
+            ok = [(i, kind) for i, kind in ok if kind == group]
+
+    kept_idx: list[int] = []
+    counts: dict[str, int] = {}
+    for i, kind in ok:
+        cap = rule.get(f"max_{kind}")
+        if cap is not None and counts.get(kind, 0) >= cap:
+            gone[i] = f"limite de {cap} {_KIND_LABEL[kind]}(s)"
+        elif "max_media" in rule and len(kept_idx) >= rule["max_media"]:
+            gone[i] = f"limite de {rule['max_media']} mídias"
+        else:
+            kept_idx.append(i)
+            counts[kind] = counts.get(kind, 0) + 1
+
+    if len(kept_idx) > 1 and "carousel" not in delivered:
+        for i in kept_idx[1:]:
+            gone[i] = "só 1 mídia por post neste aplicativo"
+        kept_idx = kept_idx[:1]
+    if (
+        len(kept_idx) == 1
+        and media_kind(medias[kept_idx[0]].get("file_name") or "") == "video"
+        and "video" not in delivered
+    ):
+        gone[kept_idx[0]] = "vídeo não é entregue por este aplicativo"
+        kept_idx = []
+
+    dropped = [
+        {"id": medias[i].get("id"), "name": medias[i].get("file_name") or "", "reason": reason}
+        for i, reason in sorted(gone.items())
+    ]
+    return [medias[i] for i in kept_idx], dropped
 

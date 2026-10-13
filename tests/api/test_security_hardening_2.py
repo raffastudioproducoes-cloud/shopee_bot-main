@@ -16,8 +16,18 @@ from api.routers import posts as posts_module
 from api.routers.auth import get_current_user_id
 from api.routers.profiles import get_current_profile_id
 
-JPEG = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01" + b"\x00" * 32
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+def _img(fmt: str) -> bytes:
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (2, 2), "red").save(buf, format=fmt)
+    return buf.getvalue()
+
+
+JPEG = _img("JPEG")
+PNG = _img("PNG")
 
 
 @pytest.fixture
@@ -48,11 +58,11 @@ def _fake_supabase(monkeypatch, tables: dict):
 # ── 1. Path traversal no upload/remoção de mídia ─────────────────────────────
 
 @pytest.mark.parametrize("name", [
-    "../../evil.png", "/tmp/x.png", "..\\x.png", "..\\..\\x.png",
-    "a\x00.png", "evil.php", "foto.png",
+    "../../evil.jpg", "/tmp/x.jpg", "..\\x.jpg", "..\\..\\x.jpg",
+    "a\x00.jpg", "foto.jpg",
 ])
-def test_upload_generates_server_side_name_inside_post_dir(auth_client, monkeypatch, tmp_path, name):
-    _fake_supabase(monkeypatch, {
+def test_upload_generates_server_side_key_never_from_client_name(auth_client, monkeypatch, tmp_path, name):
+    fake = _fake_supabase(monkeypatch, {
         "posts": {"id": 9999, "user_id": 42},
         "medias": [{"id": 1}],
     })
@@ -62,23 +72,24 @@ def test_upload_generates_server_side_name_inside_post_dir(auth_client, monkeypa
     res = auth_client.post("/posts/9999/media", files={"file": (name, JPEG, "image/jpeg")})
 
     assert res.status_code == 201, res.text
-    written = [p for p in tmp_path.rglob("*") if p.is_file()]
-    assert len(written) == 1
-    f = written[0]
-    assert f.parent == root / "9999"
+    assert not [p for p in tmp_path.rglob("*") if p.is_file()]  # nada vai para o disco
+    key = fake.storage.from_.return_value.upload.call_args.args[0]
+    assert key.startswith("posts/42/profile-a/9999/") and key.endswith(".jpg")
     # extensão vem dos magic bytes (JPEG), nunca do nome do cliente
-    assert f.suffix == ".jpg"
-    assert ".." not in f.name and "evil" not in f.name
+    assert ".." not in key and "evil" not in key and "\\" not in key
 
 
-def test_upload_png_bytes_with_jpg_name_gets_png_extension(auth_client, monkeypatch, tmp_path):
-    _fake_supabase(monkeypatch, {"posts": {"id": 9999, "user_id": 42}, "medias": [{"id": 1}]})
-    monkeypatch.setattr(posts_module, "MEDIA_ROOT", tmp_path)
+@pytest.mark.parametrize(("name", "content", "ctype"), [
+    ("foto.jpg", PNG, "image/jpeg"),   # nome/tipo mentem sobre o conteúdo
+    ("evil.php", JPEG, "image/jpeg"),  # extensão fora da allowlist
+])
+def test_upload_rejects_content_that_disagrees_with_name(auth_client, monkeypatch, name, content, ctype):
+    fake = _fake_supabase(monkeypatch, {"posts": {"id": 9999, "user_id": 42}, "medias": [{"id": 1}]})
 
-    res = auth_client.post("/posts/9999/media", files={"file": ("foto.jpg", PNG, "image/jpeg")})
+    res = auth_client.post("/posts/9999/media", files={"file": (name, content, ctype)})
 
-    assert res.status_code == 201
-    assert [p.suffix for p in (tmp_path / "9999").iterdir()] == [".png"]
+    assert res.status_code == 415
+    fake.storage.from_.return_value.upload.assert_not_called()
 
 
 def test_delete_media_refuses_path_outside_media_root(auth_client, monkeypatch, tmp_path):

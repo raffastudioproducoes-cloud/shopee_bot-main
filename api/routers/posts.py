@@ -34,7 +34,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
-import fleep
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, model_validator, field_validator
@@ -45,8 +44,9 @@ from ..profiles import scope_account, scope_owner
 from ..audit_log import log_action
 from ..database import supabase
 from ..utils.log_sanitizer import sanitize_log_data
-from ..network_limits import validate_post, errors_detail
+from ..network_limits import validate_post, errors_detail, is_network_disabled
 from ..media_composition import plan_network_composition
+from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload
 from .. import x_oauth
 from ..text_variants import generate_variants
 from ..internal_client import (
@@ -77,19 +77,6 @@ MEDIA_ROOT = Path("web/media")
 MAX_MEDIA_BYTES = 50 * 1024 * 1024  # 50MB, mesmo teto do Flask (FLASK_MAX_CONTENT_LENGTH)
 MEDIA_DRAFT_BUCKET = "post-media"
 MEDIA_DRAFT_TTL = timedelta(hours=24)
-
-# MIME real detectado por magic bytes (fleep) -> extensão gravada em disco.
-# O nome do arquivo é gerado no servidor (uuid + esta extensão), NUNCA vem de
-# `file.filename` (path traversal: "../../x.png", absoluto, "..\\x.png").
-# Mesmo padrão do avatar em api/routers/profiles.py.
-ALLOWED_MEDIA_MIMES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/gif": ".gif",
-    "image/webp": ".webp",
-    "video/mp4": ".mp4",
-}
-
 
 STORAGE_SCHEME = "storage://"
 
@@ -167,14 +154,43 @@ def _expired_at(value: object, now: datetime) -> bool:
     return moment <= now
 
 
-async def _read_media_content(file: UploadFile) -> bytes:
-    """Lê em blocos e recusa um upload antes de acumular mais de 50 MB."""
+async def _read_media_content(file: UploadFile) -> bytearray:
+    """Lê em blocos e recusa um upload antes de acumular mais de 50 MB.
+
+    Devolve o bytearray sem copiar pra bytes (evita 2x 50 MB); o sanitizador
+    aceita ambos e sempre devolve bytes."""
     content = bytearray()
     while chunk := await file.read(1024 * 1024):
         content.extend(chunk)
         if len(content) > MAX_MEDIA_BYTES:
             raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
-    return bytes(content)
+    return content
+
+
+async def _sanitize_upload(file: UploadFile, content: bytes | bytearray):
+    """Valida e reencoda o upload na memória; falha vira HTTP sem eco do conteúdo."""
+    try:
+        return await run_in_threadpool(
+            sanitize_media_upload,
+            content,
+            filename=file.filename,
+            content_type=file.content_type,
+            max_bytes=MAX_MEDIA_BYTES,
+        )
+    except MediaSanitizerError as exc:
+        logger.info(
+            "Upload de midia rejeitado: %s",
+            exc,
+            extra=sanitize_log_data({
+                "filename": file.filename,
+                "content_type": file.content_type,
+                "size_bytes": len(content),
+            }),
+        )
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=f"Arquivo inválido ou não suportado: {exc}",
+        ) from None
 
 
 def cleanup_expired_media_drafts(now: datetime | None = None) -> int:
@@ -408,6 +424,12 @@ def _check_network_rules(
     )
     if detail:
         raise HTTPException(status_code=422, detail=detail)
+
+
+def _check_network_enabled(network: str) -> None:
+    reason = is_network_disabled(network)
+    if reason:
+        raise HTTPException(status_code=422, detail=reason)
 
 
 def _get_owned_medias(user_id: int, media_ids: list[int], profile_id: str | None) -> list[dict]:
@@ -785,6 +807,7 @@ async def create_post(
     publicação. Se o agendamento falhar, desfaz a criação inteira —
     melhor não criar do que criar um post que nunca vai publicar."""
     profile_id = _require_profile_id(profile_id)
+    _check_network_enabled(body.network)
     _validate_product_ids(user_id, body.product_ids)
     medias = _get_owned_medias(user_id, body.media_ids, profile_id)
     _check_network_rules(body.network, body.texts, medias, len(body.product_ids))
@@ -853,6 +876,18 @@ def _preview_batch(
         for draft in drafts
     ]
     for composition in body.compositions:
+        disabled_reason = is_network_disabled(composition.network)
+        if disabled_reason:
+            plans.append({
+                "network": composition.network,
+                "texts": composition.texts,
+                "mode": "blocked",
+                "media_draft_ids": [],
+                "warnings": [],
+                "blocked_reason": disabled_reason,
+                "dropped": [],
+            })
+            continue
         plan = plan_network_composition(
             composition.network,
             composition.texts,
@@ -866,6 +901,7 @@ def _preview_batch(
             "media_draft_ids": [str(media_id) for media_id in plan.media_ids],
             "warnings": plan.warnings,
             "blocked_reason": plan.blocked_reason,
+            "dropped": plan.dropped,
         }
         if composition.network == "x" and entry["media_draft_ids"] and not x_media_allowed:
             entry.update(
@@ -967,8 +1003,9 @@ async def upload_media_draft(
     cleanup_expired_media_drafts()
     content = await _read_media_content(file)
 
-    detected = fleep.get(content[:128])
-    mime = next((m for m in detected.mime if m in ALLOWED_MEDIA_MIMES), None)
+    media = await _sanitize_upload(file, content)
+    content = media.content
+    mime = media.mime_type
     if not mime:
         raise HTTPException(
             status_code=400,
@@ -976,10 +1013,10 @@ async def upload_media_draft(
         )
 
     upload_id = str(uuid.uuid4())
-    suffix = ALLOWED_MEDIA_MIMES[mime]
+    suffix = media.extension
     storage_key = f"drafts/{user_id}/{profile_id}/{upload_id}{suffix}"
     expires_at = (datetime.now(timezone.utc) + MEDIA_DRAFT_TTL).isoformat()
-    media_type = "VIDEO" if mime.startswith("video/") else "IMAGE"
+    media_type = media.media_type
     create = (
         supabase.table("temporary_media_uploads")
         .insert({
@@ -988,7 +1025,7 @@ async def upload_media_draft(
             "profile_id": profile_id,
             "storage_bucket": MEDIA_DRAFT_BUCKET,
             "storage_key": storage_key,
-            "file_name": f"{Path(file.filename or 'arquivo').stem}{suffix}",
+            "file_name": media.safe_filename,
             "mime_type": mime,
             "size_bytes": len(content),
             "media_type": media_type,
@@ -1136,63 +1173,58 @@ async def upload_media(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Anexa uma mídia à HEAD do post (não a partes de thread — ver
-    docstring do módulo). Grava em disco no mesmo caminho relativo que
-    o Flask usa (`web/media/<post_id>/`)."""
+    docstring do módulo). A mídia é sanitizada na memória e vai para o bucket
+    privado `post-media` (`storage://`), nunca para o disco do servidor."""
     profile_id = _require_profile_id(profile_id)
     post = _get_post(user_id, post_id, profile_id)  # ownership check
 
     content = await _read_media_content(file)
-
-    detected = fleep.get(content[:128])
-    mime = next((m for m in detected.mime if m in ALLOWED_MEDIA_MIMES), None)
-    if not mime:
-        raise HTTPException(
-            status_code=400,
-            detail="Conteúdo do arquivo não corresponde a uma mídia permitida.",
-        )
+    media = await _sanitize_upload(file, content)
+    content = media.content
 
     # regras da rede do post com o formato REAL (magic bytes), não o nome enviado
-    shown_name = f"{Path(file.filename or 'arquivo').stem}{ALLOWED_MEDIA_MIMES[mime]}"
     _check_network_rules(
         post.get("network") or "threads", [post.get("text") or ""],
-        [*_get_post_medias(post_id), {"file_name": shown_name, "size": len(content)}],
+        [*_get_post_medias(post_id), {"file_name": media.safe_filename, "size": len(content)}],
         0,
     )
 
-    post_dir = MEDIA_ROOT / str(post_id)
-    post_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"{uuid.uuid4().hex}{ALLOWED_MEDIA_MIMES[mime]}"
-    file_path = post_dir / filename
-    if not file_path.resolve().is_relative_to(post_dir.resolve()):  # defesa extra
-        raise HTTPException(status_code=400, detail="Nome de arquivo inválido.")
-    file_path.write_bytes(content)
+    # chave gerada no servidor (uuid + extensão real); NUNCA vem de `file.filename`
+    storage_key = f"posts/{user_id}/{profile_id}/{post_id}/{uuid.uuid4().hex}{media.extension}"
+    try:
+        supabase.storage.from_(MEDIA_DRAFT_BUCKET).upload(
+            storage_key, content, {"content-type": media.mime_type, "upsert": "false"}
+        )
+    except Exception:
+        logger.warning("Falha ao guardar mídia do post", exc_info=True)
+        raise HTTPException(status_code=502, detail="Não foi possível enviar a mídia agora. Tente novamente.")
 
-    media_type = "VIDEO" if mime.startswith("video/") else "IMAGE"
+    file_path = f"{STORAGE_SCHEME}{MEDIA_DRAFT_BUCKET}/{storage_key}"
     media_result = (
         supabase.table("medias")
         .insert({
             "user_id": user_id,
             "profile_id": profile_id,
-            "file_name": filename,
-            "file_path": str(file_path),
+            "file_name": media.safe_filename,
+            "file_path": file_path,
             "size": len(content),
-            "type": media_type,
+            "type": media.media_type,
         })
         .execute()
     )
     if not media_result.data:
-        file_path.unlink(missing_ok=True)
+        _remove_durable_media(file_path)
         raise HTTPException(status_code=500, detail="Falha ao salvar mídia")
 
-    media = media_result.data[0]
+    row = media_result.data[0]
     next_order = len(_get_post_medias(post_id))
     supabase.table("posts_medias").insert({
         "post_id": post_id,
-        "media_id": media["id"],
+        "media_id": row["id"],
         "display_order": next_order,
     }).execute()
 
-    return media
+    return row
 
 
 @router.delete("/{post_id}/media/{media_id}")

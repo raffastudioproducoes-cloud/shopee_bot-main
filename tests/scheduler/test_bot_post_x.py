@@ -70,6 +70,35 @@ def test_expired_x_token_refreshes_with_global_oauth_and_scopes_saved_tokens(mon
     assert activities[0][1] == ActivityType.BOT_POST_SUCCESS
 
 
+def test_disabled_x_job_logs_and_skips_before_api_calls(monkeypatch, caplog):
+    from shopee_bot.api import network_limits
+
+    monkeypatch.setitem(
+        network_limits.DISABLED_NETWORKS,
+        "x",
+        "X estará disponível em um plano pago em breve",
+    )
+    monkeypatch.setattr(
+        module.schedulers,
+        "get_by_id",
+        lambda job_id: {"user_id": 42, "post_id": 9, "profile_id": "profile-7"},
+    )
+    monkeypatch.setattr(
+        module.x_credentials,
+        "get_by_user_id",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("nao deve ler credencial X")),
+    )
+    monkeypatch.setattr(
+        module.XAPI,
+        "post_text",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("nao deve chamar API X")),
+    )
+
+    module.bot_post_x("job-1")
+
+    assert "X estará disponível em um plano pago em breve" in caplog.text
+
+
 # --- single_image: upload via POST /2/media/upload (escopo media.write) ---
 
 import pytest  # noqa: E402
