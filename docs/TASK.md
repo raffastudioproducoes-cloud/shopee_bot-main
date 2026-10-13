@@ -319,6 +319,17 @@ em execução.
 Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
 existente — diretriz, não tarefa isolada).
 
+## FUTURO — Escalabilidade (Fases 3 a 7)
+
+- [ ] **FUTURO — Escalabilidade (Fases 3 a 7).** Plano completo:
+  `docs/superpowers/plans/2026-10-13-escalabilidade-futura.md`. **Aguarda autorização explícita
+  do Rafa;** começar pelos P0 de segurança dos logs. (origem: plano de escalabilidade, 2026-10-13)
+  - [ ] Fase 3 — Preparação sem custo.
+  - [ ] Fase 4 — Scheduler/jobs.
+  - [ ] Fase 5 — Banco.
+  - [ ] Fase 6 — Testes.
+  - [ ] Fase 7 — Documentação.
+
 ## Referências
 
 - `docs/ROADMAP_MIGRACAO.md`, `docs/CHECKLIST_MIGRACAO.md`
