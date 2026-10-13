@@ -9,7 +9,6 @@ from shopee_bot.web.user import User
 from shopee_bot.database import init as init_db, close_connection, users, \
     products, posts, product_lists, activities
 from shopee_bot.scheduler import init as init_scheduler
-from shopee_bot.web.routes.posts import posts_bp
 from shopee_bot.web.routes.panel import panel_bp
 from shopee_bot.web.routes.product_lists import product_lists_bp
 from shopee_bot.web.routes.products import products_bp
@@ -36,7 +35,7 @@ UPLOAD_FOLDER = os.environ.get("FLASK_UPLOAD_FOLDER")
 MAX_CONTENT_LENGTH = int(os.environ.get("FLASK_MAX_CONTENT_LENGTH"))
 DEBUG = bool(os.environ.get("FLASK_DEBUG"))
 
-# Painel Jinja legado (index() em "/", + blueprints products/posts/users)
+# Painel Jinja legado (index() em "/", + blueprints products/users)
 # colide de path com o React novo (frontend/, ver router.tsx). Default
 # "false": React é o painel principal daqui pra frente, essas 4 rotas
 # ficam fora e o catch-all do SPA (web/routes/spa.py) assume os paths.
@@ -130,7 +129,6 @@ app.register_blueprint(activities_bp)
 if LEGACY_PANEL_ENABLED:
     app.register_blueprint(users_bp)
     app.register_blueprint(products_bp)
-    app.register_blueprint(posts_bp)
     app.register_blueprint(panel_bp)
 app.register_blueprint(product_lists_bp)
 # rotas internas (chamadas só pela API nova, via secret — não sessão de

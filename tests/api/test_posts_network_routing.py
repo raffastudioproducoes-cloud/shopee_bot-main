@@ -5,7 +5,7 @@ exatamente como antes do campo `network` existir.
 Cobre os dois lugares que resolvem func a partir da rede:
 - api/routers/posts.py (schema Pydantic usado pelo frontend React)
 - shopee_bot/database/schedulers.py (mapa usado pelo painel Flask
-  legado, web/routes/posts.py + web/forms/posts.py)
+  legado, removido; o mapa segue como fallback)
 - shopee_bot/database/posts.py (fallback de default na hora do INSERT)
 
 Não exercita o endpoint FastAPI inteiro (bateria em Supabase real, fora

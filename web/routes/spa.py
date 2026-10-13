@@ -8,7 +8,7 @@ legado sob LEGACY_PANEL_ENABLED, /panel, /auth, /internal, /api, /static,
 rotas estáticas/mais específicas sobre a rota com <path:...> independente
 da ordem de registro, e o prefixo abaixo é só uma trava extra de segurança.
 
-Quando LEGACY_PANEL_ENABLED=false (default), index()/products_bp/posts_bp/
+Quando LEGACY_PANEL_ENABLED=false (default), index()/products_bp/
 users_bp não são registrados (ver web/__init__.py) e este catch-all assume
 "/", "/products", "/posts", "/users" — servindo o index.html do React, que
 resolve a rota via client-side routing (frontend/src/router.tsx).
