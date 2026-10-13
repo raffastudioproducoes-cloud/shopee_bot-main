@@ -866,6 +866,7 @@ def _preview_batch(
             "media_draft_ids": [str(media_id) for media_id in plan.media_ids],
             "warnings": plan.warnings,
             "blocked_reason": plan.blocked_reason,
+            "dropped": plan.dropped,
         }
         if composition.network == "x" and entry["media_draft_ids"] and not x_media_allowed:
             entry.update(

@@ -179,6 +179,33 @@ def test_batch_persists_display_order_in_received_draft_order(fake_db, monkeypat
     assert [names[r["media_id"]] for r in links] == ["zzz.jpg", "aaa.jpg", "mmm.jpg"]
 
 
+def test_batch_links_each_network_only_the_media_it_uses(fake_db, monkeypatch):
+    client, db = _batch_client(fake_db, monkeypatch)
+    expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    for draft_id, name in ((D_ZZZ, "zzz.jpg"), (D_AAA, "aaa.jpg")):
+        db.tables["temporary_media_uploads"].append({
+            "id": draft_id, "user_id": 42, "profile_id": "profile-a", "status": "ready",
+            "storage_bucket": "post-media", "storage_key": f"drafts/{name}",
+            "file_name": name, "size_bytes": 12, "media_type": "IMAGE", "expires_at": expires,
+        })
+    body = {**_batch_body(), "draft_media_ids": [D_ZZZ, DRAFT_1, D_AAA]}
+
+    preview = client.post("/posts/preview", json=body).json()["plans"]
+    plans = {plan["network"]: plan for plan in preview}
+    assert plans["threads"]["media_draft_ids"] == [D_ZZZ, DRAFT_1, D_AAA]
+    assert plans["x"]["media_draft_ids"] == [D_ZZZ]
+    assert [d["id"] for d in plans["x"]["dropped"]] == [DRAFT_1, D_AAA]
+
+    response = client.post("/posts/batch", json=body)
+
+    assert response.status_code == 201
+    by_network = {row["network"]: row for row in response.json()["created"]}
+    assert len(by_network["threads"]["medias"]) == 3
+    assert [m["file_name"] for m in by_network["x"]["medias"]] == ["zzz.jpg"]
+    x_links = [r for r in db.tables["posts_medias"] if r["post_id"] == by_network["x"]["post_id"]]
+    assert len(x_links) == 1
+
+
 class _BrokenLinksDB:
     """Delega ao FakeDB, mas o insert em posts_medias falha (strict, sem MagicMock)."""
 
