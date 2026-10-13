@@ -166,7 +166,8 @@ interface LimitsPanelProps {
   selected: PostNetwork[]
   /** Texto (parte 1) que vai pra cada rede: com abas, cada grupo tem o seu. */
   textFor: (network: PostNetwork) => string
-  mediaCount: number
+  /** Mídias que a rede realmente recebe. */
+  mediaCount: (network: PostNetwork) => number
   issues: Record<PostNetwork, Issue[]>
 }
 
@@ -203,7 +204,7 @@ export function NetworkLimitsPanel({ selected, textFor, mediaCount, issues }: Li
               <NetworkLogo network={n} size={14} />
               <span style={{ fontVariantNumeric: "tabular-nums" }}>
                 {used}/{rule.maxChars.toLocaleString("pt-BR")}
-                {maxMedia != null ? ` · mídia ${mediaCount}/${maxMedia}` : ""}
+                {maxMedia != null ? ` · mídia ${mediaCount(n)}/${maxMedia}` : ""}
               </span>
               <span aria-hidden="true">{bad ? "✕" : "✓"}</span>
             </span>
@@ -211,14 +212,19 @@ export function NetworkLimitsPanel({ selected, textFor, mediaCount, issues }: Li
         })}
       </div>
       {all.length > 0 && (
-        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2 }}>
-          {all.map((i, idx) => (
-            <li key={idx} style={{ font: caption, color: i.level === "error" ? "var(--negative)" : "var(--amber-300)" }}>
-              {i.level === "error" ? "Bloqueado — " : "Aviso — "}
-              {i.message}
-            </li>
-          ))}
-        </ul>
+        <details style={{ font: caption, color: "var(--text-muted)" }}>
+          <summary style={{ cursor: "pointer" }}>
+            Ver detalhes ({all.length} {all.length === 1 ? "aviso" : "avisos"})
+          </summary>
+          <ul style={{ margin: "6px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2 }}>
+            {all.map((i, idx) => (
+              <li key={idx} style={{ font: caption, color: i.level === "error" ? "var(--negative)" : "var(--amber-300)" }}>
+                {i.level === "error" ? "Erro — " : "Aviso — "}
+                {i.message}
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </div>
   )

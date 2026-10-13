@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { postsApi, type Post, type PostBatchResult, type PostSchedule, type PostNetwork } from "../api/posts"
@@ -15,10 +15,12 @@ import {
   type MediaInfo,
 } from "../lib/networkLimits"
 import { TextVariantTabs } from "../components/posts/TextVariantTabs"
-import { MediaVariantTabs } from "../components/posts/MediaVariantTabs"
+import { MediaSummary } from "../components/posts/MediaSummary"
 import { MediaTray } from "../components/posts/MediaTray"
 import { planMediaComposition } from "../lib/mediaComposition"
-import { moveItem, trayLimit } from "../lib/mediaTray"
+import { filterPicked, pickLimits, pickNotice } from "../lib/mediaAdapt"
+import { isoToBr, maskDate, maskTime, parseDate, parseTime } from "../lib/ptBrDateTime"
+import { moveItem } from "../lib/mediaTray"
 import {
   NetworkLimitsPanel,
   NetworkLogo,
@@ -54,8 +56,6 @@ const PERSONAS = [
 // navegador. ponytail: offset fixo -03:00 (Brasil sem horário de verão desde
 // 2019); se voltar, trocar por cálculo de offset via Intl.
 const SP_OFFSET = "-03:00"
-const todayInSaoPaulo = () =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date())
 const nowInSaoPaulo = () => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
@@ -538,12 +538,19 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     post?.products.map((p) => p.id) ?? [],
   )
   const [when, setWhen] = useState<WhenOption>("now")
-  const [runDay, setRunDay] = useState(() => nowInSaoPaulo().day)
-  const [runTime, setRunTime] = useState(() => nowInSaoPaulo().time)
-  const [cronTime, setCronTime] = useState("09:00")
+  // Data/hora são texto pt-BR (dd/mm/aaaa, hh:mm); runDay/runTime/cronTime são
+  // o valor já validado (ISO / HH:MM) ou "" se o texto está incompleto/inválido.
+  const [runDayText, setRunDayText] = useState(() => isoToBr(nowInSaoPaulo().day))
+  const [runTimeText, setRunTimeText] = useState(() => nowInSaoPaulo().time)
+  const [cronTimeText, setCronTimeText] = useState("09:00")
+  const runDay = parseDate(runDayText) ?? ""
+  const runTime = parseTime(runTimeText) ?? ""
+  const cronTime = parseTime(cronTimeText) ?? ""
   const [cronDays, setCronDays] = useState<number[]>([0])
   const [pendingFiles, setPendingFiles] = useState<{ file: File; info: MediaInfo }[]>([])
   const [trayOpen, setTrayOpen] = useState(false)
+  const [pickMessage, setPickMessage] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   // Redes que já deram certo no último envio saem da seleção: reenviar só
   // repete as que falharam, sem duplicar post.
   const [handledResults, setHandledResults] = useState<NetworkResult[] | undefined>(undefined)
@@ -609,9 +616,10 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     setPendingFiles([])
     setTrayOpen(false)
     setWhen("now")
-    setRunDay(now.day)
-    setRunTime(now.time)
-    setCronTime("09:00")
+    setRunDayText(isoToBr(now.day))
+    setRunTimeText(now.time)
+    setCronTimeText("09:00")
+    setPickMessage(null)
     setCronDays([0])
     onClear()
   }
@@ -631,14 +639,19 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
 
   // Data específica: dia + hora em America/Sao_Paulo; precisa ser futura.
   const scheduledAt = runDay && runTime ? new Date(`${runDay}T${runTime}:00${SP_OFFSET}`) : null
+  const INVALID_TIME = "Hora inválida. Use hh:mm (24 horas)."
   const dateError =
-    when !== "date"
-      ? null
-      : !scheduledAt
-        ? "Escolha o dia e a hora."
-        : !(scheduledAt.getTime() > Date.now())
-          ? "Essa data/hora já passou (horário de Brasília)."
-          : null
+    when === "cron"
+      ? (cronTime ? null : INVALID_TIME)
+      : when !== "date"
+        ? null
+        : !runDay
+          ? "Data inválida. Use dd/mm/aaaa."
+          : !scheduledAt
+            ? INVALID_TIME
+            : !(scheduledAt.getTime() > Date.now())
+              ? "Essa data/hora já passou (horário de Brasília)."
+              : null
 
   // Conjunto mínimo de textos pras redes marcadas: abas só com 2+ faixas.
   const plans = planVariants(networks)
@@ -662,6 +675,8 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const media: MediaInfo[] = post
     ? post.medias.map((m) => ({ name: m.file_name, size: m.size, kind: m.type === "VIDEO" ? "video" : mediaKind(m.file_name) }))
     : pendingFiles.map((p) => p.info)
+  // Seletor: máximo absoluto por tipo entre as redes marcadas.
+  const limits = pickLimits(networks.map((n) => NETWORK_RULES[n]))
   const draftFor = (n: PostNetwork) => {
     const t = textsFor(n)
     return { texts: t.length ? t : [""], media, productCount: selectedProductIds.length }
@@ -675,13 +690,16 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
       return check(variantValue(i).trim()).filter((x) => !base.has(x.message))
     }),
   )
-  const issues = Object.fromEntries(PICKER_NETWORKS.map((n) => [n, validateForNetwork(n, draftFor(n))])) as Record<
-    PostNetwork,
-    Issue[]
-  >
   const compositionPlans = Object.fromEntries(
     PICKER_NETWORKS.map((n) => [n, planMediaComposition(n, draftFor(n))]),
   ) as Record<PostNetwork, ReturnType<typeof planMediaComposition>>
+  // Post novo: a rede só é cobrada pelo que ela realmente recebe (mídia adaptada).
+  const issues = Object.fromEntries(
+    PICKER_NETWORKS.map((n) => [
+      n,
+      validateForNetwork(n, post ? draftFor(n) : { ...draftFor(n), media: compositionPlans[n].media }),
+    ]),
+  ) as Record<PostNetwork, Issue[]>
   const states = Object.fromEntries(
     PICKER_NETWORKS.map((n) => {
       const status = credentials?.[n]
@@ -697,7 +715,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
       const plan = compositionPlans[n]
       // Conta do X sem media.write: avisa antes do primeiro upload (o servidor também bloqueia).
       const xNoMedia =
-        n === "x" && media.length > 0 && status?.missing_scopes?.includes("media.write")
+        n === "x" && plan.media.length > 0 && status?.missing_scopes?.includes("media.write")
           ? [{ key: "x_media_scope", level: "error" as const, message: "Reconecte o X para liberar imagens" }]
           : []
       const errors = xNoMedia.length > 0 ? xNoMedia : plan.mode === "blocked"
@@ -717,6 +735,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     const plan = compositionPlans[n]
     if (plan.mode === "blocked") return [`${NETWORK_RULES[n].label}: bloqueada`]
     if (plan.mode === "text_only") return [`${NETWORK_RULES[n].label}: só texto`]
+    if (plan.dropped.length) return [`${NETWORK_RULES[n].label}: recebe ${plan.media.length} de ${media.length}`]
     return []
   })
 
@@ -932,30 +951,48 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
               border: "1px solid var(--border-hairline)",
             }}
           >
+            {/* Input nativo escondido: o navegador mostraria "Choose File" em inglês. */}
             <input
+              ref={fileInputRef}
               type="file"
-              accept=".webp,.jpg,.jpeg,.png,.gif,.mp4"
+              hidden
+              accept={limits.exts.map((e) => `.${e}`).join(",")}
               multiple={!post}
               onChange={(e) => {
-                const files = Array.from(e.target.files ?? [])
-                if (files.length === 0) return
+                const picked = Array.from(e.target.files ?? [])
+                e.target.value = ""
+                if (picked.length === 0) return
+                const { accepted, ignored, overLimit } = filterPicked(picked, media.map((m) => m.kind), limits)
+                setPickMessage(pickNotice({ ignored, overLimit }))
+                if (accepted.length === 0) return
                 if (post) {
-                  addMediaMutation.mutate(files[0])
+                  addMediaMutation.mutate(accepted[0])
                 } else {
                   // Promise.all mantém a ordem escolhida no seletor.
-                  Promise.all(files.map(async (file) => ({ file, info: await readMediaInfo(file) }))).then((added) =>
+                  Promise.all(accepted.map(async (file) => ({ file, info: await readMediaInfo(file) }))).then((added) =>
                     setPendingFiles((prev) => [...prev, ...added]),
                   )
                 }
-                e.target.value = ""
               }}
-              style={{ font: "var(--fw-regular) var(--fs-caption)/1 var(--font-sans)", color: "var(--text-body)" }}
             />
+            <Button type="button" variant="ghost" onClick={() => fileInputRef.current?.click()}>
+              Escolher arquivos
+            </Button>
+            <span style={metaTextStyle}>
+              {post || pendingFiles.length === 0
+                ? "Nenhum arquivo escolhido"
+                : `${pendingFiles.length} ${pendingFiles.length === 1 ? "arquivo" : "arquivos"}`}
+            </span>
           </div>
+          {pickMessage && (
+            <p role="status" style={{ ...metaTextStyle, color: "var(--amber-300)", marginTop: 6 }}>
+              {pickMessage}
+            </p>
+          )}
           {showTray && (
             <MediaTray
               items={trayItems}
-              limit={trayLimit(networks.map((n) => NETWORK_RULES[n]))}
+              limit={Number.isFinite(limits.max.image) ? limits.max.image : undefined}
               notes={trayNotes}
               onMove={(from, to) => setPendingFiles((prev) => moveItem(prev, from, to))}
               onRemove={(index) => setPendingFiles((prev) => prev.filter((_, i) => i !== index))}
@@ -1012,11 +1049,11 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
         <NetworkLimitsPanel
           selected={networks}
           textFor={(n) => textsFor(n)[0] ?? ""}
-          mediaCount={media.length}
+          mediaCount={(n) => (post ? media.length : compositionPlans[n].media.length)}
           issues={issues}
         />
 
-        {!post && <MediaVariantTabs networks={networks} plans={compositionPlans} />}
+        {!post && <MediaSummary networks={networks} plans={compositionPlans} />}
 
         {!post && (
           <Button type="button" variant="ghost" icon="x" onClick={clearComposer} style={{ alignSelf: "flex-start" }}>
@@ -1045,16 +1082,23 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
                   <TextInput
                     label="Dia"
-                    type="date"
-                    value={runDay}
-                    min={todayInSaoPaulo()}
-                    onChange={(e) => setRunDay(e.target.value)}
+                    value={runDayText}
+                    placeholder="dd/mm/aaaa"
+                    inputMode="numeric"
+                    onChange={(e) => setRunDayText(maskDate(e.target.value))}
                     required
                   />
-                  <TextInput label="Hora" type="time" value={runTime} onChange={(e) => setRunTime(e.target.value)} required />
+                  <TextInput
+                    label="Hora"
+                    value={runTimeText}
+                    placeholder="hh:mm"
+                    inputMode="numeric"
+                    onChange={(e) => setRunTimeText(maskTime(e.target.value))}
+                    required
+                  />
                 </div>
-                <p style={{ ...metaTextStyle, marginTop: 6, color: dateError && runDay && runTime ? "var(--negative)" : "var(--text-muted)" }}>
-                  {dateError && runDay && runTime ? dateError : "Horário de Brasília (America/Sao_Paulo)."}
+                <p role="status" style={{ ...metaTextStyle, marginTop: 6, color: dateError ? "var(--negative)" : "var(--text-muted)" }}>
+                  {dateError ?? "Horário de Brasília (America/Sao_Paulo)."}
                 </p>
               </div>
             )}
@@ -1088,7 +1132,18 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                     )
                   })}
                 </div>
-                <TextInput label="Hora" type="time" value={cronTime} onChange={(e) => setCronTime(e.target.value)} />
+                <TextInput
+                  label="Hora"
+                  value={cronTimeText}
+                  placeholder="hh:mm"
+                  inputMode="numeric"
+                  onChange={(e) => setCronTimeText(maskTime(e.target.value))}
+                />
+                {dateError && (
+                  <p role="status" style={{ ...metaTextStyle, color: "var(--negative)" }}>
+                    {dateError}
+                  </p>
+                )}
               </div>
             )}
           </div>
