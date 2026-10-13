@@ -257,3 +257,41 @@ def test_accepts_bytearray_input_and_always_returns_bytes():
 
     assert type(image.content) is bytes
     assert type(video.content) is bytes
+
+
+# ── vídeo: allowlist de boxes de topo e ftyp plausível ───────────────────────
+
+def _box(kind: bytes, payload: bytes = b"") -> bytes:
+    return (len(payload) + 8).to_bytes(4, "big") + kind + payload
+
+
+_FTYP = _box(b"ftyp", b"isom\x00\x00\x02\x00isomiso2mp41")
+
+
+@pytest.mark.parametrize("kind", [b"uuid", b"meta", b"udta", b"junk", b"<scr"])
+def test_video_with_disallowed_top_level_box_is_rejected(kind):
+    raw = _FTYP + _box(b"mdat") + _box(kind, b"x" * 16)
+
+    with pytest.raises(MediaSanitizerError, match="vídeo") as info:
+        sanitize_media_upload(raw, filename="a.mp4", content_type="video/mp4")
+    assert kind.decode() not in str(info.value)
+
+
+@pytest.mark.parametrize("kind", [b"moov", b"mdat", b"moof", b"mfra", b"sidx", b"styp", b"free", b"skip", b"wide"])
+def test_video_allowed_top_level_boxes_pass(kind):
+    raw = _FTYP + _box(kind, b"\x00" * 8)
+
+    assert sanitize_media_upload(raw, filename="a.mp4", content_type="video/mp4").content == raw
+
+
+@pytest.mark.parametrize("ftyp_payload", [
+    b"\x01\x02\x03\x04\x00\x00\x00\x00isom",  # marca principal não imprimível
+    b"isom\x00\x00\x00\x00is\x00m",           # marca compatível não imprimível
+    b"isom\x00\x00\x00\x00iso",               # brands não múltiplas de 4
+    b"isom\x00\x00\x00\x00" + b"isom" * 200,  # ftyp absurdamente grande
+])
+def test_video_implausible_ftyp_is_rejected(ftyp_payload):
+    raw = _box(b"ftyp", ftyp_payload) + _box(b"mdat")
+
+    with pytest.raises(MediaSanitizerError, match="vídeo"):
+        sanitize_media_upload(raw, filename="a.mp4", content_type="video/mp4")

@@ -248,6 +248,17 @@ def _looks_like_ftyp(content: bytes) -> bool:
     return size >= 16 and size <= len(content)
 
 
+# Boxes de topo aceitos. uuid/meta/udta (e qualquer desconhecido) podem carregar
+# XMP/GPS/blobs arbitrários e são recusados.
+# Risco residual: sem ffmpeg não há remux; payload dentro de mdat/moov passa e
+# metadados aninhados em moov (ex.: moov/udta) não são removidos. Mitigação: o arquivo
+# fica em bucket privado e a entrega é por URL assinada (scheduler/media_delivery.py).
+_ALLOWED_TOP_BOXES = frozenset(
+    {b"ftyp", b"moov", b"mdat", b"moof", b"mfra", b"sidx", b"styp", b"free", b"skip", b"wide"}
+)
+_MAX_FTYP_SIZE = 256
+
+
 def _validate_video_boxes(content: bytes, *, max_bytes: int | None = None) -> None:
     if max_bytes is not None and len(content) > max_bytes:
         raise MediaSanitizerError("vídeo excede o tamanho máximo")
@@ -259,6 +270,18 @@ def _validate_video_boxes(content: bytes, *, max_bytes: int | None = None) -> No
         raise MediaSanitizerError("vídeo inválido: estrutura inconsistente") from exc
     if not boxes or boxes[0][2] != b"ftyp":
         raise MediaSanitizerError("vídeo inválido: caixa ftyp deve ser a primeira")
+    if any(kind not in _ALLOWED_TOP_BOXES for _, _, kind in boxes):
+        raise MediaSanitizerError("vídeo inválido: estrutura não permitida")
+    _validate_ftyp(content, boxes[0][1])
+
+
+def _validate_ftyp(content: bytes, size: int) -> None:
+    """ftyp = marca principal(4) + versão(4) + marcas compatíveis(4 cada), ASCII imprimível."""
+    if size > _MAX_FTYP_SIZE or (size - 16) % 4:
+        raise MediaSanitizerError("vídeo inválido: cabeçalho ftyp implausível")
+    brands = [content[8:12], *(content[o:o + 4] for o in range(16, size, 4))]
+    if not all(len(b) == 4 and all(0x20 <= c < 0x7f for c in b) for b in brands):
+        raise MediaSanitizerError("vídeo inválido: cabeçalho ftyp implausível")
 
 
 def _iter_mp4_boxes(content: bytes, start: int, end: int):
@@ -267,7 +290,7 @@ def _iter_mp4_boxes(content: bytes, start: int, end: int):
         if end - offset < 8:
             raise ValueError("trailing bytes")
         size = int.from_bytes(content[offset:offset + 4], "big")
-        kind = content[offset + 4:offset + 8]
+        kind = bytes(content[offset + 4:offset + 8])
         header = 8
         if size == 1:
             if end - offset < 16:
