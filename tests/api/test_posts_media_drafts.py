@@ -3,6 +3,8 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
+import pytest
+
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -326,3 +328,103 @@ def test_batch_returns_draft_to_ready_when_every_network_fails(fake_db, monkeypa
     assert payload["created"] == []
     assert db.tables["temporary_media_uploads"][0]["status"] == "ready"
     assert db.tables.get("medias", []) == []
+
+
+class _StrictStorage:
+    def __init__(self, fail=False):
+        self.removed: list[tuple[str, list[str]]] = []
+        self._fail = fail
+        self._bucket = None
+
+    def from_(self, bucket):
+        self._bucket = bucket
+        return self
+
+    def remove(self, keys):
+        if self._fail:
+            raise RuntimeError("storage fora")
+        self.removed.append((self._bucket, list(keys)))
+
+
+def _storage_db(fake_db, monkeypatch, tables=None, fail=False):
+    db = fake_db(tables or {})
+    db.storage = _StrictStorage(fail=fail)
+    monkeypatch.setattr(posts_module, "supabase", db)
+    return db
+
+
+STORAGE_PATH = "storage://post-media/drafts/42/profile-a/offer.jpg"
+
+
+def test_remove_media_file_deletes_durable_object_and_consumed_draft_row(fake_db, monkeypatch):
+    db = _storage_db(fake_db, monkeypatch, {"temporary_media_uploads": [
+        {"id": "a", "storage_bucket": "post-media", "storage_key": "drafts/42/profile-a/offer.jpg", "status": "consumed"},
+        {"id": "b", "storage_bucket": "post-media", "storage_key": "drafts/42/profile-a/other.jpg", "status": "consumed"},
+    ]})
+
+    posts_module._remove_media_file(STORAGE_PATH)
+
+    assert db.storage.removed == [("post-media", ["drafts/42/profile-a/offer.jpg"])]
+    assert [r["id"] for r in db.tables["temporary_media_uploads"]] == ["b"]
+
+
+@pytest.mark.parametrize("path", [
+    "storage://outro-bucket/drafts/42/profile-a/offer.jpg",
+    "storage://post-media/../outro/x.jpg",
+    "storage://post-media/drafts/../../x.jpg",
+    "storage://post-media/",
+    "storage://post-media",
+    "storage:///drafts/x.jpg",
+    "storage://post-media//x.jpg",
+])
+def test_remove_media_file_never_trusts_storage_path_outside_expected_bucket(fake_db, monkeypatch, path):
+    db = _storage_db(fake_db, monkeypatch)
+
+    posts_module._remove_media_file(path)
+
+    assert db.storage.removed == []
+
+
+def test_remove_media_file_storage_failure_only_logs_and_keeps_draft_row(fake_db, monkeypatch):
+    db = _storage_db(fake_db, monkeypatch, {"temporary_media_uploads": [
+        {"id": "a", "storage_bucket": "post-media", "storage_key": "drafts/42/profile-a/offer.jpg", "status": "consumed"},
+    ]}, fail=True)
+
+    posts_module._remove_media_file(STORAGE_PATH)  # não levanta
+
+    assert len(db.tables["temporary_media_uploads"]) == 1
+
+
+def test_delete_thread_cascade_removes_durable_media_of_consumed_draft(fake_db, monkeypatch):
+    db = _storage_db(fake_db, monkeypatch, {
+        "posts_medias": [{"post_id": 7, "media_id": 5, "medias": {"id": 5, "file_path": STORAGE_PATH}}],
+        "medias": [{"id": 5, "file_path": STORAGE_PATH}],
+        "posts": [{"id": 7}],
+        "temporary_media_uploads": [
+            {"id": "a", "storage_bucket": "post-media", "storage_key": "drafts/42/profile-a/offer.jpg", "status": "consumed"},
+        ],
+    })
+    monkeypatch.setattr(posts_module, "_get_thread_chain", lambda head_id: [{"id": head_id}])
+
+    posts_module._delete_thread_cascade(7)
+
+    assert db.storage.removed == [("post-media", ["drafts/42/profile-a/offer.jpg"])]
+    assert db.tables["medias"] == []
+    assert db.tables["temporary_media_uploads"] == []
+
+
+def test_delete_thread_cascade_keeps_durable_media_shared_with_another_post(fake_db, monkeypatch):
+    db = _storage_db(fake_db, monkeypatch, {
+        "posts_medias": [
+            {"post_id": 7, "media_id": 5, "medias": {"id": 5, "file_path": STORAGE_PATH}},
+            {"post_id": 8, "media_id": 5},
+        ],
+        "medias": [{"id": 5, "file_path": STORAGE_PATH}],
+        "posts": [{"id": 7}],
+    })
+    monkeypatch.setattr(posts_module, "_get_thread_chain", lambda head_id: [{"id": head_id}])
+
+    posts_module._delete_thread_cascade(7)
+
+    assert db.storage.removed == []
+    assert len(db.tables["medias"]) == 1

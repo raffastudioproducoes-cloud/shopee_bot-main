@@ -91,10 +91,43 @@ ALLOWED_MEDIA_MIMES = {
 }
 
 
+STORAGE_SCHEME = "storage://"
+
+
+def _parse_storage_path(file_path: str) -> tuple[str, str] | None:
+    """`storage://bucket/chave` -> (bucket, chave); None se não for confiável.
+
+    `file_path` vem do banco: só aceita o bucket de mídia esperado e chave sem
+    segmentos vazios ou `..`, pra nunca apagar fora do que a API gravou."""
+    bucket, _, key = file_path[len(STORAGE_SCHEME):].partition("/")
+    segments = key.split("/")
+    if bucket != MEDIA_DRAFT_BUCKET or not key or any(s in ("", ".", "..") for s in segments):
+        return None
+    return bucket, key
+
+
+def _remove_durable_media(file_path: str) -> None:
+    parsed = _parse_storage_path(file_path)
+    if parsed is None:
+        logger.warning("Remoção de mídia durável fora do bucket esperado recusada: %s", file_path)
+        return
+    bucket, key = parsed
+    try:
+        supabase.storage.from_(bucket).remove([key])
+        # a linha `consumed` do rascunho morre junto com o objeto
+        supabase.table("temporary_media_uploads").delete()             .eq("storage_bucket", bucket).eq("storage_key", key).eq("status", "consumed").execute()
+    except Exception:
+        logger.warning("Falha ao remover mídia durável %s", file_path, exc_info=True)
+
+
 def _remove_media_file(file_path: str) -> None:
-    """Apaga um arquivo de mídia só se ele estiver dentro de MEDIA_ROOT —
-    `file_path` vem do banco e pode ter sido gravado por versões antigas
-    sem sanitização (ex.: "web/media/1/../../../x")."""
+    """Apaga o arquivo de uma mídia. `storage://` -> objeto do Storage; senão
+    só se estiver dentro de MEDIA_ROOT — `file_path` vem do banco e pode ter
+    sido gravado por versões antigas sem sanitização (ex.:
+    "web/media/1/../../../x")."""
+    if file_path.startswith(STORAGE_SCHEME):
+        _remove_durable_media(file_path)
+        return
     resolved = Path(file_path).resolve()
     if not resolved.is_relative_to(MEDIA_ROOT.resolve()):
         logger.warning("Remoção de mídia fora de MEDIA_ROOT recusada: %s", file_path)

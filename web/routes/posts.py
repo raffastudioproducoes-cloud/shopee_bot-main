@@ -10,6 +10,7 @@ from shopee_bot.database.schedulers import NETWORK_FUNC_MAP
 from shopee_bot.web.forms.posts import PostForm
 from shopee_bot.scheduler import add_job, remove_job, run_job
 from shopee_bot.web.limiter import limiter
+from shopee_bot.web.media_files import remove_local_media
 
 posts_bp = Blueprint("posts", __name__)
 
@@ -339,7 +340,7 @@ def edit_save(id):
 
         # remove deleted medias
         for file_path in medias_to_delete:
-            os.remove(file_path)
+            remove_local_media(file_path)
 
     put_conn(conn)
     flash("Postagem atualizada", "success")
@@ -369,7 +370,7 @@ def delete(id):
 
         # remove deleted medias
         for file_path in medias_to_delete:
-            os.remove(file_path)
+            remove_local_media(file_path)
 
     put_conn(conn)
     flash("Post removido", "success")
