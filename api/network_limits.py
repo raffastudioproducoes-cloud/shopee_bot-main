@@ -57,6 +57,8 @@ NETWORK_RULES = {
     "tiktok": {
         "label": "TikTok", "max_chars": 2200, "count": "utf16", "thread_parts": False,
         "supports_text_only": False,
+        # Foto (Photo Direct Post) segue bloqueada: sem Creator Info/UI de privacidade
+        # nem domínio/prefixo de URL verificado no TikTok (ver apis/tiktok.py).
         "delivered_modes": {"video"},
         "max_image": 0, "max_gif": 0, "max_video": 1, "allow_mix": False,
         "requires_media": "video",

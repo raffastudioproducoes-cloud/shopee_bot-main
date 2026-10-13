@@ -147,6 +147,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     label: "TikTok",
     maxChars: 2200,
     supportsTextOnly: false,
+    // Foto segue bloqueada: falta Creator Info/UI de privacidade e domínio/prefixo verificado (ver apis/tiktok.py).
     deliveredModes: ["video"],
     charCount: "utf16",
     threadParts: false,
