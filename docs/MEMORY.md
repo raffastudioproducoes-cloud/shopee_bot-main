@@ -91,10 +91,10 @@ Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via
   `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`; a implementação
   está registrada na atualização de 2026-10-12 abaixo.
 
-## Atualização 2026-10-12 — publicação de mídia e agendamento (branch `staging`, só local)
+## Atualização 2026-10-12 — publicação de mídia e agendamento (publicado em `staging` e `main`)
 
-Estado: implementado e coberto por testes locais; **não validado em staging** e `VERSION`
-continua `2.1.0`. Nada foi enviado ao remoto nem aplicado no Supabase.
+Estado: versão **2.2.0**; `staging` e `main` publicados em 2026-10-12/13; migrações 046, 047 e 048 
+aplicadas no Supabase. Testes reais em staging feitos em 2026-10-13 (ver atualização abaixo).
 
 - **Capacidades reais por rede** (`api/network_limits.py`, espelhado em
   `frontend/src/lib/networkLimits.ts`): `platform_modes` é o que a rede aceita;
@@ -129,11 +129,33 @@ Pendências conhecidas desta entrega:
 - X exige o escopo `media.write` habilitado no portal de desenvolvedor; conexões antigas sem
   ele recebem 401/403 e precisam reconectar. O escopo concedido não é persistido, então o
   sistema não sabe antecipadamente quais conexões estão sem ele.
-- A API do Facebook segue fixa em `v18.0` (`apis/facebook.py`); revisar versão suportada.
+- [RESOLVIDO] Graph API do Facebook/Instagram agora em `v26.0` (`apis/meta_version.py`).
 - A ordem das mídias no post é incidental: `display_order` segue a ordem dos rascunhos no
   pedido, sem garantia de contrato por rede.
 - O scheduler precisa de `SUPABASE_URL`/`SUPABASE_KEY` (chave de servidor) para assinar URL;
   sem elas a publicação de mídia durável falha. Conferir no ambiente de staging.
+
+## Atualização 2026-10-13 — bandeja, adaptação por rede e testes reais em staging
+
+- **Bandeja de fotos (`MediaTray.tsx`)**: reordena e seleciona as fotos do carrossel/álbum antes
+  de publicar; a ordem escolhida vira `display_order`.
+- **Adaptação por rede (`adapt_media` em `api/network_limits.py`, espelho em
+  `frontend/src/lib/mediaAdapt.ts`)**: em vez de bloquear a rede, separa o que ela aceita (ordem do
+  usuário preservada) do que fica de fora. O que sai volta em `dropped` (`id`, `name`, `reason`:
+  formato, tipo, tamanho ou mix não aceito). Redes sem `allow_mix` mantêm só o grupo prioritário.
+- **Limites no seletor** (`NetworkPicker`, `MediaSummary`): cada rede mostra seus limites e o
+  resumo de mídia por rede antes do envio.
+- **Máscaras pt-BR**: campos de data/hora com máscara `dd/mm/aaaa hh:mm` e textos em português.
+- **Rotas Flask de posts removidas**: `web/routes/posts.py`, form, templates e
+  `web/media_files.py`; o frontend só usa `/api/posts` (FastAPI).
+- **Achados do teste real (2026-10-13)**:
+  - X: `402 credits depleted` = conta de desenvolvedor do X sem créditos (externo, não é bug).
+  - Facebook: caía para texto quando o post misturava imagem e vídeo; corrigido (publica o grupo
+    de imagens).
+  - Instagram e Threads: publicaram sem problema.
+  - TikTok: bloqueado por requisito externo (Creator Info + URL em domínio verificado).
+  - Corrigidos no caminho: audit log com surrogate solto quebrava o encode do httpx;
+    `array_agg DISTINCT` perdia ordem; polling do Instagram até `FINISHED`.
 
 ## O que falta (real, não aspiracional)
 

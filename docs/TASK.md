@@ -27,6 +27,16 @@ implementadas localmente em `staging` (sem push); Tarefa 7 parcial.
   `SUPABASE_URL`/`SUPABASE_KEY` no scheduler do staging.
 - [ ] Mudar `VERSION` para `2.2.0` e fazer o push final só depois de tudo validado.
 
+## Atualização 2026-10-13 — mídia por rede em staging
+
+- [x] Bandeja de fotos (`MediaTray`) para carrossel/álbum, com ordem escolhida pelo usuário.
+- [x] Adaptação por rede (`adapt_media`, `dropped`): remove o que a rede não aceita em vez de
+  bloquear; limites e resumo de mídia no seletor; máscaras de data/hora pt-BR.
+- [x] Remoção das rotas Flask de posts (frontend usa só FastAPI).
+- [x] Teste real em staging: Instagram e Threads ok; Facebook corrigido (mix imagem+vídeo).
+- [ ] X: recarregar créditos da conta de desenvolvedor (402 `credits depleted`, externo).
+- [ ] TikTok: Creator Info no fluxo do usuário + URL em domínio verificado (externo).
+
 ## Atualização 2026-10-11 — composição de mídia por rede
 
 - [ ] Implementar planejador de compatibilidade por rede para foto única, carrossel e vídeo,

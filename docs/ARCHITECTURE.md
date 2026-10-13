@@ -247,6 +247,18 @@ Detalhes, contratos e critérios de aceite:
   `display_order` segue a ordem dos rascunhos sem contrato por rede; o scheduler depende de
   `SUPABASE_URL`/`SUPABASE_KEY` para assinar URL.
 
+### 9.2 Bandeja e adaptação por rede (2026-10-13, validada em staging)
+
+- `frontend/src/components/posts/MediaTray.tsx`: bandeja de fotos reordenável (carrossel/álbum).
+- `adapt_media(network, medias)` (`api/network_limits.py`; espelho `frontend/src/lib/mediaAdapt.ts`)
+  é chamado pelo planejador: devolve `(aceitas, dropped)`; `dropped` traz `id`, `name` e `reason`
+  (formato, tipo, tamanho ou mix). A rede deixa de ser bloqueada por causa de um arquivo; só fica
+  bloqueada se nada restar e não houver texto puro.
+- `NetworkPicker` e `MediaSummary` exibem limites por rede e o resumo do que cada rede receberá.
+- Facebook com imagem+vídeo publica o grupo de imagens (antes caía para texto). Graph API em
+  `v26.0` (`apis/meta_version.py`).
+- Rotas Flask de posts removidas; `/api/posts/*` (FastAPI) é o único caminho de escrita.
+
 ## 10. Conta, perfis e papeis (migracao em staging, 2026-10-11)
 
 O usuario possui uma conta e no maximo tres perfis, contando o perfil principal. A conta e dona
