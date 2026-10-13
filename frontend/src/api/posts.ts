@@ -93,6 +93,8 @@ export interface PostCompositionPlan {
   media_draft_ids: string[]
   warnings: string[]
   blocked_reason?: string | null
+  /** Mídias que a rede não recebe, com o motivo (campo opcional). */
+  dropped?: Array<{ id: string; name: string; reason: string }>
 }
 
 export interface PostBatchResult {
