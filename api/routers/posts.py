@@ -244,6 +244,17 @@ class PostBatchCreate(BaseModel):
     draft_media_ids: list[str] = []
     schedule: PostSchedule
 
+    @field_validator("draft_media_ids")
+    @classmethod
+    def _draft_ids_are_unique_uuids(cls, value):
+        """UUID inválido vira 422 (não 500 no banco); duplicata sai, mantendo a
+        ordem, pra não quebrar a PK (post_id, media_id) de posts_medias."""
+        try:
+            normalized = [str(uuid.UUID(item)) for item in value]
+        except (ValueError, AttributeError, TypeError):
+            raise ValueError("draft_media_ids deve conter apenas UUIDs") from None
+        return list(dict.fromkeys(normalized))
+
     @model_validator(mode="after")
     def _check_networks(self):
         networks = [composition.network for composition in self.compositions]
@@ -421,6 +432,38 @@ def _create_media_from_draft(draft: dict, user_id: int, profile_id: str) -> dict
     if not result.data:
         raise HTTPException(status_code=500, detail="Não foi possível preparar a mídia para publicação.")
     return result.data[0]
+
+
+def _attach_medias(
+    head_id: int, draft_ids: list[str], drafts_by_id: dict, materialized: dict,
+    fresh: list, user_id: int, profile_id: str,
+) -> list[dict]:
+    """Materializa (uma vez por rascunho) e vincula as mídias ao post."""
+    medias = []
+    for order, draft_id in enumerate(draft_ids):
+        media = materialized.get(draft_id)
+        if not media:
+            media = _create_media_from_draft(drafts_by_id[draft_id], user_id, profile_id)
+            materialized[draft_id] = media
+            fresh.append((draft_id, media))
+        supabase.table("posts_medias").insert({
+            "post_id": head_id, "media_id": media["id"], "display_order": order,
+        }).execute()
+        medias.append(media)
+    return medias
+
+
+def _rollback_plan(head_id: int, fresh: list, materialized: dict) -> None:
+    """Desfaz uma rede que falhou: post, vínculos e as mídias criadas só por
+    ela. Nunca apaga objeto do Storage (o rascunho continua utilizável)."""
+    try:
+        for draft_id, media in fresh:
+            materialized.pop(draft_id, None)
+            supabase.table("posts_medias").delete().eq("media_id", media["id"]).execute()
+            supabase.table("medias").delete().eq("id", media["id"]).execute()
+        _delete_thread_cascade(head_id)
+    except Exception:
+        logger.error("Falha ao desfazer post %s após erro no lote", head_id, exc_info=True)
 
 
 def _media_shared_elsewhere(media_id: int, post_id: int) -> bool:
@@ -790,8 +833,14 @@ async def create_posts_batch(
     blocked = [plan for plan in plans if plan["mode"] == "blocked"]
     for plan in deliverable:
         head = _create_thread(user_id, plan["texts"], plan["network"], profile_id, group_id)
-        _set_post_products(head["id"], body.product_ids)
+        fresh: list[tuple[str, dict]] = []  # mídias criadas só por este plano
         try:
+            _set_post_products(head["id"], body.product_ids)
+            medias = _attach_medias(
+                head["id"], plan["media_draft_ids"], drafts_by_id, materialized, fresh,
+                user_id, profile_id,
+            )
+            # job por último: sem mídia vinculada ele nunca existe
             await create_scheduler_job(
                 user_id=user_id,
                 post_id=head["id"],
@@ -804,25 +853,20 @@ async def create_posts_batch(
                 run_date=body.schedule.run_date,
                 profile_id=profile_id,
             )
-        except InternalApiError:
-            _delete_thread_cascade(head["id"])
+        except Exception as exc:
+            if not isinstance(exc, InternalApiError):
+                logger.warning("Falha ao montar post da rede %s", plan["network"], exc_info=True)
+            _rollback_plan(head["id"], fresh, materialized)
             blocked.append({
                 **plan,
                 "mode": "blocked",
-                "blocked_reason": "Não foi possível agendar esta rede agora.",
+                "blocked_reason": (
+                    "Não foi possível agendar esta rede agora."
+                    if isinstance(exc, InternalApiError)
+                    else "Não foi possível preparar a mídia desta rede. Tente novamente."
+                ),
             })
             continue
-
-        medias = []
-        for order, draft_id in enumerate(plan["media_draft_ids"]):
-            media = materialized.get(draft_id)
-            if not media:
-                media = _create_media_from_draft(drafts_by_id[draft_id], user_id, profile_id)
-                materialized[draft_id] = media
-            medias.append(media)
-            supabase.table("posts_medias").insert({
-                "post_id": head["id"], "media_id": media["id"], "display_order": order,
-            }).execute()
         created.append({
             "network": plan["network"],
             "post_id": head["id"],

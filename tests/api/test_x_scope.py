@@ -110,7 +110,7 @@ def test_disconnect_clears_scope(db):
 # --- preview / batch --------------------------------------------------------
 def _batch_client(db, monkeypatch):
     db.tables["temporary_media_uploads"] = [{
-        "id": "draft-1", "user_id": 42, "profile_id": "profile-a", "status": "ready",
+        "id": "11111111-1111-4111-8111-111111111111", "user_id": 42, "profile_id": "profile-a", "status": "ready",
         "storage_bucket": "post-media", "storage_key": "drafts/offer.jpg",
         "file_name": "offer.jpg", "size_bytes": 12, "media_type": "IMAGE",
         "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
@@ -125,7 +125,7 @@ def _batch_client(db, monkeypatch):
 
 BODY = {
     "compositions": [{"network": "x", "texts": ["copy"]}, {"network": "threads", "texts": ["copy"]}],
-    "draft_media_ids": ["draft-1"],
+    "draft_media_ids": ["11111111-1111-4111-8111-111111111111"],
     "schedule": {"trigger": "date", "run_date": "2030-01-01T10:00:00"},
 }
 

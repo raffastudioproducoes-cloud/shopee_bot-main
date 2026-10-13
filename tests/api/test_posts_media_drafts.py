@@ -11,6 +11,12 @@ from api.routers.auth import get_current_user_id
 from api.routers.profiles import get_current_profile_id
 
 
+DRAFT_1 = "11111111-1111-4111-8111-111111111111"
+D_ZZZ = "22222222-2222-4222-8222-222222222222"
+D_AAA = "33333333-3333-4333-8333-333333333333"
+D_MMM = "44444444-4444-4444-8444-444444444444"
+
+
 def _client(fake_db, monkeypatch, profile_id="profile-a"):
     app.dependency_overrides[get_current_user_id] = lambda: 42
     app.dependency_overrides[get_current_profile_id] = lambda: profile_id
@@ -94,7 +100,7 @@ def _batch_body():
             {"network": "threads", "texts": ["copy"]},
             {"network": "x", "texts": ["copy"]},
         ],
-        "draft_media_ids": ["draft-1"],
+        "draft_media_ids": [DRAFT_1],
         "schedule": {"trigger": "date", "run_date": "2030-01-01T10:00:00"},
     }
 
@@ -102,7 +108,7 @@ def _batch_body():
 def _batch_client(fake_db, monkeypatch):
     client, db = _client(fake_db, monkeypatch)
     db.tables["temporary_media_uploads"].append({
-        "id": "draft-1", "user_id": 42, "profile_id": "profile-a", "status": "ready",
+        "id": DRAFT_1, "user_id": 42, "profile_id": "profile-a", "status": "ready",
         "storage_bucket": "post-media", "storage_key": "drafts/42/profile-a/offer.jpg",
         "file_name": "offer.jpg", "size_bytes": 12, "media_type": "IMAGE",
         "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
@@ -151,14 +157,14 @@ def test_batch_persists_display_order_in_received_draft_order(fake_db, monkeypat
     expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     for name in ("zzz", "aaa", "mmm"):
         db.tables["temporary_media_uploads"].append({
-            "id": f"d-{name}", "user_id": 42, "profile_id": "profile-a", "status": "ready",
+            "id": {"zzz": D_ZZZ, "aaa": D_AAA, "mmm": D_MMM}[name], "user_id": 42, "profile_id": "profile-a", "status": "ready",
             "storage_bucket": "post-media", "storage_key": f"drafts/{name}.jpg",
             "file_name": f"{name}.jpg", "size_bytes": 12, "media_type": "IMAGE",
             "expires_at": expires,
         })
     body = {
         "compositions": [{"network": "threads", "texts": ["copy"]}],
-        "draft_media_ids": ["d-zzz", "d-aaa", "d-mmm"],
+        "draft_media_ids": [D_ZZZ, D_AAA, D_MMM],
         "schedule": {"trigger": "date", "run_date": "2030-01-01T10:00:00"},
     }
 
@@ -169,3 +175,91 @@ def test_batch_persists_display_order_in_received_draft_order(fake_db, monkeypat
     links = sorted(db.tables["posts_medias"], key=lambda r: r["display_order"])
     assert [r["display_order"] for r in links] == [0, 1, 2]
     assert [names[r["media_id"]] for r in links] == ["zzz.jpg", "aaa.jpg", "mmm.jpg"]
+
+
+class _BrokenLinksDB:
+    """Delega ao FakeDB, mas o insert em posts_medias falha (strict, sem MagicMock)."""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.storage = inner.storage
+
+    @property
+    def tables(self):
+        return self._inner.tables
+
+    def table(self, name):
+        query = self._inner.table(name)
+        if name == "posts_medias":
+            def boom(_payload):
+                raise RuntimeError("falha ao vincular")
+            query.insert = boom
+        return query
+
+
+def test_batch_duplicate_draft_ids_link_media_once(fake_db, monkeypatch):
+    client, db = _batch_client(fake_db, monkeypatch)
+    body = {**_batch_body(), "draft_media_ids": [DRAFT_1, DRAFT_1]}
+
+    response = client.post("/posts/batch", json=body)
+
+    assert response.status_code == 201
+    pairs = [(r["post_id"], r["media_id"]) for r in db.tables["posts_medias"]]
+    assert len(pairs) == len(set(pairs)) == 2  # uma mídia por post (threads, x)
+
+
+def test_batch_rejects_non_uuid_draft_id_with_422(fake_db, monkeypatch):
+    client, db = _batch_client(fake_db, monkeypatch)
+    body = {**_batch_body(), "draft_media_ids": ["nao-e-uuid"]}
+
+    assert client.post("/posts/batch", json=body).status_code == 422
+    assert client.post("/posts/preview", json=body).status_code == 422
+
+
+def test_batch_link_failure_creates_no_job_and_undoes_everything(fake_db, monkeypatch):
+    client, db = _batch_client(fake_db, monkeypatch)
+    broken = _BrokenLinksDB(db)
+    monkeypatch.setattr(posts_module, "supabase", broken)
+    jobs = []
+
+    async def fake_job(**kwargs):
+        jobs.append(kwargs)
+        return "job-1"
+
+    monkeypatch.setattr(posts_module, "create_scheduler_job", fake_job)
+
+    response = client.post("/posts/batch", json=_batch_body())
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["created"] == []
+    assert payload["group_id"] is None
+    assert {p["network"] for p in payload["blocked"]} == {"threads", "x"}
+    assert all(p["blocked_reason"] for p in payload["blocked"])
+    assert jobs == []
+    assert db.tables.get("posts", []) == []
+    assert db.tables.get("medias", []) == []
+    assert db.tables["temporary_media_uploads"][0]["status"] == "ready"
+
+
+def test_batch_job_failure_keeps_media_for_next_network(fake_db, monkeypatch):
+    client, db = _batch_client(fake_db, monkeypatch)
+    calls = []
+
+    async def flaky_job(**kwargs):
+        calls.append(kwargs["post_id"])
+        if len(calls) == 1:
+            raise posts_module.InternalApiError("agendador fora")
+        return "job-2"
+
+    monkeypatch.setattr(posts_module, "create_scheduler_job", flaky_job)
+
+    response = client.post("/posts/batch", json=_batch_body())
+
+    payload = response.json()
+    assert [c["network"] for c in payload["created"]] == ["x"]
+    assert [b["network"] for b in payload["blocked"]] == ["threads"]
+    assert len(db.tables["posts"]) == 1
+    assert len(db.tables["medias"]) == 1
+    assert [r["post_id"] for r in db.tables["posts_medias"]] == [payload["created"][0]["post_id"]]
+    assert db.tables["temporary_media_uploads"][0]["status"] == "consumed"
