@@ -36,12 +36,16 @@ export function adaptMedia<T extends Item>(rule: AdaptRule, items: readonly T[])
   })
 
   if (rule.allowMix === false && ok.length) {
-    const present = new Set(ok.map((i) => items[i].kind))
-    const group = GROUP_PRIORITY.find((k) => present.has(k))!
-    for (const i of ok) {
-      if (items[i].kind !== group) gone.set(i, `não mistura ${KIND_LABEL[items[i].kind]} com ${KIND_LABEL[group]}`)
+    // Produto: foto > vídeo > GIF (não a ordem do usuário). Só entra no sorteio
+    // grupo que a rede entrega; vídeo sem modo "video" não vence e some depois.
+    const present = new Set(ok.map((i) => items[i].kind).filter((k) => k !== "video" || rule.deliveredModes.includes("video")))
+    const group = GROUP_PRIORITY.find((k) => present.has(k))
+    if (group) {
+      for (const i of ok) {
+        if (items[i].kind !== group) gone.set(i, `não mistura ${KIND_LABEL[items[i].kind]} com ${KIND_LABEL[group]}`)
+      }
+      ok = ok.filter((i) => items[i].kind === group)
     }
-    ok = ok.filter((i) => items[i].kind === group)
   }
 
   let kept: number[] = []

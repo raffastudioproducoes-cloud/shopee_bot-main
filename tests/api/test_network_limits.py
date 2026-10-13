@@ -128,3 +128,27 @@ def test_upload_rejects_format_not_accepted_by_post_network(client, monkeypatch,
     assert res.status_code == 422
     assert "Instagram: não aceita .png (foto.png)" in res.json()["detail"]
     assert list(tmp_path.iterdir()) == []
+
+
+def _names(medias):
+    return [m["file_name"] for m in medias]
+
+
+def _m(name):
+    return {"id": 1, "file_name": name, "size": 1024}
+
+
+@pytest.mark.parametrize(
+    "network, files, expected",
+    [
+        ("x", ["anim.gif", "clip.mp4"], ["anim.gif"]),  # X não entrega vídeo: fica o GIF
+        ("facebook", ["clip.mp4", "foto.jpg"], ["foto.jpg"]),  # foto primeiro
+        ("tiktok", ["foto.jpg", "clip.mp4"], ["clip.mp4"]),
+        ("instagram", ["foto.jpg", "clip.mp4"], ["foto.jpg", "clip.mp4"]),
+    ],
+)
+def test_adapt_media_escolhe_grupo_entre_os_modos_entregues(network, files, expected):
+    from api.network_limits import adapt_media
+
+    kept, _ = adapt_media(network, [_m(f) for f in files])
+    assert _names(kept) == expected

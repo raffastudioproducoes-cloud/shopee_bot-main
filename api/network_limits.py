@@ -210,12 +210,15 @@ def adapt_media(network: str, medias: list[dict]) -> tuple[list[dict], list[dict
             ok.append((i, kind))
 
     if rule.get("allow_mix") is False and ok:
-        present = {kind for _, kind in ok}
-        group = next(k for k in _GROUP_PRIORITY if k in present)
-        for i, kind in ok:
-            if kind != group:
-                gone[i] = f"não mistura {_KIND_LABEL[kind]} com {_KIND_LABEL[group]}"
-        ok = [(i, kind) for i, kind in ok if kind == group]
+        # Produto: foto > vídeo > GIF (não a ordem do usuário). Só entra no sorteio
+        # grupo que a rede entrega; vídeo sem modo "video" não vence e some depois.
+        present = {kind for _, kind in ok if kind != "video" or "video" in delivered}
+        group = next((k for k in _GROUP_PRIORITY if k in present), None)
+        if group:
+            for i, kind in ok:
+                if kind != group:
+                    gone[i] = f"não mistura {_KIND_LABEL[kind]} com {_KIND_LABEL[group]}"
+            ok = [(i, kind) for i, kind in ok if kind == group]
 
     kept_idx: list[int] = []
     counts: dict[str, int] = {}

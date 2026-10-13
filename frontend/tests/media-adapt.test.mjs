@@ -93,3 +93,14 @@ test('pickNotice gera uma linha curta em português', () => {
   )
   assert.match(pickNotice({ ignored: 1, overLimit: 3 }), /1 arquivo ignorado.*3 arquivos acima do limite/)
 })
+
+test('X com [gif, mp4] mantém o GIF (vídeo não é entregue)', () => {
+  const { kept } = adaptMedia(NETWORK_RULES.x, [item('a.gif', 'gif'), item('c.mp4', 'video')])
+  assert.deepEqual(names(kept), ['a.gif'])
+})
+
+test('Facebook [mp4, jpg] fica com a foto; TikTok [jpg, mp4] com o vídeo; Instagram mistura', () => {
+  assert.deepEqual(names(adaptMedia(NETWORK_RULES.facebook, [item('c.mp4', 'video'), img(1)]).kept), ['f1.jpg'])
+  assert.deepEqual(names(adaptMedia(NETWORK_RULES.tiktok, [img(1), item('c.mp4', 'video')]).kept), ['c.mp4'])
+  assert.deepEqual(names(adaptMedia(NETWORK_RULES.instagram, [img(1), item('c.mp4', 'video')]).kept), ['f1.jpg', 'c.mp4'])
+})
