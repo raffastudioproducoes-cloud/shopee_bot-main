@@ -347,6 +347,23 @@ Decisão aprovada em 2026-10-13: a marca futura do produto será **Auto Orbital*
 - [ ] Fase K - Testes: typecheck/lint/build/tests.
 - [ ] Fase L - Auditoria Final: nome antigo, hardcoded colors, assets, metadata e compatibilidade.
 
+## FUTURO (em breve) — Carregamento em esqueleto (skeleton loading) das telas
+
+Pedido do Rafa (2026-10-14, confirmado): trocar as barras/anéis de loading (spinners) por carregamento em esqueleto, como YouTube, LinkedIn, Facebook e Instagram.
+
+Comportamento esperado:
+- Enquanto os dados chegam, a tela já mostra a estrutura final com blocos cinza onde ficarão título, cards, linhas de tabela, imagens e textos, com tamanho e posição idênticos ao conteúdo real e um shimmer suave por cima.
+- Quando os dados chegam, o conteúdo substitui os blocos no mesmo lugar, sem piscar e sem layout shift.
+- Objetivo: a tela parecer já pronta e mais rápida, em vez de vazia com algo girando.
+
+Escopo sugerido: criar UM componente único de esqueleto (variantes: texto, card, linha de tabela, avatar/imagem, KPI) usando os tokens/superfícies do Design System atual (no futuro Auto Orbital: grafites e gradiente orbital, sem exagero); aplicar nas telas de maior espera: dashboard (cards de números), produtos, listas, posts (histórico), credenciais (cartões das redes) e perfis. Spinner permanece apenas em botões de ação (Salvar, Publicar). Respeitar prefers-reduced-motion (sem shimmer, só bloco estático), aria-busy/aria-live adequados e contraste.
+
+Dependências/encaixe: aproveitar a fase do rebranding em que as telas são migradas (fases E a G do docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md) e o item B4 da auditoria de UX; hoje o frontend NÃO tem nenhum componente de esqueleto (usa spinners em ~14 arquivos).
+
+Critérios de aceite: sem layout shift (CLS ~0) na troca esqueleto→conteúdo; esqueleto com a mesma geometria do conteúdo real; build, typecheck e testes passando; verificação desktop e mobile; sem regressão de acessibilidade.
+
+Status: não iniciado.
+
 ## Referências
 
 - `docs/ROADMAP_MIGRACAO.md`, `docs/CHECKLIST_MIGRACAO.md`
