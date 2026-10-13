@@ -47,6 +47,7 @@ from ..database import supabase
 from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail
 from ..media_composition import plan_network_composition
+from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload
 from .. import x_oauth
 from ..text_variants import generate_variants
 from ..internal_client import (
@@ -967,8 +968,31 @@ async def upload_media_draft(
     cleanup_expired_media_drafts()
     content = await _read_media_content(file)
 
-    detected = fleep.get(content[:128])
-    mime = next((m for m in detected.mime if m in ALLOWED_MEDIA_MIMES), None)
+    try:
+        media = await run_in_threadpool(
+            sanitize_media_upload,
+            content,
+            filename=file.filename,
+            content_type=file.content_type,
+            max_bytes=MAX_MEDIA_BYTES,
+        )
+    except MediaSanitizerError as exc:
+        logger.info(
+            "Upload de rascunho de midia rejeitado: %s",
+            exc,
+            extra=sanitize_log_data({
+                "filename": file.filename,
+                "content_type": file.content_type,
+                "size_bytes": len(content),
+            }),
+        )
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=f"Arquivo inválido ou não suportado: {exc}",
+        ) from None
+
+    content = media.content
+    mime = media.mime_type
     if not mime:
         raise HTTPException(
             status_code=400,
@@ -976,10 +1000,10 @@ async def upload_media_draft(
         )
 
     upload_id = str(uuid.uuid4())
-    suffix = ALLOWED_MEDIA_MIMES[mime]
+    suffix = media.extension
     storage_key = f"drafts/{user_id}/{profile_id}/{upload_id}{suffix}"
     expires_at = (datetime.now(timezone.utc) + MEDIA_DRAFT_TTL).isoformat()
-    media_type = "VIDEO" if mime.startswith("video/") else "IMAGE"
+    media_type = media.media_type
     create = (
         supabase.table("temporary_media_uploads")
         .insert({
@@ -988,7 +1012,7 @@ async def upload_media_draft(
             "profile_id": profile_id,
             "storage_bucket": MEDIA_DRAFT_BUCKET,
             "storage_key": storage_key,
-            "file_name": f"{Path(file.filename or 'arquivo').stem}{suffix}",
+            "file_name": media.safe_filename,
             "mime_type": mime,
             "size_bytes": len(content),
             "media_type": media_type,
