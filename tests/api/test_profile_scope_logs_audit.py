@@ -43,6 +43,18 @@ def test_log_action_stores_profile_id(monkeypatch):
     assert fake_client.table.return_value.insert.call_args[0][0]["profile_id"] == "profile-a"
 
 
+def test_log_action_replaces_lone_surrogates_so_httpx_can_encode(monkeypatch):
+    settings.request_logging_enabled = True
+    fake_client = MagicMock()
+    monkeypatch.setattr(audit_log_module, "get_supabase", lambda: fake_client)
+
+    audit_log_module.log_action("post_publish_failed", "error=a\udcffb", user_id=1)
+
+    row = fake_client.table.return_value.insert.call_args[0][0]
+    row["error"].encode("utf-8")
+    assert row["error"].startswith("error=a") and row["error"].endswith("b")
+
+
 def test_request_middleware_logs_profile_claim(monkeypatch, profile_cookie):
     settings.request_logging_enabled = True
     fake_client = MagicMock()
