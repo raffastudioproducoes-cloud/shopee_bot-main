@@ -428,3 +428,34 @@ def test_delete_thread_cascade_keeps_durable_media_shared_with_another_post(fake
 
     assert db.storage.removed == []
     assert len(db.tables["medias"]) == 1
+
+
+class _CallLogDB:
+    """Registra toda chamada table(nome).op(), em ordem."""
+
+    def __init__(self, inner, log):
+        self._inner, self._log = inner, log
+        self.storage = inner.storage
+
+    @property
+    def tables(self):
+        return self._inner.tables
+
+    def table(self, name):
+        query = self._inner.table(name)
+        for op in ("insert", "update", "delete"):
+            real = getattr(query, op)
+            setattr(query, op, lambda *a, _r=real, _n=name, _o=op: (self._log.append((_n, _o)), _r(*a))[1])
+        return query
+
+
+def test_batch_links_media_right_after_creating_it(fake_db, monkeypatch):
+    """Janela do gatilho da 014: nada entre insert em medias e em posts_medias."""
+    client, db = _batch_client(fake_db, monkeypatch)
+    log = []
+    monkeypatch.setattr(posts_module, "supabase", _CallLogDB(db, log))
+
+    assert client.post("/posts/batch", json=_batch_body()).status_code == 201
+
+    at = log.index(("medias", "insert"))
+    assert log[at + 1] == ("posts_medias", "insert")

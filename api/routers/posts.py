@@ -482,6 +482,10 @@ def _attach_medias(
             if not _claim_draft(draft_id, user_id, profile_id):
                 raise _DraftUnavailable(draft_id)
             fresh[draft_id] = None
+            # Migração 014: um DELETE em posts_medias apaga `medias` sem vínculo,
+            # então uma `medias` recém-criada e ainda órfã pode sumir sob um
+            # DELETE concorrente. Por isso o vínculo (insert abaixo) vem logo
+            # após a criação, sem nenhuma chamada ao banco no meio.
             media = _create_media_from_draft(drafts_by_id[draft_id], user_id, profile_id)
             materialized[draft_id] = media
             fresh[draft_id] = media
