@@ -249,3 +249,11 @@ def test_unexpected_decoder_errors_become_sanitizer_error(monkeypatch, exc):
     with pytest.raises(MediaSanitizerError, match="imagem inválida") as info:
         sanitize_media_upload(_image_bytes("PNG"), filename="a.png", content_type="image/png")
     assert str(info.value) == "imagem inválida ou corrompida"
+
+
+def test_accepts_bytearray_input_and_always_returns_bytes():
+    image = sanitize_media_upload(bytearray(_image_bytes("PNG")), filename="a.png", content_type="image/png")
+    video = sanitize_media_upload(bytearray(_mp4_bytes()), filename="a.mp4", content_type="video/mp4")
+
+    assert type(image.content) is bytes
+    assert type(video.content) is bytes

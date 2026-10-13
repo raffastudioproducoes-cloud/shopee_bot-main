@@ -168,14 +168,17 @@ def _expired_at(value: object, now: datetime) -> bool:
     return moment <= now
 
 
-async def _read_media_content(file: UploadFile) -> bytes:
-    """Lê em blocos e recusa um upload antes de acumular mais de 50 MB."""
+async def _read_media_content(file: UploadFile) -> bytearray:
+    """Lê em blocos e recusa um upload antes de acumular mais de 50 MB.
+
+    Devolve o bytearray sem copiar pra bytes (evita 2x 50 MB); o sanitizador
+    aceita ambos e sempre devolve bytes."""
     content = bytearray()
     while chunk := await file.read(1024 * 1024):
         content.extend(chunk)
         if len(content) > MAX_MEDIA_BYTES:
             raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
-    return bytes(content)
+    return content
 
 
 def cleanup_expired_media_drafts(now: datetime | None = None) -> int:

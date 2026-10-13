@@ -99,7 +99,7 @@ _CONTROL_CHARS_RE = re.compile(r"[\x00-\x1f\x7f]")
 _ENCODED_CONTROL_CHARS_RE = re.compile(r"%(?:0[0-9a-fA-F]|1[0-9a-fA-F]|7[fF])")
 
 
-def detect_media_type(content: bytes) -> MediaType:
+def detect_media_type(content: bytes | bytearray) -> MediaType:
     if content.startswith(b"\xff\xd8\xff"):
         return JPEG
     if content.startswith(b"\x89PNG\r\n\x1a\n"):
@@ -124,7 +124,7 @@ def sanitize_filename(filename: str | None, extension: str, max_length: int = MA
 
 
 def sanitize_media_upload(
-    content: bytes,
+    content: bytes | bytearray,
     *,
     filename: str | None,
     content_type: str | None,
@@ -139,7 +139,7 @@ def sanitize_media_upload(
         clean = _sanitize_image(content, detected, max_pixels)
     else:
         _validate_video_boxes(content, max_bytes=max_bytes)
-        clean = content
+        clean = bytes(content)
     return SanitizedMedia(
         content=clean,
         mime_type=detected.mime_type,
@@ -158,7 +158,7 @@ def _validate_declared_type(detected: MediaType, filename: str | None, content_t
         raise MediaSanitizerError("tipo informado incompatível com o conteúdo real", status_code=415)
 
 
-def _sanitize_image(content: bytes, detected: MediaType, max_pixels: int) -> bytes:
+def _sanitize_image(content: bytes | bytearray, detected: MediaType, max_pixels: int) -> bytes:
     try:
         with Image.open(BytesIO(content)) as image:
             if image.format != detected.pil_format:
