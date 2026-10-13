@@ -70,13 +70,23 @@ def test_exif_gps_is_stripped_from_jpeg():
     ("a.gif", "image/gif", _image_bytes("GIF", mode="P", color=1)),
     ("a.webp", "image/webp", _image_bytes("WEBP", color="green")),
     ("a.mp4", "video/mp4", _mp4_bytes()),
-    ("a.mov", "video/quicktime", _mov_bytes()),
 ])
 def test_supported_media_types_pass(filename, content_type, content):
     media = sanitize_media_upload(content, filename=filename, content_type=content_type)
 
     assert media.content
     assert media.safe_filename.startswith("a.")
+
+
+@pytest.mark.parametrize(("filename", "content_type"), [
+    ("a.mov", "video/quicktime"),
+    ("a.mp4", "video/mp4"),
+])
+def test_quicktime_is_rejected_even_with_mp4_name(filename, content_type):
+    with pytest.raises(MediaSanitizerError, match="MOV não é aceito") as exc:
+        sanitize_media_upload(_mov_bytes(), filename=filename, content_type=content_type)
+
+    assert exc.value.status_code == 415
 
 
 def test_wrong_extension_is_rejected():

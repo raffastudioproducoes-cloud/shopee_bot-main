@@ -85,14 +85,6 @@ MP4 = MediaType(
     allowed_extensions=frozenset({".mp4"}),
     allowed_content_types=frozenset({"video/mp4"}),
 )
-MOV = MediaType(
-    mime_type="video/quicktime",
-    extension=".mov",
-    media_type="VIDEO",
-    pil_format=None,
-    allowed_extensions=frozenset({".mov"}),
-    allowed_content_types=frozenset({"video/quicktime"}),
-)
 
 
 # controles (C0/C1), bidi (U+202A-202E, U+2066-2069) e < > (XSS/spoofing ao exibir o nome)
@@ -110,7 +102,10 @@ def detect_media_type(content: bytes | bytearray) -> MediaType:
     if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
         return WEBP
     if _looks_like_ftyp(content):
-        return MOV if content[8:12] == b"qt  " else MP4
+        # bucket de post só aceita MP4; QuickTime (MOV) é recusado
+        if content[8:12] == b"qt  ":
+            raise MediaSanitizerError("formato MOV não é aceito: envie MP4", status_code=415)
+        return MP4
     raise MediaSanitizerError("tipo real desconhecido", status_code=415)
 
 

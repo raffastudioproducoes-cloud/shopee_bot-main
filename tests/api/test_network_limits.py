@@ -70,6 +70,11 @@ class TestMedia:
         ]
         assert _errors("threads", ["oi"], [{"file_name": "v.mp4", "size": 2 * GB}]) == ["Threads: v.mp4 passa de 1 GB"]
 
+    def test_mov_is_not_accepted_on_any_network(self):
+        for net in NETWORK_RULES:
+            issues = validate_post(net, ["oi"], [{"file_name": "v.mov", "size": MB}], check_required_media=False)
+            assert any(".mov" in i["message"] and "não aceita" in i["message"] for i in issues), net
+
     def test_tiktok_requires_video_only_on_publish(self):
         assert _errors("tiktok", ["oi"], [], check_required_media=False) == []
         assert _errors("tiktok", ["oi"], []) == ["TikTok: exige 1 vídeo (.mp4)"]

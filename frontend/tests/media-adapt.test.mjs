@@ -78,6 +78,15 @@ test('filterPicked ignora formato que nenhuma rede aceita e corta o excesso por 
   assert.equal(r.overLimit, 1)
 })
 
+test('.mov fica fora do seletor em todas as redes, com o aviso de formato', () => {
+  const l = pickLimits(Object.values(NETWORK_RULES))
+  assert.ok(!l.exts.includes('mov'))
+  const r = filterPicked([{ name: 'v.mov' }, { name: 'V.MOV' }], [], l)
+  assert.equal(r.accepted.length, 0)
+  assert.equal(r.ignored, 2)
+  assert.equal(pickNotice(r), '2 arquivos ignorados: formato não aceito por nenhuma rede selecionada')
+})
+
 test('filterPicked conta o que já está na lista', () => {
   const l = pickLimits([NETWORK_RULES.x])
   const r = filterPicked([{ name: 'b.jpg' }], ['image'], l)
