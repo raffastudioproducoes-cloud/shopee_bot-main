@@ -47,6 +47,7 @@ from ..database import supabase
 from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail
 from ..media_composition import plan_network_composition
+from .. import x_oauth
 from ..text_variants import generate_variants
 from ..internal_client import (
     create_scheduler_job,
@@ -706,7 +707,25 @@ async def create_post(
     }
 
 
-def _preview_batch(body: PostBatchCreate, drafts: list[dict]) -> list[dict]:
+def _x_media_allowed(user_id: int, profile_id: str) -> bool:
+    """A conexão do X deste perfil tem `media.write`? Escopo NULL (conexão
+    antiga) conta como não: o upload falharia só na hora de publicar."""
+    row = (
+        scope_owner(supabase.table("x_credentials").select("scope"), user_id, profile_id)
+        .maybe_single().execute()
+    )
+    return x_oauth.has_media_write(row.data.get("scope") if row and row.data else None)
+
+
+def _x_media_for(body: PostBatchCreate, user_id: int, profile_id: str) -> bool:
+    """Só consulta o banco quando há X + mídia na composição."""
+    wants_x_media = bool(body.draft_media_ids) and any(c.network == "x" for c in body.compositions)
+    return _x_media_allowed(user_id, profile_id) if wants_x_media else True
+
+
+def _preview_batch(
+    body: PostBatchCreate, drafts: list[dict], x_media_allowed: bool = True,
+) -> list[dict]:
     plans: list[dict] = []
     media = [
         {"id": str(draft["id"]), "file_name": draft["file_name"], "size": draft["size_bytes"]}
@@ -719,14 +738,20 @@ def _preview_batch(body: PostBatchCreate, drafts: list[dict]) -> list[dict]:
             media,
             len(body.product_ids),
         )
-        plans.append({
+        entry = {
             "network": composition.network,
             "texts": composition.texts,
             "mode": plan.mode,
             "media_draft_ids": [str(media_id) for media_id in plan.media_ids],
             "warnings": plan.warnings,
             "blocked_reason": plan.blocked_reason,
-        })
+        }
+        if composition.network == "x" and entry["media_draft_ids"] and not x_media_allowed:
+            entry.update(
+                mode="blocked", media_draft_ids=[],
+                blocked_reason=x_oauth.MEDIA_RECONNECT_MESSAGE,
+            )
+        plans.append(entry)
     return plans
 
 
@@ -740,7 +765,7 @@ async def preview_post_batch(
     profile_id = _require_profile_id(profile_id)
     _validate_product_ids(user_id, body.product_ids)
     drafts = _get_owned_ready_drafts(user_id, body.draft_media_ids, profile_id)
-    return {"plans": _preview_batch(body, drafts)}
+    return {"plans": _preview_batch(body, drafts, _x_media_for(body, user_id, profile_id))}
 
 
 @router.post("/batch", status_code=status.HTTP_201_CREATED)
@@ -754,7 +779,7 @@ async def create_posts_batch(
     _validate_product_ids(user_id, body.product_ids)
     drafts = _get_owned_ready_drafts(user_id, body.draft_media_ids, profile_id)
     drafts_by_id = {str(draft["id"]): draft for draft in drafts}
-    plans = _preview_batch(body, drafts)
+    plans = _preview_batch(body, drafts, _x_media_for(body, user_id, profile_id))
     deliverable = [plan for plan in plans if plan["mode"] != "blocked"]
     if not deliverable:
         return {"group_id": None, "created": [], "blocked": plans}

@@ -108,6 +108,11 @@ def _batch_client(fake_db, monkeypatch):
         "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
     })
 
+    db.tables["x_credentials"] = [{
+        "id": 1, "user_id": 42, "profile_id": "profile-a",
+        "scope": "tweet.read tweet.write users.read media.write offline.access",
+    }]
+
     async def fake_job(**_kwargs):
         return "job-1"
 

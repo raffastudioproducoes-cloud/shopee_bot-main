@@ -14,7 +14,8 @@ def get_by_user_id(user_id, profile_id):
             xc.status x_status,
             xc.user_access_token x_access_token,
             xc.user_refresh_token x_refresh_token,
-            xc.token_expires_at token_expires_at
+            xc.token_expires_at token_expires_at,
+            xc.scope x_scope
         FROM users u
         LEFT JOIN x_credentials xc ON xc.user_id = u.id
             AND xc.profile_id = %s::uuid
@@ -73,7 +74,8 @@ def update_tokens(user_id, profile_id, tokens, open_conn=None):
     query = """
         UPDATE x_credentials
         SET user_access_token = %s, user_refresh_token = %s,
-            token_expires_at = %s, updated_at = %s
+            token_expires_at = %s, updated_at = %s,
+            scope = COALESCE(%s, scope)
         WHERE user_id = %s AND profile_id = %s::uuid
         RETURNING id
     """
@@ -85,6 +87,7 @@ def update_tokens(user_id, profile_id, tokens, open_conn=None):
         encrypt(tokens.get("refresh_token")),
         expires_at,
         datetime.now(pytz.timezone('America/Sao_Paulo')),
+        tokens.get("scope") or None,
         user_id,
         profile_id,
     )

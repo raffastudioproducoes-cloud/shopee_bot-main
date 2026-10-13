@@ -42,6 +42,10 @@ def _upload_media_ids(user_data, post):
         return []
     if len(medias) != 1 or medias[0].get("type") != "IMAGE":
         raise Exception(UNSUPPORTED_MEDIA_MESSAGE)
+    if not x_oauth.has_media_write(user_data.get("x_scope")):
+        # Conexão sem media.write (ou antiga, escopo desconhecido): falha
+        # com o motivo certo antes de baixar/subir qualquer imagem.
+        raise Exception(x_oauth.MEDIA_RECONNECT_MESSAGE)
     media = medias[0]
     return [XAPI.upload_image(
         user_data["x_access_token"], _image_bytes(media), media.get("file_name") or "image"
@@ -79,6 +83,8 @@ def _ensure_fresh_token(user_id, profile_id, user_data):
     )
     x_credentials.update_tokens(user_id, profile_id, token_data)
     user_data["x_access_token"] = token_data["access_token"]
+    if token_data.get("scope"):
+        user_data["x_scope"] = token_data["scope"]
     return user_data
 
 

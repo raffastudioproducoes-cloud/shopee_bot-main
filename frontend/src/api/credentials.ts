@@ -16,6 +16,10 @@ export interface CredentialStatusWithLight extends CredentialStatus {
   status_text?: string
   checked_at: string | null
   check_message: string | null
+  /** Só no X: a conexão tem a permissão media.write (imagens). Ausente nas outras redes. */
+  supports_media?: boolean
+  /** Só no X: escopos OAuth que faltam (ex.: ["media.write"]). */
+  missing_scopes?: string[]
 }
 
 export type CredentialState = 'disconnected' | 'untested' | 'expired' | 'error' | 'stale' | 'ok' | 'testing'

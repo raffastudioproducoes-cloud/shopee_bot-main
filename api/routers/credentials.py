@@ -91,6 +91,7 @@ class ThreadsCredentialBody(BaseModel):
 class XManualCredentialBody(BaseModel):
     user_access_token: str
     user_refresh_token: str | None = None
+    scope: str | None = None
 
 
 class FacebookManualCredentialBody(BaseModel):
@@ -131,6 +132,8 @@ TESTING_MAX_AGE = timedelta(seconds=45)
 # refresh). Token vencido SEM refresh = precisa reconectar; com refresh o
 # bot renova sozinho na próxima publicação (scheduler/bot_post_x.py).
 _TOKEN_EXPIRY_FIELDS = {"x": ("token_expires_at", "user_refresh_token")}
+# Colunas extras lidas só pro status (nunca devolvidas em bruto).
+_STATUS_EXTRA_COLUMNS = {"x": ("scope",)}
 
 
 def _parse_ts(value) -> datetime | None:
@@ -204,7 +207,7 @@ def _status_only(
     light, state, status_text = _connection_state(
         connected, check, _token_expired(network, row) if network else False,
     )
-    return {
+    status = {
         "connected": connected,
         "light": light,
         "state": state,
@@ -212,6 +215,13 @@ def _status_only(
         "checked_at": check.get("checked_at") if check else None,
         "check_message": check.get("message") if check else None,
     }
+    if network == "x":
+        # Campos opcionais (contrato antigo intacto): sem media.write o
+        # frontend avisa "reconecte o X" antes do primeiro upload.
+        has_media = connected and x_oauth.has_media_write((row or {}).get("scope"))
+        status["supports_media"] = has_media
+        status["missing_scopes"] = [] if (has_media or not connected) else [x_oauth.MEDIA_SCOPE]
+    return status
 
 
 # tabela de credencial -> rede (pra zerar o teste ao salvar/reconectar)
@@ -406,7 +416,9 @@ async def list_credentials(user_id: int = Depends(get_current_user_id), profile_
     # Threads é setado junto com o token, mas nas outras 3 não existe mais
     # nenhum campo além do token — ver OAUTH_NETWORKS acima).
     for network, (table, token_field) in OAUTH_NETWORKS.items():
-        expiry_cols = "".join(f", {c}" for c in _TOKEN_EXPIRY_FIELDS.get(network, ()))
+        expiry_cols = "".join(
+            f", {c}" for c in (*_TOKEN_EXPIRY_FIELDS.get(network, ()), *_STATUS_EXTRA_COLUMNS.get(network, ()))
+        )
         row = (
             scope_owner(supabase.table(table).select(f"status, {token_field}{expiry_cols}"), user_id, profile_id)
             .maybe_single().execute()
@@ -1003,6 +1015,7 @@ async def x_callback(
     _upsert_by_user("x_credentials", user_id, {
         "user_access_token": encrypt(token_data["access_token"]),
         "user_refresh_token": encrypt(token_data.get("refresh_token")),
+        "scope": token_data.get("scope") or None,
         "token_expires_at": (
             datetime.now(timezone.utc) + timedelta(seconds=expires_in)
         ).isoformat(),
@@ -1023,6 +1036,7 @@ async def delete_x_credential(user_id: int = Depends(get_current_user_id), profi
         .update({
             "user_access_token": None,
             "user_refresh_token": None,
+            "scope": None,
             "token_expires_at": None,
             "status": False,
         }), user_id, profile_id)
@@ -1050,6 +1064,7 @@ async def save_x_credential_manual(
     _upsert_by_user("x_credentials", user_id, {
         "user_access_token": encrypt(body.user_access_token),
         "user_refresh_token": encrypt(body.user_refresh_token) if body.user_refresh_token else None,
+        "scope": body.scope or None,
         "status": True,
     }, profile_id=profile_id)
     return {"connected": True}
@@ -1308,6 +1323,8 @@ def _persist_refreshed_tokens(network: str, user_id, profile_id: str | None, tok
         return
     data = {"user_access_token": encrypt(tokens["access_token"])}
     refresh_column = "user_refresh_token" if network == "x" else "refresh_token"
+    if network == "x" and tokens.get("scope"):
+        data["scope"] = tokens["scope"]
     if tokens.get("refresh_token"):
         data[refresh_column] = encrypt(tokens["refresh_token"])
     if network == "x" and tokens.get("expires_in"):

@@ -52,6 +52,18 @@ CALLBACK_URL = os.environ.get("X_CALLBACK_URL")
 CLIENT_ID = (os.environ.get("X_CLIENT_ID") or "").strip() or None
 CLIENT_SECRET = (os.environ.get("X_CLIENT_SECRET") or "").strip() or None
 DEFAULT_SCOPES = "tweet.read tweet.write users.read media.write offline.access"
+MEDIA_SCOPE = "media.write"
+MEDIA_RECONNECT_MESSAGE = (
+    "X: reconecte o X para liberar imagens (a conexão atual não tem a "
+    "permissão media.write)"
+)
+
+
+def has_media_write(scope: str | None) -> bool:
+    """`scope` é o texto devolvido pelo X (separado por espaço). NULL/vazio =
+    conexão antiga, escopo desconhecido: trata como sem media.write até
+    reconectar (ou até um refresh devolver o escopo real)."""
+    return MEDIA_SCOPE in (scope or "").split()
 
 
 class XOAuthError(Exception):

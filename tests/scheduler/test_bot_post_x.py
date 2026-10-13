@@ -82,7 +82,10 @@ UPLOAD = ("POST", xapi.MEDIA_UPLOAD_URL)
 TWEET = ("POST", f"{xapi.API_BASE}/tweets")
 
 
-def _setup_image(monkeypatch, graph, medias):
+FULL_SCOPE = "tweet.read tweet.write users.read media.write offline.access"
+
+
+def _setup_image(monkeypatch, graph, medias, scope=FULL_SCOPE):
     monkeypatch.setattr(xapi.requests, "post", graph.post)
     monkeypatch.setattr(xapi.requests, "get", graph.get)
     monkeypatch.setattr(module.requests, "get", graph.get)
@@ -90,7 +93,7 @@ def _setup_image(monkeypatch, graph, medias):
     monkeypatch.setattr(module.schedulers, "get_by_id",
                         lambda j: {"user_id": 1, "post_id": 2, "profile_id": "p"})
     monkeypatch.setattr(module.x_credentials, "get_by_user_id",
-                        lambda u, p: {"username": "u", "x_access_token": "tok"})
+                        lambda u, p: {"username": "u", "x_access_token": "tok", "x_scope": scope})
     monkeypatch.setattr(module.posts, "get", lambda u, post, p: [{"text": "oi", "medias": medias}])
     acts = []
     monkeypatch.setattr(module, "insert_activities",
@@ -149,3 +152,35 @@ def test_escopo_oauth_inclui_media_write():
     from shopee_bot.api import x_oauth
     assert "media.write" in x_oauth.DEFAULT_SCOPES.split()
     assert "media.write" in xapi.DEFAULT_SCOPES.split()
+
+
+@pytest.mark.parametrize("scope", [None, "", "tweet.read tweet.write users.read offline.access"])
+def test_sem_media_write_bloqueia_antes_do_primeiro_upload(monkeypatch, scope):
+    graph = FakeGraph({})
+    acts = _setup_image(monkeypatch, graph, [_img()], scope=scope)
+    module.bot_post_x("j")
+    assert graph.calls == []  # nem download, nem upload, nem tweet
+    assert acts[-1][0] == ActivityType.BOT_POST_FAILURE
+    assert "reconecte o X" in str(acts[-1][1])
+
+
+def test_post_so_texto_nao_exige_media_write(monkeypatch):
+    graph = FakeGraph({TWEET: [{"data": {"id": "t1"}}]})
+    acts = _setup_image(monkeypatch, graph, [], scope=None)
+    module.bot_post_x("j")
+    assert acts[-1][0] == ActivityType.BOT_POST_SUCCESS
+
+
+def test_refresh_atualiza_escopo_em_memoria(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    async def refresh(token):
+        return {"access_token": "new", "refresh_token": "r2", "scope": FULL_SCOPE}
+
+    monkeypatch.setattr(module.x_oauth, "refresh_access_token", refresh)
+    monkeypatch.setattr(module.x_credentials, "update_tokens", lambda *a: None)
+    data = {
+        "x_refresh_token": "r", "x_access_token": "old", "x_scope": None,
+        "token_expires_at": datetime.now(timezone.utc) - timedelta(seconds=1),
+    }
+    assert module._ensure_fresh_token(1, "p", data)["x_scope"] == FULL_SCOPE

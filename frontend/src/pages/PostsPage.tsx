@@ -691,7 +691,12 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
             ? "conecte em Credenciais"
             : status?.status_text ?? "teste a conexão em Credenciais"
       const plan = compositionPlans[n]
-      const errors = plan.mode === "blocked"
+      // Conta do X sem media.write: avisa antes do primeiro upload (o servidor também bloqueia).
+      const xNoMedia =
+        n === "x" && media.length > 0 && status?.missing_scopes?.includes("media.write")
+          ? [{ key: "x_media_scope", level: "error" as const, message: "Reconecte o X para liberar imagens" }]
+          : []
+      const errors = xNoMedia.length > 0 ? xNoMedia : plan.mode === "blocked"
         ? issues[n].filter((issue) => issue.level === "error").concat(
           issues[n].some((issue) => issue.message === plan.blockedReason)
             ? []
