@@ -154,3 +154,7 @@ que iniciaram o fluxo.
 - `README.md` (raiz do repo)
 - `docs/ROADMAP_MIGRACAO.md`, `docs/CHECKLIST_MIGRACAO.md`
 - Vault Obsidian: `00-INDICE-Estado-Atual.md`, `00-Resumo-e-PRD.md`, `17-Visao-Expandida-Shopee-IA.md`
+
+## Atualização 2026-10-13 - decisão de marca futura
+
+Decisão aprovada em 2026-10-13: a marca futura do produto será **Auto Orbital**. Implementação ainda pendente; o produto, runtime, frontend, infra e documentação viva ainda não foram convertidos. Ver `docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md`.

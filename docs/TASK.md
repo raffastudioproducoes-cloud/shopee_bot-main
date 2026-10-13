@@ -330,6 +330,23 @@ existente — diretriz, não tarefa isolada).
   - [ ] Fase 6 — Testes.
   - [ ] Fase 7 — Documentação.
 
+## FUTURO - Rebranding Auto Orbital
+
+Decisão aprovada em 2026-10-13: a marca futura do produto será **Auto Orbital**. Implementação ainda pendente. Ver `docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md`.
+
+- [ ] Fase A - Baseline.
+- [ ] Fase B - Brand Tokens.
+- [ ] Fase C - Foundation.
+- [ ] Fase D - Brand Assets.
+- [ ] Fase E - App Shell.
+- [ ] Fase F - Core Screens: dashboard, products, posts, lists.
+- [ ] Fase G - Support Screens: credentials, profiles, settings, notifications, modals.
+- [ ] Fase H - Brand Text.
+- [ ] Fase I - Internal Renaming somente se aprovado.
+- [ ] Fase J - QA Visual desktop/tablet/mobile/a11y.
+- [ ] Fase K - Testes: typecheck/lint/build/tests.
+- [ ] Fase L - Auditoria Final: nome antigo, hardcoded colors, assets, metadata e compatibilidade.
+
 ## Referências
 
 - `docs/ROADMAP_MIGRACAO.md`, `docs/CHECKLIST_MIGRACAO.md`
