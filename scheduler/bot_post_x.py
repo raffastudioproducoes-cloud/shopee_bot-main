@@ -1,6 +1,8 @@
 import asyncio
 from datetime import datetime, timezone
 
+import requests
+
 from shopee_bot.api import x_oauth
 from shopee_bot.apis import x as XAPI
 from shopee_bot.clogging import logger
@@ -9,7 +11,45 @@ from shopee_bot.database.activities import (
     insert_activities, activity_metadata_wrapper
 )
 from shopee_bot.database.activity_types import ActivityType
+from shopee_bot.scheduler.media_delivery import STORAGE_PREFIX, delivery_url
 from shopee_bot.scheduler.profile_scope import require_profile_id
+
+UNSUPPORTED_MEDIA_MESSAGE = (
+    "O X só publica texto ou uma única imagem por post; este post tem "
+    "outra combinação de mídia e não foi publicado."
+)
+
+
+def _image_bytes(media):
+    path = media["file_path"]
+    if not path.startswith(STORAGE_PREFIX):
+        with open(path, "rb") as fh:
+            return fh.read()
+    url, cleanup = delivery_url(media)
+    try:
+        res = requests.get(url, timeout=60)
+        if res.status_code != 200:
+            raise Exception(f"falha ao ler a mídia salva (status {res.status_code})")
+        return res.content
+    finally:
+        cleanup()
+
+
+def _upload_media_ids(user_data, post):
+    """media_ids do X para o post; [] só quando o post não tem mídia."""
+    medias = post.get("medias") or []
+    if not medias:
+        return []
+    if len(medias) != 1 or medias[0].get("type") != "IMAGE":
+        raise Exception(UNSUPPORTED_MEDIA_MESSAGE)
+    if not x_oauth.has_media_write(user_data.get("x_scope")):
+        # Conexão sem media.write (ou antiga, escopo desconhecido): falha
+        # com o motivo certo antes de baixar/subir qualquer imagem.
+        raise Exception(x_oauth.MEDIA_RECONNECT_MESSAGE)
+    media = medias[0]
+    return [XAPI.upload_image(
+        user_data["x_access_token"], _image_bytes(media), media.get("file_name") or "image"
+    )]
 
 
 def _ensure_fresh_token(user_id, profile_id, user_data):
@@ -43,6 +83,8 @@ def _ensure_fresh_token(user_id, profile_id, user_data):
     )
     x_credentials.update_tokens(user_id, profile_id, token_data)
     user_data["x_access_token"] = token_data["access_token"]
+    if token_data.get("scope"):
+        user_data["x_scope"] = token_data["scope"]
     return user_data
 
 
@@ -84,10 +126,12 @@ def bot_post_x(job_id):
 
     for part_index, post in enumerate(post_data):
         try:
+            media_ids = _upload_media_ids(user_data, post)
             tweet = XAPI.post_text(
                 user_data["x_access_token"],
                 post["text"],
                 reply_to_id=last_tweet_id,
+                **({"media_ids": media_ids} if media_ids else {}),
             )
             last_tweet_id = tweet.get("id")
             published_parts += 1

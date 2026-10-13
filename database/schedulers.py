@@ -18,7 +18,7 @@ NETWORK_FUNC_MAP = {
 def get_by_post_id(user_id, post_id):
     query = """
         SELECT
-            id, post_id, user_id, func, trigger, time, day_of_week,
+            id, post_id, user_id, func, trigger, time, day_of_week, days_of_week,
             start_date, run_date
         FROM schedulers
         WHERE post_id = %s AND user_id = %s
@@ -30,7 +30,7 @@ def get_by_post_id(user_id, post_id):
 def get_by_id(job_id):
     query = """
         SELECT
-            id, post_id, user_id, profile_id, func, trigger, time, day_of_week,
+            id, post_id, user_id, profile_id, func, trigger, time, day_of_week, days_of_week,
             start_date, run_date
         FROM schedulers
         WHERE id = %s
@@ -42,7 +42,7 @@ def get_by_id(job_id):
 def query(user_id):
     query = """
         SELECT
-            id, post_id, user_id, func, trigger, time, day_of_week,
+            id, post_id, user_id, func, trigger, time, day_of_week, days_of_week,
             start_date, run_date
         FROM schedulers
         WHERE user_id = %s
@@ -54,10 +54,10 @@ def query(user_id):
 def insert(user_id, job, open_conn=None):
     query = """
         INSERT INTO schedulers (
-            post_id, user_id, func, trigger, time, day_of_week, start_date,
-            run_date, profile_id
+            post_id, user_id, func, trigger, time, day_of_week, days_of_week,
+            start_date, run_date, profile_id
         )
-        VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
     args = (
@@ -67,6 +67,7 @@ def insert(user_id, job, open_conn=None):
         job["trigger"],
         job["time"] if "time" in job else None,
         job["day_of_week"] if "day_of_week" in job else None,
+        job["days_of_week"] if "days_of_week" in job else None,
         job["start_date"] if "start_date" in job else None,
         job["run_date"] if "run_date" in job else None,
         job.get("profile_id")

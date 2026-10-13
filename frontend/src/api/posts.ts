@@ -49,6 +49,7 @@ export interface PostSchedule {
   run_date?: string | null // ISO 8601, obrigatório se trigger=date
   time?: string | null // "HH:MM", obrigatório se trigger=cron
   day_of_week?: number | null // 0-6, obrigatório se trigger=cron
+  days_of_week?: number[] | null // 0-6, um a sete dias para trigger=cron
   start_date?: string | null // ISO 8601, opcional em cron
 }
 
@@ -60,6 +61,50 @@ export interface PostCreate {
   /** Multi-rede: mídia já enviada pro 1º post do grupo, reaproveitada. */
   media_ids?: number[]
   group_id?: string
+}
+
+export interface MediaDraft {
+  id: string
+  file_name: string
+  size_bytes: number
+  media_type: 'IMAGE' | 'VIDEO'
+  profile_id: string
+  status: 'uploading' | 'ready' | 'consumed' | 'delete_failed'
+  expires_at: string
+  created_at?: string
+}
+
+export interface PostComposition {
+  network: PostNetwork
+  texts: string[]
+}
+
+export interface PostBatchCreate {
+  compositions: PostComposition[]
+  product_ids?: number[]
+  draft_media_ids?: string[]
+  schedule: PostSchedule
+}
+
+export interface PostCompositionPlan {
+  network: PostNetwork
+  texts: string[]
+  mode: 'none' | 'single_image' | 'carousel' | 'video' | 'text_only' | 'blocked'
+  media_draft_ids: string[]
+  warnings: string[]
+  blocked_reason?: string | null
+}
+
+export interface PostBatchResult {
+  group_id: string | null
+  created: Array<{
+    network: PostNetwork
+    post_id: number
+    mode: PostCompositionPlan['mode']
+    warnings: string[]
+    medias: PostMedia[]
+  }>
+  blocked: PostCompositionPlan[]
 }
 
 /** Um texto por faixa de limite das redes marcadas (o 1º é o principal). */
@@ -94,6 +139,22 @@ export const postsApi = {
 
   async create(data: PostCreate): Promise<Post> {
     return api.post<Post>('/posts', data)
+  },
+
+  async uploadDraftMedia(file: File): Promise<MediaDraft> {
+    return api.upload<MediaDraft>('/posts/media-drafts', file)
+  },
+
+  async deleteDraftMedia(id: string): Promise<{ msg: string }> {
+    return api.delete<{ msg: string }>(`/posts/media-drafts/${id}`)
+  },
+
+  async preview(data: PostBatchCreate): Promise<{ plans: PostCompositionPlan[] }> {
+    return api.post<{ plans: PostCompositionPlan[] }>('/posts/preview', data)
+  },
+
+  async createBatch(data: PostBatchCreate): Promise<PostBatchResult> {
+    return api.post<PostBatchResult>('/posts/batch', data)
   },
 
   async get(id: number): Promise<Post> {

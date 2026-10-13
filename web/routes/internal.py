@@ -69,6 +69,20 @@ def _parse_time(value):
     return dt_time(hour=int(hour), minute=int(minute))
 
 
+def _parse_days_of_week(value):
+    if value is None:
+        return None
+    if (
+        not isinstance(value, list)
+        or not value
+        or len(value) > 7
+        or len(set(value)) != len(value)
+        or any(not isinstance(day, int) or day < 0 or day > 6 for day in value)
+    ):
+        raise ValueError("days_of_week deve ter de um a sete dias únicos entre 0 e 6")
+    return value
+
+
 @internal_bp.post("/scheduler/jobs")
 @_require_internal_secret
 def create_job():
@@ -83,12 +97,19 @@ def create_job():
     profile_id = body.get("profile_id")
     if not profile_id:
         return jsonify({"error": "profile_id obrigatorio"}), 400
+    try:
+        days_of_week = _parse_days_of_week(body.get("days_of_week"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if days_of_week is not None and body.get("day_of_week") not in (None, days_of_week[0]):
+        return jsonify({"error": "day_of_week deve corresponder ao primeiro item de days_of_week"}), 400
     job = {
         "post_id": body["post_id"],
         "func": func,
         "trigger": body["trigger"],
         "time": _parse_time(body.get("time")),
         "day_of_week": body.get("day_of_week"),
+        "days_of_week": days_of_week,
         "start_date": _parse_datetime(body.get("start_date")),
         "run_date": _parse_datetime(body.get("run_date")),
         "profile_id": profile_id,

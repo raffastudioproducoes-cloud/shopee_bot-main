@@ -36,7 +36,13 @@ AUTH_URL = "https://twitter.com/i/oauth2/authorize"
 TOKEN_URL = "https://api.twitter.com/2/oauth2/token"
 USERS_ME_URL = "https://api.x.com/2/users/me"
 CALLBACK_URL = os.environ.get("X_CALLBACK_URL")
-DEFAULT_SCOPES = "tweet.read tweet.write users.read offline.access"
+MEDIA_UPLOAD_URL = "https://api.x.com/2/media/upload"  # exige escopo OAuth media.write
+DEFAULT_SCOPES = "tweet.read tweet.write users.read media.write offline.access"
+
+MEDIA_RECONNECT_MESSAGE = (
+    "O X recusou o upload da imagem (HTTP {status}). Reconecte a conta do X "
+    "para conceder a permissão media.write; o post não foi publicado."
+)
 
 
 def _basic_auth_header(app_id, secret):
@@ -175,13 +181,40 @@ def refresh_access_token(client_id, client_secret, refresh_token):
 # Publicação — exige access_token de USUÁRIO (ver bloqueio externo no
 # topo do arquivo). Bearer app-only não funciona aqui.
 ###
-def post_text(user_access_token, text, reply_to_id=None):
-    """Posta um Tweet de texto puro em nome do usuário dono do token."""
+def upload_image(user_access_token, content, filename="image"):
+    """Sobe uma imagem (POST /2/media/upload, tweet_image) e retorna o media id.
+
+    Conexão antiga sem `media.write` recebe 401/403: falha pedindo reconexão,
+    sem publicar só o texto."""
+    res = retry_with_backoff(
+        requests.post, MEDIA_UPLOAD_URL,
+        headers={"Authorization": f"Bearer {user_access_token}"},
+        data={"media_category": "tweet_image"},
+        files={"media": (filename, content)},
+        exceptions=(requests.exceptions.RequestException,),
+        timeout=60,
+    )
+    if res.status_code in (401, 403):
+        raise Exception(MEDIA_RECONNECT_MESSAGE.format(status=res.status_code))
+    if res.status_code not in (200, 201):
+        raise Exception(
+            f"X: falha ao subir imagem (status {res.status_code}): {res.text[:300]}"
+        )
+    media_id = (res.json().get("data") or {}).get("id")
+    if not media_id:
+        raise Exception("X: resposta do upload de imagem sem id")
+    return str(media_id)
+
+
+def post_text(user_access_token, text, reply_to_id=None, media_ids=None):
+    """Posta um Tweet em nome do usuário dono do token (com media_ids opcional)."""
     headers = {
         "Authorization": f"Bearer {user_access_token}",
         "Content-Type": "application/json",
     }
     payload = {"text": text}
+    if media_ids:
+        payload["media"] = {"media_ids": [str(m) for m in media_ids]}
     if reply_to_id is not None:
         payload["reply"] = {"in_reply_to_tweet_id": str(reply_to_id)}
     res = retry_with_backoff(

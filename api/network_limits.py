@@ -20,6 +20,7 @@ NETWORK_RULES = {
     "threads": {
         "label": "Threads", "max_chars": 500, "count": "codepoints", "thread_parts": True,
         "supports_text_only": True,
+        "delivered_modes": {"none", "single_image", "carousel", "video", "text_only"},
         "max_links": 5, "max_hashtags": 1, "max_media": 20, "allow_mix": True,
         "exts": {"jpg", "jpeg", "png", "mp4"},
         "max_bytes": {"image": 8 * MB, "video": 1 * GB},
@@ -28,6 +29,7 @@ NETWORK_RULES = {
     "x": {
         "label": "X", "max_chars": 280, "count": "weighted", "thread_parts": True,
         "supports_text_only": True,
+        "delivered_modes": {"none", "single_image", "text_only"},
         "max_image": 4, "max_gif": 1, "max_video": 1, "allow_mix": False,
         "exts": {"jpg", "jpeg", "png", "webp", "gif", "mp4"},
         "max_bytes": {"image": 5 * MB, "gif": 15 * MB, "video": 8 * GB},
@@ -36,6 +38,8 @@ NETWORK_RULES = {
     "facebook": {
         "label": "Facebook", "max_chars": 63206, "count": "codepoints", "thread_parts": False,
         "supports_text_only": True,
+        "delivered_modes": {"none", "single_image", "carousel", "video", "text_only"},
+        "max_gif": 1, "max_video": 1, "allow_mix": False,
         "exts": {"jpg", "jpeg", "png", "gif", "mp4"},
         "max_bytes": {"image": 4 * MB, "gif": 4 * MB},
         "unverified": {"max_chars"},
@@ -43,6 +47,7 @@ NETWORK_RULES = {
     "instagram": {
         "label": "Instagram", "max_chars": 2200, "count": "codepoints", "thread_parts": False,
         "supports_text_only": False,
+        "delivered_modes": {"single_image", "carousel", "video"},
         "max_hashtags": 30, "max_mentions": 20, "max_media": 10, "allow_mix": True,
         "requires_media": "media-or-product",
         "exts": {"jpg", "jpeg", "mp4"},
@@ -52,6 +57,9 @@ NETWORK_RULES = {
     "tiktok": {
         "label": "TikTok", "max_chars": 2200, "count": "utf16", "thread_parts": False,
         "supports_text_only": False,
+        # Foto (Photo Direct Post) segue bloqueada: sem Creator Info/UI de privacidade
+        # nem domínio/prefixo de URL verificado no TikTok (ver apis/tiktok.py).
+        "delivered_modes": {"video"},
         "max_image": 0, "max_gif": 0, "max_video": 1, "allow_mix": False,
         "requires_media": "video",
         "exts": {"mp4"},
@@ -112,6 +120,7 @@ def validate_post(
         soft = key in rule["unverified"]
         suffix = " (limite não confirmado)" if soft else ""
         issues.append({
+            "key": key,
             "level": "warn" if soft else "error",
             "message": f"{rule['label']}: {message}{suffix}",
         })
@@ -131,7 +140,11 @@ def validate_post(
             if key in rule and n > rule[key]:
                 add(key, f"máx. {rule[key]} {label}{where} (você tem {n})")
     if not rule["thread_parts"] and len(texts) > 1:
-        issues.append({"level": "warn", "message": f"{rule['label']}: só a 1ª parte é publicada (sem thread)"})
+        issues.append({
+            "key": "thread_parts",
+            "level": "warn",
+            "message": f"{rule['label']}: só a 1ª parte é publicada (sem thread)",
+        })
 
     kinds = [media_kind(m.get("file_name") or "") for m in medias]
     if check_required_media:

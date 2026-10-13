@@ -41,17 +41,24 @@ def get(user_id, post_id, profile_id):
                 ) FILTER (WHERE pp.product_id IS NOT NULL),
                 '{}'
             ) product_ids,
+            -- subquery (sem DISTINCT): a ordem é a escolhida pelo usuário
+            -- (display_order); DISTINCT sobre jsonb reordenaria por valor.
+            -- jsonb por causa do psycopg3.
             COALESCE(
-                array_agg(
-                    -- using jsonb because of pyscopg3
-                    DISTINCT jsonb_build_object(
-                        'id', m.id,
-                        'file_name', m.file_name,
-                        'file_path', m.file_path,
-                        'size', m.size,
-                        'type', m.type
+                (
+                    SELECT array_agg(
+                        jsonb_build_object(
+                            'id', m.id,
+                            'file_name', m.file_name,
+                            'file_path', m.file_path,
+                            'size', m.size,
+                            'type', m.type
+                        ) ORDER BY pm.display_order, m.id
                     )
-                ) FILTER (WHERE m.id IS NOT NULL),
+                    FROM posts_medias pm
+                    JOIN medias m ON m.id = pm.media_id
+                    WHERE pm.post_id = ph.id
+                ),
                 '{}'
             ) medias,
             COALESCE(
@@ -61,6 +68,7 @@ def get(user_id, post_id, profile_id):
                     'trigger', s.trigger,
                     'time', to_char(s.time, 'HH24:MI'),
                     'day_of_week', s.day_of_week,
+                    'days_of_week', s.days_of_week,
                     'start_date', s.start_date,
                     'run_date', s.run_date
                 ),
@@ -68,12 +76,10 @@ def get(user_id, post_id, profile_id):
             ) scheduler
         FROM post_hierarchy ph
         LEFT JOIN posts_products pp ON ph.id = pp.post_id
-        LEFT JOIN posts_medias pm ON ph.id = pm.post_id
-        LEFT JOIN medias m ON m.id = pm.media_id
         LEFT JOIN schedulers s ON s.post_id = ph.id
         GROUP BY
             ph.id, ph.text, ph.created_at, ph.updated_at, ph.post_id,
-            ph.depth, pp.post_id, pm.post_id, s.id
+            ph.depth, pp.post_id, s.id
         ORDER BY ph.depth ASC
     """
     args = (post_id, user_id, profile_id, profile_id)
@@ -147,7 +153,7 @@ def query_paginated(user_id, cursor, limit):
                         'file_path', m.file_path,
                         'size', m.size,
                         'type', m.type
-                    )
+                    ) ORDER BY pm.display_order, m.id
                 ) FILTER (WHERE m.id IS NOT NULL),
                 '{}'
             ) medias,
@@ -163,6 +169,7 @@ def query_paginated(user_id, cursor, limit):
                     'trigger', s.trigger,
                     'time', s.time,
                     'day_of_week', s.day_of_week,
+                    'days_of_week', s.days_of_week,
                     'start_date', s.start_date,
                     'run_date', s.run_date
                 ),

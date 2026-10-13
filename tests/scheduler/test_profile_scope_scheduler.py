@@ -36,6 +36,27 @@ def test_scheduler_insert_persists_profile_id(monkeypatch):
     assert captured["args"][-1] == "profile-a"
 
 
+def test_scheduler_insert_persists_recurring_weekdays(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(schedulers, "execute_db", lambda q, args, conn=None: captured.update(q=q, args=args))
+
+    schedulers.insert(
+        "user-1",
+        {
+            "post_id": 7,
+            "func": "bot_post",
+            "trigger": "cron",
+            "day_of_week": 1,
+            "days_of_week": [1, 3, 5],
+            "profile_id": "profile-a",
+        },
+    )
+
+    assert "days_of_week" in captured["q"]
+    assert captured["args"][-1] == "profile-a"
+    assert captured["args"][6] == [1, 3, 5]
+
+
 def test_every_credential_lookup_can_be_scoped_by_profile(monkeypatch):
     for module in CREDENTIAL_MODULES:
         captured = {}

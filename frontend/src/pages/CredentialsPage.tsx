@@ -896,6 +896,11 @@ function XCredentialCard({
           )}
         </div>
 
+        {connected && status.missing_scopes?.includes("media.write") && (
+          <p role="alert" style={{ margin: 0, color: "var(--amber-300)", font: "var(--text-role-body)" }}>
+            Reconecte o X para liberar imagens: esta conexão não tem a permissão de enviar mídia.
+          </p>
+        )}
       </div>
       <OAuthConsentModal
         network="x"

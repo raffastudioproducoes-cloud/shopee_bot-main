@@ -76,3 +76,48 @@ def test_create_job_rejects_missing_profile_id(client, monkeypatch):
     assert res.status_code == 400
     assert res.json["error"] == "profile_id obrigatorio"
     mock_add_job.assert_not_called()
+
+
+def test_create_job_forwards_valid_recurring_days(client, monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_SECRET", INTERNAL_SECRET)
+
+    with patch("shopee_bot.web.routes.internal.add_job", return_value=123) as mock_add_job:
+        res = client.post(
+            "/internal/scheduler/jobs",
+            json={
+                "user_id": 1,
+                "post_id": 1,
+                "func": "bot_post_x",
+                "trigger": "cron",
+                "time": "09:00",
+                "day_of_week": 0,
+                "days_of_week": [0, 2, 4],
+                "profile_id": "11111111-1111-1111-1111-111111111111",
+            },
+            headers=_headers(),
+        )
+
+    assert res.status_code == 201
+    assert mock_add_job.call_args.args[1]["days_of_week"] == [0, 2, 4]
+
+
+def test_create_job_rejects_invalid_recurring_days(client, monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_SECRET", INTERNAL_SECRET)
+
+    with patch("shopee_bot.web.routes.internal.add_job") as mock_add_job:
+        res = client.post(
+            "/internal/scheduler/jobs",
+            json={
+                "user_id": 1,
+                "post_id": 1,
+                "func": "bot_post_x",
+                "trigger": "cron",
+                "time": "09:00",
+                "days_of_week": [0, 0],
+                "profile_id": "11111111-1111-1111-1111-111111111111",
+            },
+            headers=_headers(),
+        )
+
+    assert res.status_code == 400
+    mock_add_job.assert_not_called()

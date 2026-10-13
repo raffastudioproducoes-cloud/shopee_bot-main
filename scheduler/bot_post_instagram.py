@@ -1,6 +1,4 @@
 from shopee_bot.apis import instagram as InstagramAPI
-from shopee_bot.apis.cloudinary import cloudinary as CloudinaryAPI
-from shopee_bot.apis.cloudinary import ensure_configured as ensure_media_storage
 from shopee_bot.clogging import logger
 from shopee_bot.database import schedulers, instagram_credentials, posts, products
 from shopee_bot.database.activities import (
@@ -8,7 +6,7 @@ from shopee_bot.database.activities import (
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
-from shopee_bot.utils import retry_with_backoff
+from shopee_bot.scheduler.media_delivery import delivery_url
 
 
 def _first_image(post):
@@ -16,14 +14,34 @@ def _first_image(post):
 
 
 def _publish_image(app_id, secret, user_access_token, ig_user_id, media, caption):
-    ensure_media_storage()
-    upload = retry_with_backoff(CloudinaryAPI.uploader.upload, media["file_path"], format="jpg")
+    url, cleanup = delivery_url(media)
     try:
-        return InstagramAPI.post_image(
-            app_id, secret, user_access_token, upload.get("secure_url") or upload["url"], caption, ig_user_id
+        return InstagramAPI.post_image(app_id, secret, user_access_token, url, caption, ig_user_id)
+    finally:
+        cleanup()
+
+
+def _publish_video(app_id, secret, user_access_token, ig_user_id, media, caption):
+    url, cleanup = delivery_url(media)
+    try:
+        return InstagramAPI.post_video(app_id, secret, user_access_token, url, caption, ig_user_id)
+    finally:
+        cleanup()
+
+
+def _publish_carousel(app_id, secret, user_access_token, ig_user_id, medias, caption):
+    items, cleanups = [], []
+    try:
+        for media in medias:
+            url, cleanup = delivery_url(media)
+            cleanups.append(cleanup)
+            items.append({"type": media["type"], "url": url})
+        return InstagramAPI.post_carousel(
+            app_id, secret, user_access_token, items, caption, ig_user_id
         )
     finally:
-        CloudinaryAPI.uploader.destroy(upload["public_id"])
+        for cleanup in cleanups:
+            cleanup()
 
 
 def bot_post_instagram(job_id):
@@ -52,9 +70,18 @@ def bot_post_instagram(job_id):
     post_data = posts.get(user_id, post_id, profile_id)
     root_post = post_data[0]
     image = _first_image(root_post)
+    medias = root_post.get("medias") or []
 
     try:
-        if image:
+        if len(medias) > 1:
+            _publish_carousel(
+                app_id, secret, user_access_token, ig_user_id, medias, root_post["text"]
+            )
+        elif len(medias) == 1 and medias[0].get("type") == "VIDEO":
+            _publish_video(
+                app_id, secret, user_access_token, ig_user_id, medias[0], root_post["text"]
+            )
+        elif image:
             _publish_image(
                 app_id, secret, user_access_token, ig_user_id, image, root_post["text"]
             )

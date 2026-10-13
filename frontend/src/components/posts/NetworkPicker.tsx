@@ -54,8 +54,10 @@ export function NetworkLogo({ network, size = 22 }: { network: PostNetwork | "kw
 export const PICKER_NETWORKS: PostNetwork[] = ["threads", "x", "facebook", "instagram", "tiktok"]
 
 export interface NetworkState {
-  /** undefined = status de Credenciais desconhecido (não bloqueia). */
+  /** undefined = verificação ainda carregando; true = último teste real foi ok. */
   connected?: boolean
+  /** Diagnóstico curto, sem segredo, vindo do estado real da credencial. */
+  connectionReason?: string
   errors: Issue[]
 }
 
@@ -130,14 +132,15 @@ export function NetworkPicker({ selected, states, onToggle, readOnly }: NetworkP
           const st = states[n]
           let reason: string | undefined
           if (readOnly) reason = "a rede de um post existente não muda"
-          else if (st.connected === false && !pressed) reason = "conecte em Credenciais"
-          else if (st.errors.length > 0 && !pressed) reason = st.errors[0].message
+          else if (st.connected !== true && !pressed) reason = st.connectionReason ?? "verificando conexão"
           return (
             <NetworkSquare
               key={n}
               network={n}
               label={NETWORK_RULES[n].label}
               pressed={pressed}
+              // Incompatibilidade de mídia nunca se disfarça de desconexão e
+              // nunca impede escolher a rede. Ela aparece em vermelho depois.
               invalid={pressed && st.errors.length > 0}
               disabledReason={reason}
               onClick={() => onToggle(n)}

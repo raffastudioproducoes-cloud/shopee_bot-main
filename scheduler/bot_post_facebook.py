@@ -1,6 +1,4 @@
 from shopee_bot.apis import facebook as FacebookAPI
-from shopee_bot.apis.cloudinary import cloudinary as CloudinaryAPI
-from shopee_bot.apis.cloudinary import ensure_configured as ensure_media_storage
 from shopee_bot.clogging import logger
 from shopee_bot.database import schedulers, facebook_credentials, posts, products
 from shopee_bot.database.activities import (
@@ -8,7 +6,7 @@ from shopee_bot.database.activities import (
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
-from shopee_bot.utils import retry_with_backoff
+from shopee_bot.scheduler.media_delivery import delivery_url
 
 
 def _first_image(post):
@@ -16,14 +14,40 @@ def _first_image(post):
 
 
 def _publish_image(page_access_token, page_id, media, caption):
-    ensure_media_storage()
-    upload = retry_with_backoff(CloudinaryAPI.uploader.upload, media["file_path"], format="jpg")
+    url, cleanup = delivery_url(media)
     try:
-        return FacebookAPI.post_photo_as_page(
-            page_access_token, page_id, upload.get("secure_url") or upload["url"], caption
-        )
+        return FacebookAPI.post_photo_as_page(page_access_token, page_id, url, caption)
     finally:
-        CloudinaryAPI.uploader.destroy(upload["public_id"])
+        cleanup()
+
+
+ALBUM_EXTS = {"jpg", "jpeg", "png"}
+
+
+def _publish_album(page_access_token, page_id, medias, caption):
+    urls, cleanups = [], []
+    try:
+        for media in medias:
+            url, cleanup = delivery_url(media)
+            urls.append(url)
+            cleanups.append(cleanup)
+        return FacebookAPI.post_album_as_page(page_access_token, page_id, urls, caption)
+    finally:
+        for cleanup in cleanups:
+            cleanup()
+
+
+def _publish_video(page_access_token, page_id, media, caption):
+    url, cleanup = delivery_url(media)
+    try:
+        return FacebookAPI.post_video_as_page(page_access_token, page_id, url, caption)
+    finally:
+        cleanup()
+
+
+def _is_album_image(media):
+    name = media.get("file_name") or media.get("file_path") or ""
+    return media.get("type") == "IMAGE" and name.rsplit(".", 1)[-1].lower() in ALBUM_EXTS
 
 
 def bot_post_facebook(job_id):
@@ -51,9 +75,20 @@ def bot_post_facebook(job_id):
     post_data = posts.get(user_id, post_id, profile_id)
     root_post = post_data[0]
     image = _first_image(root_post)
+    medias = root_post.get("medias") or []
 
     try:
-        if image:
+        if len(medias) > 1:
+            if not page_access_token:
+                raise RuntimeError("Facebook: álbum exige conexão OAuth com token de Página.")
+            if not all(_is_album_image(media) for media in medias):
+                raise RuntimeError("Facebook: álbum só aceita imagens JPG/PNG; vídeo e GIF não entram no álbum.")
+            _publish_album(page_access_token, page_id, medias, root_post["text"])
+        elif medias and medias[0].get("type") == "VIDEO":
+            if not page_access_token:
+                raise RuntimeError("Facebook: vídeo exige conexão OAuth com token de Página.")
+            _publish_video(page_access_token, page_id, medias[0], root_post["text"])
+        elif image:
             if not page_access_token:
                 raise RuntimeError("Facebook: imagem exige conexão OAuth com token de Página.")
             _publish_image(page_access_token, page_id, image, root_post["text"])

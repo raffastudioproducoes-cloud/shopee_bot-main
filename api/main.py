@@ -3,14 +3,17 @@ Shopee Auto Vendas — API Python (FastAPI)
 Consome Supabase existente. Coexiste com Flask durante a migração.
 """
 
+import asyncio
 import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 
 from .config import settings
 from .database import init_db
 from .middleware import RequestLoggingMiddleware
+from .routers.posts import cleanup_expired_media_drafts
 
 logger = logging.getLogger("uvicorn.error")
 from .routers import (
@@ -65,6 +68,16 @@ app.include_router(profiles_router)
 app.include_router(settings_router)
 
 
+async def _cleanup_media_drafts_periodically() -> None:
+    """Best effort: cada worker remove rascunhos vencidos a cada hora."""
+    while True:
+        try:
+            await run_in_threadpool(cleanup_expired_media_drafts)
+        except Exception:
+            logger.warning("Falha na limpeza periódica de rascunhos de mídia", exc_info=True)
+        await asyncio.sleep(3600)
+
+
 # Health check
 @app.get("/health")
 async def health():
@@ -88,3 +101,12 @@ async def startup():
             "serem definidas no ambiente.",
             exc,
         )
+        return
+    app.state.media_draft_cleanup_task = asyncio.create_task(_cleanup_media_drafts_periodically())
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    task = getattr(app.state, "media_draft_cleanup_task", None)
+    if task:
+        task.cancel()

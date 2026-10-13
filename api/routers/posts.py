@@ -30,6 +30,7 @@ fluxo do usuário. Kwai fica de fora do mapa, sem API pública confirmada.
 
 import logging
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -45,6 +46,8 @@ from ..audit_log import log_action
 from ..database import supabase
 from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail
+from ..media_composition import plan_network_composition
+from .. import x_oauth
 from ..text_variants import generate_variants
 from ..internal_client import (
     create_scheduler_job,
@@ -72,6 +75,8 @@ NetworkLiteral = Literal[tuple(NETWORK_FUNC_MAP.keys())]
 
 MEDIA_ROOT = Path("web/media")
 MAX_MEDIA_BYTES = 50 * 1024 * 1024  # 50MB, mesmo teto do Flask (FLASK_MAX_CONTENT_LENGTH)
+MEDIA_DRAFT_BUCKET = "post-media"
+MEDIA_DRAFT_TTL = timedelta(hours=24)
 
 # MIME real detectado por magic bytes (fleep) -> extensão gravada em disco.
 # O nome do arquivo é gerado no servidor (uuid + esta extensão), NUNCA vem de
@@ -86,10 +91,43 @@ ALLOWED_MEDIA_MIMES = {
 }
 
 
+STORAGE_SCHEME = "storage://"
+
+
+def _parse_storage_path(file_path: str) -> tuple[str, str] | None:
+    """`storage://bucket/chave` -> (bucket, chave); None se não for confiável.
+
+    `file_path` vem do banco: só aceita o bucket de mídia esperado e chave sem
+    segmentos vazios ou `..`, pra nunca apagar fora do que a API gravou."""
+    bucket, _, key = file_path[len(STORAGE_SCHEME):].partition("/")
+    segments = key.split("/")
+    if bucket != MEDIA_DRAFT_BUCKET or not key or any(s in ("", ".", "..") for s in segments):
+        return None
+    return bucket, key
+
+
+def _remove_durable_media(file_path: str) -> None:
+    parsed = _parse_storage_path(file_path)
+    if parsed is None:
+        logger.warning("Remoção de mídia durável fora do bucket esperado recusada: %s", file_path)
+        return
+    bucket, key = parsed
+    try:
+        supabase.storage.from_(bucket).remove([key])
+        # a linha `consumed` do rascunho morre junto com o objeto
+        supabase.table("temporary_media_uploads").delete()             .eq("storage_bucket", bucket).eq("storage_key", key).eq("status", "consumed").execute()
+    except Exception:
+        logger.warning("Falha ao remover mídia durável %s", file_path, exc_info=True)
+
+
 def _remove_media_file(file_path: str) -> None:
-    """Apaga um arquivo de mídia só se ele estiver dentro de MEDIA_ROOT —
-    `file_path` vem do banco e pode ter sido gravado por versões antigas
-    sem sanitização (ex.: "web/media/1/../../../x")."""
+    """Apaga o arquivo de uma mídia. `storage://` -> objeto do Storage; senão
+    só se estiver dentro de MEDIA_ROOT — `file_path` vem do banco e pode ter
+    sido gravado por versões antigas sem sanitização (ex.:
+    "web/media/1/../../../x")."""
+    if file_path.startswith(STORAGE_SCHEME):
+        _remove_durable_media(file_path)
+        return
     resolved = Path(file_path).resolve()
     if not resolved.is_relative_to(MEDIA_ROOT.resolve()):
         logger.warning("Remoção de mídia fora de MEDIA_ROOT recusada: %s", file_path)
@@ -100,6 +138,76 @@ def _remove_media_file(file_path: str) -> None:
         logger.warning("Falha ao remover arquivo de mídia %s", file_path, exc_info=True)
 
 
+def _remove_draft_from_storage(draft: dict) -> None:
+    bucket, key = draft.get("storage_bucket"), draft.get("storage_key")
+    if bucket and key:
+        supabase.storage.from_(bucket).remove([key])
+
+
+def _draft_response(draft: dict) -> dict:
+    """Não entrega chave de Storage, URL assinada nem MIME interno ao cliente."""
+    return {
+        key: draft.get(key)
+        for key in ("id", "file_name", "size_bytes", "media_type", "profile_id", "status", "expires_at", "created_at")
+    }
+
+
+def _expired_at(value: object, now: datetime) -> bool:
+    if not value:
+        return False
+    if isinstance(value, datetime):
+        moment = value
+    else:
+        try:
+            moment = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment <= now
+
+
+async def _read_media_content(file: UploadFile) -> bytes:
+    """Lê em blocos e recusa um upload antes de acumular mais de 50 MB."""
+    content = bytearray()
+    while chunk := await file.read(1024 * 1024):
+        content.extend(chunk)
+        if len(content) > MAX_MEDIA_BYTES:
+            raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
+    return bytes(content)
+
+
+def cleanup_expired_media_drafts(now: datetime | None = None) -> int:
+    """Limpa somente rascunhos vencidos e prontos, sem tocar em posts.
+
+    A tabela temporária é separada de `medias`, portanto não aciona o trigger
+    histórico de `posts_medias` e não pode remover mídia confirmada.
+    """
+    now = now or datetime.now(timezone.utc)
+    result = (
+        supabase.table("temporary_media_uploads")
+        .select("id, storage_bucket, storage_key, expires_at")
+        .in_("status", ["uploading", "ready", "delete_failed"])
+        .lte("expires_at", now.isoformat())
+        .order("expires_at")
+        .limit(100)
+        .execute()
+    )
+    removed = 0
+    for draft in result.data or []:
+        if not _expired_at(draft.get("expires_at"), now):
+            continue
+        try:
+            _remove_draft_from_storage(draft)
+        except Exception:
+            logger.warning("Falha ao limpar rascunho de mídia expirado", exc_info=True)
+            supabase.table("temporary_media_uploads").update({"status": "delete_failed"}).eq("id", draft["id"]).execute()
+            continue
+        supabase.table("temporary_media_uploads").delete().eq("id", draft["id"]).execute()
+        removed += 1
+    return removed
+
+
 router = APIRouter(prefix="/posts", tags=["posts"])
 
 
@@ -108,14 +216,25 @@ router = APIRouter(prefix="/posts", tags=["posts"])
 class PostSchedule(BaseModel):
     trigger: Literal["cron", "date"]
     time: str | None = None  # "HH:MM", obrigatório se trigger=cron
-    day_of_week: int | None = None  # 0-6, obrigatório se trigger=cron
+    # Campo legado: permanece para jobs antigos e para o primeiro dia da lista.
+    day_of_week: int | None = None
+    # Novo contrato: um a sete dias, 0=segunda-feira ... 6=domingo.
+    days_of_week: list[int] | None = None
     start_date: str | None = None  # ISO 8601, opcional em cron
     run_date: str | None = None  # ISO 8601, obrigatório se trigger=date
 
     @model_validator(mode="after")
     def _check_required_fields(self):
-        if self.trigger == "cron" and (self.time is None or self.day_of_week is None):
-            raise ValueError("time e day_of_week são obrigatórios para trigger 'cron'")
+        if self.trigger == "cron":
+            days = self.days_of_week if self.days_of_week is not None else ([self.day_of_week] if self.day_of_week is not None else None)
+            if self.time is None or not days:
+                raise ValueError("time e ao menos um dia da semana são obrigatórios para trigger 'cron'")
+            if len(days) > 7 or len(set(days)) != len(days) or any(not isinstance(day, int) or day < 0 or day > 6 for day in days):
+                raise ValueError("days_of_week deve ter de um a sete dias únicos entre 0 e 6")
+            if self.day_of_week is not None and self.days_of_week is not None and self.day_of_week != days[0]:
+                raise ValueError("day_of_week deve corresponder ao primeiro item de days_of_week")
+            self.days_of_week = days
+            self.day_of_week = days[0]
         if self.trigger == "date" and self.run_date is None:
             raise ValueError("run_date é obrigatório para trigger 'date'")
         return self
@@ -138,6 +257,45 @@ class PostCreate(BaseModel):
         if not v or not any(t.strip() for t in v):
             raise ValueError("texts precisa ter ao menos um item com texto")
         return v
+
+
+class PostComposition(BaseModel):
+    network: NetworkLiteral
+    texts: list[str]
+
+    @field_validator("texts")
+    @classmethod
+    def _texts_not_empty(cls, value):
+        if not value or not any(text.strip() for text in value):
+            raise ValueError("texts precisa ter ao menos um item com texto")
+        return value
+
+
+class PostBatchCreate(BaseModel):
+    compositions: list[PostComposition]
+    product_ids: list[int] = []
+    draft_media_ids: list[str] = []
+    schedule: PostSchedule
+
+    @field_validator("draft_media_ids")
+    @classmethod
+    def _draft_ids_are_unique_uuids(cls, value):
+        """UUID inválido vira 422 (não 500 no banco); duplicata sai, mantendo a
+        ordem, pra não quebrar a PK (post_id, media_id) de posts_medias."""
+        try:
+            normalized = [str(uuid.UUID(item)) for item in value]
+        except (ValueError, AttributeError, TypeError):
+            raise ValueError("draft_media_ids deve conter apenas UUIDs") from None
+        return list(dict.fromkeys(normalized))
+
+    @model_validator(mode="after")
+    def _check_networks(self):
+        networks = [composition.network for composition in self.compositions]
+        if not networks:
+            raise ValueError("Escolha ao menos uma rede")
+        if len(networks) != len(set(networks)):
+            raise ValueError("Cada rede pode aparecer apenas uma vez")
+        return self
 
 
 class PostUpdate(BaseModel):
@@ -266,6 +424,124 @@ def _get_owned_medias(user_id: int, media_ids: list[int], profile_id: str | None
     if set(media_ids) - set(by_id):
         raise HTTPException(status_code=400, detail="Mídia inválida")
     return [by_id[mid] for mid in media_ids]
+
+
+def _get_owned_ready_drafts(user_id: int, draft_ids: list[str], profile_id: str) -> list[dict]:
+    """Rascunhos só podem ser consumidos uma vez, pelo mesmo perfil."""
+    if not draft_ids:
+        return []
+    result = (
+        scope_owner(
+            supabase.table("temporary_media_uploads").select("*").in_("id", list(set(draft_ids))),
+            user_id,
+            profile_id,
+        )
+        .eq("status", "ready")
+        .execute()
+    )
+    by_id = {str(row["id"]): row for row in (result.data or [])}
+    if set(draft_ids) - set(by_id):
+        raise HTTPException(status_code=400, detail="Rascunho de mídia inválido")
+    now = datetime.now(timezone.utc)
+    if any(_expired_at(by_id[draft_id].get("expires_at"), now) for draft_id in draft_ids):
+        raise HTTPException(status_code=400, detail="Um rascunho de mídia expirou. Envie-o novamente.")
+    return [by_id[draft_id] for draft_id in draft_ids]
+
+
+def _create_media_from_draft(draft: dict, user_id: int, profile_id: str) -> dict:
+    """Materializa a referência durável sem expor ou copiar o objeto privado."""
+    result = (
+        supabase.table("medias")
+        .insert({
+            "user_id": user_id,
+            "profile_id": profile_id,
+            "file_name": draft["file_name"],
+            "file_path": f"storage://{draft['storage_bucket']}/{draft['storage_key']}",
+            "size": draft["size_bytes"],
+            "type": draft["media_type"],
+        })
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Não foi possível preparar a mídia para publicação.")
+    return result.data[0]
+
+
+def _attach_medias(
+    head_id: int, draft_ids: list[str], drafts_by_id: dict, materialized: dict,
+    fresh: dict, user_id: int, profile_id: str,
+) -> list[dict]:
+    """Consome (uma vez por rascunho), materializa e vincula as mídias ao post.
+
+    `fresh` mapeia rascunho -> mídia criada por este plano (None entre o claim
+    e a criação) pro rollback saber o que desfazer."""
+    medias = []
+    for order, draft_id in enumerate(draft_ids):
+        media = materialized.get(draft_id)
+        if not media:
+            if not _claim_draft(draft_id, user_id, profile_id):
+                raise _DraftUnavailable(draft_id)
+            fresh[draft_id] = None
+            # Migração 014: um DELETE em posts_medias apaga `medias` sem vínculo,
+            # então uma `medias` recém-criada e ainda órfã pode sumir sob um
+            # DELETE concorrente. Por isso o vínculo (insert abaixo) vem logo
+            # após a criação, sem nenhuma chamada ao banco no meio.
+            media = _create_media_from_draft(drafts_by_id[draft_id], user_id, profile_id)
+            materialized[draft_id] = media
+            fresh[draft_id] = media
+        supabase.table("posts_medias").insert({
+            "post_id": head_id, "media_id": media["id"], "display_order": order,
+        }).execute()
+        medias.append(media)
+    return medias
+
+
+def _block_reason(exc: Exception) -> str:
+    if isinstance(exc, InternalApiError):
+        return "Não foi possível agendar esta rede agora."
+    if isinstance(exc, _DraftUnavailable):
+        return "Um rascunho de mídia já foi usado. Envie-o novamente."
+    return "Não foi possível preparar a mídia desta rede. Tente novamente."
+
+
+class _DraftUnavailable(Exception):
+    """Rascunho já consumido por outra requisição (claim afetou 0 linhas)."""
+
+
+def _claim_draft(draft_id: str, user_id: int, profile_id: str) -> bool:
+    """ready -> consumed condicional e atômico: só uma requisição vence."""
+    result = (
+        supabase.table("temporary_media_uploads")
+        .update({"status": "consumed", "consumed_at": datetime.now(timezone.utc).isoformat()})
+        .eq("id", draft_id).eq("user_id", user_id).eq("profile_id", profile_id)
+        .eq("status", "ready")
+        .execute()
+    )
+    return bool(result.data)
+
+
+def _release_draft(draft_id: str, user_id: int, profile_id: str) -> None:
+    supabase.table("temporary_media_uploads").update(
+        {"status": "ready", "consumed_at": None}
+    ).eq("id", draft_id).eq("user_id", user_id).eq("profile_id", profile_id).eq("status", "consumed").execute()
+
+
+def _rollback_plan(
+    head_id: int, fresh: dict, materialized: dict, user_id: int, profile_id: str,
+) -> None:
+    """Desfaz uma rede que falhou: post, vínculos, as mídias criadas só por
+    ela e o claim dos rascunhos (voltam a `ready`). Nunca apaga objeto do
+    Storage (o rascunho continua utilizável pelas próximas redes)."""
+    try:
+        for draft_id, media in fresh.items():
+            materialized.pop(draft_id, None)
+            if media:
+                supabase.table("posts_medias").delete().eq("media_id", media["id"]).execute()
+                supabase.table("medias").delete().eq("id", media["id"]).execute()
+            _release_draft(draft_id, user_id, profile_id)
+        _delete_thread_cascade(head_id)
+    except Exception:
+        logger.error("Falha ao desfazer post %s após erro no lote", head_id, exc_info=True)
 
 
 def _media_shared_elsewhere(media_id: int, post_id: int) -> bool:
@@ -531,6 +807,7 @@ async def create_post(
             trigger=body.schedule.trigger,
             time=body.schedule.time,
             day_of_week=body.schedule.day_of_week,
+            days_of_week=body.schedule.days_of_week,
             start_date=body.schedule.start_date,
             run_date=body.schedule.run_date,
             profile_id=profile_id,
@@ -549,6 +826,235 @@ async def create_post(
         "medias": medias,
         "scheduled": True,
     }
+
+
+def _x_media_allowed(user_id: int, profile_id: str) -> bool:
+    """A conexão do X deste perfil tem `media.write`? Escopo NULL (conexão
+    antiga) conta como não: o upload falharia só na hora de publicar."""
+    row = (
+        scope_owner(supabase.table("x_credentials").select("scope"), user_id, profile_id)
+        .maybe_single().execute()
+    )
+    return x_oauth.has_media_write(row.data.get("scope") if row and row.data else None)
+
+
+def _x_media_for(body: PostBatchCreate, user_id: int, profile_id: str) -> bool:
+    """Só consulta o banco quando há X + mídia na composição."""
+    wants_x_media = bool(body.draft_media_ids) and any(c.network == "x" for c in body.compositions)
+    return _x_media_allowed(user_id, profile_id) if wants_x_media else True
+
+
+def _preview_batch(
+    body: PostBatchCreate, drafts: list[dict], x_media_allowed: bool = True,
+) -> list[dict]:
+    plans: list[dict] = []
+    media = [
+        {"id": str(draft["id"]), "file_name": draft["file_name"], "size": draft["size_bytes"]}
+        for draft in drafts
+    ]
+    for composition in body.compositions:
+        plan = plan_network_composition(
+            composition.network,
+            composition.texts,
+            media,
+            len(body.product_ids),
+        )
+        entry = {
+            "network": composition.network,
+            "texts": composition.texts,
+            "mode": plan.mode,
+            "media_draft_ids": [str(media_id) for media_id in plan.media_ids],
+            "warnings": plan.warnings,
+            "blocked_reason": plan.blocked_reason,
+        }
+        if composition.network == "x" and entry["media_draft_ids"] and not x_media_allowed:
+            entry.update(
+                mode="blocked", media_draft_ids=[],
+                blocked_reason=x_oauth.MEDIA_RECONNECT_MESSAGE,
+            )
+        plans.append(entry)
+    return plans
+
+
+@router.post("/preview")
+async def preview_post_batch(
+    body: PostBatchCreate,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Calcula resultados por rede sem criar post, job ou vínculo de mídia."""
+    profile_id = _require_profile_id(profile_id)
+    _validate_product_ids(user_id, body.product_ids)
+    drafts = _get_owned_ready_drafts(user_id, body.draft_media_ids, profile_id)
+    return {"plans": _preview_batch(body, drafts, _x_media_for(body, user_id, profile_id))}
+
+
+@router.post("/batch", status_code=status.HTTP_201_CREATED)
+async def create_posts_batch(
+    body: PostBatchCreate,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Cria somente as redes entregáveis; falhas de uma não cancelam as outras."""
+    profile_id = _require_profile_id(profile_id)
+    _validate_product_ids(user_id, body.product_ids)
+    drafts = _get_owned_ready_drafts(user_id, body.draft_media_ids, profile_id)
+    drafts_by_id = {str(draft["id"]): draft for draft in drafts}
+    plans = _preview_batch(body, drafts, _x_media_for(body, user_id, profile_id))
+    deliverable = [plan for plan in plans if plan["mode"] != "blocked"]
+    if not deliverable:
+        return {"group_id": None, "created": [], "blocked": plans}
+
+    group_id = str(uuid.uuid4())
+    materialized: dict[str, dict] = {}
+    created: list[dict] = []
+    blocked = [plan for plan in plans if plan["mode"] == "blocked"]
+    for plan in deliverable:
+        head = _create_thread(user_id, plan["texts"], plan["network"], profile_id, group_id)
+        fresh: dict[str, dict | None] = {}  # rascunhos consumidos só por este plano
+        try:
+            _set_post_products(head["id"], body.product_ids)
+            medias = _attach_medias(
+                head["id"], plan["media_draft_ids"], drafts_by_id, materialized, fresh,
+                user_id, profile_id,
+            )
+            # job por último: sem mídia vinculada ele nunca existe
+            await create_scheduler_job(
+                user_id=user_id,
+                post_id=head["id"],
+                func=NETWORK_FUNC_MAP[plan["network"]],
+                trigger=body.schedule.trigger,
+                time=body.schedule.time,
+                day_of_week=body.schedule.day_of_week,
+                days_of_week=body.schedule.days_of_week,
+                start_date=body.schedule.start_date,
+                run_date=body.schedule.run_date,
+                profile_id=profile_id,
+            )
+        except Exception as exc:
+            if not isinstance(exc, (InternalApiError, _DraftUnavailable)):
+                logger.warning("Falha ao montar post da rede %s", plan["network"], exc_info=True)
+            _rollback_plan(head["id"], fresh, materialized, user_id, profile_id)
+            blocked.append({
+                **plan,
+                "mode": "blocked",
+                "blocked_reason": _block_reason(exc),
+            })
+            continue
+        created.append({
+            "network": plan["network"],
+            "post_id": head["id"],
+            "mode": plan["mode"],
+            "warnings": plan["warnings"],
+            "medias": medias,
+        })
+
+    return {"group_id": group_id if created else None, "created": created, "blocked": blocked}
+
+
+@router.post("/media-drafts", status_code=status.HTTP_201_CREATED)
+async def upload_media_draft(
+    file: UploadFile,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Armazena uma mídia privada antes de existir um post.
+
+    A chave do Storage é gerada no servidor, pertence ao perfil ativo e vence
+    em 24 horas. A Task 3 será a única responsável por consumi-la em posts.
+    """
+    profile_id = _require_profile_id(profile_id)
+    cleanup_expired_media_drafts()
+    content = await _read_media_content(file)
+
+    detected = fleep.get(content[:128])
+    mime = next((m for m in detected.mime if m in ALLOWED_MEDIA_MIMES), None)
+    if not mime:
+        raise HTTPException(
+            status_code=400,
+            detail="Conteúdo do arquivo não corresponde a uma mídia permitida.",
+        )
+
+    upload_id = str(uuid.uuid4())
+    suffix = ALLOWED_MEDIA_MIMES[mime]
+    storage_key = f"drafts/{user_id}/{profile_id}/{upload_id}{suffix}"
+    expires_at = (datetime.now(timezone.utc) + MEDIA_DRAFT_TTL).isoformat()
+    media_type = "VIDEO" if mime.startswith("video/") else "IMAGE"
+    create = (
+        supabase.table("temporary_media_uploads")
+        .insert({
+            "id": upload_id,
+            "user_id": user_id,
+            "profile_id": profile_id,
+            "storage_bucket": MEDIA_DRAFT_BUCKET,
+            "storage_key": storage_key,
+            "file_name": f"{Path(file.filename or 'arquivo').stem}{suffix}",
+            "mime_type": mime,
+            "size_bytes": len(content),
+            "media_type": media_type,
+            "status": "uploading",
+            "expires_at": expires_at,
+        })
+        .execute()
+    )
+    if not create.data:
+        raise HTTPException(status_code=500, detail="Não foi possível preparar a mídia.")
+
+    try:
+        supabase.storage.from_(MEDIA_DRAFT_BUCKET).upload(
+            storage_key, content, {"content-type": mime, "upsert": "false"}
+        )
+    except Exception:
+        supabase.table("temporary_media_uploads").delete().eq("id", upload_id).eq("status", "uploading").execute()
+        logger.warning("Falha ao guardar rascunho de mídia", exc_info=True)
+        raise HTTPException(status_code=502, detail="Não foi possível enviar a mídia agora. Tente novamente.")
+
+    updated = (
+        supabase.table("temporary_media_uploads")
+        .update({"status": "ready"})
+        .eq("id", upload_id)
+        .eq("user_id", user_id)
+        .eq("profile_id", profile_id)
+        .eq("status", "uploading")
+        .execute()
+    )
+    if not updated.data:
+        try:
+            _remove_draft_from_storage({"storage_bucket": MEDIA_DRAFT_BUCKET, "storage_key": storage_key})
+        except Exception:
+            logger.warning("Falha ao desfazer upload de rascunho", exc_info=True)
+        raise HTTPException(status_code=500, detail="Não foi possível preparar a mídia.")
+    return _draft_response(updated.data[0])
+
+
+@router.delete("/media-drafts/{media_id}")
+async def delete_media_draft(
+    media_id: str,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Cancela somente o rascunho privado do perfil ativo."""
+    profile_id = _require_profile_id(profile_id)
+    result = (
+        scope_owner(
+            supabase.table("temporary_media_uploads").select("*").eq("id", media_id),
+            user_id,
+            profile_id,
+        )
+        .eq("status", "ready")
+        .maybe_single()
+        .execute()
+    )
+    draft = result.data if result else None
+    if not draft:
+        raise HTTPException(status_code=404, detail="Rascunho de mídia não encontrado")
+    try:
+        _remove_draft_from_storage(draft)
+    except Exception:
+        logger.warning("Falha ao remover rascunho de mídia", exc_info=True)
+        raise HTTPException(status_code=502, detail="Não foi possível remover a mídia agora. Tente novamente.")
+    supabase.table("temporary_media_uploads").delete().eq("id", media_id).eq("user_id", user_id).eq("profile_id", profile_id).eq("status", "ready").execute()
+    return {"msg": "Rascunho de mídia removido"}
 
 
 @router.get("/{post_id}")
@@ -635,9 +1141,7 @@ async def upload_media(
     profile_id = _require_profile_id(profile_id)
     post = _get_post(user_id, post_id, profile_id)  # ownership check
 
-    content = await file.read()
-    if len(content) > MAX_MEDIA_BYTES:
-        raise HTTPException(status_code=413, detail="Arquivo excede o tamanho máximo (50MB)")
+    content = await _read_media_content(file)
 
     detected = fleep.get(content[:128])
     mime = next((m for m in detected.mime if m in ALLOWED_MEDIA_MIMES), None)

@@ -35,10 +35,12 @@ from urllib.parse import quote
 
 import httpx
 
+from apis.meta_version import GRAPH_URL, GRAPH_VERSION
+
 logger = logging.getLogger("uvicorn.error")
 
-API_URL = "https://graph.facebook.com"
-API_VERSION = "v19.0"
+API_URL = GRAPH_URL
+API_VERSION = GRAPH_VERSION
 APP_ID = os.environ.get("INSTAGRAM_APP_ID")
 SECRET = os.environ.get("INSTAGRAM_SECRET")
 # Meta descontinuou o produto clássico "Facebook Login" (scope= direto)
