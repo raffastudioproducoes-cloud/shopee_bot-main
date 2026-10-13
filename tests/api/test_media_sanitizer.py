@@ -116,3 +116,60 @@ def test_filename_is_basename_without_controls_and_limited():
     assert "\x01" not in media.safe_filename
     assert media.safe_filename.endswith(".jpg")
     assert len(media.safe_filename) <= 120
+
+
+# ── metadados: comentário, ICC, XMP e EXIF não podem sobreviver ──────────────
+
+_PAYLOAD = b"<script>alert(1)</script>"
+_METADATA_KEYS = ("comment", "icc_profile", "exif", "xmp")
+
+
+def _tainted(fmt: str) -> bytes:
+    buf = BytesIO()
+    im = Image.new("RGB", (4, 4), "red")
+    if fmt == "JPEG":
+        im.save(buf, "JPEG", comment=_PAYLOAD, icc_profile=_PAYLOAD, exif=_gps_exif_bytes())
+    elif fmt == "PNG":
+        im.save(buf, "PNG", icc_profile=_PAYLOAD, exif=_gps_exif_bytes())
+    elif fmt == "WEBP":
+        im.save(buf, "WEBP", icc_profile=_PAYLOAD, exif=_gps_exif_bytes(), xmp=_PAYLOAD)
+    else:
+        frames = [Image.new("RGB", (4, 4), c).convert("P") for c in ("red", "blue")]
+        frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:], comment=_PAYLOAD)
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize(("fmt", "name", "ctype"), [
+    ("JPEG", "a.jpg", "image/jpeg"),
+    ("PNG", "a.png", "image/png"),
+    ("WEBP", "a.webp", "image/webp"),
+    ("GIF", "a.gif", "image/gif"),
+])
+def test_metadata_does_not_survive_reencoding(fmt, name, ctype):
+    raw = _tainted(fmt)
+    assert [k for k in _METADATA_KEYS if k in Image.open(BytesIO(raw)).info]
+
+    out = sanitize_media_upload(raw, filename=name, content_type=ctype).content
+
+    info = Image.open(BytesIO(out)).info
+    assert not [k for k in _METADATA_KEYS if k in info]
+    assert b"<script>" not in out
+
+
+def test_animated_gif_frames_survive_metadata_strip():
+    raw = _tainted("GIF")
+    out = sanitize_media_upload(raw, filename="a.gif", content_type="image/gif").content
+    assert Image.open(BytesIO(out)).n_frames == 2
+
+
+def test_exif_orientation_is_applied_before_exif_is_dropped():
+    exif = Image.Exif()
+    exif[0x0112] = 6  # rotaciona 90 graus
+    buf = BytesIO()
+    Image.new("RGB", (4, 2), "red").save(buf, "JPEG", exif=exif.tobytes())
+
+    out = sanitize_media_upload(buf.getvalue(), filename="a.jpg", content_type="image/jpeg").content
+
+    result = Image.open(BytesIO(out))
+    assert result.size == (2, 4)
+    assert 0x0112 not in result.getexif()

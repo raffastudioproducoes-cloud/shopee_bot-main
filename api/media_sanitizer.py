@@ -8,7 +8,7 @@ from io import BytesIO
 from pathlib import PurePath
 from typing import Literal
 
-from PIL import Image, ImageSequence, UnidentifiedImageError
+from PIL import Image, ImageOps, ImageSequence, UnidentifiedImageError
 
 
 MAX_IMAGE_PIXELS = 40_000_000
@@ -170,18 +170,31 @@ def _sanitize_image(content: bytes, detected: MediaType, max_pixels: int) -> byt
         raise MediaSanitizerError("imagem inválida ou corrompida") from exc
 
 
+def _clean_frame(image: Image.Image) -> Image.Image:
+    """Reconstrói só com pixels (+ paleta): descarta comentário, ICC, EXIF e XMP."""
+    clean = Image.frombytes(image.mode, image.size, image.tobytes())
+    if image.mode in ("P", "PA"):
+        clean.putpalette(image.getpalette() or [], rawmode="RGB")
+    return clean
+
+
 def _encode_clean_image(image: Image.Image, detected: MediaType) -> bytes:
-    output = BytesIO()
-    clean = image.copy()
-    if detected is JPEG and clean.mode not in ("RGB", "L"):
-        clean = clean.convert("RGB")
-    save_kwargs = {"format": detected.pil_format}
+    # a orientação do EXIF é aplicada ANTES de ele ser descartado
+    oriented = ImageOps.exif_transpose(image)
+    clean = _clean_frame(oriented)
+    save_kwargs: dict = {"format": detected.pil_format}
+    transparency = oriented.info.get("transparency")
+    if transparency is not None and detected is PNG:
+        save_kwargs["transparency"] = transparency
     if detected is JPEG:
+        if clean.mode not in ("RGB", "L"):
+            clean = clean.convert("RGB")
         save_kwargs.update(quality=95, optimize=True)
     elif detected is PNG:
         save_kwargs.update(optimize=True)
     elif detected is WEBP:
         save_kwargs.update(quality=95, method=6)
+    output = BytesIO()
     clean.save(output, **save_kwargs)
     return output.getvalue()
 
@@ -194,7 +207,7 @@ def _sanitize_gif(image: Image.Image, max_pixels: int) -> bytes:
         if frame.width * frame.height > max_pixels:
             raise MediaSanitizerError("dimensões da imagem excedem o limite")
         frame.load()
-        frames.append(frame.copy())
+        frames.append(_clean_frame(frame))
         durations.append(int(frame.info.get("duration", image.info.get("duration", 0)) or 0))
     if not frames:
         raise MediaSanitizerError("GIF sem quadros válidos")
