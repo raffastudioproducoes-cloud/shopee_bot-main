@@ -295,6 +295,7 @@ Log de sucesso/falha + Atividade registrada
 | --- | --- |
 | `docs/CHECKLIST_MIGRACAO.md` | Checklist da migração para React + FastAPI, por módulo |
 | `docs/ROADMAP_MIGRACAO.md` | Roadmap detalhado da migração |
+| `docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md` | Decisão aprovada em 2026-10-13: marca futura **Auto Orbital**; implementação ainda pendente |
 | `api/README.md` | Endpoints, variáveis de ambiente e coexistência da nova API |
 | Vault `00-INDICE-Estado-Atual.md` | Fonte viva de estado do projeto (ler antes de qualquer sessão) |
 | Vault `26-Deploy-Render.md` | Infra de deploy, variáveis de ambiente, bugs resolvidos |

@@ -110,3 +110,7 @@ produto ainda não registrada no código nem no vault consultado.
   (não auditado em detalhe nesta verificação — conteúdo de redesign histórico, ver
   `05-PRD-Redesign-Frontend-Stitch.md` no vault) **[A CONFIRMAR COM O USUÁRIO — se este
   redesign já foi incorporado ou é referência descartada]**
+
+## Atualização 2026-10-13 - decisão de marca futura
+
+Decisão aprovada em 2026-10-13: a marca futura do produto será **Auto Orbital**. Implementação ainda pendente. A fonte ativa verificada segue sendo **Mona Sans** e a recomendação do plano é preservá-la. Ver `docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md`.

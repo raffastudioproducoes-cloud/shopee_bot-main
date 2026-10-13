@@ -294,3 +294,7 @@ da leitura do fluxo em `api/routers/credentials.py`, `api/threads_oauth.py` e
   cruzada com Supabase), `27-Migracao-App-Unico-OAuth.md`, `28-Historico-de-Requisicoes.md`,
   `26-Deploy-Render.md`
 - `docs/ROADMAP_MIGRACAO.md`, `docs/CHECKLIST_MIGRACAO.md`
+
+## Atualização 2026-10-13 - decisão de marca futura
+
+Decisão aprovada em 2026-10-13: a marca futura do produto será **Auto Orbital**. Implementação ainda pendente; Shopee Auto Vendas ainda aparece no runtime, frontend, código, infra, assets e docs. Regra registrada: Auto Orbital é a marca do produto; Shopee permanece como integração/fonte/ecossistema. Ver `docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md`.

@@ -336,6 +336,34 @@ em execução.
 Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
 existente — diretriz, não tarefa isolada).
 
+## FUTURO — Escalabilidade (Fases 3 a 7)
+
+- [ ] **FUTURO — Escalabilidade (Fases 3 a 7).** Plano completo:
+  `docs/superpowers/plans/2026-10-13-escalabilidade-futura.md`. **Aguarda autorização explícita
+  do Rafa;** começar pelos P0 de segurança dos logs. (origem: plano de escalabilidade, 2026-10-13)
+  - [ ] Fase 3 — Preparação sem custo.
+  - [ ] Fase 4 — Scheduler/jobs.
+  - [ ] Fase 5 — Banco.
+  - [ ] Fase 6 — Testes.
+  - [ ] Fase 7 — Documentação.
+
+## FUTURO - Rebranding Auto Orbital
+
+Decisão aprovada em 2026-10-13: a marca futura do produto será **Auto Orbital**. Implementação ainda pendente. Ver `docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md`.
+
+- [ ] Fase A - Baseline.
+- [ ] Fase B - Brand Tokens.
+- [ ] Fase C - Foundation.
+- [ ] Fase D - Brand Assets.
+- [ ] Fase E - App Shell.
+- [ ] Fase F - Core Screens: dashboard, products, posts, lists.
+- [ ] Fase G - Support Screens: credentials, profiles, settings, notifications, modals.
+- [ ] Fase H - Brand Text.
+- [ ] Fase I - Internal Renaming somente se aprovado.
+- [ ] Fase J - QA Visual desktop/tablet/mobile/a11y.
+- [ ] Fase K - Testes: typecheck/lint/build/tests.
+- [ ] Fase L - Auditoria Final: nome antigo, hardcoded colors, assets, metadata e compatibilidade.
+
 ## Referências
 
 - `docs/ROADMAP_MIGRACAO.md`, `docs/CHECKLIST_MIGRACAO.md`
