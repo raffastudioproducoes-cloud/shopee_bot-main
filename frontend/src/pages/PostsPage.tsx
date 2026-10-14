@@ -41,6 +41,7 @@ import { TextInput } from "../components/ui/TextInput"
 import { Textarea } from "../components/ui/Textarea"
 import { Select } from "../components/ui/Select"
 import { SegmentedToggle } from "../components/ui/SegmentedToggle"
+import { Skeleton, SkeletonTableRow, SkeletonRegion } from "../components/ui/Skeleton"
 
 // Ver buildSchedule: run_date de segurança do "Agora" (disparado de fato
 // assim que a mídia termina de subir).
@@ -290,17 +291,7 @@ export function PostsPage() {
 
   if (isLoading) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: 256,
-          color: "var(--text-muted)",
-        }}
-      >
-        Carregando...
-      </div>
+      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div><Skeleton width="140px" height={34} /><Skeleton className="skeleton-sub" width="280px" /></div><div style={{ borderRadius: "var(--r-md)", background: "var(--surface-card)" }}>{[1,2,3,4,5].map(i => <SkeletonTableRow key={i} columns={3} />)}</div></div></SkeletonRegion>
     )
   }
 

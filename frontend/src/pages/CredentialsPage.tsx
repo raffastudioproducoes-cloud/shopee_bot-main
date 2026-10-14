@@ -12,6 +12,7 @@ import {
 } from "../api/credentials"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
+import { Skeleton, SkeletonCard, SkeletonRegion } from "../components/ui/Skeleton"
 import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { StatusBadge } from "../components/ui/StatusBadge"
@@ -291,9 +292,7 @@ export function CredentialsPage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256, color: "var(--text-muted)" }}>
-        Carregando...
-      </div>
+      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="360px" /></div><div style={CARD_GRID}>{[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
     )
   }
 
