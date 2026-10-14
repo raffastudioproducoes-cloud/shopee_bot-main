@@ -29,6 +29,7 @@ from .routers import (
     logs_router,
     profiles_router,
     settings_router,
+    meta_callbacks_router,
 )
 
 app = FastAPI(
@@ -66,6 +67,7 @@ app.include_router(notifications_router)
 app.include_router(logs_router)
 app.include_router(profiles_router)
 app.include_router(settings_router)
+app.include_router(meta_callbacks_router)
 
 
 async def _cleanup_media_drafts_periodically() -> None:

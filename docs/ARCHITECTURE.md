@@ -149,6 +149,33 @@ conectada. O `redirect_uri` enviado ao TikTok deve continuar preservado exatamen
 `TIKTOK_CALLBACK_URL`, porque o Login Kit valida a URI cadastrada. Token novo vem de novo
 OAuth, não de cópia manual do portal (ver `docs/MEMORY.md`).
 
+### 4.1 Callbacks Meta/Threads
+
+Os callbacks publicos obrigatorios da Meta e do Threads ficam no FastAPI e chegam pelo proxy
+Flask `/api/*`. Eles nao usam JWT/CSRF de sessao: cada POST recebe `signed_request` em
+`application/x-www-form-urlencoded` e valida HMAC-SHA256 com o app secret do provedor antes de
+qualquer escrita. O rate limit e em memoria de processo, igual aos limites simples atuais de
+login/teste de credenciais; se a app virar multi-worker/multi-instancia, mover para Redis.
+
+URLs de producao:
+
+- `https://shopee-bot-fj0w.onrender.com/api/meta/deauthorize`
+- `https://shopee-bot-fj0w.onrender.com/api/meta/data-deletion`
+- `https://shopee-bot-fj0w.onrender.com/api/meta/data-deletion/status?code=<confirmation_code>`
+- `https://shopee-bot-fj0w.onrender.com/api/threads/uninstall`
+- `https://shopee-bot-fj0w.onrender.com/api/threads/delete`
+
+Campos no painel Meta:
+
+- Threads: `Desinstalar URL de callback` -> `/api/threads/uninstall`; `Excluir URL de callback` -> `/api/threads/delete`.
+- Login do Facebook para Empresas: `Desautorizar URL de retorno de chamada` -> `/api/meta/deauthorize`; `URL de solicitacao de exclusao de dados` -> `/api/meta/data-deletion`.
+- Configuracoes Basicas: `Exclusao de dados do usuario` segue como URL de instrucoes publica: `/privacidade#exclusao-de-dados`.
+
+As solicitacoes de exclusao gravam recibo em `data_deletion_requests` com `confirmation_code`
+publico e hash HMAC/SHA-256 do usuario externo; o id externo puro nao e persistido nessa tabela.
+As credenciais afetadas sao desconectadas sem apagar a linha, preservando o escopo por
+credencial/perfil encontrado pelo id externo.
+
 ## 5. Bridge interno Flask ↔ FastAPI
 
 A API nova não importa `scheduler`/`apis.shopee` diretamente — chama por HTTP interno
