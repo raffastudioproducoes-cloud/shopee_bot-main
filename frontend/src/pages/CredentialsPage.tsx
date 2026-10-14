@@ -78,7 +78,7 @@ function OAuthConsentModal({
           Você será levado ao {consent.label} para autorizar esta conexão.
         </p>
         <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
-          O Shopee Auto Vendas solicitará {consent.details}. A conexão é vinculada somente ao seu perfil ativo e pode ser removida a qualquer momento em “Desconectar”.
+          O Auto Orbital solicitará {consent.details}. A conexão é vinculada somente ao seu perfil ativo e pode ser removida a qualquer momento em “Desconectar”.
         </p>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>Cancelar</Button>

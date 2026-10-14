@@ -111,7 +111,9 @@ export default function LoginPage() {
         >
           <div style={{ width: '100%', maxWidth: 360 }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <h1 style={{ font: 'var(--text-role-hero)', margin: 0 }}>Shopee Auto Vendas</h1>
+            <h1 style={{ font: 'var(--text-role-hero)', margin: 0 }}>
+              <img src="/brand/wordmark.png" alt="Auto Orbital" style={{ height: 44, width: 'auto', maxWidth: '100%', display: 'block', margin: '0 auto' }} />
+            </h1>
             <p style={{ marginTop: 6, opacity: 0.8 }}>Entre para continuar</p>
           </div>
 

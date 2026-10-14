@@ -1,5 +1,5 @@
 """
-Shopee Auto Vendas — API Python (FastAPI)
+Auto Orbital — API Python (FastAPI)
 Consome Supabase existente. Coexiste com Flask durante a migração.
 """
 
@@ -32,7 +32,7 @@ from .routers import (
 )
 
 app = FastAPI(
-    title="Shopee Auto Vendas API",
+    title="Auto Orbital API",
     version="0.1.0",
 )
 
