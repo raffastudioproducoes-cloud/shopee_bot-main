@@ -43,7 +43,7 @@ import httpx
 
 from apis.meta_version import GRAPH_URL, GRAPH_VERSION
 
-from . import instagram_oauth  # reaproveita APP_ID/SECRET — mesmo app Meta
+from . import instagram_oauth, meta_pages  # reaproveita APP_ID/SECRET — mesmo app Meta
 
 API_URL = GRAPH_URL
 API_VERSION = GRAPH_VERSION
@@ -132,6 +132,17 @@ async def get_user_page(user_access_token: str) -> tuple[str, str, str]:
             f"Failed to Get Facebook Pages: {res.status_code} {res.text}"
         )
     pages = res.json().get("data", [])
+    if not pages:
+        pages = [
+            p
+            for p in await meta_pages.fetch_granted_pages(
+                user_access_token,
+                "id,name,access_token",
+                instagram_oauth.APP_ID,
+                instagram_oauth.SECRET,
+            )
+            if p.get("id") and p.get("access_token")
+        ]
     if not pages:
         raise FacebookOAuthError(
             "Nenhuma Página do Facebook encontrada para este usuário."

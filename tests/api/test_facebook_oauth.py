@@ -267,3 +267,69 @@ def test_facebook_callback_requires_auth():
         "/credentials/facebook/callback", params={"code": "x"}
     )
     assert res.status_code == 401
+
+
+# --- fallback debug_token (concessão nova via Login para Empresas) ---
+
+
+from _graph_fakes import _Resp, _debug_resp, _install_graph_fake  # noqa: E402
+
+
+def test_get_user_page_falls_back_to_debug_token_when_me_accounts_empty(monkeypatch):
+    calls = []
+    routes = {
+        "/me/accounts": _Resp({"data": []}),
+        "/debug_token": _debug_resp(("pages_show_list", ["22", "11"]), ("pages_manage_posts", ["11"])),
+        "/11": _Resp({"id": "11", "name": "Pg", "access_token": "page-tok"}),
+        "/22": _Resp({"id": "22", "name": "Outra", "access_token": "other-tok"}),
+    }
+    _install_graph_fake(monkeypatch, facebook_oauth, routes, calls)
+
+    assert asyncio.run(facebook_oauth.get_user_page("user-tok")) == ("11", "Pg", "page-tok")
+
+    dbg = next(c for c in calls if c[0].endswith("/debug_token"))
+    assert dbg[1]["headers"]["Authorization"] == "Bearer appid|appsecret"
+    assert dbg[1]["params"] == {"input_token": "user-tok"}
+    page = next(c for c in calls if c[0].endswith("/11"))
+    assert page[1]["headers"]["Authorization"] == "Bearer user-tok"
+    assert "access_token" not in page[1]["params"]
+
+
+@pytest.mark.parametrize(
+    "debug",
+    [
+        _debug_resp(("pages_show_list", [])),
+        _Resp({"data": {"granular_scopes": []}}),
+        _Resp({"data": {}}),
+        _Resp({}, status=400),
+        _Resp(ValueError("bad json")),
+        httpx.ReadTimeout("t"),
+    ],
+)
+def test_get_user_page_keeps_friendly_error_when_fallback_unavailable(monkeypatch, caplog, debug):
+    routes = {"/me/accounts": _Resp({"data": []}), "/debug_token": debug}
+    _install_graph_fake(monkeypatch, facebook_oauth, routes, [])
+    caplog.set_level(logging.WARNING)
+
+    with pytest.raises(facebook_oauth.FacebookOAuthError, match="Nenhuma Página"):
+        asyncio.run(facebook_oauth.get_user_page("user-tok"))
+    assert "appsecret" not in caplog.text and "user-tok" not in caplog.text
+
+
+def test_get_user_page_fallback_page_fetch_failure_is_friendly(monkeypatch):
+    routes = {
+        "/me/accounts": _Resp({"data": []}),
+        "/debug_token": _debug_resp(("pages_show_list", ["11"])),
+        "/11": httpx.ConnectError("x"),
+    }
+    _install_graph_fake(monkeypatch, facebook_oauth, routes, [])
+    with pytest.raises(facebook_oauth.FacebookOAuthError, match="Nenhuma Página"):
+        asyncio.run(facebook_oauth.get_user_page("user-tok"))
+
+
+def test_get_user_page_happy_path_does_not_call_debug_token(monkeypatch):
+    calls = []
+    routes = {"/me/accounts": _Resp({"data": [{"id": "1", "name": "N", "access_token": "t"}]})}
+    _install_graph_fake(monkeypatch, facebook_oauth, routes, calls)
+    assert asyncio.run(facebook_oauth.get_user_page("u")) == ("1", "N", "t")
+    assert len(calls) == 1
