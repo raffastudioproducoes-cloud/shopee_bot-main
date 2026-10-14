@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.data_deletion_requests (
     completed_at TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_data_deletion_requests_provider_hash
+CREATE INDEX IF NOT EXISTS idx_data_deletion_requests_provider_hash
     ON public.data_deletion_requests (provider, external_user_hash);
 
 ALTER TABLE public.data_deletion_requests ENABLE ROW LEVEL SECURITY;

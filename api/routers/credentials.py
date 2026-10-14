@@ -647,7 +647,7 @@ async def instagram_callback(
         return _redirect("instagram=error&message=invalid_state")
 
     try:
-        ig_user_id, access_token = await instagram_oauth.get_user_auth_id_token(code)
+        ig_user_id, access_token, fb_user_id = await instagram_oauth.get_user_auth_id_token(code)
     except instagram_oauth.InstagramOAuthError:
         logger.exception(
             "Falha na troca de code por token OAuth do Instagram para user_id=%s", user_id
@@ -656,6 +656,7 @@ async def instagram_callback(
 
     _upsert_by_user("instagram_credentials", user_id, {
         "ig_user_id": ig_user_id,
+        "fb_user_id": fb_user_id,
         "user_access_token": encrypt(access_token),
         "status": True,
     }, profile_id=profile_id)
@@ -671,7 +672,7 @@ async def delete_instagram_credential(user_id: int = Depends(get_current_user_id
     handler genérico de DELETE não cobre mais essa rede."""
     result = (
         scope_owner(supabase.table("instagram_credentials")
-        .update({"user_access_token": None, "ig_user_id": None, "status": False}), user_id, profile_id)
+        .update({"user_access_token": None, "ig_user_id": None, "fb_user_id": None, "status": False}), user_id, profile_id)
         .execute()
     )
     if not result.data:
@@ -748,7 +749,7 @@ async def facebook_callback(
         return _redirect("facebook=error&message=invalid_state")
 
     try:
-        page_id, page_name, page_access_token = await facebook_oauth.get_user_auth_page_token(code)
+        page_id, page_name, page_access_token, fb_user_id = await facebook_oauth.get_user_auth_page_token(code)
     except facebook_oauth.FacebookOAuthError:
         logger.exception(
             "Falha na troca de code por token OAuth do Facebook para user_id=%s", user_id
@@ -758,6 +759,7 @@ async def facebook_callback(
     _upsert_by_user("facebook_credentials", user_id, {
         "page_id": page_id,
         "page_name": page_name,
+        "fb_user_id": fb_user_id,
         "page_access_token": encrypt(page_access_token),
         "status": True,
     }, profile_id=profile_id)
@@ -775,6 +777,7 @@ async def delete_facebook_credential(user_id: int = Depends(get_current_user_id)
         .update({
             "page_id": None,
             "page_name": None,
+            "fb_user_id": None,
             "page_access_token": None,
             "status": False,
         }), user_id, profile_id)

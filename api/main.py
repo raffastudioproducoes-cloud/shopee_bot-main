@@ -15,6 +15,9 @@ from .database import init_db
 from .middleware import RequestLoggingMiddleware
 from .routers.posts import cleanup_expired_media_drafts
 
+for noisy_logger in ("httpx", "httpcore"):
+    logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+
 logger = logging.getLogger("uvicorn.error")
 from .routers import (
     auth_router,

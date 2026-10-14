@@ -35,6 +35,7 @@ def db(fake_db, monkeypatch):
     monkeypatch.setattr(meta_callbacks.instagram_oauth, "SECRET", "meta-secret")
     monkeypatch.setattr(meta_callbacks.threads_oauth, "SECRET", "threads-secret")
     monkeypatch.setattr(settings, "frontend_url", "https://shopee-bot-fj0w.onrender.com")
+    meta_callbacks._rate_attempts.clear()
     return database
 
 
@@ -66,6 +67,7 @@ def test_meta_deauthorize_valid_signature_disconnects_only_matching_external_id(
             "id": 1,
             "user_id": "user-a",
             "profile_id": "profile-a",
+            "fb_user_id": "fb-a",
             "ig_user_id": "ig-a",
             "user_access_token": "tok-a",
             "status": True,
@@ -74,6 +76,7 @@ def test_meta_deauthorize_valid_signature_disconnects_only_matching_external_id(
             "id": 2,
             "user_id": "user-b",
             "profile_id": "profile-b",
+            "fb_user_id": "fb-b",
             "ig_user_id": "ig-b",
             "user_access_token": "tok-b",
             "status": True,
@@ -84,15 +87,35 @@ def test_meta_deauthorize_valid_signature_disconnects_only_matching_external_id(
         {"id": 11, "user_id": "user-b", "profile_id": "profile-b", "network": "instagram"},
     ]
 
-    res = _post(client, "/meta/deauthorize", _signed(_payload("ig-a"), "meta-secret"))
+    res = _post(client, "/meta/deauthorize", _signed(_payload("fb-a"), "meta-secret"))
 
     assert res.status_code == 200
     assert res.json() == {"status": "received"}
     assert db.tables["instagram_credentials"][0]["user_access_token"] is None
     assert db.tables["instagram_credentials"][0]["ig_user_id"] == "ig-a"
+    assert db.tables["instagram_credentials"][0]["fb_user_id"] == "fb-a"
     assert db.tables["instagram_credentials"][0]["status"] is False
     assert db.tables["instagram_credentials"][1]["user_access_token"] == "tok-b"
     assert [c["id"] for c in db.tables["credential_checks"]] == [11]
+
+
+def test_meta_deauthorize_does_not_match_instagram_ig_user_id(client, db):
+    db.tables["instagram_credentials"] = [
+        {
+            "id": 1,
+            "user_id": "user-a",
+            "profile_id": "profile-a",
+            "ig_user_id": "ig-legacy",
+            "user_access_token": "tok-a",
+            "status": True,
+        }
+    ]
+
+    res = _post(client, "/meta/deauthorize", _signed(_payload("ig-legacy"), "meta-secret"))
+
+    assert res.status_code == 200
+    assert db.tables["instagram_credentials"][0]["user_access_token"] == "tok-a"
+    assert db.tables["instagram_credentials"][0]["ig_user_id"] == "ig-legacy"
 
 
 @pytest.mark.parametrize(
@@ -155,13 +178,16 @@ def test_data_deletion_is_idempotent_and_removes_network_data(client, db):
             "id": 1,
             "user_id": "user-a",
             "profile_id": "profile-a",
+            "app_id": "old-app",
+            "secret": "old-secret",
+            "fb_user_id": "fb-user-a",
             "page_id": "page-a",
             "page_name": "Page A",
             "page_access_token": "tok",
             "status": True,
         }
     ]
-    signed_request = _signed(_payload("page-a"), "meta-secret")
+    signed_request = _signed(_payload("fb-user-a"), "meta-secret")
 
     first = _post(client, "/meta/data-deletion", signed_request)
     second = _post(client, "/meta/data-deletion", signed_request)
@@ -170,11 +196,131 @@ def test_data_deletion_is_idempotent_and_removes_network_data(client, db):
     assert second.status_code == 200
     assert first.json() == second.json()
     assert len(db.tables["data_deletion_requests"]) == 1
-    assert db.tables["data_deletion_requests"][0]["external_user_hash"] != "page-a"
+    assert db.tables["data_deletion_requests"][0]["status"] == "completed"
+    assert db.tables["data_deletion_requests"][0]["external_user_hash"] != "fb-user-a"
+    assert db.tables["facebook_credentials"][0]["app_id"] is None
+    assert db.tables["facebook_credentials"][0]["secret"] is None
+    assert db.tables["facebook_credentials"][0]["fb_user_id"] is None
     assert db.tables["facebook_credentials"][0]["page_id"] is None
     assert db.tables["facebook_credentials"][0]["page_name"] is None
     assert db.tables["facebook_credentials"][0]["page_access_token"] is None
     assert db.tables["facebook_credentials"][0]["status"] is False
+
+
+def test_existing_completed_receipt_still_reprocesses_new_connection(client, db):
+    hash_value = meta_callbacks._external_hash("meta", "fb-user-a")
+    db.tables["data_deletion_requests"] = [
+        {
+            "id": 7,
+            "confirmation_code": "same-code",
+            "provider": "meta",
+            "external_user_hash": hash_value,
+            "status": "completed",
+            "completed_at": "2026-10-13T00:00:00+00:00",
+        }
+    ]
+    db.tables["facebook_credentials"] = [
+        {
+            "id": 1,
+            "user_id": "user-a",
+            "profile_id": "profile-a",
+            "fb_user_id": "fb-user-a",
+            "page_id": "page-new",
+            "page_name": "New Page",
+            "page_access_token": "new-token",
+            "status": True,
+        }
+    ]
+
+    res = _post(client, "/meta/data-deletion", _signed(_payload("fb-user-a"), "meta-secret"))
+
+    assert res.status_code == 200
+    assert res.json()["confirmation_code"] == "same-code"
+    assert db.tables["facebook_credentials"][0]["fb_user_id"] is None
+    assert db.tables["facebook_credentials"][0]["page_access_token"] is None
+    assert db.tables["data_deletion_requests"][0]["status"] == "completed"
+
+
+def test_legacy_facebook_without_fb_user_id_records_honest_not_found(client, db):
+    db.tables["facebook_credentials"] = [
+        {
+            "id": 1,
+            "user_id": "user-a",
+            "profile_id": "profile-a",
+            "page_id": "page-a",
+            "page_access_token": "tok",
+            "status": True,
+        }
+    ]
+
+    res = _post(client, "/meta/data-deletion", _signed(_payload("fb-user-a"), "meta-secret"))
+
+    assert res.status_code == 200
+    assert db.tables["data_deletion_requests"][0]["status"] == "not_found"
+    assert db.tables["facebook_credentials"][0]["page_access_token"] == "tok"
+
+
+def test_deletion_receipt_is_received_before_cleanup_failure(db, monkeypatch):
+    app.dependency_overrides.clear()
+    client = TestClient(app, raise_server_exceptions=False)
+
+    def fail_cleanup(*_args, **_kwargs):
+        raise RuntimeError("cleanup failed")
+
+    monkeypatch.setattr(meta_callbacks, "_disconnect_by_external_id", fail_cleanup)
+
+    res = _post(client, "/meta/data-deletion", _signed(_payload("fb-user-a"), "meta-secret"))
+
+    assert res.status_code == 500
+    assert len(db.tables["data_deletion_requests"]) == 1
+    assert db.tables["data_deletion_requests"][0]["status"] == "received"
+    assert db.tables["data_deletion_requests"][0]["completed_at"] is None
+
+
+@pytest.mark.parametrize("failing_step", ["credential_checks", "audit"])
+def test_meta_data_deletion_retry_after_partial_failure_stays_completed_not_not_found(
+    db, monkeypatch, failing_step
+):
+    app.dependency_overrides.clear()
+    client = TestClient(app, raise_server_exceptions=False)
+    db.tables["instagram_credentials"] = [
+        {
+            "id": 1,
+            "user_id": "user-a",
+            "profile_id": "profile-a",
+            "fb_user_id": "fb-user-a",
+            "ig_user_id": "ig-user-a",
+            "user_access_token": "tok-a",
+            "status": True,
+        }
+    ]
+    signed_request = _signed(_payload("fb-user-a"), "meta-secret")
+    calls = {"credential_checks": 0, "audit": 0}
+    original_delete_checks = meta_callbacks._delete_credential_checks
+
+    def maybe_fail_delete_checks(rows, network):
+        calls["credential_checks"] += 1
+        if failing_step == "credential_checks" and calls["credential_checks"] == 1:
+            raise RuntimeError("injected credential_checks failure")
+        return original_delete_checks(rows, network)
+
+    def maybe_fail_audit(*_args, **_kwargs):
+        calls["audit"] += 1
+        if failing_step == "audit" and calls["audit"] == 1:
+            raise RuntimeError("injected audit failure")
+
+    monkeypatch.setattr(meta_callbacks, "_delete_credential_checks", maybe_fail_delete_checks)
+    monkeypatch.setattr(meta_callbacks, "record_audit_event", maybe_fail_audit)
+
+    first = _post(client, "/meta/data-deletion", signed_request)
+    second = _post(client, "/meta/data-deletion", signed_request)
+
+    assert first.status_code == 500
+    assert second.status_code == 200
+    assert db.tables["data_deletion_requests"][0]["status"] == "completed"
+    assert db.tables["data_deletion_requests"][0]["status"] != "not_found"
+    assert db.tables["instagram_credentials"][0]["fb_user_id"] is None
+    assert db.tables["instagram_credentials"][0]["ig_user_id"] is None
 
 
 def test_confirmation_code_is_unique_per_external_user(client, db):
@@ -229,6 +375,42 @@ def test_threads_delete_records_public_status(client, db):
     assert status.json()["status"] == "completed"
     assert db.tables["threads_credentials"][0]["t_user_id"] is None
     assert db.tables["threads_credentials"][0]["access_token"] is None
+
+
+def test_old_issued_at_signed_request_is_rejected(client, db):
+    old_payload = {"algorithm": "HMAC-SHA256", "user_id": "fb-user-a", "issued_at": 1}
+
+    res = _post(client, "/meta/data-deletion", _signed(old_payload, "meta-secret"))
+
+    assert res.status_code == 400
+    assert db.tables["data_deletion_requests"] == []
+
+
+def test_invalid_signature_rate_limit_does_not_count_valid_callbacks(client, db, monkeypatch):
+    monkeypatch.setattr(meta_callbacks, "_INVALID_SIGNATURE_LIMIT", 1)
+    bad = _signed(_payload("fb-user-a"), "wrong-secret")
+    good = _signed(_payload("fb-user-a"), "meta-secret")
+
+    assert _post(client, "/meta/data-deletion", bad).status_code == 400
+    assert _post(client, "/meta/data-deletion", good).status_code == 200
+    assert _post(client, "/meta/data-deletion", bad).status_code == 429
+
+
+def test_status_endpoint_has_own_light_rate_limit(client, db, monkeypatch):
+    monkeypatch.setattr(meta_callbacks, "_STATUS_LIMIT", 1)
+    db.tables["data_deletion_requests"] = [
+        {
+            "id": 1,
+            "confirmation_code": "code-1",
+            "provider": "meta",
+            "status": "completed",
+            "created_at": "2026-10-13T00:00:00+00:00",
+            "completed_at": "2026-10-13T00:00:01+00:00",
+        }
+    ]
+
+    assert client.get("/meta/data-deletion/status", params={"code": "code-1"}).status_code == 200
+    assert client.get("/meta/data-deletion/status", params={"code": "code-1"}).status_code == 429
 
 
 def test_large_body_is_rejected(client, db):
