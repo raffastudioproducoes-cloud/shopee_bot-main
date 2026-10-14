@@ -35,6 +35,7 @@ Graph API — ainda não tem seletor de página. Ver vault pra evoluir isso
 (deixar o usuário escolher, igual poderia ser feito pro Instagram).
 """
 
+import logging
 import os
 from urllib.parse import quote
 
@@ -47,6 +48,7 @@ from . import instagram_oauth  # reaproveita APP_ID/SECRET — mesmo app Meta
 API_URL = GRAPH_URL
 API_VERSION = GRAPH_VERSION
 CALLBACK_URL = os.environ.get("FACEBOOK_CALLBACK_URL")
+logger = logging.getLogger("uvicorn.error")
 # Meta descontinuou o produto clássico "Facebook Login" (scope= direto)
 # pra apps novos — só "Login do Facebook para Empresas" (Business Login)
 # fica disponível, e esse exige um config_id em vez de scope=. Sem isso
@@ -138,9 +140,28 @@ async def get_user_page(user_access_token: str) -> tuple[str, str, str]:
     return page["id"], page.get("name", ""), page["access_token"]
 
 
-async def get_user_auth_page_token(code: str) -> tuple[str, str, str]:
+async def get_fb_user_id(user_access_token: str) -> str | None:
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            res = await client.get(
+                f"{API_URL}/{API_VERSION}/me",
+                params={"fields": "id"},
+                headers={"Authorization": f"Bearer {user_access_token}"},
+            )
+        if res.status_code not in (200, 201):
+            logger.warning("Falha ao obter fb_user_id do OAuth Facebook: status=%s", res.status_code)
+            return None
+        fb_user_id = res.json().get("id")
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        logger.warning("Falha ao obter fb_user_id do OAuth Facebook: error_type=%s", type(exc).__name__)
+        return None
+    return fb_user_id if isinstance(fb_user_id, str) and fb_user_id else None
+
+
+async def get_user_auth_page_token(code: str) -> tuple[str, str, str, str | None]:
     """Troca o code do callback por (page_id, page_name, page_access_token)
     da Página do usuário."""
     short_lived_token = await _get_user_short_lived_token(code)
     user_access_token = await _get_user_long_lived_token(short_lived_token)
-    return await get_user_page(user_access_token)
+    page_id, page_name, page_access_token = await get_user_page(user_access_token)
+    return page_id, page_name, page_access_token, await get_fb_user_id(user_access_token)

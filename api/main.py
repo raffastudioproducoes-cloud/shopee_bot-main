@@ -1,5 +1,5 @@
 """
-Shopee Auto Vendas — API Python (FastAPI)
+Auto Orbital — API Python (FastAPI)
 Consome Supabase existente. Coexiste com Flask durante a migração.
 """
 
@@ -15,6 +15,9 @@ from .database import init_db
 from .middleware import RequestLoggingMiddleware
 from .routers.posts import cleanup_expired_media_drafts
 
+for noisy_logger in ("httpx", "httpcore"):
+    logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+
 logger = logging.getLogger("uvicorn.error")
 from .routers import (
     auth_router,
@@ -29,10 +32,11 @@ from .routers import (
     logs_router,
     profiles_router,
     settings_router,
+    meta_callbacks_router,
 )
 
 app = FastAPI(
-    title="Shopee Auto Vendas API",
+    title="Auto Orbital API",
     version="0.1.0",
 )
 
@@ -66,6 +70,7 @@ app.include_router(notifications_router)
 app.include_router(logs_router)
 app.include_router(profiles_router)
 app.include_router(settings_router)
+app.include_router(meta_callbacks_router)
 
 
 async def _cleanup_media_drafts_periodically() -> None:

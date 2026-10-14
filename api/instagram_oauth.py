@@ -145,11 +145,29 @@ async def get_ig_user_id(user_access_token: str) -> str:
     )
 
 
-async def get_user_auth_id_token(code: str) -> tuple[str, str]:
+async def get_fb_user_id(user_access_token: str) -> str | None:
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            res = await client.get(
+                f"{API_URL}/{API_VERSION}/me",
+                params={"fields": "id"},
+                headers={"Authorization": f"Bearer {user_access_token}"},
+            )
+        if res.status_code not in (200, 201):
+            logger.warning("Falha ao obter fb_user_id do OAuth Instagram: status=%s", res.status_code)
+            return None
+        fb_user_id = res.json().get("id")
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        logger.warning("Falha ao obter fb_user_id do OAuth Instagram: error_type=%s", type(exc).__name__)
+        return None
+    return fb_user_id if isinstance(fb_user_id, str) and fb_user_id else None
+
+
+async def get_user_auth_id_token(code: str) -> tuple[str, str, str | None]:
     """Troca o code do callback por um user_access_token de longa duração
     e o ig_user_id da conta Instagram vinculada. Retorna (ig_user_id,
-    access_token)."""
+    access_token, fb_user_id)."""
     short_lived_token = await _get_user_short_lived_token(code)
     access_token = await _get_user_long_lived_token(short_lived_token)
     ig_user_id = await get_ig_user_id(access_token)
-    return ig_user_id, access_token
+    return ig_user_id, access_token, await get_fb_user_id(access_token)

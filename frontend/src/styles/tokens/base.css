@@ -4,6 +4,6 @@ a{color:var(--accent);text-decoration:none}
 a:hover{color:var(--sky-200)}
 button{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
-::selection{background:var(--mint-400);color:var(--black)}
+::selection{background:var(--brand-electric-cyan);color:var(--brand-event-horizon)}
 .afl-num{font-variant-numeric:tabular-nums;letter-spacing:var(--ls-tight)}
 .afl-label{font:var(--text-role-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}

@@ -1,12 +1,12 @@
 {
-  "name": "ShopeeAutoVendas",
-  "short_name": "AutoVendas",
-  "description": "Automação de divulgação de links de afiliado Shopee.",
+  "name": "Auto Orbital",
+  "short_name": "Auto Orbital",
+  "description": "Auto Orbital: seus posts a um clique.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0a0b",
-  "theme_color": "#0a0a0b",
+  "background_color": "#010719",
+  "theme_color": "#010719",
   "orientation": "any",
   "icons": [
     {

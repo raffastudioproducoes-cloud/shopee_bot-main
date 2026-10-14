@@ -149,6 +149,46 @@ conectada. O `redirect_uri` enviado ao TikTok deve continuar preservado exatamen
 `TIKTOK_CALLBACK_URL`, porque o Login Kit valida a URI cadastrada. Token novo vem de novo
 OAuth, não de cópia manual do portal (ver `docs/MEMORY.md`).
 
+### 4.1 Callbacks Meta/Threads
+
+Os callbacks publicos obrigatorios da Meta e do Threads ficam no FastAPI e chegam pelo proxy
+Flask `/api/*`. Eles nao usam JWT/CSRF de sessao: cada POST recebe `signed_request` em
+`application/x-www-form-urlencoded` e valida HMAC-SHA256 com o app secret do provedor antes de
+qualquer limpeza. O rate limit e em memoria de processo, separado por rota, e so conta falhas
+de validacao de assinatura nos POSTs; assinaturas validas da Meta/Threads nao consomem esse
+balde. `GET /api/meta/data-deletion/status` tem limite leve proprio. Se a app virar
+multi-worker/multi-instancia, mover esses baldes para Redis.
+
+URLs de producao:
+
+- `https://shopee-bot-fj0w.onrender.com/api/meta/deauthorize`
+- `https://shopee-bot-fj0w.onrender.com/api/meta/data-deletion`
+- `https://shopee-bot-fj0w.onrender.com/api/meta/data-deletion/status?code=<confirmation_code>`
+- `https://shopee-bot-fj0w.onrender.com/api/threads/uninstall`
+- `https://shopee-bot-fj0w.onrender.com/api/threads/delete`
+
+Campos no painel Meta:
+
+- Threads: `Desinstalar URL de callback` -> `/api/threads/uninstall`; `Excluir URL de callback` -> `/api/threads/delete`.
+- Login do Facebook para Empresas: `Desautorizar URL de retorno de chamada` -> `/api/meta/deauthorize`; `URL de solicitacao de exclusao de dados` -> `/api/meta/data-deletion`.
+- Configuracoes Basicas: `Exclusao de dados do usuario` segue como URL de instrucoes publica: `/privacidade#exclusao-de-dados`.
+
+As solicitacoes de exclusao gravam recibo em `data_deletion_requests` com `confirmation_code`
+publico e hash HMAC/SHA-256 do usuario externo; o id externo puro nao e persistido nessa tabela.
+O recibo nasce/volta para `received` antes da limpeza, passa para `completed` quando alguma
+credencial casa e e limpa, ou para `not_found` quando nenhuma linha casa. Reenvios legitimos
+sempre reexecutam a limpeza antes de devolver o codigo, inclusive se o mesmo usuario reconectou
+depois de um recibo antigo.
+
+Para Meta (Facebook/Instagram), o `user_id` do `signed_request` e o id do usuario Facebook
+escopado ao app, nao `page_id`. Por isso os callbacks casam preferencialmente por
+`facebook_credentials.fb_user_id` e `instagram_credentials.fb_user_id`, preenchidos no OAuth por
+`GET /me?fields=id`; `ig_user_id` nao e usado como fallback porque pertence a outro espaco de ids. Contas ja
+conectadas antes da coluna `fb_user_id` precisam reconectar para a exclusao automatica Meta
+achar a linha; ate la o recibo deve ficar honestamente como `not_found`, nao `completed`.
+As credenciais afetadas sao desconectadas sem apagar a linha, zerando tokens, ids externos,
+nomes e campos de segredo apenas nas linhas encontradas pelo id externo assinado.
+
 ## 5. Bridge interno Flask ↔ FastAPI
 
 A API nova não importa `scheduler`/`apis.shopee` diretamente — chama por HTTP interno

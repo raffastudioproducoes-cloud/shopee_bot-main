@@ -1,10 +1,10 @@
-// Service worker do ShopeeAutoVendas — só cuida de cache de asset estático
+// Service worker do Auto Orbital (legado) — só cuida de cache de asset estático
 // pra funcionar como PWA (instalar, abrir offline o shell).
 // NUNCA intercepta POST/PUT/DELETE nem rotas dinâmicas (/posts, /products,
 // /panel/*, etc.) pra não arriscar cache de resposta de agendamento/
 // publicação do bot. Só GET de /static/ passa pelo cache.
 
-const CACHE_NAME = "shopee-autovendas-static-v1";
+const CACHE_NAME = "auto-orbital-static-v1";
 const STATIC_PATH_PREFIX = "/static/";
 
 self.addEventListener("install", (event) => {

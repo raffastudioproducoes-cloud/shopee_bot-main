@@ -52,6 +52,26 @@ def test_proxy_forwards_post_body_and_error_status(client):
     assert called.kwargs["data"] == b'{"user":"x"}'
 
 
+def test_proxy_forwards_meta_form_body_content_type_without_csrf(client):
+    body = b"signed_request=a.b"
+    with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
+        mock_req.return_value = _FakeUpstreamResponse(
+            status_code=200, content=b'{"status":"received"}'
+        )
+        res = client.post(
+            "/api/meta/data-deletion",
+            data=body,
+            content_type="application/x-www-form-urlencoded",
+        )
+
+    assert res.status_code == 200
+    assert res.data == b'{"status":"received"}'
+    called = mock_req.call_args
+    assert called.kwargs["url"] == "http://127.0.0.1:8001/meta/data-deletion"
+    assert called.kwargs["data"] == body
+    assert called.kwargs["headers"]["Content-Type"].startswith("application/x-www-form-urlencoded")
+
+
 def test_proxy_returns_502_when_upstream_unreachable(client):
     with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
         mock_req.side_effect = requests.ConnectionError("boom")

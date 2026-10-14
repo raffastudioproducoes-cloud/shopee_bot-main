@@ -1,104 +1,124 @@
-/* ── Base palette ───────────────────────────────────────────────
-   The seven hexes published on the MiT brand sheet, verbatim.      */
+/* ── Paleta Auto Orbital (docs/rebranding/34) ────────────────────
+   Fonte da marca. Os nomes legados (--sky-*, --navy-*, --coal-*, --black,
+   --white) seguem existindo como alias para não quebrar componentes.   */
 :root{
-  --sky-400:#81BDFA;   /* primary accent / data blue      */
-  --steel-600:#405D7A; /* mid navy, panel gradient bottom */
-  --navy-800:#303F54;  /* deep navy, chrome               */
-  --black:#000000;     /* token tiles, marketing ground   */
-  --green-600:#58956E; /* deep mint, quiet positive       */
-  --mint-400:#82DBA3;  /* signal mint / brand highlight   */
-  --white:#FFFFFF;
+  --brand-event-horizon:#010719;
+  --brand-deep-orbit-navy:#091959;
+  --brand-deep-blue:#102B9B;
+  --brand-electric-blue:#1A5BE1;
+  --brand-orbit-blue:#279CF5;
+  --brand-electric-cyan:#1FD3FD;
+  --brand-ice-blue:#5D99F8;
+  --brand-indigo:#6160E8;
+  --brand-orbital-violet:#936CF2;
+  --brand-soft-lilac:#D4ABE9;
+  --brand-horizon-warm-light:#FAD2AD; /* só highlights pontuais */
+  --brand-text:#EEEAF2;
 
-  /* Derived steps — measured off the delivered screens, not generated. */
-  --sky-200:#BFD9F6;
-  --sky-300:#A3C9F4;
-  --sky-500:#6BA6E4;
-  --steel-400:#7C9CBE;
-  --steel-500:#5B7B9E;
-  --navy-700:#3A4B62;
-  --navy-850:#2B3949;
-  --navy-900:#243243;
-  --navy-950:#1B2735;
-  --ink-900:#0D141C;
+  --graphite-950:#080C16;
+  --graphite-900:#0D1320;
+  --graphite-850:#121927;
+  --graphite-800:#192130;
+  --graphite-700:#222B3A;
 
-  /* Marketing / case-study ground */
-  --coal-950:#0A0A0A;
-  --coal-900:#141414;
-  --coal-850:#1C1C1C;
-  --coal-800:#262626;
-  --coal-700:#333333;
-  --coal-600:#4A4A4A;
+  /* Assinatura: uso restrito (CTA principal, hero, seleção especial). */
+  --gradient-orbital:linear-gradient(90deg,#1FD3FD 0%,#279CF5 30%,#6160E8 65%,#936CF2 100%); /* @kind color */
 
-  /* Semantic signal */
+  /* Trecho cyan→orbit do gradiente: texto #010719 >= 6.8:1 (o gradiente completo cai a 4.2:1 no indigo). */
+  --gradient-cta:linear-gradient(90deg,#1FD3FD 0%,#279CF5 100%); /* @kind color */
+
+  /* ── Aliases legados → paleta nova ─────────────────────────────── */
+  --sky-400:var(--brand-orbit-blue);
+  --sky-300:var(--brand-ice-blue);
+  --sky-200:var(--brand-electric-cyan);
+  --sky-500:var(--brand-electric-blue);
+  --steel-600:var(--brand-deep-blue);
+  --steel-500:var(--brand-electric-blue);
+  --steel-400:var(--brand-indigo);
+  --navy-800:var(--graphite-700);
+  --navy-700:var(--graphite-700);
+  --navy-850:var(--graphite-850);
+  --navy-900:var(--graphite-900);
+  --navy-950:var(--graphite-950);
+  --ink-900:var(--brand-event-horizon);
+  --black:var(--brand-event-horizon);
+  --white:var(--brand-text);
+
+  --coal-950:var(--graphite-950);
+  --coal-900:var(--graphite-900);
+  --coal-850:var(--graphite-850);
+  --coal-800:var(--graphite-800);
+  --coal-700:var(--graphite-700);
+  --coal-600:#2F3A4D;
+
+  /* Semânticas preservadas (sucesso / erro / aviso) */
+  --green-600:#58956E;
+  --mint-400:#82DBA3;
   --red-300:#F1948A;
   --red-400:#E4776A;
   --amber-300:#F3C97D;
 
   /* ── Semantic aliases ─────────────────────────────────────────── */
-  --bg-app:#1E2A38;
-  --bg-app-gradient:linear-gradient(150deg,#26364A 0%,#1E2A38 48%,#182430 100%); /* @kind color */
-  --bg-rail:#28364A;
-  --bg-marketing:var(--black);
+  --bg-app:var(--graphite-950);
+  --bg-app-gradient:linear-gradient(150deg,var(--graphite-900) 0%,var(--graphite-950) 55%,var(--brand-event-horizon) 100%); /* @kind color */
+  --bg-rail:var(--graphite-900);
+  --bg-marketing:var(--brand-event-horizon);
 
-  --surface-card:var(--navy-850);
-  --surface-card-hover:#31414F;
+  --surface-card:var(--graphite-850);
+  --surface-card-hover:var(--graphite-800);
   --surface-inset:rgba(0,0,0,.22);
-  --surface-tile:var(--black);
-  --surface-elevated:#35465B;
-  --surface-marketing-card:var(--coal-850);
+  --surface-tile:var(--brand-event-horizon);
+  --surface-elevated:var(--graphite-700);
+  --surface-marketing-card:var(--graphite-850);
 
-  /* The signature glass panel: light steel top-left → navy bottom-right */
-  /* Lit from the bottom-left, as sampled off the source panels (light #6493C1 corner,
-     dark #3F5569 corner). Kept in the source range's darker half so 11px white clears 4.5:1. */
-  --panel-glass:linear-gradient(45deg,rgba(71,99,132,.92) 0%,rgba(64,89,117,.91) 50%,rgba(58,80,102,.90) 100%); /* @kind color */
-  --panel-glass-quiet:linear-gradient(145deg,rgba(124,156,190,.55) 0%,rgba(64,93,122,.42) 100%); /* @kind color */
+  /* Painel de vidro: Deep Orbit Navy → grafite; texto claro >= 4.5:1. */
+  --panel-glass:linear-gradient(45deg,rgba(9,25,89,.94) 0%,rgba(14,26,72,.93) 50%,rgba(18,25,39,.92) 100%); /* @kind color */
+  --panel-glass-quiet:linear-gradient(145deg,rgba(16,43,155,.34) 0%,rgba(9,25,89,.30) 100%); /* @kind color */
   --panel-row-active:rgba(255,255,255,.16);
   --panel-row-hover:rgba(255,255,255,.08);
 
-  --text-display:var(--white);
-  --text-body:rgba(255,255,255,.88);
-  --text-muted:rgba(255,255,255,.62);
-  --text-faint:rgba(255,255,255,.42);
-  --text-on-glass:var(--white);
-  --text-on-glass-muted:rgba(255,255,255,.80);
-  --text-on-mint:var(--black);
-  --text-inverse:var(--black);
+  --text-display:var(--brand-text);
+  --text-body:rgba(238,234,242,.90);
+  --text-muted:rgba(238,234,242,.68);
+  --text-faint:rgba(238,234,242,.58);
+  --text-on-glass:var(--brand-text);
+  --text-on-glass-muted:rgba(238,234,242,.82);
+  --text-on-mint:var(--brand-event-horizon);
+  --text-inverse:var(--brand-event-horizon);
 
-  --accent:var(--sky-400);
-  --accent-quiet:var(--steel-600);
-  --highlight:var(--mint-400);
+  --accent:var(--brand-orbit-blue);
+  --accent-quiet:var(--brand-deep-blue);
+  --highlight:var(--brand-electric-cyan);
+  --accent-tint:rgba(39,156,245,.16); /* fundo de item selecionado / chip de acento */
 
   --positive:var(--mint-400);
-  --positive-ink:var(--black);
+  --positive-ink:var(--brand-event-horizon);
   --positive-quiet:var(--green-600);
   --negative:var(--red-300);
-  /* Signal tints for the glass panel: the dark-ground green/salmon land near 1.7:1 there. */
   --positive-on-glass:#BFEDD2;
   --negative-on-glass:#F9D5CE;
   --negative-ink:#2A0F0B;
 
-  --border-hairline:rgba(255,255,255,.10);
-  --border-card:rgba(255,255,255,.07);
-  --border-strong:rgba(255,255,255,.22);
-  --border-on-glass:rgba(255,255,255,.14);
+  --border-hairline:rgba(238,234,242,.10);
+  --border-card:rgba(238,234,242,.07);
+  --border-strong:rgba(238,234,242,.22);
+  --border-on-glass:rgba(238,234,242,.14);
   --border-buy:#7FC9A8;
   --border-send:#E4998C;
 
-  --chart-1:var(--sky-400);
-  --chart-2:var(--steel-400);
-  --chart-3:var(--sky-200);
-  --chart-line:rgba(255,255,255,.92);
-  --chart-grid:rgba(255,255,255,.08);
+  --chart-1:var(--brand-orbit-blue);
+  --chart-2:var(--brand-indigo);
+  --chart-3:var(--brand-electric-cyan);
+  --chart-line:rgba(238,234,242,.92);
+  --chart-grid:rgba(238,234,242,.08);
 
-  --focus-ring:rgba(129,189,250,.55);
+  --focus-ring:var(--brand-electric-cyan);
 
-  /* Campos de formulário. O Chrome pinta o autofill e o popup nativo do <select>
-     por cima do campo, então aqui precisam ser OPACOS (o --surface-inset é
-     translúcido). --field-bg-solid = --surface-inset composto sobre --surface-card. */
-  --field-bg-solid:#222C39;
+  /* Campos: OPACOS (autofill/select nativo do Chrome pintam por cima). */
+  --field-bg-solid:var(--graphite-900);
   --field-bg-disabled:rgba(255,255,255,.05);
-  --option-bg:var(--navy-900);
-  --option-text:var(--white);
-  --option-active-bg:var(--steel-600);
-  --option-active-text:var(--white);
+  --option-bg:var(--graphite-850);
+  --option-text:var(--brand-text);
+  --option-active-bg:var(--brand-deep-blue);
+  --option-active-text:var(--brand-text);
 }

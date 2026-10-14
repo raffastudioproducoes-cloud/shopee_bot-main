@@ -64,7 +64,7 @@ export function SideRail({
     >
       <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 30 }}>
         {logoSrc ? (
-          <img src={logoSrc} alt={brand} style={{ height: 18, width: "auto", display: "block" }} />
+          <img src={logoSrc} alt={brand} style={{ height: 30, width: "auto", display: "block", mixBlendMode: "lighten" }} />
         ) : (
           <span
             style={{

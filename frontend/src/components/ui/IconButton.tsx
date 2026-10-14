@@ -26,9 +26,9 @@ export interface IconButtonProps {
 
 const TONES: Record<string, { bg: string; fg: string }> = {
   dark: { bg: "var(--black)", fg: "var(--white)" },
-  accent: { bg: "var(--sky-400)", fg: "#0E1A26" },
+  accent: { bg: "var(--sky-400)", fg: "var(--black)" },
   glass: { bg: "rgba(255,255,255,.14)", fg: "var(--text-body)" },
-  rail: { bg: "rgba(129,189,250,.18)", fg: "var(--sky-300)" },
+  rail: { bg: "var(--accent-tint)", fg: "var(--sky-300)" },
   plain: { bg: "transparent", fg: "var(--text-muted)" },
 }
 

@@ -1,5 +1,5 @@
 """
-Settings para a API Python do Shopee Auto Vendas.
+Settings para a API Python do Auto Orbital.
 Carrega variáveis de ambiente via pydantic-settings.
 """
 

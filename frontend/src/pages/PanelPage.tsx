@@ -93,7 +93,8 @@ export function PanelPage() {
           setMenuOpen(false)
           navigate({ to: value })
         }}
-        brand="SV"
+        logoSrc="/brand/symbol-128.png"
+        brand="Auto Orbital"
       />
       <button
         type="button"

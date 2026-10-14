@@ -6,6 +6,7 @@ import { router } from './router'
 import { ApiError } from './lib/api'
 import { useToastStore, type MutationToastMeta } from './stores/toastStore'
 import { Toaster } from './components/ui/Toaster'
+import { APP_VERSION } from './appMeta'
 import './index.css'
 
 // Avisos de progresso globais: qualquer mutation com `meta.toast` mostra
@@ -53,3 +54,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>,
 )
+
+// PWA: registra o service worker só em produção; ?v= muda a cada release e renova o cache.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(APP_VERSION)}`).catch(() => {})
+  })
+}

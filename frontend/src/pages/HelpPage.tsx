@@ -35,7 +35,7 @@ const STEPS: { title: string; text: string }[] = [
   {
     title: "Conecte suas credenciais",
     text:
-      "Na aba Credenciais, conecte a Shopee (obrigatória) com App ID e Secret gerados no Portal de Afiliados — use o botão \"?\" no card da Shopee pra ver o tutorial. Threads, Facebook, Instagram e TikTok conectam com um clique via OAuth. X fica em breve no plano pago; Kwai ainda está \"em breve\".",
+      "Na aba Credenciais, conecte a Shopee (obrigatória) com App ID e Secret gerados no Portal de Afiliados — use o botão \"?\" no card da Shopee pra ver o tutorial. Nas demais redes, clique no cartão da rede pra conectar com OAuth. Threads, Facebook, Instagram e TikTok já estão disponíveis; X estará disponível em breve no plano pago.",
   },
   {
     title: "Cadastre produtos",
@@ -91,7 +91,12 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
     question: "Por que às vezes preciso reconectar uma rede social?",
     answer:
-      "Tokens de OAuth (Threads, Facebook, Instagram, TikTok) expiram periodicamente por regra da própria plataforma — isso é normal. Quando expirar, basta clicar em \"Reconectar\" no card da rede em Credenciais. X está pausado até o plano pago.",
+      "Tokens de OAuth (Threads, Facebook, Instagram, TikTok) expiram periodicamente por regra da própria plataforma — isso é normal. Quando expirar, basta clicar em \"Reconectar\" no card da rede em Credenciais. X estará disponível em breve no plano pago.",
+  },
+  {
+    question: "Por que não consigo conectar minha conta do Facebook/Instagram/Threads?",
+    answer:
+      "Se você vir uma mensagem de que o app está em modo de desenvolvimento ou precisa ser aprovado, peça ao administrador da rede para adicionar sua conta como testador (tester) no painel de desenvolvedores da rede. Isso é comum nas contas sem status de produção.",
   },
   {
     question: "Posso fazer backup dos meus dados?",
@@ -133,7 +138,7 @@ export function HelpPage() {
       <div>
         <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Ajuda & FAQ</h1>
         <p style={{ color: "var(--text-muted)", marginTop: 4 }}>
-          Guias, tutoriais e respostas rápidas sobre o Shopee Auto Vendas.
+          Guias, tutoriais e respostas rápidas sobre o Auto Orbital.
         </p>
       </div>
 
@@ -252,7 +257,7 @@ export function HelpPage() {
           {tab === "lgpd" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
-                O que o Shopee Auto Vendas realmente faz com seus dados:
+                O que o Auto Orbital realmente faz com seus dados:
               </p>
               <ul style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 8, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
                 <li>Sua senha é armazenada com hash bcrypt — irreversível, nem o próprio sistema consegue ver a senha em texto puro.</li>

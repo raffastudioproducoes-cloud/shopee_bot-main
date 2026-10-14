@@ -18,7 +18,7 @@ const footerStyles = `
   }
   .app-footer--login {
     padding: 18px clamp(20px, 3vw, 52px) calc(18px + env(safe-area-inset-bottom));
-    background: rgba(8, 16, 25, 0.92);
+    background: rgba(8, 12, 22, 0.92);
   }
   .app-footer--app {
     margin-top: auto;

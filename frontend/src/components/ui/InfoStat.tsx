@@ -33,7 +33,7 @@ export function InfoStat({ icon, label, value }: InfoStatProps) {
           width: 30,
           height: 30,
           borderRadius: "50%",
-          background: "rgba(129,189,250,.16)",
+          background: "var(--accent-tint)",
           color: "var(--sky-300)",
         }}
       >

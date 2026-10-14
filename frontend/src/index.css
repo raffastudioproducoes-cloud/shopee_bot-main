@@ -10,9 +10,9 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
-  --color-primary-light: #eef2ff;
+  --color-primary: #1A5BE1;
+  --color-primary-hover: #102B9B;
+  --color-primary-light: #EEEAF2;
 }
 
 /* ── App shell responsivo ─────────────────────────────────────────────────────
