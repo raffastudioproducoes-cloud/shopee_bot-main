@@ -224,7 +224,7 @@ export function PrivacyPolicyPage() {
         <li>
           <strong>Aviso automático da Meta (Facebook/Instagram/Threads):</strong> ao remover
           o aplicativo do Facebook, Instagram ou Threads, a Meta envia automaticamente um aviso
-          ao usuário e os tokens são apagados por callbacks automáticos em implementação.
+          ao Auto Orbital, e as credenciais e os dados vinculados àquela conta são apagados.
         </li>
         <li>
           <strong>Acompanhar o status</strong> pela aba de exclusão ou pela confirmação enviada

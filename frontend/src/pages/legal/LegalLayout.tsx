@@ -57,7 +57,7 @@ interface LegalLayoutProps {
 export function LegalLayout({ title, updatedAt, children }: LegalLayoutProps) {
   useEffect(() => {
     const previous = document.title
-    document.title = `${title} · Shopee Auto Vendas`
+    document.title = `${title} · Auto Orbital`
     return () => {
       document.title = previous
     }
@@ -80,7 +80,7 @@ export function LegalLayout({ title, updatedAt, children }: LegalLayoutProps) {
         </Link>
         <span style={{ color: 'var(--text-muted)' }}>·</span>
         <span style={{ font: 'var(--fw-semibold) var(--fs-body)/1 var(--font-display)', color: 'var(--text-display)' }}>
-          Shopee Auto Vendas
+          Auto Orbital
         </span>
       </header>
 
