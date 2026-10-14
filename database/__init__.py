@@ -4,6 +4,7 @@ from psycopg import rows, Connection
 from psycopg_pool import ConnectionPool
 from shopee_bot.database.migrations import run_migrations
 from shopee_bot.clogging import logger
+from api.utils.log_sanitizer import sanitize_log_data
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -86,7 +87,7 @@ def close_connection(exception=None):
 def init():
     global _pool
     logger.debug("opening pool connection...")
-    logger.debug(f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}")
+    logger.debug(sanitize_log_data(f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB}"))
     _pool = ConnectionPool(
         _dsn(),
         min_size=1,

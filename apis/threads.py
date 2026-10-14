@@ -1,8 +1,13 @@
 import os
 import requests
 import time
+import logging
 from enum import StrEnum
 from urllib.parse import quote
+from api.utils.log_sanitizer import sanitize_log_data
+
+for _logger_name in ("httpx", "httpcore", "urllib3"):
+    logging.getLogger(_logger_name).setLevel(logging.WARNING)
 
 from shopee_bot.utils import retry_with_backoff
 
@@ -31,8 +36,8 @@ def _raise_exception(err_text, res, url):
         "{0}:\nStatus: {1}\nURL: {2}\nText: {3}".format(
             err_text,
             res.status_code,
-            url,
-            res.text
+            sanitize_log_data(url),
+            sanitize_log_data(res.text)
         )
     )
 
@@ -50,8 +55,6 @@ def _create_carousel_item(
         /{user_id}
         /threads?media_type=
         {media_type}
-        &access_token=
-        {user_access_token}
         &is_carousel_item=true
     """.replace('\n', '').replace(' ', '')
 
@@ -60,6 +63,7 @@ def _create_carousel_item(
     elif media_type == MediaType.VIDEO and video_url is not None:
         url += f"&video_url={quote(video_url, safe='')}"
 
+    url += f"&access_token={quote(user_access_token, safe='')}"
     res = retry_with_backoff(requests.post, url)
     if res.status_code not in [200, 201]:
         _raise_exception("Failed to Create Carousel Item", res, url)
@@ -82,14 +86,13 @@ def _create_carousel_container(
         {MediaType.CAROUSEL}
         &children=
         {",".join([str(item) for item in children])}
-        &access_token=
-        {user_access_token}
     """.replace('\n', '').replace(' ', '')
     url += f"&text={quote(_remove_non_utf8(text), safe='')}"
 
     if reply_to_id is not None:
         url += f"&reply_to_id={quote(str(reply_to_id), safe='')}"
 
+    url += f"&access_token={quote(user_access_token, safe='')}"
     res = retry_with_backoff(requests.post, url)
     if res.status_code not in [200, 201]:
         _raise_exception("Failed to Create Carousel Container", res, url)
@@ -112,8 +115,6 @@ def _create_media_container(
         /{user_id}
         /threads?media_type=
         {media_type}
-        &access_token=
-        {user_access_token}
     """.replace('\n', '').replace(' ', '')
     url += f"&text={quote(_remove_non_utf8(text), safe='')}"
 
@@ -125,6 +126,7 @@ def _create_media_container(
     if reply_to_id is not None:
         url += f"&reply_to_id={quote(str(reply_to_id), safe='')}"
 
+    url += f"&access_token={quote(user_access_token, safe='')}"
     res = retry_with_backoff(requests.post, url)
     if res.status_code not in [200, 201]:
         _raise_exception("Failed to Create Media Container", res, url)
@@ -140,14 +142,13 @@ def _publish_media_container(user_id, user_access_token, media_container_id):
         /threads_publish
         ?creation_id=
         {media_container_id}
-        &access_token=
-        {user_access_token}
 
     """.replace('\n', '').replace(' ', '')
 
     # nota: retry aqui só cobre falha de rede/timeout (exceção antes de
     # obter resposta) — status HTTP não-2xx NÃO é retentado, para não
     # arriscar publicação duplicada em caso de sucesso silencioso.
+    url += f"&access_token={quote(user_access_token, safe='')}"
     res = retry_with_backoff(requests.post, url)
     if res.status_code not in [200, 201]:
         _raise_exception("Failed to Publish Media Container", res, url)
@@ -166,10 +167,9 @@ def _get_media_container_status(
         /{media_container_id}
         ?fields=
         {fields}
-        &access_token=
-        {user_access_token}
     """.replace('\n', '').replace(' ', '')
 
+    url += f"&access_token={quote(user_access_token, safe='')}"
     res = retry_with_backoff(requests.get, url)
     if res.status_code not in [200, 201]:
         _raise_exception("Failed to Get Media Container Status", res, url)
