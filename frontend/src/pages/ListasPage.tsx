@@ -7,6 +7,7 @@ import { productsApi, type ProductsResponse } from "../api/products"
 import { formatBRL, formatPriceRange, toNumber } from "../lib/commission"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
+import { Skeleton, SkeletonCard, SkeletonRegion } from "../components/ui/Skeleton"
 import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
@@ -115,9 +116,7 @@ export function ListasPage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256, color: "var(--text-muted)" }}>
-        Carregando...
-      </div>
+      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div><Skeleton width="160px" height={34} /><Skeleton className="skeleton-sub" width="240px" /></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>{[1,2,3].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
     )
   }
 
