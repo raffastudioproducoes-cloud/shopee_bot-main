@@ -5,6 +5,17 @@
 > marcada **Concluída** com evidência de código ou teste passando; senão fica **Bloqueada** ou
 > **Pendente**. Última verificação: 2026-10-11.
 
+## Entrega 2026-10-14 — versão 2.4.0
+
+- [x] Identidade AUTO ORBITAL: paleta e grafites nos tokens, logos, favicon, PWA instalável (manifest e service worker), nome visível trocado. Layout e fonte Mona Sans preservados.
+- [x] Páginas de Ajuda/FAQ e Termos/Política de Privacidade reescritas (âncora `#exclusao-de-dados`).
+- [ ] Revisão jurídica dos textos de Termos e Privacidade.
+- [x] Callbacks públicos Meta/Threads: desautorizar, exclusão de dados, status.
+- [x] URLs de privacidade, termos e exclusão corrigidas no painel da Meta.
+- [ ] App Meta em modo desenvolvimento: Threads com convite pendente para @rotadesconto; Facebook/Instagram precisam da conta de teste como Testador. Para clientes reais, publicar o app (verificação da empresa e análise do app).
+- [x] X desativado até plano pago.
+- [ ] TikTok foto: melhoria futura.
+
 ## Atualização 2026-10-12 — publicação de mídia e agendamento
 
 Plano: `docs/superpowers/plans/2026-10-12-publicacao-midia-agendamento.md`. Tarefas 1 a 6
@@ -332,20 +343,21 @@ existente — diretriz, não tarefa isolada).
 
 ## FUTURO - Rebranding Auto Orbital
 
-Decisão aprovada em 2026-10-13: a marca futura do produto será **Auto Orbital**. Implementação ainda pendente. Ver `docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md`.
+Decisão aprovada em 2026-10-13: a marca do produto é **Auto Orbital**. Implementação parcial entregue em 2026-10-14 (versão 2.4.0). Ver `docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md`.
 
 - [ ] Fase A - Baseline.
-- [ ] Fase B - Brand Tokens.
+- [x] Fase B - Brand Tokens (2.4.0).
 - [ ] Fase C - Foundation.
-- [ ] Fase D - Brand Assets.
-- [ ] Fase E - App Shell.
+- [x] Fase D - Brand Assets: logos, favicon, manifest e service worker (2.4.0).
+- [ ] Fase E - App Shell. Feito em 2.4.0: login, rail e textos visíveis; falta migrar as telas em grupos.
 - [ ] Fase F - Core Screens: dashboard, products, posts, lists.
 - [ ] Fase G - Support Screens: credentials, profiles, settings, notifications, modals.
-- [ ] Fase H - Brand Text.
+- [ ] Fase H - Brand Text. Feito em 2.4.0: textos visíveis; falta auditoria final do nome antigo.
 - [ ] Fase I - Internal Renaming somente se aprovado.
 - [ ] Fase J - QA Visual desktop/tablet/mobile/a11y.
 - [ ] Fase K - Testes: typecheck/lint/build/tests.
 - [ ] Fase L - Auditoria Final: nome antigo, hardcoded colors, assets, metadata e compatibilidade.
+- Pendente (decisão do usuário): renome de identificadores internos (Fase I).
 
 ## FUTURO (em breve) — Carregamento em esqueleto (skeleton loading) das telas
 

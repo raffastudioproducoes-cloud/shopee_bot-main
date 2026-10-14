@@ -55,7 +55,12 @@ Banco: **Supabase** (Postgres gerenciado).
 > (`LEGACY_PANEL_ENABLED=false`) e o painel principal é o React (`frontend/`). Ver
 > [Roadmap da migração](#roadmap-da-migração).
 
-**Versão atual**: 2.3.0 (arquivo `VERSION`). As mudanças da branch de integração
+**Versão atual**: 2.4.0 (arquivo `VERSION`). A 2.4.0 (2026-10-14) traz a identidade AUTO ORBITAL
+(paleta, logos, favicon, PWA instalável, nome visível), Ajuda/FAQ e Termos/Privacidade
+reescritos (revisão jurídica pendente) e os callbacks públicos da Meta/Threads (desautorizar,
+exclusão de dados e status). O app Meta segue em modo desenvolvimento: só testadores conectam;
+publicar para clientes exige verificação da empresa e análise do app. X desativado até plano
+pago; TikTok foto é melhoria futura. As mudanças da branch de integração
 (multi-perfil completo, endurecimento de segurança e CI) estão em `CHANGELOG.md` na
 seção "Não lançado" e só viram versão no merge para `main`.
 

@@ -91,9 +91,23 @@ Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via
   `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`; a implementação
   está registrada na atualização de 2026-10-12 abaixo.
 
+## Atualização 2026-10-14 — versão 2.4.0 (identidade AUTO ORBITAL, páginas legais e callbacks Meta)
+
+- Identidade **AUTO ORBITAL** aplicada ao app: paleta e grafites nos tokens de cor, logos,
+  favicon, PWA instalável (manifest e service worker) e nome visível trocado. Layout e fonte
+  Mona Sans preservados.
+- Páginas de Ajuda/FAQ e Termos/Política de Privacidade reescritas; âncora
+  `#exclusao-de-dados`. Revisão jurídica ainda necessária.
+- Callbacks públicos da Meta/Threads implementados: desautorizar, exclusão de dados e status.
+- App Meta em modo desenvolvimento: só testadores conectam. Threads: convite pendente para
+  @rotadesconto. Facebook/Instagram: falta adicionar a conta de teste como Testador. Para
+  clientes reais é preciso publicar o app (verificação da empresa e análise do app).
+- URLs de privacidade, termos e exclusão de dados corrigidas no painel da Meta.
+- X desativado até haver plano pago. TikTok: foto fica como melhoria futura.
+
 ## Atualização 2026-10-12 — publicação de mídia e agendamento (publicado em `staging` e `main`)
 
-Estado: versão **2.3.0**; `staging` e `main` publicados em 2026-10-12/13; migrações 046, 047 e 048
+Estado: versão **2.4.0** (entrega 2.3.0 de mídia e agendamento descrita abaixo); `staging` e `main` publicados em 2026-10-12/13; migrações 046, 047 e 048
 aplicadas no Supabase. Testes reais em staging feitos em 2026-10-13 (ver atualização abaixo).
 
 - **Capacidades reais por rede** (`api/network_limits.py`, espelhado em

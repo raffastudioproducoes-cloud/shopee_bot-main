@@ -114,3 +114,7 @@ produto ainda não registrada no código nem no vault consultado.
 ## Atualização 2026-10-13 - decisão de marca futura
 
 Decisão aprovada em 2026-10-13: a marca futura do produto será **Auto Orbital**. Implementação ainda pendente. A fonte ativa verificada segue sendo **Mona Sans** e a recomendação do plano é preservá-la. Ver `docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md`.
+
+## Atualização 2026-10-14 - identidade AUTO ORBITAL aplicada (versão 2.4.0)
+
+A identidade **AUTO ORBITAL** foi aplicada ao app: paleta e grafites nos tokens de cor, logos, favicon, PWA instalável (manifest e service worker) e nome visível trocado. Layout e fonte **Mona Sans** foram preservados. Telas ainda não migradas em grupos seguem pendentes; ver checklist em `docs/TASK.md`.
