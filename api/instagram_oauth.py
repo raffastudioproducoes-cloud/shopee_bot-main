@@ -37,6 +37,8 @@ import httpx
 
 from apis.meta_version import GRAPH_URL, GRAPH_VERSION
 
+from . import meta_pages
+
 logger = logging.getLogger("uvicorn.error")
 
 API_URL = GRAPH_URL
@@ -136,6 +138,12 @@ async def get_ig_user_id(user_access_token: str) -> str:
         )
     pages = res.json().get("data", [])
     for page in pages:
+        ig_account = page.get("instagram_business_account")
+        if ig_account and ig_account.get("id"):
+            return ig_account["id"]
+    for page in await meta_pages.fetch_granted_pages(
+        user_access_token, "id,name,instagram_business_account", APP_ID, SECRET
+    ):
         ig_account = page.get("instagram_business_account")
         if ig_account and ig_account.get("id"):
             return ig_account["id"]

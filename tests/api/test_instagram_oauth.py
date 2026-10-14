@@ -267,3 +267,45 @@ def test_instagram_callback_requires_auth():
         "/credentials/instagram/callback", params={"code": "x"}
     )
     assert res.status_code == 401
+
+
+# --- fallback debug_token para get_ig_user_id ---
+
+
+def _ig_fake(monkeypatch, routes, calls):
+    from _graph_fakes import _install_graph_fake
+
+    _install_graph_fake(monkeypatch, instagram_oauth, routes, calls)
+
+
+def test_get_ig_user_id_falls_back_to_debug_token_when_me_accounts_empty(monkeypatch):
+    import asyncio
+
+    from _graph_fakes import _Resp, _debug_resp
+
+    calls = []
+    routes = {
+        "/me/accounts": _Resp({"data": []}),
+        "/debug_token": _debug_resp(("pages_show_list", ["11", "22"])),
+        "/11": _Resp({"id": "11", "name": "A"}),
+        "/22": _Resp({"id": "22", "name": "B", "instagram_business_account": {"id": "ig9"}}),
+    }
+    _ig_fake(monkeypatch, routes, calls)
+
+    assert asyncio.run(instagram_oauth.get_ig_user_id("user-tok")) == "ig9"
+    page = next(c for c in calls if c[0].endswith("/22"))
+    assert page[1]["headers"]["Authorization"] == "Bearer user-tok"
+    assert page[1]["params"]["fields"] == "id,name,instagram_business_account"
+
+
+def test_get_ig_user_id_fallback_failure_keeps_friendly_error(monkeypatch):
+    import asyncio
+
+    import httpx
+
+    from _graph_fakes import _Resp
+
+    routes = {"/me/accounts": _Resp({"data": []}), "/debug_token": httpx.ReadTimeout("t")}
+    _ig_fake(monkeypatch, routes, [])
+    with pytest.raises(instagram_oauth.InstagramOAuthError, match="Nenhuma Página"):
+        asyncio.run(instagram_oauth.get_ig_user_id("user-tok"))
