@@ -332,3 +332,7 @@ validacao em staging continuam pendentes da promocao/deploy deste conjunto.
 - Vault Obsidian: `02-Arquitetura-e-Tecnologias.md`, `arquiteturas.md`,
   `07-Diagrama-de-Arquitetura.md`, `19-ADR-Scheduler-In-Process.md`,
   `27-Migracao-App-Unico-OAuth.md`, `26-Deploy-Render.md`
+
+## Preparação para escala (Fase 3)
+
+Esta fase adiciona mascaramento de DSN e tokens em logs/erros, advisory lock nas migrações, `X-Request-ID` com contexto de log e `/health/ready` com verificação curta do banco. Ficam para depois fila/idempotência de publicação, Redis, alteração de workers/instâncias e migrações de esquema.

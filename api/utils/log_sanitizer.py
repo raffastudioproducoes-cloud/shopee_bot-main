@@ -69,6 +69,7 @@ _KEY_VALUE_RE = re.compile(
     \s*[:=]\s*)(["']?)([^"',}\s]+)\2""",
     re.VERBOSE,
 )
+_POSTGRES_DSN_RE = re.compile(r"(postgres(?:ql)?://[^:/@]+:)(.*)(@[^/\s]+(?:/[^\s?]*)?(?:\?[^\s]*)?)", re.IGNORECASE)
 
 
 def _normalize_key(key: str) -> str:
@@ -93,6 +94,7 @@ def _is_sensitive_key(key: str) -> bool:
 
 
 def _sanitize_string(value: str) -> str:
+    value = _POSTGRES_DSN_RE.sub(r"\1***REDACTED***\3", value)
     value = _BEARER_RE.sub(f"Bearer {_MASK}", value)
     value = _BASIC_RE.sub(f"Basic {_MASK}", value)
     value = _KEY_VALUE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{_MASK}{m.group(2)}", value)

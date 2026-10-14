@@ -1,4 +1,5 @@
 import os
+import time
 from psycopg import Connection, Error, connect
 from pathlib import Path
 from shopee_bot.clogging import logger
@@ -11,6 +12,9 @@ USER = os.environ.get("SHOPEE_PG_USER")
 PASSWORD = os.environ.get("SHOPEE_PG_PASSWORD")
 SSLMODE = os.environ.get("SHOPEE_PG_SSLMODE")
 MIGRATIONS_DIR = Path(f"{os.getcwd()}/database/migrations/")
+MIGRATION_LOCK_KEY = 4815162342  # chave estável compartilhada entre workers
+MIGRATION_LOCK_TIMEOUT_SECONDS = 60
+MIGRATION_LOCK_RETRY_SECONDS = 1
 
 def _dsn() -> str:
     from urllib.parse import quote_plus
@@ -64,17 +68,41 @@ def _apply_migration(conn: Connection, migration_file):
 def run_migrations():
     try:
         with connect(_dsn()) as conn:
-            applied_migrations = _get_applied_migrations(conn)
-            migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
-
-            for migration_file in migration_files:
-                if migration_file.name not in applied_migrations:
-                    logger.info(f"Aplicando migração: {migration_file.name}")
-                    _apply_migration(conn, migration_file)
-                else:
-                    logger.info(
-                        f"Migração {migration_file.name} já aplicada, ignorando."
-                    )
+            locked = False
+            try:
+                deadline = time.monotonic() + MIGRATION_LOCK_TIMEOUT_SECONDS
+                while time.monotonic() < deadline:
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT pg_try_advisory_lock(%s);", (MIGRATION_LOCK_KEY,))
+                        locked = bool(cur.fetchone()[0])
+                    conn.commit()
+                    if locked:
+                        break
+                    time.sleep(MIGRATION_LOCK_RETRY_SECONDS)
+                if not locked:
+                    conn.rollback()
+                    raise RuntimeError("Tempo esgotado ao obter lock exclusivo das migrações")
+            except Exception as err:
+                conn.rollback()
+                logger.error("Falha ao obter lock exclusivo das migrações: %s", err)
+                raise
+            try:
+                applied_migrations = _get_applied_migrations(conn)
+                migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
+                for migration_file in migration_files:
+                    if migration_file.name not in applied_migrations:
+                        logger.info(f"Aplicando migração: {migration_file.name}")
+                        _apply_migration(conn, migration_file)
+                    else:
+                        logger.info(f"Migração {migration_file.name} já aplicada, ignorando.")
+            finally:
+                if locked:
+                    try:
+                        with conn.cursor() as cur:
+                            cur.execute("SELECT pg_advisory_unlock(%s);", (MIGRATION_LOCK_KEY,))
+                        conn.commit()
+                    except Exception:
+                        logger.warning("Não foi possível liberar advisory lock das migrações")
     except Error as err:
         logger.error(f"Erro na conexão com o banco de dados: {err}")
         raise

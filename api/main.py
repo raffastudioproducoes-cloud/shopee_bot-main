@@ -5,20 +5,23 @@ Consome Supabase existente. Coexiste com Flask durante a migração.
 
 import asyncio
 import logging
+import time
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 
 from .config import settings
-from .database import init_db
-from .middleware import RequestLoggingMiddleware
+from .database import get_supabase, init_db
+from .middleware import RequestIDMiddleware, RequestLoggingMiddleware
 from .routers.posts import cleanup_expired_media_drafts
 
-for noisy_logger in ("httpx", "httpcore"):
+for noisy_logger in ("httpx", "httpcore", "urllib3"):
     logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
 logger = logging.getLogger("uvicorn.error")
+_ready_cache = (0.0, False)
 from .routers import (
     auth_router,
     catalog_router,
@@ -47,8 +50,10 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
 
+app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
 # Routers
@@ -86,6 +91,21 @@ async def _cleanup_media_drafts_periodically() -> None:
 # Health check
 @app.get("/health")
 async def health():
+    return {"status": "ok"}
+
+@app.get("/health/ready")
+async def health_ready():
+    global _ready_cache
+    cached_at, cached_ok = _ready_cache
+    if time.monotonic() - cached_at < 3:
+        return {"status": "ok"} if cached_ok else JSONResponse({"status": "not_ready"}, status_code=503)
+    try:
+        await asyncio.wait_for(run_in_threadpool(lambda: get_supabase().table("users").select("id").limit(1).execute()), 1.0)
+        _ready_cache = (time.monotonic(), True)
+    except Exception as exc:
+        _ready_cache = (time.monotonic(), False)
+        logger.warning("Health check do banco falhou (%s)", type(exc).__name__)
+        return JSONResponse({"status": "not_ready"}, status_code=503)
     return {"status": "ok"}
 
 
