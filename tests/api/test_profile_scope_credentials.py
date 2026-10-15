@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
-from api.routers import credentials as credentials_module
+from api.routers import credentials as credentials_module, users as users_module
 from api.routers.auth import get_current_user_id
 
 
@@ -24,6 +24,7 @@ def _db(fake_db, monkeypatch, access="USER"):
         "credential_checks": [],
     })
     monkeypatch.setattr(credentials_module, "supabase", db)
+    monkeypatch.setattr(users_module, "supabase", db)
     return db
 
 
@@ -54,7 +55,7 @@ def test_save_writes_profile_id_and_does_not_touch_other_profile(
     b = client_factory()
     b.cookies.update(profile_cookie("profile-b"))
 
-    res = b.put("/credentials/threads", json={"t_user_id": "9", "access_token": "tok-b"})
+    res = b.put("/admin/credentials/threads", json={"t_user_id": "9", "access_token": "tok-b"})
 
     assert res.status_code == 200
     rows = db.tables["threads_credentials"]
@@ -70,7 +71,7 @@ def test_regular_user_cannot_save_a_manual_threads_override(
     client = client_factory()
     client.cookies.update(profile_cookie("profile-b"))
 
-    response = client.put("/credentials/threads", json={"t_user_id": "9", "access_token": "tok-b"})
+    response = client.put("/admin/credentials/threads", json={"t_user_id": "9", "access_token": "tok-b"})
 
     assert response.status_code == 403
     assert len(db.tables["threads_credentials"]) == 1

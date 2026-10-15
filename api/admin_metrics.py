@@ -198,10 +198,27 @@ def parse_render_metric(payload: list[dict]) -> ResourceMetric | None:
     return ResourceMetric(value=points[ordered[-1]], unit=next(iter(units)), timestamp=ordered[-1], values=[points[t] for t in ordered], timestamps=ordered)
 
 
+# Métricas Render sempre do serviço de PRODUÇÃO (shopee-bot), inclusive quando
+# o painel roda no staging. Ids de serviço não são segredos.
+RENDER_PRODUCTION_SERVICE_ID = "srv-da6vrla6iojc7380a13g"
+RENDER_STAGING_SERVICE_ID = "srv-daukgs17lnhs738tpl50"
+
+
+def _render_service_id() -> str:
+    configured = os.getenv("RENDER_ADMIN_SERVICE_ID", "").strip()
+    if not configured or configured == RENDER_STAGING_SERVICE_ID:
+        return RENDER_PRODUCTION_SERVICE_ID
+    return configured
+
+
+def _render_token() -> str:
+    return (os.getenv("RENDER_METRICS_API_KEY") or os.getenv("RENDER_API_KEY") or "").strip()
+
+
 async def _render_snapshot() -> RenderMetrics:
-    token = os.getenv("RENDER_METRICS_API_KEY", "").strip()
-    resource = os.getenv("RENDER_SERVICE_ID", "").strip()
-    if not token or not resource:
+    token = _render_token()
+    resource = _render_service_id()
+    if not token:
         return RenderMetrics(status="not_configured")
     end = datetime.now(timezone.utc)
     params = {"resource": resource, "resolutionSeconds": 3600, "startTime": (end - timedelta(hours=24)).isoformat(), "endTime": end.isoformat()}

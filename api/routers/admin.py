@@ -12,6 +12,17 @@ router.add_api_route("/users", users.create_user, methods=["POST"], status_code=
 router.add_api_route("/users/{user_id}", users.get_user, methods=["GET"])
 router.add_api_route("/users/{user_id}", users.update_user, methods=["PUT"])
 router.add_api_route("/users/{user_id}", users.delete_user, methods=["DELETE"])
+# Overrides manuais de credenciais (token já emitido): só ADMIN, reutilizando
+# os handlers de credentials (sem rota equivalente em /credentials).
+router.add_api_route("/credentials/threads", credentials.save_threads_credential, methods=["PUT"])
+for _network, _handler in (
+    ("x", credentials.save_x_credential_manual),
+    ("facebook", credentials.save_facebook_credential_manual),
+    ("tiktok", credentials.save_tiktok_credential_manual),
+    ("instagram", credentials.save_instagram_credential_manual),
+    ("kwai", credentials.save_kwai_credential_manual),
+):
+    router.add_api_route(f"/credentials/{_network}/manual", _handler, methods=["PUT"])
 router.add_api_route("/logs", logs.list_logs, methods=["GET"], response_model=AdminLogsResponse)
 
 

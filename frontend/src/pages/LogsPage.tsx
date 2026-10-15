@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
-import { useAuthStore } from "../stores/authStore"
 import { logsApi } from "../api/logs"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
@@ -15,7 +14,6 @@ const TABLE_MAX_HEIGHT = 500
 const STICKY_TH = { padding: "10px 16px", position: "sticky", top: 0, zIndex: 1, background: "var(--surface-card)", boxShadow: "inset 0 -1px 0 var(--border-hairline)" } as const
 
 export default function LogsPage() {
-  const { user } = useAuthStore()
   const [offset, setOffset] = useState(0)
   const [statusCode, setStatusCode] = useState("")
 
@@ -27,16 +25,7 @@ export default function LogsPage() {
         offset,
         status_code: statusCode ? Number(statusCode) : undefined,
       }),
-    enabled: user?.access === "ADMIN",
   })
-
-  if (user?.access !== "ADMIN") {
-    return (
-      <div style={{ textAlign: "center", padding: "48px 0", color: "var(--text-muted)" }}>
-        Você não tem acesso a esta página.
-      </div>
-    )
-  }
 
   const rows = data?.data ?? []
   const total = data?.total ?? 0

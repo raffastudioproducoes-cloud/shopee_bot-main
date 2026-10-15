@@ -16,7 +16,8 @@ from api.routers.auth import get_current_user_id
 def isolated(monkeypatch):
     app.dependency_overrides.clear()
     monkeypatch.delenv("RENDER_METRICS_API_KEY", raising=False)
-    monkeypatch.delenv("RENDER_SERVICE_ID", raising=False)
+    monkeypatch.delenv("RENDER_API_KEY", raising=False)
+    monkeypatch.delenv("RENDER_ADMIN_SERVICE_ID", raising=False)
     yield
     app.dependency_overrides.clear()
 
@@ -91,7 +92,7 @@ def test_render_configured_transport_is_bounded_and_private(monkeypatch, memory_
             return httpx.Response(memory_status, text="synthetic-test-token")
         return httpx.Response(200, json=[{"unit": "CPU", "labels": [{"value": "private-service-id"}], "values": [{"timestamp": "2026-10-15T05:00:00Z", "value": 0.5}]}])
     monkeypatch.setenv("RENDER_METRICS_API_KEY", " synthetic-test-token \n")
-    monkeypatch.setenv("RENDER_SERVICE_ID", " private-service-id \n")
+    monkeypatch.setenv("RENDER_ADMIN_SERVICE_ID", " private-service-id \n")
     monkeypatch.setattr(admin_metrics.httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handler), **kwargs))
     result = asyncio.run(admin_metrics._render_snapshot())
     assert result.status == expected
@@ -165,3 +166,50 @@ def test_failure_log_has_safe_type_and_status_only(caplog):
 
     assert _safe_error(Boom("password=segredo")) == "Boom status=503"
     assert "segredo" not in _safe_error(RuntimeError("password=segredo"))
+
+
+def _capture_render(monkeypatch):
+    from api import admin_metrics
+    real_client = httpx.AsyncClient
+    seen = []
+    def handler(request):
+        seen.append(request)
+        return httpx.Response(200, json=[{"unit": "CPU", "values": [{"timestamp": "2026-10-15T05:00:00Z", "value": 0.5}]}])
+    monkeypatch.setattr(admin_metrics.httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+    return admin_metrics, seen
+
+
+def test_render_defaults_to_production_service(monkeypatch):
+    monkeypatch.setenv("RENDER_METRICS_API_KEY", "t")
+    admin_metrics, seen = _capture_render(monkeypatch)
+    assert asyncio.run(admin_metrics._render_snapshot()).status == "available"
+    assert {r.url.params["resource"] for r in seen} == {"srv-da6vrla6iojc7380a13g"}
+
+
+def test_render_ignores_staging_service_id(monkeypatch):
+    monkeypatch.setenv("RENDER_METRICS_API_KEY", "t")
+    monkeypatch.setenv("RENDER_ADMIN_SERVICE_ID", "srv-daukgs17lnhs738tpl50")
+    admin_metrics, seen = _capture_render(monkeypatch)
+    asyncio.run(admin_metrics._render_snapshot())
+    assert {r.url.params["resource"] for r in seen} == {"srv-da6vrla6iojc7380a13g"}
+
+
+def test_render_accepts_alternative_token_name(monkeypatch):
+    monkeypatch.setenv("RENDER_API_KEY", "alt-token")
+    admin_metrics, seen = _capture_render(monkeypatch)
+    asyncio.run(admin_metrics._render_snapshot())
+    assert seen and all(r.headers["Authorization"] == "Bearer alt-token" for r in seen)
+
+
+def test_render_without_token_is_not_configured_without_calls(monkeypatch):
+    admin_metrics, seen = _capture_render(monkeypatch)
+    result = asyncio.run(admin_metrics._render_snapshot())
+    assert result.status == "not_configured" and result.cpu is None and not seen
+
+
+def test_missing_snapshot_function_is_unavailable_not_zero(monkeypatch):
+    db = fake_client(monkeypatch)
+    db.rpc.return_value.execute.side_effect = RuntimeError("function admin_metrics_snapshot does not exist")
+    body = TestClient(app).get("/admin/metrics").json()
+    assert body["supabase"]["status"] == "unavailable"
+    assert body["supabase"]["database_bytes"] is None and body["counts"] is None and body["daily"] == []

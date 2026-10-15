@@ -8,6 +8,7 @@ import { TextInput } from '../components/ui/TextInput'
 import { Modal } from '../components/ui/Modal'
 import { Icon } from '../components/ui/Icon'
 import { AppFooter } from '../components/layout/AppFooter'
+import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
 
 // Split-screen responsivo: sem breakpoint padrão no projeto (nenhum @media existente
 // em frontend/src), então define-se aqui. 768px = ponto de quebra usado no restante
@@ -66,8 +67,9 @@ export default function LoginPage() {
     try {
       await authApi.login(username, password)
       const user = await authApi.me()
+      clearAdminVisitingSite()
       login('', user)
-      navigate({ to: '/' })
+      navigate({ to: user.access === 'ADMIN' ? '/admin/overview' : '/' })
     } catch (err: unknown) {
       if (err instanceof Error && 'status' in err) {
         const apiError = err as { status: number; message: string }

@@ -7,6 +7,7 @@ import { Icon } from '../components/ui/Icon'
 import { Panel } from '../components/ui/Panel'
 import { Badge } from '../components/ui/Badge'
 import { PageSkeleton } from '../components/ui/Skeleton'
+import { setAdminVisitingSite } from '../lib/adminSiteFlag'
 import '../styles/admin.css'
 
 const sections = [
@@ -61,6 +62,7 @@ export function AdminLayout() {
             )
           })}
         </nav>
+        <Link to="/" className="admin-menu-link" onClick={setAdminVisitingSite} title="Ir para o site de cliente"><Icon name="house" size={16} /><span>Ir para o site</span></Link>
         <div className="admin-account">
           <span className="admin-account-icon"><Icon name="user" size={16} /></span>
           <span><strong>{user?.username}</strong><small>Administrador</small></span>

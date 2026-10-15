@@ -38,5 +38,5 @@ test('admin coloca navegação no topo e mantém coluna de apoio com links acess
   assert.equal(links.find(node => node.props.to === '/admin/users').props['aria-current'], 'page')
   assert.ok(rendered.some(node => node.type === 'aside'))
   assert.equal(rendered.filter(node => node.type === 'nav').length, 1, 'somente o menu superior deve navegar entre seções')
-  assert.ok(rendered.filter(node => node.type === 'Link').every(node => node.props.to.startsWith('/admin')), 'navegação do admin não deve incluir funções comuns')
+  assert.ok(rendered.filter(node => node.type === 'Link' && node.props.to !== '/').every(node => node.props.to.startsWith('/admin')), 'navegação do admin não deve incluir funções comuns (exceto o link "Ir para o site")')
 })

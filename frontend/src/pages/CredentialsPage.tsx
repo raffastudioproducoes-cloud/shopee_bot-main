@@ -25,8 +25,7 @@ import { isNetworkDisabled } from "../lib/networkLimits"
 // X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
 // FacebookCredentialCard — mesmo padrão de TikTok/Instagram) porque usam
 // OAuth authorize/callback, não app_id/secret por formulário. Kwai também
-// saiu do mapeamento: renderizado à parte, por último, com aviso "em breve"
-// pra usuário não-admin (ver comingSoonForNonAdmin em SimpleCredentialCard).
+// saiu do mapeamento: renderizado à parte, por último, com aviso "em breve".
 const SIMPLE_NETWORKS: { key: SimpleNetwork; label: string }[] = [
   { key: "shopee", label: "Shopee" },
 ]
@@ -162,7 +161,7 @@ function ConnectionStatus({ status }: { status: CredentialStatusWithLight }) {
       {testing ? (
         <Icon name="loader-2" size={14} className="animate-spin" style={{ color: "var(--amber-300)", flexShrink: 0 }} />
       ) : (
-        <ConnectionLight state={status.light} title={status.check_message ?? undefined} />
+        <ConnectionLight state={status.light} />
       )}
       <span role="status" aria-live="polite" style={{ display: "inline-flex" }}>
         <StatusBadge

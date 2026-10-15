@@ -6,7 +6,14 @@
 
 1. Revisar e aplicar `docs/migrations-pendentes/051_admin_metrics_snapshot.sql` (fora de database/migrations/ de propósito, para não ser aplicada no boot; só mover após autorização, pelo processo de migrações do projeto). A função é invoker, com execução restrita a `service_role`. A instalação, reaplicação e remoção foram testadas apenas em PostgreSQL descartável local; não houve DDL ou alteração de dados no banco real.
 2. Usar as variáveis de conexão Supabase já existentes no backend. Não enviar chaves ao frontend.
-3. Configurar `RENDER_METRICS_API_KEY` somente no servidor, com uma chave autorizada a consultar o serviço, e `RENDER_SERVICE_ID` com o serviço a monitorar. Não usar credenciais dos plugins no aplicativo. O serviço de referência confirmado pelo responsável é `shopee-bot` de produção; `shopee-bot-staging` é outro ambiente.
+3. Configurar as variáveis Render abaixo somente no servidor (nunca no frontend). Não usar credenciais dos plugins no aplicativo.
+
+   | Variável | Onde | Descrição |
+   |---|---|---|
+   | `RENDER_METRICS_API_KEY` (ou `RENDER_API_KEY`) | Render de produção **e** de staging | Chave da API do Render com acesso de leitura às métricas. Sem ela, `render.status` = `not_configured` (sem zeros falsos). |
+   | `RENDER_ADMIN_SERVICE_ID` | opcional | Default `srv-da6vrla6iojc7380a13g` (`shopee-bot` produção). O id do staging (`srv-daukgs17lnhs738tpl50`) é ignorado e substituído pelo de produção. `RENDER_SERVICE_ID` legado não é mais lido. |
+
+   O painel de staging lê o mesmo Supabase (RPC `admin_metrics_snapshot` via `service_role` já configurado no backend) e as métricas Render de **produção**. Se a migração 051 não estiver aplicada ou a RPC falhar, `supabase.status` = `unavailable` e `counts` = `null`, nunca zeros.
 4. Validar com uma conta ADMIN e uma USER: a segunda deve receber 403 antes de consultar qualquer provedor.
 
 O endpoint coleta CPU, memória, limites de CPU/memória e tráfego do Render em 24 horas, resolução de uma hora. Mostra o horário de cada amostra; métricas ausentes ficam indisponíveis. O painel consulta a cada minuto. A conexão autorizada dos plugins do Codex serve para inspeção e não configura automaticamente as credenciais do backend.

@@ -11,7 +11,8 @@ ROUTES = [
     ("GET", "/admin/users"), ("POST", "/admin/users"),
     ("GET", "/admin/users/other"), ("PUT", "/admin/users/other"),
     ("DELETE", "/admin/users/other"), ("GET", "/admin/logs"), ("GET", "/admin/credentials/status"),
-]
+    ("PUT", "/admin/credentials/threads"), ("PUT", "/admin/credentials/kwai/manual"),
+] + [("PUT", f"/admin/credentials/{n}/manual") for n in ("x", "facebook", "tiktok", "instagram")]
 
 
 @pytest.fixture(autouse=True)
