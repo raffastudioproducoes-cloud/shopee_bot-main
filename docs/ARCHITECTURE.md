@@ -343,6 +343,14 @@ A migracao `045_share_account_catalog_credentials.sql` esta pronta no branch `st
 antes de escrever se encontrar dados compartilhados divergentes. Sua aplicacao no Supabase e a
 validacao em staging continuam pendentes da promocao/deploy deste conjunto.
 
+## Painel admin e globo (2.6.0)
+
+- Frontend: rotas `/admin/*` (TanStack Router, guarda `requireAdmin`), componentes em `frontend/src/components/admin/` (`MetricTrend`, `ScaleMetrics`, `LocationGlobe`, `globeGeometry`, `globeLand.json` com Natural Earth 110m, 5.032 pontos, sem tiles externos).
+- Backend: router `/admin` (`api/routers/admin.py`) protegido por `_require_admin`; métricas em `api/admin_metrics.py` (RPC `admin_metrics_snapshot` via service_role + Render de produção); projeções sem identidades em `api/admin_views.py`.
+- Globo: o modo real não tem pontos (localização não é coletada); a demonstração é opt-in e fictícia. Ver `docs/ADMIN-GLOBE.md` e `docs/ADMIN-FUTURE-COLLECTION.md`.
+- Fluxo: ADMIN entra em `/admin/overview`; "Ir para o site" marca flag em `sessionStorage` e "Painel admin" volta.
+- Migração 051 pendente em `docs/migrations-pendentes/`.
+
 ## Referências
 
 - `README.md`, `api/README.md`, `docs/ROADMAP_MIGRACAO.md`

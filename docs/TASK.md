@@ -5,6 +5,14 @@
 > marcada **Concluída** com evidência de código ou teste passando; senão fica **Bloqueada** ou
 > **Pendente**. Última verificação: 2026-10-11.
 
+## Entrega 2026-10-15 — versão 2.6.0 (em `staging`)
+
+- [x] Painel admin atualizado: globo de localização (somente demonstração), métricas de escala e capacidade, tendências, scrollbar temática.
+- [x] Separação cliente/admin: ADMIN abre `/admin/overview`; "Ir para o site" e "Painel admin"; overrides manuais em `/admin/credentials/*`; `GET /credentials` sem `check_message`.
+- [x] Métricas Render sempre do serviço de produção (`RENDER_ADMIN_SERVICE_ID`).
+- [ ] Métricas de usuários (origem, analytics, presença) e coleta de localização: em breve.
+- [ ] Rafa revisar e aplicar a migração 051 (`docs/migrations-pendentes/`).
+
 ## Entrega 2026-10-15 — versão 2.5.0 (em `staging`)
 
 - [x] Esqueleto de carregamento global revisado, splash HTML e `OrbitalLoader`.

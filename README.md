@@ -55,7 +55,7 @@ Banco: **Supabase** (Postgres gerenciado).
 > (`LEGACY_PANEL_ENABLED=false`) e o painel principal é o React (`frontend/`). Ver
 > [Roadmap da migração](#roadmap-da-migração).
 
-**Versão atual**: 2.5.0 (arquivo `VERSION`). A 2.5.0 (2026-10-15, em `staging`) adiciona o painel administrativo isolado em `/admin`, splash e loader orbital, esqueletos de carregamento globais e correções de segurança (replay de callbacks Meta, ownership de credenciais, CORS e validação de mídia); a migração 051 fica pendente em `docs/migrations-pendentes/`. A 2.4.0 (2026-10-14) traz a identidade AUTO ORBITAL
+**Versão atual**: 2.6.0 (arquivo `VERSION`). A 2.6.0 (2026-10-15, em `staging`) traz a versão nova do painel admin (globo 3D de localização em demonstração, métricas de escala/capacidade, tendências, scrollbar temática), a separação entre site de cliente e painel `/admin` (ADMIN entra direto no painel; botões "Ir para o site" e "Painel admin") e overrides manuais de credenciais movidos para `/admin/credentials`. A 2.5.0 (2026-10-15, em `staging`) adiciona o painel administrativo isolado em `/admin`, splash e loader orbital, esqueletos de carregamento globais e correções de segurança (replay de callbacks Meta, ownership de credenciais, CORS e validação de mídia); a migração 051 fica pendente em `docs/migrations-pendentes/`. A 2.4.0 (2026-10-14) traz a identidade AUTO ORBITAL
 (paleta, logos, favicon, PWA instalável, nome visível), Ajuda/FAQ e Termos/Privacidade
 reescritos (revisão jurídica pendente) e os callbacks públicos da Meta/Threads (desautorizar,
 exclusão de dados e status). O app Meta segue em modo desenvolvimento: só testadores conectam;
