@@ -28,7 +28,9 @@ logger = logging.getLogger("uvicorn.error")
 router = APIRouter(tags=["meta-callbacks"])
 
 _MAX_BODY_BYTES = 4096
-_SIGNED_REQUEST_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
+_SIGNED_REQUEST_MAX_AGE_SECONDS = 60 * 60
+_SIGNED_REQUEST_FUTURE_SKEW_SECONDS = 5 * 60
+_REPLAY_MAX_KEYS = 2048
 _INVALID_SIGNATURE_LIMIT = 20
 _INVALID_SIGNATURE_WINDOW_SECONDS = 15 * 60
 _STATUS_LIMIT = 120
@@ -68,6 +70,32 @@ _DELETE_UPDATES = {
 }
 
 _rate_attempts: dict[str, list[float]] = {}
+
+# ponytail: cache de replay em memoria de processo (TTL = janela de issued_at).
+# Com varios workers cada um tem o seu; o efeito colateral dos callbacks
+# (desconectar/limpar) e idempotente, entao o risco residual e so reprocessar
+# uma vez por worker. Upgrade: tabela no Postgres se precisar de garantia global.
+_replay_cache: dict[tuple, tuple[float, dict]] = {}
+
+
+def _recall_replay(key: tuple) -> dict | None:
+    entry = _replay_cache.get(key)
+    if not entry:
+        return None
+    if entry[0] < time.time():
+        del _replay_cache[key]
+        return None
+    return entry[1]
+
+
+def _remember_replay(key: tuple, response: dict) -> None:
+    now = time.time()
+    for old in [k for k, (exp, _) in _replay_cache.items() if exp < now]:
+        del _replay_cache[old]
+    while len(_replay_cache) >= _REPLAY_MAX_KEYS:
+        del _replay_cache[min(_replay_cache, key=lambda k: _replay_cache[k][0])]
+    ttl = _SIGNED_REQUEST_MAX_AGE_SECONDS + _SIGNED_REQUEST_FUTURE_SKEW_SECONDS
+    _replay_cache[key] = (now + ttl, response)
 
 
 def _check_memory_rate_limit(key: str, *, limit: int, window_seconds: int) -> None:
@@ -124,14 +152,13 @@ def _verify_signed_request(signed_request: str, secret: str | None) -> dict:
     if not isinstance(payload, dict) or str(payload.get("algorithm", "")).upper() != "HMAC-SHA256":
         raise HTTPException(status_code=400, detail="signed_request invalido")
 
-    issued_at = payload.get("issued_at")
-    if issued_at is not None:
-        try:
-            issued_at_value = float(issued_at)
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="signed_request invalido") from None
-        if time.time() - issued_at_value > _SIGNED_REQUEST_MAX_AGE_SECONDS:
-            raise HTTPException(status_code=400, detail="signed_request invalido")
+    try:
+        issued_at = float(payload.get("issued_at"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="signed_request invalido") from None
+    age = time.time() - issued_at
+    if age > _SIGNED_REQUEST_MAX_AGE_SECONDS or age < -_SIGNED_REQUEST_FUTURE_SKEW_SECONDS:
+        raise HTTPException(status_code=400, detail="signed_request invalido")
 
     expected = hmac.new(secret.encode("utf-8"), payload_b64.encode("utf-8"), hashlib.sha256).digest()
     if not hmac.compare_digest(signature, expected):
@@ -140,7 +167,7 @@ def _verify_signed_request(signed_request: str, secret: str | None) -> dict:
     user_id = payload.get("user_id")
     if not isinstance(user_id, str) or not user_id.strip():
         raise HTTPException(status_code=400, detail="signed_request invalido")
-    return {"user_id": user_id.strip()}
+    return {"user_id": user_id.strip(), "issued_at": issued_at}
 
 
 async def _signed_payload(request: Request, secret: str | None) -> dict:
@@ -305,13 +332,21 @@ def _complete_deletion_request(confirmation_code: str, status: str) -> None:
 
 async def _handle_disconnect(request: Request, *, secret: str | None, targets, event: str) -> dict:
     payload = await _signed_payload(request, secret)
+    replay_key = (event, payload["user_id"], payload["issued_at"])
+    if (cached := _recall_replay(replay_key)) is not None:
+        return cached
     affected = _disconnect_by_external_id(targets, payload["user_id"], delete_data=False, event=event)
     log_action(event, f"provider={event} matched={bool(affected)}")
-    return {"status": "received"}
+    response = {"status": "received"}
+    _remember_replay(replay_key, response)
+    return response
 
 
 async def _handle_delete(request: Request, *, secret: str | None, targets, provider: str, event: str) -> dict:
     payload = await _signed_payload(request, secret)
+    replay_key = (event, payload["user_id"], payload["issued_at"])
+    if (cached := _recall_replay(replay_key)) is not None:
+        return cached
     external_user_hash = _external_hash(provider, payload["user_id"])
     request_row = _begin_deletion_request(provider, external_user_hash)
     code = request_row["confirmation_code"]
@@ -320,7 +355,9 @@ async def _handle_delete(request: Request, *, secret: str | None, targets, provi
     status = "completed" if affected or request_row.get("_previous_status") == "completed" else "not_found"
     _complete_deletion_request(code, status)
     log_action(event, f"provider={provider} status={status}")
-    return {"url": _status_url(code), "confirmation_code": code}
+    response = {"url": _status_url(code), "confirmation_code": code}
+    _remember_replay(replay_key, response)
+    return response
 
 
 @router.post("/meta/deauthorize")

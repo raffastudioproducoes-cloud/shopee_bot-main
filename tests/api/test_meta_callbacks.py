@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import json
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -36,6 +37,7 @@ def db(fake_db, monkeypatch):
     monkeypatch.setattr(meta_callbacks.threads_oauth, "SECRET", "threads-secret")
     monkeypatch.setattr(settings, "frontend_url", "https://shopee-bot-fj0w.onrender.com")
     meta_callbacks._rate_attempts.clear()
+    meta_callbacks._replay_cache.clear()
     return database
 
 
@@ -49,8 +51,12 @@ def _signed(payload: dict, secret: str) -> str:
     return f"{_b64url(sig)}.{payload_b64}"
 
 
-def _payload(user_id="external-1"):
-    return {"algorithm": "HMAC-SHA256", "user_id": user_id}
+def _payload(user_id="external-1", issued_at=None):
+    return {
+        "algorithm": "HMAC-SHA256",
+        "user_id": user_id,
+        "issued_at": int(time.time()) if issued_at is None else issued_at,
+    }
 
 
 def _post(client, path, signed_request):
@@ -421,3 +427,92 @@ def test_large_body_is_rejected(client, db):
     )
 
     assert res.status_code == 413
+
+
+# ── F-01: replay de signed_request ───────────────────────────────────────────
+
+
+def _connected_instagram(**extra):
+    return {
+        "id": 1,
+        "user_id": "user-a",
+        "profile_id": "profile-a",
+        "fb_user_id": "fb-a",
+        "user_access_token": "tok-a",
+        "status": True,
+        **extra,
+    }
+
+
+def test_signed_request_without_issued_at_is_rejected(client, db):
+    db.tables["instagram_credentials"] = [_connected_instagram()]
+    payload = {"algorithm": "HMAC-SHA256", "user_id": "fb-a"}
+
+    res = _post(client, "/meta/deauthorize", _signed(payload, "meta-secret"))
+
+    assert res.status_code == 400
+    assert db.tables["instagram_credentials"][0]["status"] is True
+
+
+@pytest.mark.parametrize("offset", [-2 * 3600, 3600])
+def test_signed_request_outside_window_is_rejected(client, db, offset):
+    db.tables["instagram_credentials"] = [_connected_instagram()]
+    payload = _payload("fb-a", issued_at=int(time.time()) + offset)
+
+    res = _post(client, "/meta/deauthorize", _signed(payload, "meta-secret"))
+
+    assert res.status_code == 400
+    assert db.tables["instagram_credentials"][0]["status"] is True
+
+
+def test_replayed_deauthorize_is_idempotent_and_does_not_reprocess(client, db):
+    db.tables["instagram_credentials"] = [_connected_instagram()]
+    signed_request = _signed(_payload("fb-a"), "meta-secret")
+
+    first = _post(client, "/meta/deauthorize", signed_request)
+    assert db.tables["instagram_credentials"][0]["status"] is False
+    # usuario reconecta; o mesmo payload capturado nao pode desconectar de novo
+    db.tables["instagram_credentials"][0].update(status=True, user_access_token="new")
+    second = _post(client, "/meta/deauthorize", signed_request)
+
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json()
+    assert db.tables["instagram_credentials"][0]["status"] is True
+    assert db.tables["instagram_credentials"][0]["user_access_token"] == "new"
+
+
+def test_replayed_data_deletion_returns_same_code_without_reprocessing(client, db):
+    db.tables["instagram_credentials"] = [_connected_instagram()]
+    signed_request = _signed(_payload("fb-a"), "meta-secret")
+
+    first = _post(client, "/meta/data-deletion", signed_request)
+    db.tables["instagram_credentials"][0].update(fb_user_id="fb-a", status=True)
+    second = _post(client, "/meta/data-deletion", signed_request)
+
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json()
+    assert db.tables["instagram_credentials"][0]["status"] is True
+    assert len(db.tables["data_deletion_requests"]) == 1
+
+
+def test_new_signed_request_for_same_user_is_processed_again(client, db):
+    db.tables["instagram_credentials"] = [_connected_instagram()]
+    now = int(time.time())
+
+    _post(client, "/meta/deauthorize", _signed(_payload("fb-a", now - 10), "meta-secret"))
+    db.tables["instagram_credentials"][0].update(status=True)
+    res = _post(client, "/meta/deauthorize", _signed(_payload("fb-a", now), "meta-secret"))
+
+    assert res.status_code == 200
+    assert db.tables["instagram_credentials"][0]["status"] is False
+
+
+def test_replay_cache_expires_and_is_bounded(monkeypatch):
+    monkeypatch.setattr(meta_callbacks, "_REPLAY_MAX_KEYS", 2)
+    meta_callbacks._replay_cache.clear()
+    for i in range(3):
+        meta_callbacks._remember_replay(("e", f"u{i}", 1), {"i": i})
+    assert len(meta_callbacks._replay_cache) <= 2
+    future = time.time() + 10**6
+    monkeypatch.setattr(meta_callbacks.time, "time", lambda: future)
+    assert meta_callbacks._recall_replay(("e", "u2", 1)) is None
