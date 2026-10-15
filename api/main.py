@@ -14,11 +14,13 @@ from starlette.concurrency import run_in_threadpool
 
 from .config import settings
 from .database import get_supabase, init_db
-from .middleware import RequestIDMiddleware, RequestLoggingMiddleware
+from .middleware import AccessLogRedactor, RequestIDMiddleware, RequestLoggingMiddleware
 from .routers.posts import cleanup_expired_media_drafts
 
 for noisy_logger in ("httpx", "httpcore", "urllib3"):
     logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+
+logging.getLogger("uvicorn.access").addFilter(AccessLogRedactor())
 
 logger = logging.getLogger("uvicorn.error")
 _ready_cache = (0.0, False)

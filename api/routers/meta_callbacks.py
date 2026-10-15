@@ -14,7 +14,7 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import parse_qs
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 
 from .. import instagram_oauth, threads_oauth
 from ..audit_log import log_action
@@ -378,8 +378,11 @@ async def meta_data_deletion(request: Request):
 
 
 @router.get("/meta/data-deletion/status", name="data_deletion_status")
-async def data_deletion_status(request: Request, code: str):
+async def data_deletion_status(request: Request, response: Response, code: str):
     _check_status_rate_limit(request)
+    # O codigo viaja em query string: nada de cache nem Referer vazando a URL.
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
     row = (
         supabase.table("data_deletion_requests")
         .select("confirmation_code, provider, status, created_at, completed_at")

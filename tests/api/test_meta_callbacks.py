@@ -516,3 +516,55 @@ def test_replay_cache_expires_and_is_bounded(monkeypatch):
     future = time.time() + 10**6
     monkeypatch.setattr(meta_callbacks.time, "time", lambda: future)
     assert meta_callbacks._recall_replay(("e", "u2", 1)) is None
+
+
+# ── F-03: codigo de exclusao em query string ─────────────────────────────────
+
+
+def test_status_response_forbids_referrer_and_caching(client, db):
+    db.tables["data_deletion_requests"] = [
+        {"id": 1, "confirmation_code": "code-1", "provider": "meta", "status": "completed",
+         "created_at": "2026-10-13T00:00:00+00:00", "completed_at": None}
+    ]
+
+    res = client.get("/meta/data-deletion/status", params={"code": "code-1"})
+
+    assert res.headers["referrer-policy"] == "no-referrer"
+    assert "no-store" in res.headers["cache-control"]
+
+
+def test_every_response_sends_no_referrer(client):
+    assert client.get("/health").headers["referrer-policy"] == "no-referrer"
+
+
+def test_access_log_never_contains_confirmation_code():
+    import logging
+
+    from api.middleware import AccessLogRedactor
+
+    record = logging.LogRecord(
+        "uvicorn.access", logging.INFO, "", 0,
+        '%s - "%s %s HTTP/%s" %d',
+        ("127.0.0.1:1", "GET", "/meta/data-deletion/status?code=SEGREDO123&x=1", "1.1", 200), None,
+    )
+
+    assert AccessLogRedactor().filter(record) is True
+    assert "SEGREDO123" not in record.getMessage()
+    assert "/meta/data-deletion/status" in record.getMessage()
+
+
+def test_access_log_redactor_is_installed_on_uvicorn_access():
+    import logging
+
+    from api import main  # noqa: F401
+    from api.middleware import AccessLogRedactor
+
+    assert any(isinstance(f, AccessLogRedactor) for f in logging.getLogger("uvicorn.access").filters)
+
+
+def test_confirmation_code_is_opaque(client, db):
+    res = _post(client, "/meta/data-deletion", _signed(_payload("fb-user-a"), "meta-secret"))
+
+    code = res.json()["confirmation_code"]
+    assert len(code) >= 32
+    assert "fb-user-a" not in code and "fb-user-a" not in res.json()["url"]
