@@ -62,10 +62,12 @@ export function AdminLayout() {
             )
           })}
         </nav>
-        <Link to="/" className="admin-menu-link" onClick={setAdminVisitingSite} title="Ir para o site de cliente"><Icon name="house" size={16} /><span>Ir para o site</span></Link>
-        <div className="admin-account">
-          <span className="admin-account-icon"><Icon name="user" size={16} /></span>
-          <span><strong>{user?.username}</strong><small>Administrador</small></span>
+        <div className="admin-header-actions">
+          <Link to="/" className="admin-site-link" onClick={setAdminVisitingSite} aria-label="Ir para o site de cliente" title="Ir para o site de cliente"><Icon name="house" size={16} /></Link>
+          <div className="admin-account">
+            <span className="admin-account-icon"><Icon name="user" size={16} /></span>
+            <span><strong>{user?.username}</strong><small>Administrador</small></span>
+          </div>
         </div>
       </header>
 
