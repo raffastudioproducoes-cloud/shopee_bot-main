@@ -15,8 +15,8 @@ export default function AdminCredentialsPage() {
   const navigate = useNavigate()
   const logout = useAuthStore(state => state.logout)
   const { data: statuses, isLoading, error } = useQuery({
-    queryKey: ['credentials'],
-    queryFn: () => credentialsApi.list(),
+    queryKey: ['admin', 'credentials', 'status'],
+    queryFn: () => credentialsApi.listAdminStatus(),
     refetchInterval: query => Object.values(query.state.data ?? {}).some(status => status.state === 'testing') ? 1500 : false,
   })
   return (
@@ -34,7 +34,7 @@ export default function AdminCredentialsPage() {
       )}
       <AdminOverrides
         setBanner={value => setBanner(value?.ok ? { ok: true, text: 'Credencial salva. Acompanhe o resultado em “Resultado das conexões”.' } : value)}
-        onSaved={() => { void queryClient.invalidateQueries({ queryKey: ['credentials'] }) }}
+        onSaved={() => { void queryClient.invalidateQueries({ queryKey: ['admin', 'credentials', 'status'] }) }}
         onAuthError={error => {
           if (error instanceof ApiError && error.status === 401) {
             logout()

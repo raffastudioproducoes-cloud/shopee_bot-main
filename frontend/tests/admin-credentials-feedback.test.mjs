@@ -10,6 +10,7 @@ test('diagnóstico acompanha o resultado assíncrono das credenciais', () => {
   }).outputText
   const exports = {}
   let query
+  let statusCalls = 0
   const jsx = (type, props) => ({ type, props })
   runInNewContext(code, { exports, require(name) {
     if (name === 'react') return { useState: value => [value, () => {}] }
@@ -17,10 +18,14 @@ test('diagnóstico acompanha o resultado assíncrono das credenciais', () => {
     if (name === '@tanstack/react-query') return { useQueryClient: () => ({}), useQuery(options) { query = options; return { data: { threads: { state: 'testing', status_text: 'Verificando' } } } } }
     if (name === '@tanstack/react-router') return { useNavigate: () => () => {} }
     if (name === '../stores/authStore') return { useAuthStore: () => () => {} }
+    if (name === '../api/credentials') return { credentialsApi: { listAdminStatus() { statusCalls++ } } }
     return new Proxy({}, { get: (_, key) => key })
   } })
   exports.default()
   assert.ok(query, 'diagnóstico sem consulta ativa do resultado')
+  query.queryFn()
+  assert.equal(statusCalls, 1, 'admin deve usar a projeção sem diagnósticos livres')
+  assert.equal(query.queryKey.join('/'), 'admin/credentials/status')
   assert.equal(query.refetchInterval({ state: { data: { threads: { state: 'testing' } } } }), 1500)
   assert.equal(query.refetchInterval({ state: { data: { threads: { state: 'ok' } } } }), false)
 })

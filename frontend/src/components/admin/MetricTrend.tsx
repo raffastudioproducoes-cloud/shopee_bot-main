@@ -28,7 +28,7 @@ export function MetricTrend({ values, timestamps, label, start, end, compact = f
     <path d={geometry.area} fill={`url(#trend-${id})`} />
     <path d={geometry.line} className="admin-trend-line" fill="none" pathLength="1" />
     {values.length === 1 && <circle cx={geometry.points[0][0]} cy={geometry.points[0][1]} r="3" fill="var(--highlight)" />}
-    <text x="40" y="150">{start ?? (timestamps?.[0] ? new Date(timestamps[0]).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '')}</text><text x="480" y="150" textAnchor="end">{end ?? (timestamps?.length ? new Date(timestamps[timestamps.length - 1]).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '')}</text>
+    <text x="40" y="150">{start ?? (timestamps?.[0] ? new Date(timestamps[0]).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : '')}</text><text x="480" y="150" textAnchor="end">{end ?? (timestamps?.length ? new Date(timestamps[timestamps.length - 1]).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : '')}</text>
   </svg>
 }
 

@@ -1,17 +1,10 @@
 import { api } from '../lib/api'
 
 export interface LogEntry {
-  id: number
-  user_id: string | null
-  username: string | null
   method: string
   path: string
-  action: string | null
   status_code: number | null
   duration_ms: number | null
-  error: string | null
-  redirect_to: string | null
-  client_ip: string | null
   created_at: string
 }
 

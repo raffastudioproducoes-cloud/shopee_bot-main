@@ -85,12 +85,13 @@ def test_render_configured_transport_is_bounded_and_private(monkeypatch, memory_
         assert request.headers["Authorization"] == "Bearer synthetic-test-token"
         assert request.url.host == "api.render.com"
         assert request.url.params["resolutionSeconds"] == "3600"
+        assert request.url.params['resource'] == 'private-service-id'
         assert request.extensions["timeout"]["read"] == 4
         if request.url.path.endswith("memory") and memory_status != 200:
             return httpx.Response(memory_status, text="synthetic-test-token")
         return httpx.Response(200, json=[{"unit": "CPU", "labels": [{"value": "private-service-id"}], "values": [{"timestamp": "2026-10-15T05:00:00Z", "value": 0.5}]}])
-    monkeypatch.setenv("RENDER_METRICS_API_KEY", "synthetic-test-token")
-    monkeypatch.setenv("RENDER_SERVICE_ID", "private-service-id")
+    monkeypatch.setenv("RENDER_METRICS_API_KEY", " synthetic-test-token \n")
+    monkeypatch.setenv("RENDER_SERVICE_ID", " private-service-id \n")
     monkeypatch.setattr(admin_metrics.httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handler), **kwargs))
     result = asyncio.run(admin_metrics._render_snapshot())
     assert result.status == expected
@@ -104,12 +105,14 @@ def test_metrics_returns_only_aggregates_and_honest_availability(monkeypatch):
     data = snapshot()
     data["password"] = "never-expose-this"
     data["counts"]["user_id"] = "never-expose-this"
+    data['previous_period'] = dict(starts_on='2026-09-02', ends_on='2026-09-08', registrations=1, deletions=0, requests=50, errors=1, password='never-expose-this')
     db.rpc.return_value.execute.return_value = MagicMock(data=data)
     monkeypatch.setattr(settings, "request_logging_enabled", True)
     response = TestClient(app).get("/admin/metrics", params={"days": 7})
     assert response.status_code == 200
     body = response.json()
     assert body["counts"]["accounts"] == 7
+    assert body['previous_period']['requests'] == 50
     assert body["counts"]["active_accounts"] == 3
     assert body["supabase"]["database_bytes"] == 1048576
     assert body["render"]["status"] == "not_configured"
@@ -121,9 +124,20 @@ def test_metrics_returns_only_aggregates_and_honest_availability(monkeypatch):
 
 def test_disabled_logging_does_not_claim_users_are_online(monkeypatch):
     db = fake_client(monkeypatch)
-    db.rpc.return_value.execute.return_value = MagicMock(data=snapshot())
+    payload = snapshot()
+    payload['scale'] = {'server_errors': 2, 'rate_limited_requests': 1, 'p99_latency_ms': 12,
+        'engagement': {'active_week': 2, 'previous_week': 1, 'returning_week': 1},
+        'consumption': [{'plan': 'free', 'requests': 1, 'request_duration_ms': 2}]}
+    db.rpc.return_value.execute.return_value = MagicMock(data=payload)
     monkeypatch.setattr(settings, "request_logging_enabled", False)
-    assert TestClient(app).get("/admin/metrics").json()["counts"]["active_accounts"] is None
+    result = TestClient(app).get("/admin/metrics").json()
+    assert result["counts"]["active_accounts"] is None
+    assert result['scale']['engagement'] is None
+    assert result['scale']['consumption'] == []
+    assert result['scale']['server_errors'] is None
+    assert result['scale']['rate_limited_requests'] is None
+    assert result['scale']['p99_latency_ms'] is None
+    assert result['scale']['collected_at'].endswith('Z')
 
 
 def test_missing_migration_does_not_leak_error_or_return_fake_zeroes(monkeypatch):

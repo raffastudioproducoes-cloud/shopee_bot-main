@@ -11,12 +11,12 @@ test('admin coloca navegação no topo e mantém coluna de apoio com links acess
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText
   const exports = {}
-  let tooltipDismissed = false
-  let documentKeydown
-  const effects = []
+
+
+
   const jsx = (type, props) => ({ type, props })
-  runInNewContext(code, { exports, document: { addEventListener(event, handler) { documentKeydown = handler }, removeEventListener() {} }, require(name) {
-    if (name === 'react') return { useEffect: callback => effects.push(callback), useLayoutEffect() {}, useRef: () => ({ current: null }), useState: value => [value, next => { tooltipDismissed = next }] }
+  runInNewContext(code, { exports, require(name) {
+    if (name === 'react') return { useLayoutEffect() {}, useRef: () => ({ current: null }), useState: value => [value, () => {}] }
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx }
     if (name === '@tanstack/react-router') return { Link: 'Link', Outlet: 'Outlet', useLocation: () => ({ pathname: '/admin/users' }), useNavigate: () => () => {} }
     if (name === '@tanstack/react-query') return { useQuery: () => ({ data: { data: [] }, isLoading: false }) }
@@ -37,13 +37,6 @@ test('admin coloca navegação no topo e mantém coluna de apoio com links acess
   assert.ok(links.every(node => node.props['aria-label']))
   assert.equal(links.find(node => node.props.to === '/admin/users').props['aria-current'], 'page')
   assert.ok(rendered.some(node => node.type === 'aside'))
-  const dock = rendered.find(node => node.type === 'nav' && node.props['aria-label'] === 'Atalhos administrativos')
-  assert.ok(dock, 'dock de atalhos da referência ausente')
-  assert.equal(nodes(dock).filter(node => node.type === 'Link').length, 4)
+  assert.equal(rendered.filter(node => node.type === 'nav').length, 1, 'somente o menu superior deve navegar entre seções')
   assert.ok(rendered.filter(node => node.type === 'Link').every(node => node.props.to.startsWith('/admin')), 'navegação do admin não deve incluir funções comuns')
-  effects.forEach(effect => effect())
-  assert.equal(typeof documentKeydown, 'function', 'Escape deve descartar tooltip mesmo com foco fora do dock')
-  documentKeydown({ key: 'Escape' })
-  assert.equal(tooltipDismissed, true)
-  assert.ok(rendered.some(node => node.props?.['aria-label'] === 'Painel de apoio'))
 })

@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { logsApi } from '../api/logs'
 import { Icon } from '../components/ui/Icon'
@@ -19,13 +19,6 @@ const sections = [
 export function AdminLayout() {
   const user = useAuthStore(state => state.user)
   const { pathname } = useLocation()
-  const [deskTab, setDeskTab] = useState('recent')
-  const [tooltipDismissed, setTooltipDismissed] = useState(false)
-  useEffect(() => {
-    const dismissTooltip = (event: KeyboardEvent) => { if (event.key === 'Escape') setTooltipDismissed(true) }
-    document.addEventListener('keydown', dismissTooltip)
-    return () => document.removeEventListener('keydown', dismissTooltip)
-  }, [])
   const menuRef = useRef<HTMLElement>(null)
   useLayoutEffect(() => {
     const menu = menuRef.current
@@ -75,46 +68,26 @@ export function AdminLayout() {
       </header>
 
       <div className="admin-workspace">
-        <nav className="admin-utilities" aria-label="Ferramentas administrativas">
-          {sections.map(section => <Link key={section.to} to={section.to} aria-label={section.label} title={section.label}><Icon name={section.icon} size={16} /></Link>)}
-        </nav>
         <main id="admin-content" className="admin-content" tabIndex={-1}><div className="admin-route" key={pathname}><Outlet /></div></main>
         <aside className="admin-desk" aria-label="Central administrativa">
           <div className="admin-desk-heading"><h2>Central administrativa</h2><p>Acesso e atividade do aplicativo.</p></div>
-          <div className="admin-desk-tabs" role="group" aria-label="Painel de apoio">
-            {[["recent", "Atividade"], ["links", "Atalhos"]].map(([value, label]) => <button key={value} type="button" aria-pressed={deskTab === value} onClick={() => setDeskTab(value)}>{label}</button>)}
-            <Link to="/admin/logs">Auditoria</Link>
-          </div>
-          {deskTab === 'recent' && <>
             {isLoading ? <SkeletonRegion><SkeletonCard /></SkeletonRegion> : error ? (
               <p role="alert">Não foi possível carregar a atividade.</p>
             ) : data?.data.length ? (
               <ol className="admin-activity">
-                {data.data.map(entry => <li key={entry.id}>
+                {data.data.map((entry, index) => <li key={`${entry.created_at}:${index}`}>
                   <Panel surface="dark" className="admin-event-card" style={{ padding: 14 }}>
                     <div className="admin-event-meta"><Badge tone="neutral">{entry.method}</Badge><time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</time></div>
-                    <h3>{entry.action || 'Requisição registrada'}</h3>
+                    <h3>{entry.method} {entry.path}</h3>
                     <p className="admin-event-path">Registro operacional</p>
-                    <Link to="/admin/logs" className="admin-event-footer"><Icon name="clock" size={13} /><span>{new Date(entry.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {entry.status_code ?? '—'}</span><Icon name="arrow-up-right" size={14} /></Link>
+                    <div className="admin-event-footer"><Icon name="clock" size={13} /><span>{new Date(entry.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {entry.status_code ?? '—'}</span></div>
                   </Panel>
                 </li>)}
               </ol>
             ) : <p className="admin-muted">Nenhuma atividade registrada.</p>}
-          </>}
-          {deskTab === 'links' && <Panel surface="dark" style={{ padding: 16 }}>
-            <h3 className="admin-section-title">Acesso rápido</h3>
-            <div className="admin-shortcuts">
-              {sections.map(section => <Link key={section.to} to={section.to}><Icon name={section.icon} size={17} /><span>{section.label}</span><Icon name="chevron-right" size={15} /></Link>)}
-            </div>
-          </Panel>}
         </aside>
       </div>
-      <nav className={`admin-dock${tooltipDismissed ? ' is-tooltip-dismissed' : ''}`} aria-label="Atalhos administrativos">
-        {sections.map((shortcut, index) => <Link key={shortcut.to} to={shortcut.to} aria-label={shortcut.label} aria-current={pathname === shortcut.to ? 'page' : undefined} onPointerEnter={() => setTooltipDismissed(false)} onFocus={() => setTooltipDismissed(false)} className={`admin-dock-link admin-dock-link--${index}`}>
-          <span className="admin-dock-tooltip" aria-hidden="true">{shortcut.label}</span>
-          <span className="admin-dock-icon"><Icon name={shortcut.icon} size={16} /></span>
-        </Link>)}
-      </nav>
+
       </div>
     </div>
   )
