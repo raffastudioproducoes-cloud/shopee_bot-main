@@ -201,7 +201,7 @@ cd frontend && npm ci && npm run build
 
 # Flask legado (precisa de Postgres local em localhost:5433 — ver conftest.py);
 # NÃO roda na CI
-pytest tests/test_auth.py tests/test_publish.py
+pytest tests/test_auth_root.py tests/test_publish.py
 ```
 
 > `--confcutdir=tests/api` é necessário: o `conftest.py` da raiz faz
