@@ -91,7 +91,7 @@ export default function LogsPage() {
       )}
 
       {isLoading ? (
-        <PageSkeleton variant="table" />
+        <PageSkeleton variant="table" heading={false} />
       ) : rows.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
           <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum log encontrado.</p>

@@ -104,7 +104,7 @@ export default function UsersPage() {
       )}
 
       {isLoading ? (
-        <PageSkeleton variant="list" />
+        <PageSkeleton variant="list" heading={false} />
       ) : users.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
           <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum usuário cadastrado.</p>

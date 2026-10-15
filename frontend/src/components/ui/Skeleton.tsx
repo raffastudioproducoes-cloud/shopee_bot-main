@@ -30,11 +30,11 @@ export type PageSkeletonVariant = "cards" | "table" | "form" | "detail" | "list"
 
 const SKELETON_ROWS = [0, 1, 2, 3, 4]
 
-export function PageSkeleton({ variant = "detail" }: { variant?: PageSkeletonVariant }) {
+export function PageSkeleton({ variant = "detail", heading = true }: { variant?: PageSkeletonVariant; heading?: boolean }) {
   return (
     <SkeletonRegion>
       <div className="page-skeleton" data-variant={variant}>
-        <div className="page-skeleton-heading"><Skeleton width="220px" height={34} /><Skeleton className="skeleton-sub" width="300px" /></div>
+        {heading && <div className="page-skeleton-heading"><Skeleton width="220px" height={34} /><Skeleton className="skeleton-sub" width="300px" /></div>}
         {variant === "cards" && <div className="page-skeleton-grid">{SKELETON_ROWS.slice(0, 4).map((i) => <SkeletonCard key={i} />)}</div>}
         {variant === "table" && <div className="page-skeleton-table">{SKELETON_ROWS.map((i) => <SkeletonTableRow key={i} columns={4} />)}</div>}
         {variant === "list" && <div className="page-skeleton-list">{SKELETON_ROWS.slice(0, 4).map((i) => <SkeletonCard key={i} />)}</div>}

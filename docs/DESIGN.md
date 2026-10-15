@@ -101,8 +101,6 @@ interfaces devem convergir visualmente antes de aposentar o Flask, isso é uma d
 produto ainda não registrada no código nem no vault consultado.
 **[A CONFIRMAR COM O USUÁRIO]**.
 
-## Referências
-
 ## Carregamento em esqueleto: como usar em páginas novas
 
 Páginas e rotas novas devem usar `PageState` para estados de dados e `PageSkeleton` como fallback:
@@ -121,6 +119,8 @@ export function NewPage() {
 ```
 
 Use a variante cuja geometria corresponda ao conteúdo real (`cards`, `table`, `form`, `detail` ou `list`). Nunca use spinner ou o texto “Carregando” como estado de página; spinners pequenos permanecem permitidos em botões de ação. O esqueleto deve reservar as mesmas alturas e regiões do conteúdo final, usar somente tokens existentes e respeitar `prefers-reduced-motion`.
+
+## Referências
 
 - `frontend/src/styles/tokens/*.css`
 - `frontend/src/components/ui/*.tsx`
