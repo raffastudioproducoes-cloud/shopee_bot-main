@@ -62,6 +62,6 @@ test("Listas/Posts/Produtos/Logs reutilizam PageSkeleton em vez de skeleton inli
 
 test("router: rotas lazy têm fallback por rota", () => {
   const src = read("../src/router.tsx")
-  assert.match(src, /lazyRoute(LogsPage, "table")/)
-  assert.match(src, /lazyRoute(UsersPage, "list")/)
+  assert.match(src, /lazyRoute\(LogsPage, "table"\)/)
+  assert.match(src, /lazyRoute\(UsersPage, "list"\)/)
 })
