@@ -10,6 +10,7 @@ import { ActiveProfileChip } from '../components/profiles/ActiveProfileChip'
 import { Icon } from '../components/ui/Icon'
 import { AppFooter } from '../components/layout/AppFooter'
 import { PageSkeleton } from '../components/ui/Skeleton'
+import { clearAdminVisitingSite, isAdminVisitingSite } from '../lib/adminSiteFlag'
 
 const navItems: SideRailItem[] = [
   { value: '/', label: 'Dashboard', icon: 'house' },
@@ -23,7 +24,7 @@ const navItems: SideRailItem[] = [
 ]
 
 const adminNavItems: SideRailItem[] = [
-  { value: '/admin', label: 'Administração', icon: 'shield-check' },
+  { value: '/admin', label: 'Painel admin', icon: 'shield-check' },
 ]
 
 export function PanelPage() {
@@ -59,6 +60,9 @@ export function PanelPage() {
       .then((userData) => {
         setUser(userData)
         setRoleVerified(true)
+        if (userData.access === 'ADMIN' && location.pathname === '/' && !isAdminVisitingSite()) {
+          navigate({ to: '/admin/overview' })
+        }
       })
       .catch(() => {
         logout()
@@ -91,6 +95,7 @@ export function PanelPage() {
         value={location.pathname}
         onSelect={(value) => {
           setMenuOpen(false)
+          if (value === '/admin') clearAdminVisitingSite()
           navigate({ to: value })
         }}
         logoSrc="/brand/symbol-128.png"

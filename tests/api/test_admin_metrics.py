@@ -16,7 +16,8 @@ from api.routers.auth import get_current_user_id
 def isolated(monkeypatch):
     app.dependency_overrides.clear()
     monkeypatch.delenv("RENDER_METRICS_API_KEY", raising=False)
-    monkeypatch.delenv("RENDER_SERVICE_ID", raising=False)
+    monkeypatch.delenv("RENDER_API_KEY", raising=False)
+    monkeypatch.delenv("RENDER_ADMIN_SERVICE_ID", raising=False)
     yield
     app.dependency_overrides.clear()
 
@@ -85,12 +86,13 @@ def test_render_configured_transport_is_bounded_and_private(monkeypatch, memory_
         assert request.headers["Authorization"] == "Bearer synthetic-test-token"
         assert request.url.host == "api.render.com"
         assert request.url.params["resolutionSeconds"] == "3600"
+        assert request.url.params['resource'] == 'private-service-id'
         assert request.extensions["timeout"]["read"] == 4
         if request.url.path.endswith("memory") and memory_status != 200:
             return httpx.Response(memory_status, text="synthetic-test-token")
         return httpx.Response(200, json=[{"unit": "CPU", "labels": [{"value": "private-service-id"}], "values": [{"timestamp": "2026-10-15T05:00:00Z", "value": 0.5}]}])
-    monkeypatch.setenv("RENDER_METRICS_API_KEY", "synthetic-test-token")
-    monkeypatch.setenv("RENDER_SERVICE_ID", "private-service-id")
+    monkeypatch.setenv("RENDER_METRICS_API_KEY", " synthetic-test-token \n")
+    monkeypatch.setenv("RENDER_ADMIN_SERVICE_ID", " private-service-id \n")
     monkeypatch.setattr(admin_metrics.httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handler), **kwargs))
     result = asyncio.run(admin_metrics._render_snapshot())
     assert result.status == expected
@@ -104,12 +106,14 @@ def test_metrics_returns_only_aggregates_and_honest_availability(monkeypatch):
     data = snapshot()
     data["password"] = "never-expose-this"
     data["counts"]["user_id"] = "never-expose-this"
+    data['previous_period'] = dict(starts_on='2026-09-02', ends_on='2026-09-08', registrations=1, deletions=0, requests=50, errors=1, password='never-expose-this')
     db.rpc.return_value.execute.return_value = MagicMock(data=data)
     monkeypatch.setattr(settings, "request_logging_enabled", True)
     response = TestClient(app).get("/admin/metrics", params={"days": 7})
     assert response.status_code == 200
     body = response.json()
     assert body["counts"]["accounts"] == 7
+    assert body['previous_period']['requests'] == 50
     assert body["counts"]["active_accounts"] == 3
     assert body["supabase"]["database_bytes"] == 1048576
     assert body["render"]["status"] == "not_configured"
@@ -121,9 +125,20 @@ def test_metrics_returns_only_aggregates_and_honest_availability(monkeypatch):
 
 def test_disabled_logging_does_not_claim_users_are_online(monkeypatch):
     db = fake_client(monkeypatch)
-    db.rpc.return_value.execute.return_value = MagicMock(data=snapshot())
+    payload = snapshot()
+    payload['scale'] = {'server_errors': 2, 'rate_limited_requests': 1, 'p99_latency_ms': 12,
+        'engagement': {'active_week': 2, 'previous_week': 1, 'returning_week': 1},
+        'consumption': [{'plan': 'free', 'requests': 1, 'request_duration_ms': 2}]}
+    db.rpc.return_value.execute.return_value = MagicMock(data=payload)
     monkeypatch.setattr(settings, "request_logging_enabled", False)
-    assert TestClient(app).get("/admin/metrics").json()["counts"]["active_accounts"] is None
+    result = TestClient(app).get("/admin/metrics").json()
+    assert result["counts"]["active_accounts"] is None
+    assert result['scale']['engagement'] is None
+    assert result['scale']['consumption'] == []
+    assert result['scale']['server_errors'] is None
+    assert result['scale']['rate_limited_requests'] is None
+    assert result['scale']['p99_latency_ms'] is None
+    assert result['scale']['collected_at'].endswith('Z')
 
 
 def test_missing_migration_does_not_leak_error_or_return_fake_zeroes(monkeypatch):
@@ -151,3 +166,50 @@ def test_failure_log_has_safe_type_and_status_only(caplog):
 
     assert _safe_error(Boom("password=segredo")) == "Boom status=503"
     assert "segredo" not in _safe_error(RuntimeError("password=segredo"))
+
+
+def _capture_render(monkeypatch):
+    from api import admin_metrics
+    real_client = httpx.AsyncClient
+    seen = []
+    def handler(request):
+        seen.append(request)
+        return httpx.Response(200, json=[{"unit": "CPU", "values": [{"timestamp": "2026-10-15T05:00:00Z", "value": 0.5}]}])
+    monkeypatch.setattr(admin_metrics.httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw))
+    return admin_metrics, seen
+
+
+def test_render_defaults_to_production_service(monkeypatch):
+    monkeypatch.setenv("RENDER_METRICS_API_KEY", "t")
+    admin_metrics, seen = _capture_render(monkeypatch)
+    assert asyncio.run(admin_metrics._render_snapshot()).status == "available"
+    assert {r.url.params["resource"] for r in seen} == {"srv-da6vrla6iojc7380a13g"}
+
+
+def test_render_ignores_staging_service_id(monkeypatch):
+    monkeypatch.setenv("RENDER_METRICS_API_KEY", "t")
+    monkeypatch.setenv("RENDER_ADMIN_SERVICE_ID", "srv-daukgs17lnhs738tpl50")
+    admin_metrics, seen = _capture_render(monkeypatch)
+    asyncio.run(admin_metrics._render_snapshot())
+    assert {r.url.params["resource"] for r in seen} == {"srv-da6vrla6iojc7380a13g"}
+
+
+def test_render_accepts_alternative_token_name(monkeypatch):
+    monkeypatch.setenv("RENDER_API_KEY", "alt-token")
+    admin_metrics, seen = _capture_render(monkeypatch)
+    asyncio.run(admin_metrics._render_snapshot())
+    assert seen and all(r.headers["Authorization"] == "Bearer alt-token" for r in seen)
+
+
+def test_render_without_token_is_not_configured_without_calls(monkeypatch):
+    admin_metrics, seen = _capture_render(monkeypatch)
+    result = asyncio.run(admin_metrics._render_snapshot())
+    assert result.status == "not_configured" and result.cpu is None and not seen
+
+
+def test_missing_snapshot_function_is_unavailable_not_zero(monkeypatch):
+    db = fake_client(monkeypatch)
+    db.rpc.return_value.execute.side_effect = RuntimeError("function admin_metrics_snapshot does not exist")
+    body = TestClient(app).get("/admin/metrics").json()
+    assert body["supabase"]["status"] == "unavailable"
+    assert body["supabase"]["database_bytes"] is None and body["counts"] is None and body["daily"] == []

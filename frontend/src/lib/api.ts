@@ -1,4 +1,5 @@
 import { formatApiError } from './apiError'
+import { useAuthStore } from '../stores/authStore'
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
@@ -6,6 +7,32 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message)
     this.name = 'ApiError'
+  }
+}
+
+let revalidatingRole = false
+
+// 403 em rota /admin: o papel pode ter mudado. Revalida /auth/me e, se deixou de
+// ser ADMIN, volta ao site. Sem redirecionar quando ainda é ADMIN (evita loop).
+async function onAdminForbidden() {
+  if (revalidatingRole) return
+  revalidatingRole = true
+  try {
+    const store = useAuthStore.getState()
+    store.setRoleVerified(false)
+    const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' })
+    const me = res.ok ? await res.json() : null
+    if (me) store.setUser(me)
+    if (!me || me.access !== 'ADMIN') {
+      if (!me) store.logout()
+      window.location.assign('/')
+    } else {
+      store.setRoleVerified(true)
+    }
+  } catch {
+    useAuthStore.getState().setRoleVerified(true)
+  } finally {
+    revalidatingRole = false
   }
 }
 
@@ -25,6 +52,7 @@ async function request<T>(
   })
 
   if (!response.ok) {
+    if (response.status === 403 && endpoint.startsWith('/admin')) void onAdminForbidden()
     const error = await response.json().catch(() => null)
     throw new ApiError(response.status, formatApiError(error, response.status))
   }

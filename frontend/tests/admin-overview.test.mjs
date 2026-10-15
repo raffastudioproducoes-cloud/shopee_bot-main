@@ -13,6 +13,8 @@ test('métricas ausentes não viram zero nem gráficos fictícios', () => {
     if (name === 'react') return { useState: value => [value, () => {}] }
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx }
     if (name === '@tanstack/react-query') return { useQuery: () => result }
+    if (name === '../lib/api') return { ApiError: class extends Error {} }
+    if (name.includes('metricsPresentation')) return { formatMetricTime: () => '15/10/2026', isStale: () => true }
     return new Proxy({}, { get: (_, key) => key })
   } })
   const tree = JSON.stringify(exports.default())

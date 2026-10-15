@@ -72,8 +72,8 @@ def test_logs_endpoint_filters_by_profile_id(fake_db, monkeypatch):
     db = fake_db({
         "users": [{"id": 1, "access": "ADMIN"}],
         "request_logs": [
-            {"id": 1, "profile_id": "profile-a", "created_at": "2026-01-01", "method": "GET"},
-            {"id": 2, "profile_id": "profile-b", "created_at": "2026-01-02", "method": "GET"},
+            {"id": 1, "profile_id": "profile-a", "created_at": "2026-01-01T00:00:00", "method": "GET", "path": "/x"},
+            {"id": 2, "profile_id": "profile-b", "created_at": "2026-01-02T00:00:00", "method": "GET", "path": "/x"},
         ],
     })
     monkeypatch.setattr(logs_module, "supabase", db)
@@ -84,5 +84,5 @@ def test_logs_endpoint_filters_by_profile_id(fake_db, monkeypatch):
     only_a = client.get("/admin/logs", params={"profile_id": "profile-a"}).json()["data"]
     everything = client.get("/admin/logs").json()["data"]
 
-    assert [r["id"] for r in only_a] == [1]
-    assert {r["id"] for r in everything} == {1, 2}
+    assert [r["created_at"][:10] for r in only_a] == ["2026-01-01"]
+    assert {r["created_at"][:10] for r in everything} == {"2026-01-01", "2026-01-02"}

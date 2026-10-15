@@ -17,6 +17,7 @@ import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage"
 import { PageSkeleton, type PageSkeletonVariant } from "./components/ui/Skeleton"
 import { OrbitalLoader } from "./components/ui/OrbitalLoader"
 import { AdminLayout } from "./pages/AdminLayout"
+import { isAdminVisitingSite } from "./lib/adminSiteFlag"
 
 const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"))
 const UsersPage = lazy(() => import("./pages/UsersPage"))
@@ -83,6 +84,12 @@ const panelRoute = createRoute({
 const dashboardRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/",
+  beforeLoad: () => {
+    const { isAuthenticated, user } = useAuthStore.getState()
+    if (isAuthenticated && user?.access === "ADMIN" && !isAdminVisitingSite()) {
+      throw redirect({ to: "/admin/overview" })
+    }
+  },
   component: DashboardPage,
 })
 

@@ -81,8 +81,9 @@ class TestAdminAccess:
         assert body["total"] == 1
         assert body["limit"] == 10
         assert body["offset"] == 0
-        assert "hunter2" not in body["data"][0]["error"]
-        assert "***REDACTED***" in body["data"][0]["error"]
+        assert "hunter2" not in res.text
+        assert "error" not in body["data"][0]
+        assert body["data"][0]["path"] == "/credentials"
 
     def test_pagination_params_forwarded(self, client, monkeypatch):
         app.dependency_overrides[get_current_user_id] = lambda: 1
