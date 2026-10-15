@@ -17,33 +17,16 @@ passou por lá).
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import Query
 
-from .auth import get_current_user_id
 from ..database import supabase
 from ..utils.log_sanitizer import sanitize_log_data
 
-router = APIRouter(prefix="/logs", tags=["logs"])
-
-_FIELDS = "id, user_id, profile_id, username, method, path, action, status_code, duration_ms, error, redirect_to, client_ip, created_at"
+_FIELDS = "id, user_id, profile_id, username, method, path, action, status_code, duration_ms, error, redirect_to, created_at"
 
 
-def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
-    """Mesmo padrão de api/routers/users.py e api/routers/credentials.py."""
-    result = (
-        supabase.table("users").select("access").eq("id", user_id)
-        .maybe_single().execute()
-    )
-    # maybe_single: linha inexistente vira 403, não 500 (.single() levanta
-    # APIError quando não acha a linha do usuário).
-    if not result or not result.data or result.data.get("access") != "ADMIN":
-        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
-    return user_id
-
-
-@router.get("")
+# Autorização (ADMIN) é aplicada pelo router em api/routers/admin.py.
 async def list_logs(
-    _admin_id: int = Depends(_require_admin),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     # IDs de usuário são UUID (users.id) — `int` aqui rejeitava todo filtro real.

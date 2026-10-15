@@ -27,5 +27,5 @@ test('bootstrap revalidates the server role before rendering the panel', async (
 test('profiles is visible to every authenticated user while admin links are conditional', async () => {
   const panel = await source('pages/PanelPage.tsx')
   assert.match(panel, /const navItems[\s\S]*value:\s*['"]\/profiles['"].*label:\s*['"]Perfis['"]/)
-  assert.match(panel, /const adminNavItems[\s\S]*value:\s*['"]\/users['"][\s\S]*value:\s*['"]\/logs['"]/)
+  assert.match(panel, /const adminNavItems[\s\S]*value:\s*['"]\/admin['"]/)
 })

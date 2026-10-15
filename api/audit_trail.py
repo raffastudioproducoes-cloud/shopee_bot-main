@@ -21,7 +21,7 @@ logger = logging.getLogger("uvicorn.error")
 def record_audit_event(
     entity: str,
     entity_id: str,
-    user_id: str,
+    user_id: str | None,
     action: str,
     old_value: dict | None,
     new_value: dict | None,
