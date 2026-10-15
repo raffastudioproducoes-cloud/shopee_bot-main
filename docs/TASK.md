@@ -5,6 +5,14 @@
 > marcada **Concluída** com evidência de código ou teste passando; senão fica **Bloqueada** ou
 > **Pendente**. Última verificação: 2026-10-11.
 
+## Entrega 2026-10-15 — versão 2.5.0 (em `staging`)
+
+- [x] Esqueleto de carregamento global revisado, splash HTML e `OrbitalLoader`.
+- [x] Painel administrativo isolado em `/admin` (guarda no frontend e no backend; sem IP de logs).
+- [x] Segurança: replay de callbacks Meta/Threads, ownership de credenciais, CORS explícito, validação de mídia.
+- [ ] Aplicar manualmente a migração 051 (`docs/migrations-pendentes/`) com autorização de Rafa.
+- [ ] Promover `staging` para `main` (não feito).
+
 ## Entrega 2026-10-14 — versão 2.4.0
 
 - [x] Identidade AUTO ORBITAL: paleta e grafites nos tokens, logos, favicon, PWA instalável (manifest e service worker), nome visível trocado. Layout e fonte Mona Sans preservados.
