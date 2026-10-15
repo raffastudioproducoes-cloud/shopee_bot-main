@@ -4,11 +4,11 @@ import { readFile } from 'node:fs/promises'
 
 const source = (path) => readFile(new URL(`../src/${path}`, import.meta.url), 'utf8')
 
-test('common credentials page lazy-loads the administrative override module only for ADMIN', async () => {
+test('common credentials page leaves administrative overrides in the guarded admin area', async () => {
   const page = await source('pages/CredentialsPage.tsx')
-
-  assert.match(page, /lazy\(\(\)\s*=>\s*import\(["']\.\.\/components\/credentials\/AdminOverrides["']\)/)
-  assert.match(page, /isAdmin\s*&&\s*\(\s*<Suspense[\s\S]*<AdminOverrides/)
+  const admin = await source('pages/AdminCredentialsPage.tsx')
+  assert.doesNotMatch(page, /AdminOverrides/)
+  assert.match(admin, /<AdminOverrides/)
 })
 
 test('common credentials source has no manual social token controls or developer portal copy', async () => {

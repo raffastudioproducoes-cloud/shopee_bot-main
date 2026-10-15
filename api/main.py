@@ -16,6 +16,7 @@ from .config import settings
 from .database import get_supabase, init_db
 from .middleware import RequestIDMiddleware, RequestLoggingMiddleware
 from .routers.posts import cleanup_expired_media_drafts
+from .routers.admin import router as admin_router
 
 for noisy_logger in ("httpx", "httpcore", "urllib3"):
     logging.getLogger(noisy_logger).setLevel(logging.WARNING)
@@ -58,6 +59,7 @@ app.add_middleware(RequestLoggingMiddleware)
 
 # Routers
 app.include_router(auth_router)
+app.include_router(admin_router)
 # catalog_router ANTES de products_router: registra rotas literais
 # "/products/catalog-search" e "/products/catalog-categories" — se
 # products_router (com "/products/{product_id}") for registrado primeiro,

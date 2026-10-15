@@ -50,6 +50,7 @@ export function SearchField({
     >
       <Icon name="search" size={15} style={{ color: "var(--text-muted)" }} />
       <input
+        aria-label={placeholder}
         value={value}
         onChange={onChange}
         placeholder={placeholder}

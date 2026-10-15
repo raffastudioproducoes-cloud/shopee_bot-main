@@ -22,8 +22,7 @@ const navItems: SideRailItem[] = [
 ]
 
 const adminNavItems: SideRailItem[] = [
-  { value: '/users', label: 'Usuários', icon: 'users' },
-  { value: '/logs', label: 'Logs', icon: 'scroll-text' },
+  { value: '/admin', label: 'Administração', icon: 'shield-check' },
 ]
 
 export function PanelPage() {

@@ -11,8 +11,9 @@ import { Badge } from "../components/ui/Badge"
 import { Modal } from "../components/ui/Modal"
 import { TextInput } from "../components/ui/TextInput"
 import { Select } from "../components/ui/Select"
-import { TimelineListCard } from "../components/ui/TimelineListCard"
-import { Icon } from "../components/ui/Icon"
+import { SearchField } from "../components/ui/SearchField"
+import { Avatar } from "../components/profiles/Avatar"
+import { SkeletonCard, SkeletonRegion } from "../components/ui/Skeleton"
 import { useAuthStore } from "../stores/authStore"
 
 export default function UsersPage() {
@@ -22,6 +23,8 @@ export default function UsersPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<AppUser | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
+  const [accessFilter, setAccessFilter] = useState("ALL")
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["users"],
@@ -67,24 +70,22 @@ export default function UsersPage() {
   })
 
   const users = data?.data ?? []
+  const visibleUsers = users.filter(user => (accessFilter === "ALL" || user.access === accessFilter) && user.username.toLocaleLowerCase("pt-BR").includes(search.trim().toLocaleLowerCase("pt-BR")))
+  const summary = [
+    { label: "Contas nesta página", value: users.length },
+    { label: "Administradores", value: users.filter(user => user.access === "ADMIN").length },
+    { label: "Usuários", value: users.filter(user => user.access === "USER").length },
+    { label: "Atualizadas", value: users.filter(user => user.updated_at).length },
+  ]
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+      <div className="admin-page-heading">
         <div>
-          <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Contas de login</h1>
-          <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Administração de acesso.</p>
+          <h1>Contas de login</h1>
+          <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Contas e permissões de acesso ao aplicativo.</p>
         </div>
-        <Button
-          variant="primary"
-          icon="plus"
-          onClick={() => {
-            setEditingUser(null)
-            setModalOpen(true)
-          }}
-        >
-          Novo usuário
-        </Button>
+        <div className="admin-account-search" role="search" aria-label="Buscar contas nesta página"><SearchField value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar contas nesta página" width="100%" size={36} /></div>
       </div>
 
       {error && (
@@ -102,82 +103,45 @@ export default function UsersPage() {
         </div>
       )}
 
-      {isLoading ? (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256, color: "var(--text-muted)" }}>
-          Carregando...
+      <div className="admin-summary" aria-label="Resumo das contas desta página">
+        {summary.map(item => <Panel key={item.label} surface="dark"><div className="admin-summary-stat"><strong data-stat-value={true}>{isLoading ? "—" : String(item.value)}</strong><span>{item.label}</span></div></Panel>)}
+      </div>
+
+      <div className="admin-user-toolbar">
+        <div className="admin-role-filters" role="group" aria-label="Filtrar acesso nesta página">
+          {[["ALL", "Todos"], ["ADMIN", "Administradores"], ["USER", "Usuários"]].map(([value, label]) => <button type="button" key={value} aria-pressed={accessFilter === value} onClick={() => setAccessFilter(value)}>{label}</button>)}
         </div>
-      ) : users.length === 0 ? (
+        <Button variant="primary" icon="plus" onClick={() => { setEditingUser(null); setModalOpen(true) }}>Novo usuário</Button>
+      </div>
+
+      {isLoading ? (
+        <SkeletonRegion><div className="admin-user-grid">{[0, 1, 2].map(index => <SkeletonCard key={index} />)}</div></SkeletonRegion>
+      ) : visibleUsers.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
-          <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum usuário cadastrado.</p>
+          <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>{users.length ? "Nenhuma conta corresponde ao filtro nesta página." : "Nenhum usuário cadastrado."}</p>
         </Panel>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {users.map((user) => (
-            <TimelineListCard
-              key={user.id}
-              title={user.username}
-              subtitle={`Criado em ${new Date(user.created_at).toLocaleDateString("pt-BR")}`}
-              thumbnail={
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 40,
-                    height: 40,
-                    borderRadius: "var(--r-md)",
-                    background: "var(--surface-inset)",
-                    color: "var(--text-muted)",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Icon name="user" size={18} />
-                </span>
-              }
-              badge={<Badge tone={user.access === "ADMIN" ? "mint" : "neutral"}>{user.access}</Badge>}
-              actions={
-                <>
-                  <IconButton
-                    icon="pencil"
-                    label="Editar"
-                    tone="plain"
-                    size={30}
-                    onClick={() => {
-                      setEditingUser(user)
-                      setModalOpen(true)
-                    }}
-                  />
-                  <IconButton
-                    icon="trash-2"
-                    label="Remover"
-                    tone="plain"
-                    size={30}
-                    onClick={() => setDeleteConfirm(user.id)}
-                    style={{ color: "var(--red-300)" }}
-                  />
-                </>
-              }
-              stats={[
-                { icon: "hash", label: "ID", value: user.id.slice(0, 8) },
-                { icon: "users", label: "Acesso", value: user.access },
-                { icon: "calendar", label: "Criado em", value: new Date(user.created_at).toLocaleDateString("pt-BR") },
-                {
-                  icon: "calendar",
-                  label: "Atualizado",
-                  value: user.updated_at ? new Date(user.updated_at).toLocaleDateString("pt-BR") : "—",
-                },
-              ]}
-              sections={[
-                { label: "Usuário", category: user.id, content: user.username },
-                { label: "Acesso", category: "Permissão", content: <Badge tone={user.access === "ADMIN" ? "mint" : "neutral"}>{user.access}</Badge> },
-                { label: "Criado em", category: "Data", content: new Date(user.created_at).toLocaleString("pt-BR") },
-                {
-                  label: "Atualizado em",
-                  category: "Data",
-                  content: user.updated_at ? new Date(user.updated_at).toLocaleString("pt-BR") : "Nunca atualizado",
-                },
-              ]}
-            />
+        <div className="admin-user-grid">
+          {visibleUsers.map(user => (
+            <Panel key={user.id} surface="dark">
+              <article className="admin-user-card">
+                <div className="admin-user-heading">
+                  <div><h2>{user.username}</h2><small>{user.access === "ADMIN" ? "Acesso administrativo" : "Acesso ao aplicativo"}</small></div>
+                  <Avatar name={user.username} size={32} />
+                </div>
+                <p className="admin-user-details">
+                  <span>Criado em {new Date(user.created_at).toLocaleDateString("pt-BR")}</span>
+                  <span>{user.updated_at ? `Atualizado em ${new Date(user.updated_at).toLocaleDateString("pt-BR")}` : "Sem alterações registradas"}</span>
+                </p>
+                <div className="admin-user-actions">
+                  <Badge tone={user.access === "ADMIN" ? "mint" : "neutral"}>{user.access === "ADMIN" ? "Administrador" : "Usuário"}</Badge>
+                  <div>
+                    <IconButton icon="pencil" label={`Editar ${user.username}`} tone="plain" onClick={() => { setEditingUser(user); setModalOpen(true) }} />
+                    <IconButton icon="trash-2" label={`Remover ${user.username}`} tone="plain" onClick={() => setDeleteConfirm(user.id)} style={{ color: "var(--negative)" }} />
+                  </div>
+                </div>
+              </article>
+            </Panel>
           ))}
         </div>
       )}
@@ -196,7 +160,7 @@ export default function UsersPage() {
         />
       )}
 
-      <Modal open={deleteConfirm != null} onClose={() => setDeleteConfirm(null)} title="Confirmar remoção" width={400}>
+      <Modal open={deleteConfirm != null} onClose={() => setDeleteConfirm(null)} title="Confirmar remoção" width={400} className="admin-dialog">
         <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginTop: 0 }}>
           Tem certeza que deseja remover este usuário? Esta ação não pode ser desfeita.
         </p>
@@ -243,7 +207,7 @@ function UserModal({ user, onClose, onCreate, onUpdate, loading, apiError }: Use
   }
 
   return (
-    <Modal open onClose={onClose} title={user ? "Editar usuário" : "Novo usuário"} width={400}>
+    <Modal open onClose={onClose} title={user ? "Editar usuário" : "Novo usuário"} width={400} className="admin-dialog">
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <TextInput label="Usuário *" value={username} onChange={(event) => setUsername(event.target.value)} required />
         {!user && (

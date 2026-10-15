@@ -20,6 +20,8 @@
    conteúdo ocupa a largura toda. Desktop mantém o trilho fixo. */
 html, body, #root { min-height: 100%; }
 body { background: var(--bg-app-gradient); background-attachment: fixed; }
+.app-modal[open] { display: flex; align-items: center; justify-content: center; overscroll-behavior: contain; }
+.app-modal::backdrop { background: transparent; }
 
 .skeleton { display: block; flex: none; background: var(--graphite-700); background-image: linear-gradient(90deg, var(--graphite-700), var(--graphite-800), var(--graphite-700)); background-size: 200% 100%; animation: skeleton-shimmer 1.6s ease-in-out infinite; }
 .skeleton-sub { margin-top: 4px; }

@@ -264,7 +264,7 @@ class TestSelfDeleteAccount:
         spy.assert_called_once()
         assert spy.call_args.kwargs["action"] == "user_self_deleted"
         assert spy.call_args.kwargs["entity"] == "user"
-        assert spy.call_args.kwargs["user_id"] == "42"
+        assert spy.call_args.kwargs["user_id"] is None
 
     def test_master_admin_cannot_self_delete(self, auth_client, monkeypatch):
         hashed = _pwd_context.hash("senha_correta")

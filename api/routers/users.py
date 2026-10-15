@@ -301,7 +301,7 @@ async def delete_own_account(
     record_audit_event(
         entity="user",
         entity_id=str(user_id),
-        user_id=str(user_id),
+        user_id=None,  # A conta já foi removida; a FK não pode apontar para ela.
         action="user_self_deleted",
         # Sem username aqui: dado pessoal não precisa sobreviver ao
         # "direito ao esquecimento" que este próprio evento representa

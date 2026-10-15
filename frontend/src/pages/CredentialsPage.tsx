@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { createContext, lazy, Suspense, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import {
@@ -21,8 +21,6 @@ import { Icon } from "../components/ui/Icon"
 import { Select } from "../components/ui/Select"
 import { Modal } from "../components/ui/Modal"
 import { isNetworkDisabled } from "../lib/networkLimits"
-
-const AdminOverrides = lazy(() => import("../components/credentials/AdminOverrides").then(({ AdminOverrides }) => ({ default: AdminOverrides })))
 
 // X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
 // FacebookCredentialCard — mesmo padrão de TikTok/Instagram) porque usam
@@ -74,7 +72,7 @@ function OAuthConsentModal({
   const consent = OAUTH_CONSENT[network]
   return (
     <Modal open={open} onClose={onClose} title={`Conectar ${consent.label}`}>
-      <div role="dialog" aria-modal="true" aria-label={`Autorização ${consent.label}`} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <p style={{ margin: 0, color: "var(--text-body)", font: "var(--text-role-body)" }}>
           Você será levado ao {consent.label} para autorizar esta conexão.
         </p>
@@ -191,8 +189,7 @@ const EMPTY_STATUS: CredentialStatusWithLight = {
 }
 
 export function CredentialsPage() {
-  const { logout, user } = useAuthStore()
-  const isAdmin = user?.access === "ADMIN"
+  const { logout } = useAuthStore()
   const queryClient = useQueryClient()
   const [banner, setBanner] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -382,11 +379,6 @@ export function CredentialsPage() {
         />
       </div>
 
-      {isAdmin && (
-        <Suspense fallback={null}>
-          <AdminOverrides onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />
-        </Suspense>
-      )}
     </div>
   )
 }
