@@ -17,16 +17,14 @@ const STICKY_TH = { padding: "10px 16px", position: "sticky", top: 0, zIndex: 1,
 export default function LogsPage() {
   const { user } = useAuthStore()
   const [offset, setOffset] = useState(0)
-  const [username, setUsername] = useState("")
   const [statusCode, setStatusCode] = useState("")
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["logs", offset, username, statusCode],
+    queryKey: ["logs", offset, statusCode],
     queryFn: () =>
       logsApi.list({
         limit: PAGE_SIZE,
         offset,
-        username: username || undefined,
         status_code: statusCode ? Number(statusCode) : undefined,
       }),
     enabled: user?.access === "ADMIN",
@@ -51,18 +49,12 @@ export default function LogsPage() {
       <div>
         <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Logs</h1>
         <p style={{ color: "var(--text-muted)", marginTop: 4 }}>
-          Histórico de requisições e passos de negócio (senhas e tokens nunca aparecem aqui).
+          Histórico operacional sem identidades, parâmetros de rota ou diagnósticos em texto livre.
         </p>
       </div>
 
       <Panel surface="dark" style={{ padding: 16 }}>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <TextInput
-            label="Usuário"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="username"
-          />
           <TextInput
             label="Status code"
             value={statusCode}
@@ -101,21 +93,18 @@ export default function LogsPage() {
             <thead>
               <tr style={{ textAlign: "left", color: "var(--text-muted)" }}>
                 <th style={STICKY_TH}>Timestamp</th>
-                <th style={STICKY_TH}>Usuário</th>
                 <th style={STICKY_TH}>Ação / rota</th>
                 <th style={STICKY_TH}>Status</th>
                 <th style={STICKY_TH}>Duração</th>
-                <th style={STICKY_TH}>Erro</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} style={{ borderBottom: "1px solid var(--border-hairline)" }}>
+              {rows.map((row, index) => (
+                <tr key={`${row.created_at}:${index}`} style={{ borderBottom: "1px solid var(--border-hairline)" }}>
                   <td style={{ padding: "10px 16px", whiteSpace: "nowrap", color: "var(--text-muted)" }}>
                     {new Date(row.created_at).toLocaleString("pt-BR")}
                   </td>
-                  <td style={{ padding: "10px 16px" }}>{row.username ?? "—"}</td>
-                  <td style={{ padding: "10px 16px" }}>{row.action ?? `${row.method} ${row.path}`}</td>
+                  <td style={{ padding: "10px 16px" }}>{row.method} {row.path}</td>
                   <td style={{ padding: "10px 16px" }}>
                     {row.status_code ? (
                       <Badge tone={row.status_code >= 400 ? "outline" : "mint"}>{row.status_code}</Badge>
@@ -125,9 +114,6 @@ export default function LogsPage() {
                   </td>
                   <td style={{ padding: "10px 16px", color: "var(--text-muted)" }}>
                     {row.duration_ms != null ? `${row.duration_ms}ms` : "—"}
-                  </td>
-                  <td style={{ padding: "10px 16px", color: "var(--negative-ink)", maxWidth: 320 }}>
-                    {row.error ?? "—"}
                   </td>
                 </tr>
               ))}

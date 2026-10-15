@@ -2,8 +2,9 @@
 from fastapi import APIRouter, Depends, Query
 
 from ..admin_metrics import AdminMetricsResponse, collect_admin_metrics
+from ..admin_views import AdminLogsResponse, AdminCredentialStatus
 
-from . import logs, users
+from . import logs, users, credentials
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(users._require_admin)])
 router.add_api_route("/users", users.list_users, methods=["GET"])
@@ -11,7 +12,12 @@ router.add_api_route("/users", users.create_user, methods=["POST"], status_code=
 router.add_api_route("/users/{user_id}", users.get_user, methods=["GET"])
 router.add_api_route("/users/{user_id}", users.update_user, methods=["PUT"])
 router.add_api_route("/users/{user_id}", users.delete_user, methods=["DELETE"])
-router.add_api_route("/logs", logs.list_logs, methods=["GET"])
+router.add_api_route("/logs", logs.list_logs, methods=["GET"], response_model=AdminLogsResponse)
+
+
+@router.get('/credentials/status', response_model=dict[str, AdminCredentialStatus])
+async def connection_status(statuses: dict = Depends(credentials.list_credentials)):
+    return statuses
 
 
 @router.get("/metrics", response_model=AdminMetricsResponse)

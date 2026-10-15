@@ -5,7 +5,7 @@ const source = (path) => readFile(new URL(`../src/${path}`, import.meta.url), 'u
 
 test('/admin e /admin/credentials redirecionam usuário comum pelo guard do pai', async () => {
   const router = await source('router.tsx')
-  const guard = router.match(/async function requireAdmin\(\)[\s\S]*?\n}\n/)?.[0] ?? ''
+  const guard = router.match(/async function requireAdmin\(\)[\s\S]*?\r?\n}\r?\n/)?.[0] ?? ''
   assert.match(guard, /user\.access\s*!==\s*["']ADMIN["'][\s\S]*throw redirect\(\{\s*to:\s*["']\/["']\s*}\)/)
   const admin = router.match(/const adminRoute = createRoute\(\{[\s\S]*?\n}\)/)?.[0] ?? ''
   assert.match(admin, /path:\s*["']\/admin["']/)

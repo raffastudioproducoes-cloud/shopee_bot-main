@@ -10,7 +10,7 @@ from api.routers.auth import get_current_user_id
 ROUTES = [
     ("GET", "/admin/users"), ("POST", "/admin/users"),
     ("GET", "/admin/users/other"), ("PUT", "/admin/users/other"),
-    ("DELETE", "/admin/users/other"), ("GET", "/admin/logs"),
+    ("DELETE", "/admin/users/other"), ("GET", "/admin/logs"), ("GET", "/admin/credentials/status"),
 ]
 
 
