@@ -6,6 +6,7 @@ import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { Badge } from "../components/ui/Badge"
 import { TextInput } from "../components/ui/TextInput"
+import { PageSkeleton } from "../components/ui/Skeleton"
 
 const PAGE_SIZE = 50
 
@@ -90,9 +91,7 @@ export default function LogsPage() {
       )}
 
       {isLoading ? (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256, color: "var(--text-muted)" }}>
-          Carregando...
-        </div>
+        <PageSkeleton variant="table" />
       ) : rows.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
           <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum log encontrado.</p>

@@ -103,6 +103,25 @@ produto ainda não registrada no código nem no vault consultado.
 
 ## Referências
 
+## Carregamento em esqueleto: como usar em páginas novas
+
+Páginas e rotas novas devem usar `PageState` para estados de dados e `PageSkeleton` como fallback:
+
+```tsx
+import { PageSkeleton, PageState } from "../components/ui/Skeleton"
+
+export function NewPage() {
+  const { data, isLoading } = useQuery({ queryKey: ["new"], queryFn: loadData })
+  return (
+    <PageState loading={isLoading} skeleton={<PageSkeleton variant="table" />}>
+      <RealContent data={data} />
+    </PageState>
+  )
+}
+```
+
+Use a variante cuja geometria corresponda ao conteúdo real (`cards`, `table`, `form`, `detail` ou `list`). Nunca use spinner ou o texto “Carregando” como estado de página; spinners pequenos permanecem permitidos em botões de ação. O esqueleto deve reservar as mesmas alturas e regiões do conteúdo final, usar somente tokens existentes e respeitar `prefers-reduced-motion`.
+
 - `frontend/src/styles/tokens/*.css`
 - `frontend/src/components/ui/*.tsx`
 - `README.md` (seção Tecnologias)

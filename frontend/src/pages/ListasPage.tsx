@@ -116,7 +116,7 @@ export function ListasPage() {
 
   if (isLoading) {
     return (
-      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div><Skeleton width="160px" height={34} /><Skeleton className="skeleton-sub" width="240px" /></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>{[1,2,3].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
+      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><div><Skeleton width="160px" height={34} /><Skeleton className="skeleton-sub" width="240px" /></div><Skeleton width={112} height={38} /></div><div style={{ display: "flex", gap: 8 }}><Skeleton width={86} height={34} /><Skeleton width={86} height={34} /></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>{[1,2,3].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
     )
   }
 

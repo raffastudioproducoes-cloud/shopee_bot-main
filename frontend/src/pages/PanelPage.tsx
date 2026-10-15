@@ -9,6 +9,7 @@ import { NotificationsBell } from '../components/ui/NotificationsBell'
 import { ActiveProfileChip } from '../components/profiles/ActiveProfileChip'
 import { Icon } from '../components/ui/Icon'
 import { AppFooter } from '../components/layout/AppFooter'
+import { PageSkeleton } from '../components/ui/Skeleton'
 
 const navItems: SideRailItem[] = [
   { value: '/', label: 'Dashboard', icon: 'house' },
@@ -71,7 +72,7 @@ export function PanelPage() {
   }
 
   if (!isRoleVerified) {
-    return null
+    return <PageSkeleton variant="detail" />
   }
 
   const items = user?.access === 'ADMIN' ? [...navItems, ...adminNavItems] : navItems

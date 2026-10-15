@@ -10,6 +10,7 @@ import { useNotificationsStore } from "../../stores/notificationsStore"
 import { IconButton } from "./IconButton"
 import { Panel, PanelHeader, Divider } from "./Panel"
 import { Icon } from "./Icon"
+import { Skeleton, SkeletonText } from "./Skeleton"
 
 function iconForType(type: string | null): { name: string; color: string } {
   if (type?.endsWith("_success")) return { name: "check-circle-2", color: "var(--positive-ink)" }
@@ -68,7 +69,9 @@ export function NotificationsBell() {
             <Divider />
             <div style={{ overflowY: "auto", padding: "4px 0" }}>
               {isLoading ? (
-                <p style={{ padding: 16, color: "var(--text-muted)", font: "var(--text-role-body)" }}>Carregando...</p>
+                <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }} aria-label="Carregando notificações">
+                  {[0, 1, 2].map((i) => <div key={i} style={{ display: "flex", gap: 10 }}><Skeleton width={16} height={16} radius="var(--r-pill)" /><SkeletonText lines={2} /></div>)}
+                </div>
               ) : error ? (
                 <p style={{ padding: 16, color: "var(--negative)", font: "var(--text-role-body)" }}>
                   Erro ao carregar notificações.
