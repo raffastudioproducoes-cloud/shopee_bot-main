@@ -233,11 +233,14 @@ def _record_disconnect_audits(rows: list[dict], network: str, event: str) -> Non
 
 
 def _update_credentials(table: str, rows: list[dict], update_data: dict) -> int:
+    """Atualiza cada linha repetindo o filtro de dono (user_id + profile_id),
+    nao so o id: linha que mudou de dono entre o SELECT e o UPDATE nao e tocada."""
     affected = 0
     for row in rows:
-        result = supabase.table(table).update(update_data).eq("id", row.get("id")).execute()
-        updated = result.data or [row]
-        affected += len(updated)
+        query = supabase.table(table).update(update_data).eq("id", row.get("id")).eq("user_id", row.get("user_id"))
+        profile_id = row.get("profile_id")
+        query = query.eq("profile_id", profile_id) if profile_id else query.is_("profile_id", "null")
+        affected += len(query.execute().data or [])
     return affected
 
 

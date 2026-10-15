@@ -1171,7 +1171,7 @@ def _save_check(user_id, profile_id: str | None, network: str, state: str, messa
         if existing:
             supabase.table("credential_checks").update({**check_data, "profile_id": None}).eq(
                 "id", existing["id"],
-            ).execute()
+            ).eq("user_id", user_id).execute()
             duplicate_ids = [row["id"] for row in existing_rows if row["id"] != existing["id"]]
             if duplicate_ids:
                 scope_account(supabase.table("credential_checks").delete(), user_id).eq(
@@ -1186,7 +1186,9 @@ def _save_check(user_id, profile_id: str | None, network: str, state: str, messa
             supabase.table("credential_checks").select("id"), user_id, profile_id, network,
         ).eq("network", network).maybe_single().execute()
         if existing and existing.data:
-            supabase.table("credential_checks").update(check_data).eq("id", existing.data["id"]).execute()
+            supabase.table("credential_checks").update(check_data).eq(
+                "id", existing.data["id"],
+            ).eq("user_id", user_id).execute()
         else:
             supabase.table("credential_checks").insert({
                 **check_data, "user_id": user_id, "network": network,
@@ -1243,7 +1245,9 @@ async def save_ai_credential(
         supabase.table(AI_TABLE).select("id"), user_id,
     ).eq("provider", provider).execute().data or []
     if existing:
-        result = supabase.table(AI_TABLE).update(data).eq("id", existing[0]["id"]).execute()
+        result = supabase.table(AI_TABLE).update(data).eq(
+            "id", existing[0]["id"],
+        ).eq("user_id", user_id).execute()
     else:
         row = {**data, "user_id": user_id, "provider": provider}
         result = supabase.table(AI_TABLE).insert(row).execute()
@@ -1479,7 +1483,7 @@ def _finish_check(user_id, profile_id: str | None, network: str, started_at: str
         return
     supabase.table("credential_checks").update({
         "state": state, "message": message, "checked_at": datetime.now(timezone.utc).isoformat(),
-    }).eq("id", current["id"]).execute()
+    }).eq("id", current["id"]).eq("user_id", user_id).execute()
 
 
 def _start_autotest(network: str, user_id, profile_id: str | None) -> None:
