@@ -313,3 +313,36 @@ def test_filename_drops_bidi_overrides_angle_brackets_and_controls():
     safe = sanitize_media_upload(_image_bytes("JPEG"), filename=name, content_type="image/jpeg").safe_filename
 
     assert safe == "aexe.gpjximg src=x.jpg"
+
+
+# ── F-06: marca nao-video e uuid/XMP aninhado ────────────────────────────────
+
+@pytest.mark.parametrize("brand", [b"heic", b"mif1", b"avif", b"crx ", b"M4A "])
+def test_video_with_non_video_major_brand_is_rejected(brand):
+    raw = _box(b"ftyp", brand + b"\x00\x00\x00\x00isom") + _box(b"mdat")
+
+    with pytest.raises(MediaSanitizerError, match="vídeo"):
+        sanitize_media_upload(raw, filename="a.mp4", content_type="video/mp4")
+
+
+@pytest.mark.parametrize("container", [b"moov", b"trak"])
+def test_video_with_nested_uuid_box_is_rejected(container):
+    inner = _box(b"uuid", b"XMP!" * 8)
+    moov = _box(b"moov", inner if container == b"moov" else _box(b"trak", inner))
+    raw = _FTYP + moov + _box(b"mdat")
+
+    with pytest.raises(MediaSanitizerError, match="vídeo"):
+        sanitize_media_upload(raw, filename="a.mp4", content_type="video/mp4")
+
+
+def test_video_with_inconsistent_nested_moov_is_rejected():
+    raw = _FTYP + _box(b"moov", b"\x00\x00\x00\x50trakxx") + _box(b"mdat")
+
+    with pytest.raises(MediaSanitizerError, match="vídeo"):
+        sanitize_media_upload(raw, filename="a.mp4", content_type="video/mp4")
+
+
+def test_video_with_regular_moov_trak_passes():
+    raw = _FTYP + _box(b"moov", _box(b"mvhd", b"\x00" * 16) + _box(b"trak", _box(b"tkhd", b"\x00" * 16))) + _box(b"mdat")
+
+    assert sanitize_media_upload(raw, filename="a.mp4", content_type="video/mp4").content == raw
