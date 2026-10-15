@@ -25,5 +25,5 @@ test('métricas ausentes não viram zero nem gráficos fictícios', () => {
   assert.ok(errorTree.includes('alert'))
   assert.ok(!errorTree.includes('private diagnostic'))
   result = { isLoading: true }
-  assert.ok(JSON.stringify(exports.default()).includes('SkeletonRegion'))
+  assert.ok(JSON.stringify(exports.default()).includes('PageSkeleton'))
 })
