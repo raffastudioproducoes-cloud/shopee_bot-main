@@ -23,23 +23,48 @@ export function SkeletonAvatar({ size = 48 }: { size?: number }) {
 }
 
 export function SkeletonRegion({ children }: { children: ReactNode }) {
-  return <div role="status" aria-busy="true" aria-live="polite" aria-label="Carregando conteúdo">{children}</div>
+  return <div role="status" aria-busy="true" aria-label="Carregando conteúdo">{children}</div>
 }
 
 export type PageSkeletonVariant = "cards" | "table" | "form" | "detail" | "list"
 
-const SKELETON_ROWS = [0, 1, 2, 3, 4]
+/** Quantidade padrão de blocos por variante; `count` em PageSkeleton sobrescreve. */
+export const SKELETON_ROWS: Record<PageSkeletonVariant, number> = { cards: 4, table: 5, list: 4, form: 4, detail: 2 }
 
-export function PageSkeleton({ variant = "detail", heading = true }: { variant?: PageSkeletonVariant; heading?: boolean }) {
+type PageSkeletonProps = {
+  variant?: PageSkeletonVariant
+  heading?: boolean
+  titleWidth?: CSSProperties["width"]
+  subtitleWidth?: CSSProperties["width"]
+  /** Botão de ação à direita do título. */
+  action?: boolean
+  /** Barra de filtros (chips) abaixo do título. */
+  toolbar?: boolean
+  /** Quantidade de blocos; padrão em SKELETON_ROWS. */
+  count?: number
+  /** Colunas de cada linha da variante "table". */
+  columns?: number
+}
+
+const range = (n: number) => Array.from({ length: n }, (_, i) => i)
+
+export function PageSkeleton({ variant = "detail", heading = true, titleWidth = "220px", subtitleWidth = "300px", action = false, toolbar = false, count = SKELETON_ROWS[variant], columns = 4 }: PageSkeletonProps) {
+  const items = range(count)
   return (
     <SkeletonRegion>
       <div className="page-skeleton" data-variant={variant}>
-        {heading && <div className="page-skeleton-heading"><Skeleton width="220px" height={34} /><Skeleton className="skeleton-sub" width="300px" /></div>}
-        {variant === "cards" && <div className="page-skeleton-grid">{SKELETON_ROWS.slice(0, 4).map((i) => <SkeletonCard key={i} />)}</div>}
-        {variant === "table" && <div className="page-skeleton-table">{SKELETON_ROWS.map((i) => <SkeletonTableRow key={i} columns={4} />)}</div>}
-        {variant === "list" && <div className="page-skeleton-list">{SKELETON_ROWS.slice(0, 4).map((i) => <SkeletonCard key={i} />)}</div>}
-        {variant === "form" && <div className="page-skeleton-form">{SKELETON_ROWS.slice(0, 4).map((i) => <Skeleton key={i} height={42} />)}</div>}
-        {variant === "detail" && <><SkeletonCard /><SkeletonCard /></>}
+        {heading && (
+          <div className="page-skeleton-header">
+            <div className="page-skeleton-heading"><Skeleton width={titleWidth} height={34} /><Skeleton className="skeleton-sub" width={subtitleWidth} /></div>
+            {action && <Skeleton width={112} height={38} />}
+          </div>
+        )}
+        {toolbar && <div className="page-skeleton-toolbar"><Skeleton width={86} height={34} /><Skeleton width={86} height={34} /></div>}
+        {variant === "cards" && <div className="page-skeleton-grid">{items.map((i) => <SkeletonCard key={i} />)}</div>}
+        {variant === "table" && <div className="page-skeleton-table">{items.map((i) => <SkeletonTableRow key={i} columns={columns} />)}</div>}
+        {variant === "list" && <div className="page-skeleton-list">{items.map((i) => <SkeletonCard key={i} />)}</div>}
+        {variant === "form" && <div className="page-skeleton-form">{items.map((i) => <Skeleton key={i} height={42} />)}</div>}
+        {variant === "detail" && <>{items.map((i) => <SkeletonCard key={i} />)}</>}
       </div>
     </SkeletonRegion>
   )

@@ -7,7 +7,7 @@ import { productsApi, type ProductsResponse } from "../api/products"
 import { formatBRL, formatPriceRange, toNumber } from "../lib/commission"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
-import { Skeleton, SkeletonCard, SkeletonRegion } from "../components/ui/Skeleton"
+import { PageSkeleton } from "../components/ui/Skeleton"
 import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
@@ -116,7 +116,7 @@ export function ListasPage() {
 
   if (isLoading) {
     return (
-      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><div><Skeleton width="160px" height={34} /><Skeleton className="skeleton-sub" width="240px" /></div><Skeleton width={112} height={38} /></div><div style={{ display: "flex", gap: 8 }}><Skeleton width={86} height={34} /><Skeleton width={86} height={34} /></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>{[1,2,3].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
+      <PageSkeleton variant="cards" titleWidth="160px" subtitleWidth="240px" action toolbar count={3} />
     )
   }
 

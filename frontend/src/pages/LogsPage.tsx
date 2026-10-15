@@ -6,7 +6,7 @@ import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { Badge } from "../components/ui/Badge"
 import { TextInput } from "../components/ui/TextInput"
-import { PageSkeleton } from "../components/ui/Skeleton"
+import { PageSkeleton, PageState } from "../components/ui/Skeleton"
 
 const PAGE_SIZE = 50
 
@@ -90,9 +90,8 @@ export default function LogsPage() {
         </div>
       )}
 
-      {isLoading ? (
-        <PageSkeleton variant="table" heading={false} />
-      ) : rows.length === 0 ? (
+      <PageState loading={isLoading} skeleton={<PageSkeleton variant="table" heading={false} />}>
+      {rows.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
           <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum log encontrado.</p>
         </Panel>
@@ -136,6 +135,7 @@ export default function LogsPage() {
           </table>
         </Panel>
       )}
+      </PageState>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ color: "var(--text-muted)", font: "var(--fs-small)" }}>

@@ -5,7 +5,7 @@ import { router } from "../router"
 import { productsApi, type Product } from "../api/products"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
-import { Skeleton, SkeletonTableRow, SkeletonRegion } from "../components/ui/Skeleton"
+import { PageSkeleton } from "../components/ui/Skeleton"
 import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
@@ -196,7 +196,7 @@ export function ProductsPage() {
 
   if (isLoading) {
     return (
-      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="260px" /></div><Skeleton width={112} height={38} /></div><div style={{ display: "flex", gap: 8 }}><Skeleton width={86} height={34} /><Skeleton width={86} height={34} /></div><div style={{ borderRadius: "var(--r-md)", background: "var(--surface-card)" }}>{[1,2,3,4,5].map(i => <SkeletonTableRow key={i} />)}</div></div></SkeletonRegion>
+      <PageSkeleton variant="table" titleWidth="180px" subtitleWidth="260px" action toolbar />
     )
   }
 

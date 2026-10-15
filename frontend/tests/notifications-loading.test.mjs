@@ -24,6 +24,7 @@ test('notificações anunciam o carregamento mesmo com placeholders decorativos'
   }
   const status = nodes(exports.NotificationsBell()).find(node => node.props?.role === 'status')
   assert.ok(status, 'carregamento sem região de status')
-  assert.equal(status.props['aria-busy'], true)
+  assert.equal(status.props['aria-busy'], 'true')
+  assert.equal(status.props['aria-live'], undefined)
   assert.equal(status.props['aria-label'], 'Carregando notificações')
 })

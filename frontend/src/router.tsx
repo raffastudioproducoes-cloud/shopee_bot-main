@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, type ComponentType } from "react"
 import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router"
 import { authApi } from "./api/auth"
 import { useAuthStore } from "./stores/authStore"
@@ -14,7 +14,7 @@ import { HelpPage } from "./pages/HelpPage"
 import { SettingsPage } from "./pages/SettingsPage"
 import { TermsPage } from "./pages/legal/TermsPage"
 import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage"
-import { PageSkeleton } from "./components/ui/Skeleton"
+import { PageSkeleton, type PageSkeletonVariant } from "./components/ui/Skeleton"
 
 const UsersPage = lazy(() => import("./pages/UsersPage"))
 const LogsPage = lazy(() => import("./pages/LogsPage"))
@@ -37,6 +37,10 @@ async function requireAdmin() {
     throw redirect({ to: "/" })
   }
 }
+
+const lazyRoute = (Page: ComponentType, variant: PageSkeletonVariant) => () => (
+  <Suspense fallback={<PageSkeleton variant={variant} />}><Page /></Suspense>
+)
 
 const rootRoute = createRootRoute({
   component: () => <Suspense fallback={<PageSkeleton variant="detail" />}><Outlet /></Suspense>,
@@ -111,14 +115,14 @@ const usersRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/users",
   beforeLoad: requireAdmin,
-  component: UsersPage,
+  component: lazyRoute(UsersPage, "list"),
 })
 
 const logsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/logs",
   beforeLoad: requireAdmin,
-  component: LogsPage,
+  component: lazyRoute(LogsPage, "table"),
 })
 
 const helpRoute = createRoute({
