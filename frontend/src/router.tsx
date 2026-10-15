@@ -15,6 +15,7 @@ import { SettingsPage } from "./pages/SettingsPage"
 import { TermsPage } from "./pages/legal/TermsPage"
 import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage"
 import { PageSkeleton } from "./components/ui/Skeleton"
+import { OrbitalLoader } from "./components/ui/OrbitalLoader"
 
 const UsersPage = lazy(() => import("./pages/UsersPage"))
 const LogsPage = lazy(() => import("./pages/LogsPage"))
@@ -40,6 +41,7 @@ async function requireAdmin() {
 
 const rootRoute = createRootRoute({
   component: () => <Suspense fallback={<PageSkeleton variant="detail" />}><Outlet /></Suspense>,
+  pendingComponent: () => <OrbitalLoader fullScreen size="lg" />,
 })
 
 const loginRoute = createRoute({
