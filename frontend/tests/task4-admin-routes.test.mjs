@@ -20,7 +20,7 @@ test('bootstrap revalidates the server role before rendering the panel', async (
   const authStore = await source('stores/authStore.ts')
   assert.match(panel, /authApi\.me\(\)/)
   assert.doesNotMatch(panel, /if\s*\(!user\)\s*\{\s*authApi\.me\(\)/)
-  assert.match(panel, /if\s*\(!isRoleVerified\)\s*\{\s*return <PageSkeleton/)
+  assert.match(panel, /if\s*\(!isRoleVerified\)\s*\{\s*return <PageSkeleton variant="detail"/)
   assert.match(authStore, /isRoleVerified:\s*false/)
   assert.match(authStore, /setRoleVerified/)
 })

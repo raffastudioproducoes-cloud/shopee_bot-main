@@ -6,6 +6,13 @@ import { readFileSync } from 'node:fs'
 
 const appVersion = readFileSync(path.resolve(__dirname, '../VERSION'), 'utf8').trim()
 
+const appVersionHtmlPlugin = () => ({
+  name: 'app-version-html',
+  transformIndexHtml(html: string) {
+    return html.replace(/%APP_VERSION%/g, appVersion)
+  },
+})
+
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
@@ -13,6 +20,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    appVersionHtmlPlugin(),
   ],
   resolve: {
     alias: {
