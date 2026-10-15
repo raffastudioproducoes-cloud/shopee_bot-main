@@ -4,7 +4,7 @@
 
 ## Ativação após revisão
 
-1. Revisar e aplicar `database/migrations/051_admin_metrics_snapshot.sql` pelo processo de migrações do projeto. A função é invoker, com execução restrita a `service_role`. Nesta tarefa somente seu SELECT foi executado, sem DDL ou alteração de dados.
+1. Revisar e aplicar `docs/migrations-pendentes/051_admin_metrics_snapshot.sql` (fora de database/migrations/ de propósito, para não ser aplicada no boot; só mover após autorização, pelo processo de migrações do projeto). A função é invoker, com execução restrita a `service_role`. Nesta tarefa somente seu SELECT foi executado, sem DDL ou alteração de dados.
 2. Usar as variáveis de conexão Supabase já existentes no backend. Não enviar chaves ao frontend.
 3. Configurar `RENDER_METRICS_API_KEY` somente no servidor, com uma chave autorizada a consultar o serviço, e `RENDER_SERVICE_ID` com o serviço a monitorar. Não usar credenciais dos plugins no aplicativo. O serviço de referência confirmado pelo responsável é `shopee-bot` de produção; `shopee-bot-staging` é outro ambiente.
 4. Validar com uma conta ADMIN e uma USER: a segunda deve receber 403 antes de consultar qualquer provedor.

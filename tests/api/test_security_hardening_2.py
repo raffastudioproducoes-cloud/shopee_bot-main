@@ -257,4 +257,4 @@ def test_require_admin_returns_403_when_user_row_missing(auth_client, monkeypatc
     q.maybe_single.return_value.execute.return_value = None
     monkeypatch.setattr(database_module, "get_supabase", lambda: fake)
 
-    assert auth_client.get("/users").status_code == 403
+    assert auth_client.get("/admin/users").status_code == 403

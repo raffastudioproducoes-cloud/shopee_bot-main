@@ -141,3 +141,13 @@ def test_metrics_bounds_query_period(days, monkeypatch):
     db = fake_client(monkeypatch)
     assert TestClient(app).get("/admin/metrics", params={"days": days}).status_code == 422
     db.rpc.assert_not_called()
+
+
+def test_failure_log_has_safe_type_and_status_only(caplog):
+    from api.admin_metrics import _safe_error
+
+    class Boom(Exception):
+        response = type("R", (), {"status_code": 503})()
+
+    assert _safe_error(Boom("password=segredo")) == "Boom status=503"
+    assert "segredo" not in _safe_error(RuntimeError("password=segredo"))

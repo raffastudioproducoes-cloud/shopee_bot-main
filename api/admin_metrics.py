@@ -95,6 +95,12 @@ class AdminMetricsResponse(BaseModel):
     notes: list[str]
 
 
+def _safe_error(exc: Exception) -> str:
+    """Tipo e, se houver, status HTTP numérico; nunca a mensagem (pode conter segredo)."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return f"{type(exc).__name__} status={status}" if isinstance(status, int) else type(exc).__name__
+
+
 async def _database_snapshot(days: int) -> tuple[Snapshot | None, float]:
     started = time.perf_counter()
     try:
@@ -103,7 +109,7 @@ async def _database_snapshot(days: int) -> tuple[Snapshot | None, float]:
         ), timeout=5)
         return Snapshot.model_validate(result.data), (time.perf_counter() - started) * 1000
     except Exception as exc:
-        logger.warning("Métricas Supabase indisponíveis (%s)", type(exc).__name__)
+        logger.warning("Métricas Supabase indisponíveis (%s)", _safe_error(exc))
         return None, (time.perf_counter() - started) * 1000
 
 
@@ -144,7 +150,7 @@ async def _render_snapshot() -> RenderMetrics:
                 response.raise_for_status()
                 return parse_render_metric(response.json())
             except Exception as exc:
-                logger.warning("Métrica Render %s indisponível (%s)", kind, type(exc).__name__)
+                logger.warning("Métrica Render %s indisponível (%s)", kind, _safe_error(exc))
                 return None
         cpu, memory, cpu_limit, memory_limit, bandwidth = await asyncio.gather(*(fetch(kind) for kind in ("cpu", "memory", "cpu-limit", "memory-limit", "bandwidth")))
     metrics = (cpu, memory, cpu_limit, memory_limit, bandwidth)

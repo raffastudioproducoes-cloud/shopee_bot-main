@@ -291,12 +291,12 @@ class TestRoleSeparation:
     qualquer usuário, sempre escopadas no user_id da sessão."""
 
     _ADMIN_ONLY = [
-        ("get", "/logs", None),
-        ("get", "/users", None),
-        ("post", "/users", {"username": "u", "password": "p" * 12, "access": "USER"}),
-        ("get", "/users/7", None),
-        ("put", "/users/7", {"access": "ADMIN"}),
-        ("delete", "/users/7", None),
+        ("get", "/admin/logs", None),
+        ("get", "/admin/users", None),
+        ("post", "/admin/users", {"username": "u", "password": "p" * 12, "access": "USER"}),
+        ("get", "/admin/users/7", None),
+        ("put", "/admin/users/7", {"access": "ADMIN"}),
+        ("delete", "/admin/users/7", None),
         ("put", "/credentials/threads", {"t_user_id": "1", "access_token": "t"}),
         ("put", "/credentials/tiktok/manual", {"open_id": "a", "user_access_token": "t"}),
         ("put", "/credentials/x/manual", {"user_access_token": "t"}),

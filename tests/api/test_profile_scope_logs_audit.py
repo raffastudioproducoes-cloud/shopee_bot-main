@@ -77,11 +77,12 @@ def test_logs_endpoint_filters_by_profile_id(fake_db, monkeypatch):
         ],
     })
     monkeypatch.setattr(logs_module, "supabase", db)
+    monkeypatch.setattr("api.routers.users.supabase", db)
     app.dependency_overrides[get_current_user_id] = lambda: 1
     client = TestClient(app)
 
-    only_a = client.get("/logs", params={"profile_id": "profile-a"}).json()["data"]
-    everything = client.get("/logs").json()["data"]
+    only_a = client.get("/admin/logs", params={"profile_id": "profile-a"}).json()["data"]
+    everything = client.get("/admin/logs").json()["data"]
 
     assert [r["id"] for r in only_a] == [1]
     assert {r["id"] for r in everything} == {1, 2}

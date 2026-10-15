@@ -61,29 +61,29 @@ class TestUsersAuthRequirement:
     """Sem sessão, 401 vem antes do gate de admin (403)."""
 
     def test_list_requires_auth(self, client):
-        res = client.get("/users")
+        res = client.get("/admin/users")
         assert res.status_code == 401
 
     def test_create_requires_auth(self, client):
         res = client.post(
-            "/users",
+            "/admin/users",
             json={"username": "novo", "password": "senha123", "access": "USER"},
         )
         assert res.status_code == 401
 
     def test_get_requires_auth(self, client):
-        res = client.get("/users/00000000-0000-0000-0000-000000000000")
+        res = client.get("/admin/users/00000000-0000-0000-0000-000000000000")
         assert res.status_code == 401
 
     def test_update_requires_auth(self, client):
         res = client.put(
-            "/users/00000000-0000-0000-0000-000000000000",
+            "/admin/users/00000000-0000-0000-0000-000000000000",
             json={"username": "x", "access": "USER"},
         )
         assert res.status_code == 401
 
     def test_delete_requires_auth(self, client):
-        res = client.delete("/users/00000000-0000-0000-0000-000000000000")
+        res = client.delete("/admin/users/00000000-0000-0000-0000-000000000000")
         assert res.status_code == 401
 
 
@@ -97,7 +97,7 @@ class TestCreateUserBlocksMasterAdminUsernameSquatting:
         query = _mock_supabase(monkeypatch, [{"access": "ADMIN"}])
 
         res = auth_client.post(
-            "/users",
+            "/admin/users",
             json={"username": username, "password": "senha123", "access": "USER"},
         )
 
@@ -110,7 +110,7 @@ class TestCreateUserPasswordBytes:
         query = _mock_supabase(monkeypatch, [{"access": "ADMIN"}])
 
         res = auth_client.post(
-            "/users",
+            "/admin/users",
             json={"username": "novo", "password": "😀" * 20, "access": "USER"},
         )
 
@@ -130,7 +130,7 @@ class TestUpdateUserProtectsMasterAdmin:
             ],
         )
 
-        res = auth_client.put("/users/1", json={"username": "rafastudio", "access": "USER"})
+        res = auth_client.put("/admin/users/1", json={"username": "rafastudio", "access": "USER"})
 
         assert res.status_code == 403
         query.update.assert_not_called()
@@ -144,7 +144,7 @@ class TestUpdateUserProtectsMasterAdmin:
             ],
         )
 
-        res = auth_client.put("/users/1", json={"username": "outro_nome", "access": "ADMIN"})
+        res = auth_client.put("/admin/users/1", json={"username": "outro_nome", "access": "ADMIN"})
 
         assert res.status_code == 403
         query.update.assert_not_called()
@@ -159,7 +159,7 @@ class TestUpdateUserProtectsMasterAdmin:
             ],
         )
 
-        res = auth_client.put("/users/1", json={"username": "Rafastudio", "access": "ADMIN"})
+        res = auth_client.put("/admin/users/1", json={"username": "Rafastudio", "access": "ADMIN"})
 
         assert res.status_code == 403
         query.update.assert_not_called()
@@ -174,7 +174,7 @@ class TestUpdateUserProtectsMasterAdmin:
             ],
         )
 
-        res = auth_client.put("/users/2", json={"username": "outro_user", "access": "ADMIN"})
+        res = auth_client.put("/admin/users/2", json={"username": "outro_user", "access": "ADMIN"})
 
         assert res.status_code == 200
         assert res.json()["access"] == "ADMIN"
@@ -193,7 +193,7 @@ class TestDeleteUserProtectsMasterAdmin:
             ],
         )
 
-        res = auth_client.delete("/users/1")
+        res = auth_client.delete("/admin/users/1")
 
         assert res.status_code == 403
         query.delete.assert_not_called()
@@ -208,7 +208,7 @@ class TestDeleteUserProtectsMasterAdmin:
             ],
         )
 
-        res = auth_client.delete("/users/2")
+        res = auth_client.delete("/admin/users/2")
 
         assert res.status_code == 200
         query.delete.assert_called_once()
@@ -585,7 +585,7 @@ class TestAdminCreateUserProvisioning:
         query.insert.return_value = query
 
         res = auth_client.post(
-            "/users", json={"username": "novo", "password": "senha1234", "access": "USER"}
+            "/admin/users", json={"username": "novo", "password": "senha1234", "access": "USER"}
         )
 
         assert res.status_code == 201
@@ -606,7 +606,7 @@ class TestAdminCreateUserProvisioning:
         ]
 
         res = auth_client.post(
-            "/users", json={"username": "novo", "password": "senha1234", "access": "USER"}
+            "/admin/users", json={"username": "novo", "password": "senha1234", "access": "USER"}
         )
 
         assert res.status_code == 500

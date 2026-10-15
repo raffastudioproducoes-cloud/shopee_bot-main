@@ -11,7 +11,6 @@ export interface LogEntry {
   duration_ms: number | null
   error: string | null
   redirect_to: string | null
-  client_ip: string | null
   created_at: string
 }
 
