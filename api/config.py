@@ -6,6 +6,7 @@ Carrega variáveis de ambiente via pydantic-settings.
 import os
 
 from cryptography.fernet import Fernet
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # HS256 com segredo curto/vazio deixa qualquer um forjar o JWT de sessão.
@@ -24,6 +25,14 @@ class Settings(BaseSettings):
     request_logging_enabled: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="allow")
+
+    @field_validator("cors_origins")
+    @classmethod
+    def _explicit_cors_origins(cls, origins: list[str]) -> list[str]:
+        """CORS com credenciais so aceita origem explicita: descarta '*' e
+        'null' e normaliza barra final (prod/staging/localhost via CORS_ORIGINS)."""
+        cleaned = [o.strip().rstrip("/") for o in origins]
+        return [o for o in dict.fromkeys(cleaned) if o and o not in ("*", "null")]
 
 
 def validate_secrets(cfg) -> None:
