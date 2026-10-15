@@ -14,12 +14,14 @@ from starlette.concurrency import run_in_threadpool
 
 from .config import settings
 from .database import get_supabase, init_db
-from .middleware import RequestIDMiddleware, RequestLoggingMiddleware
+from .middleware import AccessLogRedactor, RequestIDMiddleware, RequestLoggingMiddleware
 from .routers.posts import cleanup_expired_media_drafts
 from .routers.admin import router as admin_router
 
 for noisy_logger in ("httpx", "httpcore", "urllib3"):
     logging.getLogger(noisy_logger).setLevel(logging.WARNING)
+
+logging.getLogger("uvicorn.access").addFilter(AccessLogRedactor())
 
 logger = logging.getLogger("uvicorn.error")
 _ready_cache = (0.0, False)
@@ -48,8 +50,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "X-CSRFToken", "X-CSRF-Token", "X-Request-ID"],
     expose_headers=["X-Request-ID"],
 )
 

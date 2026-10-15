@@ -36,6 +36,18 @@ _SKIP_PATHS = {"/health", "/health/ready"}
 request_id_context = contextvars.ContextVar("request_id", default=None)
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")
 
+class AccessLogRedactor(logging.Filter):
+    """Mascara `?code=`/`state=`/tokens na URL do access log do uvicorn
+    (ex: codigo de confirmacao de exclusao de dados, que viaja em query string)."""
+
+    def filter(self, record):
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                sanitize_log_data(arg) if isinstance(arg, str) else arg for arg in record.args
+            )
+        return True
+
+
 class RequestIDFilter(logging.Filter):
     def filter(self, record):
         record.request_id = request_id_context.get() or "-"
@@ -51,6 +63,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             response.headers["X-Request-ID"] = request_id
+            response.headers.setdefault("Referrer-Policy", "no-referrer")
             return response
         finally:
             request_id_context.reset(token)

@@ -209,6 +209,23 @@ via bridge.
 - Handler de exceção genérico em produção (não vaza traceback).
 - Cookie de sessão `Secure; HttpOnly; SameSite=Lax`.
 
+### 6.1 Limite conhecido: rate limit e anti-replay em memoria (F-04)
+
+Os controles do FastAPI sao dicts de modulo, por processo: login e cooldowns de reset/registro
+(`api/routers/auth.py`), baldes de assinatura invalida/status e cache anti-replay dos callbacks
+Meta/Threads (`api/routers/meta_callbacks.py`). Consequencias:
+
+- Hoje o deploy e de um unico processo (gunicorn `workers = 1` + um uvicorn em 127.0.0.1:8001),
+  entao o limite efetivo e o configurado. Reiniciar o processo zera os contadores.
+- Com N processos/instancias o limite efetivo vira N x o configurado (login: 5/min -> 5N/min) e o
+  cache anti-replay deixa de ser global (cada processo aceita 1 reprocessamento; o efeito dos
+  callbacks e idempotente, entao o dano e limitado).
+- Backend compartilhado opcional (Postgres/Supabase) NAO foi implementado: exigiria contador
+  atomico (RPC/migracao dedicada) e uma ida ao banco por tentativa de login, sem fallback seguro
+  barato. Se a app escalar para multi-instancia, usar Redis (`slowapi`/contador com TTL) ou uma
+  funcao SQL `INSERT ... ON CONFLICT DO UPDATE` com janela, e migrar `_login_attempts`,
+  `_rate_attempts` e `_replay_cache` juntos.
+
 ## 7. Decisões arquiteturais registradas (ADRs no vault)
 
 - **Scheduler in-process** (não separar em worker) — `19-ADR-Scheduler-In-Process.md`
