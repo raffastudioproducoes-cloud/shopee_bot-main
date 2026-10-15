@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { adminMetricsApi } from '../api/adminMetrics'
 import { Panel } from '../components/ui/Panel'
 import { MetricTrend, PlanRings } from '../components/admin/MetricTrend'
-import { SkeletonCard, SkeletonRegion } from '../components/ui/Skeleton'
+import { PageSkeleton } from '../components/ui/Skeleton'
 
 const number = (value: number | null | undefined, suffix = '') => value == null ? 'Indisponível' : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}${suffix}`
 const status = { available: 'Conectado', partial: 'Dados parciais', unavailable: 'Indisponível', not_configured: 'Não configurado' }
@@ -11,7 +11,7 @@ const status = { available: 'Conectado', partial: 'Dados parciais', unavailable:
 export default function AdminOverviewPage() {
   const [days, setDays] = useState(30)
   const { data, isLoading, error } = useQuery({ queryKey: ['admin', 'metrics', days], queryFn: () => adminMetricsApi.get(days), refetchInterval: 60_000 })
-  if (isLoading) return <SkeletonRegion><SkeletonCard /><SkeletonCard /></SkeletonRegion>
+  if (isLoading) return <PageSkeleton variant="cards" heading={false} count={2} />
   if (error || !data) return <p role="alert">Não foi possível carregar as métricas administrativas.</p>
   const counts = data.counts
   const stats = [['Contas atuais', counts?.accounts], ['Ativos · últimos 5 min', counts?.active_accounts], ['Cadastros no período', counts?.new_accounts], ['Exclusões auditadas', counts?.deleted_accounts]] as const

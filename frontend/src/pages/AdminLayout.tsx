@@ -6,7 +6,7 @@ import { logsApi } from '../api/logs'
 import { Icon } from '../components/ui/Icon'
 import { Panel } from '../components/ui/Panel'
 import { Badge } from '../components/ui/Badge'
-import { SkeletonCard, SkeletonRegion } from '../components/ui/Skeleton'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import '../styles/admin.css'
 
 const sections = [
@@ -86,7 +86,7 @@ export function AdminLayout() {
             <Link to="/admin/logs">Auditoria</Link>
           </div>
           {deskTab === 'recent' && <>
-            {isLoading ? <SkeletonRegion><SkeletonCard /></SkeletonRegion> : error ? (
+            {isLoading ? <PageSkeleton variant="list" heading={false} count={1} /> : error ? (
               <p role="alert">Não foi possível carregar a atividade.</p>
             ) : data?.data.length ? (
               <ol className="admin-activity">

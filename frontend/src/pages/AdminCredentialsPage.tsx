@@ -7,7 +7,7 @@ import { useAuthStore } from '../stores/authStore'
 import { credentialsApi } from '../api/credentials'
 import { Panel } from '../components/ui/Panel'
 import { Badge } from '../components/ui/Badge'
-import { SkeletonCard, SkeletonRegion } from '../components/ui/Skeleton'
+import { PageSkeleton } from '../components/ui/Skeleton'
 
 export default function AdminCredentialsPage() {
   const [banner, setBanner] = useState<{ ok: boolean; text: string } | null>(null)
@@ -24,7 +24,7 @@ export default function AdminCredentialsPage() {
       <h1 style={{ font: 'var(--text-role-hero)', color: 'var(--text-display)' }}>Diagnóstico de credenciais</h1>
       <p style={{ color: 'var(--text-muted)' }}>As alterações pertencem ao seu perfil ativo.</p>
       {banner && <p role="status" style={{ color: banner.ok ? 'var(--positive-ink)' : 'var(--negative-ink)' }}>{banner.text}</p>}
-      {isLoading ? <SkeletonRegion><SkeletonCard /></SkeletonRegion> : error ? <p role="alert">Não foi possível acompanhar o teste de conexão.</p> : (
+      {isLoading ? <PageSkeleton variant="list" heading={false} count={1} /> : error ? <p role="alert">Não foi possível acompanhar o teste de conexão.</p> : (
         <Panel surface="dark" style={{ padding: 16 }}>
           <h2 style={{ font: 'var(--text-role-title)', marginTop: 0 }}>Resultado das conexões</h2>
           <div className="admin-connection-results" aria-live="polite">
