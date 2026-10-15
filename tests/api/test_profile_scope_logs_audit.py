@@ -62,7 +62,8 @@ def test_request_middleware_logs_profile_claim(monkeypatch, profile_cookie):
     client = TestClient(app)
     client.cookies.update(profile_cookie("profile-a"))
 
-    client.get("/credentials")
+    # Uma rota inexistente exercita o middleware sem consultar o banco de credenciais.
+    assert client.get("/probe-not-found").status_code == 404
 
     assert fake_client.table.return_value.insert.call_args[0][0]["profile_id"] == "profile-a"
 

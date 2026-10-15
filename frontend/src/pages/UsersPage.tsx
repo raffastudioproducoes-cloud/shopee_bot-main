@@ -14,6 +14,7 @@ import { Select } from "../components/ui/Select"
 import { TimelineListCard } from "../components/ui/TimelineListCard"
 import { Icon } from "../components/ui/Icon"
 import { useAuthStore } from "../stores/authStore"
+import { PageSkeleton } from "../components/ui/Skeleton"
 
 export default function UsersPage() {
   const navigate = useNavigate()
@@ -103,9 +104,7 @@ export default function UsersPage() {
       )}
 
       {isLoading ? (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256, color: "var(--text-muted)" }}>
-          Carregando...
-        </div>
+        <PageSkeleton variant="list" heading={false} />
       ) : users.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
           <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum usuário cadastrado.</p>

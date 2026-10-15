@@ -1,4 +1,4 @@
-import { lazy } from "react"
+import { lazy, Suspense } from "react"
 import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router"
 import { authApi } from "./api/auth"
 import { useAuthStore } from "./stores/authStore"
@@ -14,6 +14,7 @@ import { HelpPage } from "./pages/HelpPage"
 import { SettingsPage } from "./pages/SettingsPage"
 import { TermsPage } from "./pages/legal/TermsPage"
 import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage"
+import { PageSkeleton } from "./components/ui/Skeleton"
 
 const UsersPage = lazy(() => import("./pages/UsersPage"))
 const LogsPage = lazy(() => import("./pages/LogsPage"))
@@ -38,7 +39,7 @@ async function requireAdmin() {
 }
 
 const rootRoute = createRootRoute({
-  component: () => <Outlet />,
+  component: () => <Suspense fallback={<PageSkeleton variant="detail" />}><Outlet /></Suspense>,
 })
 
 const loginRoute = createRoute({

@@ -26,6 +26,11 @@ body { background: var(--bg-app-gradient); background-attachment: fixed; }
 .skeleton-stack { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .skeleton-card { display: flex; flex-direction: column; gap: 14px; min-height: 112px; padding: 16px; border: 1px solid var(--border-card); border-radius: var(--r-md); background: var(--surface-card); }
 .skeleton-table-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; padding: 0 16px; border-bottom: 1px solid var(--border-hairline); }
+.page-skeleton { display: flex; flex-direction: column; gap: var(--gap-column); min-width: 0; }
+.page-skeleton .skeleton { max-width: 100%; }
+.page-skeleton-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; }
+.page-skeleton-list, .page-skeleton-form { display: flex; flex-direction: column; gap: 16px; }
+.page-skeleton-table { overflow: hidden; border-radius: var(--r-md); background: var(--surface-card); }
 @keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; background-image: none; } }
 

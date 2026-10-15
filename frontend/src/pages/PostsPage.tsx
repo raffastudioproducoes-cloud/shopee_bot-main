@@ -291,7 +291,7 @@ export function PostsPage() {
 
   if (isLoading) {
     return (
-      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div><Skeleton width="140px" height={34} /><Skeleton className="skeleton-sub" width="280px" /></div><div style={{ borderRadius: "var(--r-md)", background: "var(--surface-card)" }}>{[1,2,3,4,5].map(i => <SkeletonTableRow key={i} columns={3} />)}</div></div></SkeletonRegion>
+      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><div><Skeleton width="140px" height={34} /><Skeleton className="skeleton-sub" width="280px" /></div><Skeleton width={112} height={38} /></div><div style={{ display: "flex", gap: 8 }}><Skeleton width={86} height={34} /><Skeleton width={86} height={34} /></div><div style={{ borderRadius: "var(--r-md)", background: "var(--surface-card)" }}>{[1,2,3,4,5].map(i => <SkeletonTableRow key={i} columns={3} />)}</div></div></SkeletonRegion>
     )
   }
 

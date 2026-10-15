@@ -25,3 +25,26 @@ export function SkeletonAvatar({ size = 48 }: { size?: number }) {
 export function SkeletonRegion({ children }: { children: ReactNode }) {
   return <div role="status" aria-busy="true" aria-live="polite" aria-label="Carregando conteúdo">{children}</div>
 }
+
+export type PageSkeletonVariant = "cards" | "table" | "form" | "detail" | "list"
+
+const SKELETON_ROWS = [0, 1, 2, 3, 4]
+
+export function PageSkeleton({ variant = "detail", heading = true }: { variant?: PageSkeletonVariant; heading?: boolean }) {
+  return (
+    <SkeletonRegion>
+      <div className="page-skeleton" data-variant={variant}>
+        {heading && <div className="page-skeleton-heading"><Skeleton width="220px" height={34} /><Skeleton className="skeleton-sub" width="300px" /></div>}
+        {variant === "cards" && <div className="page-skeleton-grid">{SKELETON_ROWS.slice(0, 4).map((i) => <SkeletonCard key={i} />)}</div>}
+        {variant === "table" && <div className="page-skeleton-table">{SKELETON_ROWS.map((i) => <SkeletonTableRow key={i} columns={4} />)}</div>}
+        {variant === "list" && <div className="page-skeleton-list">{SKELETON_ROWS.slice(0, 4).map((i) => <SkeletonCard key={i} />)}</div>}
+        {variant === "form" && <div className="page-skeleton-form">{SKELETON_ROWS.slice(0, 4).map((i) => <Skeleton key={i} height={42} />)}</div>}
+        {variant === "detail" && <><SkeletonCard /><SkeletonCard /></>}
+      </div>
+    </SkeletonRegion>
+  )
+}
+
+export function PageState({ loading, skeleton, children }: { loading: boolean; skeleton?: ReactNode; children: ReactNode }) {
+  return loading ? <>{skeleton ?? <PageSkeleton />}</> : <>{children}</>
+}
