@@ -69,7 +69,7 @@ export function NotificationsBell() {
             <Divider />
             <div style={{ overflowY: "auto", padding: "4px 0" }}>
               {isLoading ? (
-                <div role="status" aria-live="polite" aria-busy={true} style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }} aria-label="Carregando notificações">
+                <div role="status" aria-busy="true" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }} aria-label="Carregando notificações">
                   {[0, 1, 2].map((i) => <div key={i} style={{ display: "flex", gap: 10 }}><Skeleton width={16} height={16} radius="var(--r-pill)" /><SkeletonText lines={2} /></div>)}
                 </div>
               ) : error ? (
