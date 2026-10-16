@@ -376,7 +376,10 @@ existente — diretriz, não tarefa isolada).
   Erro ambíguo não recebe retry automático. O Render implantou `330137f` por
   auto deploy, aplicou a migração `053` e depois implantou `bc0eb92`; o health
   de staging respondeu `200`. O workflow `38978920492` pulou apenas o hook
-  opcional. Pendente: reconciliação por provedor antes de retry de `unknown`.
+  opcional. Promovido a `main` em `efba7a4`: CI `38979682487` verde, auto deploy
+  Render `dep-db9as82vcj2c7395m750` live e `/health` 200. Pendente:
+  reconciliação por provedor antes de retry de `unknown` e teste real de
+  publicação com credenciais do usuário.
 - [ ] **Banco e consultas.** Medir com `EXPLAIN (ANALYZE, BUFFERS)` em staging representativo;
   criar índices somente com evidência.
 - [ ] **Hospedagem e réplicas.** Separar API/worker, carga em staging, borda Cloudflare e ativação

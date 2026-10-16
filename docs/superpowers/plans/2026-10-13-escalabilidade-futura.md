@@ -1,6 +1,6 @@
 # Escalabilidade do ShopeeAutoVendas — plano futuro (Fases 0 a 7)
 
-Status: EM EXECUÇÃO CONTROLADA (preparação do scheduler em `main`; Fase 4.2 implantada em `staging` em `330137f`, com migração `053` aplicada no Render e health `200`).
+Status: EM EXECUÇÃO CONTROLADA (preparação do scheduler e Fase 4.2 em `main`; fila implantada em `staging` em `330137f` e promovida em `efba7a4`, com CI verde, Render live e health `200`).
 Custo novo da análise: R$ 0. Nenhum código, banco, produção ou Vault foi alterado na análise.
 Método: 4 auditorias paralelas do Codex (somente leitura: scheduler/jobs, estado/rate limit/cache/storage, banco/Supabase, infra/observabilidade/resiliência) cruzadas com o Vault e o código. Onde o código recente diverge da doc antiga, vale o código.
 Restrição geral: não contratar serviço pago, não provisionar Redis/fila/cluster agora, não aumentar workers antes de resolver o scheduler, não fazer overengineering. Preferir monólito modular scale-ready. Manter compatibilidade com Render Free + Supabase Free.
@@ -71,9 +71,9 @@ Matriz de capacidade do banco: N0 Free; N1 Pro; N2 índices/queries/pooling; N3 
 
 ## PLANO POR FASES (a executar com autorização explícita; cada fase com commits pequenos, testes, rollback e relatório PASS/FAIL)
 - FASE 3 — Preparação sem custo. Primeiro segurança (DSN e token fora do log), depois abstrações (RateLimit/Cache/Storage/db read-write), idempotência, config centralizada, /health e /readiness, timeouts e retry policy, structured logging com request_id.
-- FASE 4 — Scheduler/jobs. A primeira entrega local cria `publication_claims` com lease atômico por `scheduler_id`, aplica o wrapper também às agendas persistidas e introduz `SCHEDULER_ENABLED` para reservar o scheduler a um worker futuro. Ainda faltam `publish_jobs`, idempotência por rede, retries e os testes de concorrência com 2 e 5 workers simulados. NÃO subir workers nem instâncias antes desses itens estarem testados e aplicados.
+- FASE 4 — Scheduler/jobs. `publication_claims`, `SCHEDULER_ENABLED` e `publish_jobs` já foram implantados. A fila deduplica ocorrências localmente; faltam reconciliação por provedor, teste real de publicação e teste de carga antes de subir workers ou instâncias.
 
-### FASE 4.2 — Fila durável e desfecho seguro (staging implantado; promoção a main pendente)
+### FASE 4.2 — Fila durável e desfecho seguro (staging e main implantados; publicação real e reconciliação pendentes)
 
 Contrato mínimo antes de separar processos ou aumentar réplicas:
 
