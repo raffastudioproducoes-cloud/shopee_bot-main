@@ -8,7 +8,7 @@ import os
 from shopee_bot.web.user import User
 from shopee_bot.database import init as init_db, close_connection, users, \
     products, posts, product_lists, activities
-from shopee_bot.scheduler import init as init_scheduler
+from shopee_bot.scheduler import init as init_scheduler, scheduler_enabled
 from shopee_bot.web.routes.panel import panel_bp
 from shopee_bot.web.routes.product_lists import product_lists_bp
 from shopee_bot.web.routes.products import products_bp
@@ -217,7 +217,8 @@ app.register_blueprint(spa_bp)
 # Gunicon Server Hooks
 def post_fork(server, worker):
     init_db()
-    init_scheduler()
+    if scheduler_enabled():
+        init_scheduler()
 
 
 def on_exit(server):
@@ -226,4 +227,5 @@ def on_exit(server):
 
 if DEBUG:
     init_db()
-    init_scheduler()
+    if scheduler_enabled():
+        init_scheduler()

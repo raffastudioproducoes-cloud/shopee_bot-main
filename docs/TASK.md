@@ -320,7 +320,24 @@ em execução.
   - [x] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok — confirmado pelo Rafa, 2026-10-05.
   - [ ] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado) — GitHub Pro ativo (confirmado pelo Rafa, 2026-10-05), mas branch protection ainda não configurada (possível agora, ainda não ativada).
   - [x] Aplicar as migrações 037, 038, 039, 040, 041 e 042 no Supabase — **concluído 2026-10-06**. Verificado via MCP: 6 migrações registradas em `public.migrations`; nenhum `profile_id` NULL em `posts`/`shopee_credentials` após backfill. Ver `docs/RULES.md` item 11 para procedimento + risco conhecido.
-  - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
+  - [ ] Merge de `staging` em `main` — preparado localmente em 2026-10-09 na branch
+    `promote/staging-to-main-2026-10-09`, com a árvore final idêntica a `origin/staging`.
+    Ainda não publicado em `main` nesta nota; antes do push, Rafa pediu cautela para não
+    sobrescrever a versão online que está funcionando.
+
+  **Fila pós-promoção acompanhada em 2026-10-09**:
+  - [ ] TikTok: renovar token do usuário pelo fluxo OAuth ("Credenciais > TikTok > Conectar")
+    quando o token atual estiver expirado; Client key/secret continuam sendo segredo de app,
+    não token de usuário.
+  - [ ] Teste de conexão por token do usuário para X, Instagram e TikTok — código em
+    `staging`, pendente de validação real com credenciais conectadas.
+  - [ ] Criador multi-rede com validação por rede, horário específico e mídia reutilizada —
+    código em `staging`, pendente de teste manual ponta a ponta.
+  - [ ] Hardening de segurança — código e testes em `staging`; validação local ficou
+    bloqueada porque o ambiente mínimo não possui variáveis de banco para o `conftest.py`
+    executar migrações (`host=None`).
+  - [ ] Deploy automático de staging — arquivo `cd-staging.yml` em `staging`; aguardar decisão
+    de Rafa antes de promover/ativar mudanças novas de deploy.
 
 ## Migração conta, perfis e papéis — 2026-10-11
 
@@ -346,16 +363,24 @@ em execução.
 Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
 existente — diretriz, não tarefa isolada).
 
-## FUTURO — Escalabilidade (Fases 3 a 7)
+## Escalabilidade — execução iniciada em 2026-10-16
 
-- [ ] **FUTURO — Escalabilidade (Fases 3 a 7).** Plano completo:
-  `docs/superpowers/plans/2026-10-13-escalabilidade-futura.md`. **Aguarda autorização explícita
-  do Rafa;** começar pelos P0 de segurança dos logs. (origem: plano de escalabilidade, 2026-10-13)
-  - [ ] Fase 3 — Preparação sem custo.
-  - [ ] Fase 4 — Scheduler/jobs.
-  - [ ] Fase 5 — Banco.
-  - [ ] Fase 6 — Testes.
-  - [ ] Fase 7 — Documentação.
+- [x] **Scheduler/worker — preparação inicial.** Migração
+  `052_create_publication_claims.sql`, lease atômico por publicação e atualização das agendas
+  persistidas no boot. `SCHEDULER_ENABLED=true` preserva o modo atual; a futura instância web
+  usará `false` e apontará `FLASK_INTERNAL_URL` ao worker. Evidência: CI e deploy da `main`
+  verdes em 2026-10-16.
+- [x] **Fila e idempotência local.** Código enviado a `staging` em `330137f`:
+  migração `053_create_publish_jobs.sql`, chave única por ocorrência, claim com
+  `SKIP LOCKED`, lease vencido como `unknown` e `external_id` quando a rede confirma.
+  Erro ambíguo não recebe retry automático. O Render implantou `330137f` por
+  auto deploy, aplicou a migração `053` e depois implantou `bc0eb92`; o health
+  de staging respondeu `200`. O workflow `38978920492` pulou apenas o hook
+  opcional. Pendente: reconciliação por provedor antes de retry de `unknown`.
+- [ ] **Banco e consultas.** Medir com `EXPLAIN (ANALYZE, BUFFERS)` em staging representativo;
+  criar índices somente com evidência.
+- [ ] **Hospedagem e réplicas.** Separar API/worker, carga em staging, borda Cloudflare e ativação
+  gradual somente após os gates anteriores.
 
 ## FUTURO - Rebranding Auto Orbital
 

@@ -65,7 +65,7 @@ def test_bot_post_instagram_text_only_uses_saved_token_and_ig_user_id(monkeypatc
         ),
     )
 
-    module.bot_post_instagram("job-1")
+    result = module.bot_post_instagram("job-1")
 
     assert calls["args"] == (
         "app-1", "secret-1", "user-token-1", "oi", "ig-user-1"
@@ -75,6 +75,8 @@ def test_bot_post_instagram_text_only_uses_saved_token_and_ig_user_id(monkeypatc
     assert user_id == 42
     assert activity_type == ActivityType.BOT_POST_SUCCESS
     assert metadata["metadata"]["post_id"] == 7
+    assert result.status == "succeeded"
+    assert result.external_id == "media-1"
 
 
 def test_bot_post_instagram_with_product_calls_post_product(monkeypatch):

@@ -235,6 +235,26 @@ contexto inicial.
   - [CONCLUÍDO, 2026-10-06] Aplicar as migrações 037, 038, 039, 040, 041 e 042 no Supabase — verificado via MCP: 6 migrações registradas em `public.migrations` (linhas); nenhum `profile_id` NULL em `posts`/`shopee_credentials` após backfill. Ver `docs/RULES.md` item 11 para procedimento e risco conhecido sobre restore com código antigo.
   - Merge dos PRs da branch `chore/phase-12-integration` em `main`.
 
+## Atualização 2026-10-09 (promoção staging -> main preparada, não publicada)
+
+- Branch local `promote/staging-to-main-2026-10-09` criada a partir de `origin/main` e mergeada
+  com `origin/staging`. A árvore final foi comparada com `origin/staging` e ficou idêntica
+  (`git diff HEAD..origin/staging` sem diferenças). Nenhum segredo foi registrado.
+- O merge tópico-a-tópico foi tentado primeiro, mas conflitou em arquivos de frontend já
+  alterados por squash/PR em `main`. A resolução usada na branch de promoção preserva a versão
+  consolidada de `staging` para `frontend/src/index.css`,
+  `frontend/src/pages/PanelPage.tsx` e `frontend/src/pages/ProductsPage.tsx`.
+- Validação executada: `npm ci` e `npm run build` em `frontend/` passaram. O build gerou apenas
+  o aviso normal de chunk acima de 500 kB. `npm ci` apontou 1 vulnerabilidade alta via audit,
+  sem correção automática aplicada nesta rodada.
+- Validação Python local: dependências instaladas em venv temporária Python 3.12; testes que
+  dependem do `conftest.py` global não executaram os asserts porque o ambiente mínimo não tem
+  variáveis de banco e o setup tentou conectar com `host=None`. Isso bloqueou os testes de
+  scheduler/TikTok e hardening web localmente, não indicou falha funcional do código.
+- Pendências acompanhadas pelo Rafa: renovar token TikTok pelo OAuth do usuário; validar teste
+  de conexão com tokens reais de X/Instagram/TikTok; testar criador multi-rede ponta a ponta;
+  validar hardening com ambiente configurado; aguardar deploy automático de staging.
+
 ## Atualização 2026-10-09 — evidência atual de OAuth Threads/TikTok
 
 Registro feito antes de qualquer correção de código, a partir das telas enviadas pelo Rafa e
