@@ -123,7 +123,7 @@ def test_bot_post_tiktok_with_video_calls_post_video_and_logs_success(monkeypatc
         ),
     )
 
-    module.bot_post_tiktok("job-2")
+    result = module.bot_post_tiktok("job-2")
 
     assert calls["args"] == (
         "user-token-1", "/tmp/video.mp4", "confere esse produto"
@@ -133,6 +133,8 @@ def test_bot_post_tiktok_with_video_calls_post_video_and_logs_success(monkeypatc
     assert user_id == 42
     assert activity_type == ActivityType.BOT_POST_SUCCESS
     assert metadata["metadata"]["publish_id"] == "publish-1"
+    assert result.status == "succeeded"
+    assert result.external_id == "publish-1"
 
 
 def test_bot_post_tiktok_api_failure_records_activity_and_does_not_raise(monkeypatch):

@@ -7,6 +7,7 @@ from shopee_bot.database.activities import (
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
 from shopee_bot.scheduler.media_delivery import delivery_url
+from shopee_bot.scheduler.publication_result import external_id, succeeded, unknown
 
 
 def _first_image(post):
@@ -91,6 +92,7 @@ def bot_post_facebook(job_id):
     root_post = post_data[0]
     medias = _images_when_mixed(job_id, root_post.get("medias") or [])
     image = _first_image({"medias": medias})
+    external = None
 
     try:
         if len(medias) > 1:
@@ -98,15 +100,15 @@ def bot_post_facebook(job_id):
                 raise RuntimeError("Facebook: álbum exige conexão OAuth com token de Página.")
             if not all(_is_album_image(media) for media in medias):
                 raise RuntimeError("Facebook: álbum só aceita imagens JPG/PNG; vídeo e GIF não entram no álbum.")
-            _publish_album(page_access_token, page_id, medias, root_post["text"])
+            external = _publish_album(page_access_token, page_id, medias, root_post["text"])
         elif medias and medias[0].get("type") == "VIDEO":
             if not page_access_token:
                 raise RuntimeError("Facebook: vídeo exige conexão OAuth com token de Página.")
-            _publish_video(page_access_token, page_id, medias[0], root_post["text"])
+            external = _publish_video(page_access_token, page_id, medias[0], root_post["text"])
         elif image:
             if not page_access_token:
                 raise RuntimeError("Facebook: imagem exige conexão OAuth com token de Página.")
-            _publish_image(page_access_token, page_id, image, root_post["text"])
+            external = _publish_image(page_access_token, page_id, image, root_post["text"])
         elif page_access_token:
             # Conectado via OAuth (Login do Facebook, api/facebook_oauth.py)
             # — token já escopado pra Página certa, funciona pra qualquer
@@ -115,18 +117,18 @@ def bot_post_facebook(job_id):
             # enxergava Páginas do PRÓPRIO app).
             if root_post["product_ids"]:
                 product = products.get(user_id, root_post["product_ids"][0], profile_id)
-                FacebookAPI.post_product_as_page(page_access_token, page_id, product)
+                external = FacebookAPI.post_product_as_page(page_access_token, page_id, product)
             else:
-                FacebookAPI.post_text_as_page(page_access_token, page_id, root_post["text"])
+                external = FacebookAPI.post_text_as_page(page_access_token, page_id, root_post["text"])
         else:
             # Legado: credencial per-user (app_id/secret) de antes da
             # migração pro app único — só funciona pra Páginas que o app
             # do Rafa administra.
             if root_post["product_ids"]:
                 product = products.get(user_id, root_post["product_ids"][0], profile_id)
-                FacebookAPI.post_product(app_id, secret, page_id, product)
+                external = FacebookAPI.post_product(app_id, secret, page_id, product)
             else:
-                FacebookAPI.post_text(app_id, secret, page_id, root_post["text"])
+                external = FacebookAPI.post_text(app_id, secret, page_id, root_post["text"])
     except Exception as err:
         logger.exception(f"job #{job_id} for {username} falhou: {err}")
         insert_activities(
@@ -141,7 +143,7 @@ def bot_post_facebook(job_id):
             }),
             profile_id=profile_id
         )
-        return
+        return unknown(err)
 
     insert_activities(
         user_id,
@@ -155,3 +157,4 @@ def bot_post_facebook(job_id):
         profile_id=profile_id
     )
     logger.info(f"bot_post_facebook job #{job_id} for {username} finished.")
+    return succeeded(external_id(external))

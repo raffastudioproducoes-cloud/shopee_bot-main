@@ -365,13 +365,17 @@ existente — diretriz, não tarefa isolada).
 
 ## Escalabilidade — execução iniciada em 2026-10-16
 
-- [~] **Scheduler/worker — preparação inicial.** Branch local
-  `feat/scale-durable-claims`: migração `052_create_publication_claims.sql`, lease atômico por
-  publicação e atualização das agendas persistidas no boot. `SCHEDULER_ENABLED=true` preserva
-  o modo atual; a futura instância web usará `false` e apontará `FLASK_INTERNAL_URL` ao worker.
-  Ainda não aplicado no Supabase compartilhado e não autorizado para réplicas.
-- [ ] **Fila e idempotência.** Criar `publish_jobs` com item/estado/attempt/`external_id` e chave
-  única por publicação de rede antes de qualquer escala horizontal real.
+- [x] **Scheduler/worker — preparação inicial.** Migração
+  `052_create_publication_claims.sql`, lease atômico por publicação e atualização das agendas
+  persistidas no boot. `SCHEDULER_ENABLED=true` preserva o modo atual; a futura instância web
+  usará `false` e apontará `FLASK_INTERNAL_URL` ao worker. Evidência: CI e deploy da `main`
+  verdes em 2026-10-16.
+- [~] **Fila e idempotência.** Implementação local na branch
+  `feat/scale-durable-queue`: migração `053_create_publish_jobs.sql`, chave única por ocorrência,
+  claim com `SKIP LOCKED`, classificação conservadora de lease vencido como `unknown` e estados finais com `external_id` quando
+  a rede confirma. Erro ambíguo fica em `unknown` e não recebe retry automático. Pendente:
+  staging/CI, teste configurado contra PostgreSQL e reconciliação específica por provedor antes de
+  permitir retry de `unknown`.
 - [ ] **Banco e consultas.** Medir com `EXPLAIN (ANALYZE, BUFFERS)` em staging representativo;
   criar índices somente com evidência.
 - [ ] **Hospedagem e réplicas.** Separar API/worker, carga em staging, borda Cloudflare e ativação

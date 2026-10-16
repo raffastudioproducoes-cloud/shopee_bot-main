@@ -16,6 +16,7 @@ from shopee_bot.database.activities import (
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
+from shopee_bot.scheduler.publication_result import failed, succeeded, unknown
 
 
 def _video_media(post):
@@ -119,7 +120,7 @@ def bot_post_tiktok(job_id):
             }),
             profile_id=profile_id
         )
-        return
+        return failed(message)
 
     try:
         publish_id = _post_with_refresh(
@@ -141,7 +142,7 @@ def bot_post_tiktok(job_id):
             }),
             profile_id=profile_id
         )
-        return
+        return unknown(err)
 
     insert_activities(
         user_id,
@@ -156,3 +157,4 @@ def bot_post_tiktok(job_id):
         profile_id=profile_id
     )
     logger.info(f"bot_post_tiktok job #{job_id} for {username} finished.")
+    return succeeded(publish_id)

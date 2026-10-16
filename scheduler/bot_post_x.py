@@ -14,6 +14,7 @@ from shopee_bot.database.activities import (
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.media_delivery import STORAGE_PREFIX, delivery_url
 from shopee_bot.scheduler.profile_scope import require_profile_id
+from shopee_bot.scheduler.publication_result import failed, succeeded, unknown
 
 UNSUPPORTED_MEDIA_MESSAGE = (
     "O X só publica texto ou uma única imagem por post; este post tem "
@@ -101,7 +102,7 @@ def bot_post_x(job_id):
         logger.warning(
             f"job #{job_id} for user {user_id} skipped X publish: {disabled_reason}"
         )
-        return
+        return failed(disabled_reason)
 
     user_data = x_credentials.get_by_user_id(user_id, profile_id)
     username = user_data["username"]
@@ -125,7 +126,7 @@ def bot_post_x(job_id):
             }),
             profile_id=profile_id
         )
-        return
+        return failed(err)
 
     last_tweet_id = None
     post_data = posts.get(user_id, post_id, profile_id)
@@ -164,7 +165,7 @@ def bot_post_x(job_id):
             )
             # não continua a thread: partes seguintes seriam replies de
             # um tweet que nunca saiu (reply_to_id inválido).
-            return
+            return unknown(err) if published_parts else failed(err)
 
     insert_activities(
         user_id,
@@ -179,3 +180,4 @@ def bot_post_x(job_id):
         profile_id=profile_id
     )
     logger.info(f"bot_post_x job #{job_id} for {username} finished.")
+    return succeeded(last_tweet_id)
