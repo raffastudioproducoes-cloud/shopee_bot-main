@@ -15,6 +15,15 @@ NETWORK_FUNC_MAP = {
 }
 
 
+def get_publication_jobs():
+    query = """
+        SELECT id
+        FROM schedulers
+        WHERE func = ANY(%s)
+    """
+    return query_db(query, (list(NETWORK_FUNC_MAP.values()),))
+
+
 def get_by_post_id(user_id, post_id):
     query = """
         SELECT
