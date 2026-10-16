@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { ReactNode, CSSProperties, MouseEvent } from "react"
+import type { ReactNode, CSSProperties, MouseEvent, AriaAttributes } from "react"
 import { Icon } from "./Icon"
 
 /**
@@ -29,6 +29,8 @@ export interface ButtonProps {
   className?: string
   style?: CSSProperties
   title?: string
+  'aria-label'?: AriaAttributes['aria-label']
+  'aria-pressed'?: AriaAttributes['aria-pressed']
 }
 
 const SIZES = {
@@ -63,6 +65,8 @@ export function Button({
   className = "",
   style,
   title,
+  'aria-label': ariaLabel,
+  'aria-pressed': ariaPressed,
 }: ButtonProps) {
   const s = SIZES[size] || SIZES.md
   const t = TONES[variant] || TONES.primary
@@ -75,6 +79,8 @@ export function Button({
     <button
       type={type}
       title={title}
+      aria-label={ariaLabel}
+      aria-pressed={ariaPressed}
       disabled={isInactive}
       aria-disabled={disabled}
       aria-busy={loading}

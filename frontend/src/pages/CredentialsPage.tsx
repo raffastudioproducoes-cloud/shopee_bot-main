@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { createContext, lazy, Suspense, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import {
@@ -12,6 +12,7 @@ import {
 } from "../api/credentials"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
+import { Skeleton, SkeletonCard, SkeletonRegion } from "../components/ui/Skeleton"
 import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { StatusBadge } from "../components/ui/StatusBadge"
@@ -21,13 +22,10 @@ import { Select } from "../components/ui/Select"
 import { Modal } from "../components/ui/Modal"
 import { isNetworkDisabled } from "../lib/networkLimits"
 
-const AdminOverrides = lazy(() => import("../components/credentials/AdminOverrides").then(({ AdminOverrides }) => ({ default: AdminOverrides })))
-
 // X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
 // FacebookCredentialCard — mesmo padrão de TikTok/Instagram) porque usam
 // OAuth authorize/callback, não app_id/secret por formulário. Kwai também
-// saiu do mapeamento: renderizado à parte, por último, com aviso "em breve"
-// pra usuário não-admin (ver comingSoonForNonAdmin em SimpleCredentialCard).
+// saiu do mapeamento: renderizado à parte, por último, com aviso "em breve".
 const SIMPLE_NETWORKS: { key: SimpleNetwork; label: string }[] = [
   { key: "shopee", label: "Shopee" },
 ]
@@ -73,7 +71,7 @@ function OAuthConsentModal({
   const consent = OAUTH_CONSENT[network]
   return (
     <Modal open={open} onClose={onClose} title={`Conectar ${consent.label}`}>
-      <div role="dialog" aria-modal="true" aria-label={`Autorização ${consent.label}`} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <p style={{ margin: 0, color: "var(--text-body)", font: "var(--text-role-body)" }}>
           Você será levado ao {consent.label} para autorizar esta conexão.
         </p>
@@ -163,7 +161,7 @@ function ConnectionStatus({ status }: { status: CredentialStatusWithLight }) {
       {testing ? (
         <Icon name="loader-2" size={14} className="animate-spin" style={{ color: "var(--amber-300)", flexShrink: 0 }} />
       ) : (
-        <ConnectionLight state={status.light} title={status.check_message ?? undefined} />
+        <ConnectionLight state={status.light} />
       )}
       <span role="status" aria-live="polite" style={{ display: "inline-flex" }}>
         <StatusBadge
@@ -190,8 +188,7 @@ const EMPTY_STATUS: CredentialStatusWithLight = {
 }
 
 export function CredentialsPage() {
-  const { logout, user } = useAuthStore()
-  const isAdmin = user?.access === "ADMIN"
+  const { logout } = useAuthStore()
   const queryClient = useQueryClient()
   const [banner, setBanner] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -291,9 +288,7 @@ export function CredentialsPage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256, color: "var(--text-muted)" }}>
-        Carregando...
-      </div>
+      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="360px" /></div><div style={CARD_GRID}>{[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
     )
   }
 
@@ -383,11 +378,6 @@ export function CredentialsPage() {
         />
       </div>
 
-      {isAdmin && (
-        <Suspense fallback={null}>
-          <AdminOverrides onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />
-        </Suspense>
-      )}
     </div>
   )
 }

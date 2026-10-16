@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { useProfileStore } from './profileStore'
+import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
 
 export interface User {
   id: number
@@ -32,6 +33,7 @@ export const useAuthStore = create<AuthState>()(
         set({ accessToken: token, user, isAuthenticated: true, isRoleVerified: false })
       },
       logout: () => {
+        clearAdminVisitingSite()
         useProfileStore.getState().setActiveProfileId(null)
         set({ accessToken: null, user: null, isAuthenticated: false, isRoleVerified: false })
       },

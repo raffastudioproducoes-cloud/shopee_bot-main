@@ -33,23 +33,23 @@ export const usersApi = {
     if (params?.limit) searchParams.append('limit', String(params.limit))
 
     const query = searchParams.toString()
-    return api.get<UsersResponse>(`/users${query ? `?${query}` : ''}`)
+    return api.get<UsersResponse>(`/admin/users${query ? `?${query}` : ''}`)
   },
 
   async create(data: UserCreate): Promise<AppUser> {
-    return api.post<AppUser>('/users', data)
+    return api.post<AppUser>('/admin/users', data)
   },
 
   async get(id: string): Promise<AppUser> {
-    return api.get<AppUser>(`/users/${id}`)
+    return api.get<AppUser>(`/admin/users/${id}`)
   },
 
   async update(id: string, data: UserUpdate): Promise<AppUser> {
-    return api.put<AppUser>(`/users/${id}`, data)
+    return api.put<AppUser>(`/admin/users/${id}`, data)
   },
 
   async delete(id: string): Promise<{ msg: string }> {
-    return api.delete<{ msg: string }>(`/users/${id}`)
+    return api.delete<{ msg: string }>(`/admin/users/${id}`)
   },
 
   async deleteSelf(currentPassword: string): Promise<{ msg: string }> {

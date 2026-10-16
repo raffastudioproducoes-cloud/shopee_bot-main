@@ -1,4 +1,4 @@
-import { lazy } from "react"
+import { lazy, Suspense, type ComponentType } from "react"
 import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router"
 import { authApi } from "./api/auth"
 import { useAuthStore } from "./stores/authStore"
@@ -14,9 +14,15 @@ import { HelpPage } from "./pages/HelpPage"
 import { SettingsPage } from "./pages/SettingsPage"
 import { TermsPage } from "./pages/legal/TermsPage"
 import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage"
+import { PageSkeleton, type PageSkeletonVariant } from "./components/ui/Skeleton"
+import { OrbitalLoader } from "./components/ui/OrbitalLoader"
+import { AdminLayout } from "./pages/AdminLayout"
+import { isAdminVisitingSite } from "./lib/adminSiteFlag"
 
+const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"))
 const UsersPage = lazy(() => import("./pages/UsersPage"))
 const LogsPage = lazy(() => import("./pages/LogsPage"))
+const AdminCredentialsPage = lazy(() => import("./pages/AdminCredentialsPage"))
 
 async function requireAdmin() {
   let user
@@ -37,8 +43,13 @@ async function requireAdmin() {
   }
 }
 
+const lazyRoute = (Page: ComponentType, variant: PageSkeletonVariant) => () => (
+  <Suspense fallback={<PageSkeleton variant={variant} />}><Page /></Suspense>
+)
+
 const rootRoute = createRootRoute({
-  component: () => <Outlet />,
+  component: () => <Suspense fallback={<PageSkeleton variant="detail" />}><Outlet /></Suspense>,
+  pendingComponent: () => <OrbitalLoader fullScreen size="lg" />,
 })
 
 const loginRoute = createRoute({
@@ -73,6 +84,12 @@ const panelRoute = createRoute({
 const dashboardRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/",
+  beforeLoad: () => {
+    const { isAuthenticated, user } = useAuthStore.getState()
+    if (isAuthenticated && user?.access === "ADMIN" && !isAdminVisitingSite()) {
+      throw redirect({ to: "/admin/overview" })
+    }
+  },
   component: DashboardPage,
 })
 
@@ -106,18 +123,37 @@ const profilesRoute = createRoute({
   component: ProfilesPage,
 })
 
-const usersRoute = createRoute({
-  getParentRoute: () => panelRoute,
-  path: "/users",
+const adminRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin",
   beforeLoad: requireAdmin,
-  component: UsersPage,
+  component: AdminLayout,
+})
+
+const adminIndexRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/",
+  beforeLoad: () => { throw redirect({ to: "/admin/overview" }) },
+})
+
+const adminOverviewRoute = createRoute({ getParentRoute: () => adminRoute, path: "overview", component: lazyRoute(AdminOverviewPage, "detail") })
+
+const usersRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "users",
+  component: lazyRoute(UsersPage, "list"),
 })
 
 const logsRoute = createRoute({
-  getParentRoute: () => panelRoute,
-  path: "/logs",
-  beforeLoad: requireAdmin,
-  component: LogsPage,
+  getParentRoute: () => adminRoute,
+  path: "logs",
+  component: lazyRoute(LogsPage, "table"),
+})
+
+const adminCredentialsRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "credentials",
+  component: lazyRoute(AdminCredentialsPage, "detail"),
 })
 
 const helpRoute = createRoute({
@@ -136,6 +172,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   termsRoute,
   privacyRoute,
+  adminRoute.addChildren([adminIndexRoute, adminOverviewRoute, usersRoute, logsRoute, adminCredentialsRoute]),
   panelRoute.addChildren([
     dashboardRoute,
     productsRoute,
@@ -143,8 +180,6 @@ const routeTree = rootRoute.addChildren([
     postsRoute,
     credentialsRoute,
     profilesRoute,
-    usersRoute,
-    logsRoute,
     helpRoute,
     settingsRoute,
   ]),

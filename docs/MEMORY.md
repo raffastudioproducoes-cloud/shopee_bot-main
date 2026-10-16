@@ -91,6 +91,19 @@ Só existe **1 usuário em produção** (`rafastudio`, ADMIN) — confirmado via
   `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md`; a implementação
   está registrada na atualização de 2026-10-12 abaixo.
 
+## Atualização 2026-10-15 — versão 2.6.0 (painel admin novo e separação cliente/admin)
+
+- Portada a versão recente do painel (cópia local sobre 70805cd) por merge 3-way; as correções de segurança de `staging` prevaleceram: 051 só em `docs/migrations-pendentes/` (conteúdo mais novo), sem IP/texto livre em logs admin, rotas só em `/admin/*`, `_require_admin` em todo `/admin`.
+- Overrides manuais de credenciais agora em `/admin/credentials/*`; `GET /credentials` não devolve `check_message`; 403 em rota `/admin` revalida `/auth/me`.
+- Render: métricas sempre do serviço de produção; o id de staging é ignorado. Painel de staging lê o mesmo Supabase.
+- Globo: dados reais de localização NÃO são coletados; só demonstração fictícia identificada.
+
+## Atualização 2026-10-15 — versão 2.5.0 (integração em `staging`)
+
+- Integradas em `staging`: `fix/skeleton-review`, `feat/splash-orbital-v2` (splash HTML e `OrbitalLoader`), `feat/admin-panel` (área `/admin` com guarda própria, visão geral, contas, logs e credenciais), `fix/security` (replay dos callbacks Meta/Threads, ownership de credenciais, CORS, sanitização de mídia) e `docs/handoff-2026-10-15`.
+- A migração `051_admin_metrics_snapshot.sql` NÃO está em `database/migrations/`; fica só em `docs/migrations-pendentes/` e deve ser aplicada manualmente no Supabase compartilhado, com autorização de Rafa.
+- Testes após a integração: 77 testes node do frontend, build do Vite e 772 testes de API isolados (`tests/api`) verdes.
+
 ## Atualização 2026-10-14 — versão 2.4.0 (identidade AUTO ORBITAL, páginas legais e callbacks Meta)
 
 - Identidade **AUTO ORBITAL** aplicada ao app: paleta e grafites nos tokens de cor, logos,

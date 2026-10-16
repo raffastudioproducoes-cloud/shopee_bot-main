@@ -9,6 +9,7 @@ import { ProfileCard } from "../components/profiles/ProfileCard"
 import { ProfileFormModal } from "../components/profiles/ProfileFormModal"
 import { ConfirmModal } from "../components/profiles/ConfirmModal"
 import { BackupSection } from "../components/profiles/BackupSection"
+import { Skeleton, SkeletonAvatar, SkeletonText, SkeletonRegion } from "../components/ui/Skeleton"
 
 const errMsg = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback)
 
@@ -105,15 +106,13 @@ export function ProfilesPage() {
       )}
 
       {profilesLoading ? (
-        <div
-          role="status"
-          aria-label="Carregando perfis"
+        <SkeletonRegion><div
           style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}
         >
           {[0, 1, 2].map((i) => (
-            <Panel key={i} style={{ height: 240, opacity: 0.5 }} />
+            <Panel key={i} style={{ height: 240, padding: 16, display: "flex", flexDirection: "column", gap: 16 }}><SkeletonAvatar size={64} /><Skeleton width="70%" height={20} /><SkeletonText lines={2} /><Skeleton width="90px" height={36} /></Panel>
           ))}
-        </div>
+        </div></SkeletonRegion>
       ) : profilesError ? (
         <Panel style={{ padding: 24, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <p role="alert" style={{ margin: 0, color: "var(--negative-on-glass)" }}>

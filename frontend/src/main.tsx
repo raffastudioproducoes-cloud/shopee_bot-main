@@ -9,6 +9,23 @@ import { Toaster } from './components/ui/Toaster'
 import { APP_VERSION } from './appMeta'
 import './index.css'
 
+const SPLASH_FADE_MS = 300
+
+function dismissSiteSplash() {
+  window.__appReady = true
+  const splash = document.getElementById('site-splash')
+  if (!splash) return
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return splash.remove()
+  splash.classList.add('is-leaving')
+  window.setTimeout(() => splash.remove(), SPLASH_FADE_MS)
+}
+
+// Primeiro paint real: router carregado + dois frames (commit do React e pintura).
+function dismissSplashAfterFirstPaint() {
+  const afterFrames = () => window.requestAnimationFrame(() => window.requestAnimationFrame(dismissSiteSplash))
+  router.load().then(afterFrames, afterFrames)
+}
+
 // Avisos de progresso globais: qualquer mutation com `meta.toast` mostra
 // "pending" → "success" / erro legível, sem cada página reimplementar.
 const toastMeta = (meta: Record<string, unknown> | undefined) => meta?.toast as MutationToastMeta | undefined
@@ -54,6 +71,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>,
 )
+
+dismissSplashAfterFirstPaint()
 
 // PWA: registra o service worker só em produção; ?v= muda a cada release e renova o cache.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

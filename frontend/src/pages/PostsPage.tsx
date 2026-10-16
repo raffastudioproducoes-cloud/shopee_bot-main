@@ -41,6 +41,7 @@ import { TextInput } from "../components/ui/TextInput"
 import { Textarea } from "../components/ui/Textarea"
 import { Select } from "../components/ui/Select"
 import { SegmentedToggle } from "../components/ui/SegmentedToggle"
+import { PageSkeleton } from "../components/ui/Skeleton"
 
 // Ver buildSchedule: run_date de segurança do "Agora" (disparado de fato
 // assim que a mídia termina de subir).
@@ -290,17 +291,7 @@ export function PostsPage() {
 
   if (isLoading) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: 256,
-          color: "var(--text-muted)",
-        }}
-      >
-        Carregando...
-      </div>
+      <PageSkeleton variant="table" titleWidth="140px" subtitleWidth="280px" action toolbar columns={3} />
     )
   }
 

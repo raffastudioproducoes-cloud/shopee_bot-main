@@ -20,6 +20,38 @@
    conteúdo ocupa a largura toda. Desktop mantém o trilho fixo. */
 html, body, #root { min-height: 100%; }
 body { background: var(--bg-app-gradient); background-attachment: fixed; }
+.app-modal[open] { display: flex; align-items: center; justify-content: center; overscroll-behavior: contain; }
+.app-modal::backdrop { background: transparent; }
+
+.skeleton { display: block; flex: none; background: var(--graphite-700); background-image: linear-gradient(90deg, var(--graphite-700), var(--graphite-800), var(--graphite-700)); background-size: 200% 100%; animation: skeleton-shimmer 1.6s ease-in-out infinite; }
+.skeleton-sub { margin-top: 4px; }
+.skeleton-stack { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.skeleton-card { display: flex; flex-direction: column; gap: 14px; min-height: 112px; padding: 16px; border: 1px solid var(--border-card); border-radius: var(--r-md); background: var(--surface-card); }
+.skeleton-table-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; padding: 0 16px; border-bottom: 1px solid var(--border-hairline); }
+.page-skeleton { display: flex; flex-direction: column; gap: var(--gap-column); min-width: 0; }
+.page-skeleton .skeleton { max-width: 100%; }
+.page-skeleton-header { display: flex; justify-content: space-between; gap: 12px; }
+.page-skeleton-toolbar { display: flex; gap: 8px; }
+.page-skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 16px; }
+.page-skeleton-list, .page-skeleton-form { display: flex; flex-direction: column; gap: 16px; }
+.page-skeleton-table { overflow: hidden; border-radius: var(--r-md); background: var(--surface-card); }
+@keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; background-image: none; } }
+
+.orbital-loader { --orbital-size: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: calc(var(--orbital-size) + 34px); color: var(--text-muted); font: var(--text-role-label); }
+.orbital-loader--fullscreen { min-height: 45vh; min-height: 45dvh; }
+.orbital-loader__scene { position: relative; width: var(--orbital-size); height: calc(var(--orbital-size) * .72); isolation: isolate; }
+.orbital-loader__disk { position: absolute; z-index: 2; left: 8%; top: 35%; width: 84%; height: 30%; border-radius: 50%; background: linear-gradient(90deg,var(--brand-electric-cyan) 0%,var(--brand-orbit-blue) 32%,var(--brand-indigo) 67%,var(--brand-orbital-violet) 100%); box-shadow: 0 0 16px rgba(31,211,253,.55), 0 0 28px rgba(147,108,242,.32); transform: rotate(-13deg); animation: orbital-disk-spin 3.2s linear infinite; }
+.orbital-loader__horizon { position: absolute; z-index: 4; left: 29%; top: 21%; width: 42%; aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; background: var(--brand-event-horizon); border: 2px solid rgba(238,234,242,.88); box-shadow: 0 0 0 5px rgba(31,211,253,.2), 0 0 24px rgba(31,211,253,.5); overflow: hidden; }
+.orbital-loader__horizon img { width: 66%; height: 66%; object-fit: contain; opacity: .72; filter: grayscale(1) brightness(.5); }
+.orbital-loader__lens { position: absolute; z-index: 5; left: 17%; top: 27%; width: 66%; height: 46%; border: 2px solid rgba(238,234,242,.7); border-left-color: transparent; border-right-color: transparent; border-radius: 50%; transform: rotate(-13deg); filter: drop-shadow(0 0 5px rgba(31,211,253,.65)); }
+.orbital-loader__orbit { position: absolute; inset: 2% 0; z-index: 3; pointer-events: none; }
+.orbital-loader__orbit--back { z-index: 1; transform: rotate(-18deg); }
+.orbital-loader__orbit--front { transform: rotate(-18deg) scaleY(.76); }
+.orbital-loader__icon { position: absolute; width: 14%; height: 14%; padding: 4px; color: var(--brand-electric-cyan); stroke: currentColor; stroke-width: 1.3; fill: none; filter: drop-shadow(0 0 5px rgba(31,211,253,.55)); animation: orbital-icons 4.8s linear infinite; }
+.orbital-loader__orbit--back .orbital-loader__icon:nth-child(1){left:2%;top:43%;animation-delay:-.4s}.orbital-loader__orbit--back .orbital-loader__icon:nth-child(2){right:9%;top:16%;animation-delay:-2s}.orbital-loader__orbit--back .orbital-loader__icon:nth-child(3){right:0;bottom:7%;animation-delay:-3.6s}.orbital-loader__orbit--front .orbital-loader__icon:nth-child(1){left:18%;top:8%;animation-delay:-1.3s}.orbital-loader__orbit--front .orbital-loader__icon:nth-child(2){right:3%;top:48%;animation-delay:-2.7s}.orbital-loader__orbit--front .orbital-loader__icon:nth-child(3){left:40%;bottom:-2%;animation-delay:-4.2s}
+@keyframes orbital-disk-spin { to { transform: rotate(347deg) scaleY(.97); } } @keyframes orbital-icons { 0%,100%{opacity:.45;transform:scale(.8)}50%{opacity:1;transform:scale(1.12)} }
+@media (prefers-reduced-motion: reduce) { .orbital-loader__disk,.orbital-loader__icon { animation: none; } .orbital-loader__icon { opacity: .8; } }
 
 .app-shell { display: flex; min-height: 100vh; min-height: 100dvh; background: var(--bg-app-gradient); }
 .app-col {

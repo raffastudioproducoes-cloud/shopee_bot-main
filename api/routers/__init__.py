@@ -9,7 +9,6 @@ from .credentials import router as credentials_router
 from .users import router as users_router
 from .dashboard import router as dashboard_router
 from .notifications import router as notifications_router
-from .logs import router as logs_router
 from .profiles import router as profiles_router
 from .settings import router as settings_router
 from .meta_callbacks import router as meta_callbacks_router
@@ -24,7 +23,6 @@ __all__ = [
     "users_router",
     "dashboard_router",
     "notifications_router",
-    "logs_router",
     "profiles_router",
     "settings_router",
     "meta_callbacks_router",

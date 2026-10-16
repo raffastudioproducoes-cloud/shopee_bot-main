@@ -33,6 +33,9 @@ export interface TestConnectionResult {
 }
 
 export const credentialsApi = {
+  async listAdminStatus(): Promise<Record<SimpleNetwork | 'threads', Pick<CredentialStatusWithLight, 'connected' | 'light' | 'state' | 'status_text' | 'checked_at'>>> {
+    return api.get('/admin/credentials/status')
+  },
   async list(): Promise<CredentialsStatusMap> {
     return api.get<CredentialsStatusMap>('/credentials')
   },

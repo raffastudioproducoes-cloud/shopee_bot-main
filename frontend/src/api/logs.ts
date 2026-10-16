@@ -1,17 +1,10 @@
 import { api } from '../lib/api'
 
 export interface LogEntry {
-  id: number
-  user_id: string | null
-  username: string | null
   method: string
   path: string
-  action: string | null
   status_code: number | null
   duration_ms: number | null
-  error: string | null
-  redirect_to: string | null
-  client_ip: string | null
   created_at: string
 }
 
@@ -44,6 +37,6 @@ export const logsApi = {
     if (filters?.created_to) params.append('created_to', filters.created_to)
 
     const query = params.toString()
-    return api.get<LogsResponse>(`/logs${query ? `?${query}` : ''}`)
+    return api.get<LogsResponse>(`/admin/logs${query ? `?${query}` : ''}`)
   },
 }

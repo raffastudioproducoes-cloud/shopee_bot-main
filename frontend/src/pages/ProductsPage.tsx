@@ -5,6 +5,7 @@ import { router } from "../router"
 import { productsApi, type Product } from "../api/products"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
+import { PageSkeleton } from "../components/ui/Skeleton"
 import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
@@ -195,9 +196,7 @@ export function ProductsPage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256, color: "var(--text-muted)" }}>
-        Carregando...
-      </div>
+      <PageSkeleton variant="table" titleWidth="180px" subtitleWidth="260px" action toolbar />
     )
   }
 

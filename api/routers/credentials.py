@@ -213,7 +213,6 @@ def _status_only(
         "state": state,
         "status_text": status_text,
         "checked_at": check.get("checked_at") if check else None,
-        "check_message": check.get("message") if check else None,
     }
     if network == "x":
         # Campos opcionais (contrato antigo intacto): sem media.write o
@@ -385,17 +384,8 @@ def _verify_oauth_state(
 async def list_credentials(user_id: int = Depends(get_current_user_id), profile_id: str | None = Depends(get_current_profile_id)):
     """Status de conexão (sem valor) de todas as redes suportadas.
 
-    `check_message` é detalhe de diagnóstico interno (texto cru devolvido
-    pela API da rede, ex: motivo exato de uma falha) — só admin (que também
-    é quem pode disparar POST /{network}/test) recebe esse campo. Usuário
-    comum só enxerga a luz/status simplificado, nunca o motivo por trás
-    dela."""
-    user_row = (
-        supabase.table("users").select("access").eq("id", user_id)
-        .maybe_single().execute()
-    )
-    is_admin = bool(user_row and user_row.data and user_row.data.get("access") == "ADMIN")
-
+    O texto cru do teste (`check_message`, devolvido pela API da rede) nunca
+    sai daqui, nem para ADMIN: só luz/estado/rótulo padronizados."""
     checks_row = (
         scope_owner(supabase.table("credential_checks").select("network, state, message, checked_at"), user_id, profile_id).execute()
     )
@@ -428,10 +418,6 @@ async def list_credentials(user_id: int = Depends(get_current_user_id), profile_
             token_field=token_field, network=network,
         )
 
-    if not is_admin:
-        for status in result.values():
-            status["check_message"] = None
-
     return result
 
 
@@ -450,7 +436,6 @@ def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
     return user_id
 
 
-@router.put("/threads")
 async def save_threads_credential(
     body: ThreadsCredentialBody,
     user_id: int = Depends(_require_admin),
@@ -1058,7 +1043,6 @@ async def delete_x_credential(user_id: int = Depends(get_current_user_id), profi
 # Path "/manual" (não literal "/x" etc)
 # pra não roubar a rota PUT /{network} genérica (SIMPLE_NETWORKS) nem o
 # teste que confirma que ela devolve 404 pra essas redes.
-@router.put("/x/manual")
 async def save_x_credential_manual(
     body: XManualCredentialBody,
     user_id: int = Depends(_require_admin),
@@ -1073,7 +1057,6 @@ async def save_x_credential_manual(
     return {"connected": True}
 
 
-@router.put("/facebook/manual")
 async def save_facebook_credential_manual(
     body: FacebookManualCredentialBody,
     user_id: int = Depends(_require_admin),
@@ -1088,7 +1071,6 @@ async def save_facebook_credential_manual(
     return {"connected": True}
 
 
-@router.put("/tiktok/manual")
 async def save_tiktok_credential_manual(
     body: TikTokManualCredentialBody,
     user_id: int = Depends(_require_admin),
@@ -1103,7 +1085,6 @@ async def save_tiktok_credential_manual(
     return {"connected": True}
 
 
-@router.put("/instagram/manual")
 async def save_instagram_credential_manual(
     body: InstagramManualCredentialBody,
     user_id: int = Depends(_require_admin),
@@ -1112,6 +1093,20 @@ async def save_instagram_credential_manual(
     _upsert_by_user("instagram_credentials", user_id, {
         "ig_user_id": body.ig_user_id,
         "user_access_token": encrypt(body.user_access_token),
+        "status": True,
+    }, profile_id=profile_id)
+    return {"connected": True}
+
+
+async def save_kwai_credential_manual(
+    body: SimpleCredentialBody,
+    user_id: int = Depends(_require_admin),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Override administrativo do Kwai (registrado só em /admin/credentials/kwai/manual)."""
+    _upsert_by_user("kwai_credentials", user_id, {
+        "app_id": body.app_id.strip(),
+        "secret": encrypt(body.secret.strip()),
         "status": True,
     }, profile_id=profile_id)
     return {"connected": True}
@@ -1171,7 +1166,7 @@ def _save_check(user_id, profile_id: str | None, network: str, state: str, messa
         if existing:
             supabase.table("credential_checks").update({**check_data, "profile_id": None}).eq(
                 "id", existing["id"],
-            ).execute()
+            ).eq("user_id", user_id).execute()
             duplicate_ids = [row["id"] for row in existing_rows if row["id"] != existing["id"]]
             if duplicate_ids:
                 scope_account(supabase.table("credential_checks").delete(), user_id).eq(
@@ -1186,7 +1181,9 @@ def _save_check(user_id, profile_id: str | None, network: str, state: str, messa
             supabase.table("credential_checks").select("id"), user_id, profile_id, network,
         ).eq("network", network).maybe_single().execute()
         if existing and existing.data:
-            supabase.table("credential_checks").update(check_data).eq("id", existing.data["id"]).execute()
+            supabase.table("credential_checks").update(check_data).eq(
+                "id", existing.data["id"],
+            ).eq("user_id", user_id).execute()
         else:
             supabase.table("credential_checks").insert({
                 **check_data, "user_id": user_id, "network": network,
@@ -1243,7 +1240,9 @@ async def save_ai_credential(
         supabase.table(AI_TABLE).select("id"), user_id,
     ).eq("provider", provider).execute().data or []
     if existing:
-        result = supabase.table(AI_TABLE).update(data).eq("id", existing[0]["id"]).execute()
+        result = supabase.table(AI_TABLE).update(data).eq(
+            "id", existing[0]["id"],
+        ).eq("user_id", user_id).execute()
     else:
         row = {**data, "user_id": user_id, "provider": provider}
         result = supabase.table(AI_TABLE).insert(row).execute()
@@ -1479,7 +1478,7 @@ def _finish_check(user_id, profile_id: str | None, network: str, started_at: str
         return
     supabase.table("credential_checks").update({
         "state": state, "message": message, "checked_at": datetime.now(timezone.utc).isoformat(),
-    }).eq("id", current["id"]).execute()
+    }).eq("id", current["id"]).eq("user_id", user_id).execute()
 
 
 def _start_autotest(network: str, user_id, profile_id: str | None) -> None:
@@ -1548,9 +1547,10 @@ async def save_credential(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Cria ou atualiza a credencial (update-or-insert por user_id). Cifra o secret."""
-    table = _simple_table(network)
     if network == "kwai":
-        _require_admin(user_id)
+        # Override manual: PUT /admin/credentials/kwai/manual.
+        raise HTTPException(status_code=404, detail="Rede não suportada")
+    table = _simple_table(network)
 
     # .strip(): copiar/colar do painel da rede (Shopee Affiliate, Meta for
     # Developers) facilmente traz espaço em branco líder/de trás — isso

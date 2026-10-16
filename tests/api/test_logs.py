@@ -36,14 +36,14 @@ def _mock_supabase(monkeypatch, execute_results):
 
 class TestAuth:
     def test_requires_auth(self, client):
-        res = client.get("/logs")
+        res = client.get("/admin/logs")
         assert res.status_code == 401
 
     def test_non_admin_gets_403(self, client, monkeypatch):
         app.dependency_overrides[get_current_user_id] = lambda: 7
         _mock_supabase(monkeypatch, [({"access": "USER"}, None)])
 
-        res = client.get("/logs")
+        res = client.get("/admin/logs")
 
         assert res.status_code == 403
 
@@ -63,7 +63,6 @@ class TestAdminAccess:
                 "duration_ms": 12,
                 "error": 'falha: {"password": "hunter2"}',
                 "redirect_to": None,
-                "client_ip": "127.0.0.1",
                 "created_at": "2026-01-01T00:00:00Z",
             }
         ]
@@ -75,15 +74,16 @@ class TestAdminAccess:
             ],
         )
 
-        res = client.get("/logs?limit=10&offset=0")
+        res = client.get("/admin/logs?limit=10&offset=0")
 
         assert res.status_code == 200
         body = res.json()
         assert body["total"] == 1
         assert body["limit"] == 10
         assert body["offset"] == 0
-        assert "hunter2" not in body["data"][0]["error"]
-        assert "***REDACTED***" in body["data"][0]["error"]
+        assert "hunter2" not in res.text
+        assert "error" not in body["data"][0]
+        assert body["data"][0]["path"] == "/credentials"
 
     def test_pagination_params_forwarded(self, client, monkeypatch):
         app.dependency_overrides[get_current_user_id] = lambda: 1
@@ -95,7 +95,7 @@ class TestAdminAccess:
             ],
         )
 
-        res = client.get("/logs?limit=5&offset=15")
+        res = client.get("/admin/logs?limit=5&offset=15")
 
         assert res.status_code == 200
         query.range.assert_called_with(15, 19)
@@ -113,7 +113,7 @@ class TestAdminCheckAndUuidFilter:
         query.execute.return_value = None  # supabase-py: maybe_single sem linha
         monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
 
-        res = client.get("/logs")
+        res = client.get("/admin/logs")
         app.dependency_overrides.clear()
 
         assert res.status_code == 403
@@ -123,7 +123,7 @@ class TestAdminCheckAndUuidFilter:
         query = _mock_supabase(monkeypatch, [({"access": "ADMIN"}, None), ([], 0)])
         uid = "3f2b8c1e-9a4d-4e7b-8c2a-1d5e6f7a8b9c"
 
-        res = client.get("/logs", params={"user_id": uid})
+        res = client.get("/admin/logs", params={"user_id": uid})
         app.dependency_overrides.clear()
 
         assert res.status_code == 200
@@ -132,6 +132,12 @@ class TestAdminCheckAndUuidFilter:
     def test_non_uuid_user_id_is_422(self, client, monkeypatch):
         app.dependency_overrides[get_current_user_id] = lambda: 1
         _mock_supabase(monkeypatch, [({"access": "ADMIN"}, None)])
-        res = client.get("/logs", params={"user_id": "abc"})
+        res = client.get("/admin/logs", params={"user_id": "abc"})
         app.dependency_overrides.clear()
         assert res.status_code == 422
+
+
+def test_admin_select_does_not_expose_client_ip():
+    from api.routers import logs
+
+    assert "client_ip" not in logs._FIELDS

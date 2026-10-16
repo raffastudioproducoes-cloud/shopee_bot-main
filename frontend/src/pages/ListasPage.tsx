@@ -7,6 +7,7 @@ import { productsApi, type ProductsResponse } from "../api/products"
 import { formatBRL, formatPriceRange, toNumber } from "../lib/commission"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
+import { PageSkeleton } from "../components/ui/Skeleton"
 import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
@@ -115,9 +116,7 @@ export function ListasPage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 256, color: "var(--text-muted)" }}>
-        Carregando...
-      </div>
+      <PageSkeleton variant="cards" titleWidth="160px" subtitleWidth="240px" action toolbar count={3} />
     )
   }
 

@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { StatCard } from '../components/ui/StatCard'
 import { Panel, PanelHeader } from '../components/ui/Panel'
 import { Button } from '../components/ui/Button'
+import { Skeleton, SkeletonCard, SkeletonRegion } from '../components/ui/Skeleton'
 
 interface DashboardStats {
   products_count: number
@@ -25,9 +26,11 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 256, color: 'var(--text-muted)' }}>
-        Carregando...
-      </div>
+      <SkeletonRegion><div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-column)' }}>
+        <div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="220px" height={16} /></div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--gap-grid)' }}>{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>{[1,2].map(i => <SkeletonCard key={i} />)}</div>
+      </div></SkeletonRegion>
     )
   }
 

@@ -21,9 +21,61 @@
     <meta name="twitter:title" content="Auto Orbital" />
     <meta name="twitter:description" content="Seus posts a um clique." />
     <meta name="twitter:image" content="https://shopee-bot-fj0w.onrender.com/brand/og-image.png" />
+    <link rel="stylesheet" href="/src/styles/tokens/colors.css" />
     <title>Auto Orbital</title>
+    <style>
+      #site-splash{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:var(--brand-event-horizon);color:var(--brand-text);font-family:"Mona Sans","SF Pro Display",-apple-system,"Segoe UI",system-ui,sans-serif;transition:opacity .3s ease,visibility .3s ease}
+      #site-splash.is-leaving{opacity:0;visibility:hidden;pointer-events:none}
+      .site-splash-content{text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px}
+      .site-splash-logo{width:96px;height:96px;object-fit:contain;filter:drop-shadow(0 0 18px rgba(31,211,253,.42));animation:site-splash-pulse 2.4s ease-in-out infinite}
+      .site-splash-name{font-size:clamp(24px,4vw,32px);font-weight:800;letter-spacing:-.04em}
+      .site-splash-tagline{font-size:11px;font-weight:800;letter-spacing:.18em;background:linear-gradient(90deg,var(--brand-electric-cyan),var(--brand-orbit-blue),var(--brand-orbital-violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+      .site-splash-version{font-size:12px;color:rgba(238,234,242,.62);margin-top:4px}
+      .site-splash-credit{font-size:12px;color:rgba(238,234,242,.72)}
+      .site-splash-badge{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:rgba(238,234,242,.46);border:1px solid rgba(238,234,242,.18);border-radius:999px;padding:5px 10px;margin-top:12px}
+      .site-splash-noscript{font-size:12px;color:var(--brand-electric-cyan);margin-top:16px}
+      .site-splash-error{display:none;flex-direction:column;align-items:center;gap:12px;max-width:320px}
+      #site-splash.is-error .site-splash-error{display:flex}
+      #site-splash.is-error .site-splash-logo{animation:none}
+      #site-splash.is-error .site-splash-boot{display:none}
+      .site-splash-error p{margin:0;font-size:14px;color:var(--brand-text)}
+      .site-splash-error button{font:inherit;font-weight:700;color:var(--brand-text);background:transparent;border:1px solid var(--brand-electric-cyan);border-radius:999px;padding:8px 20px;cursor:pointer}
+      @keyframes site-splash-pulse{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.045);opacity:1}}
+      @media (prefers-reduced-motion:reduce){#site-splash{transition:none}.site-splash-logo{animation:none}}
+    </style>
+    <script>
+      (function () {
+        function fail() {
+          if (window.__appReady) return
+          var splash = document.getElementById('site-splash')
+          if (!splash) return
+          splash.classList.add('is-error')
+          splash.setAttribute('aria-busy', 'false')
+        }
+        window.addEventListener('error', fail)
+        window.addEventListener('unhandledrejection', fail)
+        setTimeout(fail, 15000)
+      })()
+    </script>
   </head>
   <body>
+    <div id="site-splash" role="status" aria-busy="true" aria-label="Carregando Auto Orbital">
+      <div class="site-splash-content">
+        <img class="site-splash-logo" src="/brand/symbol.png" alt="" width="96" height="96" />
+        <div class="site-splash-name">Auto Orbital</div>
+        <div class="site-splash-boot">
+          <div class="site-splash-tagline">SEUS POSTS A UM CLIQUE</div>
+          <div class="site-splash-version">Versão %APP_VERSION%</div>
+          <div class="site-splash-credit">Raffa Studio Produções</div>
+          <div class="site-splash-badge">Powered by Raffa Studio</div>
+        </div>
+        <div class="site-splash-error" role="alert">
+          <p>Não foi possível abrir o Auto Orbital. Verifique sua conexão e tente novamente.</p>
+          <button type="button" onclick="location.reload()">Recarregar</button>
+        </div>
+        <noscript><div class="site-splash-noscript">Ative o JavaScript para abrir o Auto Orbital.</div></noscript>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

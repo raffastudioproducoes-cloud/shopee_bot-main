@@ -62,7 +62,8 @@ def test_request_middleware_logs_profile_claim(monkeypatch, profile_cookie):
     client = TestClient(app)
     client.cookies.update(profile_cookie("profile-a"))
 
-    client.get("/credentials")
+    # Uma rota inexistente exercita o middleware sem consultar o banco de credenciais.
+    assert client.get("/probe-not-found").status_code == 404
 
     assert fake_client.table.return_value.insert.call_args[0][0]["profile_id"] == "profile-a"
 
@@ -71,16 +72,17 @@ def test_logs_endpoint_filters_by_profile_id(fake_db, monkeypatch):
     db = fake_db({
         "users": [{"id": 1, "access": "ADMIN"}],
         "request_logs": [
-            {"id": 1, "profile_id": "profile-a", "created_at": "2026-01-01", "method": "GET"},
-            {"id": 2, "profile_id": "profile-b", "created_at": "2026-01-02", "method": "GET"},
+            {"id": 1, "profile_id": "profile-a", "created_at": "2026-01-01T00:00:00", "method": "GET", "path": "/x"},
+            {"id": 2, "profile_id": "profile-b", "created_at": "2026-01-02T00:00:00", "method": "GET", "path": "/x"},
         ],
     })
     monkeypatch.setattr(logs_module, "supabase", db)
+    monkeypatch.setattr("api.routers.users.supabase", db)
     app.dependency_overrides[get_current_user_id] = lambda: 1
     client = TestClient(app)
 
-    only_a = client.get("/logs", params={"profile_id": "profile-a"}).json()["data"]
-    everything = client.get("/logs").json()["data"]
+    only_a = client.get("/admin/logs", params={"profile_id": "profile-a"}).json()["data"]
+    everything = client.get("/admin/logs").json()["data"]
 
-    assert [r["id"] for r in only_a] == [1]
-    assert {r["id"] for r in everything} == {1, 2}
+    assert [r["created_at"][:10] for r in only_a] == ["2026-01-01"]
+    assert {r["created_at"][:10] for r in everything} == {"2026-01-01", "2026-01-02"}

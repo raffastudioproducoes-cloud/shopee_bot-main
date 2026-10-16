@@ -5,20 +5,26 @@ Consome Supabase existente. Coexiste com Flask durante a migração.
 
 import asyncio
 import logging
+import time
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 
 from .config import settings
-from .database import init_db
-from .middleware import RequestLoggingMiddleware
+from .database import get_supabase, init_db
+from .middleware import AccessLogRedactor, RequestIDMiddleware, RequestLoggingMiddleware
 from .routers.posts import cleanup_expired_media_drafts
+from .routers.admin import router as admin_router
 
-for noisy_logger in ("httpx", "httpcore"):
+for noisy_logger in ("httpx", "httpcore", "urllib3"):
     logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
+logging.getLogger("uvicorn.access").addFilter(AccessLogRedactor())
+
 logger = logging.getLogger("uvicorn.error")
+_ready_cache = (0.0, False)
 from .routers import (
     auth_router,
     catalog_router,
@@ -29,7 +35,6 @@ from .routers import (
     users_router,
     dashboard_router,
     notifications_router,
-    logs_router,
     profiles_router,
     settings_router,
     meta_callbacks_router,
@@ -45,14 +50,17 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "X-CSRFToken", "X-CSRF-Token", "X-Request-ID"],
+    expose_headers=["X-Request-ID"],
 )
 
+app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
 # Routers
 app.include_router(auth_router)
+app.include_router(admin_router)
 # catalog_router ANTES de products_router: registra rotas literais
 # "/products/catalog-search" e "/products/catalog-categories" — se
 # products_router (com "/products/{product_id}") for registrado primeiro,
@@ -67,7 +75,6 @@ app.include_router(credentials_router)
 app.include_router(users_router)
 app.include_router(dashboard_router)
 app.include_router(notifications_router)
-app.include_router(logs_router)
 app.include_router(profiles_router)
 app.include_router(settings_router)
 app.include_router(meta_callbacks_router)
@@ -86,6 +93,21 @@ async def _cleanup_media_drafts_periodically() -> None:
 # Health check
 @app.get("/health")
 async def health():
+    return {"status": "ok"}
+
+@app.get("/health/ready")
+async def health_ready():
+    global _ready_cache
+    cached_at, cached_ok = _ready_cache
+    if time.monotonic() - cached_at < 3:
+        return {"status": "ok"} if cached_ok else JSONResponse({"status": "not_ready"}, status_code=503)
+    try:
+        await asyncio.wait_for(run_in_threadpool(lambda: get_supabase().table("users").select("id").limit(1).execute()), 1.0)
+        _ready_cache = (time.monotonic(), True)
+    except Exception as exc:
+        _ready_cache = (time.monotonic(), False)
+        logger.warning("Health check do banco falhou (%s)", type(exc).__name__)
+        return JSONResponse({"status": "not_ready"}, status_code=503)
     return {"status": "ok"}
 
 

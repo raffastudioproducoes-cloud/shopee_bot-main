@@ -8,6 +8,8 @@
 // confirmar remoção em ProductsPage, PostsPage, ListasPage, CredentialsPage (banner à parte)
 // e UsersPage.
 import type { ReactNode, CSSProperties } from "react"
+import { useEffect, useId, useRef } from "react"
+import { createPortal } from "react-dom"
 import { Panel } from "./Panel"
 import { IconButton } from "./IconButton"
 
@@ -23,17 +25,38 @@ export interface ModalProps {
 
 /** Centered dialog over a dark scrim. Click outside or the "x" to close. */
 export function Modal({ open, onClose, title, children, width = 480, className = "", style }: ModalProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!open || !dialog) return
+    const previouslyFocused = document.activeElement as HTMLElement | null
+    dialog.showModal()
+    return () => {
+      if (dialog.open) dialog.close()
+      if (previouslyFocused?.isConnected) previouslyFocused.focus({ preventScroll: true })
+    }
+  }, [open])
   if (!open) return null
-  return (
-    <div
-      onClick={onClose}
+  return createPortal(
+    <dialog
+      ref={dialogRef}
+      className="app-modal"
+      aria-labelledby={title ? titleId : undefined}
+      aria-label={title ? undefined : "Janela"}
+      onCancel={event => { event.preventDefault(); onClose() }}
+      onClick={event => { if (event.target === event.currentTarget) onClose() }}
       style={{
         position: "fixed",
         inset: 0,
         zIndex: 50,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        width: "100vw",
+        height: "100dvh",
+        maxWidth: "none",
+        maxHeight: "none",
+        margin: 0,
+        border: 0,
+        color: "var(--text-body)",
         padding: 16,
         background: "rgba(0,0,0,.6)",
         backdropFilter: "var(--blur-scrim)",
@@ -55,12 +78,13 @@ export function Modal({ open, onClose, title, children, width = 480, className =
               padding: "16px 16px 0",
             }}
           >
-            {title ? <span style={{ font: "var(--text-role-title)" }}>{title}</span> : <span />}
+            {title ? <span id={titleId} style={{ font: "var(--text-role-title)" }}>{title}</span> : <span />}
             <IconButton icon="x" label="Fechar" tone="plain" size={30} onClick={onClose} />
           </div>
           <div style={{ padding: 16 }}>{children}</div>
         </Panel>
       </div>
-    </div>
+    </dialog>,
+    document.body,
   )
 }

@@ -5,18 +5,18 @@ import type { CredentialStatus } from './credentials'
  * somente depois da confirmação de ADMIN pelo backend. */
 export const adminCredentialsApi = {
   saveThreads(tUserId: string, accessToken: string): Promise<CredentialStatus> {
-    return api.put('/credentials/threads', { t_user_id: tUserId, access_token: accessToken })
+    return api.put('/admin/credentials/threads', { t_user_id: tUserId, access_token: accessToken })
   },
 
   saveX(accessToken: string, refreshToken?: string): Promise<CredentialStatus> {
-    return api.put('/credentials/x/manual', {
+    return api.put('/admin/credentials/x/manual', {
       user_access_token: accessToken,
       user_refresh_token: refreshToken || undefined,
     })
   },
 
   saveFacebook(pageId: string, accessToken: string, pageName?: string): Promise<CredentialStatus> {
-    return api.put('/credentials/facebook/manual', {
+    return api.put('/admin/credentials/facebook/manual', {
       page_id: pageId,
       page_access_token: accessToken,
       page_name: pageName || undefined,
@@ -24,7 +24,7 @@ export const adminCredentialsApi = {
   },
 
   saveTikTok(openId: string, accessToken: string, refreshToken?: string): Promise<CredentialStatus> {
-    return api.put('/credentials/tiktok/manual', {
+    return api.put('/admin/credentials/tiktok/manual', {
       open_id: openId,
       user_access_token: accessToken,
       refresh_token: refreshToken || undefined,
@@ -32,13 +32,13 @@ export const adminCredentialsApi = {
   },
 
   saveInstagram(igUserId: string, accessToken: string): Promise<CredentialStatus> {
-    return api.put('/credentials/instagram/manual', {
+    return api.put('/admin/credentials/instagram/manual', {
       ig_user_id: igUserId,
       user_access_token: accessToken,
     })
   },
 
   saveKwai(appId: string, secret: string): Promise<CredentialStatus> {
-    return api.put('/credentials/kwai', { app_id: appId, secret })
+    return api.put('/admin/credentials/kwai/manual', { app_id: appId, secret })
   },
 }

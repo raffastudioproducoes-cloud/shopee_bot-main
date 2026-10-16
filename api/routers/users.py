@@ -213,7 +213,6 @@ def _require_admin(user_id: str = Depends(get_current_user_id)) -> int:
     return user_id
 
 
-@router.get("")
 async def list_users(
     _admin_id: str = Depends(_require_admin),
     cursor: str | None = Query(None),
@@ -236,7 +235,6 @@ async def list_users(
     return {"data": result.data, "next_cursor": next_cursor}
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_user(body: UserCreate, _admin_id: str = Depends(_require_admin)):
     if body.access not in ("USER", "ADMIN"):
         raise HTTPException(status_code=400, detail="access deve ser USER ou ADMIN")
@@ -301,7 +299,7 @@ async def delete_own_account(
     record_audit_event(
         entity="user",
         entity_id=str(user_id),
-        user_id=str(user_id),
+        user_id=None,  # A conta já foi removida; a FK não pode apontar para ela.
         action="user_self_deleted",
         # Sem username aqui: dado pessoal não precisa sobreviver ao
         # "direito ao esquecimento" que este próprio evento representa
@@ -441,7 +439,6 @@ def restore_backup(
     return {"msg": "Backup restaurado com sucesso"}
 
 
-@router.get("/{user_id}")
 async def get_user(user_id: str, _admin_id: str = Depends(_require_admin)):
     result = (
         supabase.table("users")
@@ -455,7 +452,6 @@ async def get_user(user_id: str, _admin_id: str = Depends(_require_admin)):
     return result.data
 
 
-@router.put("/{user_id}")
 async def update_user(
     user_id: str,
     body: UserUpdate,
@@ -485,7 +481,6 @@ async def update_user(
     return result.data[0]
 
 
-@router.delete("/{user_id}")
 async def delete_user(user_id: str, _admin_id: str = Depends(_require_admin)):
     current = (
         supabase.table("users").select("username, access").eq("id", user_id)

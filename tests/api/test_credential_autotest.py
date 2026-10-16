@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from api.internal_client import InternalApiError
 from api.crypto import encrypt
 from api.main import app
-from api.routers import credentials as cred
+from api.routers import credentials as cred, users as users_module
 from api.routers.auth import get_current_user_id
 from apis import llm
 
@@ -24,6 +24,7 @@ def db(fake_db, monkeypatch):
         "ai_credentials": [], "shopee_credentials": [], "credential_checks": [],
     })
     monkeypatch.setattr(cred, "supabase", database)
+    monkeypatch.setattr(users_module, "supabase", database)
     monkeypatch.setattr(cred, "log_action", lambda *a, **k: None)
     cred._test_attempts.clear()
     return database
@@ -241,7 +242,7 @@ def test_legacy_account_checks_are_shared_and_consolidated(db, client, profile_c
 
 
 def test_user_cannot_override_social_credential(db, client):
-    response = client.put("/credentials/threads", json={"t_user_id": "1", "access_token": "token"})
+    response = client.put("/admin/credentials/threads", json={"t_user_id": "1", "access_token": "token"})
 
     assert response.status_code == 403
     assert db.tables.get("threads_credentials", []) == []

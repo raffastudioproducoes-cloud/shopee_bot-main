@@ -253,6 +253,15 @@ _ALLOWED_TOP_BOXES = frozenset(
     {b"ftyp", b"moov", b"mdat", b"moof", b"mfra", b"sidx", b"styp", b"free", b"skip", b"wide"}
 )
 _MAX_FTYP_SIZE = 256
+# Marcas principais de ftyp que identificam outros formatos (HEIF/AVIF imagem,
+# RAW da Canon, audio M4A...) e nao video MP4 -- evitam confusao de tipo.
+_NON_VIDEO_BRANDS = frozenset({
+    b"heic", b"heix", b"heim", b"heis", b"hevm", b"hevs", b"mif1", b"msf1",
+    b"avif", b"avis", b"crx ", b"M4A ", b"M4B ", b"M4P ", b"F4A ", b"F4B ",
+    b"jp2 ", b"jpm ", b"jpx ",
+})
+# Contêineres de moov em que `uuid` (XMP/payload arbitrário) é recusado.
+_NESTED_CHECKED = (b"moov", b"trak")
 
 
 def _validate_video_boxes(content: bytes, *, max_bytes: int | None = None) -> None:
@@ -269,6 +278,25 @@ def _validate_video_boxes(content: bytes, *, max_bytes: int | None = None) -> No
     if any(kind not in _ALLOWED_TOP_BOXES for _, _, kind in boxes):
         raise MediaSanitizerError("vídeo inválido: estrutura não permitida")
     _validate_ftyp(content, boxes[0][1])
+    if bytes(content[8:12]) in _NON_VIDEO_BRANDS:
+        raise MediaSanitizerError("vídeo inválido: marca ftyp não é de vídeo MP4", status_code=415)
+    try:
+        _reject_nested_uuid(content, boxes, depth=0)
+    except ValueError as exc:
+        raise MediaSanitizerError("vídeo inválido: estrutura inconsistente") from exc
+
+
+def _reject_nested_uuid(content: bytes, boxes, *, depth: int) -> None:
+    """Desce em moov/trak e recusa `uuid` (XMP). Limite residual: udta/meta
+    aninhados (GPS, titulo) seguem passando -- remover exige remux (ffmpeg)."""
+    for offset, size, kind in boxes:
+        if kind not in _NESTED_CHECKED or depth > 4:
+            continue
+        header = 16 if int.from_bytes(content[offset:offset + 4], "big") == 1 else 8
+        children = list(_iter_mp4_boxes(content, offset + header, offset + size))
+        if any(child_kind == b"uuid" for _, _, child_kind in children):
+            raise MediaSanitizerError("vídeo inválido: estrutura não permitida")
+        _reject_nested_uuid(content, children, depth=depth + 1)
 
 
 def _validate_ftyp(content: bytes, size: int) -> None:

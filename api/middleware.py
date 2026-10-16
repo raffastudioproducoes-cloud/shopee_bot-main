@@ -15,6 +15,9 @@ produção é ligado via env var `REQUEST_LOGGING_ENABLED=true`.
 """
 
 import logging
+import contextvars
+import re
+import uuid
 import time
 
 import jwt
@@ -29,7 +32,41 @@ from .utils.log_sanitizer import sanitize_log_data
 logger = logging.getLogger("uvicorn.error")
 
 _MAX_TEXT_LEN = 2000
-_SKIP_PATHS = {"/health"}
+_SKIP_PATHS = {"/health", "/health/ready"}
+request_id_context = contextvars.ContextVar("request_id", default=None)
+_REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")
+
+class AccessLogRedactor(logging.Filter):
+    """Mascara `?code=`/`state=`/tokens na URL do access log do uvicorn
+    (ex: codigo de confirmacao de exclusao de dados, que viaja em query string)."""
+
+    def filter(self, record):
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                sanitize_log_data(arg) if isinstance(arg, str) else arg for arg in record.args
+            )
+        return True
+
+
+class RequestIDFilter(logging.Filter):
+    def filter(self, record):
+        record.request_id = request_id_context.get() or "-"
+        return True
+
+logger.addFilter(RequestIDFilter())
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        candidate = request.headers.get("X-Request-ID", "")
+        request_id = candidate if _REQUEST_ID_RE.fullmatch(candidate) else uuid.uuid4().hex
+        token = request_id_context.set(request_id)
+        try:
+            response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
+            response.headers.setdefault("Referrer-Policy", "no-referrer")
+            return response
+        finally:
+            request_id_context.reset(token)
 
 
 def _user_from_cookie(request: Request) -> tuple[str | None, str | None, str | None]:
