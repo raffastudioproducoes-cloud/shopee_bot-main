@@ -320,7 +320,24 @@ em execução.
   - [x] Conectar X, Instagram e TikTok (ação humana: clicar "Conectar" e autorizar) e recolar o Client Secret do TikTok — confirmado pelo Rafa, 2026-10-05.
   - [ ] Branch protection: exige GitHub Pro ou repositório público (GitHub Free não oferece em repo privado) — GitHub Pro ativo (confirmado pelo Rafa, 2026-10-05), mas branch protection ainda não configurada (possível agora, ainda não ativada).
   - [x] Aplicar as migrações 037, 038, 039, 040, 041 e 042 no Supabase — **concluído 2026-10-06**. Verificado via MCP: 6 migrações registradas em `public.migrations`; nenhum `profile_id` NULL em `posts`/`shopee_credentials` após backfill. Ver `docs/RULES.md` item 11 para procedimento + risco conhecido.
-  - [ ] Merge dos PRs da branch `chore/phase-12-integration` em `main`.
+  - [ ] Merge de `staging` em `main` — preparado localmente em 2026-10-09 na branch
+    `promote/staging-to-main-2026-10-09`, com a árvore final idêntica a `origin/staging`.
+    Ainda não publicado em `main` nesta nota; antes do push, Rafa pediu cautela para não
+    sobrescrever a versão online que está funcionando.
+
+  **Fila pós-promoção acompanhada em 2026-10-09**:
+  - [ ] TikTok: renovar token do usuário pelo fluxo OAuth ("Credenciais > TikTok > Conectar")
+    quando o token atual estiver expirado; Client key/secret continuam sendo segredo de app,
+    não token de usuário.
+  - [ ] Teste de conexão por token do usuário para X, Instagram e TikTok — código em
+    `staging`, pendente de validação real com credenciais conectadas.
+  - [ ] Criador multi-rede com validação por rede, horário específico e mídia reutilizada —
+    código em `staging`, pendente de teste manual ponta a ponta.
+  - [ ] Hardening de segurança — código e testes em `staging`; validação local ficou
+    bloqueada porque o ambiente mínimo não possui variáveis de banco para o `conftest.py`
+    executar migrações (`host=None`).
+  - [ ] Deploy automático de staging — arquivo `cd-staging.yml` em `staging`; aguardar decisão
+    de Rafa antes de promover/ativar mudanças novas de deploy.
 
 ## Migração conta, perfis e papéis — 2026-10-11
 
