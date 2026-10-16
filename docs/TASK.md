@@ -370,12 +370,13 @@ existente — diretriz, não tarefa isolada).
   persistidas no boot. `SCHEDULER_ENABLED=true` preserva o modo atual; a futura instância web
   usará `false` e apontará `FLASK_INTERNAL_URL` ao worker. Evidência: CI e deploy da `main`
   verdes em 2026-10-16.
-- [~] **Fila e idempotência.** Código enviado a `staging` em `330137f`:
+- [x] **Fila e idempotência local.** Código enviado a `staging` em `330137f`:
   migração `053_create_publish_jobs.sql`, chave única por ocorrência, claim com
   `SKIP LOCKED`, lease vencido como `unknown` e `external_id` quando a rede confirma.
-  Erro ambíguo não recebe retry automático. O workflow `38978920492` pulou o deploy
-  por falta de `RENDER_STAGING_DEPLOY_HOOK_URL`; faltam a confirmação no Render,
-  o teste contra PostgreSQL configurado e a reconciliação por provedor.
+  Erro ambíguo não recebe retry automático. O Render implantou `330137f` por
+  auto deploy, aplicou a migração `053` e depois implantou `bc0eb92`; o health
+  de staging respondeu `200`. O workflow `38978920492` pulou apenas o hook
+  opcional. Pendente: reconciliação por provedor antes de retry de `unknown`.
 - [ ] **Banco e consultas.** Medir com `EXPLAIN (ANALYZE, BUFFERS)` em staging representativo;
   criar índices somente com evidência.
 - [ ] **Hospedagem e réplicas.** Separar API/worker, carga em staging, borda Cloudflare e ativação

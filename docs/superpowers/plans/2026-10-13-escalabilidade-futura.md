@@ -1,6 +1,6 @@
 # Escalabilidade do ShopeeAutoVendas — plano futuro (Fases 0 a 7)
 
-Status: EM EXECUÇÃO CONTROLADA (preparação do scheduler em `main`; Fase 4.2 enviada a `staging` em `330137f`, mas o workflow `38978920492` pulou o deploy por falta de `RENDER_STAGING_DEPLOY_HOOK_URL`).
+Status: EM EXECUÇÃO CONTROLADA (preparação do scheduler em `main`; Fase 4.2 implantada em `staging` em `330137f`, com migração `053` aplicada no Render e health `200`).
 Custo novo da análise: R$ 0. Nenhum código, banco, produção ou Vault foi alterado na análise.
 Método: 4 auditorias paralelas do Codex (somente leitura: scheduler/jobs, estado/rate limit/cache/storage, banco/Supabase, infra/observabilidade/resiliência) cruzadas com o Vault e o código. Onde o código recente diverge da doc antiga, vale o código.
 Restrição geral: não contratar serviço pago, não provisionar Redis/fila/cluster agora, não aumentar workers antes de resolver o scheduler, não fazer overengineering. Preferir monólito modular scale-ready. Manter compatibilidade com Render Free + Supabase Free.
@@ -73,7 +73,7 @@ Matriz de capacidade do banco: N0 Free; N1 Pro; N2 índices/queries/pooling; N3 
 - FASE 3 — Preparação sem custo. Primeiro segurança (DSN e token fora do log), depois abstrações (RateLimit/Cache/Storage/db read-write), idempotência, config centralizada, /health e /readiness, timeouts e retry policy, structured logging com request_id.
 - FASE 4 — Scheduler/jobs. A primeira entrega local cria `publication_claims` com lease atômico por `scheduler_id`, aplica o wrapper também às agendas persistidas e introduz `SCHEDULER_ENABLED` para reservar o scheduler a um worker futuro. Ainda faltam `publish_jobs`, idempotência por rede, retries e os testes de concorrência com 2 e 5 workers simulados. NÃO subir workers nem instâncias antes desses itens estarem testados e aplicados.
 
-### FASE 4.2 — Fila durável e desfecho seguro (enviada a staging; deploy real pendente)
+### FASE 4.2 — Fila durável e desfecho seguro (staging implantado; promoção a main pendente)
 
 Contrato mínimo antes de separar processos ou aumentar réplicas:
 
