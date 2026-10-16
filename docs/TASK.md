@@ -365,13 +365,18 @@ existente — diretriz, não tarefa isolada).
 
 ## Escalabilidade — execução iniciada em 2026-10-16
 
-- [~] **Scheduler/worker — preparação inicial.** Branch local
-  `feat/scale-durable-claims`: migração `052_create_publication_claims.sql`, lease atômico por
-  publicação e atualização das agendas persistidas no boot. `SCHEDULER_ENABLED=true` preserva
-  o modo atual; a futura instância web usará `false` e apontará `FLASK_INTERNAL_URL` ao worker.
-  Ainda não aplicado no Supabase compartilhado e não autorizado para réplicas.
-- [ ] **Fila e idempotência.** Criar `publish_jobs` com item/estado/attempt/`external_id` e chave
-  única por publicação de rede antes de qualquer escala horizontal real.
+- [x] **Scheduler/worker — preparação inicial.** Migração
+  `052_create_publication_claims.sql`, lease atômico por publicação e atualização das agendas
+  persistidas no boot. `SCHEDULER_ENABLED=true` preserva o modo atual; a futura instância web
+  usará `false` e apontará `FLASK_INTERNAL_URL` ao worker. Evidência: CI e deploy da `main`
+  verdes em 2026-10-16.
+- [x] **Fila e idempotência local.** Código enviado a `staging` em `330137f`:
+  migração `053_create_publish_jobs.sql`, chave única por ocorrência, claim com
+  `SKIP LOCKED`, lease vencido como `unknown` e `external_id` quando a rede confirma.
+  Erro ambíguo não recebe retry automático. O Render implantou `330137f` por
+  auto deploy, aplicou a migração `053` e depois implantou `bc0eb92`; o health
+  de staging respondeu `200`. O workflow `38978920492` pulou apenas o hook
+  opcional. Pendente: reconciliação por provedor antes de retry de `unknown`.
 - [ ] **Banco e consultas.** Medir com `EXPLAIN (ANALYZE, BUFFERS)` em staging representativo;
   criar índices somente com evidência.
 - [ ] **Hospedagem e réplicas.** Separar API/worker, carga em staging, borda Cloudflare e ativação

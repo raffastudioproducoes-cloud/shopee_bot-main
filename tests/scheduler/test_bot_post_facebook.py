@@ -49,9 +49,10 @@ def test_bot_post_facebook_with_image_uses_page_token(monkeypatch):
         ),
     )
 
-    module.bot_post_facebook("job-image")
+    result = module.bot_post_facebook("job-image")
 
     assert calls["args"] == ("page-token-1", "page-1", image, "foto")
+    assert result.status == "succeeded"
     assert activities[0][1] == ActivityType.BOT_POST_SUCCESS
     assert activities[0][3] == "profile-1"
 

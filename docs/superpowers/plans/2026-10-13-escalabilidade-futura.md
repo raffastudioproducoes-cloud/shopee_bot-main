@@ -1,6 +1,6 @@
 # Escalabilidade do ShopeeAutoVendas — plano futuro (Fases 0 a 7)
 
-Status: EM EXECUÇÃO CONTROLADA (Fases 0, 1 e 2 concluídas em 2026-10-13; a primeira entrega da separação de scheduler está em branch local, ainda sem aplicar a migração no banco compartilhado).
+Status: EM EXECUÇÃO CONTROLADA (preparação do scheduler em `main`; Fase 4.2 implantada em `staging` em `330137f`, com migração `053` aplicada no Render e health `200`).
 Custo novo da análise: R$ 0. Nenhum código, banco, produção ou Vault foi alterado na análise.
 Método: 4 auditorias paralelas do Codex (somente leitura: scheduler/jobs, estado/rate limit/cache/storage, banco/Supabase, infra/observabilidade/resiliência) cruzadas com o Vault e o código. Onde o código recente diverge da doc antiga, vale o código.
 Restrição geral: não contratar serviço pago, não provisionar Redis/fila/cluster agora, não aumentar workers antes de resolver o scheduler, não fazer overengineering. Preferir monólito modular scale-ready. Manter compatibilidade com Render Free + Supabase Free.
@@ -72,6 +72,17 @@ Matriz de capacidade do banco: N0 Free; N1 Pro; N2 índices/queries/pooling; N3 
 ## PLANO POR FASES (a executar com autorização explícita; cada fase com commits pequenos, testes, rollback e relatório PASS/FAIL)
 - FASE 3 — Preparação sem custo. Primeiro segurança (DSN e token fora do log), depois abstrações (RateLimit/Cache/Storage/db read-write), idempotência, config centralizada, /health e /readiness, timeouts e retry policy, structured logging com request_id.
 - FASE 4 — Scheduler/jobs. A primeira entrega local cria `publication_claims` com lease atômico por `scheduler_id`, aplica o wrapper também às agendas persistidas e introduz `SCHEDULER_ENABLED` para reservar o scheduler a um worker futuro. Ainda faltam `publish_jobs`, idempotência por rede, retries e os testes de concorrência com 2 e 5 workers simulados. NÃO subir workers nem instâncias antes desses itens estarem testados e aplicados.
+
+### FASE 4.2 — Fila durável e desfecho seguro (staging implantado; promoção a main pendente)
+
+Contrato mínimo antes de separar processos ou aumentar réplicas:
+
+- Cada disparo cria ou recupera um item em `publish_jobs`, identificado por uma chave determinística da agenda e da sua ocorrência. A chave única absorve o mesmo disparo entregue duas vezes.
+- Um worker faz claim atômico somente de item `pending`. O claim grava `locked_by`, `locked_at`, incrementa `attempt` e não permite dois workers executarem o mesmo item. Lease vencido em `running` vira `unknown`, pois a rede pode ter recebido a postagem antes da perda do worker.
+- O resultado só é `succeeded` quando o publicador devolve confirmação do provedor; o identificador externo, quando devolvido pela API, fica no item.
+- Erro antes de qualquer chamada externa pode ir a `failed`. Erro durante ou depois de chamada externa é `unknown`: não recebe retry automático, pois poderia duplicar a postagem. A retomada só será possível após reconciliação específica por provedor.
+- Esta entrega não promete exactly-once remoto: as APIs sociais não oferecem uma chave de idempotência comum. Ela garante deduplicação local e evita repetir automaticamente efeitos externos de confirmação incerta.
+- Testes obrigatórios: criação idempotente, claim concorrente com 2/5 workers simulados, lease vencido, conclusão com `external_id` e bloqueio de retry em estado `unknown`.
 - FASE 5 — Banco. Advisory lock nas migrações, índices compostos só após EXPLAIN, retenção de request_logs, N+1 em lote, numeric para preço. Migrações pequenas e reversíveis, sem apagar dados, sem mexer em RLS sem teste.
 - FASE 6 — Testes. Unit, integração, concorrência, idempotência, retry, restart com lock expirado, fumaça de carga local leve (sem atacar APIs externas reais).
 - FASE 7 — Documentação no Vault (Projetos/ShopeeAutoVendas/): 33-Escalabilidade-e-Capacidade, 34-Arquitetura-Scale-Ready, 35-Plano-de-Evolucao-de-Infra (28 a 32 já existem), mais updates do 00-INDICE-Estado-Atual, 01-Status-e-Checklist, 02-Arquitetura-e-Tecnologias, 07-Diagrama-de-Arquitetura e 04-Backlog.

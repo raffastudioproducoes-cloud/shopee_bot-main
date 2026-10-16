@@ -10,6 +10,7 @@ from shopee_bot.database.activities import (
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
 from shopee_bot.scheduler.media_delivery import STORAGE_PREFIX, delivery_url
+from shopee_bot.scheduler.publication_result import succeeded, unknown
 
 
 MEDIA_FILE_MISSING_MESSAGE = (
@@ -130,7 +131,9 @@ def bot_post(job_id):
             )
             # não continua a thread: partes seguintes seriam replies de
             # um post que nunca saiu (reply_to_id inválido).
-            return
+            # A chamada pode ter sido aceita pela rede antes do timeout; nao
+            # classificar como retry seguro quando a confirmacao se perdeu.
+            return unknown(err)
 
     insert_activities(
         user_id,
@@ -145,3 +148,4 @@ def bot_post(job_id):
         profile_id=profile_id
     )
     logger.info(f"bot_post job #{job_id} for {username} finished.")
+    return succeeded(last_post_id)
