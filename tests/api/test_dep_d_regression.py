@@ -77,7 +77,7 @@ def test_idna_ghsa_65pc_fj4g_8rjx_crafted_input_validation():
 # ==============================================================================
 # 2. requests — GHSA-gc5v-m9x4-r6x2
 # ==============================================================================
-def test_requests_ghsa_gc5v_m9x4_r6x2_extract_zipped_paths_secure_temp(tmp_path):
+def test_requests_ghsa_gc5v_m9x4_r6x2_extract_zipped_paths_secure_temp(tmp_path, monkeypatch):
     """Valida GHSA-gc5v-m9x4-r6x2 em requests >= 2.33.0.
 
     extract_zipped_paths() deve usar tempfile.mkstemp() para extrair membros
@@ -92,7 +92,8 @@ def test_requests_ghsa_gc5v_m9x4_r6x2_extract_zipped_paths_secure_temp(tmp_path)
     with zipfile.ZipFile(zip_path, "w") as zf:
         zf.writestr(member_name, content)
 
-    # Simula um arquivo malicioso pré-existente no diretório temporário do sistema
+    # Isola o diretório temporário para nunca sobrescrever um arquivo do sistema.
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     temp_dir = tempfile.gettempdir()
     poisoned_target = os.path.join(temp_dir, "cacert.pem")
     poisoned_content = b"MALICIOUS-PRE-EXISTING-FILE"

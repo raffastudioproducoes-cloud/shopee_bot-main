@@ -14,12 +14,14 @@ Totalmente isolado: sem banco de dados, sem conftest raiz, sem rede.
 import inspect
 import io
 import os
+import pytest
 
 from flask import Flask, session, send_from_directory
 from werkzeug.security import safe_join
 from dotenv import set_key, load_dotenv
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Nomes de dispositivos são exclusivos do Windows")
 def test_werkzeug_safe_join_blocks_windows_device_names():
     """Valida GHSA-29vq-49wr-vm6x, GHSA-87hc-h4r5-73f7, GHSA-g6x2-hccm-hh4m, GHSA-hgf8-39gv-g3f2.
     
@@ -110,6 +112,7 @@ def test_python_dotenv_load_dotenv_stream(monkeypatch):
     assert os.environ.get("TEST_DOTENV_DEP_E") == "updated_value_ok"
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Nomes de dispositivos são exclusivos do Windows")
 def test_flask_send_from_directory_windows_device_names(tmp_path):
     """Valida contenção ponta-a-ponta via Flask send_from_directory com Werkzeug safe_join."""
     media_dir = tmp_path / "media"
