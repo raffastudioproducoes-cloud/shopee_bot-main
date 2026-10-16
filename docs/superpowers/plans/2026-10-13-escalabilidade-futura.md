@@ -1,15 +1,15 @@
 # Escalabilidade do ShopeeAutoVendas — plano futuro (Fases 0 a 7)
 
-Status: FUTURO (Fases 0, 1 e 2 concluídas em 2026-10-13, somente leitura; Fases 3 a 7 aguardam autorização explícita do Rafa).
+Status: EM EXECUÇÃO CONTROLADA (Fases 0, 1 e 2 concluídas em 2026-10-13; a primeira entrega da separação de scheduler está em branch local, ainda sem aplicar a migração no banco compartilhado).
 Custo novo da análise: R$ 0. Nenhum código, banco, produção ou Vault foi alterado na análise.
 Método: 4 auditorias paralelas do Codex (somente leitura: scheduler/jobs, estado/rate limit/cache/storage, banco/Supabase, infra/observabilidade/resiliência) cruzadas com o Vault e o código. Onde o código recente diverge da doc antiga, vale o código.
 Restrição geral: não contratar serviço pago, não provisionar Redis/fila/cluster agora, não aumentar workers antes de resolver o scheduler, não fazer overengineering. Preferir monólito modular scale-ready. Manter compatibilidade com Render Free + Supabase Free.
 
 ## Veredito
-Hoje o sistema é seguro só com 1 instância e 1 worker. Três coisas impedem escala horizontal:
-1. Scheduler dentro do processo da aplicação, sem trava no banco.
-2. Migrações rodando no boot, sem trava.
-3. Bots de publicação sem idempotência (reexecução pode duplicar o post na rede).
+Hoje o sistema é seguro só com 1 instância e 1 worker. Dois bloqueios permanecem para escala horizontal completa:
+1. Scheduler ainda vive no processo da aplicação; a separação em worker está preparada por configuração, mas não foi provisionada em staging.
+2. Bots de publicação ainda não têm idempotência por item remoto (reexecução após falha parcial pode duplicar o post na rede).
+O runner de migrações já usa `pg_advisory_lock`; não é mais um bloqueio aberto.
 O resto (sessão JWT, OAuth state, mídia nova, proxy) já é stateless. Render Free permite no máximo 1 instância (https://render.com/docs/scaling): escala real exige plano pago; dá para preparar tudo sem custo.
 
 ## FASE 0 — Arquitetura AS-IS
@@ -71,7 +71,7 @@ Matriz de capacidade do banco: N0 Free; N1 Pro; N2 índices/queries/pooling; N3 
 
 ## PLANO POR FASES (a executar com autorização explícita; cada fase com commits pequenos, testes, rollback e relatório PASS/FAIL)
 - FASE 3 — Preparação sem custo. Primeiro segurança (DSN e token fora do log), depois abstrações (RateLimit/Cache/Storage/db read-write), idempotência, config centralizada, /health e /readiness, timeouts e retry policy, structured logging com request_id.
-- FASE 4 — Scheduler/jobs. Tabela publish_jobs, claim, idempotência por rede, testes de concorrência com 2 e 5 workers simulados. NÃO subir workers nem instâncias antes disso estar testado.
+- FASE 4 — Scheduler/jobs. A primeira entrega local cria `publication_claims` com lease atômico por `scheduler_id`, aplica o wrapper também às agendas persistidas e introduz `SCHEDULER_ENABLED` para reservar o scheduler a um worker futuro. Ainda faltam `publish_jobs`, idempotência por rede, retries e os testes de concorrência com 2 e 5 workers simulados. NÃO subir workers nem instâncias antes desses itens estarem testados e aplicados.
 - FASE 5 — Banco. Advisory lock nas migrações, índices compostos só após EXPLAIN, retenção de request_logs, N+1 em lote, numeric para preço. Migrações pequenas e reversíveis, sem apagar dados, sem mexer em RLS sem teste.
 - FASE 6 — Testes. Unit, integração, concorrência, idempotência, retry, restart com lock expirado, fumaça de carga local leve (sem atacar APIs externas reais).
 - FASE 7 — Documentação no Vault (Projetos/ShopeeAutoVendas/): 33-Escalabilidade-e-Capacidade, 34-Arquitetura-Scale-Ready, 35-Plano-de-Evolucao-de-Infra (28 a 32 já existem), mais updates do 00-INDICE-Estado-Atual, 01-Status-e-Checklist, 02-Arquitetura-e-Tecnologias, 07-Diagrama-de-Arquitetura e 04-Backlog.

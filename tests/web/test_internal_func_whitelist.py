@@ -36,6 +36,23 @@ def test_create_job_rejects_func_outside_whitelist(client, monkeypatch):
     mock_add_job.assert_not_called()
 
 
+def test_scheduler_routes_refuse_work_when_scheduler_role_is_disabled(client, monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_SECRET", INTERNAL_SECRET)
+    monkeypatch.setattr(
+        "shopee_bot.web.routes.internal.scheduler_enabled",
+        lambda: False,
+    )
+
+    res = client.post(
+        "/internal/scheduler/jobs",
+        json={},
+        headers=_headers(),
+    )
+
+    assert res.status_code == 503
+    assert res.json == {"error": "Agendador indisponível"}
+
+
 def test_create_job_accepts_whitelisted_func(client, monkeypatch):
     monkeypatch.setenv("INTERNAL_API_SECRET", INTERNAL_SECRET)
 

@@ -363,16 +363,19 @@ em execução.
 Ver também `docs/RULES.md` item 8 (padrão de migração de esquema de auth sem quebrar conta
 existente — diretriz, não tarefa isolada).
 
-## FUTURO — Escalabilidade (Fases 3 a 7)
+## Escalabilidade — execução iniciada em 2026-10-16
 
-- [ ] **FUTURO — Escalabilidade (Fases 3 a 7).** Plano completo:
-  `docs/superpowers/plans/2026-10-13-escalabilidade-futura.md`. **Aguarda autorização explícita
-  do Rafa;** começar pelos P0 de segurança dos logs. (origem: plano de escalabilidade, 2026-10-13)
-  - [ ] Fase 3 — Preparação sem custo.
-  - [ ] Fase 4 — Scheduler/jobs.
-  - [ ] Fase 5 — Banco.
-  - [ ] Fase 6 — Testes.
-  - [ ] Fase 7 — Documentação.
+- [~] **Scheduler/worker — preparação inicial.** Branch local
+  `feat/scale-durable-claims`: migração `052_create_publication_claims.sql`, lease atômico por
+  publicação e atualização das agendas persistidas no boot. `SCHEDULER_ENABLED=true` preserva
+  o modo atual; a futura instância web usará `false` e apontará `FLASK_INTERNAL_URL` ao worker.
+  Ainda não aplicado no Supabase compartilhado e não autorizado para réplicas.
+- [ ] **Fila e idempotência.** Criar `publish_jobs` com item/estado/attempt/`external_id` e chave
+  única por publicação de rede antes de qualquer escala horizontal real.
+- [ ] **Banco e consultas.** Medir com `EXPLAIN (ANALYZE, BUFFERS)` em staging representativo;
+  criar índices somente com evidência.
+- [ ] **Hospedagem e réplicas.** Separar API/worker, carga em staging, borda Cloudflare e ativação
+  gradual somente após os gates anteriores.
 
 ## FUTURO - Rebranding Auto Orbital
 

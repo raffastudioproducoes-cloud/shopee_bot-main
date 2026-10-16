@@ -24,7 +24,7 @@ from functools import wraps
 
 from flask import Blueprint, request, jsonify
 
-from shopee_bot.scheduler import add_job, remove_job, run_job
+from shopee_bot.scheduler import add_job, remove_job, run_job, scheduler_enabled
 from shopee_bot.apis import shopee as ShopeeAPI
 from shopee_bot.apis import x as XAPI
 from shopee_bot.apis import facebook as FacebookAPI
@@ -52,6 +52,15 @@ def _require_internal_secret(fn):
             given.encode("utf-8"), secret.encode("utf-8")
         ):
             return jsonify({"error": "Não autorizado"}), 403
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+def _require_scheduler_role(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if not scheduler_enabled():
+            return jsonify({"error": "Agendador indisponível"}), 503
         return fn(*args, **kwargs)
     return wrapper
 
@@ -85,6 +94,7 @@ def _parse_days_of_week(value):
 
 @internal_bp.post("/scheduler/jobs")
 @_require_internal_secret
+@_require_scheduler_role
 def create_job():
     body = request.get_json(force=True)
     user_id = body["user_id"]
@@ -120,6 +130,7 @@ def create_job():
 
 @internal_bp.delete("/scheduler/jobs/<job_id>")
 @_require_internal_secret
+@_require_scheduler_role
 def delete_job(job_id):
     body = request.get_json(force=True)
     remove_job(body["user_id"], job_id)
@@ -128,6 +139,7 @@ def delete_job(job_id):
 
 @internal_bp.post("/scheduler/jobs/<job_id>/run")
 @_require_internal_secret
+@_require_scheduler_role
 def run_job_now(job_id):
     run_job(job_id)
     return jsonify({}), 200
