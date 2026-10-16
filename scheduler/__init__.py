@@ -9,11 +9,12 @@ from psycopg.pq import TransactionStatus
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED
 from apscheduler.schedulers.gevent import GeventScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
 
-from shopee_bot.database import get_conn, put_conn, schedulers
+from shopee_bot.database import get_conn, put_conn, publication_claims, schedulers
 from shopee_bot.clogging import logger
 from shopee_bot.database.activities import insert_activities, activity_metadata_wrapper
 from shopee_bot.database.activity_types import ActivityType
@@ -39,6 +40,7 @@ _scheduler = None
 # (misfire_grace_time=1s) descartava com "was missed by 0:00:01".
 # 5 min de tolerância + coalesce (várias execuções perdidas viram uma).
 JOB_DEFAULTS = {"misfire_grace_time": 300, "coalesce": True}
+PUBLICATION_CLAIM_LEASE_SECONDS = 600
 
 MISSED_JOB_MESSAGE = "Horário de publicação perdido (servidor ocupado ou reiniciando). Publique de novo."
 PROFILE_SCOPED_FUNCS = frozenset({
@@ -51,6 +53,50 @@ NETWORK_BY_FUNC = {
     "bot_post_instagram": "instagram",
     "bot_post_tiktok": "tiktok",
 }
+
+
+def scheduler_enabled() -> bool:
+    return os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
+
+
+def _scheduled_function(func: str):
+    return execute_publication if func in PROFILE_SCOPED_FUNCS else globals()[func]
+
+
+def execute_publication(job_id):
+    """Executa uma publicacao somente quando esta instancia detem o lease."""
+    job_data = schedulers.get_by_id(job_id)
+    if not job_data:
+        logger.warning("Job de publicacao %s nao encontrado", job_id)
+        return
+
+    claim_token = publication_claims.try_claim(job_id, PUBLICATION_CLAIM_LEASE_SECONDS)
+    if not claim_token:
+        logger.info("Job de publicacao %s ja esta em execucao em outra instancia", job_id)
+        return
+
+    try:
+        globals()[job_data["func"]](job_id)
+    finally:
+        try:
+            publication_claims.release(job_id, claim_token)
+        except Exception:
+            logger.exception("Falha ao liberar lease de publicacao %s", job_id)
+
+
+def _upgrade_existing_publication_jobs():
+    """Faz agendas persistidas antes do deploy usarem o lease ao reiniciar."""
+    for job_data in schedulers.get_publication_jobs():
+        job_id = str(job_data["id"])
+        try:
+            _scheduler.modify_job(
+                job_id,
+                jobstore="default",
+                func=execute_publication,
+                args=(job_id,),
+            )
+        except JobLookupError:
+            logger.info("Job de publicacao %s nao existe mais no jobstore", job_id)
 
 
 def _on_job_problem(event):
@@ -125,7 +171,7 @@ def run_job(job_id):
     _scheduler.add_job(
         jobstore="on_demand",
         id=job_id,
-        func=globals()[func],
+        func=_scheduled_function(func),
         args=(job_id, ),
         trigger="date",
     )
@@ -151,7 +197,7 @@ def _add_job(user_id, job, conn):
 
         _scheduler.add_job(
             id=str(job_id),
-            func=globals()[func],
+            func=_scheduled_function(func),
             args=(job_id, ),
             trigger=trigger,
             minute=minute,
@@ -162,7 +208,7 @@ def _add_job(user_id, job, conn):
     elif trigger == "date":
         _scheduler.add_job(
             id=str(job_id),
-            func=globals()[func],
+            func=_scheduled_function(func),
             args=(job_id, ),
             trigger=trigger,
             run_date=job["run_date"]
@@ -217,3 +263,4 @@ def init():
     )
     _scheduler.add_listener(_on_job_problem, EVENT_JOB_ERROR | EVENT_JOB_MISSED)
     _scheduler.start()
+    _upgrade_existing_publication_jobs()
