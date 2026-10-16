@@ -61,13 +61,15 @@ def test_expired_x_token_refreshes_with_global_oauth_and_scopes_saved_tokens(mon
         ),
     )
 
-    module.bot_post_x("job-1")
+    result = module.bot_post_x("job-1")
 
     assert refreshed == [
         (42, profile_id, {"access_token": "fresh-access-token", "refresh_token": "fresh-refresh-token"})
     ]
     assert published == [("fresh-access-token", "teste")]
     assert activities[0][1] == ActivityType.BOT_POST_SUCCESS
+    assert result.status == "succeeded"
+    assert result.external_id == "x-1"
 
 
 def test_disabled_x_job_logs_and_skips_before_api_calls(monkeypatch, caplog):

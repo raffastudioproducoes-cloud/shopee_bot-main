@@ -7,6 +7,7 @@ from shopee_bot.database.activities import (
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
 from shopee_bot.scheduler.media_delivery import delivery_url
+from shopee_bot.scheduler.publication_result import external_id, succeeded, unknown
 
 
 def _first_image(post):
@@ -71,27 +72,28 @@ def bot_post_instagram(job_id):
     root_post = post_data[0]
     image = _first_image(root_post)
     medias = root_post.get("medias") or []
+    external = None
 
     try:
         if len(medias) > 1:
-            _publish_carousel(
+            external = _publish_carousel(
                 app_id, secret, user_access_token, ig_user_id, medias, root_post["text"]
             )
         elif len(medias) == 1 and medias[0].get("type") == "VIDEO":
-            _publish_video(
+            external = _publish_video(
                 app_id, secret, user_access_token, ig_user_id, medias[0], root_post["text"]
             )
         elif image:
-            _publish_image(
+            external = _publish_image(
                 app_id, secret, user_access_token, ig_user_id, image, root_post["text"]
             )
         elif root_post["product_ids"]:
             product = products.get(user_id, root_post["product_ids"][0], profile_id)
-            InstagramAPI.post_product(
+            external = InstagramAPI.post_product(
                 app_id, secret, user_access_token, product, ig_user_id
             )
         else:
-            InstagramAPI.post_text(
+            external = InstagramAPI.post_text(
                 app_id, secret, user_access_token, root_post["text"], ig_user_id
             )
     except Exception as err:
@@ -108,7 +110,7 @@ def bot_post_instagram(job_id):
             }),
             profile_id=profile_id
         )
-        return
+        return unknown(err)
 
     insert_activities(
         user_id,
@@ -122,3 +124,4 @@ def bot_post_instagram(job_id):
         profile_id=profile_id
     )
     logger.info(f"bot_post_instagram job #{job_id} for {username} finished.")
+    return succeeded(external_id(external))
