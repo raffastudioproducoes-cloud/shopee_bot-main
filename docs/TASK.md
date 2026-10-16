@@ -370,12 +370,12 @@ existente — diretriz, não tarefa isolada).
   persistidas no boot. `SCHEDULER_ENABLED=true` preserva o modo atual; a futura instância web
   usará `false` e apontará `FLASK_INTERNAL_URL` ao worker. Evidência: CI e deploy da `main`
   verdes em 2026-10-16.
-- [~] **Fila e idempotência.** Implementação local na branch
-  `feat/scale-durable-queue`: migração `053_create_publish_jobs.sql`, chave única por ocorrência,
-  claim com `SKIP LOCKED`, classificação conservadora de lease vencido como `unknown` e estados finais com `external_id` quando
-  a rede confirma. Erro ambíguo fica em `unknown` e não recebe retry automático. Pendente:
-  staging/CI, teste configurado contra PostgreSQL e reconciliação específica por provedor antes de
-  permitir retry de `unknown`.
+- [~] **Fila e idempotência.** Código enviado a `staging` em `330137f`:
+  migração `053_create_publish_jobs.sql`, chave única por ocorrência, claim com
+  `SKIP LOCKED`, lease vencido como `unknown` e `external_id` quando a rede confirma.
+  Erro ambíguo não recebe retry automático. O workflow `38978920492` pulou o deploy
+  por falta de `RENDER_STAGING_DEPLOY_HOOK_URL`; faltam a confirmação no Render,
+  o teste contra PostgreSQL configurado e a reconciliação por provedor.
 - [ ] **Banco e consultas.** Medir com `EXPLAIN (ANALYZE, BUFFERS)` em staging representativo;
   criar índices somente com evidência.
 - [ ] **Hospedagem e réplicas.** Separar API/worker, carga em staging, borda Cloudflare e ativação
