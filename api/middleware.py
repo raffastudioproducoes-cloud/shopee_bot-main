@@ -78,7 +78,14 @@ def _user_from_cookie(request: Request) -> tuple[str | None, str | None, str | N
     if not token:
         return None, None, None
     try:
-        payload = jwt.decode(token, settings.api_secret_key, algorithms=["HS256"])
+        decoded = jwt.decode_complete(
+            token, settings.api_secret_key, algorithms=["HS256"]
+        )
+        header = decoded.get("header") or {}
+        if "crit" in header:
+            # RFC 7515 §4.1.11 / GHSA-752w-5fwx-jx9f: nenhuma extensão crítica é suportada
+            return None, None, None
+        payload = decoded.get("payload") or {}
     except Exception:
         return None, None, None
     return payload.get("id"), payload.get("sub"), payload.get("profile_id")
