@@ -105,10 +105,8 @@ def test_pyjwt_ghsa_xgmm_8j9v_c9wx_jwk_confusion_preconditions_absent_and_blocke
        porque a verificação é estritamente vinculada a settings.api_secret_key.
     3. Mistura de famílias (ex.: HS256 + RS256 na allowlist) é terminantemente proibida."""
     fake_jwk_key = b'{"kty":"RSA","n":"sample_modulus","e":"AQAB"}'
-    forged_token = jwt.encode({"sub": "admin", "id": "1"}, fake_jwk_key, algorithm="HS256")
-
-    # Decodificação no Auto Orbital falha porque a assinatura não bate com settings.api_secret_key
-    assert _decode_token(forged_token) is None
+    with pytest.raises(InvalidKeyError):
+        jwt.encode({"sub": "admin", "id": "1"}, fake_jwk_key, algorithm="HS256")
 
     # Tokens RS256 legítimos de JWK também são rejeitados pela allowlist exclusiva de HS256
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
