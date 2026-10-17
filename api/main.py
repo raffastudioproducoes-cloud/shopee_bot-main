@@ -43,6 +43,9 @@ from .routers import (
 app = FastAPI(
     title="Auto Orbital API",
     version="0.1.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 # CORS
