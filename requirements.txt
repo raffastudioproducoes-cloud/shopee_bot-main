@@ -33,7 +33,7 @@ psycopg-pool==3.2.6
 Pygments==2.21.0
 pytest==9.1.1
 python-dotenv==1.2.2
-pytz==2025.2
+pytz==2026.5
 requests==2.33.0
 six==1.17.0
 SQLAlchemy==2.0.41
