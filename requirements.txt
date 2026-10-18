@@ -14,7 +14,7 @@ flask-cors==6.0.1
 Flask-Limiter==4.1.1
 Flask-Login==0.6.3
 Flask-WTF==1.2.2
-gevent==25.5.1
+gevent==26.9.0
 greenlet==3.2.3
 gunicorn==23.0.0
 idna==3.15
