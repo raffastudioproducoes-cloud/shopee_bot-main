@@ -1,8 +1,8 @@
 """Projeções ADMIN sem identidades ou diagnósticos em texto livre."""
 from datetime import datetime, timezone
 from typing import Literal
-from fastapi.routing import APIRoute
 from pydantic import BaseModel, field_validator, computed_field
+from starlette.routing import compile_path
 
 
 class AdminLogEntry(BaseModel):
@@ -22,12 +22,10 @@ class AdminLogEntry(BaseModel):
         path = value.partition('?')[0].partition('#')[0]
         if path.startswith('/api/'):
             path = path[4:]
-        for route in app.routes:
-            if not isinstance(route, APIRoute):
-                continue
-            pattern = getattr(route, 'path_regex', None)
-            if pattern and pattern.fullmatch(path):
-                return route.path
+        for template in app.openapi()['paths']:
+            pattern, _, _ = compile_path(template)
+            if pattern.fullmatch(path):
+                return template
         return 'Rota não identificada'
 
     @field_validator('method')
