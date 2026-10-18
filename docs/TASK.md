@@ -1,5 +1,16 @@
 # TASK — Shopee Auto Vendas
 
+## Prioridade atual — 2026-10-16
+
+1. Concluir e retestar o pentest (54 alertas por ID e achados manuais) antes
+   do relatório final para a Shopee. Os lotes de dependências foram implantados
+   em `staging`, com 827 testes da API passando localmente; ainda faltam
+   inventário da imagem, reteste por ID e corrigir logout, CSRF e CSP restante.
+2. Validar publicação, isolamento por perfil, recuperação da fila e o MVP em
+   staging. Medir buscas e cache antes de escalar no Render/Supabase.
+3. Somente depois do pentest e relatório, retomar Shopee Video, ainda condicionado
+   à confirmação oficial de permissões e endpoint de publicação da Shopee.
+
 > Fases e tarefas derivadas do PRD e do histórico real (`git log`, `docs/ROADMAP_MIGRACAO.md`,
 > `docs/CHECKLIST_MIGRACAO.md`, vault Obsidian `00-INDICE-Estado-Atual.md`). Uma tarefa só é
 > marcada **Concluída** com evidência de código ou teste passando; senão fica **Bloqueada** ou

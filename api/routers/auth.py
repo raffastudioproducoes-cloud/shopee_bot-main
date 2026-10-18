@@ -197,10 +197,14 @@ def _decode_token(token: str) -> dict | None:
     import jwt
 
     try:
-        payload = jwt.decode(
+        decoded = jwt.decode_complete(
             token, settings.api_secret_key, algorithms=["HS256"]
         )
-        return payload
+        header = decoded.get("header") or {}
+        if "crit" in header:
+            # RFC 7515 §4.1.11 / GHSA-752w-5fwx-jx9f: nenhuma extensão crítica é suportada
+            return None
+        return decoded.get("payload")
     except Exception:
         return None
 
