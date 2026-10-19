@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 from api.routers import auth as auth_module
+from api import database as database_module
 
 
 @pytest.fixture
@@ -43,6 +44,94 @@ def _hash(password: str) -> str:
     from passlib.context import CryptContext
 
     return CryptContext(schemes=["bcrypt"], deprecated="auto").hash(password)
+
+
+def test_logout_revokes_captured_cookie_on_server(fake_db, monkeypatch):
+    password = "senha12345"
+    db = fake_db({
+        "users": [{"id": "u-1", "username": "u", "password": _hash(password), "access": "USER"}],
+        "profiles": [{"id": "p-1", "user_id": "u-1", "kind": "principal"}],
+        "revoked_sessions": [],
+    })
+    monkeypatch.setattr(database_module, "get_supabase", lambda: db)
+    monkeypatch.setattr(auth_module, "get_supabase", lambda: db)
+    with TestClient(app, base_url="https://testserver") as browser:
+        login = browser.post("/auth/login", data={"username": "u", "password": password})
+        assert login.status_code == 200
+        stolen_cookie = login.cookies["access_token"]
+        assert browser.get("/auth/me").status_code == 200
+        assert browser.post("/auth/logout").status_code == 200
+        browser.cookies.set("access_token", stolen_cookie)
+        assert browser.get("/auth/me").status_code == 401
+    assert len(db.tables["revoked_sessions"]) == 1
+
+
+def test_missing_session_id_is_rejected_after_migration(fake_db, monkeypatch):
+    import jwt
+
+    db = fake_db({
+        "users": [{"id": "u-1", "username": "u", "password": _hash("senha12345"), "access": "USER"}],
+        "profiles": [{"id": "p-1", "user_id": "u-1", "kind": "principal"}],
+        "revoked_sessions": [],
+    })
+    monkeypatch.setattr(database_module, "get_supabase", lambda: db)
+    monkeypatch.setattr(auth_module, "get_supabase", lambda: db)
+    old = jwt.encode(
+        {"sub": "u", "id": "u-1", "exp": int(__import__("time").time()) + 3600},
+        auth_module.settings.api_secret_key,
+        algorithm="HS256",
+    )
+    with TestClient(app, base_url="https://testserver") as browser:
+        browser.cookies.set("access_token", old)
+        assert browser.get("/auth/me").status_code == 401
+
+
+def test_profile_switch_revokes_previous_cookie(fake_db, monkeypatch, client):
+    password = "senha12345"
+    db = fake_db({
+        "users": [{"id": "u-1", "username": "u", "password": _hash(password), "access": "USER"}],
+        "profiles": [
+            {"id": "p-1", "user_id": "u-1", "kind": "principal"},
+            {"id": "p-2", "user_id": "u-1", "kind": "secundario"},
+        ],
+        "revoked_sessions": [],
+    })
+    monkeypatch.setattr(database_module, "get_supabase", lambda: db)
+    monkeypatch.setattr(auth_module, "get_supabase", lambda: db)
+    with TestClient(app, base_url="https://testserver") as browser:
+        login = browser.post("/auth/login", data={"username": "u", "password": password})
+        assert login.status_code == 200
+        old_cookie = login.cookies["access_token"]
+        switched = browser.post("/profiles/p-2/activate")
+        assert switched.status_code == 200
+        new_cookie = switched.cookies["access_token"]
+        browser.cookies.set("access_token", old_cookie)
+        assert browser.get("/auth/me").status_code == 401
+        browser.cookies.set("access_token", new_cookie)
+        assert browser.get("/auth/me").status_code == 200
+
+
+def test_expired_revocations_are_pruned_without_touching_live_sessions(fake_db, monkeypatch):
+    db = fake_db({"revoked_sessions": [
+        {"jti": "expired", "expires_at": "2020-01-01T00:00:00+00:00"},
+        {"jti": "live", "expires_at": "2099-01-01T00:00:00+00:00"},
+    ]})
+    monkeypatch.setattr(auth_module, "supabase", db)
+    auth_module.cleanup_expired_sessions()
+    assert [row["jti"] for row in db.tables["revoked_sessions"]] == ["live"]
+
+
+def test_revocation_store_unavailable_fails_closed(monkeypatch):
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(auth_module, "_get_user_from_supabase", lambda username: {
+        "id": "u-1", "username": username, "password": "stored"
+    })
+    monkeypatch.setattr(auth_module, "get_supabase", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
+    token = auth_module._create_token({"sub": "u", "id": "u-1"})
+    with pytest.raises(HTTPException) as error:
+        auth_module._get_authenticated_user(token)
+    assert error.value.status_code == 503
 
 
 class TestResetPassword:

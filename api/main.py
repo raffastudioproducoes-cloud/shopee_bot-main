@@ -16,6 +16,7 @@ from .config import settings
 from .database import get_supabase, init_db
 from .middleware import AccessLogRedactor, RequestIDMiddleware, RequestLoggingMiddleware
 from .routers.posts import cleanup_expired_media_drafts
+from .routers.auth import cleanup_expired_sessions
 from .routers.admin import router as admin_router
 
 for noisy_logger in ("httpx", "httpcore", "urllib3"):
@@ -84,12 +85,16 @@ app.include_router(meta_callbacks_router)
 
 
 async def _cleanup_media_drafts_periodically() -> None:
-    """Best effort: cada worker remove rascunhos vencidos a cada hora."""
+    """Best effort: cada worker remove rascunhos e sessoes vencidas a cada hora."""
     while True:
         try:
             await run_in_threadpool(cleanup_expired_media_drafts)
         except Exception:
             logger.warning("Falha na limpeza periódica de rascunhos de mídia", exc_info=True)
+        try:
+            await run_in_threadpool(cleanup_expired_sessions)
+        except Exception:
+            logger.warning("Falha na limpeza periódica de sessões vencidas", exc_info=True)
         await asyncio.sleep(3600)
 
 

@@ -8,6 +8,7 @@ Cobre a sincronização de produtos numa lista via PUT /lists/{id}
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -39,7 +40,7 @@ def _make_fake_supabase(tables: dict[str, MagicMock]) -> MagicMock:
 def _query_mock(execute_return) -> MagicMock:
     """Mock de query builder encadeável (select/eq/single/in_/delete/insert...)."""
     query = MagicMock()
-    for method in ("select", "eq", "single", "in_", "delete", "insert", "update", "order", "limit"):
+    for method in ("select", "eq", "single", "maybe_single", "in_", "delete", "insert", "update", "order", "limit"):
         getattr(query, method).return_value = query
     query.execute.return_value = execute_return
     return query
@@ -49,6 +50,17 @@ class TestListsEndpointPresence:
     def test_update_requires_auth(self, client):
         res = client.put("/lists/1", json={"name": "X"})
         assert res.status_code == 401
+
+
+def test_missing_list_sdk_returns_none_not_500(monkeypatch):
+    query = _query_mock(None)
+    query.maybe_single.return_value = query
+    db = MagicMock()
+    db.table.return_value = query
+    monkeypatch.setattr(lists_router, "supabase", db)
+    with pytest.raises(HTTPException) as error:
+        lists_router._get_list(42, 7, "profile-a")
+    assert error.value.status_code == 404
 
 
 class TestListProductsSync:

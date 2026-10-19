@@ -55,6 +55,9 @@ class _Query:
         self._single = True
         return self
 
+    def maybe_single(self):
+        return self.single()
+
     def order(self, *_a, **_k):
         return self
 
