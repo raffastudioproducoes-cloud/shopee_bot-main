@@ -58,8 +58,8 @@ def _get_list(user_id: int, product_list_id: int, profile_id: str | None = None)
     )
     if profile_id:
         query = query.eq("profile_id", profile_id)
-    result = query.single().execute()
-    if not result.data:
+    result = query.maybe_single().execute()
+    if not result or not result.data:
         raise HTTPException(status_code=404, detail="Lista não encontrada")
     return result.data
 

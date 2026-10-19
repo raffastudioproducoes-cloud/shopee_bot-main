@@ -10,6 +10,7 @@ import { ActiveProfileChip } from '../components/profiles/ActiveProfileChip'
 import { Icon } from '../components/ui/Icon'
 import { AppFooter } from '../components/layout/AppFooter'
 import { PageSkeleton } from '../components/ui/Skeleton'
+import { StatusMessage } from '../components/StatusMessage'
 import { clearAdminVisitingSite, isAdminVisitingSite } from '../lib/adminSiteFlag'
 
 const navItems: SideRailItem[] = [
@@ -32,6 +33,7 @@ export function PanelPage() {
   const location = useLocation()
   const { user, logout, setUser, isAuthenticated, isRoleVerified, setRoleVerified } = useAuthStore()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [logoutError, setLogoutError] = useState(false)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
 
   // Gaveta mobile: fecha com ESC (devolvendo foco ao hambúrguer) e ao trocar de rota.
@@ -80,9 +82,15 @@ export function PanelPage() {
 
   const items = user?.access === 'ADMIN' ? [...navItems, ...adminNavItems] : navItems
 
-  const handleLogout = () => {
-    logout()
-    navigate({ to: '/login' })
+  const handleLogout = async () => {
+    setLogoutError(false)
+    try {
+      await authApi.logout()
+      logout()
+      navigate({ to: '/login' })
+    } catch {
+      setLogoutError(true)
+    }
   }
 
   return (
@@ -147,6 +155,7 @@ export function PanelPage() {
           bell={<NotificationsBell />}
         />
 
+        {logoutError && <StatusMessage kind="error" onDismiss={() => setLogoutError(false)}>Não foi possível encerrar a sessão. Tente novamente.</StatusMessage>}
         <main style={{ flex: 1, minWidth: 0 }}>
           <Outlet />
         </main>

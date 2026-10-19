@@ -205,6 +205,7 @@ def test_latest_check_uses_numeric_serial_id_when_timestamps_tie():
 
 
 def test_legacy_account_checks_are_shared_and_consolidated(db, client, profile_cookie):
+    now = datetime.now(timezone.utc).isoformat()
     db.tables["shopee_credentials"].append({"id": 1, "user_id": 42, "status": True})
     db.tables["ai_credentials"].append({
         "id": 2, "user_id": 42, "provider": "gemini", "secret": encrypt(SECRET), "status": True,
@@ -214,12 +215,12 @@ def test_legacy_account_checks_are_shared_and_consolidated(db, client, profile_c
         {"id": 4, "user_id": 42, "profile_id": "profile-b", "status": True, "access_token": "b"},
     ]
     db.tables["credential_checks"] = [
-        {"id": 2, "user_id": 42, "profile_id": "profile-b", "network": "shopee", "state": "ok", "message": "novo", "checked_at": "2026-10-11T10:00:00+00:00"},
+        {"id": 2, "user_id": 42, "profile_id": "profile-b", "network": "shopee", "state": "ok", "message": "novo", "checked_at": now},
         {"id": 1, "user_id": 42, "profile_id": "profile-a", "network": "shopee", "state": "error", "message": "antigo", "checked_at": "2026-10-11T09:00:00+00:00"},
-        {"id": 4, "user_id": 42, "profile_id": "profile-b", "network": "ai_gemini", "state": "ok", "message": "novo", "checked_at": "2026-10-11T10:00:00+00:00"},
+        {"id": 4, "user_id": 42, "profile_id": "profile-b", "network": "ai_gemini", "state": "ok", "message": "novo", "checked_at": now},
         {"id": 3, "user_id": 42, "profile_id": "profile-a", "network": "ai_gemini", "state": "error", "message": "antigo", "checked_at": "2026-10-11T09:00:00+00:00"},
-        {"id": 5, "user_id": 42, "profile_id": "profile-a", "network": "threads", "state": "ok", "message": "a", "checked_at": "2026-10-11T08:00:00+00:00"},
-        {"id": 6, "user_id": 42, "profile_id": "profile-b", "network": "threads", "state": "error", "message": "b", "checked_at": "2026-10-11T07:00:00+00:00"},
+        {"id": 5, "user_id": 42, "profile_id": "profile-a", "network": "threads", "state": "ok", "message": "a", "checked_at": now},
+        {"id": 6, "user_id": 42, "profile_id": "profile-b", "network": "threads", "state": "error", "message": "b", "checked_at": now},
     ]
     client.cookies.update(profile_cookie("profile-a"))
     other = TestClient(app)

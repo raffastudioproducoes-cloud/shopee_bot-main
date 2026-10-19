@@ -11,9 +11,11 @@ JWT/cookie de sessão e não usa Flask-WTF).
 """
 
 import os
+from urllib.parse import urlparse
 
 import requests
 from flask import Blueprint, Response, request
+from shopee_bot.web.helpers import cors_origins
 
 API_INTERNAL_URL = os.environ.get("API_INTERNAL_URL", "http://127.0.0.1:8001")
 _TIMEOUT = 30
@@ -36,6 +38,15 @@ api_proxy_bp = Blueprint("api_proxy", __name__, url_prefix="/api")
     methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
 )
 def proxy(subpath):
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.cookies.get("access_token"):
+        source = request.headers.get("Origin") or request.headers.get("Referer")
+        parsed = urlparse(source or "")
+        allowed = {request.host_url, *cors_origins()}
+        if not source or not any(
+            (parsed.scheme, parsed.netloc) == (origin.scheme, origin.netloc)
+            for origin in map(urlparse, allowed)
+        ):
+            return {"error": "Origem da requisição inválida"}, 403
     headers = {
         k: v for k, v in request.headers.items()
         if k.lower() not in _REQUEST_HEADERS_TO_DROP

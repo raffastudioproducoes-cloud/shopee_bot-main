@@ -23,6 +23,7 @@ autorizadas la mesmo pra manter o comportamento testado:
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from api import database as database_module
@@ -103,6 +104,16 @@ def test_delete_profile_not_found_returns_404(auth_client, monkeypatch):
     _mock_supabase(monkeypatch, None)
     response = auth_client.delete("/profiles/does-not-exist")
     assert response.status_code == 404
+
+
+def test_missing_profile_sdk_returns_none_not_500(monkeypatch):
+    from api.routers.profiles import _get_own_profile_or_404
+
+    query = _mock_supabase(monkeypatch, None)
+    query.execute.return_value = None
+    with pytest.raises(HTTPException) as error:
+        _get_own_profile_or_404("foreign", USER_ID)
+    assert error.value.status_code == 404
 
 
 def test_update_profile_of_another_user_returns_404(auth_client, monkeypatch):

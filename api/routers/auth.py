@@ -15,6 +15,7 @@ import hashlib
 import logging
 import time
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
@@ -22,7 +23,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 
 from ..config import settings
-from ..database import get_supabase
+from ..database import get_supabase, supabase
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -163,6 +164,21 @@ def _get_authenticated_user(token: str) -> dict:
     if str(payload.get("id")) != str(user["id"]):
         raise HTTPException(status_code=401, detail="Token inválido")
 
+    session_id = payload.get("jti")
+    if not session_id:
+        # Tokens emitidos antes desta mudanca exigem um novo login.
+        raise HTTPException(status_code=401, detail="Sessão expirada")
+    try:
+        db = get_supabase()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail=_DB_UNAVAILABLE_DETAIL)
+    revoked = (
+        db.table("revoked_sessions")
+        .select("jti").eq("jti", session_id).maybe_single().execute()
+    )
+    if revoked and isinstance(revoked.data, dict) and revoked.data.get("jti") == session_id:
+        raise HTTPException(status_code=401, detail="Sessão expirada")
+
     # Tokens sem `pwv` (emitidos antes desta checagem existir) seguem
     # válidos até expirar (24h); todo token novo carrega o claim e morre
     # quando a senha muda.
@@ -189,8 +205,25 @@ def _create_token(data: dict, expires_delta: timedelta | None = None) -> str:
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(days=1)
     )
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "jti": str(uuid4())})
     return jwt.encode(to_encode, settings.api_secret_key, algorithm="HS256")
+
+
+def _revoke_session(token: str, user_id: str) -> None:
+    payload = _decode_token(token)
+    if not payload or not payload.get("jti"):
+        return
+    supabase.table("revoked_sessions").insert({
+        "jti": payload["jti"],
+        "user_id": user_id,
+        "expires_at": datetime.fromtimestamp(payload["exp"], timezone.utc).isoformat(),
+    }).execute()
+
+
+def cleanup_expired_sessions() -> None:
+    supabase.table("revoked_sessions").delete().lt(
+        "expires_at", datetime.now(timezone.utc).isoformat()
+    ).execute()
 
 
 def _decode_token(token: str) -> dict | None:
@@ -314,7 +347,16 @@ async def login(
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(response: Response, request: Request):
+    token = request.cookies.get("access_token")
+    if token:
+        try:
+            user = _get_authenticated_user(token)
+        except HTTPException as exc:
+            if exc.status_code != 401:
+                raise
+        else:
+            _revoke_session(token, user["id"])
     response.delete_cookie(key="access_token")
     return {"msg": "Logout realizado com sucesso"}
 

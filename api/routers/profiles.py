@@ -19,6 +19,7 @@ from .auth import (
     _decode_token,
     _get_user_from_supabase,
     _password_version,
+    _revoke_session,
     get_current_user_id,
 )
 
@@ -98,7 +99,7 @@ def _get_own_profile_or_404(profile_id: str, user_id: str) -> dict:
         .maybe_single()
         .execute()
     )
-    if not existing.data:
+    if not existing or not existing.data:
         raise HTTPException(status_code=404, detail="Perfil não encontrado")
     return existing.data
 
@@ -193,6 +194,7 @@ async def activate_profile(
         "profile_id": profile_id,
         "pwv": _password_version(user.get("password")),
     })
+    _revoke_session(token, user_id)
 
     # Flags idênticos ao endpoint de login (api/routers/auth.py::login) --
     # confirmado por leitura direta do handler, não reinventados aqui.
