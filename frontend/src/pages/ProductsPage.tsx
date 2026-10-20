@@ -80,7 +80,11 @@ export function ProductsPage() {
 
   const createMutation = useMutation({
     mutationFn: (body: Omit<Product, 'id' | 'user_id' | 'created_at' | 'updated_at'>) =>
-      productsApi.create(body),
+      productsApi.create({
+        ...body,
+        original_link: body.original_link ?? '',
+        commission_link: body.commission_link ?? '',
+      }),
     meta: { toast: { pending: "Salvando produto…", success: "Produto adicionado a Meus Produtos", error: "Não foi possível salvar" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
@@ -119,8 +123,8 @@ export function ProductsPage() {
       createMutation.mutate({
         name: form.name,
         product_id: form.product_id,
-        original_link: form.original_link || null,
-        commission_link: form.commission_link || null,
+        original_link: form.original_link,
+        commission_link: form.commission_link,
         commission: formNumber(form.commission),
         image: form.image || null,
         price_min: formNumber(form.price_min),
@@ -136,8 +140,8 @@ export function ProductsPage() {
       body: {
         name: form.name,
         product_id: form.product_id,
-        original_link: form.original_link || null,
-        commission_link: form.commission_link || null,
+        original_link: form.original_link,
+        commission_link: form.commission_link,
         commission: formNumber(form.commission),
         image: form.image || null,
         price_min: formNumber(form.price_min),

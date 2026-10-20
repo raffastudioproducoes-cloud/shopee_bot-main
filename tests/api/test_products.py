@@ -106,6 +106,14 @@ class TestProductsRequestValidation:
         res = auth_client.post("/products", json={"product_id": "not-a-shopee-id", "name": "Inválido"})
         assert res.status_code == 422
 
+    def test_create_requires_both_product_links(self, auth_client):
+        res = auth_client.post("/products", json={"product_id": "123456789", "name": "Sem links"})
+        assert res.status_code == 422
+
+    def test_update_rejects_null_required_product_link(self, auth_client):
+        res = auth_client.put("/products/1", json={"original_link": None})
+        assert res.status_code == 422
+
 
 class TestProductsNumericFieldsFromTextColumns:
     """price_min/price_max/commission são TEXT na tabela `products` (schema
@@ -194,7 +202,15 @@ class TestProductsScopedByAccount:
         monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
 
         auth_client.cookies.update(auth_headers_with_profile)
-        res = auth_client.post("/products", json={"product_id": "123456789", "name": "Fone"})
+        res = auth_client.post(
+            "/products",
+            json={
+                "product_id": "123456789",
+                "name": "Fone",
+                "original_link": "https://shopee.example/product/123456789",
+                "commission_link": "https://shopee.example/affiliate/123456789",
+            },
+        )
 
         assert res.status_code == 201
         assert "profile_id" not in query.insert.call_args[0][0]

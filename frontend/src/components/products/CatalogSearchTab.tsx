@@ -226,8 +226,8 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
       productsApi.create({
         product_id: product.product_id,
         name: product.name,
-        original_link: product.original_link,
-        commission_link: product.commission_link,
+        original_link: product.original_link ?? '',
+        commission_link: product.commission_link ?? '',
         commission: product.commission != null ? round2(product.commission) : null,
         image: product.image,
         price_min: toPrice(product.price_min),

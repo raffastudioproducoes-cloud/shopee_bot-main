@@ -19,8 +19,8 @@ export interface Product {
 export interface ProductCreate {
   product_id: string
   name: string
-  original_link?: string | null
-  commission_link?: string | null
+  original_link: string
+  commission_link: string
   commission?: number | string | null
   image?: string | null
   price_min?: number | string | null

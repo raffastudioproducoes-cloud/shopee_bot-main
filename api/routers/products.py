@@ -3,8 +3,10 @@ Products Router — API Python (FastAPI)
 CRUD completo de produtos da Shopee com Supabase.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Any
 
 from .auth import get_current_user_id
@@ -13,6 +15,7 @@ from ..database import supabase
 from ..profiles import scope_account
 
 router = APIRouter(prefix="/products", tags=["products"])
+logger = logging.getLogger(__name__)
 
 
 # ── Pydantic schemas ──────────────────────────────────────────────────────────────
@@ -38,8 +41,8 @@ class _ProductFields(BaseModel):
 class ProductCreate(_ProductFields):
     product_id: str
     name: str
-    original_link: str | None = None
-    commission_link: str | None = None
+    original_link: str = Field(min_length=1)
+    commission_link: str = Field(min_length=1)
     commission: float | None = None
     image: str | None = None
     price_min: float | None = None
@@ -56,6 +59,13 @@ class ProductUpdate(_ProductFields):
     image: str | None = None
     price_min: float | None = None
     price_max: float | None = None
+
+    @model_validator(mode="after")
+    def _keep_required_links_when_updating(self):
+        for field in ("original_link", "commission_link"):
+            if field in self.model_fields_set and not getattr(self, field):
+                raise ValueError(f"{field} não pode ficar vazio")
+        return self
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
@@ -176,7 +186,8 @@ async def create_product(
     except Exception as exc:  # corrida: o índice único (041) é a barreira final
         if "23505" in str(exc) or "duplicate key" in str(exc).lower():
             raise duplicate from exc
-        raise
+        logger.error("Falha ao criar produto (%s)", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="Falha ao criar produto") from None
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar produto")
     return _normalize_numeric_fields(result.data[0])
