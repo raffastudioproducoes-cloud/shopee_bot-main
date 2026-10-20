@@ -43,20 +43,7 @@
       @keyframes site-splash-pulse{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.045);opacity:1}}
       @media (prefers-reduced-motion:reduce){#site-splash{transition:none}.site-splash-logo{animation:none}}
     </style>
-    <script>
-      (function () {
-        function fail() {
-          if (window.__appReady) return
-          var splash = document.getElementById('site-splash')
-          if (!splash) return
-          splash.classList.add('is-error')
-          splash.setAttribute('aria-busy', 'false')
-        }
-        window.addEventListener('error', fail)
-        window.addEventListener('unhandledrejection', fail)
-        setTimeout(fail, 15000)
-      })()
-    </script>
+    <script defer src="/splash.js"></script>
   </head>
   <body>
     <div id="site-splash" role="status" aria-busy="true" aria-label="Carregando Auto Orbital">
@@ -71,7 +58,7 @@
         </div>
         <div class="site-splash-error" role="alert">
           <p>Não foi possível abrir o Auto Orbital. Verifique sua conexão e tente novamente.</p>
-          <button type="button" onclick="location.reload()">Recarregar</button>
+          <button type="button" id="site-splash-reload">Recarregar</button>
         </div>
         <noscript><div class="site-splash-noscript">Ative o JavaScript para abrir o Auto Orbital.</div></noscript>
       </div>

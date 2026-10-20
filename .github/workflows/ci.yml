@@ -54,6 +54,9 @@ jobs:
         # conftest.py raiz (gevent monkey-patch trava anyio/httpx do FastAPI).
         run: python -m pytest tests/api --confcutdir=tests/api -q
 
+      - name: Testes de seguranca do proxy e CSP
+        run: python -m pytest tests/web/test_api_proxy_csrf.py tests/web/test_csp_policy.py --confcutdir=tests/web -q
+
   frontend:
     name: Frontend (tsc + build)
     runs-on: ubuntu-latest
