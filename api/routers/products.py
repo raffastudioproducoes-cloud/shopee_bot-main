@@ -27,6 +27,13 @@ class _ProductFields(BaseModel):
     def _round_two_decimals(cls, value: float | None) -> float | None:
         return None if value is None else round(value, 2)
 
+    @field_validator("product_id", check_fields=False)
+    @classmethod
+    def _require_numeric_shopee_product_id(cls, value: str | None) -> str | None:
+        if value is not None and not value.isdigit():
+            raise ValueError("product_id deve conter apenas dígitos")
+        return value
+
 
 class ProductCreate(_ProductFields):
     product_id: str
@@ -37,6 +44,7 @@ class ProductCreate(_ProductFields):
     image: str | None = None
     price_min: float | None = None
     price_max: float | None = None
+
 
 
 class ProductUpdate(_ProductFields):

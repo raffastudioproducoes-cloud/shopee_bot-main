@@ -44,7 +44,7 @@ class TestProductsEndpointPresence:
         res = client.post(
             "/products",
             json={
-                "product_id": "test-xxx",
+                "product_id": "123456789",
                 "name": "Teste",
             },
         )
@@ -72,7 +72,7 @@ class TestProductsAuthRequirement:
     def test_create_requires_auth(self, client):
         res = client.post(
             "/products",
-            json={"product_id": "abc", "name": "Sem auth"},
+            json={"product_id": "123456789", "name": "Sem auth"},
         )
         assert res.status_code == 401
         assert res.json()["detail"] == "Não autenticado"
@@ -101,6 +101,10 @@ class TestProductsRequestValidation:
     def test_create_requires_name(self, client):
         res = client.post("/products", json={"name": "sem product_id"})
         assert res.status_code == 401
+
+    def test_create_rejects_non_numeric_shopee_product_id(self, auth_client):
+        res = auth_client.post("/products", json={"product_id": "not-a-shopee-id", "name": "Inválido"})
+        assert res.status_code == 422
 
 
 class TestProductsNumericFieldsFromTextColumns:
@@ -185,12 +189,12 @@ class TestProductsScopedByAccount:
             getattr(query, method).return_value = query
         query.execute.side_effect = [
             MagicMock(data=[]),
-            MagicMock(data=[{"id": 1, "name": "Fone", "product_id": "abc"}]),
+            MagicMock(data=[{"id": 1, "name": "Fone", "product_id": "123456789"}]),
         ]
         monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
 
         auth_client.cookies.update(auth_headers_with_profile)
-        res = auth_client.post("/products", json={"product_id": "abc", "name": "Fone"})
+        res = auth_client.post("/products", json={"product_id": "123456789", "name": "Fone"})
 
         assert res.status_code == 201
         assert "profile_id" not in query.insert.call_args[0][0]
