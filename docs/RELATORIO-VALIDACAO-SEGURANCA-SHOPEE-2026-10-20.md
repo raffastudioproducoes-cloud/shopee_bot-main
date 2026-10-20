@@ -20,11 +20,13 @@ publicacao social nem acesso a dados de terceiros.
 | --- | --- |
 | Dependencias Python | Os 54 IDs da matriz tem pin atual igual ou superior a versao de correcao citada; revisao por grupo e caminhos de chamada. O `pip freeze` do estagio Python final do Docker apareceu nos logs dos builds de staging e producao. |
 | Versoes instaladas nos dois builds | PyJWT 2.15.0; python-multipart 0.0.31; Pillow 12.3.0; requests 2.33.0; urllib3 2.8.0; idna 3.15; Flask 3.1.3; Werkzeug 3.1.9; python-dotenv 1.2.2; FastAPI 0.143.3; Starlette 1.8.0. |
+| Auditoria atual de dependencias declaradas | Em 20/10, `pip-audit` com OSV nao encontrou vulnerabilidades nos pins de `requirements.txt` e `api/requirements.txt` (`--no-deps --disable-pip`); `npm audit` no lockfile do frontend, completo e `--omit=dev`, encontrou zero. A tentativa de resolucao Python completa falhou neste Windows porque `psycopg-binary==3.2.9` nao tinha distribuicao compativel; logo o resultado Python nao cobre transitivas. |
 | Regressao local | 834 testes da API aprovados; 7 testes focados do proxy/CSP aprovados; build TypeScript/Vite aprovado. O CI de `main` passou em `685c71e`. |
 | Sessao e isolamento | Retestes anteriores em staging: replay do cookie apos logout/troca de perfil retornou 401; acesso a listas/perfis de outro escopo retornou 404; origem externa em mutacao com cookie retornou 403. Contas sinteticas foram excluidas. |
 | Navegador staging | Login React abriu sem erro no console sob a nova CSP. Conta descartavel: cadastro 201, login 200, consulta de sessao 200, criacao de perfil 201, exclusao 200. Consulta posterior ao banco: zero contas `codexpt-browser-%`. |
 | API real de staging, duas contas | Cadastro, login e consulta de sessao 201/200/200 em ambas; usuario comum em `/admin/metrics` 403; escrita com cookie e origem externa 403; criacao de perfil e upload PNG em rascunho 201; tentativa da conta B de ativar perfil ou excluir rascunho da conta A 404; exclusao pelo dono 200; replay do cookie apos logout 401. Ambas as contas foram excluidas (200); consulta posterior encontrou zero usuarios `codexpt-real-%`. O primeiro upload com MIME `application/octet-stream` retornou 415 corretamente; o reteste com `image/png` passou. |
 | API real de staging, papel ADMIN | Uma conta descartavel foi elevada temporariamente no banco: login 200 e `/admin/metrics` 200. Foi rebaixada para USER e excluida (200); consulta posterior encontrou zero usuarios `codexpt-admin-%`. Nenhuma conta existente foi modificada. |
+| Credenciais da conta ADM em staging | Na sessao real de `rafastudio`, os botoes de teste atualizaram hoje Threads, Facebook, Instagram e TikTok para `Funcionando`; Shopee retornou `Credencial valida`. X apareceu `Desconectado`, sem teste possivel por esse card. Gemini retornou erro do provedor 503 no primeiro teste e `Funcionando` no reteste. Os logs do Render confirmam as chamadas aos endpoints, mas HTTP 200 nessa rota significa que o teste foi processado: o resultado do provedor fica no corpo/status da credencial. |
 | Superficie publica | Producao: `/` 200 com `script-src 'self'`, `/splash.js` 200, `/api/health/ready` 200, `/api/auth/me` sem cookie 401, `/api/docs` e `/api/openapi.json` 404. |
 | Deploy | Staging `ba16d63` (`dep-dbbpvgqvcj2c73dp30r0`) e producao `685c71e` (`dep-dbbq4e17lnhs73fll8e0`) em estado `live`; CI/CD de main concluidos com sucesso. |
 
@@ -50,10 +52,12 @@ descrevem o plano original e nao foram sobrescritos para simular retestes.
 1. **CSP parcial:** `style-src` ainda permite `unsafe-inline`; paginas Jinja
    legadas ainda permitem script inline. A SPA foi verificada em navegador,
    mas nao houve migracao e teste visual de todas as telas legadas.
-2. **Fluxos externos nao exercitados:** nao houve OAuth real de cada rede,
-   assinatura de webhook real, publicacao social ou teste browser de CSRF
-   entre origens com esses fluxos. Testes unitarios mockados nao equivalem
-   a esses cenarios.
+2. **Fluxos externos parcialmente exercitados:** o teste de conexao da conta
+   ADM consultou as APIs externas com os tokens salvos, mas nao refaz o OAuth,
+   nao comprova permissao de publicacao e nao cria post. Nao houve assinatura
+   de webhook real, publicacao social atual nem teste browser de CSRF entre
+   origens nesses fluxos. Postagens anteriores visiveis no historico nao
+   substituem reteste atual. X esta desconectado; Gemini teve 503 transitorio.
 3. **Escopo autenticado incompleto:** os retestes reais cobriram o acesso
    positivo/negativo a uma rota ADMIN e a autorizacao de rascunho de midia
    pelo backend. Nao cobriram todas as rotas ADMIN, acesso direto ao bucket
@@ -62,7 +66,8 @@ descrevem o plano original e nao foram sobrescritos para simular retestes.
    O grafo Python foi observado no build final, mas nao foi obtido SBOM
    completo da imagem ativa nem inventario de pacotes do sistema. A API
    Dependabot do repositorio respondeu 403 (alertas desativados); portanto
-   esta matriz nao e um feed vivo de novos avisos.
+   esta matriz nao e um feed vivo de novos avisos. A consulta OSV dos pins
+   e o `npm audit` nao substituem a auditoria da imagem completa.
 
 ## Decisao
 
