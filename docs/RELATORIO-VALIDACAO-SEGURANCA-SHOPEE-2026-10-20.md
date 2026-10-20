@@ -23,6 +23,8 @@ publicacao social nem acesso a dados de terceiros.
 | Regressao local | 834 testes da API aprovados; 7 testes focados do proxy/CSP aprovados; build TypeScript/Vite aprovado. O CI de `main` passou em `685c71e`. |
 | Sessao e isolamento | Retestes anteriores em staging: replay do cookie apos logout/troca de perfil retornou 401; acesso a listas/perfis de outro escopo retornou 404; origem externa em mutacao com cookie retornou 403. Contas sinteticas foram excluidas. |
 | Navegador staging | Login React abriu sem erro no console sob a nova CSP. Conta descartavel: cadastro 201, login 200, consulta de sessao 200, criacao de perfil 201, exclusao 200. Consulta posterior ao banco: zero contas `codexpt-browser-%`. |
+| API real de staging, duas contas | Cadastro, login e consulta de sessao 201/200/200 em ambas; usuario comum em `/admin/metrics` 403; escrita com cookie e origem externa 403; criacao de perfil e upload PNG em rascunho 201; tentativa da conta B de ativar perfil ou excluir rascunho da conta A 404; exclusao pelo dono 200; replay do cookie apos logout 401. Ambas as contas foram excluidas (200); consulta posterior encontrou zero usuarios `codexpt-real-%`. O primeiro upload com MIME `application/octet-stream` retornou 415 corretamente; o reteste com `image/png` passou. |
+| API real de staging, papel ADMIN | Uma conta descartavel foi elevada temporariamente no banco: login 200 e `/admin/metrics` 200. Foi rebaixada para USER e excluida (200); consulta posterior encontrou zero usuarios `codexpt-admin-%`. Nenhuma conta existente foi modificada. |
 | Superficie publica | Producao: `/` 200 com `script-src 'self'`, `/splash.js` 200, `/api/health/ready` 200, `/api/auth/me` sem cookie 401, `/api/docs` e `/api/openapi.json` 404. |
 | Deploy | Staging `ba16d63` (`dep-dbbpvgqvcj2c73dp30r0`) e producao `685c71e` (`dep-dbbq4e17lnhs73fll8e0`) em estado `live`; CI/CD de main concluidos com sucesso. |
 
@@ -52,10 +54,10 @@ descrevem o plano original e nao foram sobrescritos para simular retestes.
    assinatura de webhook real, publicacao social ou teste browser de CSRF
    entre origens com esses fluxos. Testes unitarios mockados nao equivalem
    a esses cenarios.
-3. **Escopo autenticado incompleto:** faltam retestes reais de ADMIN,
-   upload/midia e isolamento de storage entre contas, alem de verificacao
-   automatizada da suite Flask dependente de Postgres de teste. Os retestes
-   de conta comum acima nao cobrem essas superficies.
+3. **Escopo autenticado incompleto:** os retestes reais cobriram o acesso
+   positivo/negativo a uma rota ADMIN e a autorizacao de rascunho de midia
+   pelo backend. Nao cobriram todas as rotas ADMIN, acesso direto ao bucket
+   do Storage, nem toda a suite Flask dependente de Postgres de teste.
 4. **Inventario parcial:** o Render gratuito nao oferece shell na instancia.
    O grafo Python foi observado no build final, mas nao foi obtido SBOM
    completo da imagem ativa nem inventario de pacotes do sistema. A API
@@ -67,8 +69,8 @@ descrevem o plano original e nao foram sobrescritos para simular retestes.
 **Nao enviar como relatorio final verde.** Os 54 avisos historicos estao
 remediados no componente Python por versao instalada nos dois builds;
 isso nao encerra o pentest integral nem comprova ausencia de outros riscos.
-Para um parecer final favoravel: testar os fluxos externos e o escopo
-ADMIN/upload/storage em ambiente controlado, revisar a CSP das telas
+Para um parecer final favoravel: testar os fluxos externos e as demais rotas
+ADMIN/Storage em ambiente controlado, revisar a CSP das telas
 legadas, obter inventario completo da imagem e repetir a auditoria de
 vulnerabilidades atual. A aceitacao formal depende dos criterios da Shopee.
 
