@@ -293,7 +293,9 @@ async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
-    _check_login_rate_limit(f"{client_ip(request)}:{form_data.username}")
+    # A identidade é estável mesmo quando o proxy alterna o IP de origem entre
+    # requisições. Isso impede contornar o limite mudando de conexão.
+    _check_login_rate_limit(f"login:{form_data.username.casefold()}")
 
     user = _get_user_from_supabase(form_data.username)
     if not user:

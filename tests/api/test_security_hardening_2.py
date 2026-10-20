@@ -209,9 +209,8 @@ def test_client_ip_uses_forwarded_for_only_from_loopback_proxy():
     assert auth_module.client_ip(SimpleNamespace(client=None, headers={})) == "unknown"
 
 
-def test_login_lockout_of_one_ip_does_not_block_other_ips(monkeypatch):
-    """Atrás do proxy todo mundo chega como 127.0.0.1: sem X-Forwarded-For,
-    5 senhas erradas de um atacante travavam o login do admin pra todos."""
+def test_login_lockout_cannot_be_bypassed_by_changing_forwarded_ip(monkeypatch):
+    """A chave é o login, pois o proxy pode alterar o IP entre requisições."""
     fake = _fake_supabase(monkeypatch, {"users": []})
     monkeypatch.setattr(auth_module, "get_supabase", lambda: fake)
     # TestClient conecta como "testclient": trata como o proxy local
@@ -224,7 +223,7 @@ def test_login_lockout_of_one_ip_does_not_block_other_ips(monkeypatch):
     assert c.post("/auth/login", data=form, headers={"X-Forwarded-For": "203.0.113.66"}).status_code == 429
 
     res = c.post("/auth/login", data=form, headers={"X-Forwarded-For": "198.51.100.1"})
-    assert res.status_code == 401
+    assert res.status_code == 429
 
 
 # ── 6. Mensagem de login não revela se o usuário existe ──────────────────────
