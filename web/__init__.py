@@ -77,14 +77,22 @@ app.wsgi_app = ProxyFix(
 csrf = CSRFProtect(app)
 
 # security headers — aplicados em todas as respostas
+_LEGACY_TEMPLATE_ENDPOINT_PREFIXES = (
+    "activities.", "auth.", "panel.", "product_lists.", "products.", "users.",
+)
+
+
 @app.after_request
 def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
+    endpoint = request.endpoint or ""
+    legacy_template = LEGACY_PANEL_ENABLED and (
+        endpoint == "index" or endpoint.startswith(_LEGACY_TEMPLATE_ENDPOINT_PREFIXES)
+    )
     script_src = (
-        "script-src 'self'"
-        if request.endpoint == "spa.spa_catch_all"
-        else "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net"
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net"
+        if legacy_template else "script-src 'self'"
     )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "

@@ -29,6 +29,13 @@ def test_csp_does_not_allow_dynamic_code_execution():
     assert "'unsafe-eval'" not in response.headers["Content-Security-Policy"]
 
 
+def test_non_template_health_route_blocks_inline_scripts():
+    with app.test_client() as client:
+        response = client.get("/health")
+    script_src = response.headers["Content-Security-Policy"].split("script-src ", 1)[1].split(";", 1)[0]
+    assert "'unsafe-inline'" not in script_src
+
+
 def test_spa_csp_blocks_inline_scripts():
     with app.test_client() as client:
         response = client.get("/")
