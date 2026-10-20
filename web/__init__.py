@@ -26,14 +26,14 @@ from flask_login import LoginManager, login_required, current_user
 from flask_cors import CORS
 from shopee_bot.web.limiter import limiter
 from shopee_bot.web.helpers import cors_origins
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, render_template, request, send_from_directory
 from dotenv import load_dotenv
 load_dotenv()
 
 SESSION_SECRET = os.environ.get("FLASK_SESSION_SECRET")
 UPLOAD_FOLDER = os.environ.get("FLASK_UPLOAD_FOLDER")
 MAX_CONTENT_LENGTH = int(os.environ.get("FLASK_MAX_CONTENT_LENGTH"))
-DEBUG = bool(os.environ.get("FLASK_DEBUG"))
+DEBUG = os.environ.get("FLASK_DEBUG", "false").strip().lower() in {"1", "true", "yes"}
 
 # Painel Jinja legado (index() em "/", + blueprints products/users)
 # colide de path com o React novo (frontend/, ver router.tsx). Default
@@ -81,9 +81,14 @@ csrf = CSRFProtect(app)
 def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
+    script_src = (
+        "script-src 'self'"
+        if request.endpoint == "spa.spa_catch_all"
+        else "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net"
+    )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        f"{script_src}; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "img-src 'self' data: https:; "
         "font-src 'self' data: https://fonts.gstatic.com; "

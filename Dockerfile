@@ -40,6 +40,8 @@ ENV PYTHONPATH=/
 COPY requirements.txt .
 COPY api/requirements.txt api/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt -r api/requirements.txt
+# Inventario do ambiente final nos logs de build (sem credenciais).
+RUN python -m pip freeze
 
 # Usuário sem privilégios: o app não precisa de root em runtime.
 RUN useradd --system --uid 10001 --home-dir /shopee_bot app
