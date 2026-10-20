@@ -418,7 +418,7 @@ class TestBackupRestore:
     def test_valid_checksum_imports_data_as_new_records_for_current_user(self, auth_client, monkeypatch):
         data = {
             "products": [
-                {"id": 1, "user_id": 999, "product_id": "123", "name": "Produto restaurado"}
+                {"id": 1, "user_id": 999, "product_id": "123", "name": "Produto restaurado", "original_link": "https://example.invalid/original", "commission_link": "https://example.invalid/commission"}
             ],
             "product_lists": [],
             "posts": [],
@@ -446,7 +446,7 @@ class TestBackupRestore:
         self, auth_client, profile_cookie, monkeypatch
     ):
         data = {
-            "products": [{"id": 1, "product_id": "123", "name": "Produto restaurado"}],
+            "products": [{"id": 1, "product_id": "123", "name": "Produto restaurado", "original_link": "https://example.invalid/original", "commission_link": "https://example.invalid/commission"}],
             "product_lists": [],
             "posts": [],
             "exported_at": "2026-01-01T00:00:00+00:00",
@@ -502,7 +502,7 @@ class TestBackupRestore:
         (conferir/restaurar) — não pode quebrar com 500 por violar a
         constraint única (product_id, user_id) do produto que já existe."""
         data = {
-            "products": [{"id": 1, "product_id": "123", "name": "Produto já existente"}],
+            "products": [{"id": 1, "product_id": "123", "name": "Produto já existente", "original_link": "https://example.invalid/original", "commission_link": "https://example.invalid/commission"}],
             "product_lists": [],
             "posts": [],
             "exported_at": "2026-01-01T00:00:00+00:00",

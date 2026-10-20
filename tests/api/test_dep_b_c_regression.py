@@ -8,4 +8,4 @@ def test_multipart_parser_uses_reviewed_release():
 
 
 def test_image_decoder_uses_reviewed_release():
-    assert version("Pillow") == "12.3.0"
+    assert version("Pillow") == "13.0.0"
