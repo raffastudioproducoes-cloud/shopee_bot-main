@@ -1,5 +1,9 @@
 # MEMORY — Shopee Auto Vendas
 
+## Atualizacao 2026-10-21 — publicacao e video 2.7.0
+
+`staging` contem `c8667dd` (publicacao imediata, agendamento e cinco horarios recorrentes) e `ffbd470` (reencodificacao de MP4). O Supabase compartilhado ja possui `posts.publish_immediately`. Suite da API: 852 testes verdes com PyJWT 2.15.0, python-multipart 0.0.31 e Pillow 13.0.0 em ambiente de teste isolado. O deploy de `ffbd470` em staging ficou live, mas nao houve upload autenticado real. Video segue acessivel; a reencodificacao nao substitui antivirus nem isolamento do decodificador. Ver `docs/POST-MEDIA-SECURITY.md`.
+
 > Estado atual do projeto AGORA. Fonte primária: vault Obsidian
 > `Projetos/ShopeeAutoVendas/00-INDICE-Estado-Atual.md` (cruzado com código + consulta SQL
 > read-only ao Supabase pelas sessões anteriores) + verificação direta do código nesta

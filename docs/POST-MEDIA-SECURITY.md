@@ -6,7 +6,9 @@
 - O endpoint de rascunho limita leitura/tamanho, detecta assinatura real, confere extensao e MIME declarado, sanitiza nome, redecodifica e reencoda imagens sem metadados, e valida a estrutura basica de MP4. O objeto fica no bucket privado e e associado a usuario/perfil.
 - A etapa seguinte redecodifica e reencoda MP4 com FFmpeg antes do Storage, aceita so a primeira faixa de video e audio, remove legendas/dados/metadados e limita duracao, dimensoes, tamanho de saida, tempo de execucao e concorrencia. Falha ou binario ausente rejeita o upload. Isto nao e antivirus: o decodificador roda no mesmo container da API e ainda pode conter vulnerabilidades.
 
-## Gate antes de liberar upload de video a usuarios externos
+## Risco aberto com upload de video habilitado
+
+O upload continua habilitado na versao 2.7.0 por decisao do produto, inclusive para usuarios comuns. As medidas abaixo ainda nao foram implantadas; a entrega nao deve ser descrita como livre de malware ou isolamento completo. Nenhum servico privado pago foi criado.
 
 1. Provisionar scanner antivirus isolado e atualizado, com limite de CPU/memoria/tempo, sem acesso a segredos, banco ou rede interna. Definir retorno de indisponibilidade como falha fechada.
 2. Analisar bytes antes de gravar no Storage; rejeitar amostras positivas e registrar so ID da tentativa e motivo, nunca o conteudo. Usar quarentena inacessivel se for necessaria investigacao.

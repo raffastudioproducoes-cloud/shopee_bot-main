@@ -3,6 +3,22 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [2.7.0] - 2026-10-21
+
+### Added
+- Posts recorrentes podem ter ate cinco horarios por dia selecionado.
+- Upload de MP4 e reencodificado antes de ser salvo no Storage, com limites de duracao, resolucao, tamanho, tempo e concorrencia.
+
+### Fixed
+- "Postar agora" e publicado imediatamente sem etiqueta de agendamento; "Agendar" conserva a data e a etiqueta apropriadas.
+- Seletor de data/hora e estado do historico de posts alinhados ao tipo de publicacao.
+
+### Security
+- Video segue disponivel, mas o FFmpeg roda no container da API e nao ha scanner antivirus isolado. Nao declarar arquivos livres de malware; ver `docs/POST-MEDIA-SECURITY.md`.
+
+### Verification
+- Suite da API: 852 testes passaram com as versoes de dependencias fixadas no projeto. Deploy de `staging` do commit `ffbd470` confirmado live; upload autenticado de video no Render nao foi comprovado.
+
 ## [Não lançado]
 
 > Branch `chore/phase-12-integration`. A versão (`VERSION`) só sobe no merge para `main`.
