@@ -35,6 +35,7 @@ from .routers import (
     credentials_router,
     users_router,
     dashboard_router,
+    social_analytics_router,
     notifications_router,
     profiles_router,
     settings_router,
@@ -78,6 +79,7 @@ app.include_router(posts_router)
 app.include_router(credentials_router)
 app.include_router(users_router)
 app.include_router(dashboard_router)
+app.include_router(social_analytics_router)
 app.include_router(notifications_router)
 app.include_router(profiles_router)
 app.include_router(settings_router)

@@ -1,0 +1,37 @@
+# Analise de redes: contrato e fases
+
+Estado em 2026-10-21. As APIs abaixo oferecem conjuntos diferentes de dados; "indisponivel" nao significa zero. Nunca somar alcance unico de redes distintas como pessoas unicas globais. Cada coleta pertence a `user_id` + `profile_id` e usa somente o token desse perfil.
+
+## Auditoria dos portais em 2026-10-21
+
+- **Meta:** Auto Orbital permanece em modo de desenvolvimento/nao publicado. O painel de verificacao mostra a empresa Raffa Studio Producoes **em analise**; verificacao de acesso fica bloqueada ate a conclusao. Em Teste, Paginas consta concluido, Threads e Instagram constam em andamento. A tela de envio para analise desabilita o botao de envio. O conector de revisao retornou estados contraditorios (`UNSUBMITTED` com `is_approved=true`, mas `can_submit=false` por envio anterior em analise e privilegios listados como rejeitados); nao interpretar isso como aprovacao. Validar no portal antes de qualquer nova submissao.
+- **Permissoes de insights Meta:** em 2026-10-21, o usuario adicionou `threads_manage_insights`, `instagram_manage_insights` e `read_insights` ao rascunho. As tres aparecem como "Pronto para teste" no portal, com zero chamadas contabilizadas. Isso nao concede escopo aos tokens existentes nem acesso avancado a usuarios comuns; o conector de revisao ainda aponta etapas de caso de uso, gravacao, precheck de API e checagem de dados pendentes. Ver [relatorio de testes reais](ANALISE-REDES-TESTES-2026-10-21.md).
+- **Shopee Afiliados:** o portal `affiliate.shopee.com.br/open_api` mostra a API do afiliado atual como **Valido** (segredo nao registrado aqui). Isso nao comprova permissao operacional de cada consulta: o guia documenta erro `10035` quando o afiliado ainda nao tem acesso a Open API. A biblioteca oficial lista `conversionReport` e `validatedReport`, alem de ofertas e links curtos. Testar uma chamada autenticada com a credencial ja cadastrada, sem expor seu valor, antes de implementar ingestao.
+- **Shopee conversoes:** `conversionReport` documenta `purchaseTime`, `clickTime`, identificadores de pedido/conversao/produto, status, valor e comissao, canal e tipo de atribuicao. A paginacao usa `scrollId` de uso unico/30 segundos e permite ate 500 registros por pagina; implementar coleta incremental/idempotente e retencao limitada. Nao confundir relatorio de conversoes com prova de qual post social causou a compra: isso requer identificador de link/campanha e comprovacao de atribuicao da Shopee.
+
+Fontes oficiais desta auditoria: [Meta - app Auto Orbital](https://developers.facebook.com/apps/1804230767234146/dashboard/), [Meta - verificacao](https://developers.facebook.com/apps/1804230767234146/verification/), [Meta - testes](https://developers.facebook.com/apps/1804230767234146/test/), [Shopee Afiliados - biblioteca de API](https://affiliate.shopee.com.br/open_api/home), [Shopee Afiliados - conversionReport](https://affiliate.shopee.com.br/open_api/list?type=conversion_report). As telas Shopee exigem login do titular.
+
+## Matriz verificada
+
+| Rede | Dados documentados | Acesso atual do app | Proximo gate |
+| --- | --- | --- | --- |
+| Threads | Insights por post: views, likes, replies, reposts, quotes e shares | Novo OAuth pede `threads_manage_insights`; token anterior nao foi comprovado com esse escopo | Reconectar perfil de teste e executar sonda de leitura; depois testar `/{post_id}/insights` |
+| TikTok | Display API: view_count, like_count, comment_count e share_count de videos publicos do proprio usuario | OAuth padrao pede `user.info.basic,video.publish,video.upload`, sem `video.list` | Aprovar `video.list`, reconectar e consultar `/v2/video/query/` com IDs confirmados |
+| X | Lookup de post com `public_metrics` (reposts, respostas, likes, quotes) | OAuth pede `tweet.read`; conta de teste sem credito/acesso operacional | Revalidar plano, credito, ID externo e disponibilidade dos campos antes da coleta |
+| Instagram | Insights por conta/midia variam por tipo e versao da Graph API | OAuth via Meta Business Login; permissao efetivamente aprovada e token precisam ser verificados | Inventariar permissoes e campos atuais no app, testar insights de midia do proprio perfil |
+| Facebook | Insights de pagina/post variam por tipo e versao da Graph API | OAuth via Meta Business Login; acesso a Insights nao foi comprovado | Verificar `read_insights` e `pages_read_engagement`, token de pagina e metricas validas na versao usada |
+
+Fontes primarias: [Threads Insights (Meta)](https://www.postman.com/meta/threads/request/ndeeu6p/get-post-insights), [TikTok Display API](https://developers.tiktok.com/docs/en/display-api-overview), [TikTok Query Videos](https://developers.tiktok.com/docs/en/tiktok-api-v2-video-query), [TikTok Scopes](https://developers.tiktok.com/docs/en/tiktok-api-scopes), [X Post Lookup](https://github.com/xdevplatform/docs/blob/main/x-api/posts/lookup/quickstart.mdx), [Instagram API (Meta)](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api).
+
+Cliques em links de afiliado, visitas a Shopee e compras **nao** decorrem dos contadores sociais acima. A Shopee agora documenta um relatorio de conversoes, mas seu acesso efetivo e vinculo com posts ainda precisam ser testados; nao inferir conversao de views. Demografia por post nao deve ser prometida sem campo e permissao oficiais especificos. Nao usar Research API do TikTok: e destinada a pesquisadores aprovados, nao a analitica comercial deste app.
+
+## Entrega em fases
+
+1. **Base operacional (implementada localmente):** pagina `/analytics`, filtro de 7/30/90 dias e rede, contagens de execucoes finalizadas da fila (`publish_jobs.finished_at`) com estados distintos. Sonda read-only para Threads, Instagram e Facebook usando credencial do perfil. Sem valores sociais simulados; API autenticada e escopada por perfil. Sem nova migracao. Pendente validacao no Render com dados reais.
+2. **Threads:** obter permissao de insights, mudar aviso OAuth, reconectar voluntariamente, coletar por `external_id` confirmado, tratar 403/limites/metricas ausentes, snapshots com origem e horario, testes de isolamento.
+3. **Meta:** verificar permissao aprovada no app e token efetivo; implementar Facebook/Instagram com metricas especificas ao tipo de midia, sem campos depreciados e sem somar denominadores diferentes.
+4. **TikTok e X:** adicionar `video.list` ao TikTok somente apos aprovacao e consentimento; X apos liberacao de acesso. Coletar IDs confirmados, observar cotas, erros e expiracao.
+5. **Consolidacao:** tabela por post, tendencias e comparacao apenas de metricas semanticamente compativeis; cache por perfil, atualizacao controlada, exportacao, retencao e exclusao. Cliques/conversoes em projeto separado de atribuicao com consentimento e fonte verificavel.
+6. **Shopee afiliados:** apos confirmar acesso real a `conversionReport`/`validatedReport`, mapear somente conversoes da conta titular aos links rastreaveis criados por ela; nao misturar dados compartilhados de Shopee entre perfis sem uma regra explicita de atribuicao. Testar paginacao, idempotencia, cancelamentos/validacao de comissao e privacidade antes de exibir resultados.
+
+Gate para marcar uma rede como funcional: permissao aprovada, token do proprio usuario contendo o escopo, resposta real da API para um post proprio, ID externo persistido, teste entre duas contas/perfis e ausencia de vazamento de token em logs. Build e mocks nao substituem esse gate.

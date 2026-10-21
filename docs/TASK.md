@@ -1,5 +1,12 @@
 # TASK — Shopee Auto Vendas
 
+## Analise de redes — fase 1 local (2026-10-21)
+
+- [x] Matriz de APIs, metricas e permissoes documentada em `docs/ANALISE-REDES-PLANO.md`.
+- [x] Pagina e endpoint de resultados operacionais por rede/perfil e periodo, sem fingir insights ausentes.
+- [ ] Validar fase 1 no Render com duas contas e dois perfis; sem push/deploy nesta entrega.
+- [ ] Fases 2-5: autorizacoes e coleta oficial por rede, snapshots, tendencias, comparacoes e atribuicao de cliques/conversoes (gates no plano).
+
 ## Entrega 2026-10-21 — versao 2.7.0
 
 - [x] "Agora" sem etiqueta de agendamento; "Agendar" e recorrencia com ate cinco horarios por dia.

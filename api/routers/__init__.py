@@ -8,6 +8,7 @@ from .posts import router as posts_router
 from .credentials import router as credentials_router
 from .users import router as users_router
 from .dashboard import router as dashboard_router
+from .social_analytics import router as social_analytics_router
 from .notifications import router as notifications_router
 from .profiles import router as profiles_router
 from .settings import router as settings_router
@@ -22,6 +23,7 @@ __all__ = [
     "credentials_router",
     "users_router",
     "dashboard_router",
+    "social_analytics_router",
     "notifications_router",
     "profiles_router",
     "settings_router",

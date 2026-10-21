@@ -27,9 +27,10 @@ SECRET = os.environ.get("THREADS_SECRET")
 # têm fallback hardcoded) fazia cair em scope=None quando a env var não
 # tava setada — a Meta então não reconhecia um scope OAuth válido e o
 # /oauth/authorize virava navegação normal pro app (feed pessoal) em vez
-# de mostrar a tela de consentimento. threads_basic + threads_content_publish
-# são os escopos oficiais mínimos pra login + publicação na Threads API.
-PERMISSIONS = os.environ.get("THREADS_PERMISSIONS", "threads_basic,threads_content_publish")
+# de mostrar a tela de consentimento. Insights precisa de concessao nova,
+# mesmo para quem ja autorizou login/publicacao antes.
+_configured_permissions = os.environ.get("THREADS_PERMISSIONS") or "threads_basic,threads_content_publish"
+PERMISSIONS = ",".join(dict.fromkeys([*_configured_permissions.split(","), "threads_manage_insights"]))
 CALLBACK_URL = os.environ.get("THREADS_CALLBACK_URL")
 
 

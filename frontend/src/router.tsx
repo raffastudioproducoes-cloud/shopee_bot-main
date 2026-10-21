@@ -23,6 +23,7 @@ const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"))
 const UsersPage = lazy(() => import("./pages/UsersPage"))
 const LogsPage = lazy(() => import("./pages/LogsPage"))
 const AdminCredentialsPage = lazy(() => import("./pages/AdminCredentialsPage"))
+const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"))
 
 async function requireAdmin() {
   let user
@@ -111,6 +112,12 @@ const postsRoute = createRoute({
   component: PostsPage,
 })
 
+const analyticsRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: "/analytics",
+  component: lazyRoute(AnalyticsPage, "table"),
+})
+
 const credentialsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/credentials",
@@ -178,6 +185,7 @@ const routeTree = rootRoute.addChildren([
     productsRoute,
     listsRoute,
     postsRoute,
+    analyticsRoute,
     credentialsRoute,
     profilesRoute,
     helpRoute,
