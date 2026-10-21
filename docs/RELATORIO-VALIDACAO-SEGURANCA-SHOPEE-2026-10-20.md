@@ -33,7 +33,7 @@ A matriz MATRIZ-54-ALERTAS.csv contem 1 alerta Critical, 26 High, 22 Moderate e 
 - urllib3, requests e idna: 8 IDs, pins 2.8.0, 2.33.0 e 3.15; regressao de redirect, descompressao, TLS e entradas IDNA coberta.
 - Flask, Werkzeug e python-dotenv: 6 IDs, pins 3.1.3, 3.1.9 e 1.2.2.
 
-O build de staging do commit 46e1f75 concluiu no Render e ficou live. A imagem instala os dois arquivos de requirements antes de copiar o codigo; os pins acima sao, portanto, o conjunto usado pelo build implantado.
+Os builds de staging e producao que promovem este relatorio concluiram no Render e ficaram live. A imagem instala os dois arquivos de requirements antes de copiar o codigo; os pins acima sao, portanto, o conjunto usado pelo build implantado.
 
 ## Exercicios reais em staging
 
