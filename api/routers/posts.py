@@ -30,6 +30,7 @@ fluxo do usuário. Kwai fica de fora do mapa, sem API pública confirmada.
 
 import logging
 import uuid
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import re
 from pathlib import Path
@@ -48,6 +49,7 @@ from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail, is_network_disabled
 from ..media_composition import plan_network_composition
 from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload
+from ..video_processor import process_video_upload
 from .. import x_oauth
 from ..text_variants import generate_variants
 from ..internal_client import (
@@ -169,15 +171,19 @@ async def _read_media_content(file: UploadFile) -> bytearray:
 
 
 async def _sanitize_upload(file: UploadFile, content: bytes | bytearray):
-    """Valida e reencoda o upload na memória; falha vira HTTP sem eco do conteúdo."""
+    """Valida e reconstrói mídia antes do Storage; falha sem eco do conteúdo."""
     try:
-        return await run_in_threadpool(
+        media = await run_in_threadpool(
             sanitize_media_upload,
             content,
             filename=file.filename,
             content_type=file.content_type,
             max_bytes=MAX_MEDIA_BYTES,
         )
+        if media.media_type == "VIDEO":
+            clean = await run_in_threadpool(process_video_upload, media.content, max_bytes=MAX_MEDIA_BYTES)
+            media = replace(media, content=clean)
+        return media
     except MediaSanitizerError as exc:
         logger.info(
             "Upload de midia rejeitado: %s",

@@ -2,7 +2,7 @@
 FROM python:3.13-slim
 
 # requirements
-RUN apt update && apt install locales tini -y
+RUN apt update && apt install locales tini ffmpeg -y
 
 # Set the locale
 RUN sed -i '/pt_BR.UTF-8/s/^# //g' /etc/locale.gen && \
