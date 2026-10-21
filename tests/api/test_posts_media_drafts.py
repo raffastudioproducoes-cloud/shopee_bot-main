@@ -123,8 +123,7 @@ def test_upload_draft_accepts_supported_real_media(fake_db, monkeypatch, name, c
 
 def test_upload_draft_rebuilds_real_video_before_storage(fake_db, monkeypatch, tmp_path):
     ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        pytest.skip("ffmpeg unavailable on test host")
+    assert ffmpeg and shutil.which("ffprobe"), "ffmpeg e ffprobe sao necessarios para testar video"
     source = tmp_path / "source.mp4"
     subprocess.run(
         [ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=blue:s=32x32:d=0.5",

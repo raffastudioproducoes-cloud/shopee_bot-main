@@ -12,8 +12,7 @@ from api.video_processor import process_video_upload
 @pytest.fixture
 def short_video(tmp_path):
     ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        pytest.skip("ffmpeg unavailable on test host")
+    assert ffmpeg and shutil.which("ffprobe"), "ffmpeg e ffprobe sao necessarios para testar video"
     path = tmp_path / "source.mp4"
     subprocess.run(
         [ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=red:s=32x32:d=0.5",

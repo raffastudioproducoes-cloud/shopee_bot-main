@@ -21,6 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Instalar FFmpeg para os testes de video
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13' # alinhado ao Dockerfile (python:3.13-slim)
