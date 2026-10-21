@@ -1,10 +1,11 @@
 # TASK — Shopee Auto Vendas
 
-## Analise de redes — fase 1 local (2026-10-21)
+## Analise de redes — fase 1 em staging (2026-10-21)
 
 - [x] Matriz de APIs, metricas e permissoes documentada em `docs/ANALISE-REDES-PLANO.md`.
 - [x] Pagina e endpoint de resultados operacionais por rede/perfil e periodo, sem fingir insights ausentes.
-- [ ] Validar fase 1 no Render com duas contas e dois perfis; sem push/deploy nesta entrega.
+- [x] Commit `2f091f7` e registro `c3de85e` publicados em staging; deploy Render e acesso sem sessao (401) validados.
+- [ ] Executar sondas autenticadas com a conta de teste e validar isolamento com duas contas e dois perfis. Conexao verde de identidade nao prova acesso a insights.
 - [ ] Fases 2-5: autorizacoes e coleta oficial por rede, snapshots, tendencias, comparacoes e atribuicao de cliques/conversoes (gates no plano).
 
 ## Entrega 2026-10-21 — versao 2.7.0

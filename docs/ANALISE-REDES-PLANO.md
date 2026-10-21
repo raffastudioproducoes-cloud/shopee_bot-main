@@ -27,7 +27,7 @@ Cliques em links de afiliado, visitas a Shopee e compras **nao** decorrem dos co
 
 ## Entrega em fases
 
-1. **Base operacional (implementada localmente):** pagina `/analytics`, filtro de 7/30/90 dias e rede, contagens de execucoes finalizadas da fila (`publish_jobs.finished_at`) com estados distintos. Sonda read-only para Threads, Instagram e Facebook usando credencial do perfil. Sem valores sociais simulados; API autenticada e escopada por perfil. Sem nova migracao. Pendente validacao no Render com dados reais.
+1. **Base operacional (em staging):** pagina `/analytics`, filtro de 7/30/90 dias e rede, contagens de execucoes finalizadas da fila (`publish_jobs.finished_at`) com estados distintos. Sonda read-only para Threads, Instagram e Facebook usando credencial do perfil. Sem valores sociais simulados; API autenticada e escopada por perfil. Sem nova migracao. Deploy e bloqueio sem sessao validados; consulta autenticada e isolamento real ainda pendentes.
 2. **Threads:** obter permissao de insights, mudar aviso OAuth, reconectar voluntariamente, coletar por `external_id` confirmado, tratar 403/limites/metricas ausentes, snapshots com origem e horario, testes de isolamento.
 3. **Meta:** verificar permissao aprovada no app e token efetivo; implementar Facebook/Instagram com metricas especificas ao tipo de midia, sem campos depreciados e sem somar denominadores diferentes.
 4. **TikTok e X:** adicionar `video.list` ao TikTok somente apos aprovacao e consentimento; X apos liberacao de acesso. Coletar IDs confirmados, observar cotas, erros e expiracao.
