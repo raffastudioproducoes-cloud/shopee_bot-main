@@ -1,5 +1,13 @@
 # TASK — Shopee Auto Vendas
 
+## Entrega 2026-10-21 — versao 2.7.0
+
+- [x] "Agora" sem etiqueta de agendamento; "Agendar" e recorrencia com ate cinco horarios por dia.
+- [x] Coluna `posts.publish_immediately` confirmada no Supabase compartilhado em 2026-10-21.
+- [x] MP4 reencodificado antes do Storage; 852 testes da API verdes com dependencias fixadas.
+- [ ] Confirmar upload autenticado de video e publicacao real por rede no Render.
+- [ ] Scanner antivirus e processamento isolado para video antes de afirmar seguranca contra malware; video permanece habilitado com risco documentado.
+
 ## Prioridade atual — 2026-10-16
 
 1. Concluir e retestar o pentest (54 alertas por ID e achados manuais) antes

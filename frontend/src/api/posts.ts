@@ -30,6 +30,7 @@ export interface Post {
   products: PostProduct[]
   medias: PostMedia[]
   scheduled: boolean
+  schedule_trigger?: 'date' | 'cron' | null
   parts_count?: number
   network?: PostNetwork
   /** Mesmo UUID nos posts de um envio multi-rede (null em posts antigos). */
@@ -48,6 +49,7 @@ export interface PostSchedule {
   trigger: 'date' | 'cron'
   run_date?: string | null // ISO 8601, obrigatório se trigger=date
   time?: string | null // "HH:MM", obrigatório se trigger=cron
+  times?: string[] | null // até cinco horários por dia escolhido
   day_of_week?: number | null // 0-6, obrigatório se trigger=cron
   days_of_week?: number[] | null // 0-6, um a sete dias para trigger=cron
   start_date?: string | null // ISO 8601, opcional em cron
@@ -84,6 +86,7 @@ export interface PostBatchCreate {
   product_ids?: number[]
   draft_media_ids?: string[]
   schedule: PostSchedule
+  publish_immediately?: boolean
 }
 
 export interface PostCompositionPlan {

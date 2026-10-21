@@ -30,7 +30,9 @@ fluxo do usuário. Kwai fica de fora do mapa, sem API pública confirmada.
 
 import logging
 import uuid
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -47,6 +49,7 @@ from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail, is_network_disabled
 from ..media_composition import plan_network_composition
 from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload
+from ..video_processor import process_video_upload
 from .. import x_oauth
 from ..text_variants import generate_variants
 from ..internal_client import (
@@ -168,15 +171,19 @@ async def _read_media_content(file: UploadFile) -> bytearray:
 
 
 async def _sanitize_upload(file: UploadFile, content: bytes | bytearray):
-    """Valida e reencoda o upload na memória; falha vira HTTP sem eco do conteúdo."""
+    """Valida e reconstrói mídia antes do Storage; falha sem eco do conteúdo."""
     try:
-        return await run_in_threadpool(
+        media = await run_in_threadpool(
             sanitize_media_upload,
             content,
             filename=file.filename,
             content_type=file.content_type,
             max_bytes=MAX_MEDIA_BYTES,
         )
+        if media.media_type == "VIDEO":
+            clean = await run_in_threadpool(process_video_upload, media.content, max_bytes=MAX_MEDIA_BYTES)
+            media = replace(media, content=clean)
+        return media
     except MediaSanitizerError as exc:
         logger.info(
             "Upload de midia rejeitado: %s",
@@ -232,6 +239,7 @@ router = APIRouter(prefix="/posts", tags=["posts"])
 class PostSchedule(BaseModel):
     trigger: Literal["cron", "date"]
     time: str | None = None  # "HH:MM", obrigatório se trigger=cron
+    times: list[str] | None = None  # até cinco horários por dia escolhido
     # Campo legado: permanece para jobs antigos e para o primeiro dia da lista.
     day_of_week: int | None = None
     # Novo contrato: um a sete dias, 0=segunda-feira ... 6=domingo.
@@ -243,14 +251,21 @@ class PostSchedule(BaseModel):
     def _check_required_fields(self):
         if self.trigger == "cron":
             days = self.days_of_week if self.days_of_week is not None else ([self.day_of_week] if self.day_of_week is not None else None)
-            if self.time is None or not days:
+            times = self.times if self.times is not None else ([self.time] if self.time is not None else None)
+            if not times or not days:
                 raise ValueError("time e ao menos um dia da semana são obrigatórios para trigger 'cron'")
+            if len(times) > 5 or len(set(times)) != len(times) or any(not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value) for value in times):
+                raise ValueError("times deve conter de um a cinco horários HH:MM únicos")
+            if self.time is not None and self.times is not None and self.time != times[0]:
+                raise ValueError("time deve corresponder ao primeiro item de times")
             if len(days) > 7 or len(set(days)) != len(days) or any(not isinstance(day, int) or day < 0 or day > 6 for day in days):
                 raise ValueError("days_of_week deve ter de um a sete dias únicos entre 0 e 6")
             if self.day_of_week is not None and self.days_of_week is not None and self.day_of_week != days[0]:
                 raise ValueError("day_of_week deve corresponder ao primeiro item de days_of_week")
             self.days_of_week = days
             self.day_of_week = days[0]
+            self.times = times
+            self.time = times[0]
         if self.trigger == "date" and self.run_date is None:
             raise ValueError("run_date é obrigatório para trigger 'date'")
         return self
@@ -292,6 +307,7 @@ class PostBatchCreate(BaseModel):
     product_ids: list[int] = []
     draft_media_ids: list[str] = []
     schedule: PostSchedule
+    publish_immediately: bool = False
 
     @field_validator("draft_media_ids")
     @classmethod
@@ -306,6 +322,8 @@ class PostBatchCreate(BaseModel):
 
     @model_validator(mode="after")
     def _check_networks(self):
+        if self.publish_immediately and self.schedule.trigger != "date":
+            raise ValueError("publish_immediately requer trigger 'date'")
         networks = [composition.network for composition in self.compositions]
         if not networks:
             raise ValueError("Escolha ao menos uma rede")
@@ -577,10 +595,34 @@ def _media_shared_elsewhere(media_id: int, post_id: int) -> bool:
 
 def _get_scheduler_job(post_id: int) -> dict | None:
     result = (
-        supabase.table("schedulers").select("id")
-        .eq("post_id", post_id).maybe_single().execute()
+        supabase.table("schedulers").select("id,trigger")
+        .eq("post_id", post_id).limit(1).maybe_single().execute()
     )
     return result.data if result else None
+
+
+def _is_scheduled(job: dict | None, post: dict) -> bool:
+    return job is not None and not post.get("publish_immediately", False)
+
+
+async def _create_schedule_jobs(user_id: int, post_id: int, func: str, schedule: PostSchedule, profile_id: str) -> None:
+    created: list[str] = []
+    try:
+        for time in schedule.times or [schedule.time]:
+            job_id = await create_scheduler_job(
+                user_id=user_id, post_id=post_id, func=func, trigger=schedule.trigger,
+                time=time, day_of_week=schedule.day_of_week,
+                days_of_week=schedule.days_of_week, start_date=schedule.start_date,
+                run_date=schedule.run_date, profile_id=profile_id,
+            )
+            created.append(job_id)
+    except Exception:
+        for job_id in created:
+            try:
+                await remove_scheduler_job(user_id, job_id)
+            except InternalApiError:
+                logger.error("Falha ao desfazer job recorrente %s", job_id, exc_info=True)
+        raise
 
 
 # activity_types (migração 005): 1=bot_post_success, 2=bot_post_failure —
@@ -646,6 +688,7 @@ def _get_post_by_id_only(post_id: int) -> dict:
 def _create_thread(
     user_id: int, texts: list[str], network: str, profile_id: str,
     group_id: str | None = None,
+    publish_immediately: bool = False,
 ) -> dict:
     """Insere a thread inteira, encadeando post_id. Retorna a head.
 
@@ -660,6 +703,7 @@ def _create_thread(
         row_data["profile_id"] = profile_id
         if parent_id is None:
             row_data["network"] = network
+            row_data["publish_immediately"] = publish_immediately
             if group_id:  # só quando veio: sem a coluna (migração 044) nada muda
                 row_data["group_id"] = group_id
         result = (
@@ -785,7 +829,8 @@ async def list_posts(
             "texts": [row["text"] for row in chain],
             "products": _get_post_products(item["id"]),
             "medias": _get_post_medias(item["id"]),
-            "scheduled": job is not None,
+            "scheduled": _is_scheduled(job, item),
+            "schedule_trigger": job.get("trigger") if job else None,
             "parts_count": len(chain),
             "last_result": _get_last_publish_result(user_id, item["id"]),
         })
@@ -823,18 +868,7 @@ async def create_post(
         ]).execute()
 
     try:
-        await create_scheduler_job(
-            user_id=user_id,
-            post_id=head["id"],
-            func=NETWORK_FUNC_MAP[body.network],
-            trigger=body.schedule.trigger,
-            time=body.schedule.time,
-            day_of_week=body.schedule.day_of_week,
-            days_of_week=body.schedule.days_of_week,
-            start_date=body.schedule.start_date,
-            run_date=body.schedule.run_date,
-            profile_id=profile_id,
-        )
+        await _create_schedule_jobs(user_id, head["id"], NETWORK_FUNC_MAP[body.network], body.schedule, profile_id)
     except InternalApiError:
         _delete_thread_cascade(head["id"])
         raise HTTPException(
@@ -946,7 +980,7 @@ async def create_posts_batch(
     created: list[dict] = []
     blocked = [plan for plan in plans if plan["mode"] == "blocked"]
     for plan in deliverable:
-        head = _create_thread(user_id, plan["texts"], plan["network"], profile_id, group_id)
+        head = _create_thread(user_id, plan["texts"], plan["network"], profile_id, group_id, body.publish_immediately)
         fresh: dict[str, dict | None] = {}  # rascunhos consumidos só por este plano
         try:
             _set_post_products(head["id"], body.product_ids)
@@ -955,18 +989,7 @@ async def create_posts_batch(
                 user_id, profile_id,
             )
             # job por último: sem mídia vinculada ele nunca existe
-            await create_scheduler_job(
-                user_id=user_id,
-                post_id=head["id"],
-                func=NETWORK_FUNC_MAP[plan["network"]],
-                trigger=body.schedule.trigger,
-                time=body.schedule.time,
-                day_of_week=body.schedule.day_of_week,
-                days_of_week=body.schedule.days_of_week,
-                start_date=body.schedule.start_date,
-                run_date=body.schedule.run_date,
-                profile_id=profile_id,
-            )
+            await _create_schedule_jobs(user_id, head["id"], NETWORK_FUNC_MAP[plan["network"]], body.schedule, profile_id)
         except Exception as exc:
             if not isinstance(exc, (InternalApiError, _DraftUnavailable)):
                 logger.warning("Falha ao montar post da rede %s", plan["network"], exc_info=True)
@@ -1108,7 +1131,8 @@ async def get_post(
         "texts": [row["text"] for row in chain],
         "products": _get_post_products(post_id),
         "medias": _get_post_medias(post_id),
-        "scheduled": job is not None,
+        "scheduled": _is_scheduled(job, post),
+        "schedule_trigger": job.get("trigger") if job else None,
         "last_result": _get_last_publish_result(user_id, post_id),
     }
 
@@ -1308,8 +1332,8 @@ async def delete_post(
 ):
     _get_post(user_id, post_id, profile_id)  # ownership check
 
-    job = _get_scheduler_job(post_id)
-    if job:
+    jobs = supabase.table("schedulers").select("id").eq("post_id", post_id).execute().data or []
+    for job in jobs:
         try:
             await remove_scheduler_job(user_id, job["id"])
         except InternalApiError:

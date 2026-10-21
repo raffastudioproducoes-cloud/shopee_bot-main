@@ -2,6 +2,8 @@
 
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
+import shutil
+import subprocess
 from unittest.mock import MagicMock
 
 import pytest
@@ -103,7 +105,6 @@ def test_upload_draft_is_private_and_scoped_to_active_profile(fake_db, monkeypat
     ("foto.png", _png(), "image/png", ".png"),
     ("foto.gif", _gif(), "image/gif", ".gif"),
     ("foto.webp", _webp(), "image/webp", ".webp"),
-    ("video.mp4", _mp4(), "video/mp4", ".mp4"),
 ])
 def test_upload_draft_accepts_supported_real_media(fake_db, monkeypatch, name, content, mime, suffix):
     client, db = _client(fake_db, monkeypatch)
@@ -118,6 +119,36 @@ def test_upload_draft_accepts_supported_real_media(fake_db, monkeypatch, name, c
     assert row["file_name"].endswith(suffix)
     assert row["size_bytes"] == len(uploaded)
     assert options["content-type"] == mime
+
+
+def test_upload_draft_rebuilds_real_video_before_storage(fake_db, monkeypatch, tmp_path):
+    ffmpeg = shutil.which("ffmpeg")
+    assert ffmpeg and shutil.which("ffprobe"), "ffmpeg e ffprobe sao necessarios para testar video"
+    source = tmp_path / "source.mp4"
+    subprocess.run(
+        [ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=blue:s=32x32:d=0.5",
+         "-metadata", "comment=PRIVATE_TEST_MARKER", "-c:v", "libx264", str(source)],
+        check=True, timeout=15,
+    )
+    original = source.read_bytes()
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+
+    response = client.post("/posts/media-drafts", files={"file": ("video.mp4", original, "video/mp4")})
+
+    assert response.status_code == 201, response.text
+    stored = db.storage.uploads[0][1]
+    assert stored != original
+    assert b"PRIVATE_TEST_MARKER" not in stored
+    assert db.tables["temporary_media_uploads"][0]["size_bytes"] == len(stored)
+
+
+def test_upload_draft_rejects_header_only_mp4(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+    response = client.post("/posts/media-drafts", files={"file": ("video.mp4", _mp4(), "video/mp4")})
+    assert response.status_code == 400
+    assert db.storage.uploads == []
 
 
 def test_upload_draft_rejects_wrong_extension(fake_db, monkeypatch):

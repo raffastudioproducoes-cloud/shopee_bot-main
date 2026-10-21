@@ -20,7 +20,6 @@ import { MediaSummary } from "../components/posts/MediaSummary"
 import { MediaTray } from "../components/posts/MediaTray"
 import { planMediaComposition } from "../lib/mediaComposition"
 import { filterPicked, pickLimits, pickNotice } from "../lib/mediaAdapt"
-import { isoToBr, maskDate, maskTime, parseDate, parseTime } from "../lib/ptBrDateTime"
 import { moveItem } from "../lib/mediaTray"
 import {
   NetworkLimitsPanel,
@@ -190,6 +189,7 @@ export function PostsPage() {
           product_ids: data.product_ids,
           draft_media_ids: draftMedia.map((draft) => draft.id),
           schedule: data.schedule,
+          publish_immediately: data.publishNow,
         }
         // O preview compartilha o mesmo planejador do batch; a criação continua
         // a autoridade final para evitar divergência entre o aviso e o envio.
@@ -312,8 +312,7 @@ export function PostsPage() {
           <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Posts</h1>
           <p style={{ color: "var(--text-muted)", marginTop: 4, font: "var(--text-role-body)" }}>
             Criação de post (com thread multi-parte) com copy manual ou gerado por IA, agendado
-            ou publicado na hora.{" "}
-            <span style={{ fontSize: "var(--fs-caption)" }}>(mídia/anexo ainda pelo painel Flask)</span>
+            ou publicado na hora.
           </p>
         </div>
         <Button
@@ -392,7 +391,7 @@ export function PostsPage() {
                       </Badge>
                     )}
                     <span style={metaTextStyle}>{new Date(post.created_at).toLocaleString("pt-BR")}</span>
-                    {post.scheduled && (
+                    {post.scheduled && (post.schedule_trigger === "cron" || !post.last_result?.status) && (
                       <StatusBadge tone="positive" icon="clock">
                         Agendado
                       </StatusBadge>
@@ -530,14 +529,12 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     post?.products.map((p) => p.id) ?? [],
   )
   const [when, setWhen] = useState<WhenOption>("now")
-  // Data/hora são texto pt-BR (dd/mm/aaaa, hh:mm); runDay/runTime/cronTime são
-  // o valor já validado (ISO / HH:MM) ou "" se o texto está incompleto/inválido.
-  const [runDayText, setRunDayText] = useState(() => isoToBr(nowInSaoPaulo().day))
-  const [runTimeText, setRunTimeText] = useState(() => nowInSaoPaulo().time)
-  const [cronTimeText, setCronTimeText] = useState("09:00")
-  const runDay = parseDate(runDayText) ?? ""
-  const runTime = parseTime(runTimeText) ?? ""
-  const cronTime = parseTime(cronTimeText) ?? ""
+  const [runDayText, setRunDayText] = useState("")
+  const [runTimeText, setRunTimeText] = useState("")
+  const [cronTimes, setCronTimes] = useState(["09:00"])
+  const runDay = runDayText
+  const runTime = runTimeText
+  const cronTime = cronTimes[0]
   const [cronDays, setCronDays] = useState<number[]>([0])
   const [pendingFiles, setPendingFiles] = useState<{ file: File; info: MediaInfo }[]>([])
   const [trayOpen, setTrayOpen] = useState(false)
@@ -600,7 +597,6 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const addPart = () => setTexts((prev) => [...prev, ""])
   const removePart = (index: number) => setTexts((prev) => prev.filter((_, i) => i !== index))
   const clearComposer = () => {
-    const now = nowInSaoPaulo()
     setTexts([""])
     setVariantTexts({})
     setNetworks([])
@@ -608,9 +604,9 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     setPendingFiles([])
     setTrayOpen(false)
     setWhen("now")
-    setRunDayText(isoToBr(now.day))
-    setRunTimeText(now.time)
-    setCronTimeText("09:00")
+    setRunDayText("")
+    setRunTimeText("")
+    setCronTimes(["09:00"])
     setPickMessage(null)
     setCronDays([0])
     onClear()
@@ -618,7 +614,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
 
   const buildSchedule = (): PostSchedule => {
     if (when === "cron") {
-      return { trigger: "cron", time: cronTime, days_of_week: cronDays }
+      return { trigger: "cron", time: cronTime, times: cronTimes, days_of_week: cronDays }
     }
     // "Agora" = rede de segurança de 5 min: o post é disparado explicitamente
     // logo após o envio da mídia (ver createMutation), sem duplicar.
@@ -632,16 +628,15 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
 
   // Data específica: dia + hora em America/Sao_Paulo; precisa ser futura.
   const scheduledAt = runDay && runTime ? new Date(`${runDay}T${runTime}:00${SP_OFFSET}`) : null
-  const INVALID_TIME = "Hora inválida. Use hh:mm (24 horas)."
   const dateError =
     when === "cron"
-      ? (cronTime ? null : INVALID_TIME)
+      ? (cronTimes.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)) && new Set(cronTimes).size === cronTimes.length ? null : "Escolha até cinco horários diferentes.")
       : when !== "date"
         ? null
         : !runDay
-          ? "Data inválida. Use dd/mm/aaaa."
+          ? "Escolha uma data."
           : !scheduledAt
-            ? INVALID_TIME
+            ? "Escolha uma hora."
             : !(scheduledAt.getTime() > Date.now())
               ? "Essa data/hora já passou (horário de Brasília)."
               : null
@@ -1077,18 +1072,17 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
                   <TextInput
                     label="Dia"
+                    type="date"
                     value={runDayText}
-                    placeholder="dd/mm/aaaa"
-                    inputMode="numeric"
-                    onChange={(e) => setRunDayText(maskDate(e.target.value))}
+                    min={nowInSaoPaulo().day}
+                    onChange={(e) => setRunDayText(e.target.value)}
                     required
                   />
                   <TextInput
                     label="Hora"
+                    type="time"
                     value={runTimeText}
-                    placeholder="hh:mm"
-                    inputMode="numeric"
-                    onChange={(e) => setRunTimeText(maskTime(e.target.value))}
+                    onChange={(e) => setRunTimeText(e.target.value)}
                     required
                   />
                 </div>
@@ -1127,13 +1121,18 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                     )
                   })}
                 </div>
-                <TextInput
-                  label="Hora"
-                  value={cronTimeText}
-                  placeholder="hh:mm"
-                  inputMode="numeric"
-                  onChange={(e) => setCronTimeText(maskTime(e.target.value))}
-                />
+                {cronTimes.map((time, index) => (
+                  <div key={index} style={{ display: "flex", alignItems: "end", gap: 8 }}>
+                    <TextInput
+                      label={`Horário ${index + 1}`}
+                      type="time"
+                      value={time}
+                      onChange={(e) => setCronTimes((times) => times.map((value, i) => i === index ? e.target.value : value))}
+                    />
+                    {index > 0 && <IconButton icon="trash-2" label={`Remover horário ${index + 1}`} onClick={() => setCronTimes((times) => times.filter((_, i) => i !== index))} />}
+                  </div>
+                ))}
+                {cronTimes.length < 5 && <Button type="button" variant="ghost" icon="plus" onClick={() => setCronTimes((times) => [...times, ""])} style={{ alignSelf: "flex-start" }}>Adicionar horário</Button>}
                 {dateError && (
                   <p role="status" style={{ ...metaTextStyle, color: "var(--negative)" }}>
                     {dateError}

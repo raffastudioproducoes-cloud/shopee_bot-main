@@ -19,7 +19,7 @@ RUN npm run build
 FROM python:3.13-slim
 
 # tini garante shutdown limpo; locales evita warning do pt_BR
-RUN apt update && apt install locales tini -y
+RUN apt update && apt install locales tini ffmpeg -y
 
 RUN sed -i '/pt_BR.UTF-8/s/^# //g' /etc/locale.gen && \
     locale-gen
