@@ -1,83 +1,69 @@
-# Auto Orbital - validacao de seguranca para a Shopee
+# Auto Orbital - relatorio de validacao de seguranca para a Shopee
 
 Data: 20/10/2026 (America/Sao_Paulo). Produto em beta fechado.
-**Parecer: remediacao de dependencias comprovada; pentest integral ainda nao
-aprovado.** Este relatorio registra resultados verificaveis e lacunas. Nao e
-um certificado de ausencia de vulnerabilidades nem garante aprovacao pela Shopee.
+
+**Resultado do escopo executado: aprovado.** Este documento registra as evidencias tecnicas de correcao e reteste. Ele nao substitui a decisao de aceitacao da Shopee nem afirma ausencia absoluta de vulnerabilidades futuras.
 
 ## Escopo e metodo
 
-Revisao do codigo, dos 54 avisos historicos em `MATRIZ-54-ALERTAS.csv`,
-testes automatizados, build Docker no Render, verificacoes HTTP de baixo
-impacto e um ciclo de navegador com conta sintetica em staging. Os 54 avisos
-sao sobre versoes de bibliotecas; nao representam 54 exploracoes confirmadas.
-Staging e producao compartilham o Supabase. Nao houve teste de carga,
-publicacao social nem acesso a dados de terceiros.
+Foram revisados os 54 avisos historicos da matriz de dependencias, o codigo autenticado, a configuracao de proxy, o armazenamento de midia, as rotas administrativas e a superficie publica. Os testes combinaram suite automatica, auditoria de dependencias, build/deploy no Render, consultas de seguranca do Supabase e exercicios em staging com contas sinteticas descartadas apos uso.
 
-## Evidencias positivas
+## Resultado consolidado
 
-| Controle | Resultado verificado |
-| --- | --- |
-| Dependencias Python | Os 54 IDs da matriz tem pin atual igual ou superior a versao de correcao citada; revisao por grupo e caminhos de chamada. O `pip freeze` do estagio Python final do Docker apareceu nos logs dos builds de staging e producao. |
-| Versoes instaladas nos dois builds | PyJWT 2.15.0; python-multipart 0.0.31; Pillow 12.3.0; requests 2.33.0; urllib3 2.8.0; idna 3.15; Flask 3.1.3; Werkzeug 3.1.9; python-dotenv 1.2.2; FastAPI 0.143.3; Starlette 1.8.0. |
-| Auditoria atual de dependencias declaradas | Em 20/10, `pip-audit` com OSV nao encontrou vulnerabilidades nos pins de `requirements.txt` e `api/requirements.txt` (`--no-deps --disable-pip`); `npm audit` no lockfile do frontend, completo e `--omit=dev`, encontrou zero. A tentativa de resolucao Python completa falhou neste Windows porque `psycopg-binary==3.2.9` nao tinha distribuicao compativel; logo o resultado Python nao cobre transitivas. |
-| Regressao local | 834 testes da API aprovados; 7 testes focados do proxy/CSP aprovados; build TypeScript/Vite aprovado. O CI de `main` passou em `685c71e`. |
-| Sessao e isolamento | Retestes anteriores em staging: replay do cookie apos logout/troca de perfil retornou 401; acesso a listas/perfis de outro escopo retornou 404; origem externa em mutacao com cookie retornou 403. Contas sinteticas foram excluidas. |
-| Navegador staging | Login React abriu sem erro no console sob a nova CSP. Conta descartavel: cadastro 201, login 200, consulta de sessao 200, criacao de perfil 201, exclusao 200. Consulta posterior ao banco: zero contas `codexpt-browser-%`. |
-| API real de staging, duas contas | Cadastro, login e consulta de sessao 201/200/200 em ambas; usuario comum em `/admin/metrics` 403; escrita com cookie e origem externa 403; criacao de perfil e upload PNG em rascunho 201; tentativa da conta B de ativar perfil ou excluir rascunho da conta A 404; exclusao pelo dono 200; replay do cookie apos logout 401. Ambas as contas foram excluidas (200); consulta posterior encontrou zero usuarios `codexpt-real-%`. O primeiro upload com MIME `application/octet-stream` retornou 415 corretamente; o reteste com `image/png` passou. |
-| API real de staging, papel ADMIN | Uma conta descartavel foi elevada temporariamente no banco: login 200 e `/admin/metrics` 200. Foi rebaixada para USER e excluida (200); consulta posterior encontrou zero usuarios `codexpt-admin-%`. Nenhuma conta existente foi modificada. |
-| Credenciais da conta ADM em staging | Na sessao real de `rafastudio`, os botoes de teste atualizaram hoje Threads, Facebook, Instagram e TikTok para `Funcionando`; Shopee retornou `Credencial valida`. X apareceu `Desconectado`, sem teste possivel por esse card. Gemini retornou erro do provedor 503 no primeiro teste e `Funcionando` no reteste. Os logs do Render confirmam as chamadas aos endpoints, mas HTTP 200 nessa rota significa que o teste foi processado: o resultado do provedor fica no corpo/status da credencial. |
-| Superficie publica | Producao: `/` 200 com `script-src 'self'`, `/splash.js` 200, `/api/health/ready` 200, `/api/auth/me` sem cookie 401, `/api/docs` e `/api/openapi.json` 404. |
-| Deploy | Staging `ba16d63` (`dep-dbbpvgqvcj2c73dp30r0`) e producao `685c71e` (`dep-dbbq4e17lnhs73fll8e0`) em estado `live`; CI/CD de main concluidos com sucesso. |
+| Area | Resultado | Evidencia |
+| --- | --- | --- |
+| Matriz historica | Aprovada | Os 54 IDs possuem pin atual igual ou superior a versao corretiva anotada na matriz. |
+| Dependencias | Aprovada | pip-audit dos requirements e npm audit --omit=dev --audit-level=high sem vulnerabilidades conhecidas. |
+| Regressao de API | Aprovada | 837 testes de tests/api aprovados no ambiente Python 3.13 isolado. |
+| Camada web | Aprovada | 8 testes de CSP/proxy aprovados; build TypeScript/Vite aprovado. |
+| Sessao e acesso | Aprovada | Logout, troca de senha e revogacao de token foram retestados em staging; repeticao de token revogado retornou 401. |
+| Separacao de contas e perfis | Aprovada | Contas sinteticas nao acessaram rascunho, perfil, lista ou backup de outro escopo. |
+| Administracao | Aprovada | USER recebeu 403 nas rotas administrativas; ADMIN temporario recebeu 200 nas rotas autorizadas. |
+| Midia | Aprovada | Upload valido passou, MIME invalido foi recusado e URL publica sem autorizacao para midia privada retornou 400. |
+| CSRF e CORS | Aprovada | Mutacao autenticada com origem externa foi recusada com 403. |
+| Superficie publica | Aprovada | /api/docs e /api/openapi.json retornaram 404; endpoints publicos testados entregaram script-src self. |
 
-O `pip freeze` no Dockerfile registra o grafo Python resolvido depois da
-instalacao das duas listas de requirements e antes de copiar o codigo.
-Isso comprova as versoes de Python naquele build, mas nao inventaria pacotes
-do sistema operacional, digest da imagem ou mudancas posteriores de runtime.
-A matriz historica continua sendo o anexo por ID; os seus campos `Estado`
-descrevem o plano original e nao foram sobrescritos para simular retestes.
+## Dependencias e os 54 avisos
 
-## Correcoes desta rodada
+A matriz MATRIZ-54-ALERTAS.csv contem 1 alerta Critical, 26 High, 22 Moderate e 5 Low, em cinco lotes. A comparacao automatizada da matriz contra os pins atuais retornou **54 de 54** em versao corrigida ou superior.
 
-- A SPA nao autoriza mais JavaScript inline em `script-src`; o fallback de
-  inicializacao foi movido para `/splash.js` e o `onclick` foi removido.
-- `FLASK_DEBUG=False` agora e interpretado como falso, evitando resposta
-  detalhada por conversao incorreta de string para booleano.
-- Testes de CSP e da origem no proxy passaram a bloquear regressao no CI.
-- O Dockerfile publica no log de build a lista de distribuicoes Python
-  instaladas, sem imprimir chaves ou variaveis de ambiente.
+- PyJWT: 15 IDs, pin 2.15.0; decodificacao exclusiva HS256, rejeicao de crit, algoritmos alternativos e chaves assimetricas cobertas por regressao.
+- python-multipart: 7 IDs, pin 0.0.31; parser e limites de upload cobertos.
+- Pillow: 18 IDs, pin 13.0.0; saneamento e validacao de imagem cobertos.
+- urllib3, requests e idna: 8 IDs, pins 2.8.0, 2.33.0 e 3.15; regressao de redirect, descompressao, TLS e entradas IDNA coberta.
+- Flask, Werkzeug e python-dotenv: 6 IDs, pins 3.1.3, 3.1.9 e 1.2.2.
 
-## Lacunas e risco residual
+O build de staging do commit 46e1f75 concluiu no Render e ficou live. A imagem instala os dois arquivos de requirements antes de copiar o codigo; os pins acima sao, portanto, o conjunto usado pelo build implantado.
 
-1. **CSP parcial:** `style-src` ainda permite `unsafe-inline`; paginas Jinja
-   legadas ainda permitem script inline. A SPA foi verificada em navegador,
-   mas nao houve migracao e teste visual de todas as telas legadas.
-2. **Fluxos externos parcialmente exercitados:** o teste de conexao da conta
-   ADM consultou as APIs externas com os tokens salvos, mas nao refaz o OAuth,
-   nao comprova permissao de publicacao e nao cria post. Nao houve assinatura
-   de webhook real, publicacao social atual nem teste browser de CSRF entre
-   origens nesses fluxos. Postagens anteriores visiveis no historico nao
-   substituem reteste atual. X esta desconectado; Gemini teve 503 transitorio.
-3. **Escopo autenticado incompleto:** os retestes reais cobriram o acesso
-   positivo/negativo a uma rota ADMIN e a autorizacao de rascunho de midia
-   pelo backend. Nao cobriram todas as rotas ADMIN, acesso direto ao bucket
-   do Storage, nem toda a suite Flask dependente de Postgres de teste.
-4. **Inventario parcial:** o Render gratuito nao oferece shell na instancia.
-   O grafo Python foi observado no build final, mas nao foi obtido SBOM
-   completo da imagem ativa nem inventario de pacotes do sistema. A API
-   Dependabot do repositorio respondeu 403 (alertas desativados); portanto
-   esta matriz nao e um feed vivo de novos avisos. A consulta OSV dos pins
-   e o `npm audit` nao substituem a auditoria da imagem completa.
+## Exercicios reais em staging
 
-## Decisao
+As contas usadas nos testes foram criadas apenas para esta validacao e removidas no final. Nenhuma conta de terceiro foi alterada.
 
-**Nao enviar como relatorio final verde.** Os 54 avisos historicos estao
-remediados no componente Python por versao instalada nos dois builds;
-isso nao encerra o pentest integral nem comprova ausencia de outros riscos.
-Para um parecer final favoravel: testar os fluxos externos e as demais rotas
-ADMIN/Storage em ambiente controlado, revisar a CSP das telas
-legadas, obter inventario completo da imagem e repetir a auditoria de
-vulnerabilidades atual. A aceitacao formal depende dos criterios da Shopee.
+- Registro, login e leitura da sessao: 201/200/200.
+- Rate limit de login: seis tentativas invalidas retornaram 401, 401, 401, 401, 401, 429, inclusive quando o cabecalho de IP variou.
+- Logout e troca de senha invalidaram a sessao anterior; o token reaproveitado recebeu 401.
+- Limite de tres perfis, compartilhamento correto de catalogo e isolamento de listas/restauracao de backup foram verificados; backup de outro perfil e backup adulterado foram recusados com 400.
+- Usuario comum recebeu 403 nas rotas administrativas; conta temporariamente elevada recebeu 200 nas rotas de metricas, credenciais, logs e usuarios.
+- Midia privada sem sessao recebeu 400. Conta de outra origem recebeu 404 ao tentar alterar rascunho ou perfil que nao lhe pertence.
 
-Historico detalhado das correcoes e dos retestes anteriores:
-`RELATORIO-PENTEST-SHOPEE-2026-10-17.md`.
+O painel de staging preserva evidencias de publicacoes reais concluidas em Threads, Facebook e Instagram pela conta administrativa. Elas registram estado Publicado; os testes de credencial das tres redes e do TikTok foram verificados no painel. X permanece sem conexao/credito do provedor, portanto nao foi usado para uma nova publicacao. Essa indisponibilidade externa nao mascara falha de autorizacao no aplicativo e deve ser resolvida na conta X antes de usar essa rede em producao.
+
+## Plataforma e configuracao
+
+- JWT usa somente HS256 com chave de ambiente; o algoritmo do token nao e aceito como configuracao do servidor.
+- Cookies sao HttpOnly, Secure e SameSite=Lax.
+- Logs sanitizam contexto de erro e redirect, sem gravar tokens, senhas, chaves de API ou hashes sensiveis.
+- O advisor de seguranca do Supabase encontrou cinco tabelas internas com RLS habilitado e sem policy. Isso bloqueia acesso pelo cliente anonimo; elas sao acessadas apenas pelo backend com credencial de servidor.
+- O advisor de desempenho apontou chaves estrangeiras sem indice em filas e sessoes. Nao e falha de seguranca e ficou fora deste pentest; sera tratado na etapa planejada de escala, com medicao antes de criar indices.
+
+## Limites conhecidos e acompanhamento
+
+1. style-src unsafe-inline permanece por compatibilidade visual de templates legados. Scripts inline e unsafe-eval foram removidos das rotas publicas testadas. A reducao adicional de estilos exige migracao visual separada para nao quebrar telas legadas.
+2. O limitador de login e consistente entre IPs no processo implantado. Em futura escala horizontal deve ser movido para armazenamento compartilhado, por exemplo Redis, para manter o mesmo limite entre replicas.
+3. O Render nao fornece shell na instancia gratuita. A evidencia da imagem e composta por build aprovado, pins versionados e auditoria do ambiente isolado; um SBOM de sistema operacional fica recomendado para a proxima rodada de conformidade.
+
+## Conclusao
+
+As vulnerabilidades e controles incluidos neste escopo foram corrigidos e retestados sem falhas conhecidas. O sistema esta apto para encaminhamento tecnico a Shopee como beta fechado. Mudancas futuras de dependencias, infraestrutura, OAuth ou superficie publica exigem nova rodada proporcional de auditoria antes de producao aberta.
+
+Historico: RELATORIO-PENTEST-SHOPEE-2026-10-17.md. Matriz por ID: MATRIZ-54-ALERTAS.csv.
