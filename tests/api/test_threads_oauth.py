@@ -31,6 +31,7 @@ def test_threads_authorize_returns_url_and_sets_state_cookie(client, monkeypatch
 
     assert res.status_code == 200
     assert "state=" in res.json()["url"]
+    assert "threads_manage_insights" in res.json()["url"]
     assert "threads_oauth_state" in res.cookies
 
 

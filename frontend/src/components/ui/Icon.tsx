@@ -49,6 +49,7 @@ import {
   HelpCircle,
   Camera,
   ShieldCheck,
+  ChartNoAxesCombined,
   type LucideProps,
 } from "lucide-react"
 
@@ -133,6 +134,7 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   // Extrapolação: adicionado para o nav item de HelpPage.tsx (Ajuda & FAQ)
   // — não faz parte do mapa original.
   "help-circle": HelpCircle,
+  "chart-no-axes-combined": ChartNoAxesCombined,
   // Extrapolação: adicionado para o botão de upload de avatar em ProfilesPage.tsx
   // — não faz parte do mapa original.
   camera: Camera,
