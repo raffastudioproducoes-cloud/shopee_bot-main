@@ -595,7 +595,7 @@ def _media_shared_elsewhere(media_id: int, post_id: int) -> bool:
 
 def _get_scheduler_job(post_id: int) -> dict | None:
     result = (
-        supabase.table("schedulers").select("id,trigger")
+        supabase.table("schedulers").select("id,trigger,run_date")
         .eq("post_id", post_id).limit(1).maybe_single().execute()
     )
     return result.data if result else None
@@ -829,10 +829,17 @@ async def list_posts(
             "texts": [row["text"] for row in chain],
             "products": _get_post_products(item["id"]),
             "medias": _get_post_medias(item["id"]),
-            "scheduled": _is_scheduled(job, item),
-            "schedule_trigger": job.get("trigger") if job else None,
-            "parts_count": len(chain),
-            "last_result": _get_last_publish_result(user_id, item["id"]),
+
+"scheduled": _is_scheduled(job, item),
+"schedule_trigger": job.get("trigger") if job else None,
+"scheduled_for": (
+    job.get("run_date")
+    if job and job.get("trigger") == "date"
+    else None
+),
+"parts_count": len(chain),
+"last_result": _get_last_publish_result(user_id, item["id"]),
+
         })
 
     next_cursor = None
