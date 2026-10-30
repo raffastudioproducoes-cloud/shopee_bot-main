@@ -165,6 +165,7 @@ def _upgrade_existing_publication_jobs():
                 jobstore="default",
                 func=execute_publication,
                 args=(job_id,),
+                misfire_grace_time=JOB_DEFAULTS["misfire_grace_time"],
             )
         except JobLookupError:
             logger.info("Job de publicacao %s nao existe mais no jobstore", job_id)
@@ -333,8 +334,13 @@ def init():
         logger=logger
     )
     _scheduler.add_listener(_on_job_problem, EVENT_JOB_ERROR | EVENT_JOB_MISSED)
-    _scheduler.start()
+    
+    # Inicializa pausado para atualizar os jobs persistidos
+    # antes de avaliar execuções atrasadas.
+    _scheduler.start(paused=True)
+    
     _upgrade_existing_publication_jobs()
+    
     _scheduler.add_job(
         drain_publish_jobs,
         trigger="interval",
@@ -342,3 +348,5 @@ def init():
         id="publish_queue_recovery",
         replace_existing=True,
     )
+    
+    _scheduler.resume()
