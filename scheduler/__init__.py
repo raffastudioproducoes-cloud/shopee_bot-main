@@ -41,7 +41,7 @@ _scheduler = None
 # scheduler alguns ms/s depois do horário e o default do APScheduler
 # (misfire_grace_time=1s) descartava com "was missed by 0:00:01".
 # 5 min de tolerância + coalesce (várias execuções perdidas viram uma).
-JOB_DEFAULTS = {"misfire_grace_time": 300, "coalesce": True}
+JOB_DEFAULTS = {"misfire_grace_time": 3600, "coalesce": True}
 PUBLICATION_CLAIM_LEASE_SECONDS = 600
 PUBLISH_JOB_LEASE_SECONDS = 600
 
