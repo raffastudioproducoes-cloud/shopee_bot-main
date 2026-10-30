@@ -26,15 +26,44 @@ _INSIGHT_PROBES = {
 }
 
 
+def _facebook_daily_views(metrics: list) -> list[dict] | None:
+    """Only return validated daily counts and UTC period ends, never raw Graph payloads."""
+    counts: dict[str, int] = {}
+    for metric in metrics:
+        if not isinstance(metric, dict) or metric.get("name") != "page_media_view":
+            return None
+        values = metric.get("values")
+        if not isinstance(values, list):
+            return None
+        for entry in values:
+            if not isinstance(entry, dict):
+                return None
+            value, end_time = entry.get("value"), entry.get("end_time")
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0 or not isinstance(end_time, str):
+                return None
+            try:
+                end = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+            if end.tzinfo is None:
+                return None
+            period_end = end.astimezone(timezone.utc).date().isoformat()
+            counts[period_end] = value
+    return [{"period_end": day, "value": counts[day]} for day in sorted(counts)]
+
+
 @router.post("/probe/{network}")
 async def probe_insights(
     network: str,
+    days: int = Query(30),
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Read one account/page metric using this profile's existing OAuth token."""
     if network not in _INSIGHT_PROBES:
         raise HTTPException(status_code=404, detail="Rede sem sonda de insights")
+    if days not in (7, 30, 90):
+        raise HTTPException(status_code=422, detail="Período inválido")
     if not profile_id:
         raise HTTPException(status_code=400, detail="Selecione um perfil")
     _check_test_rate_limit(user_id)
@@ -51,6 +80,12 @@ async def probe_insights(
     params = {"metric": metric}
     if period:
         params["period"] = period
+    if network == "facebook":
+        # Explicit interval instead of the Graph API's default last two periods.
+        # The returned metric periods are UTC boundaries and may cover fewer days.
+        today = datetime.now(timezone.utc).date()
+        params["since"] = (today - timedelta(days=days - 1)).isoformat()
+        params["until"] = (today + timedelta(days=1)).isoformat()
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             response = await client.get(
@@ -80,6 +115,20 @@ async def probe_insights(
     if not isinstance(body, dict) or not isinstance(body.get("data"), list):
         return {"network": network, "state": "invalid_response"}
     values = body["data"]
+    if network == "facebook":
+        daily_values = _facebook_daily_views(values)
+        if daily_values is None:
+            return {"network": network, "state": "invalid_response"}
+        return {
+            "network": network,
+            "state": "ok" if daily_values else "no_data",
+            "metric": metric,
+            "result_count": len(values),
+            "days_requested": days,
+            "days_returned": len(daily_values),
+            "total_views": sum(v["value"] for v in daily_values) if daily_values else None,
+            "daily_values": daily_values,
+        }
     return {
         "network": network,
         "state": "ok" if values else "no_data",
