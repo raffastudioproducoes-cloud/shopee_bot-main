@@ -4,6 +4,7 @@ import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { postsApi, type Post, type PostBatchResult, type PostSchedule, type PostNetwork } from "../api/posts"
 import { credentialsApi } from "../api/credentials"
+import { formatUtcTimestampBrasilia } from "../lib/ptBrDateTime"
 import { ApiError } from "../lib/api"
 import {
   NETWORK_RULES,
