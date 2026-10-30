@@ -824,22 +824,21 @@ async def list_posts(
     for item in result.data:
         job = _get_scheduler_job(item["id"])
         chain = _get_thread_chain(item["id"])
+
         posts.append({
             **item,
             "texts": [row["text"] for row in chain],
             "products": _get_post_products(item["id"]),
             "medias": _get_post_medias(item["id"]),
-
-"scheduled": _is_scheduled(job, item),
-"schedule_trigger": job.get("trigger") if job else None,
-"scheduled_for": (
-    job.get("run_date")
-    if job and job.get("trigger") == "date"
-    else None
-),
-"parts_count": len(chain),
-"last_result": _get_last_publish_result(user_id, item["id"]),
-
+            "scheduled": _is_scheduled(job, item),
+            "schedule_trigger": job.get("trigger") if job else None,
+            "scheduled_for": (
+                job.get("run_date")
+                if job and job.get("trigger") == "date"
+                else None
+            ),
+            "parts_count": len(chain),
+            "last_result": _get_last_publish_result(user_id, item["id"]),
         })
 
     next_cursor = None
