@@ -62,6 +62,20 @@ def scheduler_enabled() -> bool:
     return os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
 
 
+def request_wakeup() -> bool:
+    """Solicita verificação dos horários ao scheduler já inicializado."""
+    current = _scheduler
+
+    if not scheduler_enabled():
+        return False
+
+    if current is None or not current.running:
+        return False
+
+    current.wakeup()
+    return True
+
+
 def _scheduled_function(func: str):
     return execute_publication if func in PROFILE_SCOPED_FUNCS else globals()[func]
 
