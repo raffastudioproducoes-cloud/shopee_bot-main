@@ -391,7 +391,20 @@ export function PostsPage() {
                         Grupo · {groups.get(post.id)!.size} redes
                       </Badge>
                     )}
-                    <span style={metaTextStyle}>{new Date(post.created_at).toLocaleString("pt-BR")}</span>
+                    
+<span style={metaTextStyle}>
+  Criado em {formatUtcTimestampBrasilia(post.created_at)}
+</span>
+
+{post.scheduled &&
+  post.schedule_trigger === "date" &&
+  post.scheduled_for &&
+  !post.last_result?.status && (
+    <span style={metaTextStyle}>
+      Publicação: {formatUtcTimestampBrasilia(post.scheduled_for)}
+    </span>
+  )}
+
                     {post.scheduled && (post.schedule_trigger === "cron" || !post.last_result?.status) && (
                       <StatusBadge tone="positive" icon="clock">
                         Agendado
@@ -399,7 +412,7 @@ export function PostsPage() {
                     )}
                     {post.last_result?.status === "published" && (
                       <StatusBadge tone="positive" icon="check-circle-2">
-                        Publicado{post.last_result.at ? ` em ${new Date(post.last_result.at).toLocaleString("pt-BR")}` : ""}
+                        Publicado{post.last_result.at ? ` em ${formatUtcTimestampBrasilia(post.last_result.at)}` : ""}
                       </StatusBadge>
                     )}
                     {post.last_result?.status === "failed" && (
