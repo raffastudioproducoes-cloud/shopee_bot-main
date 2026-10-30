@@ -31,6 +31,7 @@ export interface Post {
   medias: PostMedia[]
   scheduled: boolean
   schedule_trigger?: 'date' | 'cron' | null
+  scheduled_for?: string | null
   parts_count?: number
   network?: PostNetwork
   /** Mesmo UUID nos posts de um envio multi-rede (null em posts antigos). */
