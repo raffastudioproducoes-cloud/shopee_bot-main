@@ -41,7 +41,7 @@ _scheduler = None
 # scheduler alguns ms/s depois do horário e o default do APScheduler
 # (misfire_grace_time=1s) descartava com "was missed by 0:00:01".
 # 5 min de tolerância + coalesce (várias execuções perdidas viram uma).
-JOB_DEFAULTS = {"misfire_grace_time": 300, "coalesce": True}
+JOB_DEFAULTS = {"misfire_grace_time": 3600, "coalesce": True}
 PUBLICATION_CLAIM_LEASE_SECONDS = 600
 PUBLISH_JOB_LEASE_SECONDS = 600
 
@@ -60,6 +60,20 @@ NETWORK_BY_FUNC = {
 
 def scheduler_enabled() -> bool:
     return os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
+
+
+def request_wakeup() -> bool:
+    """Solicita verificação dos horários ao scheduler já inicializado."""
+    current = _scheduler
+
+    if not scheduler_enabled():
+        return False
+
+    if current is None or not current.running:
+        return False
+
+    current.wakeup()
+    return True
 
 
 def _scheduled_function(func: str):
@@ -151,6 +165,7 @@ def _upgrade_existing_publication_jobs():
                 jobstore="default",
                 func=execute_publication,
                 args=(job_id,),
+                misfire_grace_time=JOB_DEFAULTS["misfire_grace_time"],
             )
         except JobLookupError:
             logger.info("Job de publicacao %s nao existe mais no jobstore", job_id)
@@ -319,8 +334,13 @@ def init():
         logger=logger
     )
     _scheduler.add_listener(_on_job_problem, EVENT_JOB_ERROR | EVENT_JOB_MISSED)
-    _scheduler.start()
+    
+    # Inicializa pausado para atualizar os jobs persistidos
+    # antes de avaliar execuções atrasadas.
+    _scheduler.start(paused=True)
+    
     _upgrade_existing_publication_jobs()
+    
     _scheduler.add_job(
         drain_publish_jobs,
         trigger="interval",
@@ -328,3 +348,5 @@ def init():
         id="publish_queue_recovery",
         replace_existing=True,
     )
+    
+    _scheduler.resume()

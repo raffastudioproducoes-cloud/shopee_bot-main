@@ -17,6 +17,7 @@ from shopee_bot.web.routes.activities import activities_bp
 from shopee_bot.web.routes.auth import auth_bp
 from shopee_bot.web.routes.startup import startup_bp
 from shopee_bot.web.routes.internal import internal_bp
+from shopee_bot.web.routes.cron_wakeup import cron_wakeup_bp
 from shopee_bot.web.routes.api_proxy import api_proxy_bp
 from shopee_bot.web.routes.spa import spa_bp
 from flask_babel import Babel
@@ -148,6 +149,8 @@ app.register_blueprint(product_lists_bp)
 # browser) precisam ficar fora do CSRF, que exige token de sessão
 app.register_blueprint(internal_bp)
 csrf.exempt(internal_bp)
+app.register_blueprint(cron_wakeup_bp)
+csrf.exempt(cron_wakeup_bp)
 # proxy /api/* pro FastAPI interno (127.0.0.1:8001) — tem seu próprio
 # JWT/cookie, não usa sessão Flask-WTF, então fica fora do CSRF também
 app.register_blueprint(api_proxy_bp)
