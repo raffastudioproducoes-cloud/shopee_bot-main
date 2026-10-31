@@ -22,7 +22,7 @@ import os
 from datetime import datetime, time as dt_time
 from functools import wraps
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 
 from shopee_bot.scheduler import add_job, remove_job, run_job, scheduler_enabled
 from shopee_bot.apis import shopee as ShopeeAPI
@@ -124,7 +124,19 @@ def create_job():
         "run_date": _parse_datetime(body.get("run_date")),
         "profile_id": profile_id,
     }
-    job_id = add_job(user_id, job)
+    try:
+        job_id = add_job(user_id, job)
+    except (TypeError, ValueError):
+        current_app.logger.warning("Agenda recusada por parâmetros inválidos", exc_info=True)
+        return jsonify({"error": "Parâmetros inválidos para o agendamento"}), 400
+    except Exception:
+        # O motivo técnico permanece no servidor; não retornar traceback,
+        # DSN, credencial nem dados do cliente ao navegador.
+        current_app.logger.exception("Falha interna ao criar agenda (%s)", func)
+        return jsonify({"error": "Falha interna ao criar agendamento"}), 500
+    if not job_id:
+        current_app.logger.error("Agendador concluiu sem retornar ID (func=%s)", func)
+        return jsonify({"error": "Agendador não confirmou a criação"}), 500
     return jsonify({"job_id": str(job_id)}), 201
 
 

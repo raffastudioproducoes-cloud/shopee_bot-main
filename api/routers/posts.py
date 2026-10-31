@@ -641,11 +641,17 @@ async def _create_schedule_jobs(user_id: int, post_id: int, func: str, schedule:
                 run_date=schedule.run_date, profile_id=profile_id,
             )
             created.append(job_id)
-    except Exception:
+    except Exception as exc:
+        # A causa técnica fica no log, sem expor dados ou segredos ao usuário.
+        logger.error(
+            "Falha ao registrar agenda: func=%s post_id=%s jobs_criados=%s tipo=%s detalhe=%s",
+            func, post_id, len(created), type(exc).__name__,
+            str(exc) if isinstance(exc, InternalApiError) else "erro interno",
+        )
         for job_id in created:
             try:
                 await remove_scheduler_job(user_id, job_id)
-            except InternalApiError:
+            except Exception:
                 logger.error("Falha ao desfazer job recorrente %s", job_id, exc_info=True)
         raise
 
