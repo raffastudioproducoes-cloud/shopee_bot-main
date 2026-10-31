@@ -674,17 +674,21 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
 
   const generateMutation = useMutation({
     mutationFn: (request: {
-      productId: number; partCount: number; mode: "full" | "append"; existingTexts?: string[]
+      productId: number; partCount: number; mode: "full" | "append";
+      existingTexts?: string[]; snapshot?: string[]
     }) => postsApi.generateCopy(request.productId, persona, networks, {
       partCount: request.partCount, mode: request.mode, existingTexts: request.existingTexts,
     }),
     onSuccess: (res, request) => {
       if (request.mode === "append") {
         // Never overwrite edits the user typed while the background AI ran.
-        setTexts((prev) => prev.map((current, index) =>
-          index >= res.start_index && !current.trim()
-            ? (res.parts[index - res.start_index] ?? current) : current,
-        ))
+        setTexts((prev) => {
+          if (request.snapshot?.some((text, index) => prev[index] !== text)) return prev
+          return prev.map((current, index) =>
+            index >= res.start_index && !current.trim()
+              ? (res.parts[index - res.start_index] ?? current) : current,
+          )
+        })
         return
       }
       setTexts((prev) => prev.map((current, index) => res.parts[index] ?? current))
@@ -813,6 +817,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
       partCount: texts.length,
       mode: "append",
       existingTexts: existing,
+      snapshot: texts.slice(0, firstBlank),
     }), 700)
     return () => window.clearTimeout(timer)
     // headFor is derived from texts, variantTexts and networkKey.
