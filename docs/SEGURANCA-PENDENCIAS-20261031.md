@@ -60,6 +60,14 @@ O primeiro run `41226557115` gerou SBOM com Syft, porém o upload falhou por cot
 - **RLS permanece habilitado sem policies nas dez tabelas internas:** os dez
   informes `rls_enabled_no_policy` continuam, por design (default-deny).
   Não criar policies públicas apenas para limpar o painel.
+- **Demais tabelas RLS:** 26 tabelas legadas têm a policy explícita
+  `block_all_api` (`USING false`, `WITH CHECK false`), mas conservavam
+  grants automáticos inclusive `TRUNCATE`, `REFERENCES` e `TRIGGER`
+  para os papéis públicos. Revogados apenas esses três privilégios nas
+  26 tabelas; consultas posteriores confirmaram zero concessões dessas
+  categorias em `public`. `SELECT/INSERT/UPDATE/DELETE` permaneceram
+  inalterados, e futuras mudanças de grants exigem validação de clientes.
+  A migration idempotente `057_revoke_table_ddl_grants.sql` registra a medida.
 - **Versionamento:** a migração idempotente
   `056_harden_internal_grants_and_fk_indexes.sql` e seus testes de contrato
   reproduzem a correção num futuro ambiente/deploy. Uma nova aplicação com
