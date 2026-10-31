@@ -159,3 +159,28 @@ html:has(.admin-shell)::-webkit-scrollbar-thumb, .admin-shell::-webkit-scrollbar
 html:has(.admin-shell)::-webkit-scrollbar-thumb:hover, .admin-shell::-webkit-scrollbar-thumb:hover, .admin-shell *::-webkit-scrollbar-thumb:hover { background: var(--highlight); }
 html:has(.admin-shell)::-webkit-scrollbar-corner, .admin-shell::-webkit-scrollbar-corner, .admin-shell *::-webkit-scrollbar-corner { background: var(--graphite-950); }
 @media (forced-colors: active) { html:has(.admin-shell), .admin-shell, .admin-shell * { scrollbar-color: auto; } }
+
+
+/* Source badges in admin cards: squared corners, restrained saturation.
+ * The first badge describes the provider; neutral badges describe the subject.
+ * Statuses (connected/unavailable) remain separate from source labels. */
+.admin-card-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-width: 0; margin: 0 0 10px; }
+.admin-card-tag {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 22px; padding: 3px 8px; border: 1px solid var(--border-strong);
+  border-radius: 5px; background: rgba(148,163,184,.08);
+  color: var(--text-body); font: 600 10px/1.2 var(--font-sans);
+  letter-spacing: .015em; white-space: nowrap;
+}
+.admin-card-tag--supabase { color: #79e2b1; background: rgba(28,170,105,.12); border-color: rgba(73,205,139,.36); }
+.admin-card-tag--render { color: #9dbeff; background: rgba(74,113,222,.13); border-color: rgba(113,149,245,.37); }
+.admin-card-tag--app { color: #c7a9ff; background: rgba(136,92,220,.12); border-color: rgba(170,131,246,.34); }
+.admin-card-tag--clients { color: #f0cb84; background: rgba(190,125,27,.11); border-color: rgba(234,180,84,.34); }
+.admin-card-tag--scheduler { color: #ffbd93; background: rgba(218,105,40,.11); border-color: rgba(242,145,86,.34); }
+.admin-card-tag--neutral { color: var(--text-muted); background: rgba(148,163,184,.06); border-color: var(--border-strong); }
+.admin-card-tag--warning { color: #f0cb84; background: rgba(190,125,27,.11); border-color: rgba(234,180,84,.34); }
+.admin-metric-stat .admin-card-tags { justify-content: center; margin: 0 0 5px; }
+.admin-comparison-card .admin-card-tags { margin-bottom: 8px; }
+.admin-globe-heading .admin-card-tags { margin-bottom: 8px; }
+@media (max-width: 600px) { .admin-card-tags { gap: 4px; } .admin-card-tag { padding: 3px 7px; } }
+@media (forced-colors: active) { .admin-card-tag { forced-color-adjust: auto; border: 1px solid CanvasText; } }

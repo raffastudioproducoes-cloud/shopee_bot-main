@@ -4,6 +4,7 @@ import { adminMetricsApi } from '../api/adminMetrics'
 import { Panel } from '../components/ui/Panel'
 import { MetricTrend, PlanRings } from '../components/admin/MetricTrend'
 import { ScaleMetrics } from '../components/admin/ScaleMetrics'
+import { CardTags } from '../components/admin/CardTags'
 import { LocationGlobe } from '../components/admin/LocationGlobe'
 import { PageSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
@@ -33,7 +34,12 @@ export default function AdminOverviewPage() {
   if (isLoading) return <PageSkeleton variant="cards" heading={false} count={2} />
   if (!data) return <div><p role="alert">Não foi possível carregar as métricas administrativas.</p><Button onClick={() => { void refetch() }}>Tentar novamente</Button></div>
   const counts = data.counts
-  const stats = [['Contas atuais', counts?.accounts], ['Ativos · últimos 5 min', counts?.active_accounts], ['Cadastros no período', counts?.new_accounts], ['Exclusões auditadas', counts?.deleted_accounts]] as const
+  const stats = [
+    ['Contas atuais', counts?.accounts, ['supabase', 'clients']],
+    ['Ativos · últimos 5 min', counts?.active_accounts, ['supabase', 'clients']],
+    ['Cadastros no período', counts?.new_accounts, ['supabase', 'clients']],
+    ['Exclusões auditadas', counts?.deleted_accounts, ['supabase', 'clients']],
+  ] as const
   return <div className="admin-overview">
     <div className="admin-overview-heading"><div><h1>Visão geral</h1><p>Operação e audiência · somente dados agregados</p></div><label>Período<select value={days} onChange={event => setDays(Number(event.target.value))}>{[7, 30, 90].map(value => <option key={value} value={value}>{value} dias</option>)}</select></label></div>
     <div className="admin-collection-state" aria-live="polite">
@@ -50,7 +56,7 @@ export default function AdminOverviewPage() {
         <p>Sem amostras disponíveis para: {data.render.missing_metrics.join(', ')}.</p>}
     </section>}
     {data.status !== 'available' && <p className="admin-data-notice" role="status">{data.status === 'unavailable' ? 'Provedores indisponíveis. Nenhum valor foi estimado.' : 'Cobertura parcial. Alguns indicadores ainda não estão disponíveis.'}</p>}
-    <div className="admin-metric-stats">{stats.map(([label, value]) => <Panel key={label} surface="dark" className="admin-metric-stat"><strong>{number(value)}</strong><span>{label}</span></Panel>)}</div>
+    <div className="admin-metric-stats">{stats.map(([label, value, tags]) => <Panel key={label} surface="dark" className="admin-metric-stat"><CardTags tags={tags} /><strong>{number(value)}</strong><span>{label}</span></Panel>)}</div>
     {compare && (data.previous_period && counts ? <section aria-label="Comparação entre períodos" className="admin-period-comparison">
       <p>Atual inclui hoje incompleto. Anterior: {data.previous_period.starts_on.split('-').reverse().join('/')} a {data.previous_period.ends_on.split('-').reverse().join('/')} — dias completos.</p>
       <div className="admin-metric-stats">{[
@@ -58,12 +64,13 @@ export default function AdminOverviewPage() {
         ['Exclusões auditadas', counts.deleted_accounts, data.previous_period.deletions],
         ['Requisições', counts.requests, data.previous_period.requests],
         ['Respostas com erro', counts.errors, data.previous_period.errors],
-      ].map(([label, current, previous]) => <Panel key={label} surface="dark" className="admin-comparison-card"><h2>{label}</h2><strong>{number(current as number)}</strong><p>Anterior: {number(previous as number)}</p><span>{comparisonDelta(current as number, previous as number)}</span></Panel>)}</div>
+      ].map(([label, current, previous]) => <Panel key={label} surface="dark" className="admin-comparison-card"><CardTags tags={['supabase', 'comparison']} /><h2>{label}</h2><strong>{number(current as number)}</strong><p>Anterior: {number(previous as number)}</p><span>{comparisonDelta(current as number, previous as number)}</span></Panel>)}</div>
     </section> : <p role="status">Comparação indisponível nesta coleta.</p>)}
     <LocationGlobe data={data} />
     <div className="admin-metric-grid">
-      <Panel surface="dark" className="admin-metric-card"><div className="admin-provider"><h2>Supabase</h2><span>{status[data.supabase.status]}</span></div><dl><div><dt>Banco de dados</dt><dd>{number(data.supabase.database_bytes == null ? null : data.supabase.database_bytes / 1048576, ' MiB')}</dd></div><div><dt>Conexões / limite</dt><dd>{number(data.supabase.connections)} / {number(data.supabase.max_connections)}</dd></div><div><dt>Consulta de observabilidade</dt><dd>{number(data.supabase.latency_ms, ' ms')}</dd></div></dl></Panel>
+      <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'database']} /><div className="admin-provider"><h2>Supabase</h2><span>{status[data.supabase.status]}</span></div><dl><div><dt>Banco de dados</dt><dd>{number(data.supabase.database_bytes == null ? null : data.supabase.database_bytes / 1048576, ' MiB')}</dd></div><div><dt>Conexões / limite</dt><dd>{number(data.supabase.connections)} / {number(data.supabase.max_connections)}</dd></div><div><dt>Consulta de observabilidade</dt><dd>{number(data.supabase.latency_ms, ' ms')}</dd></div></dl></Panel>
       <Panel surface="dark" className="admin-metric-card admin-render-card">
+        <CardTags tags={['render', 'capacity']} />
         <div className="admin-provider"><h2>Render</h2><span>{status[data.render.status]}</span></div>
         <p>Serviço monitorado · amostras da última hora</p>
         <div className="admin-render-resources">
@@ -84,10 +91,10 @@ export default function AdminOverviewPage() {
         </div>
         <p>Intervalos sem amostras não representam consumo zero.</p>
       </Panel>
-      <Panel surface="dark" className="admin-metric-card admin-growth"><h2>Atividade da aplicação</h2><p>Volume diário de requisições · horário de Brasília</p>{data.daily.length ? <><div className="admin-chart" ><MetricTrend values={data.daily.map(point => point.requests)} label={`Requisições diárias: ${number(counts?.requests)} no período.`} start={data.daily[0]?.date.split('-').reverse().slice(0, 2).join('/')} end={data.daily[data.daily.length - 1]?.date.split('-').reverse().slice(0, 2).join('/')} /></div><div className="admin-chart-legend"><span>● Requisições</span><span>Cadastros e exclusões na tabela</span></div><details><summary>Consultar dados do gráfico</summary><div className="admin-metric-table"><table><thead><tr><th>Data</th><th>Cadastros</th><th>Exclusões</th><th>Requisições</th></tr></thead><tbody>{data.daily.map(point => <tr key={point.date}><td>{point.date.split('-').reverse().join('/')}</td><td>{point.registrations}</td><td>{point.deletions}</td><td>{point.requests}</td></tr>)}</tbody></table></div></details></> : <p>Histórico indisponível.</p>}</Panel>
-      <Panel surface="dark" className="admin-metric-card"><h2>Planos cadastrados</h2><p>Perfil principal · não confirma pagamento</p>{counts && <PlanRings values={[counts.free_accounts, counts.plus_accounts, counts.premium_accounts]} total={counts.accounts} />}{[['Free', counts?.free_accounts], ['Plus', counts?.plus_accounts], ['Premium', counts?.premium_accounts]].map(([label, value]) => <div className="admin-plan" key={label}><span>{label}</span><strong>{number(value as number | undefined)}</strong></div>)}<p>{data.unavailable.paying_accounts}</p></Panel>
-      <Panel surface="dark" className="admin-metric-card"><h2>Uso da aplicação</h2><dl><div><dt>Requisições</dt><dd>{number(counts?.requests)}</dd></div><div><dt>Respostas com erro</dt><dd>{number(counts?.errors)}</dd></div><div><dt>Latência média / p95</dt><dd>{number(counts?.avg_latency_ms, ' ms')} / {number(counts?.p95_latency_ms, ' ms')}</dd></div></dl></Panel>
-      <Panel surface="dark" className="admin-metric-card"><h2>Cobertura de dados</h2><p>Regiões: não coletadas. O mapa só poderá mostrar agregados reais após consentimento e uma fonte de localização adequada.</p>{data.scale && <p>Histórico de capacidade: {data.scale.capacity_history?.length
+      <Panel surface="dark" className="admin-metric-card admin-growth"><CardTags tags={['supabase', 'traffic']} /><h2>Atividade da aplicação</h2><p>Volume diário de requisições · horário de Brasília</p>{data.daily.length ? <><div className="admin-chart" ><MetricTrend values={data.daily.map(point => point.requests)} label={`Requisições diárias: ${number(counts?.requests)} no período.`} start={data.daily[0]?.date.split('-').reverse().slice(0, 2).join('/')} end={data.daily[data.daily.length - 1]?.date.split('-').reverse().slice(0, 2).join('/')} /></div><div className="admin-chart-legend"><span>● Requisições</span><span>Cadastros e exclusões na tabela</span></div><details><summary>Consultar dados do gráfico</summary><div className="admin-metric-table"><table><thead><tr><th>Data</th><th>Cadastros</th><th>Exclusões</th><th>Requisições</th></tr></thead><tbody>{data.daily.map(point => <tr key={point.date}><td>{point.date.split('-').reverse().join('/')}</td><td>{point.registrations}</td><td>{point.deletions}</td><td>{point.requests}</td></tr>)}</tbody></table></div></details></> : <p>Histórico indisponível.</p>}</Panel>
+      <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'clients', 'plans']} /><h2>Planos cadastrados</h2><p>Perfil principal · não confirma pagamento</p>{counts && <PlanRings values={[counts.free_accounts, counts.plus_accounts, counts.premium_accounts]} total={counts.accounts} />}{[['Free', counts?.free_accounts], ['Plus', counts?.plus_accounts], ['Premium', counts?.premium_accounts]].map(([label, value]) => <div className="admin-plan" key={label}><span>{label}</span><strong>{number(value as number | undefined)}</strong></div>)}<p>{data.unavailable.paying_accounts}</p></Panel>
+      <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'performance']} /><h2>Uso da aplicação</h2><dl><div><dt>Requisições</dt><dd>{number(counts?.requests)}</dd></div><div><dt>Respostas com erro</dt><dd>{number(counts?.errors)}</dd></div><div><dt>Latência média / p95</dt><dd>{number(counts?.avg_latency_ms, ' ms')} / {number(counts?.p95_latency_ms, ' ms')}</dd></div></dl></Panel>
+      <Panel surface="dark" className="admin-metric-card"><CardTags tags={['app', 'coverage']} /><h2>Cobertura de dados</h2><p>Regiões: não coletadas. O mapa só poderá mostrar agregados reais após consentimento e uma fonte de localização adequada.</p>{data.scale && <p>Histórico de capacidade: {data.scale.capacity_history?.length
         ? `${data.scale.capacity_history.length} ${data.scale.capacity_history.length === 1 ? 'dia observado' : 'dias observados'}; veja a evolução abaixo. Coleta automática programada para 00h15 (Brasília).`
         : data.supabase.status === 'available'
           ? 'Ainda sem histórico. Coleta diária programada às 00h15 (Brasília); ausência de medições não representa consumo zero.'
