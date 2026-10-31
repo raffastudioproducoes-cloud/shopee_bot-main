@@ -19,17 +19,38 @@ def recoverable(lease_seconds, limit=100):
     return query_db(query, (limit,))
 
 
+MAX_PREFLIGHT_ATTEMPTS = 5
+
+
 def expire_running(lease_seconds):
-    """Um worker perdido pode ter publicado; seu desfecho exige conciliacao."""
+    """Retoma apenas envios sem chamada externa; preserva incerteza apos a API."""
     query = """
         UPDATE publish_jobs
-        SET status = 'unknown', last_error = 'Lease expirado durante publicacao',
-            finished_at = now(), claim_token = NULL, locked_by = NULL, locked_at = NULL
+        SET status = CASE
+                WHEN external_started_at IS NOT NULL THEN 'unknown'
+                WHEN attempt >= %s THEN 'failed'
+                ELSE 'pending'
+            END,
+            last_error = CASE
+                WHEN external_started_at IS NOT NULL
+                    THEN 'Lease expirado apos inicio de chamada externa; requer conciliacao'
+                WHEN attempt >= %s
+                    THEN 'Preparacao interrompida repetidamente; requer intervencao'
+                ELSE 'Preparacao interrompida antes de chamada externa; retomada segura'
+            END,
+            finished_at = CASE
+                WHEN external_started_at IS NULL AND attempt < %s THEN NULL
+                ELSE now()
+            END,
+            claim_token = NULL, locked_by = NULL, locked_at = NULL
         WHERE status = 'running'
           AND locked_at < now() - make_interval(secs => %s)
-        RETURNING id
+        RETURNING id, status
     """
-    return query_db(query, (lease_seconds,))
+    return query_db(query, (
+        MAX_PREFLIGHT_ATTEMPTS, MAX_PREFLIGHT_ATTEMPTS,
+        MAX_PREFLIGHT_ATTEMPTS, lease_seconds,
+    ))
 
 
 def enqueue(*, scheduler_id, post_id, user_id, profile_id, network, idempotency_key):
@@ -91,5 +112,36 @@ def finish(publish_job_id, claim_token, status, *, external_id=None, error=None)
     return query_db(
         query,
         (status, external_id, sanitize_log_data(error) if error else None, publish_job_id, claim_token),
+        one=True,
+    )
+
+
+def mark_external_started(publish_job_id, claim_token):
+    """Barreira duravel ANTES da primeira operacao mutavel no provedor."""
+    return query_db(
+        """
+        UPDATE publish_jobs
+        SET external_started_at = COALESCE(external_started_at, now())
+        WHERE id = %s AND claim_token = %s AND status = 'running'
+        RETURNING id
+        """,
+        (publish_job_id, claim_token),
+        one=True,
+    )
+
+
+def requeue_if_safe(publish_job_id, claim_token):
+    """Desfaz claim apenas enquanto nenhuma chamada externa foi iniciada."""
+    return query_db(
+        """
+        UPDATE publish_jobs
+        SET status = 'pending', claim_token = NULL, locked_by = NULL,
+            locked_at = NULL, finished_at = NULL,
+            last_error = 'Encerramento antes da chamada externa; aguardando retomada'
+        WHERE id = %s AND claim_token = %s AND status = 'running'
+          AND external_started_at IS NULL
+        RETURNING id
+        """,
+        (publish_job_id, claim_token),
         one=True,
     )

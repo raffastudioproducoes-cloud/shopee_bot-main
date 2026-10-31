@@ -11,7 +11,7 @@ loglevel = "info"
 # Default 5000 mantém compatível com compose/local.
 bind = f"0.0.0.0:{os.environ.get('PORT', '5000')}"
 workers = 1
-worker_class = "gevent"
+worker_class = "shopee_bot.scheduler.gunicorn_worker.PublishingGeventWorker"
 # Finito: com timeout=0 um worker travado nunca seria reciclado. O worker
 # gevent notifica o master em loop próprio, então 120s não mata requisição
 # longa que esteja só aguardando I/O.

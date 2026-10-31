@@ -6,6 +6,7 @@ from shopee_bot.database.activities import (
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
+from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.media_delivery import STORAGE_PREFIX, delivery_url
 from shopee_bot.scheduler.publication_result import succeeded, unknown
 
@@ -29,6 +30,7 @@ def _carousel_post(user_data, post, reply_to_id=None):
             url, cleanup = delivery_url(media)
             cleanups.append(cleanup)
             medias.append({"type": media["type"], "url": url})
+        mark_external_delivery()
         return ThreadsAPI.make_carousel_post(
             user_data["threads_user_id"],
             user_data["threads_access_token"],
@@ -49,6 +51,7 @@ def _media_post(user_data, post, reply_to_id=None):
         media["type"], {"media_type": "VIDEO", "video_url": url}
     )
     try:
+        mark_external_delivery()
         return ThreadsAPI.make_post(
             user_data["threads_user_id"],
             user_data["threads_access_token"],
@@ -64,6 +67,7 @@ def _text_post(user_data, post, reply_to_id=None):
     threads_user_id = user_data["threads_user_id"]
     threads_access_token = user_data["threads_access_token"]
 
+    mark_external_delivery()
     return ThreadsAPI.make_post(
         threads_user_id,
         threads_access_token,
