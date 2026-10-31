@@ -7,18 +7,7 @@ export function Toaster() {
   const { toasts, dismiss } = useToastStore()
   return (
     <div
-      style={{
-        position: "fixed",
-        right: 16,
-        bottom: 16,
-        left: 16,
-        zIndex: 1000,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-end",
-        gap: 8,
-        pointerEvents: "none",
-      }}
+      className="csp-s-0158"
     >
       {toasts.map((t) => {
         const isError = t.kind === "error"
@@ -47,13 +36,13 @@ export function Toaster() {
               size={16}
               className={t.kind === "loading" ? "animate-spin" : undefined}
             />
-            <span style={{ flex: 1, overflowWrap: "anywhere" }}>{t.text}</span>
+            <span className="csp-s-0159">{t.text}</span>
             {t.kind !== "loading" ? (
               <button
                 type="button"
                 onClick={() => dismiss(t.id)}
                 aria-label="Fechar aviso"
-                style={{ minHeight: 32, minWidth: 32, background: "transparent", border: 0, color: "inherit", cursor: "pointer", fontSize: 18 }}
+                className="csp-s-0160"
               >
                 ×
               </button>
