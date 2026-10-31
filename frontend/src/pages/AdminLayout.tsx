@@ -4,6 +4,8 @@ import { useLayoutEffect, useRef } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { logsApi } from '../api/logs'
 import { Icon } from '../components/ui/Icon'
+import { Avatar } from '../components/profiles/Avatar'
+import { useProfiles } from '../hooks/useProfiles'
 import { Panel } from '../components/ui/Panel'
 import { Badge } from '../components/ui/Badge'
 import { PageSkeleton } from '../components/ui/Skeleton'
@@ -19,6 +21,7 @@ const sections = [
 
 export function AdminLayout() {
   const user = useAuthStore(state => state.user)
+  const { activeProfile } = useProfiles()
   const { pathname } = useLocation()
   const menuRef = useRef<HTMLElement>(null)
   useLayoutEffect(() => {
@@ -65,7 +68,7 @@ export function AdminLayout() {
         <div className="admin-header-actions">
           <Link to="/" className="admin-site-link" onClick={setAdminVisitingSite} aria-label="Ir para o site de cliente" title="Ir para o site de cliente"><Icon name="house" size={16} /></Link>
           <div className="admin-account">
-            <span className="admin-account-icon"><Icon name="user" size={16} /></span>
+            <span className="admin-account-icon"><Avatar name={activeProfile?.nome ?? user?.username ?? "Administrador"} src={activeProfile?.avatar_url} size={36} /></span>
             <span><strong>{user?.username}</strong><small>Administrador</small></span>
           </div>
         </div>
