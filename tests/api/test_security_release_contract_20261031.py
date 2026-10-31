@@ -37,7 +37,7 @@ def test_cors_rejects_wildcard_and_null_origins():
 
 def test_short_session_secret_fails_closed():
     """Missing/short JWT secret is rejected without logging its value."""
-    secret = "dont-put-real-passwords-in-tests"
+    secret = "short-test-secret"
     with pytest.raises(RuntimeError) as err:
         validate_secrets(SimpleNamespace(api_secret_key=secret))
     assert "API_SECRET_KEY" in str(err.value)
