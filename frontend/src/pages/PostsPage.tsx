@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query"
 import { useState, useCallback, useEffect, useRef } from "react"
 import { Eye } from "lucide-react"
 import { useAuthStore } from "../stores/authStore"
@@ -32,6 +32,9 @@ import {
   type NetworkState,
 } from "../components/posts/NetworkPicker"
 import { productsApi, type Product } from "../api/products"
+import { listsApi } from "../api/lists"
+import { useProfileStore } from "../stores/profileStore"
+import { PostProductPicker } from "../components/posts/PostProductPicker"
 import { aiCredentialsApi } from "../api/credentials"
 import { Panel, PanelHeader, Divider } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
@@ -653,6 +656,10 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>(
     post?.products.map((p) => p.id) ?? [],
   )
+  const [productTab, setProductTab] = useState<"products" | "lists">("products")
+  const [productListId, setProductListId] = useState<number | null>(null)
+  const activeProfileId = useProfileStore((state) => state.activeProfileId)
+  const accountId = useAuthStore((state) => state.user?.id)
   const [when, setWhen] = useState<WhenOption>("now")
   const [runDayText, setRunDayText] = useState("")
   const [runTimeText, setRunTimeText] = useState("")
@@ -677,12 +684,35 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     setNetworks((prev) => prev.filter((n) => !results.some((r) => r.network === n && r.ok)))
   }
 
-  const { data: productsData } = useQuery({
-    queryKey: ["products", ""],
-    queryFn: () => productsApi.list(),
+  // Catálogo compartilhado pela conta; listas limitadas ao perfil ativo.
+  // As respostas incluem os produtos da lista e evitam perder referências
+  // selecionadas quando a foto ainda não está na primeira página do catálogo.
+  const productPages = useInfiniteQuery({
+    queryKey: ["products", "post-composer", accountId],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => productsApi.list({ page: pageParam, page_size: 100 }),
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.data.length === 100 ? allPages.length + 1 : undefined,
   })
-  const products = productsData?.data ?? []
-  const selectedProducts = products.filter((p) => selectedProductIds.includes(p.id))
+  const listPages = useInfiniteQuery({
+    queryKey: ["lists", "post-composer", accountId, activeProfileId],
+    initialPageParam: "",
+    queryFn: ({ pageParam }) => listsApi.list({ cursor: pageParam || undefined, limit: 50 }),
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+    enabled: productTab === "lists",
+  })
+  const products = productPages.data?.pages.flatMap((page) => page.data) ?? []
+  const lists = listPages.data?.pages.flatMap((page) => page.data) ?? []
+  const productIndex = new Map<number, Pick<Product, "id" | "name" | "image">>()
+  for (const original of post?.products ?? []) productIndex.set(original.id, original)
+  for (const list of lists) {
+    for (const product of list.products ?? []) productIndex.set(product.id, product)
+  }
+  for (const product of products) productIndex.set(product.id, product)
+  const selectedProducts = selectedProductIds.flatMap((id) => {
+    const product = productIndex.get(id)
+    return product ? [product] : []
+  })
   const importablePhotos = !post && useShopeeImages ? selectedProducts.filter((p) => !!p.image) : []
 
   // Sem chave de IA própria não há o que chamar (não existe chave global):
@@ -738,6 +768,12 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     )
   }
+  const toggleListProducts = (ids: number[], select: boolean) => {
+    const selection = new Set(ids)
+    setSelectedProductIds((prev) => select
+      ? [...new Set([...prev, ...ids])]
+      : prev.filter((id) => !selection.has(id)))
+  }
 
   const setPartText = (index: number, value: string) => {
     setTexts((prev) => prev.map((t, i) => (i === index ? value : t)))
@@ -756,6 +792,8 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     setVariantTexts({})
     setNetworks([])
     setSelectedProductIds([])
+    setProductTab("products")
+    setProductListId(null)
     setPendingFiles([])
     setTrayOpen(false)
     setUseShopeeImages(false)
@@ -955,49 +993,20 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           <NetworkPicker selected={activeNetworks} states={states} onToggle={toggleNetwork} readOnly={!!post} />
         </div>
 
-        <div>
-          <span style={labelStyle}>Produtos</span>
-          <div
-            style={{
-              maxHeight: 140,
-              overflowY: "auto",
-              border: "1px solid var(--border-hairline)",
-              borderRadius: "var(--r-md)",
-              background: "var(--surface-inset)",
-              padding: 8,
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-            }}
-          >
-            {products.length === 0 && (
-              <p style={{ ...metaTextStyle, padding: "2px 4px" }}>Nenhum produto cadastrado ainda.</p>
-            )}
-            {products.map((product: Product) => (
-              <label
-                key={product.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "4px 6px",
-                  borderRadius: "var(--r-sm)",
-                  cursor: "pointer",
-                  font: "var(--text-role-body)",
-                  color: "var(--text-body)",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedProductIds.includes(product.id)}
-                  onChange={() => toggleProduct(product.id)}
-                  style={{ accentColor: "var(--sky-400)", width: 15, height: 15 }}
-                />
-                {product.name}
-              </label>
-            ))}
-          </div>
-        </div>
+        <PostProductPicker
+          tab={productTab} onTabChange={setProductTab}
+          products={products} lists={lists} listId={productListId}
+          onListChange={setProductListId}
+          selectedIds={selectedProductIds}
+          onToggle={toggleProduct} onToggleList={toggleListProducts}
+          productsLoading={productPages.isPending} productsError={productPages.isError}
+          listsLoading={listPages.isPending} listsError={listPages.isError}
+          hasMoreProducts={productPages.hasNextPage} hasMoreLists={listPages.hasNextPage}
+          loadingMoreProducts={productPages.isFetchingNextPage}
+          loadingMoreLists={listPages.isFetchingNextPage}
+          onLoadProducts={() => { void productPages.fetchNextPage() }}
+          onLoadLists={() => { void listPages.fetchNextPage() }}
+        />
 
         {!post && selectedProducts.length > 0 && <div className="post-composer-shopee-media">
           <label><input type="checkbox" checked={useShopeeImages}
