@@ -81,3 +81,8 @@ def test_spa_forbids_inline_style_elements_while_legacy_is_unmodified():
         health_policy = client.get("/health").headers["Content-Security-Policy"]
     assert "style-src-elem 'self' https://fonts.googleapis.com;" in spa_policy
     assert "style-src-elem" not in health_policy
+
+
+def test_legal_layout_has_no_inline_style_attributes():
+    source = (project_root / "frontend" / "src" / "pages" / "legal" / "LegalLayout.tsx").read_text(encoding="utf-8")
+    assert "style=" not in source
