@@ -152,15 +152,6 @@
 @media (max-width: 1100px) { .admin-globe-layout { grid-template-columns: minmax(0,1fr); } .admin-globe-detail { border-left: 0; border-top: 1px solid var(--border-hairline); padding: 16px 0 0; } }
 @media (max-width: 600px) { .admin-globe-panel { padding: 16px; } .admin-globe-heading { align-items: flex-start; flex-direction: column; } .admin-globe-heading h2 { font-size: 18px; } }
 @media (prefers-reduced-motion: reduce) { .admin-globe-light.is-online { animation: none; } }
-html:has(.admin-shell), .admin-shell, .admin-shell * { scrollbar-width: thin; scrollbar-color: var(--border-strong) var(--graphite-950); }
-html:has(.admin-shell)::-webkit-scrollbar, .admin-shell::-webkit-scrollbar, .admin-shell *::-webkit-scrollbar { width: 8px; height: 8px; }
-html:has(.admin-shell)::-webkit-scrollbar-track, .admin-shell::-webkit-scrollbar-track, .admin-shell *::-webkit-scrollbar-track { background: var(--graphite-950); }
-html:has(.admin-shell)::-webkit-scrollbar-thumb, .admin-shell::-webkit-scrollbar-thumb, .admin-shell *::-webkit-scrollbar-thumb { background: var(--border-strong); border: 2px solid var(--graphite-950); border-radius: var(--r-pill); }
-html:has(.admin-shell)::-webkit-scrollbar-thumb:hover, .admin-shell::-webkit-scrollbar-thumb:hover, .admin-shell *::-webkit-scrollbar-thumb:hover { background: var(--highlight); }
-html:has(.admin-shell)::-webkit-scrollbar-corner, .admin-shell::-webkit-scrollbar-corner, .admin-shell *::-webkit-scrollbar-corner { background: var(--graphite-950); }
-@media (forced-colors: active) { html:has(.admin-shell), .admin-shell, .admin-shell * { scrollbar-color: auto; } }
-
-
 /* Source badges in admin cards: squared corners, restrained saturation.
  * The first badge describes the provider; neutral badges describe the subject.
  * Statuses (connected/unavailable) remain separate from source labels. */
@@ -234,7 +225,7 @@ html:has(.admin-shell)::-webkit-scrollbar-corner, .admin-shell::-webkit-scrollba
   .admin-shell { padding: 6px; }
   .admin-frame { border-radius: var(--r-md); min-height: calc(100dvh - 12px); }
   .admin-header { gap: 8px; padding: 8px 10px; }
-  .admin-menu { max-width: 100%; overflow-x: auto; justify-content: flex-start; scrollbar-width: thin; }
+  .admin-menu { max-width: 100%; overflow-x: auto; justify-content: flex-start; }
   .admin-menu-link { padding: 0 7px; }
   .admin-header-actions { gap: 4px; }
   .admin-workspace { gap: 12px; padding: 12px 10px 0; border-radius: var(--r-md); }

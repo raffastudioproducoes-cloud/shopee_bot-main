@@ -1,0 +1,60 @@
+/* Auto Orbital: scrollbar única para páginas, modais e áreas com overflow.
+   Firefox usa a API padrão; Chromium/Safari usam os pseudo-elementos WebKit.
+   Mantemos a rolagem nativa no toque e as cores do sistema em alto contraste. */
+:root {
+  --scrollbar-track: var(--graphite-900);
+  --scrollbar-thumb: #4E6280;
+  --scrollbar-thumb-hover: var(--brand-orbit-blue);
+  --scrollbar-thumb-active: var(--brand-ice-blue);
+}
+
+@media (forced-colors: none) {
+  /* Firefox: scrollbar-color/width são mais confiáveis que pseudo-elementos. */
+  @supports (-moz-appearance: none) {
+    html, body, * {
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+      scrollbar-width: thin;
+    }
+  }
+
+  /* Chrome, Edge e Safari. Sem esconder barras nem bloquear scroll nativo. */
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border: 2px solid var(--scrollbar-track);
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    background: var(--scrollbar-thumb-active);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: var(--scrollbar-track);
+  }
+
+  /* Não desperdiçar largura nas telas de toque. */
+  @media (pointer: coarse) {
+    *::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      border-width: 1px;
+    }
+  }
+}
