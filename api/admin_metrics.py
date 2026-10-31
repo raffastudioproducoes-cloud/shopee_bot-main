@@ -16,6 +16,8 @@ from .database import supabase
 
 logger = logging.getLogger("uvicorn.error")
 Status = Literal["available", "partial", "unavailable", "not_configured"]
+Diagnostic = Literal["timeout", "permission_denied", "rpc_missing", "invalid_response",
+                     "provider_error", "api_rejected", "no_samples", "not_configured"]
 
 
 class Counts(BaseModel):
@@ -113,6 +115,7 @@ class Snapshot(BaseModel):
 
 class SupabaseMetrics(BaseModel):
     status: Status
+    diagnostic: Diagnostic | None = None
     database_bytes: int | None = None
     connections: int | None = None
     max_connections: int | None = None
@@ -129,6 +132,8 @@ class ResourceMetric(BaseModel):
 
 class RenderMetrics(BaseModel):
     status: Status
+    diagnostic: Diagnostic | None = None
+    missing_metrics: list[Literal["cpu", "memory", "cpu_limit", "memory_limit", "bandwidth"]] = Field(default_factory=list, max_length=5)
     cpu: ResourceMetric | None = None
     memory: ResourceMetric | None = None
     cpu_limit: ResourceMetric | None = None
@@ -143,6 +148,12 @@ class UnavailableMetrics(BaseModel):
     location: str = "Localização não coletada; nenhum IP ou endereço é usado neste painel."
 
 
+class GeographyMetrics(BaseModel):
+    status: Literal["not_configured"] = "not_configured"
+    updated_at: datetime | None = None
+    regions: list = Field(default_factory=list, max_length=0)
+
+
 class AdminMetricsResponse(BaseModel):
     status: Status
     updated_at: datetime
@@ -151,6 +162,7 @@ class AdminMetricsResponse(BaseModel):
     daily: list[DailyPoint]
     supabase: SupabaseMetrics
     render: RenderMetrics
+    geography: GeographyMetrics = Field(default_factory=GeographyMetrics)
     unavailable: UnavailableMetrics
     notes: list[str]
     previous_period: PreviousPeriod | None = None
@@ -163,16 +175,34 @@ def _safe_error(exc: Exception) -> str:
     return f"{type(exc).__name__} status={status}" if isinstance(status, int) else type(exc).__name__
 
 
-async def _database_snapshot(days: int) -> tuple[Snapshot | None, float]:
+def _database_diagnostic(exc: Exception) -> Diagnostic:
+    """Safe, bounded diagnostics: never include SQL, URLs, credentials or provider text."""
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
+        return "timeout"
+    code = getattr(exc, "code", None)
+    if isinstance(code, str):
+        if code in ("42501", "PGRST301"):
+            return "permission_denied"
+        if code in ("42883", "PGRST202"):
+            return "rpc_missing"
+    if isinstance(exc, ValueError):
+        return "invalid_response"
+    return "provider_error"
+
+
+async def _database_snapshot(days: int) -> tuple[Snapshot | None, float, Diagnostic | None]:
     started = time.perf_counter()
     try:
+        # RPC occasionally takes longer than 5 seconds with 30/90-day aggregations.
+        # Surface timeout separately rather than reporting false zeros.
         result = await asyncio.wait_for(run_in_threadpool(
             lambda: supabase.rpc("admin_metrics_snapshot", {"lookback_days": days}).execute()
-        ), timeout=5)
-        return Snapshot.model_validate(result.data), (time.perf_counter() - started) * 1000
+        ), timeout=12)
+        return Snapshot.model_validate(result.data), (time.perf_counter() - started) * 1000, None
     except Exception as exc:
-        logger.warning("Métricas Supabase indisponíveis (%s)", _safe_error(exc))
-        return None, (time.perf_counter() - started) * 1000
+        diagnostic = _database_diagnostic(exc)
+        logger.warning("Métricas Supabase indisponíveis (%s; %s)", diagnostic, _safe_error(exc))
+        return None, (time.perf_counter() - started) * 1000, diagnostic
 
 
 def parse_render_metric(payload: list[dict]) -> ResourceMetric | None:
@@ -219,26 +249,41 @@ async def _render_snapshot() -> RenderMetrics:
     token = _render_token()
     resource = _render_service_id()
     if not token:
-        return RenderMetrics(status="not_configured")
+        return RenderMetrics(status="not_configured", diagnostic="not_configured")
     end = datetime.now(timezone.utc)
     params = {"resource": resource, "resolutionSeconds": 3600, "startTime": (end - timedelta(hours=24)).isoformat(), "endTime": end.isoformat()}
     async with httpx.AsyncClient(timeout=httpx.Timeout(4, connect=2), follow_redirects=False) as client:
-        async def fetch(kind: str) -> ResourceMetric | None:
+        async def fetch(kind: str) -> tuple[ResourceMetric | None, Diagnostic | None]:
             try:
                 response = await client.get(f"https://api.render.com/v1/metrics/{kind}", params=params, headers={"Authorization": f"Bearer {token}"})
                 response.raise_for_status()
-                return parse_render_metric(response.json())
+                metric = parse_render_metric(response.json())
+                return metric, None if metric else "no_samples"
+            except httpx.HTTPStatusError as exc:
+                diagnostic: Diagnostic = "api_rejected" if exc.response.status_code in (401, 403) else "provider_error"
+                logger.warning("Métrica Render %s indisponível (%s; %s)", kind, diagnostic, _safe_error(exc))
+                return None, diagnostic
+            except (httpx.TimeoutException, asyncio.TimeoutError) as exc:
+                logger.warning("Métrica Render %s indisponível (%s)", kind, _safe_error(exc))
+                return None, "timeout"
             except Exception as exc:
                 logger.warning("Métrica Render %s indisponível (%s)", kind, _safe_error(exc))
-                return None
-        cpu, memory, cpu_limit, memory_limit, bandwidth = await asyncio.gather(*(fetch(kind) for kind in ("cpu", "memory", "cpu-limit", "memory-limit", "bandwidth")))
-    metrics = (cpu, memory, cpu_limit, memory_limit, bandwidth)
+                return None, "provider_error"
+        results = await asyncio.gather(*(fetch(kind) for kind in ("cpu", "memory", "cpu-limit", "memory-limit", "bandwidth")))
+    metrics = tuple(value for value, _ in results)
+    cpu, memory, cpu_limit, memory_limit, bandwidth = metrics
+    missing_names = ("cpu", "memory", "cpu_limit", "memory_limit", "bandwidth")
+    missing = [name for name, metric in zip(missing_names, metrics) if metric is None]
+    errors = [reason for _, reason in results if reason]
+    priority = ("api_rejected", "timeout", "provider_error", "no_samples")
+    diagnostic = next((reason for reason in priority if reason in errors), None)
     status: Status = "available" if all(metrics) else "partial" if any(metrics) else "unavailable"
-    return RenderMetrics(status=status, cpu=cpu, memory=memory, cpu_limit=cpu_limit, memory_limit=memory_limit, bandwidth=bandwidth)
+    return RenderMetrics(status=status, diagnostic=diagnostic, missing_metrics=missing,
+                         cpu=cpu, memory=memory, cpu_limit=cpu_limit, memory_limit=memory_limit, bandwidth=bandwidth)
 
 
 async def collect_admin_metrics(days: int) -> AdminMetricsResponse:
-    (snapshot, latency), render = await asyncio.gather(_database_snapshot(days), _render_snapshot())
+    (snapshot, latency, db_diagnostic), render = await asyncio.gather(_database_snapshot(days), _render_snapshot())
     if snapshot and snapshot.scale:
         snapshot.scale.collected_at = datetime.now(timezone.utc)
     notes = [
@@ -258,14 +303,15 @@ async def collect_admin_metrics(days: int) -> AdminMetricsResponse:
             snapshot.scale.p99_latency_ms = None
             snapshot.scale.consumption = []
         notes.append("Registro de requisições desativado: atividade recente indisponível e histórico de acessos incompleto.")
-    supabase_metrics = SupabaseMetrics(status="available", latency_ms=round(latency, 1), **snapshot.database.model_dump()) if snapshot else SupabaseMetrics(status="unavailable")
+    supabase_metrics = SupabaseMetrics(status="available", latency_ms=round(latency, 1), **snapshot.database.model_dump()) if snapshot else SupabaseMetrics(status="unavailable", diagnostic=db_diagnostic, latency_ms=round(latency, 1))
     if not snapshot:
         notes.append("Métricas do banco indisponíveis; valide a migração de observabilidade antes de ativar o painel.")
     status: Status = "available" if snapshot and render.status == "available" else "partial" if snapshot or render.status in {"available", "partial"} else "unavailable"
     return AdminMetricsResponse(
         status=status, updated_at=datetime.now(timezone.utc), days=days,
         counts=snapshot.counts if snapshot else None, daily=snapshot.daily if snapshot else [],
-        supabase=supabase_metrics, render=render, unavailable=UnavailableMetrics(), notes=notes,
+        supabase=supabase_metrics, render=render, geography=GeographyMetrics(),
+        unavailable=UnavailableMetrics(), notes=notes,
         previous_period=snapshot.previous_period if snapshot else None,
         scale=snapshot.scale if snapshot else None,
     )

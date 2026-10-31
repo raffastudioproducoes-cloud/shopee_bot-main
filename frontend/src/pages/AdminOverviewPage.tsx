@@ -12,6 +12,17 @@ import { comparisonDelta, formatMetricTime, isStale } from '../components/admin/
 
 const number = (value: number | null | undefined, suffix = '') => value == null ? 'Indisponível' : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}${suffix}`
 const status = { available: 'Conectado', partial: 'Dados parciais', unavailable: 'Indisponível', not_configured: 'Não configurado' }
+const diagnosticLabels: Record<string, string> = {
+  timeout: 'A consulta excedeu o tempo disponível. Tente atualizar.',
+  permission_denied: 'A API não tem acesso à função de métricas. Verifique a credencial service_role no servidor.',
+  rpc_missing: 'A função admin_metrics_snapshot está ausente ou não foi encontrada pela API.',
+  invalid_response: 'O provedor enviou informações incompatíveis com o contrato esperado.',
+  provider_error: 'A leitura falhou. Consulte os logs do servidor, sem expor credenciais.',
+  api_rejected: 'O Render recusou a credencial ou a permissão de consulta de métricas.',
+  no_samples: 'O Render não retornou amostras para alguns dos indicadores nas últimas 24 horas.',
+  not_configured: 'Configure RENDER_METRICS_API_KEY somente no serviço backend do Render.',
+}
+
 
 export default function AdminOverviewPage() {
   const [days, setDays] = useState(30)
@@ -30,6 +41,13 @@ export default function AdminOverviewPage() {
       <Button variant="ghost" aria-pressed={compare} onClick={() => setCompare(!compare)}>Comparar com período anterior</Button>
     </div>
     {error && <p className="admin-data-notice" role="alert">A atualização falhou. Os últimos dados disponíveis foram preservados; confira o horário da coleta.</p>}
+    {(data.supabase.diagnostic || data.render.diagnostic) && <section className="admin-data-notice" aria-label="Diagnóstico das fontes" role="status">
+      <strong>Diagnóstico da coleta</strong>
+      {data.supabase.diagnostic && <p>Supabase: {diagnosticLabels[data.supabase.diagnostic] ?? 'Falha na coleta.'}</p>}
+      {data.render.diagnostic && <p>Render: {diagnosticLabels[data.render.diagnostic] ?? 'Falha na coleta.'}</p>}
+      {data.render.missing_metrics && data.render.missing_metrics.length > 0 &&
+        <p>Sem amostras disponíveis para: {data.render.missing_metrics.join(', ')}.</p>}
+    </section>}
     {data.status !== 'available' && <p className="admin-data-notice" role="status">{data.status === 'unavailable' ? 'Provedores indisponíveis. Nenhum valor foi estimado.' : 'Cobertura parcial. Alguns indicadores ainda não estão disponíveis.'}</p>}
     <div className="admin-metric-stats">{stats.map(([label, value]) => <Panel key={label} surface="dark" className="admin-metric-stat"><strong>{number(value)}</strong><span>{label}</span></Panel>)}</div>
     {compare && (data.previous_period && counts ? <section aria-label="Comparação entre períodos" className="admin-period-comparison">
@@ -68,7 +86,7 @@ export default function AdminOverviewPage() {
       <Panel surface="dark" className="admin-metric-card admin-growth"><h2>Atividade da aplicação</h2><p>Volume diário de requisições · horário de Brasília</p>{data.daily.length ? <><div className="admin-chart" ><MetricTrend values={data.daily.map(point => point.requests)} label={`Requisições diárias: ${number(counts?.requests)} no período.`} start={data.daily[0]?.date.split('-').reverse().slice(0, 2).join('/')} end={data.daily[data.daily.length - 1]?.date.split('-').reverse().slice(0, 2).join('/')} /></div><div className="admin-chart-legend"><span>● Requisições</span><span>Cadastros e exclusões na tabela</span></div><details><summary>Consultar dados do gráfico</summary><div className="admin-metric-table"><table><thead><tr><th>Data</th><th>Cadastros</th><th>Exclusões</th><th>Requisições</th></tr></thead><tbody>{data.daily.map(point => <tr key={point.date}><td>{point.date.split('-').reverse().join('/')}</td><td>{point.registrations}</td><td>{point.deletions}</td><td>{point.requests}</td></tr>)}</tbody></table></div></details></> : <p>Histórico indisponível.</p>}</Panel>
       <Panel surface="dark" className="admin-metric-card"><h2>Planos cadastrados</h2><p>Perfil principal · não confirma pagamento</p>{counts && <PlanRings values={[counts.free_accounts, counts.plus_accounts, counts.premium_accounts]} total={counts.accounts} />}{[['Free', counts?.free_accounts], ['Plus', counts?.plus_accounts], ['Premium', counts?.premium_accounts]].map(([label, value]) => <div className="admin-plan" key={label}><span>{label}</span><strong>{number(value as number | undefined)}</strong></div>)}<p>{data.unavailable.paying_accounts}</p></Panel>
       <Panel surface="dark" className="admin-metric-card"><h2>Uso da aplicação</h2><dl><div><dt>Requisições</dt><dd>{number(counts?.requests)}</dd></div><div><dt>Respostas com erro</dt><dd>{number(counts?.errors)}</dd></div><div><dt>Latência média / p95</dt><dd>{number(counts?.avg_latency_ms, ' ms')} / {number(counts?.p95_latency_ms, ' ms')}</dd></div></dl></Panel>
-      <Panel surface="dark" className="admin-metric-card"><h2>Cobertura de dados</h2><ul className="admin-coverage">{[data.unavailable.traffic_sources, data.unavailable.session_time, data.unavailable.location].map(reason => <li key={reason}>{reason}</li>)}</ul></Panel>
+      <Panel surface="dark" className="admin-metric-card"><h2>Cobertura de dados</h2><p>Regiões: não coletadas. O mapa só poderá mostrar agregados reais após consentimento e uma fonte de localização adequada.</p>{data.scale && data.scale.capacity_history?.length === 0 && <p>Histórico de capacidade: aguardando a primeira captura diária (não representa consumo zero).</p>}<ul className="admin-coverage">{[data.unavailable.traffic_sources, data.unavailable.session_time, data.unavailable.location].map(reason => <li key={reason}>{reason}</li>)}</ul></Panel>
     </div>
     <ScaleMetrics data={data} />
     <details className="admin-metric-notes"><summary>Como interpretar os números</summary><ul>{data.notes.map(note => <li key={note}>{note}</li>)}</ul></details>
