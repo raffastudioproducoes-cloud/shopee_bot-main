@@ -8,6 +8,10 @@
 # Resultado (frontend/dist) é copiado pro estágio Python abaixo; nada de
 # Node sobra na imagem final.
 FROM node:22-slim AS frontend-build
+# A release-specific public commit SHA invalidates the PWA cache on every deploy.
+# Never pass tokens or sensitive environment values into Vite builds.
+ARG RENDER_GIT_COMMIT=local
+ENV VITE_BUILD_SHA=${RENDER_GIT_COMMIT}
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
