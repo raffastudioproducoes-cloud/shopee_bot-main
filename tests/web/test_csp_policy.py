@@ -49,3 +49,22 @@ def test_spa_startup_has_no_inline_script_or_handler():
     assert "<script>" not in html
     assert "onclick=" not in html
     assert 'src="/splash.js"' in html
+
+
+def test_spa_has_no_inline_style_elements():
+    html = (project_root / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert "<style" not in html.lower()
+    assert 'href="/splash.css"' in html
+    assert (project_root / "frontend" / "public" / "splash.css").is_file()
+
+
+def test_react_pages_externalize_literal_style_elements():
+    pages = (
+        ("src/components/layout/AppFooter.tsx", "src/components/layout/AppFooter.css"),
+        ("src/pages/LoginPage.tsx", "src/pages/LoginPage.css"),
+        ("src/pages/legal/LegalLayout.tsx", "src/pages/legal/LegalLayout.css"),
+    )
+    for component, css in pages:
+        source = (project_root / "frontend" / component).read_text(encoding="utf-8")
+        assert "<style" not in source.lower(), component
+        assert (project_root / "frontend" / css).is_file(), css
