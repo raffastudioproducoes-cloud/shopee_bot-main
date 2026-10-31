@@ -329,7 +329,7 @@ export function PostsPage() {
   const groups = groupPosts(posts)
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+    <div className="csp-s-0314">
       <div
         className="posts-page-header"
         style={{
@@ -341,8 +341,8 @@ export function PostsPage() {
         }}
       >
         <div>
-          <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Posts</h1>
-          <p style={{ color: "var(--text-muted)", marginTop: 4, font: "var(--text-role-body)" }}>
+          <h1 className="csp-s-0315">Posts</h1>
+          <p className="csp-s-0316">
             Criação de post (com thread multi-parte) com copy manual ou gerado por IA, agendado
             ou publicado na hora.
           </p>
@@ -362,7 +362,7 @@ export function PostsPage() {
 
       {posts.length === 0 ? (
         <Panel surface="dark">
-          <div style={{ padding: 48, textAlign: "center", color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+          <div className="csp-s-0317">
             Nenhum post criado.
           </div>
         </Panel>
@@ -415,7 +415,7 @@ export function PostsPage() {
                   )}
                   <div className="post-list-meta" style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
                     <Badge tone="outline">
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <span className="csp-s-0318">
                         <NetworkLogo network={post.network ?? "threads"} size={12} />
                         {NETWORK_RULES[post.network ?? "threads"].label}
                       </span>
@@ -569,26 +569,26 @@ export function PostsPage() {
       )}
 
       <Modal open={reconcilePostId != null} onClose={() => setReconcilePostId(null)} title="Conferir publicação no Threads" width={510}>
-        <p style={{ font: "var(--text-role-body)", color: "var(--text-muted)", marginTop: 0 }}>
+        <p className="csp-s-0319">
           O agendamento iniciou, mas o sistema não recebeu a confirmação. Esta ação não publica novamente.
         </p>
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, font: "var(--text-role-body)" }}>
+        <label className="csp-s-0320">
           <input type="checkbox" checked={reportedRemoved} onChange={(event) => { setReportedRemoved(event.target.checked); setEvidenceUrl(""); setConfirmedOnThreads(false) }} />
           A postagem apareceu no Threads, mas já foi removida e não tenho mais o link.
         </label>
         {!reportedRemoved && <TextInput label="Link direto da publicação no Threads" type="url"
           placeholder="https://www.threads.net/@perfil/post/..."
           value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} />}
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 16, font: "var(--text-role-body)" }}>
+        <label className="csp-s-0321">
           <input type="checkbox" checked={confirmedOnThreads} onChange={(event) => setConfirmedOnThreads(event.target.checked)} />
           {reportedRemoved
             ? "Declaro que vi esta publicação no Threads antes de removê-la. Não tenho link ou prova verificável; isto será registrado somente como meu relato."
             : "Eu conferi no Threads que este post foi realmente publicado. Entendo que isto é uma confirmação manual."}
         </label>
         {reconcileMutation.isError && (
-          <p role="alert" style={{ color: "var(--negative)" }}>{reconcileMutation.error.message}</p>
+          <p role="alert" className="csp-s-0322">{reconcileMutation.error.message}</p>
         )}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
+        <div className="csp-s-0323">
           <Button variant="ghost" onClick={() => setReconcilePostId(null)}>Cancelar</Button>
           <Button variant="mint" loading={reconcileMutation.isPending}
             disabled={!confirmedOnThreads || (!reportedRemoved && !evidenceUrl.trim())}
@@ -599,10 +599,10 @@ export function PostsPage() {
       </Modal>
 
       <Modal open={deleteConfirm != null} onClose={() => setDeleteConfirm(null)} title="Confirmar remoção" width={400}>
-        <p style={{ font: "var(--text-role-body)", color: "var(--text-muted)", marginTop: 0, marginBottom: 20 }}>
+        <p className="csp-s-0324">
           Tem certeza que deseja remover este post? Esta ação não pode ser desfeita.
         </p>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <div className="csp-s-0325">
           <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
             Cancelar
           </Button>
@@ -1016,7 +1016,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           {useShopeeImages && importablePhotos.length === 0 && <p role="status">Nenhum produto selecionado possui foto cadastrada.</p>}
         </div>}
 
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 8, flexWrap: "wrap" }}>
+        <div className="csp-s-0326">
           <Select
             label="Persona da IA"
             value={persona}
@@ -1051,10 +1051,10 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{generateMutation.error.message}</p>
         )}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="csp-s-0327">
           {texts.map((partText, index) =>
             index === 0 && hasTabs ? (
-              <div key={index} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div key={index} className="csp-s-0328">
                 <span style={{ ...labelStyle, marginBottom: 0 }}>Texto do post *</span>
                 <TextVariantTabs
                   plans={plans}
@@ -1064,8 +1064,8 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                 />
               </div>
             ) : (
-            <div key={index} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div key={index} className="csp-s-0329">
+              <div className="csp-s-0330">
                 <span style={{ ...labelStyle, marginBottom: 0 }}>
                   {index === 0 ? "Texto do post *" : `Parte ${index + 1} (resposta em thread)`}
                 </span>
@@ -1073,14 +1073,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                   <button
                     type="button"
                     onClick={() => removePart(index)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      padding: 0,
-                      color: "var(--red-300)",
-                      font: "var(--fw-medium) var(--fs-caption)/1 var(--font-sans)",
-                      cursor: "pointer",
-                    }}
+                    className="csp-s-0331"
                   >
                     Remover parte
                   </button>
@@ -1104,23 +1097,13 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
         <div>
           <span style={labelStyle}>Mídia (imagem/vídeo)</span>
           {post && post.medias.length > 0 && (
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+            <ul className="csp-s-0332">
               {post.medias.map((media) => (
                 <li
                   key={media.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    padding: "6px 10px",
-                    borderRadius: "var(--r-sm)",
-                    background: "var(--surface-inset)",
-                    font: "var(--fw-regular) var(--fs-caption)/1 var(--font-sans)",
-                    color: "var(--text-body)",
-                  }}
+                  className="csp-s-0333"
                 >
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span className="csp-s-0334">
                     {media.file_name}
                   </span>
                   <button
@@ -1144,15 +1127,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
             </ul>
           )}
           <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "8px 12px",
-              borderRadius: "var(--r-md)",
-              background: "var(--surface-inset)",
-              border: "1px solid var(--border-hairline)",
-            }}
+            className="csp-s-0335"
           >
             {/* Input nativo escondido: o navegador mostraria "Choose File" em inglês. */}
             <input
@@ -1207,25 +1182,15 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
             </Button>
           )}
           {!post && pendingFiles.some((p) => !showTray || p.info.kind === "video") && (
-            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+            <ul className="csp-s-0336">
               {pendingFiles.map(({ file, info }, index) => !showTray || info.kind === "video" ? (
                 <li
                   key={index}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    padding: "6px 10px",
-                    borderRadius: "var(--r-sm)",
-                    background: "var(--surface-inset)",
-                    font: "var(--fw-regular) var(--fs-caption)/1 var(--font-sans)",
-                    color: "var(--text-body)",
-                  }}
+                  className="csp-s-0337"
                 >
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span className="csp-s-0338">
                     {file.name}
-                    <span style={{ color: "var(--text-muted)" }}>
+                    <span className="csp-s-0339">
                       {" "}· {(file.size / (1024 * 1024)).toFixed(1)} MB
                       {info.width ? ` · ${info.width}×${info.height}` : ""}
                       {info.durationSec != null ? ` · ${Math.round(info.durationSec)} s` : ""}
@@ -1234,7 +1199,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                   <button
                     type="button"
                     onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== index))}
-                    style={{ background: "none", border: "none", color: "var(--red-300)", cursor: "pointer", font: "inherit", flex: "0 0 auto" }}
+                    className="csp-s-0340"
                   >
                     Remover
                   </button>
@@ -1267,7 +1232,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
         {!post && (
           <div>
             <span style={labelStyle}>Quando publicar? *</span>
-            <div style={{ marginBottom: 12 }}>
+            <div className="csp-s-0341">
               <SegmentedToggle
                 options={[
                   { value: "now", label: "Agora" },
@@ -1282,7 +1247,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
 
             {when === "date" && (
               <div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
+                <div className="csp-s-0342">
                   <TextInput
                     label="Dia"
                     type="date"
@@ -1306,18 +1271,18 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
             )}
 
             {when === "cron" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div className="csp-s-0343">
+                <div className="csp-s-0344">
                   <span style={{ ...labelStyle, marginBottom: 0 }}>Dias da semana</span>
                   <button
                     type="button"
                     onClick={() => setCronDays((days) => (days.length === WEEKDAYS.length ? [0] : WEEKDAYS.map((day) => day.value)))}
-                    style={{ background: "none", border: "none", padding: 0, color: "var(--accent)", cursor: "pointer", font: "var(--text-role-caption)" }}
+                    className="csp-s-0345"
                   >
                     {cronDays.length === WEEKDAYS.length ? "Somente segunda" : "Semana inteira"}
                   </button>
                 </div>
-                <div role="group" aria-label="Dias recorrentes" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
+                <div role="group" aria-label="Dias recorrentes" className="csp-s-0346">
                   {WEEKDAYS.map((day) => {
                     const selected = cronDays.includes(day.value)
                     return (
@@ -1335,7 +1300,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                   })}
                 </div>
                 {cronTimes.map((time, index) => (
-                  <div key={index} style={{ display: "flex", alignItems: "end", gap: 8 }}>
+                  <div key={index} className="csp-s-0347">
                     <TextInput
                       label={`Horário ${index + 1}`}
                       type="time"
@@ -1359,7 +1324,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
         {error && <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{error}</p>}
 
         {!post && results && results.length > 0 && (
-          <ul aria-live="polite" style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+          <ul aria-live="polite" className="csp-s-0348">
             {results.map((r) => (
               <li
                 key={r.network}
@@ -1378,7 +1343,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           <p style={{ ...metaTextStyle, margin: 0 }}>Escolha ao menos uma rede para publicar.</p>
         )}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 4 }}>
+        <div className="csp-s-0349">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
