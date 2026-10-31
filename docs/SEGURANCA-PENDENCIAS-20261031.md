@@ -39,3 +39,31 @@ Documentos históricos de 17 e 20/10 descrevem um escopo anterior. Não reutiliz
 ## Armazenamento de SBOM — intercorrência 31/10
 
 O primeiro run `41226557115` gerou SBOM com Syft, porém o upload falhou por cota de GitHub Actions Artifacts esgotada. A estratégia foi alterada para escrever exclusivamente na branch `sbom-archive` (sem deploy), com proveniência SHA/branch. Marcar concluído apenas após execução e verificação de JSON no arquivo da branch.
+
+
+## Manutenção adicional em 31/10/2026 — grants e FKs
+
+- **DB-01 — concluído no Supabase `autovendas`:** seis índices B-tree criados e
+  conferidos como válidos: quatro FKs de `publish_jobs`, uma de
+  `revoked_sessions` e uma de `temporary_media_uploads`. As tabelas tinham
+  aproximadamente 5, 2 e 1 linhas, respectivamente, antes da operação.
+  Nova leitura do Performance Advisor: **nenhum alerta
+  `unindexed_foreign_keys`**. Avisos de índices não usados não autorizam
+  exclusão automática.
+- **DB-02 — grants internos corrigidos:** `publication_claims` e
+  `publish_jobs` tinham permissões diretas de `anon`/`authenticated`,
+  inclusive `TRUNCATE`, que não está sujeito a RLS. Executado
+  `REVOKE ALL PRIVILEGES` desses papéis nas duas tabelas. A verificação
+  posterior mostrou `TRUNCATE=false`, `SELECT=false` para ambos e
+  `service_role SELECT=true`. Os outros oito objetos internos alertados
+  já não concediam acesso direto a esses papéis.
+- **RLS permanece habilitado sem policies nas dez tabelas internas:** os dez
+  informes `rls_enabled_no_policy` continuam, por design (default-deny).
+  Não criar policies públicas apenas para limpar o painel.
+- **Versionamento:** a migração idempotente
+  `056_harden_internal_grants_and_fk_indexes.sql` e seus testes de contrato
+  reproduzem a correção num futuro ambiente/deploy. Uma nova aplicação com
+  `IF NOT EXISTS` e `REVOKE` não deve reconstruir índices nem ampliar grants.
+- **Ainda não fechado:** teste autenticado de isolamento entre perfis,
+  verificação funcional do scheduler em ambos ambientes e digest da imagem
+  efetiva do Render. A consulta SQL não substitui esses testes.
