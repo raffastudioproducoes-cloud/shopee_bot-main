@@ -76,7 +76,7 @@ def test_midia_legada_ausente_falha_com_mensagem(monkeypatch):
     monkeypatch.setattr(module, "insert_activities", lambda u, t, m, profile_id=None: acts.append(m))
     monkeypatch.setattr(module.ThreadsAPI, "make_post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("não deveria publicar")))
     module.bot_post("j")
-    assert "não encontrado" in str(acts[0])
+    assert "Reenvie a mídia" in str(acts[0])
 
 
 def test_texto_inalterado(monkeypatch):
