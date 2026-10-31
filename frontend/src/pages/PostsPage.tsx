@@ -368,6 +368,7 @@ export function PostsPage() {
             <div key={post.id}>
               {index > 0 && <Divider />}
               <div
+                className="post-list-item"
                 onClick={() => {
                   setEditingPost(post)
                   setModalOpen(true)
@@ -405,7 +406,7 @@ export function PostsPage() {
                       ))}
                     </div>
                   )}
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+                  <div className="post-list-meta" style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
                     <Badge tone="outline">
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                         <NetworkLogo network={post.network ?? "threads"} size={12} />
