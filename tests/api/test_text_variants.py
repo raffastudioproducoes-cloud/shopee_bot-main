@@ -12,7 +12,10 @@ from api.network_limits import NETWORK_RULES, text_length
 from api.routers import posts as posts_module
 from api.routers.auth import get_current_user_id
 from api.routers.profiles import get_current_profile_id
-from api.text_variants import PRACTICAL_MAX_CHARS, generate_variants, plan_variants, variant_issues
+from api.text_variants import (
+    MAX_THREAD_PARTS, PRACTICAL_MAX_CHARS, generate_variants,
+    generate_thread_replies, plan_variants, variant_issues,
+)
 from apis.llm import LLMError
 
 LINK = "https://s.shopee.com.br/" + "a" * 60  # 84 caracteres; no X conta 23
@@ -126,6 +129,8 @@ def api(fake_db, monkeypatch):
         "posts": [], "medias": [], "posts_medias": [], "posts_products": [],
     })
     monkeypatch.setattr(posts_module, "supabase", db)
+    from api.routers import auth
+    monkeypatch.setattr(auth, "_login_attempts", {})
     from api.routers import credentials
     monkeypatch.setattr(credentials, "resolve_ai_key", lambda *_a, **_k: ("gemini", "k", None))
 
@@ -211,3 +216,126 @@ def test_group_id_migration_is_additive_and_idempotent():
     assert "add column if not exists group_id uuid;" in statements
     assert "create index if not exists" in statements
     assert "drop " not in statements and "default" not in statements and "not null" not in statements
+
+
+
+# ── geração de todas as partes da thread ─────────────────────────────────────
+
+def test_generate_replies_one_request_and_respects_thread_limits():
+    ai = FakeAI(json.dumps({"parts": ["Primeira dica", "Segunda dica"]}))
+    parts = generate_thread_replies(PRODUCT, "divertido", ["threads", "facebook"], ["Cabeçalho"], 2, ai)
+
+    assert parts == ["Primeira dica", "Segunda dica"]
+    assert len(ai.prompts) == 1
+    assert "EXATAMENTE 2" in ai.prompts[0]
+    assert "500 caracteres" in ai.prompts[0]
+
+
+def test_generate_replies_retries_oversize_and_rejects_if_still_invalid():
+    bad = json.dumps({"parts": ["x" * 501]})
+    fixed = json.dumps({"parts": ["Curta e válida"]})
+    ai = FakeAI(bad, fixed)
+    assert generate_thread_replies(PRODUCT, "casual", ["threads"], ["Início"], 1, ai) == ["Curta e válida"]
+    assert len(ai.prompts) == 2
+
+    with pytest.raises(LLMError):
+        generate_thread_replies(PRODUCT, "casual", ["threads"], ["Início"], 1, FakeAI(bad, bad))
+
+
+def test_generate_replies_rejects_wrong_length_and_too_many_parts():
+    with pytest.raises(LLMError):
+        generate_thread_replies(PRODUCT, "casual", [], ["Início"], 2, FakeAI('{"parts":["a"]}', '{"parts":["a"]}'))
+    with pytest.raises(ValueError):
+        generate_thread_replies(PRODUCT, "casual", [], ["Início"], MAX_THREAD_PARTS, FakeAI())
+
+
+def test_generate_copy_populates_all_open_parts(api):
+    c, _db, mp = api
+    answers = iter([
+        json.dumps({"2200": "Post Facebook", "500": "Post Threads"}),
+        json.dumps({"parts": ["Dica dois", "Dica três"]}),
+    ])
+    import apis.llm
+    mp.setattr(apis.llm, "complete", lambda *_a, **_k: next(answers))
+    res = c.post("/posts/generate-copy", json={
+        "product_id": 1, "networks": ["facebook", "threads"], "part_count": 3,
+    })
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["text"] == "Post Facebook"
+    assert body["parts"] == ["Post Facebook", "Dica dois", "Dica três"]
+    assert body["start_index"] == 0
+    assert [(v["key"], v["text"]) for v in body["variants"]] == [
+        ("2200", "Post Facebook"), ("500", "Post Threads"),
+    ]
+
+
+def test_generate_copy_append_only_new_parts_without_rewriting_previous(api):
+    c, _db, mp = api
+    import apis.llm
+    prompts = []
+    def completion(_provider, _key, _model, prompt, _tokens):
+        prompts.append(prompt)
+        return json.dumps({"parts": ["Parte 3", "Parte 4"]})
+    mp.setattr(apis.llm, "complete", completion)
+    res = c.post("/posts/generate-copy", json={
+        "product_id": 1, "networks": ["threads"], "part_count": 4,
+        "mode": "append", "existing_texts": ["Minha descrição", "Parte 2 manual"],
+    })
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["parts"] == ["Parte 3", "Parte 4"]
+    assert body["start_index"] == 2
+    assert body["variants"] == []
+    assert len(prompts) == 1 and "Parte 2 manual" in prompts[0]
+
+
+def test_generate_copy_caps_parts_and_rejects_empty_append_context(api):
+    c, _db, _mp = api
+    assert c.post("/posts/generate-copy", json={"product_id": 1, "part_count": 11}).status_code == 422
+    assert c.post("/posts/generate-copy", json={
+        "product_id": 1, "part_count": 2, "mode": "append", "existing_texts": [],
+    }).status_code == 422
+    assert c.post("/posts/generate-copy", json={
+        "product_id": 1, "part_count": 2, "mode": "append", "existing_texts": ["", "a"],
+    }).status_code == 422
+
+
+def test_server_stores_only_first_part_for_non_thread_network(api):
+    c, db, _mp = api
+    res = c.post("/posts", json={
+        "texts": ["Legenda", "Parte que não deve ir ao Facebook"],
+        "schedule": SCHEDULE, "network": "facebook",
+    })
+    assert res.status_code == 201, res.text
+    assert [row["text"] for row in db.tables["posts"]] == ["Legenda"]
+
+
+def test_server_rejects_more_than_ten_parts(api):
+    c, db, _mp = api
+    res = c.post("/posts", json={
+        "texts": [f"Parte {i}" for i in range(MAX_THREAD_PARTS + 1)],
+        "schedule": SCHEDULE, "network": "threads",
+    })
+    assert res.status_code == 422
+    assert db.tables["posts"] == []
+
+
+def test_preview_batch_filters_threads_per_network_on_server(api):
+    c, _db, _mp = api
+    texts = ["Legenda", "Resposta 2", "Resposta 3"]
+    res = c.post("/posts/preview", json={
+        "compositions": [
+            {"network": "threads", "texts": texts},
+            {"network": "facebook", "texts": texts},
+            {"network": "instagram", "texts": texts},
+            {"network": "tiktok", "texts": texts},
+        ],
+        "schedule": SCHEDULE,
+    })
+    assert res.status_code == 200, res.text
+    plans = {p["network"]: p for p in res.json()["plans"]}
+    assert plans["threads"]["texts"] == texts
+    for network in ("facebook", "instagram", "tiktok"):
+        assert plans[network]["texts"] == ["Legenda"]
+        assert not any("thread" in w.lower() for w in plans[network]["warnings"])
