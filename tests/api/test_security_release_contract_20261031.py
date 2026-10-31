@@ -23,7 +23,7 @@ def test_api_disables_interactive_documentation():
     assert app.docs_url is None
     assert app.redoc_url is None
     assert app.openapi_url is None
-    paths = {route.path for route in app.routes}
+    paths = {route.path for route in app.routes if hasattr(route, "path")}
     assert not {"/docs", "/redoc", "/openapi.json"} & paths
 
 
@@ -61,5 +61,5 @@ def test_shopee_video_requires_explicit_authorization_and_feature_gate():
 
 def test_shopee_video_not_registered_as_live_api_endpoint():
     """Preparatory client must not silently enable public publishing routes."""
-    paths = {route.path for route in app.routes}
+    paths = {route.path for route in app.routes if hasattr(route, "path")}
     assert not any(path.startswith("/shopee-video") for path in paths)
