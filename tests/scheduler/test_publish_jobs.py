@@ -77,14 +77,14 @@ def test_claim_query_never_retries_a_running_item(monkeypatch):
     assert "status = 'running'" not in seen["sql"].lower().split("for update skip locked")[0]
 
 
-def test_expired_running_item_becomes_unknown_without_republish(monkeypatch):
+def test_expired_running_item_after_external_call_becomes_unknown(monkeypatch):
     from shopee_bot.database import publish_jobs
 
     seen = {}
     monkeypatch.setattr(publish_jobs, "query_db", lambda sql, args: seen.update(sql=sql, args=args) or [])
 
     assert publish_jobs.expire_running(300) == []
-    assert "status = 'unknown'" in seen["sql"].lower()
+    assert "when external_started_at is not null then 'unknown'" in seen["sql"].lower()
     assert "status = 'running'" in seen["sql"].lower()
     assert seen["args"] == (5, 5, 5, 300)
 
