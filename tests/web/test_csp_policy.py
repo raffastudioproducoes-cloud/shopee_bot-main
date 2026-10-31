@@ -68,3 +68,8 @@ def test_react_pages_externalize_literal_style_elements():
         source = (project_root / "frontend" / component).read_text(encoding="utf-8")
         assert "<style" not in source.lower(), component
         assert (project_root / "frontend" / css).is_file(), css
+
+
+def test_login_page_has_no_inline_style_attributes():
+    source = (project_root / "frontend" / "src" / "pages" / "LoginPage.tsx").read_text(encoding="utf-8")
+    assert "style=" not in source
