@@ -117,16 +117,7 @@ export function PanelHeader({ title, info = false, trailing, onInfo, className =
       }}
     >
       <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          minWidth: 0,
-          font: "var(--text-role-title)",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
+        className="csp-s-0127"
       >
         {title}
         {info ? (
@@ -134,26 +125,13 @@ export function PanelHeader({ title, info = false, trailing, onInfo, className =
             type="button"
             aria-label={`About ${title}`}
             onClick={onInfo}
-            style={{
-              display: "inline-flex",
-              width: 15,
-              height: 15,
-              borderRadius: "50%",
-              border: "1px solid currentColor",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "none",
-              cursor: "pointer",
-              opacity: 0.55,
-              font: "var(--fw-semibold) 9px/1 var(--font-sans)",
-              padding: 0,
-            }}
+            className="csp-s-0128"
           >
             i
           </button>
         ) : null}
       </span>
-      {trailing ? <span style={{ display: "inline-flex", alignItems: "center", flex: "0 0 auto" }}>{trailing}</span> : null}
+      {trailing ? <span className="csp-s-0129">{trailing}</span> : null}
     </header>
   )
 }
