@@ -150,8 +150,8 @@ aplicadas no Supabase. Testes reais em staging feitos em 2026-10-13 (ver atualiz
 - **Publicadores**: Threads, Facebook (foto, álbum, vídeo), Instagram (foto, carrossel, Reels) e
   X (foto única com `media.write`) permanecem no código, mas X está pausado até o plano pago.
   Facebook, Instagram e Threads recebem URL
-  assinada (1 h, `scheduler/media_delivery.py`) do bucket privado; mídia legada segue pelo
-  Cloudinary. Vídeo é somente MP4 neste app; `.mov` é bloqueado. **TikTok foto segue bloqueado**
+  assinada (1 h, `scheduler/media_delivery.py`) do bucket privado; mídia legada fora do
+  Storage exige reenvio. Vídeo é somente MP4 neste app; `.mov` é bloqueado. **TikTok foto segue bloqueado**
   até haver Creator Info no fluxo do usuário e URL em domínio/prefixo verificado; TikTok publica
   somente vídeo com descrição/link.
 - **Evidência local (2026-10-12)**: `tests/api` 536 passed, `tests/scheduler` 75 passed,
