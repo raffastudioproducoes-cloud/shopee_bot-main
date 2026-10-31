@@ -123,8 +123,7 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 }
 
 function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfirm, onEdit }: CatalogDetailsModalProps) {
-  const linkStyle = { color: "var(--sky-300)" } as const
-  return (
+    return (
     <Modal open={product != null} onClose={onClose} title="Detalhes do produto" width={520}>
       {product ? (
         <div className="csp-s-0050">
@@ -147,10 +146,10 @@ function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfi
           {product.original_link || product.commission_link ? (
             <div className="csp-s-0056">
               {product.original_link ? (
-                <a href={product.original_link} target="_blank" rel="noreferrer" style={linkStyle}>Link original ↗</a>
+                <a href={product.original_link} target="_blank" rel="noreferrer" className="csp-named-link">Link original ↗</a>
               ) : null}
               {product.commission_link ? (
-                <a href={product.commission_link} target="_blank" rel="noreferrer" style={linkStyle}>Link de comissão ↗</a>
+                <a href={product.commission_link} target="_blank" rel="noreferrer" className="csp-named-link">Link de comissão ↗</a>
               ) : null}
             </div>
           ) : null}
