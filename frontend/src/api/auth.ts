@@ -80,6 +80,6 @@ export const authApi = {
   },
 
   async register(username: string, password: string): Promise<RegisterResponse> {
-    return api.post<RegisterResponse>('/auth/register', { username, password, accepted_terms_version: '2026-10-30' })
+    return api.post<RegisterResponse>('/auth/register', { username, password, accepted_terms_version: '2026-10-31' })
   },
 }
