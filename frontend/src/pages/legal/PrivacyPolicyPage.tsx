@@ -92,7 +92,7 @@ export function PrivacyPolicyPage() {
 
       <h2>2.1 Dados técnicos do dispositivo e GPS opcional</h2>
       <p>Ao acessar o site por computador, tablet ou celular, a infraestrutura pode tratar endereço IP, cabeçalhos HTTP, informações técnicas do navegador, caminhos acessados e duração das respostas para operação e segurança. O registro da aplicação depende da configuração de auditoria; o provedor de hospedagem também pode manter logs próprios. Consulte a lista <a href="/dados-coletados">Quais dados utilizamos?</a>.</p>
-      <p>O GPS é <strong>inteiramente opcional</strong>. O aceite dos Termos não autoriza localização. Caso o titular habilite a preferência e clique em solicitar a região, o navegador apresenta sua própria permissão. A posição é processada apenas naquele momento no dispositivo para sugerir país/UF, sem envio de latitude ou longitude ao Auto Orbital. A região só é salva após confirmação e consentimento separados. Não há rastreamento em segundo plano, histórico de trajetos ou uso da localização para publicidade. É possível negar, corrigir e revogar em Perfis.</p>
+      <p>O GPS é <strong>inteiramente opcional</strong>. O aceite dos Termos não autoriza localização. Caso o titular habilite a preferência e clique em solicitar a região, o navegador apresenta sua própria permissão. A posição é processada apenas naquele momento no dispositivo para sugerir país/UF, sem envio de latitude ou longitude ao Auto Orbital. A região só é salva após confirmação e consentimento separados. Não há rastreamento em segundo plano, histórico de trajetos ou uso da localização para publicidade. É possível negar, corrigir e revogar em Configurações.</p>
       <p>As estatísticas do mapa mostram apenas regiões com pelo menos três contas voluntárias; grupos menores ficam ocultos. A escolha de origem de aquisição também é voluntária e revogável. O cadastro básico funciona sem GPS.</p>
       <h2>3. Base legal (LGPD)</h2>
       <p>O tratamento desses dados se apoia nas seguintes bases legais do art. 7º da LGPD:</p>
@@ -184,6 +184,8 @@ export function PrivacyPolicyPage() {
         </li>
       </ul>
 
+      <h2>6.1 Localização pontual autorizada</h2>
+      <p>Após o primeiro acesso, apresentamos um aviso específico para solicitar localização por GPS ou outros meios disponíveis no dispositivo. A pessoa pode recusar e continuar usando o serviço. Se autorizar, o navegador solicitará acesso e enviaremos uma única localização aproximada, arredondada a cerca de 1 km, associada à conta, com data e precisão estimada. O administrador poderá visualizar individualmente a posição aproximada para análise geográfica e planejamento da expansão comercial. Não há monitoramento contínuo, histórico de deslocamentos, coleta de endereço ou novas consultas automáticas. A decisão e o dado podem ser retirados em Configurações, sem impedir o uso do serviço.</p>
       <h2>7. Direitos do titular</h2>
       <p>Nos termos dos arts. 9º e 18 da LGPD, o titular dos dados pode solicitar a qualquer momento:</p>
       <ul>
@@ -198,7 +200,7 @@ export function PrivacyPolicyPage() {
 
       <h2>7.1 Consentimentos e transparência</h2>
       <p>Registramos a versão e a data de aceitação dos Termos no cadastro, separadamente da preferência GPS. A permissão do navegador pode ser negada ou retirada nos ajustes do próprio dispositivo. A preferência GPS e a região declarada podem ser apagadas em Perfis. A revogação não prejudica a licitude de tratamentos anteriores.</p>
-      <p>A finalidade da localização voluntária é exclusivamente produzir estatísticas regionais agregadas. Para acessar, corrigir, solicitar cópia ou eliminar dados, utilize os controles da conta ou o contato informado nesta Política.</p>
+      <p>A localização autorizada pode ser vista individualmente pelo administrador para planejamento comercial e em estatísticas regionais. Para acessar, corrigir, solicitar cópia ou eliminar dados, utilize os controles da conta ou o contato informado nesta Política.</p>
       <h2>8. Cookies</h2>
       <p>
         O Auto Orbital utiliza apenas o essencial de cookies para autenticação: o cookie{' '}
