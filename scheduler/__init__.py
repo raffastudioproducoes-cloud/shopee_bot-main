@@ -373,6 +373,16 @@ def _jobstore_dsn() -> str:
     return dsn
 
 
+def _run_daily_analytics_refresh():
+    """Evita carregar a API e validar segredos no import do scheduler legado.
+
+    A validação de API_SECRET_KEY permanece no boot da API; aqui a dependência
+    só é importada quando o job interno realmente executa.
+    """
+    from api.analytics_refresh import refresh_due_analytics
+    refresh_due_analytics()
+
+
 def init():
     global _scheduler, _shutting_down
     _shutting_down = False
@@ -409,4 +419,18 @@ def init():
         replace_existing=True,
     )
     
+    # Job em memória por instância; o claim SQL evita coleta duplicada quando
+    # staging e main compartilham o Supabase. Após suspensão Free, roda na
+    # próxima hora ativa (a abertura das Análises também faz catch-up).
+    _scheduler.add_job(
+        _run_daily_analytics_refresh,
+        trigger="interval",
+        hours=1,
+        id="analytics_refresh_daily",
+        jobstore="on_demand",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
     _scheduler.resume()
