@@ -111,7 +111,14 @@ export function SettingsPage() {
           )}
         </form>
       </Panel>
-      <section><h2>Privacidade e localização</h2><RegionConsent /><AcquisitionConsent /></section>
+      <section aria-labelledby="privacy-settings-title" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <h2 id="privacy-settings-title" style={{ font: 'var(--text-role-title)', margin: 0 }}>Privacidade, localização e origem</h2>
+          <p style={{ color: 'var(--text-muted)', marginTop: 4 }}>Controle seus dados opcionais e autorizações.</p>
+        </div>
+        <RegionConsent />
+        <AcquisitionConsent />
+      </section>
       <BackupSection />
     </div>
   )
