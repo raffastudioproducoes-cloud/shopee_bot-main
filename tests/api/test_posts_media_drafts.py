@@ -676,3 +676,103 @@ def test_batch_links_media_right_after_creating_it(fake_db, monkeypatch):
 
     at = log.index(("medias", "insert"))
     assert log[at + 1] == ("posts_medias", "insert")
+
+
+def test_shopee_photo_url_allowlist_rejects_ssrf_hosts():
+    from fastapi import HTTPException
+    valid = "https://cf.shopee.com.br/file/valid"
+    assert posts_module._check_shopee_image_url(valid) == valid
+    for attack in (
+        "http://cf.shopee.com.br/file/1",
+        "https://cf.shopee.com.br.evil.example/file/1",
+        "https://127.0.0.1/internal",
+        "https://cf.shopee.com.br@127.0.0.1/private",
+        "https://cf.shopee.com.br:8080/file/1",
+        "https://[not-an-ipv6]/file/1",
+        "file:///etc/passwd",
+    ):
+        with pytest.raises(HTTPException) as err:
+            posts_module._check_shopee_image_url(attack)
+        assert err.value.status_code == 400
+
+
+def test_import_shopee_product_photo_persists_private_draft(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+    db.tables["products"] = [{
+        "id": 7, "user_id": 42, "profile_id": "profile-a",
+        "image": "https://cf.shopee.com.br/file/example",
+    }]
+
+    async def trusted_download(url):
+        assert url == "https://cf.shopee.com.br/file/example"
+        return bytearray(_jpeg() + b"<script>bad</script>")
+
+    monkeypatch.setattr(posts_module, "_download_shopee_image", trusted_download)
+    response = client.post("/posts/product-image-drafts/7")
+    assert response.status_code == 201, response.text
+    draft = response.json()
+    assert draft["status"] == "ready"
+    assert draft["profile_id"] == "profile-a"
+    assert "storage_key" not in draft
+    assert "image" not in draft
+    assert len(db.storage.uploads) == 1
+    stored = db.storage.uploads[0][1]
+    assert b"<script>" not in stored
+    assert db.tables["temporary_media_uploads"][0]["media_type"] == "IMAGE"
+    assert db.tables["temporary_media_uploads"][0]["user_id"] == 42
+
+
+def test_import_shopee_product_photo_rejects_foreign_profile(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch, profile_id="profile-b")
+    db.storage = _RecordingStorage()
+    db.tables["products"] = [{
+        "id": 7, "user_id": 42, "profile_id": "profile-a",
+        "image": "https://cf.shopee.com.br/file/example",
+    }]
+
+    async def forbidden_download(_url):
+        raise AssertionError("Nunca baixar imagem de outro perfil")
+
+    monkeypatch.setattr(posts_module, "_download_shopee_image", forbidden_download)
+    response = client.post("/posts/product-image-drafts/7")
+    assert response.status_code == 404
+    assert db.storage.uploads == []
+    assert db.tables["temporary_media_uploads"] == []
+
+
+def test_import_shopee_product_photo_rejects_missing_and_invalid_media(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+    db.tables["products"] = [{"id": 9, "user_id": 42, "profile_id": "profile-a", "image": None}]
+    assert client.post("/posts/product-image-drafts/9").status_code == 400
+
+    db.tables["products"][0]["image"] = "https://cf.shopee.com.br/file/example"
+
+    async def fake_download(_url):
+        return bytearray(b"<html>not an image</html>")
+
+    monkeypatch.setattr(posts_module, "_download_shopee_image", fake_download)
+    assert client.post("/posts/product-image-drafts/9").status_code == 415
+    assert db.storage.uploads == []
+    assert db.tables["temporary_media_uploads"] == []
+
+
+def test_import_shopee_png_is_normalized_to_jpeg(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+    db.tables["products"] = [{
+        "id": 11, "user_id": 42, "profile_id": "profile-a",
+        "image": "https://cf.shopee.com.br/file/example",
+    }]
+
+    async def png_download(_url):
+        return bytearray(_png())
+
+    monkeypatch.setattr(posts_module, "_download_shopee_image", png_download)
+    response = client.post("/posts/product-image-drafts/11")
+    assert response.status_code == 201, response.text
+    key, payload, options = db.storage.uploads[0]
+    assert key.endswith(".jpg")
+    assert payload.startswith(b"\xff\xd8\xff")
+    assert options["content-type"] == "image/jpeg"
