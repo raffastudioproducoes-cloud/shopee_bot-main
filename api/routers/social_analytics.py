@@ -11,7 +11,7 @@ from ..crypto import decrypt
 from ..database import supabase
 from ..profiles import scope_owner
 from .auth import get_current_user_id
-from .credentials import _check_test_rate_limit
+from .credentials import _check_test_rate_limit, _require_admin
 from .profiles import get_current_profile_id
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -56,7 +56,7 @@ def _facebook_daily_views(metrics: list) -> list[dict] | None:
 async def probe_insights(
     network: str,
     days: int = Query(30),
-    user_id: int = Depends(get_current_user_id),
+    user_id: int = Depends(_require_admin),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Read one account/page metric using this profile's existing OAuth token."""
