@@ -3,7 +3,7 @@ import type { AdminMetrics } from '../../api/adminMetrics'
 import { Panel } from '../ui/Panel'
 import { Button } from '../ui/Button'
 import { clampZoom, earthRotation, projectGlobe, wheelGlobeZoom } from './globeGeometry'
-import { formatMetricTime, isStale } from './metricsPresentation'
+import { isStale } from './metricsPresentation'
 import { CardTags } from './CardTags'
 import { useQuery } from '@tanstack/react-query'
 import { adminMetricsApi } from '../../api/adminMetrics'
@@ -32,7 +32,7 @@ const demoRegions = [
   { region: 'JP', online: 5, offline: 12, deleted: 1 },
   { region: 'AU', online: 3, offline: 7, deleted: 1 },
 ]
-const states = [['online', 'Atividade recente'], ['offline', 'Sem atividade recente'], ['deleted', 'Contas excluídas']] as const
+const states = [['online', 'Atividade recente'], ['offline', 'Sem atividade recente']] as const
 
 export function LocationGlobe({ data }: { data: AdminMetrics }) {
   const { data: ownRegionResult } = useQuery({
@@ -41,7 +41,18 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
     refetchInterval: 60_000,
     retry: 1,
   })
-  const {data:locationData, isError: locationError} = useQuery({queryKey:['admin','location-points'],queryFn:adminMetricsApi.getLocationPoints,refetchInterval:60000,retry:1})
+  const { data: locationData, isError: locationError } = useQuery({
+    queryKey: ['admin', 'location-points'],
+    queryFn: adminMetricsApi.getLocationPoints,
+    refetchInterval: 60_000,
+    retry: 1,
+  })
+  const { data: myLocation } = useQuery({
+    queryKey: ['admin', 'my-location'],
+    queryFn: adminMetricsApi.getMyLocation,
+    refetchInterval: 60_000,
+    retry: 1,
+  })
   const ownRegion = ownRegionResult?.region && places[ownRegionResult.region] ? ownRegionResult.region : null
   const id = useId().replace(/:/g, '')
   const [demo, setDemo] = useState(false)
@@ -98,6 +109,13 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
   const locationPoints = demo ? [] : (locationData?.points ?? [])
   const hasAggregates = demo || mapped.length > 0
   const hasData = hasAggregates || locationPoints.length > 0
+  const ownGps = myLocation?.point ?? null
+  const globalView = country === 'all' && !selectedRegion
+  const globalActive = locationData?.activity_available ? locationData.recent_active : null
+  const globalInactive = globalActive === null || !locationData
+    ? null : Math.max(0, locationData.customers_total - globalActive)
+  const deletedTotal = demo ? demoRegions.reduce((sum, row) => sum + row.deleted, 0)
+    : locationData?.deleted_total ?? null
   const projection = (longitude: number, latitude: number) => projectGlobe(longitude, latitude, center.longitude, center.latitude, zoom, 23.44)
   const dots = useMemo(() => land.map(([lon, lat]) => projectGlobe(lon, lat, center.longitude, center.latitude, zoom, 23.44)).filter(point => point.visible).map(point => `M${point.x.toFixed(1)},${point.y.toFixed(1)}h.01`).join(''), [center, zoom])
   const grid = useMemo(() => {
@@ -129,6 +147,14 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
     setCenter({ longitude: place.longitude, latitude: place.latitude })
     setZoom(region.includes('-') ? 3 : 1.8)
   }
+  function focusOwnGps() {
+    if (!ownGps) return
+    setCountry('all')
+    setSelected(null)
+    setCenter({ longitude: ownGps.longitude, latitude: ownGps.latitude })
+    setZoom(3)
+    setRotating(false)
+  }
   function chooseCountry(code: string) {
     setCountry(code); setSelected(null)
     if (code === 'all') { setCenter({ longitude: -45, latitude: -12 }); setZoom(1) }
@@ -136,7 +162,12 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
   }
   return <Panel surface="dark" className="admin-globe-panel">
     <div className="admin-globe-heading"><div><CardTags tags={demo ? ['app', 'demo'] : hasData ? ['clients', 'geography'] : ['app', 'no_data']} /><span className="admin-globe-eyebrow">PRESENÇA GLOBAL</span><h2>Onde estão seus clientes</h2><p>Explore países e regiões · localização aproximada</p></div><Button variant="ghost" aria-pressed={demo} onClick={() => { setDemo(!demo); setSelected(null); chooseCountry('all') }}>{demo ? 'Voltar aos dados reais' : 'Explorar demonstração'}</Button></div>
-    <div className="admin-globe-status" role="status">{demo ? 'DEMONSTRAÇÃO · todos os pontos e números são fictícios' : hasData ? `Coleta: ${data.geography?.updated_at ? formatMetricTime(data.geography.updated_at) : 'horário indisponível'}${data.geography?.updated_at && isStale(data.geography.updated_at) ? ' · Dados antigos' : ''}` : ownRegion ? 'Sua região voluntária está visível de forma privada; ainda não há grupos de clientes suficientes para estatísticas coletivas.' : locationError ? 'Não foi possível consultar as posições autorizadas.' : 'Nenhuma localização registrada. O usuário pode autorizar uma coleta pontual no primeiro acesso; a região manual é configurada em Configurações.'}</div>
+    <div className="admin-globe-status" role="status">
+      {demo ? 'DEMONSTRAÇÃO · todos os pontos e números são fictícios'
+        : locationError || !locationData ? 'Consulta de clientes temporariamente indisponível.'
+        : `${locationData.customers_total.toLocaleString('pt-BR')} cliente(s) cadastrado(s) · ${locationData.gps_points_total.toLocaleString('pt-BR')} ponto(s) GPS autorizado(s).`}
+      {!demo && data.geography?.updated_at && isStale(data.geography.updated_at) && ' · Agregados regionais antigos'}
+    </div>
     <div className="admin-globe-layout">
       <div className="admin-globe-scene" onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocusCapture={() => setFocusWithin(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocusWithin(false) }}>
         <svg ref={svgRef} className="admin-globe" viewBox="0 0 640 500" role="group" aria-label="Globo interativo: arraste para girar; setas para rotação; roda do mouse ou botões para zoom" tabIndex={0}
@@ -154,13 +185,33 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
           <circle cx="320" cy="250" r={215 * zoom} fill={`url(#atmosphere-${id})`} />
           <circle cx="320" cy="250" r={200 * zoom} fill={`url(#ocean-${id})`} className="admin-globe-rim" />
           <g clipPath={`url(#sphere-${id})`}><path d={grid} className="admin-globe-grid" /><path d={dots} className="admin-globe-land" />
-            {regions.map(row => { const place = places[row.region]; const point = projection(place.longitude, place.latitude); if (!point.visible) return null; return <g key={row.region} role="button" tabIndex={0} aria-label={`${place.name}: ${row.online} com atividade recente, ${row.offline} sem atividade recente, ${row.deleted} excluídas. Selecionar região.`} className={`admin-globe-point${selected === row.region ? ' is-selected' : ''}`} onPointerDown={event => event.stopPropagation()} onClick={() => focus(row.region)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); focus(row.region) } }}>
+            {regions.map(row => { const place = places[row.region]; const point = projection(place.longitude, place.latitude); if (!point.visible) return null; return <g key={row.region} role="button" tabIndex={0} aria-label={`${place.name}: ${row.online} com atividade recente, ${row.offline} sem atividade recente. Selecionar região.`} className={`admin-globe-point${selected === row.region ? ' is-selected' : ''}`} onPointerDown={event => event.stopPropagation()} onClick={() => focus(row.region)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); focus(row.region) } }}>
               <title>{place.name}</title><circle cx={point.x} cy={point.y} r="19" fill="transparent" />
               {states.map(([state], index) => row[state] > 0 && <circle key={state} cx={point.x + (index - 1) * 10} cy={point.y} r={Math.min(7, 2.5 + Math.log10(row[state] + 1))} className={`admin-globe-light is-${state}`} />)}
               {zoom > 1.3 && selected === row.region && <text x={point.x} y={point.y - 17} textAnchor="middle">{place.name}</text>}
             </g> })}
-            {locationPoints.map(point => { const projected = projection(point.longitude,point.latitude); return projected.visible ? <g key={point.account} className="admin-globe-own-point"><title>{`Conta ${point.account} · posição aproximada autorizada`}</title><circle cx={projected.x} cy={projected.y} r={8} className="admin-globe-own-halo" /><circle cx={projected.x} cy={projected.y} r={4} className="admin-globe-own-core" /></g> : null })}
-            {!demo && ownRegion && (() => {
+            {locationPoints.map(point => {
+              const projected = projection(point.longitude, point.latitude)
+              return projected.visible ? <g key={point.account} className="admin-globe-client-point">
+                <title>{`Cliente · GPS aproximado autorizado`}</title>
+                <circle cx={projected.x} cy={projected.y} r={8} className="admin-globe-client-halo" />
+                <circle cx={projected.x} cy={projected.y} r={4} className="admin-globe-client-core" />
+              </g> : null
+            })}
+            {!demo && ownGps && (() => {
+              const point = projection(ownGps.longitude, ownGps.latitude)
+              return point.visible ? <g role="button" tabIndex={0} aria-label="Minha localização aproximada. Centralizar no globo."
+                className="admin-globe-own-point"
+                onPointerDown={event => event.stopPropagation()}
+                onClick={focusOwnGps}
+                onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); focusOwnGps() } }}>
+                <title>Minha localização · GPS aproximado, visível apenas no painel ADMIN</title>
+                <circle cx={point.x} cy={point.y} r="19" fill="transparent" />
+                <circle cx={point.x} cy={point.y} r="8" className="admin-globe-own-halo" />
+                <circle cx={point.x} cy={point.y} r="4" className="admin-globe-own-core" />
+              </g> : null
+            })()}
+            {!demo && !ownGps && ownRegion && (() => {
               const point = projection(places[ownRegion].longitude, places[ownRegion].latitude)
               return point.visible ? <g role="button" tabIndex={0} aria-label={`Minha região cadastrada: ${places[ownRegion].name}. Exibir região.`} className="admin-globe-own-point" onPointerDown={event => event.stopPropagation()} onClick={() => focus(ownRegion)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); focus(ownRegion) } }}>
                 <title>{`Minha região · ${places[ownRegion].name} (exibição privada)`}</title>
@@ -175,17 +226,68 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
         <div className="admin-globe-controls"><Button variant="secondary" aria-label="Diminuir zoom do globo" disabled={zoom <= 1} onClick={() => setZoom(current => clampZoom(current - .25))}>−</Button><output aria-label="Nível de zoom">{zoom.toFixed(2)}×</output><Button variant="secondary" aria-label="Aumentar zoom do globo" disabled={zoom >= 3} onClick={() => setZoom(current => clampZoom(current + .25))}>+</Button><Button variant="ghost" onClick={() => chooseCountry('all')}>Recentrar</Button><Button variant="ghost" disabled={reducedMotion} aria-pressed={rotating && !reducedMotion} onClick={() => setRotating(!rotating)}>{rotating && !reducedMotion ? 'Pausar rotação' : 'Girar'}</Button></div>
         <p className="admin-globe-help">Arraste para girar · roda do mouse para zoom · eixo inclinado 23,44°</p>
       </div>
-      <div className="admin-globe-detail"><label htmlFor={`globe-country-${id}`}>Explorar região</label><select id={`globe-country-${id}`} value={country} onChange={event => chooseCountry(event.target.value)}><option value="all">Mundo</option>{['BR', 'PT', 'US', 'GB', 'DE', 'JP', 'AU'].map(code => <option value={code} key={code}>{places[code].name}</option>)}</select>
-        {!demo && <p className="admin-globe-privacy">{ownRegion ? <>Minha região cadastrada: <strong>{places[ownRegion].name}</strong>. Exibição privada, separada das estatísticas de clientes. <button type="button" className="admin-globe-own-action" onClick={() => focus(ownRegion)}>Localizar no globo</button></> : <>Sua conta ainda não informou uma região. <a href="/settings">Configurar em Configurações</a> e autorizar o uso estatístico.</>}</p>}
+      <div className="admin-globe-detail">
+        <label htmlFor={`globe-country-${id}`}>Explorar região</label>
+        <select id={`globe-country-${id}`} value={country} onChange={event => chooseCountry(event.target.value)}>
+          <option value="all">Mundo</option>
+          {['BR', 'PT', 'US', 'GB', 'DE', 'JP', 'AU'].map(code => <option value={code} key={code}>{places[code].name}</option>)}
+        </select>
+
+        {!demo && <div className="admin-globe-privacy">
+          {ownGps ? <p><strong>Minha localização:</strong> ponto GPS aproximado, exclusivo da conta ADMIN.
+            {' '}<button type="button" className="admin-globe-own-action" onClick={focusOwnGps}>Localizar no globo</button></p>
+            : ownRegion ? <p>Minha região declarada: <strong>{places[ownRegion].name}</strong>.
+              {' '}<button type="button" className="admin-globe-own-action" onClick={() => focus(ownRegion)}>Localizar no globo</button></p>
+              : <p>Minha localização não informada. <a href="/settings">Gerenciar em Configurações</a>.</p>}
+          {ownGps && ownRegion && <p>Região declarada: {places[ownRegion].name}. Ela não entra nas estatísticas dos clientes.</p>}
+        </div>}
+
         <h3>{selectedRegion ? places[selectedRegion.region].name : country === 'all' ? 'Visão global' : places[country].name}</h3>
-        <dl className="admin-globe-counts">{states.map(([state, label]) => <div key={state}><dt><i className={`admin-globe-legend is-${state}`} />{label}</dt><dd>{hasAggregates ? (selectedRegion ?? totals)[state].toLocaleString('pt-BR') : '—'}</dd></div>)}</dl>
-        <p>Contas nas regiões agregadas: {hasAggregates ? ((selectedRegion ?? totals).online + (selectedRegion ?? totals).offline).toLocaleString('pt-BR') : '—'}. Sua região privada não entra nesses números; excluídas são um agregado histórico separado.</p>
-        {!demo && <p role="status">Pontos individuais aproximados com autorização: <strong>{locationPoints.length.toLocaleString('pt-BR')}</strong>{locationError ? ' · Consulta de GPS indisponível' : ''}. São exibidos mesmo quando há apenas um cliente; não entram nas contagens agregadas acima.</p>}
-        {regions.length > 0 && <div className="admin-globe-regions" aria-label="Regiões disponíveis">{regions.map(row => <button type="button" key={row.region} aria-pressed={selected === row.region} onClick={() => focus(row.region)}><span>{places[row.region].name}</span><strong>{(row.online + row.offline).toLocaleString('pt-BR')}</strong></button>)}</div>}
+        <dl className="admin-globe-summary" aria-label="Resumo comercial">
+          <div><dt>Clientes cadastrados</dt><dd>{demo ? demoRegions.reduce((sum, row) => sum + row.online + row.offline, 0).toLocaleString('pt-BR') : locationData ? locationData.customers_total.toLocaleString('pt-BR') : '—'}</dd></div>
+          <div><dt>GPS autorizado por clientes</dt><dd>{demo ? '—' : locationData ? locationData.gps_points_total.toLocaleString('pt-BR') : '—'}</dd></div>
+          <div><dt>Clientes com região declarada</dt><dd>{demo ? '—' : locationData ? locationData.region_participants.toLocaleString('pt-BR') : '—'}</dd></div>
+          <div><dt>Contas de clientes excluídas</dt><dd>{deletedTotal === null ? '—' : deletedTotal.toLocaleString('pt-BR')}</dd></div>
+        </dl>
+        {!demo && <p className="admin-globe-privacy">
+          Exclusões históricas sem identificação pessoal
+          {locationData?.deleted_since ? ` · desde ${new Date(locationData.deleted_since + 'T12:00:00').toLocaleDateString('pt-BR')}` : ' · nenhum evento registrado'}.
+          A conta ADMIN não é contabilizada.
+        </p>}
+
+        <h3>{globalView ? 'Atividade global' : 'Atividade regional'}</h3>
+        <dl className="admin-globe-counts">
+          {states.map(([state, label]) => {
+            const globalValue = state === 'online' ? globalActive : globalInactive
+            const value = !demo && globalView
+              ? globalValue
+              : regions.length > 0 ? (selectedRegion ?? totals)[state] : null
+            return <div key={state}><dt><i className={`admin-globe-legend is-${state}`} />{label}</dt>
+              <dd>{value === null ? '—' : value.toLocaleString('pt-BR')}</dd></div>
+          })}
+        </dl>
+        {!demo && globalView && !locationData?.activity_available && <p role="status">Atividade recente indisponível: o registro de requisições está desativado ou a consulta falhou. O total de clientes continua correto.</p>}
+        {!demo && !globalView && regions.length === 0 && <p role="status">Ainda não há pelo menos três clientes com região declarada neste recorte. Os valores regionais ficam ocultos; a visão global permanece disponível.</p>}
+        {!demo && globalView && mapped.length === 0 && <p role="status">Nenhum grupo regional atingiu o mínimo de três clientes. Você ainda pode acompanhar os totais globais acima.</p>}
+        <p className="admin-globe-privacy">Atividade recente significa requisição autenticada bem-sucedida nos últimos cinco minutos; ausência de atividade não confirma logout. As estatísticas regionais exibem somente grupos com três ou mais clientes.</p>
+
+        {!demo && <p role="status">Pontos de GPS de clientes exibidos: <strong>{locationPoints.length.toLocaleString('pt-BR')}</strong>
+          {locationData && locationData.gps_points_total > locationPoints.length && ` de ${locationData.gps_points_total.toLocaleString('pt-BR')} (limite de 500 marcadores)`}.
+          {locationError && ' · Consulta indisponível'}. A localização da conta ADMIN não entra nessa contagem.
+        </p>}
+        {regions.length > 0 && <div className="admin-globe-regions" aria-label="Regiões disponíveis">{regions.map(row =>
+          <button type="button" key={row.region} aria-pressed={selected === row.region} onClick={() => focus(row.region)}>
+            <span>{places[row.region].name}</span><strong>{(row.online + row.offline).toLocaleString('pt-BR')}</strong>
+          </button>
+        )}</div>}
         {source.length > mapped.length && <p>Há regiões sem representação cartográfica nesta versão.</p>}
-        <p className="admin-globe-privacy">Os indicadores de atividade por região exigem grupos de três contas. Os pontos de GPS autorizados são individuais e aproximados, inclusive quando existe apenas uma conta; o marcador Minha região é separado dessas estatísticas. Luz acesa: atividade recente; apagada: sem atividade recente, não confirmação de logout. Vermelha: exclusões agregadas. As posições aproximadas só são exibidas com autorização do titular; não são exibidos endereços ou IPs.</p>
+        <p className="admin-globe-privacy">Marcadores azuis: clientes que autorizaram um ponto GPS aproximado. Marcador dourado: Minha localização privada. Nenhum endereço ou IP é exibido.</p>
       </div>
     </div>
-    <details className="admin-globe-method"><summary>Como os pontos serão contabilizados</summary><p>Localização aproximada declarada ou fonte autorizada, agregada por país/UF. Presença requer sinal recente com expiração; logout e exclusão precisam de eventos próprios. Contas sem região conhecida ficam fora dos pontos. Histórico de exclusões preserva apenas contagens por região e período. As contagens regionais usam declaração voluntária e mínimo de três participantes; os pontos individuais de GPS dependem de autorização separada e não exigem grupo mínimo.</p><p>Base cartográfica: <a href="https://www.naturalearthdata.com/about/terms-of-use/" target="_blank" rel="noreferrer">Natural Earth · domínio público</a>.</p></details>
+    <details className="admin-globe-method"><summary>Como os dados são contabilizados</summary>
+      <p>Os totais de clientes são extraídos das contas USER ativas, sem incluir administradores. A atividade global pode mostrar até um cliente; a atividade por região é apresentada apenas quando pelo menos três clientes a declararam voluntariamente. O GPS é coletado uma única vez com autorização e os pontos individuais exibidos são aproximados.</p>
+      <p>O histórico de exclusões é contado por dia, sem armazenar usuário, endereço, região ou coordenadas. Inclui eventos de exclusão já auditados e novos eventos; não representa clientes atuais.</p>
+      <p>Base cartográfica: <a href="https://www.naturalearthdata.com/about/terms-of-use/" target="_blank" rel="noreferrer">Natural Earth · domínio público</a>.</p>
+    </details>
   </Panel>
 }
