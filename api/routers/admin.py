@@ -1,8 +1,12 @@
 """Área administrativa: mesmos handlers, com autorização também no prefixo."""
+from datetime import date, datetime
+
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 
 from ..admin_metrics import AdminMetricsResponse, collect_admin_metrics
 from ..database import supabase
+from ..config import settings
 from .auth import get_current_user_id
 from ..admin_operations import OperationsResponse, collect_operations
 from ..admin_queue_health import QueueHealthResponse, collect_queue_health
@@ -68,11 +72,48 @@ async def my_region(user_id: str = Depends(get_current_user_id)):
     return {"region": own["region"] if own else None}
 
 
-@router.get("/location-points")
+class ClientGeoPoint(BaseModel):
+    account: str
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_m: int | None = None
+    collected_at: datetime
+
+
+class ClientGeoOverview(BaseModel):
+    status: str
+    updated_at: datetime
+    customers_total: int = Field(ge=0)
+    recent_active: int = Field(ge=0)
+    activity_available: bool
+    gps_points_total: int = Field(ge=0)
+    region_participants: int = Field(ge=0)
+    deleted_total: int = Field(ge=0)
+    deleted_since: date | None
+    points: list[ClientGeoPoint] = Field(max_length=500)
+
+
+@router.get("/location-points", response_model=ClientGeoOverview)
 async def location_points():
-    """Admin-only consented approximate coordinates; one current record per account."""
-    result = supabase.table("account_location_sharing").select("user_id,latitude,longitude,accuracy_m,collected_at").eq("choice","accepted").execute()
-    return {"points":[{"account":str(row["user_id"])[:8],"latitude":float(row["latitude"]),
-                       "longitude":float(row["longitude"]),"accuracy_m":row.get("accuracy_m"),
-                       "collected_at":row["collected_at"]}
-                      for row in (result.data or []) if row.get("latitude") is not None and row.get("longitude") is not None]}
+    """Somente clientes USER. Totais reais (0 ou 1 inclusive); pontos autorizados.
+
+    A RPC faz a junção com users.access e limita a amostra cartográfica a 500.
+    O histórico de exclusões vem de contadores diários sem IDs pessoais.
+    """
+    result = supabase.rpc("admin_client_geo_overview").execute()
+    return {**result.data, "activity_available": settings.request_logging_enabled}
+
+
+@router.get("/my-location")
+async def my_location(user_id: str = Depends(get_current_user_id)):
+    """O GPS próprio do administrador é separado dos pontos comerciais."""
+    result = (
+        supabase.table("account_location_sharing")
+        .select("latitude,longitude,collected_at")
+        .eq("user_id", user_id)
+        .eq("choice", "accepted")
+        .limit(1)
+        .execute()
+    )
+    point = (result.data or [None])[0]
+    return {"point": point}
