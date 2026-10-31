@@ -1,4 +1,4 @@
-<div align="center">
+> **Entrada obrigatória para agentes e IAs:** leia primeiro [AGENTS.md](AGENTS.md) e o [Guia Mestre de Contexto](docs/GUIA-MESTRE-IA.md) — propósito, localização do Vault, arquitetura, módulos, fluxos, APIs, segurança, RLS, custos, limites e método de verificação. Documentos históricos não substituem o código implantado.\n\n<div align="center">
 
 # Shopee Auto Vendas
 

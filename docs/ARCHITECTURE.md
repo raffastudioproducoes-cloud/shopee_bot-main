@@ -1,3 +1,5 @@
+> **Arquitetura real de 31/10/2026:** React é o painel padrão; Flask serve SPA/proxy e Uvicorn roda interno. Topologia, ambientes, RLS e limites no Guia Mestre. **Primeira leitura obrigatória:** [AGENTS.md](../AGENTS.md) e [docs/GUIA-MESTRE-IA.md](GUIA-MESTRE-IA.md).
+
 # ARCHITECTURE — Shopee Auto Vendas
 
 > Documento canônico vivo. Cenário A (projeto existente). Toda afirmação técnica abaixo foi

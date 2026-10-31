@@ -1,0 +1,26 @@
+# AGENTS.md — Auto Orbital / ShopeeAutoVendas
+
+> **Obrigatório para toda IA, assistente ou agente que leia, analise ou edite este repositório.** Ler integralmente [docs/GUIA-MESTRE-IA.md](docs/GUIA-MESTRE-IA.md) ANTES de propor mudança. Esse documento reúne objetivo de negócio, stack, módulos, fluxos por API/rede, regras de publicação, Storage, RLS, segurança, fontes de consulta, limites e onde fica o Vault. Não pesquisar tudo do zero nem presumir que documentação histórica reflita produção.
+
+## Ordem de entrada
+
+1. Este arquivo → [docs/GUIA-MESTRE-IA.md](docs/GUIA-MESTRE-IA.md) → [docs/RULES.md](docs/RULES.md) → [docs/PRD.md](docs/PRD.md).
+2. Ler [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DESIGN.md](docs/DESIGN.md) e o código/contrato/testes do **módulo afetado**, sem escanear segredos ou dados pessoais.
+3. Conferir tarefas e decisões **atuais** no Vault: [Projetos/ShopeeAutoVendas/40-Guia-Mestre-IA-Auto-Orbital.md](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/40-Guia-Mestre-IA-Auto-Orbital.md), [TASK.md](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/TASK.md) e [39-Estado-Operacional-e-Seguranca-2026-10-31.md](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/39-Estado-Operacional-e-Seguranca-2026-10-31.md).
+4. Para comportamento mutável, validar em código no SHA implantado e, apenas quando necessário, no GitHub Actions, Render, Supabase read-only ou API/documentação oficial da plataforma. Distinguir *implementado* de *validado em staging*, *live em produção* e *sucesso real na plataforma externa*.
+
+## Contrato permanente com o proprietário (Rafa)
+
+- **Projeto:** Auto Orbital, antes chamado Shopee Auto Vendas. Código: https://github.com/raffastudioproducoes-cloud/shopee_bot-main. Vault: https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/tree/main/Projetos/ShopeeAutoVendas. O nome histórico de pasta e módulos **não** autoriza refatoração de nomes.
+- **Fluxo:** branch de trabalho → PR em [staging] → CI, testes e deploy staging → corrigir → PR em [main] → CI, deploy/health/logs de produção. Nunca promover build não verificado nem usar force push.
+- **Custos:** Render Free e Supabase Free, sem contratação/upgrade/novos serviços pagos ou alterações de plano sem autorização. Não presumir Redis distribuído em produção; atualmente a capacidade do Redis Free é evidenciada na staging.
+- **Mídia:** somente Supabase Storage; não reintroduzir Cloudinary. Preservar buckets/segregação, URLs assinadas e guard global 75%/85%/90%. **Não criar quota acumulada de imagens por usuário/perfil**, por exclusão expressa do escopo.
+- **Integrações:** Shopee Affiliate GraphQL não é Shopee Vídeo. Shopee Vídeo requer aprovação oficial e está fora de uso; Kwai não publica; X está desabilitado por regra atual; os demais publicadores dependem de OAuth/permissões. Não fingir sucesso externo nem reenviar job [unknown] sem conciliação.
+- **Segurança:** não expor service_role, app secrets, cookies ou dados de clientes. RLS não protege automaticamente acesso feito com service role: aplicar escopo de conta/perfil e testes de ownership. Preservar controles de CSP, CSRF, assinatura OAuth, sanitização/SSRF, rate limit, filas e logs. Documentar controles **não comprovados**.
+- **Governança:** não executar pentest externo independente, mudança de digest OCI/deploy ou contratar Key Value adicional sem decisão de Rafa. Teste de login/OAuth/postagem real exige destino e autorização apropriados; não pedir que o dono cole chaves no chat.
+- **Design:** preservar design system em [frontend/src/styles/tokens/], componentes UI, acessibilidade, layout desktop/mobile e idioma PT-BR.
+- **Docs:** cada alteração relevante deve atualizar documentação técnica e, quando alterar contrato/arquitetura/segurança, este guia **e o espelho no Vault**; registrar critério/evidência em TASK.md. Planos, ADRs e relatórios datados não devem ser apagados silenciosamente.
+
+## Regra final de entrega
+
+Declarar branch, PR, SHA, testes executados, deploy vivo, limitações e pendências com evidência. Não dizer “100% sem bugs” ou “todos os recursos disponíveis” quando existirem integrações não testadas ou dependências externas. A verificação deve ser específica para a mudança; o guia reduz pesquisa repetida, **não substitui testes necessários**.

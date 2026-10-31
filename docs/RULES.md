@@ -1,3 +1,5 @@
+> **Regras vigentes de 31/10/2026:** veja o Guia Mestre e o arquivo atual de workflow. CI roda em `main` e `staging`, com testes API, scheduler, SQL e web; esta lista histórica registra o padrão em sua data. **Primeira leitura obrigatória:** [AGENTS.md](../AGENTS.md) e [docs/GUIA-MESTRE-IA.md](GUIA-MESTRE-IA.md).
+
 # RULES — Shopee Auto Vendas
 
 > Regras de desenvolvimento realmente seguidas neste projeto, extraídas do histórico git
