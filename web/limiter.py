@@ -1,15 +1,19 @@
+import os
+
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-# instância sem app vinculado ainda — cada blueprint importa e decora
-# suas rotas com isso; web/__init__.py chama limiter.init_app(app) e
-# define os limites padrão depois que os blueprints já foram registrados
+# Um unico storage Redis/Valkey por ambiente compartilha contadores entre
+# workers/instancias. Em dev/testes, sem URI, conserva memory://.
+# Se o Redis cair, a borda Flask degrada para limites locais (disponibilidade);
+# os endpoints sensiveis do FastAPI falham fechados com 503.
+_storage_uri = os.environ.get("RATELIMIT_STORAGE_URI", "").strip() or "memory://"
+_key_prefix = os.environ.get("RATELIMIT_KEY_PREFIX", "auto-orbital:default")
+
 limiter = Limiter(
     key_func=get_remote_address,
-    # teto padrão pra qualquer rota sem limite próprio — protege o
-    # servidor de sobrecarga por excesso de requisição, não é
-    # anti-brute-force (isso é o limite específico do login)
     default_limits=["200 per hour", "50 per minute"],
-    storage_uri="memory://"
+    storage_uri=_storage_uri,
+    key_prefix=f"{_key_prefix}:flask",
+    in_memory_fallback_enabled=True,
 )
-
