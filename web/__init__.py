@@ -109,7 +109,7 @@ def set_security_headers(response):
     )
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = (
-        "camera=(), microphone=(), geolocation=()"
+        "camera=(), microphone=(), geolocation=(self)"
     )
     return response
 
