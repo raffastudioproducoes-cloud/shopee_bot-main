@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.storage_upload_reservations (
     expires_at timestamptz NOT NULL DEFAULT (now() + interval '30 minutes')
 );
 ALTER TABLE public.storage_upload_reservations ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.storage_upload_reservations FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.storage_upload_reservations FROM PUBLIC, anon, authenticated, service_role;
 -- Sem acesso direto via PostgREST nem para service_role; somente as funcoes.
 
 -- Retorna somente agregados; nomes e tamanhos de objetos nunca saem na resposta.
