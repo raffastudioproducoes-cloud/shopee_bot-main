@@ -49,3 +49,52 @@ def test_spa_startup_has_no_inline_script_or_handler():
     assert "<script>" not in html
     assert "onclick=" not in html
     assert 'src="/splash.js"' in html
+
+
+def test_spa_has_no_inline_style_elements():
+    html = (project_root / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert "<style" not in html.lower()
+    assert 'href="/splash.css"' in html
+    assert (project_root / "frontend" / "public" / "splash.css").is_file()
+
+
+def test_react_pages_externalize_literal_style_elements():
+    pages = (
+        ("src/components/layout/AppFooter.tsx", "src/components/layout/AppFooter.css"),
+        ("src/pages/LoginPage.tsx", "src/pages/LoginPage.css"),
+        ("src/pages/legal/LegalLayout.tsx", "src/pages/legal/LegalLayout.css"),
+    )
+    for component, css in pages:
+        source = (project_root / "frontend" / component).read_text(encoding="utf-8")
+        assert "<style" not in source.lower(), component
+        assert (project_root / "frontend" / css).is_file(), css
+
+
+def test_login_page_has_no_inline_style_attributes():
+    source = (project_root / "frontend" / "src" / "pages" / "LoginPage.tsx").read_text(encoding="utf-8")
+    assert "style=" not in source
+
+
+def test_spa_forbids_inline_style_elements_while_legacy_is_unmodified():
+    with app.test_client() as client:
+        spa_policy = client.get("/").headers["Content-Security-Policy"]
+        health_policy = client.get("/health").headers["Content-Security-Policy"]
+    assert "style-src-elem 'self' https://fonts.googleapis.com;" in spa_policy
+    assert "style-src-elem" not in health_policy
+
+
+def test_legal_layout_has_no_inline_style_attributes():
+    source = (project_root / "frontend" / "src" / "pages" / "legal" / "LegalLayout.tsx").read_text(encoding="utf-8")
+    assert "style=" not in source
+
+
+def test_generated_stylesheet_covers_all_static_csp_classes():
+    import re
+    style_root = project_root / "frontend" / "src"
+    stylesheet = (style_root / "styles" / "csp-static-generated.css").read_text(encoding="utf-8")
+    declared = set(re.findall(r"\.((?:csp-s-)\d{4})\s*\{", stylesheet))
+    referenced = set()
+    for component in style_root.rglob("*.tsx"):
+        referenced.update(re.findall(r"className=\"((?:csp-s-)\d{4})\"", component.read_text(encoding="utf-8")))
+    assert len(declared) >= 399
+    assert declared == referenced, "Cada classe CSP estatica deve existir no CSS e ser usada no JSX"

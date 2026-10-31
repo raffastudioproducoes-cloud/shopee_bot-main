@@ -14,50 +14,20 @@ export interface InfoStatProps {
 export function InfoStat({ icon, label, value }: InfoStatProps) {
   return (
     <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 6,
-        padding: "12px 8px",
-        borderRadius: "var(--r-md)",
-        background: "var(--surface-inset)",
-        textAlign: "center",
-      }}
+      className="csp-s-0109"
     >
       <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 30,
-          height: 30,
-          borderRadius: "50%",
-          background: "var(--accent-tint)",
-          color: "var(--sky-300)",
-        }}
+        className="csp-s-0110"
       >
         <Icon name={icon} size={15} />
       </span>
       <span
-        style={{
-          font: "var(--fw-semibold) var(--fs-body)/1.1 var(--font-sans)",
-          color: "var(--text-display)",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          maxWidth: "100%",
-        }}
+        className="csp-s-0111"
       >
         {value}
       </span>
       <span
-        style={{
-          font: "var(--text-role-label)",
-          letterSpacing: "var(--ls-label)",
-          textTransform: "uppercase",
-          color: "var(--text-muted)",
-        }}
+        className="csp-s-0112"
       >
         {label}
       </span>

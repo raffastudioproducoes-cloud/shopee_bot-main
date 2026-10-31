@@ -206,8 +206,8 @@ export function ProductsPage() {
 
   if (!isAuthenticated) {
     return (
-      <div style={{ textAlign: "center", padding: "48px 0" }}>
-        <p style={{ color: "var(--text-muted)" }}>Não autenticado.</p>
+      <div className="csp-s-0350">
+        <p className="csp-s-0351">Não autenticado.</p>
         <Button variant="primary" onClick={() => router.navigate({ to: "/login" })} style={{ marginTop: 16 }}>
           Ir para login
         </Button>
@@ -216,13 +216,13 @@ export function ProductsPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+    <div className="csp-s-0352">
       {/* Header */}
       <header className="products-page-header" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <div>
-          <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Produtos</h1>
-          <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Catálogo de produtos da Shopee.</p>
-          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+          <h1 className="csp-s-0353">Produtos</h1>
+          <p className="csp-s-0354">Catálogo de produtos da Shopee.</p>
+          <div className="csp-s-0355">
             <SegmentedToggle
               options={TABS_OPTIONS}
               value={activeTab}
@@ -236,7 +236,7 @@ export function ProductsPage() {
           </div>
         </div>
         {activeTab === "mine" ? (
-          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div className="csp-s-0356">
             <SearchField
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -254,13 +254,7 @@ export function ProductsPage() {
       {/* Error */}
       {error && (
         <div
-          style={{
-            padding: "12px 16px",
-            borderRadius: "var(--r-md)",
-            border: "1px solid var(--negative)",
-            color: "var(--negative)",
-            font: "var(--text-role-body)",
-          }}
+          className="csp-s-0357"
         >
           {error.message}
         </div>
@@ -269,7 +263,7 @@ export function ProductsPage() {
       {/* Products */}
       {products.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
-          <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum produto cadastrado.</p>
+          <p className="csp-s-0358">Nenhum produto cadastrado.</p>
           <Button variant="primary" icon="search" style={{ marginTop: 16 }} onClick={() => setActiveTab("catalog")}>
             Buscar na Pesquisa Avançada
           </Button>
@@ -286,21 +280,11 @@ export function ProductsPage() {
                   <img
                     src={product.image}
                     alt=""
-                    style={{ width: 40, height: 40, borderRadius: "var(--r-md)", objectFit: "cover", background: "var(--surface-inset)", flexShrink: 0 }}
+                    className="csp-s-0359"
                   />
                 ) : (
                   <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 40,
-                      height: 40,
-                      borderRadius: "var(--r-md)",
-                      background: "var(--surface-inset)",
-                      color: "var(--text-muted)",
-                      flexShrink: 0,
-                    }}
+                    className="csp-s-0360"
                   >
                     <Icon name="package" size={18} />
                   </span>
@@ -332,14 +316,14 @@ export function ProductsPage() {
                   label: "Links",
                   category: "Afiliado",
                   content: (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <div className="csp-s-0361">
                       {product.original_link ? (
-                        <a href={product.original_link} target="_blank" rel="noreferrer" style={{ color: "var(--sky-300)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+                        <a href={product.original_link} target="_blank" rel="noreferrer" className="csp-s-0362">
                           {product.original_link}
                         </a>
                       ) : null}
                       {product.commission_link ? (
-                        <a href={product.commission_link} target="_blank" rel="noreferrer" style={{ color: "var(--sky-300)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+                        <a href={product.commission_link} target="_blank" rel="noreferrer" className="csp-s-0363">
                           {product.commission_link}
                         </a>
                       ) : null}
@@ -351,9 +335,9 @@ export function ProductsPage() {
                   label: "Cadastro",
                   category: "Datas",
                   content: (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <div className="csp-s-0364">
                       <span>Criado em {new Date(product.created_at).toLocaleString("pt-BR")}</span>
-                      {product.updated_at ? <span style={{ color: "var(--text-muted)" }}>Atualizado em {new Date(product.updated_at).toLocaleString("pt-BR")}</span> : null}
+                      {product.updated_at ? <span className="csp-s-0365">Atualizado em {new Date(product.updated_at).toLocaleString("pt-BR")}</span> : null}
                     </div>
                   ),
                 },
@@ -372,7 +356,7 @@ export function ProductsPage() {
             e.preventDefault()
             editingId ? handleUpdate() : handleCreate()
           }}
-          style={{ display: "flex", flexDirection: "column", gap: 16 }}
+          className="csp-s-0366"
         >
           <div className="mobile-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <TextInput
@@ -452,11 +436,11 @@ export function ProductsPage() {
             />
           </div>
 
-          <p aria-live="polite" style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
-            Ganho estimado por venda: <strong style={{ color: "var(--text-body)" }}>{formatEarnings(form.price_min, form.price_max, form.commission)}</strong>
+          <p aria-live="polite" className="csp-s-0367">
+            Ganho estimado por venda: <strong className="csp-s-0368">{formatEarnings(form.price_min, form.price_max, form.commission)}</strong>
           </p>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 8 }}>
+          <div className="csp-s-0369">
             <Button type="button" variant="ghost" onClick={handleCancel}>
               Cancelar
             </Button>
@@ -469,10 +453,10 @@ export function ProductsPage() {
 
       {/* Modal de exclusão */}
       <Modal open={deleteId != null} onClose={() => setDeleteId(null)} title="Confirmar remoção" width={400}>
-        <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginBottom: 20 }}>
+        <p className="csp-s-0370">
           Tem certeza que deseja remover este produto? Esta ação não pode ser desfeita.
         </p>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+        <div className="csp-s-0371">
           <Button variant="ghost" onClick={() => setDeleteId(null)}>
             Cancelar
           </Button>

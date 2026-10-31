@@ -63,16 +63,16 @@ export function LocationPermissionNotice() {
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="location-consent-title" aria-describedby="location-consent-detail"
-      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.72)', display: 'grid', placeItems: 'center', padding: 16 }}>
-      <div style={{ background: 'var(--surface-card)', color: 'var(--text-body)', border: '1px solid var(--border-hairline)', borderRadius: 12, padding: 26, maxWidth: 560, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 70px rgba(0,0,0,.6)' }}>
-        <h2 id="location-consent-title" style={{ marginTop: 0 }}>Compartilhar sua localização com o Auto Orbital?</h2>
+      className="csp-s-0087">
+      <div className="csp-s-0088">
+        <h2 id="location-consent-title" className="csp-s-0089">Compartilhar sua localização com o Auto Orbital?</h2>
         <div id="location-consent-detail">
           <p>Pedimos sua localização <strong>uma única vez</strong> para identificar onde há clientes e planejar a expansão comercial.</p>
           <p>Se você permitir, o navegador solicitará acesso à localização do dispositivo. Salvaremos coordenadas <strong>aproximadas (arredondadas a cerca de 1 km)</strong>, com data e precisão estimada, vinculadas à sua conta. O administrador poderá visualizar individualmente essa posição aproximada.</p>
           <p>Não coletamos seu endereço por GPS nem monitoramos seus deslocamentos. Você pode recusar e continuar normalmente. Depois, poderá excluir o ponto salvo em <a href="/settings">Configurações</a>; não faremos outra coleta. Veja a <a href="/privacidade" target="_blank" rel="noreferrer">Política de Privacidade</a> e os <a href="/dados-coletados" target="_blank" rel="noreferrer">Dados Coletados</a>.</p>
         </div>
-        {error && <p role="alert" style={{ color: 'var(--negative-ink)' }}>{error}</p>}
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        {error && <p role="alert" className="csp-s-0090">{error}</p>}
+        <div className="csp-s-0091">
           <Button variant="secondary" disabled={locating || decision.isPending} onClick={decline}>Não permitir</Button>
           <Button disabled={locating || decision.isPending} onClick={allow}>{locating ? 'Consultando localização...' : 'Permitir uma vez'}</Button>
         </div>

@@ -52,7 +52,7 @@ export function NotificationsBell() {
   }, [open])
 
   return (
-    <div ref={containerRef} style={{ position: "relative", display: "inline-flex" }}>
+    <div ref={containerRef} className="csp-s-0116">
       <IconButton
         icon="bell"
         label="Notificações"
@@ -63,21 +63,21 @@ export function NotificationsBell() {
       />
 
       {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 40, width: "min(340px, calc(100vw - 24px))" }}>
+        <div className="csp-s-0117">
           <Panel surface="dark" overflowHidden={false} style={{ maxHeight: 420, display: "flex", flexDirection: "column" }}>
             <PanelHeader title="Notificações" />
             <Divider />
-            <div style={{ overflowY: "auto", padding: "4px 0" }}>
+            <div className="csp-s-0118">
               {isLoading ? (
-                <div role="status" aria-busy="true" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }} aria-label="Carregando notificações">
-                  {[0, 1, 2].map((i) => <div key={i} style={{ display: "flex", gap: 10 }}><Skeleton width={16} height={16} radius="var(--r-pill)" /><SkeletonText lines={2} /></div>)}
+                <div role="status" aria-busy="true" className="csp-s-0119" aria-label="Carregando notificações">
+                  {[0, 1, 2].map((i) => <div key={i} className="csp-s-0120"><Skeleton width={16} height={16} radius="var(--r-pill)" /><SkeletonText lines={2} /></div>)}
                 </div>
               ) : error ? (
-                <p style={{ padding: 16, color: "var(--negative)", font: "var(--text-role-body)" }}>
+                <p className="csp-s-0121">
                   Erro ao carregar notificações.
                 </p>
               ) : notifications.length === 0 ? (
-                <p style={{ padding: 16, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+                <p className="csp-s-0122">
                   Nenhuma notificação por enquanto.
                 </p>
               ) : (
@@ -86,22 +86,16 @@ export function NotificationsBell() {
                   return (
                     <div
                       key={n.id}
-                      style={{
-                        display: "flex",
-                        gap: 10,
-                        alignItems: "flex-start",
-                        padding: "10px 16px",
-                        borderBottom: "1px solid var(--border-card)",
-                      }}
+                      className="csp-s-0123"
                     >
                       <span style={{ color, flexShrink: 0, marginTop: 2 }}>
                         <Icon name={name} size={16} />
                       </span>
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ margin: 0, color: "var(--text-body)", font: "var(--text-role-body)" }}>
+                      <div className="csp-s-0124">
+                        <p className="csp-s-0125">
                           {n.description || n.type || "Atividade registrada"}
                         </p>
-                        <p style={{ margin: "2px 0 0", color: "var(--text-muted)", font: "var(--text-role-label)" }}>
+                        <p className="csp-s-0126">
                           {new Date(n.created_at).toLocaleString("pt-BR")}
                         </p>
                       </div>

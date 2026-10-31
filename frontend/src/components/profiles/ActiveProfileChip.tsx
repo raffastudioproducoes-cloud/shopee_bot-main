@@ -25,7 +25,7 @@ export function ActiveProfileChip() {
       }}
     >
       <Avatar name={activeProfile.nome} src={activeProfile.avatar_url} size={36} />
-      <span style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <span className="csp-s-0072">
         {activeProfile.nome}
       </span>
     </Link>

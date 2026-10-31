@@ -122,8 +122,8 @@ export function ListasPage() {
 
   if (!listsData) {
     return (
-      <div style={{ textAlign: "center", padding: "48px 0" }}>
-        <p style={{ color: "var(--text-muted)" }}>Erro ao carregar as listas.</p>
+      <div className="csp-s-0274">
+        <p className="csp-s-0275">Erro ao carregar as listas.</p>
         <Button variant="primary" onClick={() => router.navigate({ to: "/login" })} style={{ marginTop: 16 }}>
           Voltar ao login
         </Button>
@@ -134,13 +134,13 @@ export function ListasPage() {
   // ── Page ────────────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+    <div className="csp-s-0276">
       {/* Header */}
       <header className="lists-page-header" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <div>
-          <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Listas de Produtos</h1>
-          <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Agrupe seus produtos em listas.</p>
-          <div style={{ marginTop: 10 }}>
+          <h1 className="csp-s-0277">Listas de Produtos</h1>
+          <p className="csp-s-0278">Agrupe seus produtos em listas.</p>
+          <div className="csp-s-0279">
             <ViewSwitcher value={view} onChange={setView} />
           </div>
         </div>
@@ -159,7 +159,7 @@ export function ListasPage() {
       {/* Lists */}
       {lists.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
-          <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhuma lista criada.</p>
+          <p className="csp-s-0280">Nenhuma lista criada.</p>
           <Button
             variant="primary"
             style={{ marginTop: 16 }}
@@ -180,17 +180,7 @@ export function ListasPage() {
               subtitle={`${list.product_count ?? 0} produto${list.product_count !== 1 ? "s" : ""}`}
               thumbnail={
                 <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 40,
-                    height: 40,
-                    borderRadius: "var(--r-md)",
-                    background: "var(--surface-inset)",
-                    color: "var(--text-muted)",
-                    flexShrink: 0,
-                  }}
+                  className="csp-s-0281"
                 >
                   <Icon name="sliders-horizontal" size={18} />
                 </span>
@@ -233,17 +223,17 @@ export function ListasPage() {
                   category: `${list.product_count ?? 0} ${list.product_count === 1 ? "item" : "itens"}`,
                   content:
                     list.products && list.products.length > 0 ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div className="csp-s-0282">
                         {list.products.slice(0, 6).map((p) => (
-                          <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-                            <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>
+                          <div key={p.id} className="csp-s-0283">
+                            <span className="csp-s-0284">{p.name}</span>
+                            <span className="csp-s-0285">
                               {formatPriceRange(p.price_min, null)}
                             </span>
                           </div>
                         ))}
                         {list.products.length > 6 ? (
-                          <span style={{ color: "var(--text-muted)" }}>+{list.products.length - 6} mais</span>
+                          <span className="csp-s-0286">+{list.products.length - 6} mais</span>
                         ) : null}
                       </div>
                     ) : (
@@ -336,23 +326,16 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
 
   return (
     <Modal open onClose={onClose} title={list ? "Editar lista" : "Nova lista"} width={440}>
-      <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginTop: 0, marginBottom: 16 }}>
+      <p className="csp-s-0287">
         {list ? "Altere o nome da lista e os produtos associados." : "Digite um nome e escolha os produtos da nova lista."}
       </p>
       <form onSubmit={handleSubmit}>
         <TextInput label="Nome *" value={name} onChange={(e) => setName(e.target.value)} required />
 
         {(
-          <div style={{ marginTop: 16 }}>
+          <div className="csp-s-0288">
             <span
-              style={{
-                display: "block",
-                font: "var(--text-role-label)",
-                letterSpacing: "var(--ls-label)",
-                textTransform: "uppercase",
-                color: "var(--text-muted)",
-                marginBottom: 6,
-              }}
+              className="csp-s-0289"
             >
               Produtos
             </span>
@@ -365,24 +348,15 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
               />
             ) : null}
             <div
-              style={{
-                maxHeight: 240,
-                overflowY: "auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                border: "1px solid var(--border-hairline)",
-                borderRadius: "var(--r-md)",
-                padding: 8,
-              }}
+              className="csp-s-0290"
             >
               {filteredProducts.length === 0 ? (
-                <span style={{ color: "var(--text-muted)", padding: 4 }}>Nenhum produto encontrado.</span>
+                <span className="csp-s-0291">Nenhum produto encontrado.</span>
               ) : (
                 filteredProducts.map((p) => (
-                  <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  <label key={p.id} className="csp-s-0292">
                     <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleProduct(p.id)} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                    <span className="csp-s-0293">{p.name}</span>
                   </label>
                 ))
               )}
@@ -390,7 +364,7 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
           </div>
         )}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 20 }}>
+        <div className="csp-s-0294">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
@@ -414,10 +388,10 @@ interface DeleteModalProps {
 function DeleteModal({ onClose, onConfirm, loading }: DeleteModalProps) {
   return (
     <Modal open onClose={onClose} title="Confirmar remoção" width={400}>
-      <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginBottom: 20 }}>
+      <p className="csp-s-0295">
         Tem certeza que deseja remover esta lista? Esta ação não pode ser desfeita.
       </p>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+      <div className="csp-s-0296">
         <Button variant="ghost" onClick={onClose}>
           Cancelar
         </Button>

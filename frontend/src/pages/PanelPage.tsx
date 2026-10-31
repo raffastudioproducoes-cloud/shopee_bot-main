@@ -159,7 +159,7 @@ export function PanelPage() {
         />
 
         {logoutError && <StatusMessage kind="error" onDismiss={() => setLogoutError(false)}>Não foi possível encerrar a sessão. Tente novamente.</StatusMessage>}
-        <main style={{ flex: 1, minWidth: 0 }}>
+        <main className="csp-s-0313">
           <Outlet />
         </main>
         <AppFooter variant="app" />

@@ -34,16 +34,16 @@ export default function LogsPage() {
   const applyFilters = () => setOffset(0)
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+    <div className="csp-s-0297">
       <div>
-        <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Logs</h1>
-        <p style={{ color: "var(--text-muted)", marginTop: 4 }}>
+        <h1 className="csp-s-0298">Logs</h1>
+        <p className="csp-s-0299">
           Histórico operacional sem identidades, parâmetros de rota ou diagnósticos em texto livre.
         </p>
       </div>
 
       <Panel surface="dark" style={{ padding: 16 }}>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="csp-s-0300">
           <TextInput
             label="Status code"
             value={statusCode}
@@ -59,13 +59,7 @@ export default function LogsPage() {
 
       {error && (
         <div
-          style={{
-            padding: "12px 16px",
-            borderRadius: "var(--r-md)",
-            font: "var(--fw-medium) var(--fs-body)/1.3 var(--font-sans)",
-            background: "var(--negative-on-glass)",
-            color: "var(--negative-ink)",
-          }}
+          className="csp-s-0301"
         >
           {(error as Error).message}
         </div>
@@ -74,13 +68,13 @@ export default function LogsPage() {
       <PageState loading={isLoading} skeleton={<PageSkeleton variant="table" heading={false} />}>
       {rows.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
-          <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>Nenhum log encontrado.</p>
+          <p className="csp-s-0302">Nenhum log encontrado.</p>
         </Panel>
       ) : (
         <Panel surface="dark" style={{ padding: 0, overflow: "auto", maxHeight: TABLE_MAX_HEIGHT }}>
-          <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse", font: "var(--fw-regular) var(--fs-body)/1.3 var(--font-sans)" }}>
+          <table className="csp-s-0303">
             <thead>
-              <tr style={{ textAlign: "left", color: "var(--text-muted)" }}>
+              <tr className="csp-s-0304">
                 <th style={STICKY_TH}>Timestamp</th>
                 <th style={STICKY_TH}>Ação / rota</th>
                 <th style={STICKY_TH}>Status</th>
@@ -89,19 +83,19 @@ export default function LogsPage() {
             </thead>
             <tbody>
               {rows.map((row, index) => (
-                <tr key={`${row.created_at}:${index}`} style={{ borderBottom: "1px solid var(--border-hairline)" }}>
-                  <td style={{ padding: "10px 16px", whiteSpace: "nowrap", color: "var(--text-muted)" }}>
+                <tr key={`${row.created_at}:${index}`} className="csp-s-0305">
+                  <td className="csp-s-0306">
                     {new Date(row.created_at).toLocaleString("pt-BR")}
                   </td>
-                  <td style={{ padding: "10px 16px" }}>{row.method} {row.path}</td>
-                  <td style={{ padding: "10px 16px" }}>
+                  <td className="csp-s-0307">{row.method} {row.path}</td>
+                  <td className="csp-s-0308">
                     {row.status_code ? (
                       <Badge tone={row.status_code >= 400 ? "outline" : "mint"}>{row.status_code}</Badge>
                     ) : (
                       "—"
                     )}
                   </td>
-                  <td style={{ padding: "10px 16px", color: "var(--text-muted)" }}>
+                  <td className="csp-s-0309">
                     {row.duration_ms != null ? `${row.duration_ms}ms` : "—"}
                   </td>
                 </tr>
@@ -112,11 +106,11 @@ export default function LogsPage() {
       )}
       </PageState>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ color: "var(--text-muted)", font: "var(--fs-small)" }}>
+      <div className="csp-s-0310">
+        <span className="csp-s-0311">
           {total > 0 ? `${offset + 1}–${Math.min(offset + PAGE_SIZE, total)} de ${total}` : null}
         </span>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="csp-s-0312">
           <Button variant="ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
             Anterior
           </Button>

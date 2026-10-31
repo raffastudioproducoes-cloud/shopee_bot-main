@@ -17,14 +17,14 @@ interface ConfirmModalProps {
 export function ConfirmModal({ title, confirmLabel, busyLabel, loading, error, onConfirm, onClose, children }: ConfirmModalProps) {
   return (
     <Modal open onClose={onClose} title={title} width={420}>
-      <div role="alertdialog" aria-label={title} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ color: "var(--text-muted)", font: "var(--text-role-body)" }}>{children}</div>
+      <div role="alertdialog" aria-label={title} className="csp-s-0083">
+        <div className="csp-s-0084">{children}</div>
         {error && (
-          <p role="alert" style={{ margin: 0, color: "var(--negative-on-glass)" }}>
+          <p role="alert" className="csp-s-0085">
             {error}
           </p>
         )}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <div className="csp-s-0086">
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>

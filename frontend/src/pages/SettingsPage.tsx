@@ -62,14 +62,14 @@ export function SettingsPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+    <div className="csp-s-0379">
       <div>
-        <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Configurações</h1>
-        <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Ajustes da sua conta.</p>
+        <h1 className="csp-s-0380">Configurações</h1>
+        <p className="csp-s-0381">Ajustes da sua conta.</p>
       </div>
       <Panel className="settings-password-card" padding={24} style={{ maxWidth: 420 }}>
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <h2 style={{ font: "var(--text-role-title)", margin: 0 }}>Trocar senha</h2>
+        <form onSubmit={handleSubmit} className="csp-s-0382">
+          <h2 className="csp-s-0383">Trocar senha</h2>
           <TextInput
             label="Senha atual"
             type="password"
@@ -92,7 +92,7 @@ export function SettingsPage() {
             onChange={(e) => setConfirmPassword(e.target.value)}
           />
           {tooManyBytes && (
-            <p role="alert" style={{ margin: 0, color: "var(--negative-on-glass)" }}>
+            <p role="alert" className="csp-s-0384">
               A senha excede {MAX_BYTES} bytes ({newBytes}). Emojis e acentos ocupam mais de 1 byte; use uma senha mais curta.
             </p>
           )}
@@ -100,21 +100,21 @@ export function SettingsPage() {
             Salvar nova senha
           </Button>
           {status.kind === "done" && (
-            <p role="status" style={{ margin: 0, color: "var(--text-body)" }}>
+            <p role="status" className="csp-s-0385">
               Senha atualizada.
             </p>
           )}
           {status.kind === "error" && (
-            <p role="alert" style={{ margin: 0, color: "var(--negative-on-glass)" }}>
+            <p role="alert" className="csp-s-0386">
               {status.message}
             </p>
           )}
         </form>
       </Panel>
-      <section aria-labelledby="privacy-settings-title" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <section aria-labelledby="privacy-settings-title" className="csp-s-0387">
         <div>
-          <h2 id="privacy-settings-title" style={{ font: 'var(--text-role-title)', margin: 0 }}>Privacidade, localização e origem</h2>
-          <p style={{ color: 'var(--text-muted)', marginTop: 4 }}>Controle seus dados opcionais e autorizações.</p>
+          <h2 id="privacy-settings-title" className="csp-s-0388">Privacidade, localização e origem</h2>
+          <p className="csp-s-0389">Controle seus dados opcionais e autorizações.</p>
         </div>
         <RegionConsent />
         <AcquisitionConsent />

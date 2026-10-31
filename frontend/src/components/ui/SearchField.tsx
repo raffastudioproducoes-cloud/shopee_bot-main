@@ -54,15 +54,7 @@ export function SearchField({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        style={{
-          flex: 1,
-          minWidth: 0,
-          background: "none",
-          border: "none",
-          outline: "none",
-          color: "var(--text-body)",
-          font: "var(--text-role-body)",
-        }}
+        className="csp-s-0130"
       />
     </label>
   )
