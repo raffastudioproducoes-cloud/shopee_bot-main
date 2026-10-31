@@ -393,6 +393,8 @@ function RegisterModal({ onClose }: RegisterModalProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [gpsOptIn, setGpsOptIn] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -456,11 +458,16 @@ function RegisterModal({ onClose }: RegisterModalProps) {
           disabled={!!success}
         />
 
+        <div style={{display:'grid',gap:12,fontSize:13}}>
+          <label><input type="checkbox" checked={acceptedTerms} onChange={e=>setAcceptedTerms(e.target.checked)}/> Aceito os <a href="/termos" target="_blank" rel="noreferrer">Termos de Uso</a> e li a <a href="/privacidade" target="_blank" rel="noreferrer">Política de Privacidade</a> e a <a href="/dados-coletados" target="_blank" rel="noreferrer">lista de dados tratados</a>. (Obrigatório)</label>
+          <label><input type="checkbox" checked={gpsOptIn} onChange={e=>setGpsOptIn(e.target.checked)}/> Autorizo opcionalmente a consulta de localização aproximada quando eu clicar para usar o GPS no site. Sem monitoramento contínuo.</label>
+          <small>O navegador pedirá permissão separadamente. Recusar GPS não impede a criação da conta, e a opção pode ser revogada em Perfis.</small>
+        </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" disabled={loading || !!success}>
+          <Button type="submit" variant="primary" disabled={loading || !!success || !acceptedTerms}>
             {loading ? 'Criando...' : 'Criar conta'}
           </Button>
         </div>
