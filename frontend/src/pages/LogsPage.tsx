@@ -11,7 +11,6 @@ const PAGE_SIZE = 50
 
 // ~10 linhas visiveis (cabecalho ~40px + 10 x ~46px); o resto rola dentro do painel.
 const TABLE_MAX_HEIGHT = 500
-const STICKY_TH = { padding: "10px 16px", position: "sticky", top: 0, zIndex: 1, background: "var(--surface-card)", boxShadow: "inset 0 -1px 0 var(--border-hairline)" } as const
 
 export default function LogsPage() {
   const [offset, setOffset] = useState(0)
@@ -75,10 +74,10 @@ export default function LogsPage() {
           <table className="csp-s-0303">
             <thead>
               <tr className="csp-s-0304">
-                <th style={STICKY_TH}>Timestamp</th>
-                <th style={STICKY_TH}>Ação / rota</th>
-                <th style={STICKY_TH}>Status</th>
-                <th style={STICKY_TH}>Duração</th>
+                <th className="csp-named-sticky-th">Timestamp</th>
+                <th className="csp-named-sticky-th">Ação / rota</th>
+                <th className="csp-named-sticky-th">Status</th>
+                <th className="csp-named-sticky-th">Duração</th>
               </tr>
             </thead>
             <tbody>

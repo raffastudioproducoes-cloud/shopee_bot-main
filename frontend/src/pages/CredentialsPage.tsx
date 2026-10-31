@@ -32,19 +32,6 @@ const SIMPLE_NETWORKS: { key: SimpleNetwork; label: string }[] = [
 
 // Grade de 2 colunas que colapsa pra 1 em telas estreitas (mesmo efeito do
 // antigo `grid-cols-1 sm:grid-cols-2`, sem depender de breakpoint Tailwind).
-const FIELD_GRID = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: 12,
-} as const
-
-const CARD_GRID = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))",
-  gap: 16,
-  alignItems: "start",
-} as const
-
 type OAuthNetwork = "threads" | "x" | "facebook" | "tiktok" | "instagram"
 
 const OAUTH_CONSENT: Record<OAuthNetwork, { label: string; details: string }> = {
@@ -288,7 +275,7 @@ export function CredentialsPage() {
 
   if (isLoading) {
     return (
-      <SkeletonRegion><div className="csp-s-0197"><div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="360px" /></div><div className="credentials-card-grid" style={CARD_GRID}>{[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
+      <SkeletonRegion><div className="csp-s-0197"><div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="360px" /></div><div className="credentials-card-grid csp-named-card-grid">{[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
     )
   }
 
@@ -317,7 +304,7 @@ export function CredentialsPage() {
 
       {/* Grade responsiva: cards lado a lado no desktop, 1 coluna no celular.
           Um novo card (ex.: chave de IA) entra como mais um filho desta grade. */}
-      <div className="credentials-card-grid" style={CARD_GRID}>
+      <div className="credentials-card-grid csp-named-card-grid">
         {SIMPLE_NETWORKS.map((network) => (
           <SimpleCredentialCard
             key={network.key}
@@ -533,7 +520,7 @@ function SimpleCredentialCard({
             )}
           </div>
         )}
-        <div style={FIELD_GRID}>
+        <div className="csp-named-field-grid">
           <TextInput
             label="App ID"
             value={appId}
@@ -669,7 +656,7 @@ function AiCredentialCard({
         <a href={info.helpUrl} target="_blank" rel="noreferrer" className="csp-s-0212">
           Como obter a chave da {info.label} ↗
         </a>
-        <div style={FIELD_GRID}>
+        <div className="csp-named-field-grid">
           <TextInput
             label="Chave de API"
             type="password"

@@ -95,16 +95,24 @@ def set_security_headers(response):
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net"
         if legacy_template else "script-src 'self'"
     )
+    # O painel Jinja legado ainda depende de CSS inline. A excecao so
+    # existe quando o rollback LEGACY_PANEL_ENABLED for ativado; o SPA e
+    # todas as demais rotas usam a politica restrita.
+    style_src = (
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com"
+        if legacy_template else "style-src 'self' https://fonts.googleapis.com"
+    )
+    spa_style_directives = (
+        "style-src-elem 'self' https://fonts.googleapis.com; "
+        "style-src-attr 'none'; "
+        if endpoint == "spa.spa_catch_all" else ""
+    )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         f"{script_src}; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        # Na SPA nao ha mais tags <style>: impedir injeção de folhas inline.
-        # style-src-attr continua temporariamente herdando unsafe-inline ate
-        # a migracao de todos os atributos style={} dos componentes React.
-        + ("style-src-elem 'self' https://fonts.googleapis.com; "
-           if endpoint == "spa.spa_catch_all" else "")
-        + "img-src 'self' data: https:; "
+        f"{style_src}; "
+        f"{spa_style_directives}"
+        "img-src 'self' data: https:; "
         "font-src 'self' data: https://fonts.gstatic.com; "
         "connect-src 'self' https://*.supabase.co https://graph.threads.net; "
         "frame-ancestors 'none'"

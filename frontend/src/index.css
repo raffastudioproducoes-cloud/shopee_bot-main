@@ -11,6 +11,7 @@
 @import "./styles/mobile.css";
 @import "./styles/scrollbars.css";
 @import "./styles/csp-static-generated.css";
+@import "./styles/csp-named-styles.css";
 
 @theme {
   --color-primary: #1A5BE1;

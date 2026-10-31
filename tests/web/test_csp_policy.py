@@ -98,3 +98,19 @@ def test_generated_stylesheet_covers_all_static_csp_classes():
         referenced.update(re.findall(r"className=\"((?:csp-s-)\d{4})\"", component.read_text(encoding="utf-8")))
     assert len(declared) >= 399
     assert declared == referenced, "Cada classe CSP estatica deve existir no CSS e ser usada no JSX"
+
+
+def test_spa_style_policy_omits_unsafe_inline_and_blocks_html_style_attributes():
+    with app.test_client() as client:
+        policy = client.get("/").headers["Content-Security-Policy"]
+    assert "style-src 'self' https://fonts.googleapis.com;" in policy
+    assert "style-src-elem 'self' https://fonts.googleapis.com;" in policy
+    assert "style-src-attr 'none';" in policy
+    assert "'unsafe-inline'" not in policy
+
+
+def test_default_security_policy_blocks_inline_styles_when_legacy_is_disabled():
+    with app.test_client() as client:
+        policy = client.get("/health").headers["Content-Security-Policy"]
+    assert "style-src 'self' https://fonts.googleapis.com;" in policy
+    assert "'unsafe-inline'" not in policy

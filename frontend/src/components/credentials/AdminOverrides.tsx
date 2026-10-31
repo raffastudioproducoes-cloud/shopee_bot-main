@@ -35,7 +35,6 @@ const FIELDS: Record<OverrideKind, Array<{ key: string; label: string; secret?: 
   kwai: [{ key: 'appId', label: 'App ID' }, { key: 'secret', label: 'Secret', secret: true }],
 }
 
-const GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 } as const
 
 export function AdminOverrides({ onSaved, onAuthError, setBanner }: {
   onSaved: () => void
@@ -95,7 +94,7 @@ function ManualOverrideCard({ network, onSaved, onAuthError, setBanner }: {
             Portal de desenvolvedores
           </a>
         </div>
-        <div style={GRID}>
+        <div className="csp-named-admin-grid">
           {fields.map((field) => (
             <TextInput
               key={field.key}
