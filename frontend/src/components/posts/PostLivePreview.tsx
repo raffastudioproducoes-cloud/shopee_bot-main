@@ -44,7 +44,7 @@ function PreviewMediaBlock({ item, vertical, instagram, index, count, previous, 
   item?: PreviewMedia; vertical?: boolean; instagram?: boolean; index: number; count: number;
   previous: () => void; next: () => void;
 }) {
-  return <div className={"post-preview-media" + (vertical ? " is-portrait" : instagram ? " is-instagram" : "")}>
+  return <div className={"post-preview-media" + (vertical ? " is-portrait" : instagram ? " is-instagram" : "") + (!item ? " is-empty" : "")}>
     {!item && <div className="post-preview-empty-media">
       <Eye size={28} aria-hidden="true" />
       <span>Adicione uma foto ou vídeo para visualizar aqui</span>
@@ -110,6 +110,7 @@ export function PostLivePreview({
   const showProductName = products.length > 0
 
   return <aside className="post-live-preview" aria-label="Pré-visualização da publicação">
+    <div className="post-preview-toolbar">
     <header className="post-preview-heading">
       <div><strong>Visualização da postagem</strong><span>Simulação · atualiza enquanto você edita</span></div>
       <button type="button" aria-label="Fechar visualização" onClick={onClose}><X size={20} /></button>
@@ -121,6 +122,7 @@ export function PostLivePreview({
         <NetworkLogo network={item} size={18} />
         <span>{NAMES[item]}</span>
       </button>)}
+    </div>
     </div>
     <div className="post-preview-stage">
       <div className="post-preview-stage-top">
