@@ -77,3 +77,8 @@
   .post-preview-social{width:100%;max-width:390px}
   .post-preview-vertical-player{width:min(100%,calc(59dvh * 9 / 16));max-height:59dvh}
 }
+
+.post-composer-shopee-media{padding:10px 12px;border:1px solid var(--border-hairline);border-radius:var(--r-md);background:var(--surface-inset)}
+.post-composer-shopee-media label{display:flex;align-items:center;gap:9px;color:var(--text-body);font:var(--text-role-body);cursor:pointer}
+.post-composer-shopee-media input{width:16px;height:16px;accent-color:var(--accent)}
+.post-composer-shopee-media p{margin:7px 0 0;color:var(--text-muted);font:var(--text-role-caption);line-height:1.5}
