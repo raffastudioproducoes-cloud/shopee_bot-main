@@ -61,8 +61,18 @@
 .post-preview-warning{padding:9px 10px;background:rgba(241,164,39,.09);border:1px solid rgba(241,164,39,.25);border-radius:var(--r-sm);color:var(--amber-300)}
 .post-preview-note{color:var(--text-body)}
 @media(max-width:920px){
+  /* Isola a leitura da prévia do formulário e do modal que continuam atrás. */
+  .post-composer-layout.is-preview-open::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    z-index:99;
+    background:rgba(1,7,25,.72);
+    -webkit-backdrop-filter:blur(12px);
+    backdrop-filter:blur(12px);
+  }
   .post-composer-layout.is-preview-open{grid-template-columns:minmax(0,1fr)}
-  .post-live-preview{position:fixed;inset:12px;z-index:100;max-height:none;height:calc(100dvh - 24px);overflow-y:auto;box-shadow:0 16px 70px #000c}
+  .post-live-preview{position:fixed;inset:12px;z-index:100;max-height:none;height:calc(100dvh - 24px);overflow-y:auto;background:var(--surface-card);box-shadow:0 16px 70px #000c}
   .post-preview-stage{padding:0 16px 18px}
   .post-preview-social{max-width:390px}
   .post-preview-vertical-player{width:min(100%,calc(62dvh * 9 / 16));max-height:62dvh}
