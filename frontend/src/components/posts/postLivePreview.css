@@ -77,15 +77,29 @@
   .post-preview-social{max-width:390px}
   .post-preview-vertical-player{width:min(100%,calc(62dvh * 9 / 16));max-height:62dvh}
 }
-@media(max-width:560px){
+@media(max-width:600px){
   .post-composer-title{gap:8px}
   .post-composer-title .post-preview-toggle{padding:6px 8px}
   .post-live-preview{inset:0;width:100%;height:100dvh;border-radius:0;border:none}
-  .post-preview-heading{position:sticky;top:0;z-index:7;background:var(--surface-inset);border-bottom:1px solid var(--border-hairline);padding:10px 12px}
-  .post-preview-tabs{position:sticky;top:57px;z-index:6;background:var(--surface-inset);padding:8px 10px}
-  .post-preview-stage{padding:4px 12px 20px}
-  .post-preview-social{width:100%;max-width:390px}
-  .post-preview-vertical-player{width:min(100%,calc(59dvh * 9 / 16));max-height:59dvh}
+  /* Barra unificada: acompanha a rolagem sem sobrepor o titulo e as abas. */
+  .post-preview-toolbar{position:sticky;top:0;z-index:8;background:var(--surface-card);box-shadow:0 6px 18px rgba(0,0,0,.22)}
+  .post-preview-heading{position:static;background:var(--surface-card);padding:9px 12px 6px;gap:8px}
+  .post-preview-heading>button{min-width:40px;min-height:40px;flex-shrink:0}
+  .post-preview-tabs{position:static;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;overflow:visible;padding:6px 10px 10px;background:var(--surface-card)}
+  .post-preview-tabs button{min-width:0;min-height:42px;gap:4px;padding:6px 3px;font-size:11px;white-space:nowrap}
+  .post-preview-tabs button svg{width:15px;height:15px;flex-shrink:0}
+  .post-preview-stage{padding:8px 10px 18px}
+  .post-preview-stage-top{gap:5px;margin-bottom:8px;font-size:11px}
+  .post-preview-social{width:100%;max-width:330px}
+  .post-preview-author{padding:9px 10px 7px;gap:7px}
+  .post-preview-avatar:not(.is-small){flex-basis:32px;width:32px;height:32px}
+  .post-preview-actions:not(.is-vertical){gap:12px;padding:8px 10px}
+  .post-preview-caption{font-size:12px;line-height:1.45}
+  /* Sem midia: mostrar o texto e os controles, nao um quadro vazio gigante. */
+  .post-preview-media.is-empty:not(.is-portrait){aspect-ratio:auto;height:clamp(170px,28dvh,220px);min-height:0}
+  .post-preview-empty-media{gap:7px;padding:14px}
+  .post-preview-vertical-player{width:min(100%,calc(52dvh * 9 / 16));max-height:52dvh}
+  .post-preview-warning,.post-preview-note,.post-preview-disclaimer{margin-top:8px;font-size:11px;line-height:1.45}
 }
 
 .post-composer-shopee-media{padding:10px 12px;border:1px solid var(--border-hairline);border-radius:var(--r-md);background:var(--surface-inset)}
