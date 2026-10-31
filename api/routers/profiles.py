@@ -110,6 +110,35 @@ async def list_profiles(user_id: str = Depends(get_current_user_id)):
     return result.data
 
 
+
+# Independent, revocable regional preference. Never inferred from profile addresses or IPs.
+ALLOWED_REGIONS = frozenset(("BR-RJ","BR-SP","BR-MG","BR-BA","BR-OTHER","PT","US","GB","DE","JP","AU","OTHER"))
+
+
+class RegionPreference(BaseModel):
+    region: str
+    consent: bool = False
+
+
+@router.get("/region-preference")
+async def get_region_preference(user_id: str = Depends(get_current_user_id)):
+    result = supabase.table("account_region_preferences").select("region").eq("user_id", user_id).maybe_single().execute()
+    return {"region": result.data.get("region") if result.data else None, "consented": bool(result.data)}
+
+
+@router.put("/region-preference")
+async def put_region_preference(body: RegionPreference, user_id: str = Depends(get_current_user_id)):
+    if not body.consent or body.region not in ALLOWED_REGIONS:
+        raise HTTPException(status_code=422, detail="Selecione uma região válida e confirme o consentimento.")
+    supabase.table("account_region_preferences").upsert({"user_id": user_id, "region": body.region}, on_conflict="user_id").execute()
+    return {"region": body.region, "consented": True}
+
+
+@router.delete("/region-preference")
+async def delete_region_preference(user_id: str = Depends(get_current_user_id)):
+    supabase.table("account_region_preferences").delete().eq("user_id", user_id).execute()
+    return {"region": None, "consented": False}
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_profile(body: ProfileCreate, user_id: str = Depends(get_current_user_id)):
     _check_login_rate_limit(f"profile-create:{user_id}")
