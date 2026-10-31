@@ -73,3 +73,53 @@ Depois de revisão e implantação autorizadas, um job de backend pode chamar `S
 
 Avisos locais usam apenas bloqueios/transações/429 e amostras recentes compatíveis de CPU/RAM. Nenhuma ação automática de escala foi implementada. Sem sinais disponíveis, a interface não declara a operação saudável.
 
+
+## Storage global Free e egress (31/10/2026)
+
+O mesmo ADMIN, em **Capacidade e crescimento**, mostra agora bytes ocupados e
+reservados, numero de objetos por bucket, referencia da cota do plano Free
+(1 GiB), percentual e horarios da amostra. Dados vem de
+`admin_storage_snapshot()` (migração 058), atraves da credencial server-side
+`service_role`; não retorna chaves de objetos nem IDs de usuarios. Sao
+incluidos os buckets `post-media`, `avatars` e quaisquer outros do mesmo
+projeto. A amostra é pontual: não corresponde a GB-hora faturado no mês.
+
+Alertas informativos em 75% e critico em 85%; **bloqueio global
+preventivo em 90%** da referencia de 1 GiB. Os tres caminhos de upload
+(`/posts/media-drafts`, `/posts/product-image-drafts/{product_id}`,
+`/posts/{post_id}/media` e `/profiles/{profile_id}/avatar`)
+passam pela mesma reserva backend. O importador Shopee usa o mesmo pipeline
+de rascunhos, portanto não cria uma rota desprotegida. A reserva transacional
+conta uploads em voo entre instancias de staging e main. Uma requisicao que
+excederia o limite recebe HTTP 507 antes do envio; se a medicao falhar,
+HTTP 503 sem gravar arquivo novo. Reservas nao liberadas por falha do processo
+expiram em 30 minutos. Cota individual por usuario/perfil **nao implementada**
+por decisao do produto.
+
+**Egress:** o consumo faturável é agregado de banco, Storage, autenticação
+e demais servicos; não é a largura de banda do Render. A credencial
+`service_role` do app nao fornece o total de billing da organizacao.
+Por isso o painel oferece acesso direto ao **Supabase Usage** como fonte
+oficial, sem exibir numero aproximado ou falsamente atualizado.
+A consulta oficial do mês deve ser acompanhada pelo administrador;
+não há coleta automatica de egress no backend. **Nao adicionar uma chave de
+gestão do Supabase sem uma decisao posterior**, nem contratar serviços.
+
+Para aplicar o controle: execute
+`database/migrations/058_admin_storage_capacity.sql` **uma vez** no projeto
+Supabase compartilhado, com privilégios de administrador, e valide suas
+permissoes (apenas `service_role`). Depois implante staging, confira
+`GET /admin/metrics` com ADMIN e os testes automatizados, e promova para
+main. O SQL e aditivo, nao cria policies em `storage.objects` e nao inclui
+migracao destructiva. A tabela `storage_upload_reservations` não armazena
+identidades, objetos nem credenciais, apenas bytes, UUID e expiracao.
+Em caso de falha do RPC, investigar antes de ativar uploads: a aplicacao
+falha fechada propositalmente.
+
+Referencias: [Supabase tamanho de Storage](https://supabase.com/docs/guides/platform/manage-your-usage/storage-size),
+[Supabase egress](https://supabase.com/docs/guides/storage/serving/bandwidth).
+
+A migração corretiva `059_revoke_storage_reservation_direct_grants.sql`
+revoga também os privilégios diretos concedidos automaticamente pelo
+Supabase a `service_role` na tabela de reservas. O backend permanece com
+acesso por RPC `SECURITY DEFINER` apenas, sem consultas diretas.

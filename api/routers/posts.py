@@ -46,6 +46,7 @@ from .profiles import get_current_profile_id
 from ..profiles import scope_account, scope_owner
 from ..audit_log import log_action
 from ..database import supabase
+from ..storage_capacity import storage_upload_reservation
 from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail, is_network_disabled
 from ..media_composition import plan_network_composition
@@ -1301,13 +1302,17 @@ def _store_sanitized_draft(media, user_id: int, profile_id: str) -> dict:
         raise HTTPException(status_code=500, detail="Não foi possível preparar a mídia.")
 
     try:
-        supabase.storage.from_(MEDIA_DRAFT_BUCKET).upload(
-            storage_key, content, {"content-type": mime, "upsert": "false"}
-        )
+        with storage_upload_reservation(len(content)):
+            try:
+                supabase.storage.from_(MEDIA_DRAFT_BUCKET).upload(
+                    storage_key, content, {"content-type": mime, "upsert": "false"}
+                )
+            except Exception:
+                logger.warning("Falha ao guardar rascunho de mídia", exc_info=True)
+                raise HTTPException(status_code=502, detail="Não foi possível enviar a mídia agora. Tente novamente.")
     except Exception:
         supabase.table("temporary_media_uploads").delete().eq("id", upload_id).eq("status", "uploading").execute()
-        logger.warning("Falha ao guardar rascunho de mídia", exc_info=True)
-        raise HTTPException(status_code=502, detail="Não foi possível enviar a mídia agora. Tente novamente.")
+        raise
 
     updated = (
         supabase.table("temporary_media_uploads")
@@ -1571,13 +1576,14 @@ async def upload_media(
 
     # chave gerada no servidor (uuid + extensão real); NUNCA vem de `file.filename`
     storage_key = f"posts/{user_id}/{profile_id}/{post_id}/{uuid.uuid4().hex}{media.extension}"
-    try:
-        supabase.storage.from_(MEDIA_DRAFT_BUCKET).upload(
-            storage_key, content, {"content-type": media.mime_type, "upsert": "false"}
-        )
-    except Exception:
-        logger.warning("Falha ao guardar mídia do post", exc_info=True)
-        raise HTTPException(status_code=502, detail="Não foi possível enviar a mídia agora. Tente novamente.")
+    with storage_upload_reservation(len(content)):
+        try:
+            supabase.storage.from_(MEDIA_DRAFT_BUCKET).upload(
+                storage_key, content, {"content-type": media.mime_type, "upsert": "false"}
+            )
+        except Exception:
+            logger.warning("Falha ao guardar mídia do post", exc_info=True)
+            raise HTTPException(status_code=502, detail="Não foi possível enviar a mídia agora. Tente novamente.")
 
     file_path = f"{STORAGE_SCHEME}{MEDIA_DRAFT_BUCKET}/{storage_key}"
     media_result = (

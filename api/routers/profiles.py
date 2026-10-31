@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from ..database import supabase
+from ..storage_capacity import storage_upload_reservation
 from ..media_sanitizer import JPEG, PNG, WEBP, MediaSanitizerError, detect_media_type, sanitize_media_upload
 from ..profiles import PROFILE_LIMIT, can_create_profile, is_principal
 from .auth import (
@@ -424,9 +425,10 @@ async def upload_avatar(
         raise HTTPException(status_code=400, detail="Arquivo não é uma imagem válida.") from None
 
     path = f"{profile_id}/avatar{media.extension}"
-    supabase.storage.from_(AVATAR_BUCKET).upload(
-        path, media.content, {"content-type": media.mime_type, "upsert": "true"}
-    )
+    with storage_upload_reservation(len(media.content)):
+        supabase.storage.from_(AVATAR_BUCKET).upload(
+            path, media.content, {"content-type": media.mime_type, "upsert": "true"}
+        )
     public_url = supabase.storage.from_(AVATAR_BUCKET).get_public_url(path)
 
     supabase.table("profiles").update({"avatar_url": public_url}).eq(

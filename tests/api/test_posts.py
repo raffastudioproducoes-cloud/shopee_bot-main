@@ -90,6 +90,9 @@ def _mock_supabase_for_upload(monkeypatch):
         return query
 
     fake_client.table.side_effect = table_side_effect
+    fake_client.rpc.return_value.execute.return_value = MagicMock(data={
+        "allowed": True, "reservation_id": "22222222-2222-4222-8222-222222222222",
+    })
     monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
     return fake_client
 

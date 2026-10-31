@@ -30,6 +30,8 @@ def _client(fake_db, monkeypatch, profile_id="profile-a"):
     db.storage = MagicMock()
     monkeypatch.setattr(posts_module, "supabase", db)
     monkeypatch.setattr(posts_module, "cleanup_expired_media_drafts", lambda: None)
+    from contextlib import nullcontext
+    monkeypatch.setattr(posts_module, "storage_upload_reservation", lambda size: nullcontext())
     return TestClient(app), db
 
 

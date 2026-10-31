@@ -29,3 +29,15 @@ O upload continua habilitado na versao 2.7.0 por decisao do produto, inclusive p
 Nao tornar o bucket publico, nao usar `service_role` no navegador e nao declarar videos como "limpos" apenas pela assinatura MP4.
 
 Referencias: [FFmpeg CLI](https://ffmpeg.org/ffmpeg.html), [ClamAV scanning](https://docs.clamav.net/manual/Usage/Scanning.html).
+
+## Limite global de Storage Free (31/10/2026)
+
+A migração 058 e o módulo `api/storage_capacity.py` acrescentam reserva
+atômica por upload em todos os endpoints de mídias e avatares. O limite
+global é 90% da cota de 1 GiB, com alertas no ADMIN em 75% e 85%.
+Falha de consulta de ocupação recusa upload (HTTP 503); excesso previsto
+recusa com HTTP 507. Conclusão ou falha no envio libera a reserva, que
+expira em 30 minutos se o processo cair. O recorte é **global**, sem
+cota acumulada individual. Não altera o pipeline de sanitização, vídeos,
+publicação nem as regras de acesso aos buckets. Egress faturável é
+acompanhado no Supabase Usage (não é inferido a partir do tráfego Render).

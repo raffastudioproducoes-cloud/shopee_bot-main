@@ -58,6 +58,9 @@ def _mock_supabase(monkeypatch, execute_return):
         getattr(query, method).return_value = query
     query.execute.return_value = MagicMock(data=execute_return)
     monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+    from contextlib import nullcontext
+    from api.routers import profiles as profiles_module
+    monkeypatch.setattr(profiles_module, "storage_upload_reservation", lambda size: nullcontext())
     return query
 
 
