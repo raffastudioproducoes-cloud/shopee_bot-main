@@ -9,12 +9,14 @@ from api import database as database_module
 from api.main import app
 from api.routers import social_analytics
 from api.routers.auth import get_current_user_id
+from api.routers.credentials import _require_admin
 from api.routers.profiles import get_current_profile_id
 
 
 def _client(monkeypatch, handler, credential=None):
     app.dependency_overrides.clear()
     app.dependency_overrides[get_current_user_id] = lambda: 42
+    app.dependency_overrides[_require_admin] = lambda: 42
     app.dependency_overrides[get_current_profile_id] = lambda: "profile-a"
     seen = []
 
