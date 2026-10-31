@@ -47,10 +47,11 @@ export default function AnalyticsPage() {
   const [probe, setProbe] = useState<ScopedProbe | null>(null)
   const [probing, setProbing] = useState<string | null>(null)
   const userId = useAuthStore((state) => state.user?.id)
+  const isAdmin = useAuthStore((state) => state.user?.access === 'ADMIN')
   const profileId = useProfileStore((state) => state.activeProfileId)
   // Do not display another account's or another period's previous result.
   const scopeKey = `${userId ?? ''}:${profileId ?? ''}:${days}`
-  const visibleProbe = probe?.scopeKey === scopeKey ? probe : null
+  const visibleProbe = isAdmin && probe?.scopeKey === scopeKey ? probe : null
   const facebookViews = visibleProbe?.network === 'facebook' && visibleProbe.state === 'ok'
     ? visibleProbe.total_views ?? null : null
   const { data, isLoading, error } = useQuery({
@@ -150,13 +151,13 @@ export default function AnalyticsPage() {
           <p className="csp-s-0176">
             Envios vêm da fila do Auto Orbital. A visualização do Facebook é da Página conectada, somando somente os dias retornados pela Meta após a consulta manual; não representa visualizações individuais dos posts. Traço significa indisponível, não zero. Contagens de redes diferentes não representam pessoas únicas.
           </p>
-          <div className="analytics-probe-actions" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+          {isAdmin && <div className="analytics-probe-actions" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
             {(['threads', 'facebook', 'instagram'] as const).map((name) => (
               <Button key={name} variant="secondary" size="sm" loading={probing === name} disabled={probing !== null} onClick={() => testInsights(name)}>
                 Testar dados de {names[name]}
               </Button>
             ))}
-          </div>
+          </div>}
           {visibleProbe && <p role="status" style={{ margin: 0, color: visibleProbe.state === 'ok' ? 'var(--text-body)' : 'var(--negative)' }}>
             {names[visibleProbe.network as Network]}: {visibleProbe.state === 'ok' ? `leitura autorizada (${visibleProbe.result_count} resultado(s))` : visibleProbe.state === 'no_data' ? 'leitura autorizada, sem períodos disponíveis' : visibleProbe.state === 'not_connected' ? 'conta não conectada neste perfil' : visibleProbe.state === 'api_error' ? `API recusou a leitura (HTTP ${visibleProbe.http_status}, código ${visibleProbe.error_code ?? 'não informado'})` : 'não foi possível confirmar a leitura'}.
           </p>}
