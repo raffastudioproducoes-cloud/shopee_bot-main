@@ -367,7 +367,7 @@ function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalPr
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" disabled={loading || !!success || !acceptedTerms}>
+          <Button type="submit" variant="primary" disabled={loading || !!success}>
             {loading ? 'Trocando...' : 'Trocar senha'}
           </Button>
         </div>
