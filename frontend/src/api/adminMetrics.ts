@@ -1,6 +1,7 @@
 import { api } from '../lib/api'
 
 type Status = 'available' | 'partial' | 'unavailable' | 'not_configured'
+type Diagnostic = 'timeout' | 'permission_denied' | 'rpc_missing' | 'invalid_response' | 'provider_error' | 'api_rejected' | 'no_samples' | 'not_configured'
 interface ResourceMetric { value: number; unit: string; timestamp: string; values: number[]; timestamps: string[] }
 export interface AdminMetrics {
   status: Status
@@ -8,8 +9,8 @@ export interface AdminMetrics {
   days: number
   counts: null | { accounts: number; new_accounts: number; deleted_accounts: number; free_accounts: number; plus_accounts: number; premium_accounts: number; active_accounts: number | null; requests: number; errors: number; avg_latency_ms: number | null; p95_latency_ms: number | null }
   daily: { date: string; registrations: number; deletions: number; requests: number }[]
-  supabase: { status: Status; database_bytes: number | null; connections: number | null; max_connections: number | null; latency_ms: number | null }
-  render: { status: Status; cpu: ResourceMetric | null; memory: ResourceMetric | null; cpu_limit: ResourceMetric | null; memory_limit: ResourceMetric | null; bandwidth: ResourceMetric | null }
+  supabase: { status: Status; diagnostic?: Diagnostic | null; database_bytes: number | null; connections: number | null; max_connections: number | null; latency_ms: number | null }
+  render: { status: Status; diagnostic?: Diagnostic | null; missing_metrics?: string[]; cpu: ResourceMetric | null; memory: ResourceMetric | null; cpu_limit: ResourceMetric | null; memory_limit: ResourceMetric | null; bandwidth: ResourceMetric | null }
   unavailable: { paying_accounts: string; traffic_sources: string; session_time: string; location: string }
   notes: string[]
   geography?: { status: 'available' | 'not_configured'; updated_at: string | null; regions: { region: string; online: number; offline: number; deleted: number }[] }
