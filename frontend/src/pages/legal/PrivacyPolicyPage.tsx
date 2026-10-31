@@ -13,7 +13,7 @@ import { LegalLayout } from './LegalLayout'
 
 export function PrivacyPolicyPage() {
   return (
-    <LegalLayout title="Política de Privacidade" updatedAt="30 de outubro de 2026">
+    <LegalLayout title="Política de Privacidade" updatedAt="31 de outubro de 2026">
       <h2>1. Quem somos</h2>
       <p>
         O Auto Orbital é um painel de automação que ajuda o usuário a publicar conteúdo em
@@ -92,8 +92,8 @@ export function PrivacyPolicyPage() {
 
       <h2>2.1 Dados técnicos do dispositivo e GPS opcional</h2>
       <p>Ao acessar o site por computador, tablet ou celular, a infraestrutura pode tratar endereço IP, cabeçalhos HTTP, informações técnicas do navegador, caminhos acessados e duração das respostas para operação e segurança. O registro da aplicação depende da configuração de auditoria; o provedor de hospedagem também pode manter logs próprios. Consulte a lista <a href="/dados-coletados">Quais dados utilizamos?</a>.</p>
-      <p>O GPS é <strong>inteiramente opcional</strong>. O aceite dos Termos não autoriza localização. Caso o titular habilite a preferência e clique em solicitar a região, o navegador apresenta sua própria permissão. A posição é processada apenas naquele momento no dispositivo para sugerir país/UF, sem envio de latitude ou longitude ao Auto Orbital. A região só é salva após confirmação e consentimento separados. Não há rastreamento em segundo plano, histórico de trajetos ou uso da localização para publicidade. É possível negar, corrigir e revogar em Perfis.</p>
-      <p>As estatísticas do mapa mostram apenas regiões com pelo menos três contas voluntárias; grupos menores ficam ocultos. A escolha de origem de aquisição também é voluntária e revogável. O cadastro básico funciona sem GPS.</p>
+      <p>O GPS é <strong>inteiramente opcional</strong>. O aceite dos Termos não autoriza localização. No primeiro acesso, um aviso próprio oferece uma coleta pontual com autorização do navegador. Se permitido, latitude e longitude são arredondadas no dispositivo e enviadas uma única vez, com a data e a precisão estimada. O ponto fica associado à conta e pode ser visto individualmente apenas pelo administrador para análise comercial. A região declarada manualmente é opcional e independente desse ponto. Não há rastreamento em segundo plano, histórico de trajetos ou uso da localização para publicidade. É possível negar, corrigir e revogar em Configurações.</p>
+      <p>As contagens agregadas do mapa exigem pelo menos três contas na mesma região declarada; os pontos de GPS autorizados podem ser exibidos individualmente, mesmo com apenas uma conta. A escolha de origem de aquisição também é voluntária e revogável. O cadastro básico funciona sem GPS.</p>
       <h2>3. Base legal (LGPD)</h2>
       <p>O tratamento desses dados se apoia nas seguintes bases legais do art. 7º da LGPD:</p>
       <ul>
@@ -184,6 +184,8 @@ export function PrivacyPolicyPage() {
         </li>
       </ul>
 
+      <h2>6.1 Localização pontual autorizada</h2>
+      <p>Após o primeiro acesso, apresentamos um aviso específico para solicitar localização por GPS ou outros meios disponíveis no dispositivo. A pessoa pode recusar e continuar usando o serviço. Se autorizar, o navegador solicitará acesso e enviaremos uma única localização aproximada, arredondada a cerca de 1 km, associada à conta, com data e precisão estimada. O administrador poderá visualizar individualmente a posição aproximada para análise geográfica e planejamento da expansão comercial. Não há monitoramento contínuo, histórico de deslocamentos, coleta de endereço ou novas consultas automáticas. O ponto pode ser apagado em Configurações, sem impedir o uso do serviço. Após recusa ou revogação, preservamos somente o estado e a data da decisão, sem coordenadas, para não solicitar a posição novamente.</p>
       <h2>7. Direitos do titular</h2>
       <p>Nos termos dos arts. 9º e 18 da LGPD, o titular dos dados pode solicitar a qualquer momento:</p>
       <ul>
@@ -197,8 +199,8 @@ export function PrivacyPolicyPage() {
       <p>Essas solicitações podem ser feitas pelo canal de contato indicado abaixo.</p>
 
       <h2>7.1 Consentimentos e transparência</h2>
-      <p>Registramos a versão e a data de aceitação dos Termos no cadastro, separadamente da preferência GPS. A permissão do navegador pode ser negada ou retirada nos ajustes do próprio dispositivo. A preferência GPS e a região declarada podem ser apagadas em Perfis. A revogação não prejudica a licitude de tratamentos anteriores.</p>
-      <p>A finalidade da localização voluntária é exclusivamente produzir estatísticas regionais agregadas. Para acessar, corrigir, solicitar cópia ou eliminar dados, utilize os controles da conta ou o contato informado nesta Política.</p>
+      <p>Registramos a versão e a data de aceitação dos Termos no cadastro, separadamente da decisão de localização. A permissão do navegador pode ser negada ou retirada nos ajustes do dispositivo. O ponto de GPS, a região declarada e a origem de cadastro podem ser apagados em Configurações. A revogação não prejudica a licitude de tratamentos anteriores.</p>
+      <p>A localização autorizada pode ser vista individualmente pelo administrador para planejamento comercial e em estatísticas regionais. Para acessar, corrigir, solicitar cópia ou eliminar dados, utilize os controles da conta ou o contato informado nesta Política.</p>
       <h2>8. Cookies</h2>
       <p>
         O Auto Orbital utiliza apenas o essencial de cookies para autenticação: o cookie{' '}
@@ -221,7 +223,7 @@ export function PrivacyPolicyPage() {
           permanece para auditoria.
         </li>
         <li>
-          <strong>Exportar um backup em Perfis.</strong> Use o botão de exportar backup para
+          <strong>Exportar um backup em Configurações.</strong> Use o botão de exportar backup para
           baixar todos os seus dados em JSON. Isso garante que você possui uma cópia dos dados
           antes de a exclusão definitiva.
         </li>
