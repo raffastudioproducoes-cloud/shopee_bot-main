@@ -15,14 +15,6 @@ import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
 // em frontend/src), então define-se aqui. 768px = ponto de quebra usado no restante
 // deste componente (imagem/formulário lado a lado no desktop, empilhados no mobile).
 
-const bannerStyle = (ok: boolean): React.CSSProperties => ({
-  padding: '12px 16px',
-  borderRadius: 'var(--r-md)',
-  font: 'var(--fw-medium) var(--fs-body)/1.3 var(--font-sans)',
-  background: ok ? 'var(--positive-on-glass)' : 'var(--negative-on-glass)',
-  color: ok ? 'var(--positive-ink)' : 'var(--negative-ink)',
-})
-
 export default function LoginPage() {
   const navigate = useNavigate()
   const login = useAuthStore((state) => state.login)
@@ -72,11 +64,7 @@ export default function LoginPage() {
       <div className="login-split">
         <div
           className="login-split__image"
-          style={{
-            // Camada de baixo: fica visível se o vídeo falhar ao carregar ou se o usuário
-            // preferir menos movimento — nunca sobra um buraco vazio/branco.
-            background: 'linear-gradient(160deg, var(--surface-card) 0%, var(--bg-app) 100%)',
-          }}
+          
         >
           {!prefersReducedMotion && (
             <video className="login-split__video" src="/videos/login-bg.mp4" autoPlay loop muted playsInline />
@@ -88,19 +76,19 @@ export default function LoginPage() {
 
         <div
           className="login-split__form"
-          style={{ background: 'linear-gradient(to right, transparent 0%, var(--bg-app) 55%)' }}
+          
         >
-          <div style={{ width: '100%', maxWidth: 360 }}>
-          <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <h1 style={{ font: 'var(--text-role-hero)', margin: 0 }}>
-              <img src="/brand/wordmark.png" alt="Auto Orbital" style={{ height: 44, width: 'auto', maxWidth: '100%', display: 'block', margin: '0 auto' }} />
+          <div className="csp-login-03">
+          <div className="csp-login-04">
+            <h1 className="csp-login-05">
+              <img src="/brand/wordmark.png" alt="Auto Orbital" className="csp-login-06" />
             </h1>
-            <p style={{ marginTop: 6, opacity: 0.8 }}>Entre para continuar</p>
+            <p className="csp-login-07">Entre para continuar</p>
           </div>
 
-          {error && <div style={{ ...bannerStyle(false), marginBottom: 20 }}>{error}</div>}
+          {error && <div className="csp-login-banner csp-login-banner-error csp-login-banner-spaced">{error}</div>}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <form onSubmit={handleSubmit} className="csp-login-09">
             <TextInput
               label="Usuário"
               icon="user"
@@ -111,30 +99,15 @@ export default function LoginPage() {
               autoComplete="username"
             />
 
-            <label style={{ display: 'block', width: '100%' }}>
+            <label className="csp-login-10">
               <span
-                style={{
-                  display: 'block',
-                  font: 'var(--text-role-label)',
-                  letterSpacing: 'var(--ls-label)',
-                  textTransform: 'uppercase',
-                  color: 'var(--text-muted)',
-                  marginBottom: 6,
-                }}
+                className="csp-login-11"
               >
                 Senha
               </span>
-              <div style={{ position: 'relative' }}>
+              <div className="csp-login-12">
                 <span
-                  style={{
-                    position: 'absolute',
-                    left: 14,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    display: 'inline-flex',
-                    color: 'var(--text-muted)',
-                    pointerEvents: 'none',
-                  }}
+                  className="csp-login-13"
                 >
                   <Icon name="lock" size={16} />
                 </span>
@@ -145,34 +118,13 @@ export default function LoginPage() {
                   required
                   placeholder="Digite sua senha"
                   autoComplete="current-password"
-                  style={{
-                    width: '100%',
-                    height: 40,
-                    padding: '0 44px 0 40px',
-                    borderRadius: 'var(--r-md)',
-                    background: 'var(--surface-inset)',
-                    border: '1px solid var(--border-hairline)',
-                    color: 'var(--text-body)',
-                    font: 'var(--text-role-body)',
-                    outline: 'none',
-                  }}
+                  className="csp-login-14"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                  style={{
-                    position: 'absolute',
-                    right: 8,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    display: 'inline-flex',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    padding: 4,
-                  }}
+                  className="csp-login-15"
                 >
                   <Icon name={showPassword ? 'eye-off' : 'eye'} size={18} />
                 </button>
@@ -190,56 +142,40 @@ export default function LoginPage() {
               )}
             </Button>
 
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+            <div className="csp-login-16">
               <button
                 type="button"
                 onClick={() => setForgotOpen(true)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  font: 'var(--text-role-body)',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  padding: 4,
-                }}
+                className="csp-login-17"
               >
                 Trocar senha
               </button>
-              <span style={{ color: 'var(--text-muted)' }}>·</span>
+              <span className="csp-login-18">·</span>
               <button
                 type="button"
                 onClick={() => setRegisterOpen(true)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  font: 'var(--text-role-body)',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  padding: 4,
-                }}
+                className="csp-login-19"
               >
                 Criar conta
               </button>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>
-              <div style={{ flex: 1, height: 1, background: 'var(--border-hairline)' }} />
-              <span style={{ font: 'var(--text-role-label)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            <div className="csp-login-20">
+              <div className="csp-login-21" />
+              <span className="csp-login-22">
                 Ou continue com
               </span>
-              <div style={{ flex: 1, height: 1, background: 'var(--border-hairline)' }} />
+              <div className="csp-login-23" />
             </div>
 
-            <div style={{ display: 'flex', gap: 12 }}>
-              <span style={{ flex: 1 }} title="Em breve">
-                <Button variant="secondary" fullWidth disabled onClick={() => {}} style={{ border: '1px solid var(--border-hairline)' }}>
+            <div className="csp-login-24">
+              <span className="csp-login-25" title="Em breve">
+                <Button variant="secondary" fullWidth disabled onClick={() => {}} className="csp-login-social-button">
                   Google
                 </Button>
               </span>
-              <span style={{ flex: 1 }} title="Em breve">
-                <Button variant="secondary" fullWidth disabled onClick={() => {}} style={{ border: '1px solid var(--border-hairline)' }}>
+              <span className="csp-login-27" title="Em breve">
+                <Button variant="secondary" fullWidth disabled onClick={() => {}} className="csp-login-social-button">
                   Apple
                 </Button>
               </span>
@@ -303,9 +239,9 @@ function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalPr
 
   return (
     <Modal open onClose={onClose} title="Trocar senha" width={400}>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {error && <div style={bannerStyle(false)}>{error}</div>}
-        {success && <div style={bannerStyle(true)}>{success}</div>}
+      <form onSubmit={handleSubmit} className="csp-login-29">
+        {error && <div className="csp-login-banner csp-login-banner-error">{error}</div>}
+        {success && <div className="csp-login-banner csp-login-banner-success">{success}</div>}
 
         <TextInput
           label="Usuário"
@@ -342,7 +278,7 @@ function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalPr
           disabled={!!success}
         />
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="csp-login-30">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
@@ -398,9 +334,9 @@ function RegisterModal({ onClose }: RegisterModalProps) {
 
   return (
     <Modal open onClose={onClose} title="Criar conta" width={400}>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {error && <div style={bannerStyle(false)}>{error}</div>}
-        {success && <div style={bannerStyle(true)}>{success}</div>}
+      <form onSubmit={handleSubmit} className="csp-login-31">
+        {error && <div className="csp-login-banner csp-login-banner-error">{error}</div>}
+        {success && <div className="csp-login-banner csp-login-banner-success">{success}</div>}
 
         <TextInput
           label="Usuário"
@@ -429,11 +365,11 @@ function RegisterModal({ onClose }: RegisterModalProps) {
           disabled={!!success}
         />
 
-        <div style={{display:'grid',gap:12,fontSize:13}}>
+        <div className="csp-login-32">
           <label><input type="checkbox" checked={acceptedTerms} onChange={e=>setAcceptedTerms(e.target.checked)}/> Aceito os <a href="/termos" target="_blank" rel="noreferrer">Termos de Uso</a> e li a <a href="/privacidade" target="_blank" rel="noreferrer">Política de Privacidade</a> e a <a href="/dados-coletados" target="_blank" rel="noreferrer">lista de dados tratados</a>. (Obrigatório)</label>
-          <p style={{margin:0,color:'var(--text-muted)'}}>No primeiro acesso, você poderá escolher se compartilha <strong>uma única localização aproximada</strong> para análise comercial. O navegador pedirá permissão separadamente. Você poderá recusar sem limitar sua conta e excluir o ponto em Configurações.</p>
+          <p className="csp-login-33">No primeiro acesso, você poderá escolher se compartilha <strong>uma única localização aproximada</strong> para análise comercial. O navegador pedirá permissão separadamente. Você poderá recusar sem limitar sua conta e excluir o ponto em Configurações.</p>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="csp-login-34">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
