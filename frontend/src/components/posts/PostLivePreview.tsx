@@ -100,8 +100,10 @@ export function PostLivePreview({
   })
   const chosenIndex = Math.min(mediaIndex, Math.max(0, visibleMedia.length - 1))
   const chosen = visibleMedia[chosenIndex]
-  const caption = network === "kwai" ? (networks[0] ? textFor(networks[0])[0] : "")
-    : (textFor(network)[0] ?? "")
+  const platformParts = network === "kwai" ? (networks[0] ? textFor(networks[0]) : [])
+    : textFor(network)
+  const caption = platformParts[0] ?? ""
+  const followups = network === "threads" || network === "x" ? platformParts.slice(1) : []
   const text = caption.trim() || "Seu texto aparecerá aqui conforme você preencher o editor."
   const isVideo = chosen?.kind === "video"
   const isVertical = network === "tiktok" || network === "kwai" || (network === "instagram" && isVideo)
@@ -156,6 +158,13 @@ export function PostLivePreview({
           {network === "instagram" &&
             <p className="post-preview-caption is-after"><strong>{DEMO_HANDLE}</strong> {text}</p>}
           {network === "facebook" && <div className="post-preview-comment-row">Escreva um comentário…</div>}
+          {followups.length > 0 && <div className="post-preview-thread-stack">
+            {followups.map((part, index) => <div className="post-preview-thread-part" key={index}>
+              <span className="post-preview-avatar is-small" aria-hidden="true">AO</span>
+              <div><strong>{DEMO_HANDLE} <small>· parte {index + 2}</small></strong>
+                <p>{part}</p></div>
+            </div>)}
+          </div>}
           {network === "threads" && <div className="post-preview-reply-row">Responder ao post…</div>}
           {network === "x" && <div className="post-preview-reply-row">Postar sua resposta</div>}
         </>}
