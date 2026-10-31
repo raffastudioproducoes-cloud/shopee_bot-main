@@ -114,3 +114,27 @@ def test_default_security_policy_blocks_inline_styles_when_legacy_is_disabled():
         policy = client.get("/health").headers["Content-Security-Policy"]
     assert "style-src 'self' https://fonts.googleapis.com;" in policy
     assert "'unsafe-inline'" not in policy
+
+
+def test_unauthenticated_reserved_routes_return_404_instead_of_internal_server_error():
+    with app.test_client() as client:
+        for path in ("/api/", "/internal/", "/static/missing-security-probe.txt"):
+            response = client.get(path)
+            assert response.status_code == 404, path
+            assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_method_not_allowed_stays_405():
+    with app.test_client() as client:
+        # /internal/scheduler/jobs also matches the SPA GET catch-all,
+        # so use an exact GET-only endpoint to assert a genuine 405.
+        response = client.post("/health")
+    assert response.status_code == 405
+
+
+def test_spa_csp_defines_fallbackless_protective_directives():
+    with app.test_client() as client:
+        policy = client.get("/").headers["Content-Security-Policy"]
+    assert "base-uri 'none';" in policy
+    assert "form-action 'self';" in policy
+    assert "object-src 'none'" in policy
