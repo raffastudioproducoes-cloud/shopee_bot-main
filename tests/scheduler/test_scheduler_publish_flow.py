@@ -13,7 +13,6 @@ from apscheduler.jobstores.memory import MemoryJobStore
 
 import shopee_bot.scheduler as sched
 import shopee_bot.scheduler.bot_post  # noqa: F401
-from shopee_bot.apis import cloudinary as cloud
 from shopee_bot.database.activity_types import ActivityType
 
 bot = sys.modules["shopee_bot.scheduler.bot_post"]
@@ -112,10 +111,9 @@ def test_run_job_advances_pending_date_job_instead_of_duplicating(monkeypatch):
         scheduler.shutdown(wait=False)
 
 
-def test_media_post_without_cloudinary_config_fails_with_clear_message(monkeypatch, tmp_path):
+def test_legacy_media_is_rejected_even_when_local_file_exists(monkeypatch, tmp_path):
     img = tmp_path / "a.jpg"
     img.write_bytes(b"x")
-    monkeypatch.setattr(cloud, "API_KEY", None)
     monkeypatch.setattr(
         bot.schedulers, "get_by_id", lambda job_id: {"user_id": "u1", "post_id": 7, "profile_id": "p1"}
     )
@@ -129,14 +127,10 @@ def test_media_post_without_cloudinary_config_fails_with_clear_message(monkeypat
     bot.bot_post("5")
 
     assert calls[0][1] == ActivityType.BOT_POST_FAILURE
-    assert "não configurado" in calls[0][2]["error"]
-    assert "Must supply" not in calls[0][2]["error"]
+    assert "Reenvie a mídia" in calls[0][2]["error"]
 
 
 def test_media_post_with_missing_file_says_reupload(monkeypatch):
-    monkeypatch.setattr(cloud, "NAME", "n")
-    monkeypatch.setattr(cloud, "API_KEY", "k")
-    monkeypatch.setattr(cloud, "SECRET", "s")
     monkeypatch.setattr(
         bot.schedulers, "get_by_id", lambda job_id: {"user_id": "u1", "post_id": 7, "profile_id": "p1"}
     )
