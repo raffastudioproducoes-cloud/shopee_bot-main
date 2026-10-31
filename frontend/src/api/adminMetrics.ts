@@ -1,7 +1,7 @@
 import { api } from '../lib/api'
 
 type Status = 'available' | 'partial' | 'unavailable' | 'not_configured'
-type Diagnostic = 'timeout' | 'permission_denied' | 'rpc_missing' | 'invalid_response' | 'provider_error' | 'api_rejected' | 'no_samples' | 'not_configured'
+type Diagnostic = 'timeout' | 'permission_denied' | 'rpc_missing' | 'invalid_response' | 'provider_error' | 'api_rejected' | 'bad_request' | 'no_samples' | 'not_configured'
 interface ResourceMetric { value: number; unit: string; timestamp: string; values: number[]; timestamps: string[] }
 export interface AdminMetrics {
   status: Status

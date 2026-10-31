@@ -19,7 +19,8 @@ const diagnosticLabels: Record<string, string> = {
   invalid_response: 'O provedor enviou informações incompatíveis com o contrato esperado.',
   provider_error: 'A leitura falhou. Consulte os logs do servidor, sem expor credenciais.',
   api_rejected: 'O Render recusou a credencial ou a permissão de consulta de métricas.',
-  no_samples: 'O Render não retornou amostras para alguns dos indicadores nas últimas 24 horas.',
+  bad_request: 'O Render retornou HTTP 400 mesmo na consulta mínima. Verifique os parâmetros aceitos pela API.',
+  no_samples: 'O Render não retornou amostras para alguns dos indicadores na última hora.',
   not_configured: 'Configure RENDER_METRICS_API_KEY somente no serviço backend do Render.',
 }
 
@@ -64,7 +65,7 @@ export default function AdminOverviewPage() {
       <Panel surface="dark" className="admin-metric-card"><div className="admin-provider"><h2>Supabase</h2><span>{status[data.supabase.status]}</span></div><dl><div><dt>Banco de dados</dt><dd>{number(data.supabase.database_bytes == null ? null : data.supabase.database_bytes / 1048576, ' MiB')}</dd></div><div><dt>Conexões / limite</dt><dd>{number(data.supabase.connections)} / {number(data.supabase.max_connections)}</dd></div><div><dt>Consulta de observabilidade</dt><dd>{number(data.supabase.latency_ms, ' ms')}</dd></div></dl></Panel>
       <Panel surface="dark" className="admin-metric-card admin-render-card">
         <div className="admin-provider"><h2>Render</h2><span>{status[data.render.status]}</span></div>
-        <p>Serviço monitorado · amostras de 24 horas</p>
+        <p>Serviço monitorado · amostras da última hora</p>
         <div className="admin-render-resources">
           {(['cpu', 'memory', 'cpu_limit', 'memory_limit', 'bandwidth'] as const).map(key => {
             const metric = data.render[key]
@@ -74,7 +75,7 @@ export default function AdminOverviewPage() {
             return <div className="admin-resource" key={key}>
               <span>{label}</span><strong>{number(metric ? metric.value / factor : null, metric ? ` ${unit}` : '')}</strong>
               {metric && <>
-                {!key.endsWith('_limit') && metric.values.length > 0 && <MetricTrend values={metric.values.map(value => value / factor)} timestamps={metric.timestamps} label={`${label}: ${number(metric.value / factor)} ${unit}. Últimas 24 horas.`} compact />}
+                {!key.endsWith('_limit') && metric.values.length > 0 && <MetricTrend values={metric.values.map(value => value / factor)} timestamps={metric.timestamps} label={`${label}: ${number(metric.value / factor)} ${unit}. Última hora.`} compact />}
                 <time dateTime={metric.timestamp}>Amostra: {formatMetricTime(metric.timestamp)} · Brasília{isStale(metric.timestamp, 7_200_000) ? ' · Amostra antiga' : ''}</time>
                 {!key.endsWith('_limit') && metric.values.length > 0 && <details className="admin-resource-history"><summary>Consultar amostras</summary><div className="admin-metric-table"><table><thead><tr><th>Horário de Brasília</th><th>{unit}</th></tr></thead><tbody>{metric.values.map((value, index) => <tr key={metric.timestamps[index]}><td>{formatMetricTime(metric.timestamps[index])}</td><td>{number(value / factor)}</td></tr>)}</tbody></table></div></details>}
               </>}
