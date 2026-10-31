@@ -14,6 +14,7 @@ import { HelpPage } from "./pages/HelpPage"
 import { SettingsPage } from "./pages/SettingsPage"
 import { TermsPage } from "./pages/legal/TermsPage"
 import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage"
+import { DataCollectedPage } from "./pages/legal/DataCollectedPage"
 import { PageSkeleton, type PageSkeletonVariant } from "./components/ui/Skeleton"
 import { OrbitalLoader } from "./components/ui/OrbitalLoader"
 import { AdminLayout } from "./pages/AdminLayout"
@@ -66,6 +67,12 @@ const termsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/termos",
   component: TermsPage,
+})
+
+const dataCollectedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dados-coletados',
+  component: DataCollectedPage,
 })
 
 const privacyRoute = createRoute({
@@ -179,6 +186,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   termsRoute,
   privacyRoute,
+  dataCollectedRoute,
   adminRoute.addChildren([adminIndexRoute, adminOverviewRoute, usersRoute, logsRoute, adminCredentialsRoute]),
   panelRoute.addChildren([
     dashboardRoute,
