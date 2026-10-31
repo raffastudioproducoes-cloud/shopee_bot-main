@@ -6,6 +6,7 @@ from shopee_bot.database.activities import (
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
+from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.media_delivery import delivery_url
 from shopee_bot.scheduler.publication_result import external_id, succeeded, unknown
 
@@ -17,6 +18,7 @@ def _first_image(post):
 def _publish_image(page_access_token, page_id, media, caption):
     url, cleanup = delivery_url(media)
     try:
+        mark_external_delivery()
         return FacebookAPI.post_photo_as_page(page_access_token, page_id, url, caption)
     finally:
         cleanup()
@@ -32,6 +34,7 @@ def _publish_album(page_access_token, page_id, medias, caption):
             url, cleanup = delivery_url(media)
             urls.append(url)
             cleanups.append(cleanup)
+        mark_external_delivery()
         return FacebookAPI.post_album_as_page(page_access_token, page_id, urls, caption)
     finally:
         for cleanup in cleanups:
@@ -41,6 +44,7 @@ def _publish_album(page_access_token, page_id, medias, caption):
 def _publish_video(page_access_token, page_id, media, caption):
     url, cleanup = delivery_url(media)
     try:
+        mark_external_delivery()
         return FacebookAPI.post_video_as_page(page_access_token, page_id, url, caption)
     finally:
         cleanup()
@@ -117,8 +121,10 @@ def bot_post_facebook(job_id):
             # enxergava Páginas do PRÓPRIO app).
             if root_post["product_ids"]:
                 product = products.get(user_id, root_post["product_ids"][0], profile_id)
+                mark_external_delivery()
                 external = FacebookAPI.post_product_as_page(page_access_token, page_id, product)
             else:
+                mark_external_delivery()
                 external = FacebookAPI.post_text_as_page(page_access_token, page_id, root_post["text"])
         else:
             # Legado: credencial per-user (app_id/secret) de antes da
@@ -126,8 +132,10 @@ def bot_post_facebook(job_id):
             # do Rafa administra.
             if root_post["product_ids"]:
                 product = products.get(user_id, root_post["product_ids"][0], profile_id)
+                mark_external_delivery()
                 external = FacebookAPI.post_product(app_id, secret, page_id, product)
             else:
+                mark_external_delivery()
                 external = FacebookAPI.post_text(app_id, secret, page_id, root_post["text"])
     except Exception as err:
         logger.exception(f"job #{job_id} for {username} falhou: {err}")

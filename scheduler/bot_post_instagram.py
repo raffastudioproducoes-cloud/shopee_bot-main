@@ -6,6 +6,7 @@ from shopee_bot.database.activities import (
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
+from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.media_delivery import delivery_url
 from shopee_bot.scheduler.publication_result import external_id, succeeded, unknown
 
@@ -17,6 +18,7 @@ def _first_image(post):
 def _publish_image(app_id, secret, user_access_token, ig_user_id, media, caption):
     url, cleanup = delivery_url(media)
     try:
+        mark_external_delivery()
         return InstagramAPI.post_image(app_id, secret, user_access_token, url, caption, ig_user_id)
     finally:
         cleanup()
@@ -25,6 +27,7 @@ def _publish_image(app_id, secret, user_access_token, ig_user_id, media, caption
 def _publish_video(app_id, secret, user_access_token, ig_user_id, media, caption):
     url, cleanup = delivery_url(media)
     try:
+        mark_external_delivery()
         return InstagramAPI.post_video(app_id, secret, user_access_token, url, caption, ig_user_id)
     finally:
         cleanup()
@@ -37,6 +40,7 @@ def _publish_carousel(app_id, secret, user_access_token, ig_user_id, medias, cap
             url, cleanup = delivery_url(media)
             cleanups.append(cleanup)
             items.append({"type": media["type"], "url": url})
+        mark_external_delivery()
         return InstagramAPI.post_carousel(
             app_id, secret, user_access_token, items, caption, ig_user_id
         )
@@ -89,10 +93,12 @@ def bot_post_instagram(job_id):
             )
         elif root_post["product_ids"]:
             product = products.get(user_id, root_post["product_ids"][0], profile_id)
+            mark_external_delivery()
             external = InstagramAPI.post_product(
                 app_id, secret, user_access_token, product, ig_user_id
             )
         else:
+            mark_external_delivery()
             external = InstagramAPI.post_text(
                 app_id, secret, user_access_token, root_post["text"], ig_user_id
             )

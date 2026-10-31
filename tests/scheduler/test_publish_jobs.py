@@ -77,16 +77,16 @@ def test_claim_query_never_retries_a_running_item(monkeypatch):
     assert "status = 'running'" not in seen["sql"].lower().split("for update skip locked")[0]
 
 
-def test_expired_running_item_becomes_unknown_without_republish(monkeypatch):
+def test_expired_running_item_after_external_call_becomes_unknown(monkeypatch):
     from shopee_bot.database import publish_jobs
 
     seen = {}
     monkeypatch.setattr(publish_jobs, "query_db", lambda sql, args: seen.update(sql=sql, args=args) or [])
 
     assert publish_jobs.expire_running(300) == []
-    assert "status = 'unknown'" in seen["sql"].lower()
+    assert "preflight_claim_token is distinct from claim_token" in seen["sql"].lower()
     assert "status = 'running'" in seen["sql"].lower()
-    assert seen["args"] == (300,)
+    assert seen["args"] == (5, 5, 5, 300)
 
 
 def test_execute_publication_does_not_repeat_unknown_delivery(monkeypatch):
@@ -121,7 +121,7 @@ def test_drain_publish_jobs_retries_only_recoverable_queue_items(monkeypatch):
         "recoverable",
         lambda _lease: [{"id": "queue-1", "scheduler_id": "schedule-1"}],
     )
-    monkeypatch.setattr(queue, "expire_running", lambda lease: calls.append(("expired", lease)))
+    monkeypatch.setattr(queue, "expire_running", lambda lease: calls.append(("expired", lease)) or [])
     monkeypatch.setattr(
         scheduler.schedulers,
         "get_by_id",

@@ -14,6 +14,7 @@ from shopee_bot.database.activities import (
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.media_delivery import STORAGE_PREFIX, delivery_url
 from shopee_bot.scheduler.profile_scope import require_profile_id
+from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.publication_result import failed, succeeded, unknown
 
 UNSUPPORTED_MEDIA_MESSAGE = (
@@ -49,6 +50,7 @@ def _upload_media_ids(user_data, post):
         # com o motivo certo antes de baixar/subir qualquer imagem.
         raise Exception(x_oauth.MEDIA_RECONNECT_MESSAGE)
     media = medias[0]
+    mark_external_delivery()
     return [XAPI.upload_image(
         user_data["x_access_token"], _image_bytes(media), media.get("file_name") or "image"
     )]
@@ -135,6 +137,7 @@ def bot_post_x(job_id):
     for part_index, post in enumerate(post_data):
         try:
             media_ids = _upload_media_ids(user_data, post)
+            mark_external_delivery()
             tweet = XAPI.post_text(
                 user_data["x_access_token"],
                 post["text"],
