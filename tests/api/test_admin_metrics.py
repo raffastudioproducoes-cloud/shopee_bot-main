@@ -120,7 +120,9 @@ def test_metrics_returns_only_aggregates_and_honest_availability(monkeypatch):
     assert "never-expose-this" not in response.text
     assert body["unavailable"]["paying_accounts"]
     assert body["unavailable"]["location"]
-    db.rpc.assert_called_once_with("admin_metrics_snapshot", {"lookback_days": 7})
+    assert db.rpc.call_count == 2
+    db.rpc.assert_any_call("admin_metrics_snapshot", {"lookback_days": 7})
+    db.rpc.assert_any_call("admin_region_aggregates")
 
 
 def test_disabled_logging_does_not_claim_users_are_online(monkeypatch):
