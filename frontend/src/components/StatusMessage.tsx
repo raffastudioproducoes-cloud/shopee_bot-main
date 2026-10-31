@@ -30,7 +30,7 @@ export function StatusMessage({ kind, children, onDismiss }: StatusMessageProps)
           type="button"
           onClick={onDismiss}
           aria-label="Dispensar mensagem"
-          style={{ minHeight: 44, minWidth: 44, background: "transparent", border: 0, color: "inherit", cursor: "pointer" }}
+          className="csp-s-0001"
         >
           ×
         </button>
