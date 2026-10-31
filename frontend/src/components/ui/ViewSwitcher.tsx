@@ -54,14 +54,7 @@ export function ViewSwitcher({ value, onChange }: { value: ViewMode; onChange: (
     <div
       role="group"
       aria-label="Modo de visualização"
-      style={{
-        display: "inline-flex",
-        gap: 2,
-        padding: 3,
-        background: "var(--surface-inset)",
-        border: "1px solid var(--border-hairline)",
-        borderRadius: "var(--r-pill)",
-      }}
+      className="csp-s-0163"
     >
       {OPTIONS.map((opt) => (
         <IconButton
