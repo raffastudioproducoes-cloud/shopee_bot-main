@@ -124,6 +124,21 @@ export interface GeneratedVariant {
   issues: string[]
 }
 
+export interface GeneratedCopyResult {
+  text: string
+  variants: GeneratedVariant[]
+  /** Apenas os textos efetivamente gerados nesta chamada. */
+  parts: string[]
+  /** Índice inicial em texts[]; no append preserva as partes anteriores. */
+  start_index: number
+}
+
+export interface GenerateCopyOptions {
+  partCount?: number
+  mode?: "full" | "append"
+  existingTexts?: string[]
+}
+
 export interface PostUpdate {
   texts: string[]
   product_ids?: number[]
@@ -184,11 +199,15 @@ export const postsApi = {
     productId: number,
     persona: string,
     networks: PostNetwork[] = [],
-  ): Promise<{ text: string; variants: GeneratedVariant[] }> {
-    return api.post<{ text: string; variants: GeneratedVariant[] }>('/posts/generate-copy', {
+    options: GenerateCopyOptions = {},
+  ): Promise<GeneratedCopyResult> {
+    return api.post<GeneratedCopyResult>('/posts/generate-copy', {
       product_id: productId,
       persona,
       networks,
+      part_count: options.partCount ?? 1,
+      mode: options.mode ?? "full",
+      existing_texts: options.existingTexts ?? [],
     })
   },
 
