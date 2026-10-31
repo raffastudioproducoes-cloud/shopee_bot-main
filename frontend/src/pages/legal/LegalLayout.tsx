@@ -56,28 +56,21 @@ export function LegalLayout({ title, updatedAt, children }: LegalLayoutProps) {
           type="button"
           onClick={() => { void handleReturn() }}
           disabled={returning}
-          style={{
-            color: 'var(--text-muted)',
-            font: 'var(--text-role-body)',
-            background: 'transparent',
-            border: 0,
-            padding: 0,
-            cursor: returning ? 'wait' : 'pointer',
-          }}
+          className="legal-page__back"
         >
           {returning ? 'Voltando...' : '← Voltar'}
         </button>
-        <span style={{ color: 'var(--text-muted)' }}>·</span>
-        <span style={{ font: 'var(--fw-semibold) var(--fs-body)/1 var(--font-display)', color: 'var(--text-display)' }}>
+        <span className="legal-page__separator">·</span>
+        <span className="legal-page__brand">
           Auto Orbital
         </span>
       </header>
 
       <main className="legal-page__body">
-        <h1 style={{ font: 'var(--text-role-hero)', color: 'var(--text-display)', margin: '0 0 8px', fontSize: 'var(--fs-amount)' }}>
+        <h1 className="legal-page__title">
           {title}
         </h1>
-        <p style={{ color: 'var(--text-muted)', font: 'var(--text-role-label)', marginBottom: 'var(--sp-9)' }}>
+        <p className="legal-page__updated">
           Última atualização: {updatedAt}
         </p>
 
