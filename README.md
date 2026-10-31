@@ -228,7 +228,7 @@ Principais grupos: Supabase (`SUPABASE_URL`, `SUPABASE_KEY`), JWT da API (`API_S
 Postgres do Flask/scheduler (`SHOPEE_PG_*`), bridge interno (`INTERNAL_API_SECRET`,
 `FLASK_INTERNAL_URL`, `API_INTERNAL_URL`), OAuth de app único (`THREADS_*`, `X_CLIENT_ID/SECRET`,
 `INSTAGRAM_*`, `FACEBOOK_*`, `TIKTOK_CLIENT_KEY/SECRET`, mais as `*_CALLBACK_URL`),
-criptografia (`APP_ENCRYPTION_KEY`), mídia (`CLOUDINARY_*`) (IA: sem env — chave por usuário em Credenciais),
+criptografia (`APP_ENCRYPTION_KEY`), mídia (bucket privado `post-media` no Supabase Storage, sem credencial de CDN externo) (IA: chave por usuário em Credenciais),
 `FRONTEND_URL`, `CORS_ORIGINS` e `REQUEST_LOGGING_ENABLED`. Nunca versionar valores reais.
 
 ### Processo no container
