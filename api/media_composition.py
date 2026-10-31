@@ -66,8 +66,10 @@ def plan_network_composition(
 
     rule = NETWORK_RULES[network]
     label = rule["label"]
+    # Não transmita respostas a redes sem formato de thread.
+    publishable_texts = list(texts if rule["thread_parts"] else texts[:1])
     kept, dropped = adapt_media(network, medias)
-    issues = validate_post(network, texts, kept, product_count)
+    issues = validate_post(network, publishable_texts, kept, product_count)
     error_issues = [issue for issue in issues if issue["level"] == "error"]
     errors = [issue["message"] for issue in error_issues]
     warnings = [issue["message"] for issue in issues if issue["level"] == "warn"]
@@ -76,11 +78,11 @@ def plan_network_composition(
 
     def text_or_block(reason: str, notes: list[str]) -> MediaPlan:
         if rule["supports_text_only"]:
-            return MediaPlan(network, "text_only", [], list(texts), notes + warnings, None, dropped)
-        return MediaPlan(network, "blocked", [], list(texts), notes + warnings, reason, dropped)
+            return MediaPlan(network, "text_only", [], publishable_texts, notes + warnings, None, dropped)
+        return MediaPlan(network, "blocked", [], publishable_texts, notes + warnings, reason, dropped)
 
     if any(issue.get("key") in _TEXT_ERROR_KEYS for issue in error_issues):
-        return MediaPlan(network, "blocked", [], list(texts), errors + warnings, errors[0], dropped)
+        return MediaPlan(network, "blocked", [], publishable_texts, errors + warnings, errors[0], dropped)
     if medias and not kept:
         reason = f"{label}: nenhuma mídia aceita ({drop_reasons(dropped)})"
         return text_or_block(reason, [reason])
@@ -96,7 +98,7 @@ def plan_network_composition(
         network=network,
         mode=mode,
         media_ids=[media["id"] for media in kept],
-        text_variant=list(texts),
+        text_variant=publishable_texts,
         warnings=warnings,
         dropped=dropped,
     )
