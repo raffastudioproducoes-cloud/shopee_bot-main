@@ -6,6 +6,7 @@ import { useProfileStore } from '../stores/profileStore'
 import { Select } from '../components/ui/Select'
 import { PageSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
+import { AnalyticsVisuals, type AnalyticsTimeline } from '../components/AnalyticsVisuals'
 
 type Network = 'threads' | 'facebook' | 'instagram' | 'tiktok' | 'x'
 type Row = {
@@ -73,10 +74,16 @@ export default function AnalyticsPage() {
     refetchOnWindowFocus: true,
   })
 
+  const { data: timeline, isLoading: timelineLoading, isError: timelineError } = useQuery({
+    queryKey: ['analytics-timeline', userId, profileId, days, network],
+    queryFn: () => api.get<AnalyticsTimeline>(`/analytics/timeline?days=${days}${network === 'all' ? '' : `&network=${network}`}`),
+    enabled: Boolean(profileId),
+    retry: 1,
+    refetchInterval: 24 * 60 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  })
+
   const rows = data?.networks ?? []
-  const total = rows.reduce((sum, row) => sum + row.succeeded, 0)
-  const failures = rows.reduce((sum, row) => sum + row.failed, 0)
-  const uncertain = rows.reduce((sum, row) => sum + row.unknown, 0)
 
   async function refreshAll() {
     if (!profileId || refreshing) return
@@ -84,7 +91,10 @@ export default function AnalyticsPage() {
     setRefreshMessage(null)
     try {
       const result = await api.post<RefreshResult>('/analytics/refresh', {})
-      await queryClient.invalidateQueries({ queryKey: ['analytics-summary', userId, profileId] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['analytics-summary', userId, profileId] }),
+        queryClient.invalidateQueries({ queryKey: ['analytics-timeline', userId, profileId] }),
+      ])
       setRefreshMessage({
         scope: profileScope,
         message: result.state === 'updated'
@@ -148,10 +158,11 @@ export default function AnalyticsPage() {
         <p role="alert" className="csp-s-0171">Não foi possível carregar as análises.</p>
       ) : (
         <>
-          <div className="analytics-summary" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, padding: '16px 0', borderTop: '1px solid var(--border-card)', borderBottom: '1px solid var(--border-card)' }}>
-            <span><strong>{total}</strong> envios concluídos</span>
-            <span><strong>{failures}</strong> falhas</span>
-            <span><strong>{uncertain}</strong> sem confirmação</span>
+          <AnalyticsVisuals rows={rows} days={Number(days)} timeline={timeline}
+            timelineLoading={timelineLoading} timelineError={timelineError} />
+          <div className="analytics-table-heading">
+            <h2>Detalhamento por rede</h2>
+            <p>Dados oficiais disponíveis e contagens operacionais do perfil ativo</p>
           </div>
           <div className="analytics-desktop-table" style={{ overflowX: 'auto' }}>
             <table className="csp-s-0172">
