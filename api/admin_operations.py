@@ -57,6 +57,19 @@ class CostModel(BaseModel):
     note: str = "Estimativa configurada pelo operador, não extraída de faturas ou cobrança confirmada."
 
 
+class AcquisitionGroup(BaseModel):
+    source: Literal["search","social","referral","direct","other"]
+    accounts: int = Field(ge=3)
+
+
+class AcquisitionMetrics(BaseModel):
+    status: Literal["available", "unavailable"] = "unavailable"
+    source: Literal["self_reported"] | None = None
+    minimum_group_size: int = 3
+    declared_total: int = Field(default=0, ge=0)
+    groups: list[AcquisitionGroup] = Field(default_factory=list)
+
+
 class OperationsResponse(BaseModel):
     status: Literal["available", "unavailable"]
     collected_at: datetime | None = None
@@ -64,6 +77,7 @@ class OperationsResponse(BaseModel):
     queries: QueryPerformance | None = None
     uptime: UptimeHistory | None = None
     costs: CostModel
+    acquisition: AcquisitionMetrics = Field(default_factory=AcquisitionMetrics)
 
 
 def _cost_model() -> CostModel:
@@ -80,13 +94,27 @@ def _cost_model() -> CostModel:
 
 async def collect_operations() -> OperationsResponse:
     costs = _cost_model()
+    async def get_acquisition() -> AcquisitionMetrics:
+        try:
+            response = await asyncio.wait_for(
+                run_in_threadpool(lambda: supabase.rpc("admin_acquisition_aggregates").execute()),
+                timeout=5,
+            )
+            return AcquisitionMetrics.model_validate(response.data)
+        except Exception as exc:
+            logger.warning("Aquisição agregada indisponível (%s)", type(exc).__name__)
+            return AcquisitionMetrics()
+
+    acquisition = await get_acquisition()
     try:
         result = await asyncio.wait_for(
             run_in_threadpool(lambda: supabase.rpc("admin_operations_snapshot").execute()),
             timeout=8,
         )
-        return OperationsResponse.model_validate({"status": "available", "costs": costs, **result.data})
+        return OperationsResponse.model_validate({
+            "status": "available", "costs": costs, "acquisition": acquisition, **result.data
+        })
     except Exception as exc:
         # Exception messages could contain SQL, URLs or credentials: suppress them.
         logger.warning("Métricas operacionais indisponíveis (%s)", type(exc).__name__)
-        return OperationsResponse(status="unavailable", costs=costs)
+        return OperationsResponse(status="unavailable", costs=costs, acquisition=acquisition)
