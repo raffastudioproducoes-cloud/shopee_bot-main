@@ -99,7 +99,12 @@ def set_security_headers(response):
         "default-src 'self'; "
         f"{script_src}; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "img-src 'self' data: https:; "
+        # Na SPA nao ha mais tags <style>: impedir injeção de folhas inline.
+        # style-src-attr continua temporariamente herdando unsafe-inline ate
+        # a migracao de todos os atributos style={} dos componentes React.
+        + ("style-src-elem 'self' https://fonts.googleapis.com; "
+           if endpoint == "spa.spa_catch_all" else "")
+        + "img-src 'self' data: https:; "
         "font-src 'self' data: https://fonts.gstatic.com; "
         "connect-src 'self' https://*.supabase.co https://graph.threads.net; "
         "frame-ancestors 'none'"
