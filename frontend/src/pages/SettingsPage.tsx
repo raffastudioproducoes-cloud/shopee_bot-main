@@ -1,4 +1,7 @@
 import { useState } from "react"
+import { RegionConsent } from "../components/profiles/RegionConsent"
+import { AcquisitionConsent } from "../components/profiles/AcquisitionConsent"
+import { BackupSection } from "../components/profiles/BackupSection"
 import type { FormEvent } from "react"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
@@ -108,6 +111,8 @@ export function SettingsPage() {
           )}
         </form>
       </Panel>
+      <section><h2>Privacidade e localização</h2><RegionConsent /><AcquisitionConsent /></section>
+      <BackupSection />
     </div>
   )
 }
