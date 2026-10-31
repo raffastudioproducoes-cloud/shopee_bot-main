@@ -59,3 +59,22 @@ Globo esférico rotacionável, continentes reais amostrados em pontos, aro atmos
 
 Modo real vazio e demonstração opt-in verificados. Botões de zoom anunciam nomes completos e toggle anuncia estado pressionado após correção no componente Button. Movimento reduzido desativa pulsação. Arraste e teclado alteram a geometria observada; zoom e seleção atualizam as contagens e centralização. Celular: scrollWidth=clientWidth=375.
 
+
+
+---
+
+# QA visual — criação de posts com IA e threads (2026-10-31)
+
+- Referência: imagem do usuário `image(20261031-051311).png`, 1023 × 684 px (área do modal de posts).
+- Implementação: `https://shopee-bot-staging.onrender.com/posts`, commit de homologação `c7498f14d96533f90963cb93ef58c6b0c5650c6e`.
+- Estado de comparação: modal Novo post com 3+ partes, seletor de redes e prévia aberta.
+- Captura do modal implementado: **indisponível** — navegação redireciona a `/login` sem sessão autenticada.
+- Viewport/densidade da implementação no estado alvo: não obtidos. Comparação lado a lado e recortes focados: não realizados.
+
+**[P1] Bloqueio de QA visual:** a autenticação impede verificar, no navegador, os botões compactos, a sequência de textos por IA, o overflow, a responsividade e a navegação por teclado. As cinco superfícies obrigatórias — tipografia, espaçamento, cores, logos/imagens e textos — permanecem não comparadas no estado necessário. Não há base para afirmar equivalência visual.
+
+**Verificações independentes realizadas:** TypeScript/Vite passou no CI; testes Python cobrem geração de 1–10 partes, extensão com contexto, conservação de texto manual, limite de API e filtragem por rede; `staging` fez build e entrou em produção de homologação. Nenhuma publicação real foi disparada nas contas sociais.
+
+**Pendente para aprovar:** sessão autenticada em `staging`, capturas 360/768/1280 px do modal, teste de criar e expandir partes, inspeção do console, comparação com a referência e novo registro dos resultados.
+
+**final result: blocked**
