@@ -20,6 +20,15 @@ from flask import Blueprint, abort, send_from_directory
 
 spa_bp = Blueprint("spa", __name__)
 
+
+def _html_or_worker_response(directory: Path, filename: str):
+    """Do not cache SPA navigations or sw.js across production releases."""
+    response = send_from_directory(directory, filename)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 # repo_root/frontend/dist — ver Dockerfile (estágio frontend-build copia o
 # resultado de `npm run build` pra cá antes do estágio Python final)
 _DIST_DIR = Path(__file__).resolve().parents[2] / "frontend" / "dist"
@@ -48,6 +57,8 @@ def spa_catch_all(path):
     # ali fora de /assets/ cai no fallback de index.html abaixo e é
     # servido com Content-Type text/html em vez do arquivo real.
     if path and path != "index.html" and (_DIST_DIR / path).is_file():
+        if path == "sw.js":
+            return _html_or_worker_response(_DIST_DIR, path)
         return send_from_directory(_DIST_DIR, path)
 
     index_file = _DIST_DIR / "index.html"
@@ -57,4 +68,4 @@ def spa_catch_all(path):
         # Flask que ainda não foram registradas
         abort(404)
 
-    return send_from_directory(_DIST_DIR, "index.html")
+    return _html_or_worker_response(_DIST_DIR, "index.html")
