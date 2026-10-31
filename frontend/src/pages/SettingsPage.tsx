@@ -67,7 +67,7 @@ export function SettingsPage() {
         <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Configurações</h1>
         <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Ajustes da sua conta.</p>
       </div>
-      <Panel padding={24} style={{ maxWidth: 420 }}>
+      <Panel className="settings-password-card" padding={24} style={{ maxWidth: 420 }}>
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <h2 style={{ font: "var(--text-role-title)", margin: 0 }}>Trocar senha</h2>
           <TextInput

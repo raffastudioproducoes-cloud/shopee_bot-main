@@ -288,7 +288,7 @@ export function CredentialsPage() {
 
   if (isLoading) {
     return (
-      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="360px" /></div><div style={CARD_GRID}>{[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
+      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="360px" /></div><div className="credentials-card-grid" style={CARD_GRID}>{[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
     )
   }
 
@@ -317,7 +317,7 @@ export function CredentialsPage() {
 
       {/* Grade responsiva: cards lado a lado no desktop, 1 coluna no celular.
           Um novo card (ex.: chave de IA) entra como mais um filho desta grade. */}
-      <div style={CARD_GRID}>
+      <div className="credentials-card-grid" style={CARD_GRID}>
         {SIMPLE_NETWORKS.map((network) => (
           <SimpleCredentialCard
             key={network.key}

@@ -108,7 +108,7 @@ export function HelpPage() {
         </p>
       </div>
 
-      <div style={{ maxWidth: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <div className="help-mobile-tabs" style={{ maxWidth: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         <SegmentedToggle options={TABS} value={tab} onChange={(v) => setTab(v as HelpTab)} fullWidth={false} />
       </div>
 

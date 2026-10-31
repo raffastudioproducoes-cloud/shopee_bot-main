@@ -106,7 +106,7 @@ export function ProfilesPage() {
 
       {profilesLoading ? (
         <SkeletonRegion><div
-          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}
+          className="profiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}
         >
           {[0, 1, 2].map((i) => (
             <Panel key={i} style={{ height: 240, padding: 16, display: "flex", flexDirection: "column", gap: 16 }}><SkeletonAvatar size={64} /><Skeleton width="70%" height={20} /><SkeletonText lines={2} /><Skeleton width="90px" height={36} /></Panel>
@@ -122,7 +122,7 @@ export function ProfilesPage() {
           </Button>
         </Panel>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+        <div className="profiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
           {profiles.map((profile) => (
             <ProfileCard
               key={profile.id}

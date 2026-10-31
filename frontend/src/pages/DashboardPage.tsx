@@ -28,8 +28,8 @@ export default function DashboardPage() {
     return (
       <SkeletonRegion><div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-column)' }}>
         <div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="220px" height={16} /></div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--gap-grid)' }}>{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>{[1,2].map(i => <SkeletonCard key={i} />)}</div>
+        <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--gap-grid)' }}>{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</div>
+        <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>{[1,2].map(i => <SkeletonCard key={i} />)}</div>
       </div></SkeletonRegion>
     )
   }
@@ -49,14 +49,14 @@ export default function DashboardPage() {
         <p style={{ color: 'var(--text-muted)', marginTop: 4 }}>Visão geral da sua conta</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--gap-grid)' }}>
+      <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--gap-grid)' }}>
         <StatCard name="Produtos Cadastrados" icon="briefcase" price={String(stats?.products_count ?? 0)} showSparkline={false} />
         <StatCard name="Postagens Criadas" icon="file-text" price={String(stats?.posts_count ?? 0)} showSparkline={false} />
         <StatCard name="Listas de Produtos" icon="sliders-horizontal" price={String(stats?.lists_count ?? 0)} showSparkline={false} />
         <StatCard name="Agendados" icon="circle-dot" price={String(stats?.scheduled_posts ?? 0)} showSparkline={false} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>
+      <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>
         <Panel surface="glass">
           <PanelHeader title="Postagens recentes" />
           <div style={{ padding: '0 16px 16px', color: 'var(--text-on-glass-muted)', font: 'var(--text-role-body)' }}>
@@ -73,7 +73,7 @@ export default function DashboardPage() {
 
         <Panel surface="dark">
           <PanelHeader title="Ações Rápidas" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 16px 16px' }}>
+          <div className="dashboard-quick-actions" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 16px 16px' }}>
             <Button variant="secondary" icon="briefcase" fullWidth onClick={() => navigate({ to: '/products' })}>
               Adicionar Produto
             </Button>

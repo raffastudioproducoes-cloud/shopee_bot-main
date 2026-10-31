@@ -9,6 +9,7 @@ export function ActiveProfileChip() {
   return (
     <Link
       to="/profiles"
+      className="active-profile-chip"
       aria-label={`Perfil ativo: ${activeProfile.nome}. Gerenciar perfis`}
       style={{
         display: "inline-flex",
