@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from ..config import settings
 from ..database import get_supabase, supabase
+from .. import rate_limit_store
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -37,23 +38,16 @@ _DB_UNAVAILABLE_DETAIL = (
     "Serviço de banco de dados indisponível. Verifique a configuração do servidor."
 )
 
-# ponytail: cooldown de reset de senha em memória (dict de módulo). Mitigação
-# simples pra app de poucos usuários com 1 único worker uvicorn — não é um
-# rate-limiter distribuído e não escala pra múltiplos workers/instâncias.
-# Upgrade: slowapi/Redis se a app crescer pra multi-worker.
+# Armazenamento Redis/Valkey compartilhado em producao; memoria somente
+# como fallback explicito para desenvolvimento/testes sem URI configurada.
 _RESET_COOLDOWN_SECONDS = 60
 _last_reset_attempt: dict[str, float] = {}
 
-# Mesmo ponytail acima, agora por IP (cada registro tem username diferente,
-# então cooldown por username não protegeria contra spam de contas novas).
+# Cooldown por IP dificulta spam de novas contas com usernames diferentes.
 _REGISTER_COOLDOWN_SECONDS = 30
 _last_register_attempt: dict[str, float] = {}
 
-# ponytail: rate limit de login em memória de processo (dict de módulo,
-# chave IP+username, janela deslizante simples via lista de timestamps).
-# Mesma limitação dos cooldowns acima: não escala pra múltiplos workers/
-# instâncias — cada worker teria seu próprio dict e o limite efetivo vira
-# N_tentativas * N_workers. Upgrade: slowapi + Redis se a app crescer.
+# Janela atomica no Redis/Valkey; modo memory:// fica restrito aos testes locais.
 _LOGIN_RATE_LIMIT_ATTEMPTS = 5
 _LOGIN_RATE_LIMIT_WINDOW_SECONDS = 60
 _login_attempts: dict[str, list[float]] = {}
@@ -256,6 +250,13 @@ def _check_login_rate_limit(
     key: str,
     detail: str = "Muitas tentativas de login. Aguarde antes de tentar novamente.",
 ) -> None:
+    if rate_limit_store.distributed_enabled():
+        if not rate_limit_store.allow_window(
+            "login", key, _LOGIN_RATE_LIMIT_ATTEMPTS, _LOGIN_RATE_LIMIT_WINDOW_SECONDS
+        ):
+            raise HTTPException(status_code=429, detail=detail)
+        return
+
     now = time.monotonic()
     attempts = [
         t for t in _login_attempts.get(key, [])
@@ -398,14 +399,22 @@ async def reset_password(payload: ResetPasswordRequest):
     errada/sucesso, tempo de resposta equalizado (hash bcrypt dummy quando
     o usuário não existe) e cooldown por username.
     """
-    now = time.monotonic()
-    last_attempt = _last_reset_attempt.get(payload.username)
-    _last_reset_attempt[payload.username] = now
-    if last_attempt is not None and (now - last_attempt) < _RESET_COOLDOWN_SECONDS:
-        raise HTTPException(
-            status_code=429,
-            detail="Aguarde antes de tentar novamente.",
-        )
+    if rate_limit_store.distributed_enabled():
+        if not rate_limit_store.acquire_cooldown(
+            "reset", payload.username.casefold(), _RESET_COOLDOWN_SECONDS
+        ):
+            raise HTTPException(
+                status_code=429, detail="Aguarde antes de tentar novamente."
+            )
+    else:
+        now = time.monotonic()
+        last_attempt = _last_reset_attempt.get(payload.username)
+        _last_reset_attempt[payload.username] = now
+        if last_attempt is not None and (now - last_attempt) < _RESET_COOLDOWN_SECONDS:
+            raise HTTPException(
+                status_code=429,
+                detail="Aguarde antes de tentar novamente.",
+            )
 
     _validate_password_length(payload.new_password)
 
@@ -437,15 +446,23 @@ async def reset_password(payload: ResetPasswordRequest):
 async def register(body: RegisterRequest, request: Request):
     """Cadastro público. Sempre cria com access="USER" — o cliente não tem
     como enviar ADMIN, o campo nem existe no schema de entrada."""
-    now = time.monotonic()
     ip = client_ip(request)
-    last_attempt = _last_register_attempt.get(ip)
-    _last_register_attempt[ip] = now
-    if last_attempt is not None and (now - last_attempt) < _REGISTER_COOLDOWN_SECONDS:
-        raise HTTPException(
-            status_code=429,
-            detail="Aguarde antes de tentar novamente.",
-        )
+    if rate_limit_store.distributed_enabled():
+        if not rate_limit_store.acquire_cooldown(
+            "register", ip, _REGISTER_COOLDOWN_SECONDS
+        ):
+            raise HTTPException(
+                status_code=429, detail="Aguarde antes de tentar novamente."
+            )
+    else:
+        now = time.monotonic()
+        last_attempt = _last_register_attempt.get(ip)
+        _last_register_attempt[ip] = now
+        if last_attempt is not None and (now - last_attempt) < _REGISTER_COOLDOWN_SECONDS:
+            raise HTTPException(
+                status_code=429,
+                detail="Aguarde antes de tentar novamente.",
+            )
 
     _validate_password_length(body.password)
     if body.accepted_terms_version != "2026-10-31":

@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
 
 permissions:
   contents: read
@@ -86,3 +86,19 @@ jobs:
 
       - name: Build (tsc && vite build)
         run: npm run build
+
+  staging-external-security:
+    name: Staging externo (HTTP + rate limit)
+    if: github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Testar staging implantado antes de promocao
+        env:
+          STAGING_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
+          STAGING_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+        run: python scripts/staging_security_smoke.py
