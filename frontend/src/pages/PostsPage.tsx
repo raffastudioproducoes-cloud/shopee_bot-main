@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useCallback, useRef } from "react"
+import { Eye } from "lucide-react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { postsApi, type Post, type PostBatchResult, type PostSchedule, type PostNetwork } from "../api/posts"
@@ -19,6 +20,7 @@ import {
 import { TextVariantTabs } from "../components/posts/TextVariantTabs"
 import { MediaSummary } from "../components/posts/MediaSummary"
 import { MediaTray } from "../components/posts/MediaTray"
+import { PostLivePreview } from "../components/posts/PostLivePreview"
 import { planMediaComposition } from "../lib/mediaComposition"
 import { filterPicked, pickLimits, pickNotice } from "../lib/mediaAdapt"
 import { moveItem } from "../lib/mediaTray"
@@ -188,11 +190,13 @@ export function PostsPage() {
       schedule: PostSchedule
       networks: PostNetwork[]
       files: File[]
+      productImageIds: number[]
       publishNow: boolean
     }): Promise<NetworkResult[]> => {
       const draftMedia = []
       try {
         for (const file of data.files) draftMedia.push(await postsApi.uploadDraftMedia(file))
+        for (const productId of data.productImageIds) draftMedia.push(await postsApi.importProductImageDraft(productId))
         const payload = {
           compositions: data.networks.map((network) => ({ network, texts: data.textsByNetwork[network] ?? [] })),
           product_ids: data.product_ids,
@@ -299,13 +303,14 @@ export function PostsPage() {
       schedule: PostSchedule,
       networks: PostNetwork[],
       files: File[],
+      productImageIds: number[],
       publishNow: boolean,
     ) => {
       if (editingPost) {
         const texts = textsByNetwork[editingPost.network ?? "threads"] ?? []
         updateMutation.mutate({ id: editingPost.id, texts, product_ids: productIds })
       } else {
-        createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, publishNow })
+        createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, productImageIds, publishNow })
       }
     },
     [editingPost, createMutation, updateMutation],
@@ -601,6 +606,7 @@ interface PostModalProps {
     schedule: PostSchedule,
     networks: PostNetwork[],
     files: File[],
+    productImageIds: number[],
     publishNow: boolean,
   ) => void
   loading: boolean
@@ -636,6 +642,8 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const [cronDays, setCronDays] = useState<number[]>([0])
   const [pendingFiles, setPendingFiles] = useState<{ file: File; info: MediaInfo }[]>([])
   const [trayOpen, setTrayOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [useShopeeImages, setUseShopeeImages] = useState(false)
   const [pickMessage, setPickMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Redes que já deram certo no último envio saem da seleção: reenviar só
@@ -651,6 +659,8 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     queryFn: () => productsApi.list(),
   })
   const products = productsData?.data ?? []
+  const selectedProducts = products.filter((p) => selectedProductIds.includes(p.id))
+  const importablePhotos = !post && useShopeeImages ? selectedProducts.filter((p) => !!p.image) : []
 
   // Sem chave de IA própria não há o que chamar (não existe chave global):
   // em vez do botão, atalho pra Credenciais.
@@ -701,6 +711,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     setSelectedProductIds([])
     setPendingFiles([])
     setTrayOpen(false)
+    setUseShopeeImages(false)
     setWhen("now")
     setRunDayText("")
     setRunTimeText("")
@@ -760,7 +771,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   // Validação por rede em tempo real (lib/networkLimits.ts), cada uma com o seu texto.
   const media: MediaInfo[] = post
     ? post.medias.map((m) => ({ name: m.file_name, size: m.size, kind: m.type === "VIDEO" ? "video" : mediaKind(m.file_name) }))
-    : pendingFiles.map((p) => p.info)
+    : [...pendingFiles.map((p) => p.info), ...importablePhotos.map((p) => ({ name: "shopee-" + p.id + ".jpg", size: 1, kind: "image" as const }))]
   // Seletor: máximo absoluto por tipo entre as redes marcadas.
   const limits = pickLimits(activeNetworks.map((n) => NETWORK_RULES[n]))
   const draftFor = (n: PostNetwork) => {
@@ -848,13 +859,19 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
       buildSchedule(),
       activeNetworks,
       pendingFiles.map((p) => p.file),
+      importablePhotos.map((p) => p.id),
       when === "now",
     )
   }
 
   return (
-    <Modal open onClose={onClose} title={post ? "Editar post" : "Novo post"} width={560}>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <Modal open onClose={onClose} className="post-composer-modal" width={previewOpen ? 1050 : 560}
+      title={<div className="post-composer-title"><span>{post ? "Editar post" : "Novo post"}</span>
+        <button type="button" className="post-preview-toggle" aria-pressed={previewOpen}
+          onClick={() => setPreviewOpen((open) => !open)}><Eye size={16} aria-hidden="true" />
+          {previewOpen ? "Ocultar prévia" : "Visualizar"}</button></div>}>
+      <div className={"post-composer-layout" + (previewOpen ? " is-preview-open" : "")}>
+      <form className="post-composer-form" onSubmit={handleSubmit}>
         <div>
           <span style={labelStyle}>{post ? "Rede social" : "Redes sociais * (uma ou mais)"}</span>
           <NetworkPicker selected={activeNetworks} states={states} onToggle={toggleNetwork} readOnly={!!post} />
@@ -903,6 +920,14 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
             ))}
           </div>
         </div>
+
+        {!post && selectedProducts.length > 0 && <div className="post-composer-shopee-media">
+          <label><input type="checkbox" checked={useShopeeImages}
+            onChange={(event) => setUseShopeeImages(event.target.checked)} />
+            <span>Usar fotos dos produtos Shopee na publicação</span></label>
+          <p>As fotos cadastradas serão copiadas para o armazenamento privado ao criar o post. Vídeos da Shopee só ficam disponíveis após o envio de um arquivo de vídeo.</p>
+          {useShopeeImages && importablePhotos.length === 0 && <p role="status">Nenhum produto selecionado possui foto cadastrada.</p>}
+        </div>}
 
         <div style={{ display: "flex", alignItems: "flex-end", gap: 8, flexWrap: "wrap" }}>
           <Select
@@ -1272,6 +1297,10 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           </Button>
         </div>
       </form>
+      {previewOpen && <PostLivePreview networks={activeNetworks} textFor={textsFor}
+        files={pendingFiles} productPhotos={importablePhotos} products={selectedProducts}
+        existingMedia={post?.medias} onClose={() => setPreviewOpen(false)} />}
+      </div>
     </Modal>
   )
 }
