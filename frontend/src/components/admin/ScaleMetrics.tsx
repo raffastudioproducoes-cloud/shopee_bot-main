@@ -18,6 +18,12 @@ export function ScaleMetrics({ data }: { data: AdminMetrics }) {
   const db = metrics?.database
   const operations = metrics?.operations
   const engagement = metrics?.engagement
+  const history = metrics?.capacity_history ?? []
+  const firstCapacityDay = history[0]
+  const lastCapacityDay = history[history.length - 1]
+  const capacityDeltaMiB = firstCapacityDay && lastCapacityDay
+    ? (lastCapacityDay.database_bytes - firstCapacityDay.database_bytes) / 1048576
+    : null
   const cpu = capacityPercent(data.render.cpu, data.render.cpu_limit)
   const memory = capacityPercent(data.render.memory, data.render.memory_limit)
   const notices: string[] = []
@@ -35,7 +41,48 @@ export function ScaleMetrics({ data }: { data: AdminMetrics }) {
       <Panel surface="dark" className="admin-metric-card"><h3>Publicações e agendamentos</h3><dl><div><dt>Agendamentos cadastrados</dt><dd>{value(operations?.scheduled)}</dd></div><div><dt>Eventos de sucesso / falha</dt><dd>{value(operations?.published_events)} / {value(operations?.failed_events)}</dd></div><div><dt>Contas que publicaram no período</dt><dd>{value(operations?.publishing_accounts)}</dd></div></dl><p>Eventos preservados, não posts únicos. Agendamentos incluem recorrências e não representam fila pendente. Duração, tentativas e idade da fila ainda sem instrumentação.</p></Panel>
       <Panel surface="dark" className="admin-metric-card"><h3>Clientes · retorno semanal</h3><dl><div><dt>Ativos nos últimos 7 dias</dt><dd>{value(engagement?.active_week)}</dd></div><div><dt>Ativos nos 7 dias anteriores</dt><dd>{value(engagement?.previous_week)}</dd></div><div><dt>Presentes em ambas as semanas</dt><dd>{value(engagement?.returning_week)}</dd></div><div><dt>Retorno sobre semana anterior</dt><dd>{value(engagement?.previous_week ? engagement.returning_week / engagement.previous_week * 100 : null, '%')}</dd></div></dl><p>Requisições autenticadas bem-sucedidas de contas existentes. Janela fixa de 14 dias; não mede tempo ativo nem retenção por coorte de cadastro.</p></Panel>
       <Panel surface="dark" className="admin-metric-card"><h3>Consumo por plano</h3>{metrics?.consumption?.length ? <div className="admin-metric-table"><table><thead><tr><th>Plano atual</th><th>Requisições</th><th>Duração acumulada · s</th></tr></thead><tbody>{metrics.consumption.map(row => <tr key={row.plan}><td>{row.plan === 'unknown' ? 'Sem plano' : row.plan}</td><td>{value(row.requests)}</td><td>{value(row.request_duration_ms / 1000)}</td></tr>)}</tbody></table></div> : <p>Consumo por plano indisponível nesta coleta.</p>}<p>Contas existentes com requisições identificadas; usa o plano atual. Duração inclui espera e não representa CPU nem custo. Custo por cliente e publicação exige faturamento e atribuição de consumo.</p></Panel>
-      <Panel surface="dark" className="admin-metric-card"><h3>Evolução do banco</h3>{metrics?.capacity_history?.length ? <><MetricTrend values={metrics.capacity_history.map(point => point.database_bytes / 1048576)} timestamps={metrics.capacity_history.map(point => `${point.date}T12:00:00-03:00`)} label="Tamanho do banco em MiB por dia observado" /><details><summary>Consultar dias observados</summary><div className="admin-metric-table"><table><thead><tr><th>Dia</th><th>Banco · MiB</th><th>Máximo de conexões observado</th></tr></thead><tbody>{metrics.capacity_history.map(point => <tr key={point.date}><td>{point.date}</td><td>{value(point.database_bytes / 1048576)}</td><td>{value(point.observed_connections)}</td></tr>)}</tbody></table></div></details></> : <p>Histórico ainda sem amostras. Captura diária preparada; agendamento não ativado.</p>}<p>Último tamanho de cada dia observado; lacunas não equivalem a zero. Máximo observado não é pico contínuo. Previsão de esgotamento exige histórico representativo e cota real.</p></Panel>
+      <Panel surface="dark" className="admin-metric-card">
+        <h3>Evolução do banco</h3>
+        {lastCapacityDay ? <>
+          <p role="status">
+            {history.length} {history.length === 1 ? 'dia observado' : 'dias observados'} ·
+            Última medição: {lastCapacityDay.date.split('-').reverse().join('/')} ·
+            Banco: {value(lastCapacityDay.database_bytes / 1048576, ' MiB')} ·
+            Conexões observadas: {value(lastCapacityDay.observed_connections)}.
+          </p>
+          {history.length === 1 ? (
+            <p>Primeira amostra registrada. O gráfico de evolução aparecerá quando houver medições de pelo menos dois dias distintos. Não existe tendência calculada ainda.</p>
+          ) : <>
+            <MetricTrend
+              values={history.map(point => point.database_bytes / 1048576)}
+              timestamps={history.map(point => `${point.date}T12:00:00-03:00`)}
+              label={`Tamanho do banco em MiB nos ${history.length} dias observados`}
+              start={firstCapacityDay?.date.split('-').reverse().slice(0, 2).join('/')}
+              end={lastCapacityDay.date.split('-').reverse().slice(0, 2).join('/')}
+            />
+            <p>Variação entre a primeira e a última medição: {capacityDeltaMiB != null && capacityDeltaMiB > 0 ? '+' : ''}{value(capacityDeltaMiB, ' MiB')}.</p>
+          </>}
+          <details>
+            <summary>Consultar {history.length === 1 ? 'a medição registrada' : 'os dias registrados'}</summary>
+            <div className="admin-metric-table"><table>
+              <thead><tr><th>Dia</th><th>Banco · MiB</th><th>Conexões observadas</th></tr></thead>
+              <tbody>{history.map(point => (
+                <tr key={point.date}>
+                  <td>{point.date.split('-').reverse().join('/')}</td>
+                  <td>{value(point.database_bytes / 1048576)}</td>
+                  <td>{value(point.observed_connections)}</td>
+                </tr>
+              ))}</tbody>
+            </table></div>
+          </details>
+          <p>Captura automática programada diariamente às 00h15 (Brasília). Cada dia apresenta a última medição do tamanho do banco e o maior número de conexões entre as coletas daquele dia.</p>
+        </> : (
+          <p role="status">{data.supabase.status === 'available'
+            ? 'Ainda não há medições históricas. A rotina automática está programada para 00h15 (Brasília).'
+            : 'Histórico indisponível porque não foi possível consultar as métricas do banco.'}</p>
+        )}
+        <p>Lacunas não são zeros; medições pontuais não mostram picos contínuos nem a cota de armazenamento contratada. Previsões de esgotamento exigem histórico representativo.</p>
+      </Panel>
       <Panel surface="dark" className="admin-metric-card"><h3>Cobertura para expansão</h3><details><summary>Fontes necessárias para completar o controle</summary><ul className="admin-coverage"><li>Estatísticas de consultas agregadas, ocupação do pool e limites reais do plano.</li><li>Sondas de disponibilidade e histórico de saturação do servidor.</li><li>Eventos de tarefa: início, conclusão, tentativas e código de erro do provedor.</li><li>Eventos de ativação e cobrança confirmada para funil, conversão e cancelamentos.</li><li>Fatura e consumo agregado para custo por conta ativa e publicação concluída.</li></ul></details></Panel>
     </div>
     <Panel surface="dark" className="admin-metric-card admin-scale-notices"><h3>Diagnóstico para decisão</h3>{notices.length ? <ul>{notices.map(notice => <li key={notice}>{notice}</li>)}</ul> : <p>Nenhum aviso pelos sinais disponíveis. Cobertura incompleta não confirma que toda a operação esteja saudável.</p>}<p>Os avisos sugerem investigação. Nenhuma ação de escala é executada.</p></Panel>
