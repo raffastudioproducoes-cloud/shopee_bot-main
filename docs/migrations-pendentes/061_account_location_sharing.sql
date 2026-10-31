@@ -1,8 +1,9 @@
 -- 061: explicit, revocable, one-time location sharing for growth analysis.
 -- Browser rounds position to ~1 km BEFORE transmission; no address, IP or movement history.
+-- A declined/revoked tombstone prevents prompting or collecting again after a decision.
 CREATE TABLE IF NOT EXISTS public.account_location_sharing (
   user_id uuid PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
-  choice text NOT NULL CHECK (choice IN ('accepted','declined')),
+  choice text NOT NULL CHECK (choice IN ('accepted','declined','revoked')),
   latitude numeric(5,2),
   longitude numeric(5,2),
   accuracy_m integer CHECK (accuracy_m IS NULL OR accuracy_m BETWEEN 0 AND 1000000),
@@ -10,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.account_location_sharing (
   decided_at timestamptz NOT NULL DEFAULT now(),
   collected_at timestamptz,
   CONSTRAINT valid_location_sharing CHECK (
-    (choice='declined' AND latitude IS NULL AND longitude IS NULL AND accuracy_m IS NULL AND collected_at IS NULL)
+    (choice IN ('declined','revoked') AND latitude IS NULL AND longitude IS NULL AND accuracy_m IS NULL AND collected_at IS NULL)
     OR (choice='accepted' AND latitude IS NOT NULL AND longitude IS NOT NULL AND collected_at IS NOT NULL)
   ),
   CONSTRAINT lat_range CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
