@@ -117,3 +117,13 @@ def test_storage_snapshot_does_not_fabricate_zero_when_missing(monkeypatch):
     result = asyncio.run(admin_metrics._storage_snapshot())
     assert result.status == "unavailable"
     assert result.used_bytes is None
+
+
+def test_sql_migrations_revoke_direct_table_grants():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2] / "database" / "migrations"
+    initial = (root / "058_admin_storage_capacity.sql").read_text()
+    corrective = (root / "059_revoke_storage_reservation_direct_grants.sql").read_text()
+    assert "FROM PUBLIC, anon, authenticated, service_role" in initial
+    assert "REVOKE ALL ON TABLE public.storage_upload_reservations FROM service_role" in corrective
+    assert "GRANT EXECUTE ON FUNCTION public.reserve_storage_upload(bigint) TO service_role" in initial
