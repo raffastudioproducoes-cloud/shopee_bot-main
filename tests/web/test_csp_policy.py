@@ -126,7 +126,9 @@ def test_unauthenticated_reserved_routes_return_404_instead_of_internal_server_e
 
 def test_method_not_allowed_stays_405():
     with app.test_client() as client:
-        response = client.get("/internal/scheduler/jobs")
+        # /internal/scheduler/jobs also matches the SPA GET catch-all,
+        # so use an exact GET-only endpoint to assert a genuine 405.
+        response = client.post("/health")
     assert response.status_code == 405
 
 
