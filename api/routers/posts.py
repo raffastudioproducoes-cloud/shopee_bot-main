@@ -33,6 +33,7 @@ import uuid
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import re
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Literal
 
@@ -630,33 +631,162 @@ async def _create_schedule_jobs(user_id: int, post_id: int, func: str, schedule:
 _PUBLISH_ACTIVITY_STATUS = {1: "published", 2: "failed"}
 
 
-def _get_last_publish_result(user_id: int, post_id: int) -> dict | None:
-    """Último resultado REAL da publicação do post (a execução acontece no
-    scheduler, depois do 200 de /publish). Best-effort: falha aqui não
-    derruba a listagem."""
+MANUAL_CONFIRMATION_PREFIX = "MANUAL_CONFIRMED; "
+
+
+def _utc_instant(value: str | None) -> datetime | None:
+    if not value:
+        return None
     try:
-        result = (
-            supabase.table("activities").select("activity_id, metadata, created_at")
-            .eq("user_id", user_id)
-            .in_("activity_id", list(_PUBLISH_ACTIVITY_STATUS))
-            .eq("metadata->>post_id", str(post_id))
-            .order("created_at", desc=True)
-            .limit(1)
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def _latest_publish_job(user_id: int, post_id: int, profile_id: str | None = None) -> dict | None:
+    """Última ocorrência de fila, sempre isolada pelo dono e perfil."""
+    result = (
+        scope_owner(supabase.table("publish_jobs").select(
+            "id,status,created_at,started_at,finished_at,last_error,external_id"
+        ), user_id, profile_id)
+        .eq("post_id", post_id)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return (result.data or [None])[0]
+
+
+def _get_last_publish_result(
+    user_id: int, post_id: int, profile_id: str | None = None
+) -> dict | None:
+    """Une eventos e estado da fila; 'unknown' não pode parecer agendado."""
+    job = None
+    try:
+        job = _latest_publish_job(user_id, post_id, profile_id)
+    except Exception:
+        logger.warning("Falha ao consultar fila do post %s", post_id, exc_info=True)
+
+    activity = None
+    try:
+        query = supabase.table("activities").select("activity_id, metadata, created_at")
+        query = scope_owner(query, user_id, profile_id)
+        rows = (query.in_("activity_id", list(_PUBLISH_ACTIVITY_STATUS))
+                .eq("metadata->>post_id", str(post_id))
+                .order("created_at", desc=True).limit(1).execute().data or [])
+        activity = rows[0] if rows else None
+    except Exception:
+        logger.warning("Falha ao ler resultado de publicação do post %s", post_id, exc_info=True)
+
+    if activity and (not job or (
+        (_utc_instant(activity.get("created_at")) or datetime.min.replace(tzinfo=timezone.utc))
+        >= (_utc_instant(job.get("created_at")) or datetime.min.replace(tzinfo=timezone.utc))
+    )):
+        error = (activity.get("metadata") or {}).get("error")
+        return {
+            "status": _PUBLISH_ACTIVITY_STATUS.get(activity.get("activity_id")),
+            "at": activity.get("created_at"),
+            "error": sanitize_log_data(str(error))[:200] if error else None,
+        }
+    if not job or job["status"] == "pending":
+        return None
+
+    state = job["status"]
+    manual = state == "succeeded" and (job.get("last_error") or "").startswith(MANUAL_CONFIRMATION_PREFIX)
+    status_label = (
+        "manual_confirmed" if manual else
+        {"succeeded": "published", "failed": "failed", "unknown": "unknown",
+         "running": "running"}.get(state)
+    )
+    return {
+        "status": status_label,
+        "at": job.get("finished_at") or job.get("started_at"),
+        "error": (
+            "Execução sem confirmação. Confira na rede antes de agir."
+            if state == "unknown" else
+            sanitize_log_data(str(job.get("last_error")))[:200] if state == "failed" and job.get("last_error")
+            else None
+        ),
+        **({"proof_url": job.get("external_id")} if manual else {}),
+    }
+
+
+def _valid_threads_permalink(value: str) -> str | None:
+    """Aceita somente permalink de publicação Threads sem query/fragmento."""
+    try:
+        parsed = urlparse(value.strip())
+    except ValueError:
+        return None
+    if parsed.scheme != "https" or parsed.username or parsed.password or parsed.port:
+        return None
+    if (parsed.hostname or "").lower() not in ("threads.com", "www.threads.com", "threads.net", "www.threads.net"):
+        return None
+    if parsed.query or parsed.fragment:
+        return None
+    if not re.fullmatch(r"/@[A-Za-z0-9_.]{1,30}/post/[A-Za-z0-9_-]{4,70}/?", parsed.path):
+        return None
+    return "https://" + parsed.hostname.lower() + parsed.path.rstrip("/")
+
+
+class ReconcilePostBody(BaseModel):
+    permalink: str
+    confirmed: bool = False
+
+
+@router.post("/{post_id}/reconcile", status_code=200)
+def reconcile_post(
+    post_id: int,
+    body: ReconcilePostBody,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """O proprietário atesta manualmente a publicação sem dispará-la novamente.
+
+    O histórico da falha anterior permanece em last_error; o status succeeded
+    é distinguível via marcador e URL da evidência. O endpoint não consulta
+    nem assume validação automática pela Meta.
+    """
+    post = _get_post(user_id, post_id, profile_id)
+    if post.get("network") != "threads":
+        raise HTTPException(status_code=422, detail="Conciliação manual disponível apenas para Threads")
+    if body.confirmed is not True:
+        raise HTTPException(status_code=422, detail="Confirme que verificou o post diretamente no Threads")
+    url = _valid_threads_permalink(body.permalink)
+    if not url:
+        raise HTTPException(status_code=422, detail="Forneça o link direto HTTPS da publicação no Threads")
+
+    job = _latest_publish_job(user_id, post_id, profile_id)
+    if not job or job.get("status") != "unknown":
+        raise HTTPException(status_code=409, detail="A publicação não está pendente de conciliação")
+    old_error = sanitize_log_data(str(job.get("last_error") or ""))[:180]
+    event = f"{MANUAL_CONFIRMATION_PREFIX}user={user_id}; original={old_error}"
+    try:
+        response = (
+            scope_owner(
+                supabase.table("publish_jobs").update({
+                    "status": "succeeded", "external_id": url,
+                    "last_error": event,
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                }), user_id, profile_id
+            )
+            .eq("id", job["id"]).eq("post_id", post_id).eq("status", "unknown")
             .execute()
         )
     except Exception:
-        logger.warning("Falha ao ler resultado de publicação do post %s", post_id, exc_info=True)
-        return None
-    rows = result.data if isinstance(getattr(result, "data", None), list) else []
-    if not rows:
-        return None
-    row = rows[0]
-    error = (row.get("metadata") or {}).get("error")
-    return {
-        "status": _PUBLISH_ACTIVITY_STATUS.get(row.get("activity_id")),
-        "at": row.get("created_at"),
-        "error": sanitize_log_data(str(error))[:200] if error else None,
-    }
+        logger.exception("Falha ao conciliar publicação %s", post_id)
+        raise HTTPException(status_code=503, detail="Não foi possível registrar a confirmação")
+    if not response.data:
+        raise HTTPException(status_code=409, detail="A publicação mudou de estado. Atualize a lista.")
+
+    log_action(
+        "post_manual_reconciliation",
+        f"post_id={post_id} job_id={job['id']} original_status=unknown evidence_url={url}",
+        user_id=user_id, profile_id=profile_id,
+    )
+    return {"status": "manual_confirmed", "proof_url": url,
+            "msg": "Confirmado por você com o link fornecido, sem reenviar o post."}
+
 
 
 def _get_thread_chain(head_id: int) -> list[dict]:
@@ -838,7 +968,7 @@ async def list_posts(
                 else None
             ),
             "parts_count": len(chain),
-            "last_result": _get_last_publish_result(user_id, item["id"]),
+            "last_result": _get_last_publish_result(user_id, item["id"], profile_id),
         })
 
     next_cursor = None
@@ -1139,7 +1269,7 @@ async def get_post(
         "medias": _get_post_medias(post_id),
         "scheduled": _is_scheduled(job, post),
         "schedule_trigger": job.get("trigger") if job else None,
-        "last_result": _get_last_publish_result(user_id, post_id),
+        "last_result": _get_last_publish_result(user_id, post_id, profile_id),
     }
 
 
@@ -1307,6 +1437,13 @@ async def publish_post_now(
         raise HTTPException(status_code=409, detail="Post não tem agendamento — nada pra publicar")
 
     network = post.get("network") or "threads"
+    if job.get("trigger") == "date":
+        latest = _latest_publish_job(user_id, post_id, profile_id)
+        if latest and latest.get("status") in ("running", "unknown", "succeeded"):
+            raise HTTPException(
+                status_code=409,
+                detail="Publicação já iniciada ou sem confirmação. Verifique o resultado antes de reenviar.",
+            )
     log_action(
         "post_publish_requested",
         f"network={network} post_id={post_id} job_id={job['id']}",
