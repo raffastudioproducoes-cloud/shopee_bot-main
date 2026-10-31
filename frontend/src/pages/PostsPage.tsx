@@ -145,10 +145,17 @@ export function PostsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingPost, setEditingPost] = useState<Post | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
+  const [reconcilePostId, setReconcilePostId] = useState<number | null>(null)
+  const [evidenceUrl, setEvidenceUrl] = useState("")
+  const [confirmedOnThreads, setConfirmedOnThreads] = useState(false)
 
   const { data: postsData, isLoading } = useQuery({
     queryKey: ["posts"],
     queryFn: () => postsApi.list(),
+    refetchInterval: (query) =>
+      query.state.data?.data?.some((post) => post.scheduled && (
+        !post.last_result?.status || post.last_result.status === 'running'
+      )) ? 30_000 : false,
   })
   // Carrega antes da abertura do modal: uma conexão já testada não fica
   // momentaneamente parecendo indisponível no compositor.
@@ -240,6 +247,17 @@ export function PostsPage() {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
       setModalOpen(false)
       setEditingPost(null)
+    },
+    onError: onAuthError,
+  })
+
+  const reconcileMutation = useMutation({
+    mutationFn: ({ id, url }: { id: number; url: string }) => postsApi.reconcile(id, url),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] })
+      setReconcilePostId(null)
+      setEvidenceUrl("")
+      setConfirmedOnThreads(false)
     },
     onError: onAuthError,
   })
@@ -391,42 +409,52 @@ export function PostsPage() {
                         Grupo · {groups.get(post.id)!.size} redes
                       </Badge>
                     )}
-                    
-<span style={metaTextStyle}>
-  Criado em {formatUtcTimestampBrasilia(post.created_at)}
-</span>
-
-{post.scheduled &&
-  post.schedule_trigger === "date" &&
-  post.scheduled_for &&
-  !post.last_result?.status && (
-    <span style={metaTextStyle}>
-      Publicação: {formatUtcTimestampBrasilia(post.scheduled_for)}
-    </span>
-  )}
-
-                    {post.scheduled && (post.schedule_trigger === "cron" || !post.last_result?.status) && (
-                      <StatusBadge tone="positive" icon="clock">
-                        Agendado
+                    <span style={metaTextStyle}>
+                      Criado em {formatUtcTimestampBrasilia(post.created_at)}
+                    </span>
+                    {post.scheduled && post.schedule_trigger === "date" && post.scheduled_for && (
+                      <span style={metaTextStyle}>
+                        Programado: {formatUtcTimestampBrasilia(post.scheduled_for)}
+                      </span>
+                    )}
+                    {post.scheduled && (!post.last_result?.status || post.schedule_trigger === "cron") && (
+                      <StatusBadge tone="info" icon="calendar-clock">
+                        {post.schedule_trigger === "cron" ? "Recorrente" : "Agendado"}
                       </StatusBadge>
+                    )}
+                    {post.last_result?.status === "running" && (
+                      <StatusBadge tone="info" icon="loader-2">Em execução</StatusBadge>
+                    )}
+                    {post.last_result?.status === "unknown" && (
+                      <StatusBadge tone="warning" icon="alert-triangle">Sem confirmação</StatusBadge>
                     )}
                     {post.last_result?.status === "published" && (
                       <StatusBadge tone="positive" icon="check-circle-2">
                         Publicado{post.last_result.at ? ` em ${formatUtcTimestampBrasilia(post.last_result.at)}` : ""}
                       </StatusBadge>
                     )}
+                    {post.last_result?.status === "manual_confirmed" && (
+                      <StatusBadge tone="manual" icon="shield-check">Confirmado por você</StatusBadge>
+                    )}
                     {post.last_result?.status === "failed" && (
-                      <StatusBadge icon="x-circle" style={{ color: "var(--negative)" }}>
-                        Falhou
-                      </StatusBadge>
+                      <StatusBadge tone="negative" icon="x-circle">Falhou</StatusBadge>
                     )}
                     {!!post.parts_count && post.parts_count > 1 && (
                       <span style={metaTextStyle}>{post.parts_count} partes</span>
                     )}
                   </div>
-                  {post.last_result?.status === "failed" && post.last_result.error && (
-                    <p style={{ ...metaTextStyle, color: "var(--negative)", marginTop: 8 }}>
-                      Última tentativa: {post.last_result.error}
+                  {(post.last_result?.status === "failed" || post.last_result?.status === "unknown") && post.last_result.error && (
+                    <p style={{ ...metaTextStyle, color: post.last_result.status === "unknown" ? "#fcd34d" : "var(--negative)", marginTop: 8 }}>
+                      {post.last_result.status === "unknown" ? "Atenção: " : "Última tentativa: "}
+                      {post.last_result.error}
+                    </p>
+                  )}
+                  {post.last_result?.status === "manual_confirmed" && post.last_result.proof_url && (
+                    <p style={{ ...metaTextStyle, marginTop: 8 }}>
+                      Confirmação manual, não verificação automática pela Meta.{" "}
+                      <a href={post.last_result.proof_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                        Ver publicação no Threads
+                      </a>
                     </p>
                   )}
                   {publishMutation.isError && publishMutation.variables === post.id && (
@@ -436,7 +464,20 @@ export function PostsPage() {
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 4, flex: "0 0 auto" }}>
-                  {post.scheduled && (
+                  {post.last_result?.status === "unknown" && post.network === "threads" && (
+                    <Button variant="ghost" size="sm" icon="shield-check" onClick={(e) => {
+                      e.stopPropagation()
+                      setReconcilePostId(post.id)
+                      setEvidenceUrl("")
+                      setConfirmedOnThreads(false)
+                      reconcileMutation.reset()
+                    }}>
+                      Conferir post
+                    </Button>
+                  )}
+                  {post.scheduled && post.last_result?.status !== "unknown" &&
+                    post.last_result?.status !== "running" &&
+                    (post.schedule_trigger === "cron" || !post.last_result?.status) && (
                     <IconButton
                       icon="send"
                       label="Publicar agora"
@@ -484,6 +525,31 @@ export function PostsPage() {
           onClear={() => createMutation.reset()}
         />
       )}
+
+      <Modal open={reconcilePostId != null} onClose={() => setReconcilePostId(null)} title="Conferir publicação no Threads" width={510}>
+        <p style={{ font: "var(--text-role-body)", color: "var(--text-muted)", marginTop: 0 }}>
+          Este agendamento começou, mas perdeu a confirmação. Abra seu Threads e confirme que
+          o post existe antes de registrar o resultado. Esta ação NÃO publica novamente.
+        </p>
+        <TextInput label="Link direto da publicação no Threads" type="url"
+          placeholder="https://www.threads.net/@perfil/post/..."
+          value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} />
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 16, font: "var(--text-role-body)" }}>
+          <input type="checkbox" checked={confirmedOnThreads} onChange={(event) => setConfirmedOnThreads(event.target.checked)} />
+          Eu conferi no Threads que este post foi realmente publicado. Entendo que isto é uma confirmação manual.
+        </label>
+        {reconcileMutation.isError && (
+          <p role="alert" style={{ color: "var(--negative)" }}>{reconcileMutation.error.message}</p>
+        )}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
+          <Button variant="ghost" onClick={() => setReconcilePostId(null)}>Cancelar</Button>
+          <Button variant="mint" loading={reconcileMutation.isPending}
+            disabled={!confirmedOnThreads || !evidenceUrl.trim()}
+            onClick={() => reconcilePostId != null && reconcileMutation.mutate({ id: reconcilePostId, url: evidenceUrl.trim() })}>
+            Registrar confirmação
+          </Button>
+        </div>
+      </Modal>
 
       <Modal open={deleteConfirm != null} onClose={() => setDeleteConfirm(null)} title="Confirmar remoção" width={400}>
         <p style={{ font: "var(--text-role-body)", color: "var(--text-muted)", marginTop: 0, marginBottom: 20 }}>
