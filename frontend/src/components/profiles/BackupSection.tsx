@@ -57,10 +57,10 @@ export function BackupSection() {
   }
 
   return (
-    <section aria-labelledby="backup-title" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <section aria-labelledby="backup-title" className="csp-s-0073">
       <div>
-        <h2 id="backup-title" style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Backup e dados</h2>
-        <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Baixe uma cópia dos seus dados, restaure um arquivo ou exclua sua conta.</p>
+        <h2 id="backup-title" className="csp-s-0074">Backup e dados</h2>
+        <p className="csp-s-0075">Baixe uma cópia dos seus dados, restaure um arquivo ou exclua sua conta.</p>
       </div>
 
       {feedback && (
@@ -76,11 +76,11 @@ export function BackupSection() {
         <Button variant="secondary" icon="upload" onClick={() => restoreInputRef.current?.click()}>
           Restaurar backup
         </Button>
-        <input ref={restoreInputRef} type="file" accept="application/json" onChange={handleRestoreFileChange} style={{ display: "none" }} />
+        <input ref={restoreInputRef} type="file" accept="application/json" onChange={handleRestoreFileChange} className="csp-s-0076" />
         <Button variant="secondary" icon="trash-2" onClick={() => setDeleteAccountOpen(true)} style={{ color: "var(--red-300)" }}>
           Excluir minha conta e dados
         </Button>
-        <p style={{ flexBasis: "100%", margin: 0, color: "var(--text-muted)", fontSize: 13 }}>
+        <p className="csp-s-0077">
           Restaurar adiciona produtos, listas e posts do arquivo à conta, sem apagar nada. Excluir a conta apaga
           permanentemente credenciais, produtos, listas e posts (pede sua senha).
         </p>
@@ -141,8 +141,8 @@ function DeleteAccountModal({ onClose, onDeleted }: DeleteAccountModalProps) {
 
   return (
     <Modal open onClose={onClose} title="Excluir minha conta" width={420}>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <p style={{ color: "var(--negative-ink)", font: "var(--text-role-body)", margin: 0 }}>
+      <form onSubmit={handleSubmit} className="csp-s-0078">
+        <p className="csp-s-0079">
           Esta ação é irreversível: sua conta e todos os dados associados (credenciais, produtos,
           listas, posts) serão apagados permanentemente.
         </p>
@@ -156,14 +156,14 @@ function DeleteAccountModal({ onClose, onDeleted }: DeleteAccountModalProps) {
           autoComplete="current-password"
         />
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8, font: "var(--text-role-body)", color: "var(--text-muted)" }}>
+        <label className="csp-s-0080">
           <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
           Tenho certeza que quero excluir minha conta e meus dados permanentemente.
         </label>
 
-        {error && <p role="alert" style={{ color: "var(--negative-ink)", margin: 0 }}>{error}</p>}
+        {error && <p role="alert" className="csp-s-0081">{error}</p>}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <div className="csp-s-0082">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>

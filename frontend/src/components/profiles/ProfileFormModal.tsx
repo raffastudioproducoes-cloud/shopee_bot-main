@@ -31,19 +31,19 @@ export function ProfileFormModal({ profile, onClose, onSubmit, loading, error }:
 
   return (
     <Modal open onClose={onClose} title={profile ? "Editar perfil" : "Novo perfil"} width={400}>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <form onSubmit={handleSubmit} className="csp-s-0098">
         <TextInput label="Nome *" value={nome} onChange={(e) => setNome(e.target.value)} required />
         <TextInput label="E-mail *" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <TextInput label="Telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
         <TextInput label="Endereço" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
 
         {error && (
-          <p role="alert" style={{ margin: 0, color: "var(--negative-on-glass)" }}>
+          <p role="alert" className="csp-s-0099">
             {error}
           </p>
         )}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <div className="csp-s-0100">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>

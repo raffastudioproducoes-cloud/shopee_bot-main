@@ -35,7 +35,6 @@ const FIELDS: Record<OverrideKind, Array<{ key: string; label: string; secret?: 
   kwai: [{ key: 'appId', label: 'App ID' }, { key: 'secret', label: 'Secret', secret: true }],
 }
 
-const GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 } as const
 
 export function AdminOverrides({ onSaved, onAuthError, setBanner }: {
   onSaved: () => void
@@ -43,12 +42,12 @@ export function AdminOverrides({ onSaved, onAuthError, setBanner }: {
   setBanner: (banner: Banner) => void
 }) {
   return (
-    <section aria-label="Opções administrativas" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <section aria-label="Opções administrativas" className="csp-s-0002">
       <div>
-        <h2 style={{ font: 'var(--text-role-title)', color: 'var(--text-display)', margin: 0 }}>Opções administrativas</h2>
-        <p style={{ color: 'var(--text-muted)', margin: '4px 0 0' }}>Overrides manuais para diagnóstico e testes do aplicativo.</p>
+        <h2 className="csp-s-0003">Opções administrativas</h2>
+        <p className="csp-s-0004">Overrides manuais para diagnóstico e testes do aplicativo.</p>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: 16 }}>
+      <div className="csp-s-0005">
         {(Object.keys(LABELS) as OverrideKind[]).map((network) => (
           <ManualOverrideCard key={network} network={network} onSaved={onSaved} onAuthError={onAuthError} setBanner={setBanner} />
         ))}
@@ -88,14 +87,14 @@ function ManualOverrideCard({ network, onSaved, onAuthError, setBanner }: {
   const canSave = fields.filter((field) => !field.optional).every((field) => values[field.key]?.trim())
   return (
     <Panel surface="dark" style={{ padding: 16 }}>
-      <form onSubmit={(event) => { event.preventDefault(); save.mutate() }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+      <form onSubmit={(event) => { event.preventDefault(); save.mutate() }} className="csp-s-0006">
+        <div className="csp-s-0007">
           <strong>{LABELS[network]}</strong>
-          <a href={PORTALS[network]} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-500)', font: 'var(--text-role-body)' }}>
+          <a href={PORTALS[network]} target="_blank" rel="noreferrer" className="csp-s-0008">
             Portal de desenvolvedores
           </a>
         </div>
-        <div style={GRID}>
+        <div className="csp-named-admin-grid">
           {fields.map((field) => (
             <TextInput
               key={field.key}
@@ -108,7 +107,7 @@ function ManualOverrideCard({ network, onSaved, onAuthError, setBanner }: {
             />
           ))}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div className="csp-s-0009">
           <Button type="submit" variant="primary" disabled={save.isPending || !canSave}>
             {save.isPending ? 'Salvando...' : 'Salvar override'}
           </Button>

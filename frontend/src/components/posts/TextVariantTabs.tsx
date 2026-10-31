@@ -48,11 +48,11 @@ export function TextVariantTabs({ plans, values, onChange, issues }: Props) {
   const bad = issues[current].length > 0
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div className="csp-s-0036">
       <p style={{ margin: 0, font: caption, color: "var(--text-muted)" }}>
         As redes marcadas têm limites diferentes: cada aba é o texto de um grupo de redes.
       </p>
-      <div role="tablist" aria-label="Texto do post por rede" onKeyDown={onKeyDown} style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      <div role="tablist" aria-label="Texto do post por rede" onKeyDown={onKeyDown} className="csp-s-0037">
         {plans.map((p, i) => {
           const on = i === current
           const invalid = issues[i].length > 0
@@ -93,10 +93,10 @@ export function TextVariantTabs({ plans, values, onChange, issues }: Props) {
         role="tabpanel"
         id={`${baseId}-panel-${current}`}
         aria-labelledby={`${baseId}-tab-${current}`}
-        style={{ display: "flex", flexDirection: "column", gap: 6 }}
+        className="csp-s-0038"
       >
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6 }}>
+        <div className="csp-s-0039">
+          <span className="csp-s-0040">
             {plan.networks.map((n) => (
               <span
                 key={n}
@@ -133,7 +133,7 @@ export function TextVariantTabs({ plans, values, onChange, issues }: Props) {
           </p>
         )}
         {bad && (
-          <ul aria-live="polite" style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2 }}>
+          <ul aria-live="polite" className="csp-s-0041">
             {issues[current].map((i, idx) => (
               <li key={idx} style={{ font: caption, color: "var(--negative)" }}>
                 Bloqueado — {i.message}

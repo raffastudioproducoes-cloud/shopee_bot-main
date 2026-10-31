@@ -71,30 +71,15 @@ export function TextInput({
     <label className={className} style={{ display: "block", width, ...style }}>
       {label ? (
         <span
-          style={{
-            display: "block",
-            font: "var(--text-role-label)",
-            letterSpacing: "var(--ls-label)",
-            textTransform: "uppercase",
-            color: "var(--text-muted)",
-            marginBottom: 6,
-          }}
+          className="csp-s-0142"
         >
           {label}
         </span>
       ) : null}
-      <div style={{ position: "relative" }}>
+      <div className="csp-s-0143">
         {icon ? (
           <span
-            style={{
-              position: "absolute",
-              left: 14,
-              top: "50%",
-              transform: "translateY(-50%)",
-              display: "inline-flex",
-              color: "var(--text-muted)",
-              pointerEvents: "none",
-            }}
+            className="csp-s-0144"
           >
             <Icon name={icon} size={16} />
           </span>

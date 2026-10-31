@@ -53,7 +53,7 @@ function CatalogThumb({ image, size }: { image: string | null; size: number }) {
 
 function CatalogBadges({ product }: { product: CatalogProduct }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+    <div className="csp-s-0042">
       <Badge tone="outline">{formatCatalogPrice(product)}</Badge>
       {product.commission != null ? <Badge tone="outline">Comissão {formatRate(product.commission)}</Badge> : null}
       {product.commission != null || product.commission_amount != null ? (
@@ -81,26 +81,17 @@ function CatalogCard({ product, added, onOpen }: CatalogCardProps) {
       }}
       style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10, cursor: "pointer" }}
     >
-      <div style={{ display: "flex", gap: 12 }}>
+      <div className="csp-s-0043">
         <CatalogThumb image={product.image} size={64} />
-        <div style={{ minWidth: 0, flex: 1 }}>
+        <div className="csp-s-0044">
           <p
             title={product.name}
-            style={{
-              margin: 0,
-              font: "var(--text-role-body)",
-              color: "var(--text-body)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-            }}
+            className="csp-s-0045"
           >
             {product.name}
           </p>
           {product.shop_name ? (
-            <p style={{ margin: "4px 0 0", font: "var(--text-role-label)", color: "var(--text-muted)" }}>{product.shop_name}</p>
+            <p className="csp-s-0046">{product.shop_name}</p>
           ) : null}
         </div>
       </div>
@@ -122,49 +113,48 @@ interface CatalogDetailsModalProps {
 
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-      <span style={{ font: "var(--text-role-label)", letterSpacing: "var(--ls-label)", textTransform: "uppercase", color: "var(--text-muted)" }}>
+    <div className="csp-s-0047">
+      <span className="csp-s-0048">
         {label}
       </span>
-      <span style={{ font: "var(--text-role-body)", color: "var(--text-body)", overflowWrap: "anywhere" }}>{children}</span>
+      <span className="csp-s-0049">{children}</span>
     </div>
   )
 }
 
 function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfirm, onEdit }: CatalogDetailsModalProps) {
-  const linkStyle = { color: "var(--sky-300)" } as const
-  return (
+    return (
     <Modal open={product != null} onClose={onClose} title="Detalhes do produto" width={520}>
       {product ? (
-        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "flex", gap: 14 }}>
+        <div className="csp-s-0050">
+          <div className="csp-s-0051">
             <CatalogThumb image={product.image} size={96} />
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <p style={{ margin: 0, font: "var(--text-role-title)", color: "var(--text-display)", overflowWrap: "anywhere" }}>{product.name}</p>
+            <div className="csp-s-0052">
+              <p className="csp-s-0053">{product.name}</p>
               {product.shop_name ? (
-                <p style={{ margin: "4px 0 0", font: "var(--text-role-label)", color: "var(--text-muted)" }}>{product.shop_name}</p>
+                <p className="csp-s-0054">{product.shop_name}</p>
               ) : null}
             </div>
           </div>
           <CatalogBadges product={product} />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+          <div className="csp-s-0055">
             <DetailRow label="ID Shopee">{product.product_id}</DetailRow>
             <DetailRow label="Preço">{formatCatalogPrice(product)}</DetailRow>
             <DetailRow label="Taxa de comissão">{formatRate(product.commission)}</DetailRow>
             <DetailRow label="Ganho estimado por venda">{formatCatalogEarnings(product)}</DetailRow>
           </div>
           {product.original_link || product.commission_link ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div className="csp-s-0056">
               {product.original_link ? (
-                <a href={product.original_link} target="_blank" rel="noreferrer" style={linkStyle}>Link original ↗</a>
+                <a href={product.original_link} target="_blank" rel="noreferrer" className="csp-named-link">Link original ↗</a>
               ) : null}
               {product.commission_link ? (
-                <a href={product.commission_link} target="_blank" rel="noreferrer" style={linkStyle}>Link de comissão ↗</a>
+                <a href={product.commission_link} target="_blank" rel="noreferrer" className="csp-named-link">Link de comissão ↗</a>
               ) : null}
             </div>
           ) : null}
-          {error ? <div role="alert" style={{ color: "var(--negative)", font: "var(--text-role-body)" }}>{error}</div> : null}
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 12 }}>
+          {error ? <div role="alert" className="csp-s-0057">{error}</div> : null}
+          <div className="csp-s-0058">
             <Button type="button" variant="ghost" onClick={() => onEdit(product)} disabled={added || isAdding}>
               Editar antes de salvar
             </Button>
@@ -260,7 +250,7 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
   ]
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="csp-s-0059">
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -300,13 +290,7 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
 
       {searchQuery.isError ? (
         <div
-          style={{
-            padding: "12px 16px",
-            borderRadius: "var(--r-md)",
-            border: "1px solid var(--negative)",
-            color: "var(--negative)",
-            font: "var(--text-role-body)",
-          }}
+          className="csp-s-0060"
         >
           {searchQuery.error instanceof Error ? searchQuery.error.message : "Erro ao buscar produtos."}
         </div>
@@ -314,29 +298,24 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
 
       {!hasSearched ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
-          <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>
+          <p className="csp-s-0061">
             Busque produtos no catálogo real da Shopee usando sua credencial de afiliado.
           </p>
         </Panel>
       ) : searchQuery.isLoading ? (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-muted)" }}>
+        <div className="csp-s-0062">
           Buscando...
         </div>
       ) : results.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
-          <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>
+          <p className="csp-s-0063">
             Nenhum produto encontrado para essa busca.
           </p>
         </Panel>
       ) : (
         <>
           <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-              gap: 12,
-              alignItems: "start",
-            }}
+            className="csp-s-0064"
           >
             {pageItems.map((product) => (
               <CatalogCard
@@ -352,7 +331,7 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
           </div>
 
           {totalPages > 1 ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+            <div className="csp-s-0065">
               <IconButton
                 icon="chevron-left"
                 label="Página anterior"
@@ -360,7 +339,7 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 style={{ opacity: page === 1 ? 0.4 : 1, cursor: page === 1 ? "not-allowed" : "pointer" }}
               />
-              <span style={{ color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+              <span className="csp-s-0066">
                 Página {page} de {totalPages}
               </span>
               <IconButton

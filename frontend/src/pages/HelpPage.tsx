@@ -100,10 +100,10 @@ export function HelpPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+    <div className="csp-s-0238">
       <div>
-        <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Ajuda & FAQ</h1>
-        <p style={{ color: "var(--text-muted)", marginTop: 4 }}>
+        <h1 className="csp-s-0239">Ajuda & FAQ</h1>
+        <p className="csp-s-0240">
           Entenda os recursos, as limitações das integrações, o funcionamento dos agendamentos e seus direitos de privacidade.
         </p>
       </div>
@@ -114,46 +114,35 @@ export function HelpPage() {
 
       <Panel surface="dark">
         <PanelHeader title={TABS.find((t) => t.value === tab)?.label ?? ""} />
-        <div style={{ padding: "0 16px 16px" }}>
+        <div className="csp-s-0241">
           {tab === "shopee" && (
-            <div style={{color:"var(--text-body)",font:"var(--text-role-body)",display:"grid",gap:12}}>
-              <p style={{margin:0}}>Para consultar o catálogo de afiliados, você precisa de credenciais autorizadas pela Shopee para a integração usada pelo Auto Orbital. Ter conta de comprador ou vendedor, por si só, não garante acesso às APIs de afiliados.</p>
-              <ol style={{margin:0,paddingLeft:22,display:"grid",gap:10}}>
+            <div className="csp-s-0242">
+              <p className="csp-s-0243">Para consultar o catálogo de afiliados, você precisa de credenciais autorizadas pela Shopee para a integração usada pelo Auto Orbital. Ter conta de comprador ou vendedor, por si só, não garante acesso às APIs de afiliados.</p>
+              <ol className="csp-s-0244">
                 <li>Acesse o ambiente oficial de afiliados ou desenvolvedores da Shopee associado à sua conta e confira se o programa e as APIs necessárias estão habilitados.</li>
                 <li>Localize as credenciais próprias da integração, como App ID e Secret, seguindo o procedimento disponibilizado pela Shopee para sua modalidade de acesso.</li>
                 <li>Abra <a href="/credentials">Credenciais</a> no Auto Orbital, selecione Shopee e preencha somente os campos necessários. Confira caracteres copiados, espaços e ambiente de autenticação.</li>
                 <li>Salve e teste a conexão. Se houver recusa, verifique a permissão da API, expiração ou revogação das chaves e a mensagem retornada pela plataforma.</li>
                 <li>Após a autenticação, use <a href="/products">Produtos</a> para pesquisar itens elegíveis. Revise links, preços, disponibilidade e regras de divulgação antes de publicar.</li>
               </ol>
-              <p style={{margin:0}}><strong>Segurança:</strong> mantenha App Secret e tokens em sigilo. Não envie essas informações por e-mail ou em capturas de tela. A emissão e aprovação de credenciais são controladas pela Shopee, não pelo Auto Orbital.</p>
-              <p style={{margin:0}}>Se a Shopee alterar os nomes dos menus ou as exigências de acesso, siga a documentação oficial vigente e contate o suporte informando apenas o código do erro, sem compartilhar seus segredos.</p>
+              <p className="csp-s-0245"><strong>Segurança:</strong> mantenha App Secret e tokens em sigilo. Não envie essas informações por e-mail ou em capturas de tela. A emissão e aprovação de credenciais são controladas pela Shopee, não pelo Auto Orbital.</p>
+              <p className="csp-s-0246">Se a Shopee alterar os nomes dos menus ou as exigências de acesso, siga a documentação oficial vigente e contate o suporte informando apenas o código do erro, sem compartilhar seus segredos.</p>
             </div>
           )}
           {tab === "primeiros-passos" && (
-            <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 16 }}>
+            <ol className="csp-s-0247">
               {STEPS.map((step, i) => (
-                <li key={step.title} style={{ display: "flex", gap: 12 }}>
+                <li key={step.title} className="csp-s-0248">
                   <span
-                    style={{
-                      flexShrink: 0,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 26,
-                      height: 26,
-                      borderRadius: "var(--r-pill)",
-                      background: "var(--panel-glass-quiet)",
-                      color: "var(--text-body)",
-                      font: "var(--fw-semibold) var(--fs-small)/1 var(--font-sans)",
-                    }}
+                    className="csp-s-0249"
                   >
                     {i + 1}
                   </span>
                   <div>
-                    <p style={{ margin: 0, font: "var(--fw-semibold) var(--fs-body)/1.4 var(--font-sans)", color: "var(--text-body)" }}>
+                    <p className="csp-s-0250">
                       {step.title}
                     </p>
-                    <p style={{ margin: "2px 0 0", color: "var(--text-muted)", font: "var(--text-role-body)" }}>{step.text}</p>
+                    <p className="csp-s-0251">{step.text}</p>
                   </div>
                 </li>
               ))}
@@ -161,85 +150,61 @@ export function HelpPage() {
           )}
           {tab === "modulos" && (
             <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
-                gap: 12,
-              }}
+              className="csp-s-0252"
             >
               {MODULES.map((mod) => (
                 <div
                   key={mod.title}
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    padding: 14,
-                    borderRadius: "var(--r-md)",
-                    background: "var(--panel-glass-quiet)",
-                    border: "1px solid var(--border-card)",
-                  }}
+                  className="csp-s-0253"
                 >
                   <Icon name={mod.icon} size={20} />
                   <div>
-                    <p style={{ margin: 0, font: "var(--fw-semibold) var(--fs-body)/1.3 var(--font-sans)", color: "var(--text-body)" }}>
+                    <p className="csp-s-0254">
                       {mod.title}
                     </p>
-                    <p style={{ margin: "2px 0 0", color: "var(--text-muted)", font: "var(--text-role-body)" }}>{mod.text}</p>
+                    <p className="csp-s-0255">{mod.text}</p>
                   </div>
                 </div>
               ))}
             </div>
           )}
           {tab === "faq" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <label htmlFor="faq-search" style={{color:"var(--text-body)",font:"var(--text-role-label)"}}>Pesquisar perguntas por assunto</label>
-              <input id="faq-search" type="search" value={faqSearch} onChange={e=>{setFaqSearch(e.target.value);setOpenFaq(null)}} placeholder="Ex.: agendamento, GPS, publicação, Shopee, segurança" style={{padding:12,borderRadius:8,background:"var(--surface-card)",border:"1px solid var(--border-hairline)",color:"var(--text-body)",font:"var(--text-role-body)"}}/>
-              <p role="status" style={{margin:0,color:"var(--text-muted)",font:"var(--text-role-label)"}}>{faqFiltered.length} perguntas encontradas</p>
+            <div className="csp-s-0256">
+              <label htmlFor="faq-search" className="csp-s-0257">Pesquisar perguntas por assunto</label>
+              <input id="faq-search" type="search" value={faqSearch} onChange={e=>{setFaqSearch(e.target.value);setOpenFaq(null)}} placeholder="Ex.: agendamento, GPS, publicação, Shopee, segurança" className="csp-s-0258"/>
+              <p role="status" className="csp-s-0259">{faqFiltered.length} perguntas encontradas</p>
               {faqFiltered.map((item) => {
                 const open = openFaq === item.question
                 return (
-                  <div key={item.question} style={{ borderRadius: "var(--r-md)", background: "var(--panel-glass-quiet)", overflow: "hidden" }}>
+                  <div key={item.question} className="csp-s-0260">
                     <button
                       type="button"
                       onClick={() => setOpenFaq(open ? null : item.question)}
                       aria-expanded={open}
-                      style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 10,
-                        padding: "12px 14px",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        textAlign: "left",
-                        font: "var(--fw-semibold) var(--fs-body)/1.3 var(--font-sans)",
-                        color: "var(--text-body)",
-                      }}
+                      className="csp-s-0261"
                     >
-                      <span><small style={{display:"block",color:"var(--highlight)",fontSize:11,marginBottom:4}}>{item.category}</small>{item.question}</span>
+                      <span><small className="csp-s-0262">{item.category}</small>{item.question}</span>
                       <Icon name="chevron-down" size={18} style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform var(--dur-fast) var(--ease-standard)" }} />
                     </button>
                     {open && (
-                      <p style={{ margin: 0, padding: "0 14px 14px", color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+                      <p className="csp-s-0263">
                         {item.answer}
                       </p>
                     )}
                   </div>
                 )
               })}
-              {faqFiltered.length === 0 && <p role="status" style={{color:"var(--text-muted)"}}>Nenhuma pergunta corresponde à busca. Tente outra palavra ou contate o suporte.</p>}
-              <p style={{font:"var(--text-role-body)",color:"var(--text-muted)"}}>Leia também <a href="/termos">Termos</a>, <a href="/privacidade">Privacidade</a> e <a href="/dados-coletados">Dados coletados</a>.</p>
+              {faqFiltered.length === 0 && <p role="status" className="csp-s-0264">Nenhuma pergunta corresponde à busca. Tente outra palavra ou contate o suporte.</p>}
+              <p className="csp-s-0265">Leia também <a href="/termos">Termos</a>, <a href="/privacidade">Privacidade</a> e <a href="/dados-coletados">Dados coletados</a>.</p>
             </div>
           )}
           {tab === "limites" && <NetworkLimitsHelp />}
           {tab === "lgpd" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+            <div className="csp-s-0266">
+              <p className="csp-s-0267">
                 O que o Auto Orbital realmente faz com seus dados:
               </p>
-              <ul style={{ margin: 0, padding: "0 0 0 18px", display: "flex", flexDirection: "column", gap: 8, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+              <ul className="csp-s-0268">
                 <li>Sua senha é armazenada com hash bcrypt — irreversível, nem o próprio sistema consegue ver a senha em texto puro.</li>
                 <li>Os tokens de OAuth das redes sociais são cifrados com Fernet no servidor, com chave de criptografia própria. Isso não é zero-knowledge: o servidor detém a chave.</li>
                 <li>O banco de dados utiliza controles de acesso, permissões de serviço e RLS onde aplicável. O acesso administrativo do servidor exige proteção adicional; nenhum mecanismo isolado substitui a segurança do conjunto.</li>
@@ -254,42 +219,25 @@ export function HelpPage() {
 
       <Panel surface="dark">
         <div
-          style={{
-            padding: 16,
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-          }}
+          className="csp-s-0269"
         >
           <div>
-            <p style={{ margin: 0, font: "var(--fw-semibold) var(--fs-body)/1.3 var(--font-sans)", color: "var(--text-body)" }}>
+            <p className="csp-s-0270">
               {SUPPORT_EMAIL}
             </p>
-            <p style={{ margin: "2px 0 0", color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+            <p className="csp-s-0271">
               Desenvolvido por Raffa Studio Produções — Empresa registrada desde 2026.
               <br />
               CNPJ {SUPPORT_CNPJ}
             </p>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="csp-s-0272">
             <Button type="button" variant="ghost" icon="link-2" onClick={copyEmail}>
               Copiar e-mail
             </Button>
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                height: 38,
-                padding: "0 16px",
-                borderRadius: "var(--r-md)",
-                background: "#E8F1FB",
-                color: "var(--black)",
-                font: "var(--fw-semibold) var(--fs-body)/1 var(--font-sans)",
-                textDecoration: "none",
-              }}
+              className="csp-s-0273"
             >
               Enviar mensagem
             </a>

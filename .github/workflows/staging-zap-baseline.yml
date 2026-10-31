@@ -1,0 +1,46 @@
+name: ZAP baseline passivo - staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [staging]
+  schedule:
+    - cron: "17 9 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zap-staging-baseline
+  cancel-in-progress: false
+
+jobs:
+  passive-zap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Aguardar staging responder HTTP 200
+        run: |
+          for i in $(seq 1 24); do
+            code=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 https://shopee-bot-staging.onrender.com/health || true)
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 10
+          done
+          exit 1
+      # A cota de GitHub Actions Artifacts está esgotada; a action oficial
+      # tenta sempre subir um ZIP mesmo quando a varredura está correta.
+      # Executar o mesmo zap-baseline.py diretamente preserva os achados
+      # no log do workflow e falha somente em findings classificados FAIL.
+      - name: OWASP ZAP baseline sem ataques ativos (logs, sem ZIP)
+        shell: bash
+        run: |
+          set -o pipefail
+          docker run --rm --network=host ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t https://shopee-bot-staging.onrender.com/ -m 1 -I \
+            | tee zap-baseline.log
+          {
+            echo '### OWASP ZAP baseline - staging'
+            echo 'Somente varredura passiva, sem credenciais e sem ataques ativos.'
+            echo 'Os detalhes e exemplos de URLs ficam no log desta execução.'
+            grep -E '^(FAIL-NEW|WARN-NEW|PASS: Content Security Policy|PASS: X-Content-Type)' zap-baseline.log || true
+          } >> "$GITHUB_STEP_SUMMARY"

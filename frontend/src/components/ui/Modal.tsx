@@ -70,18 +70,12 @@ export function Modal({ open, onClose, title, children, width = 480, className =
           style={{ maxHeight: "90vh", overflowY: "auto", ...style }}
         >
           <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-              padding: "16px 16px 0",
-            }}
+            className="csp-s-0113"
           >
-            {title ? <span id={titleId} style={{ font: "var(--text-role-title)" }}>{title}</span> : <span />}
+            {title ? <span id={titleId} className="csp-s-0114">{title}</span> : <span />}
             <IconButton icon="x" label="Fechar" tone="plain" size={30} onClick={onClose} />
           </div>
-          <div style={{ padding: 16 }}>{children}</div>
+          <div className="csp-s-0115">{children}</div>
         </Panel>
       </div>
     </dialog>,

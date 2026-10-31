@@ -52,19 +52,12 @@ export function Select({
     <label className={className} style={{ display: "block", width, ...style }}>
       {label ? (
         <span
-          style={{
-            display: "block",
-            font: "var(--text-role-label)",
-            letterSpacing: "var(--ls-label)",
-            textTransform: "uppercase",
-            color: "var(--text-muted)",
-            marginBottom: 6,
-          }}
+          className="csp-s-0131"
         >
           {label}
         </span>
       ) : null}
-      <span style={{ position: "relative", display: "block" }}>
+      <span className="csp-s-0132">
         <select
           name={name}
           value={value}

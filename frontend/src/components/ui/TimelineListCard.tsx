@@ -75,31 +75,16 @@ export function TimelineListCard({
         {thumbnail}
         {/* flex-basis 160px: em telas estreitas badge/ações quebram para a linha de
             baixo em vez de espremer o título; título mostra até 2 linhas. */}
-        <div style={{ minWidth: 0, flex: "1 1 160px" }}>
+        <div className="csp-s-0146">
           <div
             title={typeof title === "string" ? title : undefined}
-            style={{
-              font: "var(--text-role-title)",
-              color: "var(--text-display)",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              overflowWrap: "anywhere",
-            }}
+            className="csp-s-0147"
           >
             {title}
           </div>
           {subtitle ? (
             <div
-              style={{
-                font: "var(--fs-small)/1.4 var(--font-sans)",
-                color: "var(--text-muted)",
-                marginTop: 2,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
+              className="csp-s-0148"
             >
               {subtitle}
             </div>
@@ -107,7 +92,7 @@ export function TimelineListCard({
         </div>
         {badge}
         {actions ? (
-          <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+          <div onClick={(e) => e.stopPropagation()} className="csp-s-0149">
             {actions}
           </div>
         ) : null}
@@ -125,7 +110,7 @@ export function TimelineListCard({
       </div>
 
       {open ? (
-        <div style={{ padding: "0 16px 16px" }}>
+        <div className="csp-s-0150">
           <Divider style={{ marginBottom: 16 }} />
 
           {stats.length > 0 ? (
@@ -144,16 +129,9 @@ export function TimelineListCard({
             </div>
           ) : null}
 
-          <div style={{ position: "relative" }}>
+          <div className="csp-s-0151">
             <div
-              style={{
-                position: "absolute",
-                left: 5,
-                top: 5,
-                bottom: 5,
-                width: 1,
-                background: "var(--border-hairline)",
-              }}
+              className="csp-s-0152"
             />
             {sections.map((section, i) => (
               <div
@@ -168,28 +146,19 @@ export function TimelineListCard({
                 }}
               >
                 <span
-                  style={{
-                    position: "absolute",
-                    left: 1,
-                    top: 5,
-                    width: 9,
-                    height: 9,
-                    borderRadius: "50%",
-                    background: "var(--sky-400)",
-                    boxShadow: "0 0 0 3px var(--surface-card)",
-                  }}
+                  className="csp-s-0153"
                 />
-                <div style={{ width: 130, flexShrink: 0 }}>
-                  <div style={{ font: "var(--fw-medium) var(--fs-body)/1.3 var(--font-sans)", color: "var(--text-display)" }}>
+                <div className="csp-s-0154">
+                  <div className="csp-s-0155">
                     {section.label}
                   </div>
                   {section.category ? (
-                    <div style={{ font: "var(--fs-caption)/1.3 var(--font-sans)", color: "var(--text-muted)" }}>
+                    <div className="csp-s-0156">
                       {section.category}
                     </div>
                   ) : null}
                 </div>
-                <div style={{ flex: 1, minWidth: 0, font: "var(--text-role-body)", color: "var(--text-body)" }}>
+                <div className="csp-s-0157">
                   {section.content}
                 </div>
               </div>

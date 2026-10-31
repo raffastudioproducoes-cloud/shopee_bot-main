@@ -23,6 +23,7 @@ from shopee_bot.web.routes.spa import spa_bp
 from flask_babel import Babel
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.exceptions import HTTPException
 from flask_login import LoginManager, login_required, current_user
 from flask_cors import CORS
 from shopee_bot.web.limiter import limiter
@@ -95,14 +96,30 @@ def set_security_headers(response):
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net"
         if legacy_template else "script-src 'self'"
     )
+    # O painel Jinja legado ainda depende de CSS inline. A excecao so
+    # existe quando o rollback LEGACY_PANEL_ENABLED for ativado; o SPA e
+    # todas as demais rotas usam a politica restrita.
+    style_src = (
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com"
+        if legacy_template else "style-src 'self' https://fonts.googleapis.com"
+    )
+    spa_style_directives = (
+        "style-src-elem 'self' https://fonts.googleapis.com; "
+        "style-src-attr 'none'; "
+        if endpoint == "spa.spa_catch_all" else ""
+    )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         f"{script_src}; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        f"{style_src}; "
+        f"{spa_style_directives}"
         "img-src 'self' data: https:; "
         "font-src 'self' data: https://fonts.gstatic.com; "
         "connect-src 'self' https://*.supabase.co https://graph.threads.net; "
-        "frame-ancestors 'none'"
+        "frame-ancestors 'none'; "
+        "base-uri 'none'; "
+        "form-action 'self'; "
+        "object-src 'none'"
     )
     response.headers["Strict-Transport-Security"] = (
         "max-age=31536000; includeSubDomains"
@@ -120,6 +137,11 @@ def handle_unhandled_exception(e):
     # erro do CSRFProtect não deve vazar detalhes internos
     if cls_name == "CSRFError":
         return {"error": "Requisição inválida"}, 400
+    # Flask represents 404/405 and other expected HTTP errors as exceptions.
+    # Converting them to 500 masks the status, breaks crawlers and creates
+    # a false "application error" finding in passive security scans.
+    if isinstance(e, HTTPException):
+        return e
     # no DEBUG, Flask ainda retorna o traceback padrão; em produção,
     # o werkzeug error handler assume; aqui garantimos resposta JSON
     # genérica para rotas que não foram tratadas pelo CSRF ou por

@@ -21,21 +21,16 @@ const cardStyle = {
   background: "var(--panel-glass-quiet)",
   border: "1px solid var(--border-card)",
 } as const
-const th = { textAlign: "left", padding: "8px 10px", color: "var(--text-body)", font: strong, verticalAlign: "top" } as const
-const td = { padding: "8px 10px", color: "var(--text-muted)", font: body, verticalAlign: "top" } as const
-const rowBorder = { borderTop: "1px solid var(--border-hairline)" } as const
-const srOnly = { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" } as const
-const subTitle = { margin: "0 0 4px", font: small, color: "var(--text-body)", fontWeight: 600 } as const
 
 function Unconfirmed() {
-  return <strong style={{ color: "var(--amber-300)" }}> (não confirmado)</strong>
+  return <strong className="csp-s-0010"> (não confirmado)</strong>
 }
 
 function Intro() {
   return (
     <div style={{ ...cardStyle, display: "flex", flexDirection: "column", gap: 6 }}>
       <p style={{ margin: 0, font: body, color: "var(--text-muted)" }}>
-        <strong style={{ color: "var(--text-body)" }}>Consultado em {CONSULTADO_EM}</strong> nas documentações oficiais de cada rede.
+        <strong className="csp-s-0011">Consultado em {CONSULTADO_EM}</strong> nas documentações oficiais de cada rede.
         Esses limites mudam: se algo divergir, vale a fonte oficial (link em cada card).
       </p>
       <p style={{ margin: 0, font: body, color: "var(--text-muted)" }}>
@@ -55,12 +50,12 @@ function CompareTable() {
       <h3 id="limits-compare" style={{ margin: "0 0 8px", font: strong, color: "var(--text-body)" }}>
         Comparativo
       </h3>
-      <div style={{ overflowX: "auto", maxWidth: "100%" }} tabIndex={0} role="region" aria-label="Tabela comparativa de limites (role para o lado)">
-        <table style={{ borderCollapse: "collapse", minWidth: 760, width: "100%" }}>
+      <div className="csp-s-0012" tabIndex={0} role="region" aria-label="Tabela comparativa de limites (role para o lado)">
+        <table className="csp-s-0013">
           <thead>
             <tr>
               {["Rede", "Texto", "Links e tags", "Mídia", "Imagem", "Vídeo"].map((h) => (
-                <th key={h} scope="col" style={th}>
+                <th key={h} scope="col" className="csp-named-th">
                   {h}
                 </th>
               ))}
@@ -70,29 +65,29 @@ function CompareTable() {
             {PICKER_NETWORKS.map((n) => {
               const r = NETWORK_RULES[n]
               return (
-                <tr key={n} style={rowBorder}>
-                  <th scope="row" style={th}>
+                <tr key={n} className="csp-named-row-border">
+                  <th scope="row" className="csp-named-th">
                     {r.label}
                   </th>
-                  <td style={td}>
+                  <td className="csp-named-td">
                     {textSummary(r)}
                     {r.unverified.includes("maxChars") && <Unconfirmed />}
                   </td>
-                  <td style={td}>{linksSummary(r)}</td>
-                  <td style={td}>{mediaSummary(r)}</td>
-                  <td style={td}>{imageSummary(r)}</td>
-                  <td style={td}>
+                  <td className="csp-named-td">{linksSummary(r)}</td>
+                  <td className="csp-named-td">{mediaSummary(r)}</td>
+                  <td className="csp-named-td">{imageSummary(r)}</td>
+                  <td className="csp-named-td">
                     {videoSummary(r)}
                     {r.unverified.some((k) => k.startsWith("video")) && <Unconfirmed />}
                   </td>
                 </tr>
               )
             })}
-            <tr style={rowBorder}>
-              <th scope="row" style={th}>
+            <tr className="csp-named-row-border">
+              <th scope="row" className="csp-named-th">
                 Kwai
               </th>
-              <td style={td} colSpan={5}>
+              <td className="csp-named-td" colSpan={5}>
                 Em breve.
               </td>
             </tr>
@@ -113,16 +108,16 @@ function NetworkCard({ n }: { n: (typeof PICKER_NETWORKS)[number] }) {
         <NetworkLogo network={n} />
         {label}
       </h3>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
-          <caption style={srOnly}>Limites do {label}</caption>
+      <div className="csp-s-0014">
+        <table className="csp-s-0015">
+          <caption className="csp-named-sr-only">Limites do {label}</caption>
           <tbody>
             {[...ruleRows(n), ...help.facts].map((row) => (
-              <tr key={row.label} style={rowBorder}>
-                <th scope="row" style={{ ...th, width: "38%", font: small, color: "var(--text-body)" }}>
+              <tr key={row.label} className="csp-named-row-border">
+                <th scope="row" className="csp-named-th-cell">
                   {row.label}
                 </th>
-                <td style={{ ...td, font: small }}>
+                <td className="csp-named-td-cell">
                   {row.value}
                   {row.unconfirmed && <Unconfirmed />}
                 </td>
@@ -132,7 +127,7 @@ function NetworkCard({ n }: { n: (typeof PICKER_NETWORKS)[number] }) {
         </table>
       </div>
       <div>
-        <p style={subTitle}>Dicas</p>
+        <p className="csp-named-subtitle">Dicas</p>
         <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4, color: "var(--text-muted)", font: small }}>
           {help.tips.map((t) => (
             <li key={t}>{t}</li>
@@ -140,11 +135,11 @@ function NetworkCard({ n }: { n: (typeof PICKER_NETWORKS)[number] }) {
         </ul>
       </div>
       <div>
-        <p style={subTitle}>Fontes (consultadas em {CONSULTADO_EM})</p>
+        <p className="csp-named-subtitle">Fontes (consultadas em {CONSULTADO_EM})</p>
         <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4, font: small }}>
           {help.sources.map((s) => (
             <li key={s.url}>
-              <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", overflowWrap: "anywhere" }}>
+              <a href={s.url} target="_blank" rel="noopener noreferrer" className="csp-s-0016">
                 {s.label}
               </a>
             </li>
@@ -157,10 +152,10 @@ function NetworkCard({ n }: { n: (typeof PICKER_NETWORKS)[number] }) {
 
 export function NetworkLimitsHelp() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="csp-s-0017">
       <Intro />
       <CompareTable />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 12 }}>
+      <div className="csp-s-0018">
         {PICKER_NETWORKS.map((n) => (
           <NetworkCard key={n} n={n} />
         ))}

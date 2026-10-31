@@ -64,10 +64,10 @@ export function RegionConsent() {
 
   return (
     <Panel style={{ padding: 20 }}>
-      <h3 style={{ marginTop: 0 }}>GPS — coleta pontual</h3>
+      <h3 className="csp-s-0101">GPS — coleta pontual</h3>
       <p>Localização aproximada: <strong>{locationError ? 'Consulta indisponível' : locationStatus}</strong>.</p>
       {location?.choice === 'accepted' && (
-        <div style={{ display: 'grid', gap: 8 }}>
+        <div className="csp-s-0102">
           <p>Uma posição aproximada foi registrada em {location.collected_at
             ? new Date(location.collected_at).toLocaleString('pt-BR')
             : 'data não disponível'}. O administrador pode visualizar esse ponto para planejar a expansão do serviço.</p>
@@ -77,7 +77,7 @@ export function RegionConsent() {
         </div>
       )}
       {revokeLocation.isError && <p role="alert">Não foi possível excluir a localização. Tente novamente.</p>}
-      <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+      <p className="csp-s-0103">
         O navegador só é consultado uma vez no primeiro acesso, após sua escolha no aviso.
         Não fazemos novas consultas de GPS, mesmo após uma revogação. A opção de região abaixo é manual.
       </p>
@@ -86,17 +86,17 @@ export function RegionConsent() {
       {isLoading && <p role="status">Consultando preferência salva...</p>}
       {isError && <p role="alert">Não foi possível consultar a região. <button type="button" onClick={() => { void refetch() }}>Tentar novamente</button></p>}
       {data?.consented && <p role="status">Região cadastrada: {regions.find(r => r[0] === data.region)?.[1] ?? 'Região escolhida'}.</p>}
-      <label htmlFor="account-region" style={{ display: 'block', fontWeight: 600, marginTop: 14 }}>País / região</label>
+      <label htmlFor="account-region" className="csp-s-0104">País / região</label>
       <select id="account-region" value={chosenRegion} onChange={e => { setRegion(e.target.value); setAgreed(false) }}
-        style={{ display: 'block', padding: 10, maxWidth: '100%', margin: '8px 0 14px' }}>
+        className="csp-s-0105">
         <option value="">Selecione uma região</option>
         {regions.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
       </select>
-      <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 14 }}>
+      <label className="csp-s-0106">
         <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
         Autorizo o uso da região declarada em estatísticas agregadas, podendo excluí-la quando quiser.
       </label>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div className="csp-s-0107">
         <Button disabled={!agreed || !chosenRegion || save.isPending} onClick={() => save.mutate(chosenRegion)}>
           {save.isPending ? 'Salvando...' : 'Salvar região'}
         </Button>

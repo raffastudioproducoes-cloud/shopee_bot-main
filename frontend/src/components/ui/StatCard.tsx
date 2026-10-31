@@ -65,23 +65,18 @@ export function StatCard({
         ...style,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+      <div className="csp-s-0137">
         <TokenBadge symbol={symbol} icon={icon} size={28} />
-        <span style={{ display: "grid" }}>
-          <span style={{ font: "var(--fw-medium) var(--fs-small)/1.25 var(--font-sans)", color: "var(--text-display)" }}>{name}</span>
+        <span className="csp-s-0138">
+          <span className="csp-s-0139">{name}</span>
           {ticker ? (
-            <span style={{ font: "var(--fw-regular) var(--fs-tiny)/1.35 var(--font-sans)", color: "var(--text-faint)" }}>{ticker}</span>
+            <span className="csp-s-0140">{ticker}</span>
           ) : null}
         </span>
       </div>
       {showSparkline ? <Sparkline data={data} width={140} height={42} style={{ width: "100%" }} /> : null}
       <span
-        style={{
-          font: "var(--fw-medium) var(--fs-price)/1 var(--font-numeric)",
-          letterSpacing: "var(--ls-tight)",
-          color: "var(--text-display)",
-          fontVariantNumeric: "tabular-nums",
-        }}
+        className="csp-s-0141"
       >
         {price}
       </span>

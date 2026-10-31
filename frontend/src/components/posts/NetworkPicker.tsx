@@ -102,7 +102,7 @@ function NetworkSquare({ network, label, pressed, invalid, disabledReason, onCli
       }}
     >
       <NetworkLogo network={network} size={17} />
-      <span style={{ overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{label}</span>
+      <span className="csp-s-0029">{label}</span>
     </button>
   )
 }
@@ -121,7 +121,7 @@ export function NetworkPicker({ selected, states, onToggle, readOnly }: NetworkP
       <div
         role="group"
         aria-label="Redes sociais"
-        style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 132px), 1fr))", gap: 8 }}
+        className="csp-s-0030"
       >
         {PICKER_NETWORKS.map((n) => {
           const disabledByPlan = isNetworkDisabled(n)
@@ -169,17 +169,9 @@ export function NetworkLimitsPanel({ selected, textFor, mediaCount, issues }: Li
   return (
     <div
       aria-live="polite"
-      style={{
-        border: "1px solid var(--border-hairline)",
-        borderRadius: "var(--r-md)",
-        background: "var(--surface-inset)",
-        padding: "8px 10px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-      }}
+      className="csp-s-0031"
     >
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px" }}>
+      <div className="csp-s-0032">
         {selected.map((n) => {
           const rule = NETWORK_RULES[n]
           const used = textLength(rule, textFor(n))
@@ -191,7 +183,7 @@ export function NetworkLimitsPanel({ selected, textFor, mediaCount, issues }: Li
               style={{ display: "inline-flex", alignItems: "center", gap: 6, font: caption, color: bad ? "var(--negative)" : "var(--text-body)" }}
             >
               <NetworkLogo network={n} size={14} />
-              <span style={{ fontVariantNumeric: "tabular-nums" }}>
+              <span className="csp-s-0033">
                 {used}/{rule.maxChars.toLocaleString("pt-BR")}
                 {maxMedia != null ? ` · mídia ${mediaCount(n)}/${maxMedia}` : ""}
               </span>
@@ -202,10 +194,10 @@ export function NetworkLimitsPanel({ selected, textFor, mediaCount, issues }: Li
       </div>
       {all.length > 0 && (
         <details style={{ font: caption, color: "var(--text-muted)" }}>
-          <summary style={{ cursor: "pointer" }}>
+          <summary className="csp-s-0034">
             Ver detalhes ({all.length} {all.length === 1 ? "aviso" : "avisos"})
           </summary>
-          <ul style={{ margin: "6px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2 }}>
+          <ul className="csp-s-0035">
             {all.map((i, idx) => (
               <li key={idx} style={{ font: caption, color: i.level === "error" ? "var(--negative)" : "var(--amber-300)" }}>
                 {i.level === "error" ? "Erro — " : "Aviso — "}

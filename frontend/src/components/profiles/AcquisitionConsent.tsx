@@ -29,22 +29,22 @@ export function AcquisitionConsent() {
     setConfirmed(false)
   }})
   return <Panel style={{padding:20}}>
-    <h2 style={{marginTop:0}}>Como conheceu o Auto Orbital? (opcional)</h2>
+    <h2 className="csp-s-0067">Como conheceu o Auto Orbital? (opcional)</h2>
     <p>Ajude-nos a entender quais canais apresentam o Auto Orbital a novos usuários. Esta informação é declarada por você, sem rastrear sua navegação. Somente grupos com pelo menos três respostas aparecem no painel administrativo.</p>
     {isLoading && <p role="status">Consultando resposta salva...</p>}
     {isError && <p role="alert">Não foi possível consultar sua resposta anterior. Você ainda pode escolher uma opção abaixo e salvá-la. <button type="button" onClick={() => { void refetch() }}>Tentar consultar novamente</button></p>}
     <>
       {data?.declared && <p role="status">Origem informada: {options.find(item=>item[0]===data.source)?.[1]??'Outra'}</p>}
-      <label htmlFor="acquisition-source-choice" style={{display:'block',fontWeight:600,marginTop:14}}>Como você conheceu o Auto Orbital?</label>
-      <select id="acquisition-source-choice" value={source||data?.source||''} onChange={e=>{setSource(e.target.value);setConfirmed(false)}} style={{display:'block',padding:10,maxWidth:'100%',margin:'8px 0 14px'}}>
+      <label htmlFor="acquisition-source-choice" className="csp-s-0068">Como você conheceu o Auto Orbital?</label>
+      <select id="acquisition-source-choice" value={source||data?.source||''} onChange={e=>{setSource(e.target.value);setConfirmed(false)}} className="csp-s-0069">
         <option value="">Selecione</option>
         {options.map(([code,label])=><option key={code} value={code}>{label}</option>)}
       </select>
-      <label style={{display:'flex',gap:10,alignItems:'flex-start',marginBottom:14}}>
+      <label className="csp-s-0070">
         <input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>
         Concordo em compartilhar essa informação em estatísticas agregadas e sei que posso excluí-la.
       </label>
-      <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+      <div className="csp-s-0071">
         <Button disabled={!confirmed||!(source||data?.source)||save.isPending} onClick={()=>save.mutate(source||data!.source!)}>{save.isPending ? 'Salvando...' : 'Salvar minha resposta'}</Button>
         {data?.declared && <Button variant="secondary" disabled={revoke.isPending} onClick={()=>revoke.mutate()}>Excluir resposta</Button>}
       </div>

@@ -55,6 +55,17 @@ def check_health(opener):
     raise AssertionError("Staging did not return healthy HTTP 200")
 
 
+def check_spa_csp(opener):
+    status, headers, _ = request(opener, "/")
+    assert status == 200, f"Staging SPA returned {status}"
+    policy = headers.get("Content-Security-Policy", "")
+    assert "style-src 'self' https://fonts.googleapis.com;" in policy
+    assert "style-src-elem 'self' https://fonts.googleapis.com;" in policy
+    assert "style-src-attr 'none';" in policy
+    assert "'unsafe-inline'" not in policy, "SPA allows inline styles or scripts"
+    print("PASS: SPA strict CSP without unsafe-inline")
+
+
 def check_anonymous(opener):
     code, _, _ = request(opener, "/api/auth/me")
     assert code == 401, f"Unauthenticated /auth/me unexpectedly returned {code}"
@@ -106,6 +117,7 @@ def main():
     jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
     check_health(opener)
+    check_spa_csp(opener)
     check_anonymous(opener)
     check_login_limits(opener)
     check_optional_authenticated_flow(opener)

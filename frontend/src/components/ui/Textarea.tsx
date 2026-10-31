@@ -45,14 +45,7 @@ export function Textarea({
     <label className={className} style={{ display: "block", width, ...style }}>
       {label ? (
         <span
-          style={{
-            display: "block",
-            font: "var(--text-role-label)",
-            letterSpacing: "var(--ls-label)",
-            textTransform: "uppercase",
-            color: "var(--text-muted)",
-            marginBottom: 6,
-          }}
+          className="csp-s-0145"
         >
           {label}
         </span>

@@ -52,21 +52,14 @@ export function TopBar({
     >
       {leading}
       <SearchField value={query} onChange={onQuery} width={searchWidth} className="app-topbar-search" />
-      <span style={{ flex: 1 }} />
+      <span className="csp-s-0161" />
       {trailing}
       {bell ?? <IconButton icon="bell" label="Notificações" tone="glass" badge={unread} onClick={onBell} />}
       {avatarSrc ? (
         <img
           src={avatarSrc}
           alt="Conta"
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            objectFit: "cover",
-            display: "block",
-            border: "1px solid var(--border-hairline)",
-          }}
+          className="csp-s-0162"
         />
       ) : null}
     </header>

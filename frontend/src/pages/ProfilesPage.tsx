@@ -71,13 +71,13 @@ export function ProfilesPage() {
   })
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+    <div className="csp-s-0372">
+      <div className="csp-s-0373">
         <div>
-          <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Perfis</h1>
-          <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Perfis de uso da conta.</p>
+          <h1 className="csp-s-0374">Perfis</h1>
+          <p className="csp-s-0375">Perfis de uso da conta.</p>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+        <div className="csp-s-0376">
           <Button
             variant="primary"
             icon="plus"
@@ -91,7 +91,7 @@ export function ProfilesPage() {
             Novo perfil
           </Button>
           {atLimit && (
-            <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            <span className="csp-s-0377">
               Limite de {PROFILE_LIMIT} perfis atingido. Exclua um perfil secundário para criar outro.
             </span>
           )}
@@ -114,7 +114,7 @@ export function ProfilesPage() {
         </div></SkeletonRegion>
       ) : profilesError ? (
         <Panel style={{ padding: 24, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <p role="alert" style={{ margin: 0, color: "var(--negative-on-glass)" }}>
+          <p role="alert" className="csp-s-0378">
             Não foi possível carregar os perfis.
           </p>
           <Button variant="secondary" onClick={() => refetchProfiles()}>

@@ -79,11 +79,11 @@ export default function UsersPage() {
   ]
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+    <div className="csp-s-0390">
       <div className="admin-page-heading">
         <div>
           <h1>Contas de login</h1>
-          <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Contas e permissões de acesso ao aplicativo.</p>
+          <p className="csp-s-0391">Contas e permissões de acesso ao aplicativo.</p>
         </div>
         <div className="admin-account-search" role="search" aria-label="Buscar contas nesta página"><SearchField value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar contas nesta página" width="100%" size={36} /></div>
       </div>
@@ -91,13 +91,7 @@ export default function UsersPage() {
       {error && (
         <div
           role="alert"
-          style={{
-            padding: "12px 16px",
-            borderRadius: "var(--r-md)",
-            font: "var(--fw-medium) var(--fs-body)/1.3 var(--font-sans)",
-            background: "var(--negative-on-glass)",
-            color: "var(--negative-ink)",
-          }}
+          className="csp-s-0392"
         >
           {(error as Error).message}
         </div>
@@ -118,7 +112,7 @@ export default function UsersPage() {
         <PageSkeleton variant="list" heading={false} />
       ) : visibleUsers.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
-          <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", margin: 0 }}>{users.length ? "Nenhuma conta corresponde ao filtro nesta página." : "Nenhum usuário cadastrado."}</p>
+          <p className="csp-s-0393">{users.length ? "Nenhuma conta corresponde ao filtro nesta página." : "Nenhum usuário cadastrado."}</p>
         </Panel>
       ) : (
         <div className="admin-user-grid">
@@ -161,10 +155,10 @@ export default function UsersPage() {
       )}
 
       <Modal open={deleteConfirm != null} onClose={() => setDeleteConfirm(null)} title="Confirmar remoção" width={400} className="admin-dialog">
-        <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)", marginTop: 0 }}>
+        <p className="csp-s-0394">
           Tem certeza que deseja remover este usuário? Esta ação não pode ser desfeita.
         </p>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <div className="csp-s-0395">
           <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
             Cancelar
           </Button>
@@ -208,7 +202,7 @@ function UserModal({ user, onClose, onCreate, onUpdate, loading, apiError }: Use
 
   return (
     <Modal open onClose={onClose} title={user ? "Editar usuário" : "Novo usuário"} width={400} className="admin-dialog">
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <form onSubmit={handleSubmit} className="csp-s-0396">
         <TextInput label="Usuário *" value={username} onChange={(event) => setUsername(event.target.value)} required />
         {!user && (
           <TextInput
@@ -221,7 +215,7 @@ function UserModal({ user, onClose, onCreate, onUpdate, loading, apiError }: Use
           />
         )}
         {(passwordError || apiError) && (
-          <p role="alert" style={{ margin: 0, color: "var(--negative-on-glass)" }}>
+          <p role="alert" className="csp-s-0397">
             {passwordError ?? apiError}
           </p>
         )}
@@ -234,7 +228,7 @@ function UserModal({ user, onClose, onCreate, onUpdate, loading, apiError }: Use
             { value: "ADMIN", label: "ADMIN" },
           ]}
         />
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <div className="csp-s-0398">
           <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button type="submit" variant="primary" disabled={loading || !username.trim() || (!user && (!password.trim() || passwordError !== null))}>
             {loading ? "Salvando..." : user ? "Salvar" : "Criar"}

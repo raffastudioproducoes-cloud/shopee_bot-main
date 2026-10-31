@@ -42,7 +42,7 @@ export function ProfileCard({ profile, active, activating, onActivate, onEdit, o
         outlineOffset: -2,
       }}
     >
-      <div style={{ position: "relative", width: 96 }}>
+      <div className="csp-s-0092">
         <Avatar name={profile.nome} src={profile.avatar_url} size={96} radius="var(--r-lg)" />
         <input
           ref={fileRef}
@@ -50,7 +50,7 @@ export function ProfileCard({ profile, active, activating, onActivate, onEdit, o
           accept="image/png,image/jpeg,image/webp"
           aria-label={`Escolher foto de ${profile.nome}`}
           tabIndex={-1}
-          style={{ display: "none" }}
+          className="csp-s-0093"
           onChange={(e) => {
             const file = e.target.files?.[0]
             e.target.value = ""
@@ -67,17 +67,17 @@ export function ProfileCard({ profile, active, activating, onActivate, onEdit, o
         />
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
+      <div className="csp-s-0094">
         {profile.nome}
         {active && <Badge tone="mint">Ativo</Badge>}
       </div>
-      <div style={{ fontSize: 13, color: "var(--text-muted)", overflowWrap: "anywhere" }}>{profile.email}</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      <div className="csp-s-0095">{profile.email}</div>
+      <div className="csp-s-0096">
         <Badge tone={planTierTone[profile.plan_tier]}>{planTierLabel[profile.plan_tier]}</Badge>
         <Badge tone={isPrincipal ? "mint" : "neutral"}>{kindLabel[profile.kind]}</Badge>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: "auto", paddingTop: 8 }}>
+      <div className="csp-s-0097">
         <Button
           variant={active ? "secondary" : "primary"}
           size="sm"

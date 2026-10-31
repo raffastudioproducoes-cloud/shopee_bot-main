@@ -26,7 +26,7 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <SkeletonRegion><div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-column)' }}>
+      <SkeletonRegion><div className="csp-s-0231">
         <div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="220px" height={16} /></div>
         <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--gap-grid)' }}>{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</div>
         <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>{[1,2].map(i => <SkeletonCard key={i} />)}</div>
@@ -36,17 +36,17 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--negative)' }}>
+      <div className="csp-s-0232">
         Erro ao carregar estatísticas
       </div>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-column)' }}>
+    <div className="csp-s-0233">
       <div>
-        <h1 style={{ font: 'var(--text-role-hero)', color: 'var(--text-display)', margin: 0 }}>Dashboard</h1>
-        <p style={{ color: 'var(--text-muted)', marginTop: 4 }}>Visão geral da sua conta</p>
+        <h1 className="csp-s-0234">Dashboard</h1>
+        <p className="csp-s-0235">Visão geral da sua conta</p>
       </div>
 
       <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--gap-grid)' }}>
@@ -59,14 +59,14 @@ export default function DashboardPage() {
       <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>
         <Panel surface="glass">
           <PanelHeader title="Postagens recentes" />
-          <div style={{ padding: '0 16px 16px', color: 'var(--text-on-glass-muted)', font: 'var(--text-role-body)' }}>
+          <div className="csp-s-0236">
             Nenhuma postagem ainda.
           </div>
         </Panel>
 
         <Panel surface="dark">
           <PanelHeader title="Atividade recente" />
-          <div style={{ padding: '0 16px 16px', color: 'var(--text-muted)', font: 'var(--text-role-body)' }}>
+          <div className="csp-s-0237">
             Nenhuma atividade registrada ainda.
           </div>
         </Panel>

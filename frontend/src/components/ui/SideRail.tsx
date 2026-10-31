@@ -62,22 +62,18 @@ export function SideRail({
         ...style,
       }}
     >
-      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 30 }}>
+      <span className="csp-s-0133">
         {logoSrc ? (
-          <img src={logoSrc} alt={brand} style={{ height: 30, width: "auto", display: "block", mixBlendMode: "lighten" }} />
+          <img src={logoSrc} alt={brand} className="csp-s-0134" />
         ) : (
           <span
-            style={{
-              font: "var(--fw-bold) 18px/1 var(--font-display)",
-              letterSpacing: "var(--ls-tight)",
-              color: "var(--white)",
-            }}
+            className="csp-s-0135"
           >
             {brand}
           </span>
         )}
       </span>
-      <ul style={{ display: "flex", flexDirection: "column", gap: 22, margin: 0, padding: 0, listStyle: "none", width: "100%" }}>
+      <ul className="csp-s-0136">
         {items.map((it) => {
           const on = it.value === active
           return (

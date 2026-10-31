@@ -1,0 +1,16 @@
+/* Estilos antes passados como objetos constantes de React. */
+:is(#root, body) .csp-named-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+:is(#root, body) .csp-named-th { text-align: left; padding: 8px 10px; color: var(--text-body); font: var(--fw-semibold) var(--fs-body)/1.3 var(--font-sans); vertical-align: top; }
+:is(#root, body) .csp-named-td { padding: 8px 10px; color: var(--text-muted); font: var(--text-role-body); vertical-align: top; }
+:is(#root, body) .csp-named-row-border { border-top: 1px solid var(--border-hairline); }
+:is(#root, body) .csp-named-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+:is(#root, body) .csp-named-subtitle { margin: 0 0 4px; font: var(--fw-regular) var(--fs-caption)/1.5 var(--font-sans); color: var(--text-body); font-weight: 600; }
+:is(#root, body) .csp-named-link { color: var(--sky-300); }
+:is(#root, body) .csp-named-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 16px; align-items: start; }
+:is(#root, body) .csp-named-field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+:is(#root, body) .csp-named-sticky-th { padding: 10px 16px; position: sticky; top: 0; z-index: 1; background: var(--surface-card); box-shadow: inset 0 -1px 0 var(--border-hairline); }
+:is(#root, body) .csp-named-meta { font: var(--fw-regular) var(--fs-caption)/1 var(--font-sans); color: var(--text-muted); }
+:is(#root, body) .csp-named-label { display: block; font: var(--text-role-label); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+
+:is(#root, body) .csp-named-th-cell { text-align: left; padding: 8px 10px; color: var(--text-body); font: var(--fw-regular) var(--fs-small)/1.3 var(--font-sans); vertical-align: top; width: 38%; }
+:is(#root, body) .csp-named-td-cell { padding: 8px 10px; color: var(--text-muted); font: var(--fw-regular) var(--fs-small)/1.3 var(--font-sans); vertical-align: top; }
