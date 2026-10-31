@@ -85,7 +85,7 @@ def test_render_configured_transport_is_bounded_and_private(monkeypatch, memory_
         calls.append(request)
         assert request.headers["Authorization"] == "Bearer synthetic-test-token"
         assert request.url.host == "api.render.com"
-        assert request.url.params["resolutionSeconds"] == "3600"
+        assert dict(request.url.params) == {"resource": "private-service-id"}
         assert request.url.params['resource'] == 'private-service-id'
         assert request.extensions["timeout"]["read"] == 4
         if request.url.path.endswith("memory") and memory_status != 200:
