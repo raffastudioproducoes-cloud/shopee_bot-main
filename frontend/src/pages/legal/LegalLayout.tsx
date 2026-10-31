@@ -1,6 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Link } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
+import { authApi } from '../../api/auth'
+import { useAuthStore } from '../../stores/authStore'
+import { isAdminVisitingSite } from '../../lib/adminSiteFlag'
 
 // Mesmo breakpoint usado em LoginPage.tsx (768px) — não existe um padrão
 // central de breakpoints no projeto, então cada componente com CSS próprio
@@ -51,10 +54,30 @@ interface LegalLayoutProps {
   children: ReactNode
 }
 
-/** Casca compartilhada das páginas públicas /termos e /privacidade: mesmo
- * header com volta pro login, mesma tipografia de prosa. Extraído porque as
- * duas páginas são idênticas nisso — só o conteúdo das seções muda. */
+/** Layout compartilhado pelas páginas legais públicas.
+ * O retorno consulta a sessão real, pois o estado persistido no navegador pode estar desatualizado. */
 export function LegalLayout({ title, updatedAt, children }: LegalLayoutProps) {
+  const navigate = useNavigate()
+  const [returning, setReturning] = useState(false)
+
+  const handleReturn = async () => {
+    if (returning) return
+    setReturning(true)
+    try {
+      const user = await authApi.me()
+      const auth = useAuthStore.getState()
+      if (!auth.isAuthenticated) auth.login('', user)
+      else auth.setUser(user)
+      const home = user.access === 'ADMIN' && !isAdminVisitingSite() ? '/admin/overview' : '/'
+      await navigate({ to: home })
+    } catch {
+      // Não confiar apenas no estado local caso o cookie tenha expirado.
+      useAuthStore.getState().logout()
+      await navigate({ to: '/login' })
+    } finally {
+      setReturning(false)
+    }
+  }
   useEffect(() => {
     const previous = document.title
     document.title = `${title} · Auto Orbital`
@@ -68,16 +91,21 @@ export function LegalLayout({ title, updatedAt, children }: LegalLayoutProps) {
       <style>{legalPageStyles}</style>
 
       <header className="legal-page__header">
-        <Link
-          to="/login"
+        <button
+          type="button"
+          onClick={() => { void handleReturn() }}
+          disabled={returning}
           style={{
             color: 'var(--text-muted)',
             font: 'var(--text-role-body)',
-            textDecoration: 'none',
+            background: 'transparent',
+            border: 0,
+            padding: 0,
+            cursor: returning ? 'wait' : 'pointer',
           }}
         >
-          ← Voltar
-        </Link>
+          {returning ? 'Voltando...' : '← Voltar'}
+        </button>
         <span style={{ color: 'var(--text-muted)' }}>·</span>
         <span style={{ font: 'var(--fw-semibold) var(--fs-body)/1 var(--font-display)', color: 'var(--text-display)' }}>
           Auto Orbital
