@@ -4,6 +4,7 @@ import { Panel } from '../ui/Panel'
 import { Button } from '../ui/Button'
 import { clampZoom, earthRotation, projectGlobe, wheelGlobeZoom } from './globeGeometry'
 import { formatMetricTime, isStale } from './metricsPresentation'
+import { CardTags } from './CardTags'
 import land from './globeLand.json'
 
 const places: Record<string, { name: string; longitude: number; latitude: number; country: string }> = {
@@ -122,7 +123,7 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
     else { const place = places[code]; if (place) { setCenter({ longitude: place.longitude, latitude: place.latitude }); setZoom(1.8) } }
   }
   return <Panel surface="dark" className="admin-globe-panel">
-    <div className="admin-globe-heading"><div><span className="admin-globe-eyebrow">PRESENÇA GLOBAL</span><h2>Onde estão seus clientes</h2><p>Explore países e regiões · localização aproximada</p></div><Button variant="ghost" aria-pressed={demo} onClick={() => { setDemo(!demo); setSelected(null); chooseCountry('all') }}>{demo ? 'Voltar aos dados reais' : 'Explorar demonstração'}</Button></div>
+    <div className="admin-globe-heading"><div><CardTags tags={demo ? ['app', 'demo'] : hasData ? ['clients', 'geography'] : ['app', 'no_data']} /><span className="admin-globe-eyebrow">PRESENÇA GLOBAL</span><h2>Onde estão seus clientes</h2><p>Explore países e regiões · localização aproximada</p></div><Button variant="ghost" aria-pressed={demo} onClick={() => { setDemo(!demo); setSelected(null); chooseCountry('all') }}>{demo ? 'Voltar aos dados reais' : 'Explorar demonstração'}</Button></div>
     <div className="admin-globe-status" role="status">{demo ? 'DEMONSTRAÇÃO · todos os pontos e números são fictícios' : hasData ? `Coleta: ${data.geography?.updated_at ? formatMetricTime(data.geography.updated_at) : 'horário indisponível'}${data.geography?.updated_at && isStale(data.geography.updated_at) ? ' · Dados antigos' : ''}` : 'Em breve · Localização ainda não coletada. Nenhum ponto real é exibido.'}</div>
     <div className="admin-globe-layout">
       <div className="admin-globe-scene" onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocusCapture={() => setFocusWithin(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocusWithin(false) }}>
