@@ -1,5 +1,7 @@
 # Analise de redes: contrato e fases
 
+**Permissão das sondas manuais (31/10/2026):** `GET /api/analytics/summary` continua disponível ao usuário autenticado para os seus próprios dados. `POST /api/analytics/probe/{network}` (Threads/Facebook/Instagram) é ferramenta de diagnóstico **exclusiva ADMIN**, protegida por papel no FastAPI; os botões correspondentes em Análises só aparecem para `ADMIN`. Isso não amplia as permissões de insights dos provedores e não muda a tabela de resultados para usuários comuns.
+
 Estado em 2026-10-21. As APIs abaixo oferecem conjuntos diferentes de dados; "indisponivel" nao significa zero. Nunca somar alcance unico de redes distintas como pessoas unicas globais. Cada coleta pertence a `user_id` + `profile_id` e usa somente o token desse perfil.
 
 ## Auditoria dos portais em 2026-10-21
