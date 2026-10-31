@@ -61,7 +61,8 @@ async def my_region(user_id: str = Depends(get_current_user_id)):
         supabase.table("account_region_preferences")
         .select("region")
         .eq("user_id", user_id)
-        .maybe_single()
+        .limit(1)
         .execute()
     )
-    return {"region": result.data.get("region") if result.data else None}
+    own = (result.data or [None])[0]
+    return {"region": own["region"] if own else None}

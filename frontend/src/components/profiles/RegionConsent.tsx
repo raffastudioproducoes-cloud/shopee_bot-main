@@ -28,7 +28,7 @@ function regionFromPoint(lat: number, lon: number): string {
 }
 export function RegionConsent() {
   const client = useQueryClient()
-  const {data, isLoading, isError} = useQuery({queryKey:['region-preference'],queryFn:profilesApi.getRegionPreference})
+  const {data, isLoading, isError, refetch} = useQuery({queryKey:['region-preference'],queryFn:profilesApi.getRegionPreference, retry:1})
   const [region,setRegion] = useState('')
   const [agreed,setAgreed] = useState(false)
   const [gpsNote,setGpsNote] = useState('')
@@ -68,9 +68,11 @@ export function RegionConsent() {
     setAgreed(false)
   }})
   return <Panel style={{padding:20}}>
-    <h2 style={{marginTop:0}}>Região aproximada (opcional)</h2>
-    <p>Você pode contribuir voluntariamente para estatísticas regionais do Auto Orbital. Apenas país/UF será salvo, nunca endereço, GPS ou IP para este mapa. Uma região só aparece no mapa administrativo se pelo menos três contas tiverem optado por ela.</p>
-    {isLoading ? <p>Consultando preferência...</p> : isError ? <p role="alert">Não foi possível consultar a preferência.</p> : <>
+    <h2 style={{marginTop:0}}>Escolha sua região (opcional)</h2>
+    <p>Selecione sua região manualmente, sem precisar de GPS, ou peça ao navegador uma sugestão. Salvamos apenas país/UF após sua confirmação. A região da própria conta administradora pode aparecer de forma privada no globo; estatísticas de clientes exigem pelo menos três participantes.</p>
+    {isLoading && <p role="status">Consultando preferência salva...</p>}
+    {isError && <p role="alert">Não foi possível carregar a preferência anterior. Você ainda pode selecionar uma região abaixo e salvá-la. <button type="button" onClick={() => { void refetch() }}>Tentar consultar novamente</button></p>}
+    <>
       {data?.consented && <p role="status">Participação ativa: {regions.find(r=>r[0]===data.region)?.[1]??'Região escolhida'}. Você pode retirar seu consentimento a qualquer momento.</p>}
       <div style={{display:'grid',gap:8,marginBottom:14}}>
         <label><input type="checkbox" checked={gps?.enabled ?? false} disabled={gpsMutation.isPending} onChange={e=>{gpsMutation.mutate(e.target.checked);setGpsNote('');if(!e.target.checked){setRegion('');setAgreed(false)}}}/>
@@ -80,7 +82,7 @@ export function RegionConsent() {
         {gpsNote && <p role="status">{gpsNote}</p>}
         <small>O navegador solicitará permissão separadamente. Sem rastreamento contínuo; coordenadas não são enviadas ao Auto Orbital.</small>
       </div>
-      <label htmlFor="account-region">País / região</label>
+      <label htmlFor="account-region" style={{display:'block',fontWeight:600,marginTop:14}}>1. País / região (escolha manual)</label>
       <select id="account-region" value={region || data?.region || ''} onChange={e=>{setRegion(e.target.value);setAgreed(false)}} style={{display:'block',padding:10,maxWidth:'100%',margin:'8px 0 14px'}}>
         <option value="">Selecione uma região</option>
         {regions.map(([code,label])=><option key={code} value={code}>{label}</option>)}
@@ -90,11 +92,11 @@ export function RegionConsent() {
         Autorizo o uso da minha região aproximada em estatísticas agregadas, podendo retirar essa autorização quando quiser.
       </label>
       <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-        <Button disabled={!agreed || !(region||data?.region) || save.isPending} onClick={()=>save.mutate(region||data!.region!)}>Salvar preferência</Button>
+        <Button disabled={!agreed || !(region||data?.region) || save.isPending} onClick={()=>save.mutate(region||data!.region!)}>{save.isPending ? 'Salvando...' : 'Salvar minha região'}</Button>
         {data?.consented && <Button variant="secondary" disabled={revoke.isPending} onClick={()=>revoke.mutate()}>Retirar consentimento</Button>}
       </div>
       {(save.isError||revoke.isError)&&<p role="alert">Não foi possível salvar a preferência. Tente novamente.</p>}
-    </>}
+    </>
     <p style={{fontSize:12,opacity:.75}}>Regiões com menos de três participantes ficam ocultas. A retirada do consentimento exclui o registro regional; não há geolocalização automática ou em segundo plano.</p>
   </Panel>
 }

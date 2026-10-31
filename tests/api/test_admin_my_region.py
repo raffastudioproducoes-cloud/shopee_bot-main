@@ -39,8 +39,8 @@ def test_my_region_denies_non_admin(monkeypatch):
 def test_my_region_returns_only_authenticated_owners_region(monkeypatch):
     _auth(monkeypatch)
     region_db = MagicMock()
-    region_db.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(
-        data={"region": "BR-RJ", "user_id": "private-user-id", "latitude": -22.9}
+    region_db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+        data=[{"region": "BR-RJ", "user_id": "private-user-id", "latitude": -22.9}]
     )
     monkeypatch.setattr(admin, "supabase", region_db)
     try:
@@ -50,6 +50,7 @@ def test_my_region_returns_only_authenticated_owners_region(monkeypatch):
         region_db.table.assert_called_once_with("account_region_preferences")
         region_db.table.return_value.select.assert_called_once_with("region")
         region_db.table.return_value.select.return_value.eq.assert_called_once_with("user_id", "owner-uuid")
+        region_db.table.return_value.select.return_value.eq.return_value.limit.assert_called_once_with(1)
         assert "private-user-id" not in response.text
         assert "latitude" not in response.text
     finally:
@@ -59,7 +60,7 @@ def test_my_region_returns_only_authenticated_owners_region(monkeypatch):
 def test_my_region_empty_without_opt_in(monkeypatch):
     _auth(monkeypatch)
     region_db = MagicMock()
-    region_db.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = MagicMock(data=None)
+    region_db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
     monkeypatch.setattr(admin, "supabase", region_db)
     try:
         response = TestClient(app).get("/admin/my-region")
