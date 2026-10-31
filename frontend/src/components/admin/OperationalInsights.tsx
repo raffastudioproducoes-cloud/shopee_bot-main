@@ -49,6 +49,17 @@ export function OperationalInsights({ accountCount }: { accountCount?: number | 
         </> : <p role="status">{isLoading ? 'Consultando...' : 'Aguardando verificações automáticas válidas.'}</p>}
       </Panel>
       <Panel surface="dark" className="admin-metric-card">
+        <CardTags tags={['clients', 'coverage']} /><h3>Origem declarada dos clientes</h3>
+        <p>Somente respostas voluntárias em grupos de três ou mais participantes.</p>
+        {data?.acquisition.status === 'available' ? <>
+          <p>{fmt(data.acquisition.declared_total)} respostas registradas.</p>
+          {data.acquisition.groups.length ? <dl>{data.acquisition.groups.map(row => <div key={row.source}>
+            <dt>{{search:'Buscas', social:'Redes sociais', referral:'Indicações', direct:'Acesso direto', other:'Outros'}[row.source as 'search'|'social'|'referral'|'direct'|'other'] ?? 'Outro'}</dt><dd>{fmt(row.accounts)}</dd>
+          </div>)}</dl> : <p>Nenhuma categoria atingiu o mínimo de três respostas; não são exibidas informações individuais.</p>}
+          <p>Não é atribuição de conversão ou análise automática de UTMs. Respostas podem ser modificadas ou excluídas pelo titular.</p>
+        </> : <p>Coleta declarada indisponível.</p>}
+      </Panel>
+      <Panel surface="dark" className="admin-metric-card">
         <CardTags tags={['app', 'plans', 'consumption']}/><h3>Custos operacionais estimados</h3>
         {data?.costs.status === 'estimate' ? <dl><div><dt>Orçamento mensal informado</dt><dd>{money(data.costs.monthly_brl)}</dd></div><div><dt>Equivalente diário (30 dias)</dt><dd>{money(data.costs.daily_brl)}</dd></div><div><dt>Rateio mensal por conta cadastrada</dt><dd>{accountCount && data.costs.monthly_brl != null ? money(data.costs.monthly_brl / accountCount) : 'Indisponível'}</dd></div></dl>
           : <p>Orçamento não configurado. Defina ADMIN_ESTIMATED_MONTHLY_BRL no backend do Render para informar o custo mensal em reais.</p>}
