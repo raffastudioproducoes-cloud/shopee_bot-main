@@ -1,9 +1,9 @@
 ## Correção de publicações interrompidas por deploy — 31/10/2026
 
 - [x] Causa isolada por logs do Render e jobs do Supabase: Threads #23 e #27 iniciados no horário exato de troca de instância, worker saiu em 2s/4s; lease expirou e não retornou ID externo.
-- [x] Implementação na branch `fix/scheduler-deploy-safe-20261031`, PR [#127](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/127): drain durante SIGTERM, barreira durável pré-API, retomada somente pré-envio, deduplicação e testes mockados.
-- [ ] CI Python/frontend do PR #127 aprovada com testes de reinicialização.
-- [ ] Merge e Render staging `live` no SHA esperado, HTTP e logs sem erro.
+- [x] Implementação na branch `fix/scheduler-deploy-safe-20261031`, PR [#127](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/127): drain durante SIGTERM, barreira durável pré-API, guarda de token da versão legada (migração 061), retomada somente pré-envio, deduplicação e testes mockados.
+- [x] CI Python/frontend do PR #127 aprovada com testes de reinicialização; workflow final do PR #127 e CI da staging `41242311639` verdes.\n- [ ] Validar PR complementar de compatibilidade com worker legado e staging atualizada.
+- [x] Merge inicial e Render staging `e976449` `live` (`dep-dbj5icm417fc73aj8sqg`), migração 060 aplicada, CI/smoke HTTP/ZAP aprovados.\n- [ ] Revalidar staging após a guarda 061 antes de liberar main.
 - [ ] PR staging→main, CI, Render produção `live` e verificação sem regressões.
 - [ ] Publicação real Threads com destino de teste e autorização específica, caso a validação externa seja necessária. **Não** usar os posts antigos `unknown` como reenvio automático.
 

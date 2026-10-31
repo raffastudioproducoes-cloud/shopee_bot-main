@@ -84,7 +84,7 @@ def test_expired_running_item_after_external_call_becomes_unknown(monkeypatch):
     monkeypatch.setattr(publish_jobs, "query_db", lambda sql, args: seen.update(sql=sql, args=args) or [])
 
     assert publish_jobs.expire_running(300) == []
-    assert "when external_started_at is not null then 'unknown'" in seen["sql"].lower()
+    assert "preflight_claim_token is distinct from claim_token" in seen["sql"].lower()
     assert "status = 'running'" in seen["sql"].lower()
     assert seen["args"] == (5, 5, 5, 300)
 

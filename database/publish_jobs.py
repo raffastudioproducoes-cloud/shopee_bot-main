@@ -27,19 +27,25 @@ def expire_running(lease_seconds):
     query = """
         UPDATE publish_jobs
         SET status = CASE
-                WHEN external_started_at IS NOT NULL THEN 'unknown'
+                WHEN external_started_at IS NOT NULL
+                     OR preflight_claim_token IS DISTINCT FROM claim_token
+                    THEN 'unknown'
                 WHEN attempt >= %s THEN 'failed'
                 ELSE 'pending'
             END,
             last_error = CASE
                 WHEN external_started_at IS NOT NULL
                     THEN 'Lease expirado apos inicio de chamada externa; requer conciliacao'
+                WHEN preflight_claim_token IS DISTINCT FROM claim_token
+                    THEN 'Lease de worker legado ou desconhecido; requer conciliacao'
                 WHEN attempt >= %s
                     THEN 'Preparacao interrompida repetidamente; requer intervencao'
                 ELSE 'Preparacao interrompida antes de chamada externa; retomada segura'
             END,
             finished_at = CASE
-                WHEN external_started_at IS NULL AND attempt < %s THEN NULL
+                WHEN external_started_at IS NULL
+                     AND preflight_claim_token = claim_token
+                     AND attempt < %s THEN NULL
                 ELSE now()
             END,
             claim_token = NULL, locked_by = NULL, locked_at = NULL
@@ -74,7 +80,7 @@ def claim(publish_job_id, worker_id, lease_seconds):
     """Um unico worker pode adquirir item que ainda nao foi iniciado."""
     query = """
         WITH candidate AS (
-            SELECT id
+            SELECT id, gen_random_uuid() AS token
             FROM publish_jobs
             WHERE id = %s
               AND status = 'pending'
@@ -83,7 +89,9 @@ def claim(publish_job_id, worker_id, lease_seconds):
         UPDATE publish_jobs AS job
         SET status = 'running',
             attempt = job.attempt + 1,
-            claim_token = gen_random_uuid(),
+            claim_token = candidate.token,
+            preflight_claim_token = candidate.token,
+            external_started_at = NULL,
             locked_by = %s,
             locked_at = now(),
             started_at = COALESCE(job.started_at, now())
@@ -122,10 +130,11 @@ def mark_external_started(publish_job_id, claim_token):
         """
         UPDATE publish_jobs
         SET external_started_at = COALESCE(external_started_at, now())
-        WHERE id = %s AND claim_token = %s AND status = 'running'
+        WHERE id = %s AND claim_token = %s
+          AND preflight_claim_token = %s AND status = 'running'
         RETURNING id
         """,
-        (publish_job_id, claim_token),
+        (publish_job_id, claim_token, claim_token),
         one=True,
     )
 
@@ -138,10 +147,11 @@ def requeue_if_safe(publish_job_id, claim_token):
         SET status = 'pending', claim_token = NULL, locked_by = NULL,
             locked_at = NULL, finished_at = NULL,
             last_error = 'Encerramento antes da chamada externa; aguardando retomada'
-        WHERE id = %s AND claim_token = %s AND status = 'running'
+        WHERE id = %s AND claim_token = %s
+          AND preflight_claim_token = %s AND status = 'running'
           AND external_started_at IS NULL
         RETURNING id
         """,
-        (publish_job_id, claim_token),
+        (publish_job_id, claim_token, claim_token),
         one=True,
     )
