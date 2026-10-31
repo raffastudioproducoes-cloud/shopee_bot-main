@@ -31,7 +31,9 @@ fluxo do usuário. Kwai fica de fora do mapa, sem API pública confirmada.
 import logging
 import httpx
 import uuid
+from PIL import Image
 from dataclasses import replace
+from io import BytesIO
 from datetime import datetime, timedelta, timezone
 import re
 from urllib.parse import urlparse, urljoin
@@ -1329,6 +1331,22 @@ async def _download_shopee_image(raw_url: str) -> bytearray:
     raise HTTPException(status_code=502, detail="Redirecionamentos excessivos na imagem Shopee.")
 
 
+def _normalize_shopee_photo_as_jpeg(media, product_id: int):
+    """A product image from PNG/WEBP/GIF becomes a safe universal JPEG preview."""
+    if media.mime_type == "image/jpeg":
+        return media
+    with Image.open(BytesIO(media.content)) as source:
+        frame = source.convert("RGBA")
+        background = Image.new("RGB", frame.size, (255, 255, 255))
+        background.paste(frame, mask=frame.getchannel("A"))
+        output = BytesIO()
+        background.save(output, format="JPEG", quality=90, optimize=True)
+    return sanitize_media_upload(
+        output.getvalue(), filename="shopee-" + str(product_id) + ".jpg",
+        content_type="image/jpeg", max_bytes=MAX_PRODUCT_IMAGE_BYTES,
+    )
+
+
 @router.post("/product-image-drafts/{product_id}", status_code=status.HTTP_201_CREATED)
 async def import_product_image_draft(
     product_id: int,
@@ -1361,6 +1379,7 @@ async def import_product_image_draft(
             content_type=detected.mime_type,
             max_bytes=MAX_PRODUCT_IMAGE_BYTES,
         )
+        media = await run_in_threadpool(_normalize_shopee_photo_as_jpeg, media, product_id)
     except MediaSanitizerError as exc:
         raise HTTPException(status_code=415, detail="Imagem Shopee inválida ou incompatível.") from None
     cleanup_expired_media_drafts()
