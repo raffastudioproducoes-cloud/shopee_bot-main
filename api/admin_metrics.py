@@ -145,7 +145,7 @@ class UnavailableMetrics(BaseModel):
     paying_accounts: str = "Cobrança ainda não integrada; plano cadastrado não confirma pagamento."
     traffic_sources: str = "Origem de tráfego não coletada."
     session_time: str = "Tempo de utilização não medido."
-    location: str = "Localização não coletada; nenhum IP ou endereço é usado neste painel."
+    location: str = "Regiões declaradas voluntariamente. Nenhum IP, endereço ou GPS é usado para esta finalidade."
 
 
 class GeographyRegion(BaseModel):
