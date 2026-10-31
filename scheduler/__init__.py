@@ -16,7 +16,6 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
 
 from shopee_bot.database import get_conn, put_conn, publication_claims, publish_jobs, schedulers
-from api.analytics_refresh import refresh_due_analytics
 from shopee_bot.clogging import logger
 from shopee_bot.database.activities import insert_activities, activity_metadata_wrapper
 from shopee_bot.database.activity_types import ActivityType
@@ -374,6 +373,16 @@ def _jobstore_dsn() -> str:
     return dsn
 
 
+def _run_daily_analytics_refresh():
+    """Evita carregar a API e validar segredos no import do scheduler legado.
+
+    A validação de API_SECRET_KEY permanece no boot da API; aqui a dependência
+    só é importada quando o job interno realmente executa.
+    """
+    from api.analytics_refresh import refresh_due_analytics
+    refresh_due_analytics()
+
+
 def init():
     global _scheduler, _shutting_down
     _shutting_down = False
@@ -414,7 +423,7 @@ def init():
     # staging e main compartilham o Supabase. Após suspensão Free, roda na
     # próxima hora ativa (a abertura das Análises também faz catch-up).
     _scheduler.add_job(
-        refresh_due_analytics,
+        _run_daily_analytics_refresh,
         trigger="interval",
         hours=1,
         id="analytics_refresh_daily",
