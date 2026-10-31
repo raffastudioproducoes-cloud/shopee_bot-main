@@ -7,14 +7,11 @@ publicação. Agendamento/publicação passam pelo bridge interno
 APScheduler só roda de verdade no processo Flask — ver docstring de
 internal_client.py e Fase 8 em docs/ROADMAP_MIGRACAO.md.
 
-Upload de mídia (imagem/vídeo) grava em `web/media/<post_id>/`, o MESMO
-caminho relativo que o Flask usa — funciona de verdade quando os dois
-processos rodam a partir da mesma raiz de repositório (dev local hoje;
-em produção só funciona se um dia forem deployados compartilhando o
-mesmo filesystem, o que ainda não é o caso — só o Flask está no
-Render). Cifrado pro Cloudinary só acontece na publicação
-(`scheduler/bot_post.py`, roda no Flask). Simplificação: mídia só na
-head da thread, não em cada parte (mesma limitação de UI do form novo).
+Upload de mídia (imagem/vídeo) valida e sanitiza o conteúdo e o armazena
+no bucket privado `post-media` do Supabase Storage, com referência durável
+`storage://` por usuário e perfil. Os publicadores obtêm URLs assinadas
+temporárias; não há dependência do filesystem do Render nem de CDN externo.
+Simplificação: mídia só na head da thread, não em cada parte.
 
 Modelo de thread: cada parte é uma linha em `posts`; a primeira
 ("head", a única retornada por list_posts) tem `post_id IS NULL`; cada
