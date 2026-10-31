@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from api.main import app
 from api import database as database_module
 from api.routers.auth import get_current_user_id
+from api.routers.credentials import _require_admin
 from api.routers.profiles import get_current_profile_id
 from api.routers import social_analytics
 
@@ -13,6 +14,7 @@ from api.routers import social_analytics
 def test_analytics_requires_login():
     app.dependency_overrides.clear()
     assert TestClient(app).get('/analytics/summary').status_code == 401
+    assert TestClient(app).post('/analytics/probe/threads').status_code == 401
 
 
 def test_analytics_counts_only_owned_profile_and_never_invents_social_metrics(monkeypatch):
@@ -58,9 +60,31 @@ def test_analytics_rejects_unknown_network_and_period():
     app.dependency_overrides.clear()
 
 
+def test_insights_probe_rejects_common_users_without_calling_provider(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 42
+    app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
+
+    query = MagicMock()
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.maybe_single.return_value = query
+    query.execute.return_value = MagicMock(data={'access': 'USER'})
+    fake_client = MagicMock()
+    fake_client.table.return_value = query
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake_client)
+    try:
+        response = TestClient(app).post('/analytics/probe/threads')
+        assert response.status_code == 403
+        fake_client.table.assert_called_once_with('users')
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_insights_probe_uses_owned_token_and_returns_only_safe_metadata(monkeypatch):
     app.dependency_overrides.clear()
     app.dependency_overrides[get_current_user_id] = lambda: 42
+    app.dependency_overrides[_require_admin] = lambda: 42
     app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
     seen = []
     query = MagicMock()
