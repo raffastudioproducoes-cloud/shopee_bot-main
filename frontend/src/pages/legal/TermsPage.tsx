@@ -7,7 +7,7 @@ import { LegalLayout } from './LegalLayout'
 
 export function TermsPage() {
   return (
-    <LegalLayout title="Termos de Serviço" updatedAt="13 de outubro de 2026">
+    <LegalLayout title="Termos de Serviço" updatedAt="30 de outubro de 2026">
       <h2>1. Aceitação dos termos</h2>
       <p>
         Ao criar uma conta ou usar o Auto Orbital ("nós", "plataforma", "serviço"), você
@@ -36,6 +36,10 @@ export function TermsPage() {
         <li>Você é responsável por manter a confidencialidade da sua senha e por toda atividade realizada com sua conta.</li>
       </ul>
 
+      <h2>3.1 Localização e consentimento opcional</h2>
+      <p>Para criar uma conta é necessário tomar ciência da Política de Privacidade e aceitar os Termos de Uso vigentes. Essa aceitação é registrada com sua versão e data. Ela não substitui permissões específicas para recursos opcionais.</p>
+      <p>O uso da localização por GPS é facultativo e não condiciona o cadastro nem as funcionalidades essenciais. A plataforma somente solicita acesso ao navegador quando o titular habilita a opção e aciona o botão de localizar. As coordenadas são utilizadas temporariamente para sugerir a região, que deve ser confirmada pelo usuário; não há monitoramento contínuo de movimentos. A autorização pode ser retirada em Perfis.</p>
+      <p>Leia também <a href="/dados-coletados">quais dados do dispositivo podem ser tratados</a>.</p>
       <h2>4. Responsabilidades do usuário</h2>
       <p>Ao usar o Auto Orbital, você concorda em:</p>
       <ul>
