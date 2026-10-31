@@ -90,3 +90,49 @@ def test_cannot_reconcile_other_users_posts(setup):
     app.dependency_overrides[get_current_user_id] = lambda: OTHER
     assert client.post("/posts/23/reconcile", json={"permalink": LINK, "confirmed": True}).status_code in (403, 404)
     assert db.tables["publish_jobs"][0]["status"] == "unknown"
+
+
+
+def test_user_can_report_published_then_deleted_without_permalink(setup, monkeypatch):
+    db, actions, client = setup
+    scheduled = []
+    monkeypatch.setattr(posts_module, "run_scheduler_job", lambda *args: scheduled.append(args))
+    resp = client.post("/posts/23/reconcile", json={"reported_removed": True, "confirmed": True})
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "reported_removed"
+    job = db.tables["publish_jobs"][0]
+    # Must not count as a provider-confirmed successful publication.
+    assert job["status"] == "unknown"
+    assert job["external_id"] is None
+    assert job["finished_at"] == NOW
+    assert job["last_error"].startswith("USER_REPORTED_REMOVED; ")
+    assert "Lease expirado" in job["last_error"]
+    assert not scheduled
+    assert actions and actions[0][0][0] == "post_user_reported_published_removed"
+    result = posts_module._get_last_publish_result(USER, 23, PROFILE)
+    assert result["status"] == "reported_removed"
+    assert not result.get("proof_url")
+    # Repeating a report cannot rewrite audit or republish.
+    assert client.post("/posts/23/reconcile", json={"reported_removed": True, "confirmed": True}).status_code == 409
+    assert len(actions) == 1
+
+
+@pytest.mark.parametrize("payload", [
+    {"reported_removed": True, "confirmed": False},
+    {"reported_removed": True, "confirmed": True, "permalink": LINK},
+    {"reported_removed": False, "confirmed": True},
+])
+def test_reported_removed_requires_declaration_and_no_permalink(setup, payload):
+    db, actions, client = setup
+    assert client.post("/posts/23/reconcile", json=payload).status_code == 422
+    assert db.tables["publish_jobs"][0]["status"] == "unknown"
+    assert actions == []
+
+
+def test_other_user_cannot_report_deleted_post(setup):
+    db, actions, client = setup
+    app.dependency_overrides[get_current_user_id] = lambda: OTHER
+    response = client.post("/posts/23/reconcile", json={"reported_removed": True, "confirmed": True})
+    assert response.status_code in (403, 404)
+    assert db.tables["publish_jobs"][0]["last_error"] == "Lease expirado durante publicacao"
+    assert actions == []

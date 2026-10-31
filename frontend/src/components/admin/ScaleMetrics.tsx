@@ -58,13 +58,18 @@ export function ScaleMetrics({ data }: { data: AdminMetrics }) {
             <div><dt>Concluídas</dt><dd>{value(queueCounts.succeeded)}</dd></div>
             <div><dt>Confirmadas manualmente</dt><dd>{value(queueCounts.manually_confirmed)}</dd></div>
             <div><dt>Falhas registradas</dt><dd>{value(queueCounts.failed)}</dd></div>
-            <div><dt>Sem confirmação</dt><dd>{value(queueCounts.unknown)}</dd></div>
+            <div><dt>Sem confirmação, ainda pendentes</dt><dd>{value(queueCounts.unknown)}</dd></div>
+            <div><dt>Relatadas como publicadas e removidas</dt><dd>{value(queueCounts.reported_removed)}</dd></div>
             <div><dt>Execuções com mais de uma tentativa</dt><dd>{value(queueCounts.multiple_attempts)}</dd></div>
           </dl>
           {queueCounts.unknown > 0 && <p role="status" className="admin-data-notice">
             Atenção: {queueCounts.unknown} {queueCounts.unknown === 1 ? 'publicação precisa' : 'publicações precisam'} de conferência
             {queue?.oldest_unknown_minutes != null ? ` (mais antiga há ${value(queue.oldest_unknown_minutes)} min)` : ''}.
             Não reenvie sem verificar o resultado na rede.
+          </p>}
+          {queueCounts.reported_removed > 0 && <p>
+            {queueCounts.reported_removed} {queueCounts.reported_removed === 1 ? 'caso encerrado por relato do titular' : 'casos encerrados por relato dos titulares'},
+            sem link verificável nem confirmação automática pela Meta. O estado técnico original permanece preservado para impedir reenvio.
           </p>}
           {queueCounts.running > 0 && queue?.oldest_running_minutes != null &&
             <p>Execução ativa mais antiga: {value(queue.oldest_running_minutes)} min.</p>}

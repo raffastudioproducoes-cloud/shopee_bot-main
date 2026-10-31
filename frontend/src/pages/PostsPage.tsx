@@ -148,6 +148,7 @@ export function PostsPage() {
   const [reconcilePostId, setReconcilePostId] = useState<number | null>(null)
   const [evidenceUrl, setEvidenceUrl] = useState("")
   const [confirmedOnThreads, setConfirmedOnThreads] = useState(false)
+  const [reportedRemoved, setReportedRemoved] = useState(false)
 
   const { data: postsData, isLoading } = useQuery({
     queryKey: ["posts"],
@@ -252,12 +253,14 @@ export function PostsPage() {
   })
 
   const reconcileMutation = useMutation({
-    mutationFn: ({ id, url }: { id: number; url: string }) => postsApi.reconcile(id, url),
+    mutationFn: ({ id, url, removed }: { id: number; url: string; removed: boolean }) =>
+      postsApi.reconcile(id, removed ? { reported_removed: true } : { permalink: url }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
       setReconcilePostId(null)
       setEvidenceUrl("")
       setConfirmedOnThreads(false)
+      setReportedRemoved(false)
     },
     onError: onAuthError,
   })
@@ -436,6 +439,9 @@ export function PostsPage() {
                     {post.last_result?.status === "manual_confirmed" && (
                       <StatusBadge tone="manual" icon="shield-check">Confirmado por você</StatusBadge>
                     )}
+                    {post.last_result?.status === "reported_removed" && (
+                      <StatusBadge tone="manual" icon="shield-check">Relatado como publicado e removido</StatusBadge>
+                    )}
                     {post.last_result?.status === "failed" && (
                       <StatusBadge tone="negative" icon="x-circle">Falhou</StatusBadge>
                     )}
@@ -447,6 +453,11 @@ export function PostsPage() {
                     <p style={{ ...metaTextStyle, color: post.last_result.status === "unknown" ? "#fcd34d" : "var(--negative)", marginTop: 8 }}>
                       {post.last_result.status === "unknown" ? "Atenção: " : "Última tentativa: "}
                       {post.last_result.error}
+                    </p>
+                  )}
+                  {post.last_result?.status === "reported_removed" && (
+                    <p style={{ ...metaTextStyle, marginTop: 8 }}>
+                      Publicação relatada por você como publicada e depois removida do Threads. Não há comprovante externo; o sistema preservou o erro original e não reenviará.
                     </p>
                   )}
                   {post.last_result?.status === "manual_confirmed" && post.last_result.proof_url && (
@@ -470,12 +481,14 @@ export function PostsPage() {
                       setReconcilePostId(post.id)
                       setEvidenceUrl("")
                       setConfirmedOnThreads(false)
+                      setReportedRemoved(false)
                       reconcileMutation.reset()
                     }}>
                       Conferir post
                     </Button>
                   )}
                   {post.scheduled && post.last_result?.status !== "unknown" &&
+                    post.last_result?.status !== "reported_removed" &&
                     post.last_result?.status !== "running" &&
                     (post.schedule_trigger === "cron" || !post.last_result?.status) && (
                     <IconButton
@@ -528,15 +541,20 @@ export function PostsPage() {
 
       <Modal open={reconcilePostId != null} onClose={() => setReconcilePostId(null)} title="Conferir publicação no Threads" width={510}>
         <p style={{ font: "var(--text-role-body)", color: "var(--text-muted)", marginTop: 0 }}>
-          Este agendamento começou, mas perdeu a confirmação. Abra seu Threads e confirme que
-          o post existe antes de registrar o resultado. Esta ação NÃO publica novamente.
+          O agendamento iniciou, mas o sistema não recebeu a confirmação. Esta ação não publica novamente.
         </p>
-        <TextInput label="Link direto da publicação no Threads" type="url"
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, font: "var(--text-role-body)" }}>
+          <input type="checkbox" checked={reportedRemoved} onChange={(event) => { setReportedRemoved(event.target.checked); setEvidenceUrl(""); setConfirmedOnThreads(false) }} />
+          A postagem apareceu no Threads, mas já foi removida e não tenho mais o link.
+        </label>
+        {!reportedRemoved && <TextInput label="Link direto da publicação no Threads" type="url"
           placeholder="https://www.threads.net/@perfil/post/..."
-          value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} />
+          value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} />}
         <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 16, font: "var(--text-role-body)" }}>
           <input type="checkbox" checked={confirmedOnThreads} onChange={(event) => setConfirmedOnThreads(event.target.checked)} />
-          Eu conferi no Threads que este post foi realmente publicado. Entendo que isto é uma confirmação manual.
+          {reportedRemoved
+            ? "Declaro que vi esta publicação no Threads antes de removê-la. Não tenho link ou prova verificável; isto será registrado somente como meu relato."
+            : "Eu conferi no Threads que este post foi realmente publicado. Entendo que isto é uma confirmação manual."}
         </label>
         {reconcileMutation.isError && (
           <p role="alert" style={{ color: "var(--negative)" }}>{reconcileMutation.error.message}</p>
@@ -544,8 +562,8 @@ export function PostsPage() {
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
           <Button variant="ghost" onClick={() => setReconcilePostId(null)}>Cancelar</Button>
           <Button variant="mint" loading={reconcileMutation.isPending}
-            disabled={!confirmedOnThreads || !evidenceUrl.trim()}
-            onClick={() => reconcilePostId != null && reconcileMutation.mutate({ id: reconcilePostId, url: evidenceUrl.trim() })}>
+            disabled={!confirmedOnThreads || (!reportedRemoved && !evidenceUrl.trim())}
+            onClick={() => reconcilePostId != null && reconcileMutation.mutate({ id: reconcilePostId, url: evidenceUrl.trim(), removed: reportedRemoved })}>
             Registrar confirmação
           </Button>
         </div>

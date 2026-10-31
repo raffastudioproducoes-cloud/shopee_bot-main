@@ -632,6 +632,7 @@ _PUBLISH_ACTIVITY_STATUS = {1: "published", 2: "failed"}
 
 
 MANUAL_CONFIRMATION_PREFIX = "MANUAL_CONFIRMED; "
+USER_REPORTED_REMOVED_PREFIX = "USER_REPORTED_REMOVED; "
 
 
 def _utc_instant(value: str | None) -> datetime | None:
@@ -694,8 +695,10 @@ def _get_last_publish_result(
 
     state = job["status"]
     manual = state == "succeeded" and (job.get("last_error") or "").startswith(MANUAL_CONFIRMATION_PREFIX)
+    reported_removed = state == "unknown" and (job.get("last_error") or "").startswith(USER_REPORTED_REMOVED_PREFIX)
     status_label = (
         "manual_confirmed" if manual else
+        "reported_removed" if reported_removed else
         {"succeeded": "published", "failed": "failed", "unknown": "unknown",
          "running": "running"}.get(state)
     )
@@ -704,7 +707,7 @@ def _get_last_publish_result(
         "at": job.get("finished_at") or job.get("started_at"),
         "error": (
             "Execução sem confirmação. Confira na rede antes de agir."
-            if state == "unknown" else
+            if state == "unknown" and not reported_removed else
             sanitize_log_data(str(job.get("last_error")))[:200] if state == "failed" and job.get("last_error")
             else None
         ),
@@ -730,8 +733,9 @@ def _valid_threads_permalink(value: str) -> str | None:
 
 
 class ReconcilePostBody(BaseModel):
-    permalink: str
+    permalink: str | None = None
     confirmed: bool = False
+    reported_removed: bool = False
 
 
 @router.post("/{post_id}/reconcile", status_code=200)
@@ -751,13 +755,48 @@ def reconcile_post(
     if post.get("network") != "threads":
         raise HTTPException(status_code=422, detail="Conciliação manual disponível apenas para Threads")
     if body.confirmed is not True:
-        raise HTTPException(status_code=422, detail="Confirme que verificou o post diretamente no Threads")
-    url = _valid_threads_permalink(body.permalink)
+        raise HTTPException(status_code=422, detail="Confirme a informação de forma explícita")
+    if body.reported_removed:
+        # A self-reported outcome without an external permalink is NOT a Meta-confirmed success.
+        # Keep the queue status unknown to preserve idempotency and block republishing.
+        if body.permalink:
+            raise HTTPException(status_code=422, detail="Não forneça link no relato de publicação já removida")
+        job = _latest_publish_job(user_id, post_id, profile_id)
+        if not job or job.get("status") != "unknown" or (
+            job.get("last_error") or "").startswith(USER_REPORTED_REMOVED_PREFIX):
+            raise HTTPException(status_code=409, detail="Esta execução já foi tratada ou mudou de estado")
+        old_error = sanitize_log_data(str(job.get("last_error") or ""))[:180]
+        event = f"{USER_REPORTED_REMOVED_PREFIX}user={user_id}; original={old_error}"
+        try:
+            response = (
+                scope_owner(
+                    supabase.table("publish_jobs").update({"last_error": event}),
+                    user_id, profile_id,
+                )
+                .eq("id", job["id"]).eq("post_id", post_id)
+                .eq("status", "unknown").eq("last_error", job.get("last_error"))
+                .execute()
+            )
+        except Exception:
+            logger.exception("Falha ao registrar relato de publicação removida %s", post_id)
+            raise HTTPException(status_code=503, detail="Não foi possível registrar o relato")
+        if not response.data:
+            raise HTTPException(status_code=409, detail="A execução mudou de estado. Atualize a lista.")
+        log_action(
+            "post_user_reported_published_removed",
+            f"post_id={post_id} job_id={job['id']} original_status=unknown evidence=unavailable",
+            user_id=user_id, profile_id=profile_id,
+        )
+        return {"status": "reported_removed",
+                "msg": "Relato registrado. Sem confirmação externa, sem reenvio e com erro original preservado."}
+
+    url = _valid_threads_permalink(body.permalink or "")
     if not url:
         raise HTTPException(status_code=422, detail="Forneça o link direto HTTPS da publicação no Threads")
 
     job = _latest_publish_job(user_id, post_id, profile_id)
-    if not job or job.get("status") != "unknown":
+    if not job or job.get("status") != "unknown" or (
+        job.get("last_error") or "").startswith(USER_REPORTED_REMOVED_PREFIX):
         raise HTTPException(status_code=409, detail="A publicação não está pendente de conciliação")
     old_error = sanitize_log_data(str(job.get("last_error") or ""))[:180]
     event = f"{MANUAL_CONFIRMATION_PREFIX}user={user_id}; original={old_error}"
