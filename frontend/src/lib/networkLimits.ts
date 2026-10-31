@@ -241,10 +241,6 @@ export function validateForNetwork(network: PostNetwork, draft: PostDraft): Issu
     const mentions = count(text, MENTION_RE)
     if (rule.maxMentions != null && mentions > rule.maxMentions) add("maxMentions", `máx. ${rule.maxMentions} @menções${where} (você tem ${mentions})`)
   })
-  if (!rule.threadParts && draft.texts.length > 1) {
-    issues.push({ key: "threadParts", level: "warn", message: `${rule.label}: só a 1ª parte é publicada (sem thread)` })
-  }
-
   const media = draft.media
   const byKind = (k: MediaKind) => media.filter((m) => m.kind === k).length
   if (rule.requiresMedia === "video" && byKind("video") === 0) add("requiresMedia", "exige 1 vídeo (.mp4)")

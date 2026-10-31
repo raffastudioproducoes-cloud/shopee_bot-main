@@ -82,3 +82,12 @@
 .post-composer-shopee-media label{display:flex;align-items:center;gap:9px;color:var(--text-body);font:var(--text-role-body);cursor:pointer}
 .post-composer-shopee-media input{width:16px;height:16px;accent-color:var(--accent)}
 .post-composer-shopee-media p{margin:7px 0 0;color:var(--text-muted);font:var(--text-role-caption);line-height:1.5}
+
+.post-preview-thread-stack{border-top:1px solid #ffffff24;padding:3px 12px 7px}
+.post-preview-thread-part{display:flex;align-items:flex-start;gap:9px;padding:11px 0;border-bottom:1px solid #ffffff1a}
+.post-preview-thread-part:last-child{border-bottom:none}
+.post-preview-avatar.is-small{flex:0 0 28px;width:28px;height:28px;font-size:10px}
+.post-preview-thread-part>div{min-width:0;flex:1}
+.post-preview-thread-part strong{font-size:12px}
+.post-preview-thread-part small{font-weight:400;color:#a2adbc}
+.post-preview-thread-part p{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0 0}

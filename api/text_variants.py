@@ -164,3 +164,113 @@ def generate_variants(product: dict, persona: str, networks: list[str], complete
         {**v, "text": texts[v["key"]], "over_limit": bool(issues[v["key"]]), "issues": issues[v["key"]]}
         for v in variants
     ]
+
+
+# Limite próprio do aplicativo. Não equivale a uma cota anti-spam oficial:
+# cada provedor ainda aplica limites de API e políticas de automação.
+MAX_THREAD_PARTS = 10
+
+
+def _reply_networks(networks: list[str]) -> list[str]:
+    """Only publishers that actually send chained replies constrain replies."""
+    selected = [n for n in dict.fromkeys(networks)
+                if n in NETWORK_RULES and NETWORK_RULES[n]["thread_parts"]]
+    return selected or ["threads"]
+
+
+def _parse_reply_parts(raw: str, expected: int) -> list[str] | None:
+    cleaned = _FENCE_RE.sub("", raw.strip())
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    try:
+        payload = json.loads(cleaned[start:end + 1]) if start >= 0 else None
+    except ValueError:
+        return None
+    if not isinstance(payload, dict) or not isinstance(payload.get("parts"), list):
+        return None
+    parts = payload["parts"]
+    if len(parts) != expected or any(not isinstance(p, str) or not p.strip() for p in parts):
+        return None
+    return [part.strip() for part in parts]
+
+
+def _reply_issues(parts: list[str], networks: list[str]) -> list[str]:
+    problems = []
+    for i, part in enumerate(parts, start=1):
+        for network in networks:
+            # No media on follow-up posts: validate only the text.
+            for issue in validate_post(network, [part], [], 0, False):
+                if issue["level"] == "error":
+                    problems.append(f"Parte {i}, {issue['message']}")
+    return problems
+
+
+def generate_thread_replies(
+    product: dict,
+    persona: str,
+    networks: list[str],
+    previous_parts: list[str],
+    count: int,
+    complete,
+) -> list[str]:
+    """Generate exactly the missing continuation parts in one LLM request.
+
+    The caller supplies coherent preceding text. The function never publishes,
+    silently truncates, or rewrites existing user-entered parts. Retries once
+    if the provider returns invalid JSON or platform-incompatible text.
+    """
+    from apis.llm import LLMError, PERSONA_TONES
+
+    if count < 0 or count > MAX_THREAD_PARTS - len(previous_parts):
+        raise ValueError("Quantidade de partes fora do limite do aplicativo")
+    if count == 0:
+        return []
+    allowed_networks = _reply_networks(networks)
+    max_chars = min(NETWORK_RULES[n]["max_chars"] for n in allowed_networks)
+    tone = PERSONA_TONES.get(persona, PERSONA_TONES["casual"])
+    # Bound context cost; don't send arbitrarily long manually entered content.
+    context = "\n\n".join(
+        f"Parte {index + 1}: {part[:1200]}"
+        for index, part in enumerate(previous_parts[-MAX_THREAD_PARTS:])
+    )
+    link = product.get("commission_link") or product.get("original_link") or ""
+    prompt = (
+        "Você escreve uma sequência de respostas para uma publicação comercial "
+        "de afiliados Shopee, em português do Brasil.\n"
+        f"Produto: {product.get('name', '')}\n"
+        f"Tom: {tone}\n"
+        f"Link presente no post inicial: {link}\n"
+        f"Trechos já escritos (não os repita nem reescreva):\n{context}\n\n"
+        f"Gere EXATAMENTE {count} nova(s) parte(s) consecutiva(s) para continuar "
+        f"esta thread, cada uma com no máximo {max_chars} caracteres. "
+        "O limite inclui espaços, emojis, hashtags e links.\n"
+        "Uma ideia complementar por parte; progressão narrativa coerente; "
+        "não invente preços, garantias, avaliações ou escassez; "
+        "não repita link, CTA nem hashtags em todas as respostas. "
+        "No Threads, no máximo uma hashtag por parte. "
+        "O texto deve estar pronto para publicar, sem títulos como 'Parte 2'.\n"
+        "Responda APENAS com JSON válido: "
+        '{"parts": ["resposta 1", "resposta 2"]}. '
+        "O array deve ter exatamente a quantidade solicitada."
+    )
+
+    def ask(message: str) -> list[str] | None:
+        raw = complete(message, min(4096, max(1200, count * 350 + 500)))
+        return _parse_reply_parts(raw, count)
+
+    parts = ask(prompt)
+    issues = _reply_issues(parts, allowed_networks) if parts else ["JSON ou quantidade inválida"]
+    if issues:
+        correction = (
+            prompt + "\n\nA resposta anterior estava inválida. "
+            "Refaça TODAS as partes, corrigindo estes problemas:\n"
+            + "\n".join(issues[:20])
+            + "\nMantenha um array JSON com a quantidade exata."
+        )
+        parts = ask(correction)
+        issues = _reply_issues(parts, allowed_networks) if parts else ["JSON ou quantidade inválida"]
+    if issues or parts is None:
+        raise LLMError(
+            "bad_response",
+            "A IA não conseguiu gerar as respostas dentro dos limites. Tente novamente.",
+        )
+    return parts

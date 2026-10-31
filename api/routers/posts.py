@@ -42,7 +42,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from starlette.concurrency import run_in_threadpool
-from pydantic import BaseModel, model_validator, field_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 
 from .auth import _check_login_rate_limit, get_current_user_id
 from .profiles import get_current_profile_id
@@ -55,7 +55,7 @@ from ..media_composition import plan_network_composition
 from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload, detect_media_type
 from ..video_processor import process_video_upload
 from .. import x_oauth
-from ..text_variants import generate_variants
+from ..text_variants import generate_variants, generate_thread_replies, MAX_THREAD_PARTS
 from ..internal_client import (
     create_scheduler_job,
     remove_scheduler_job,
@@ -291,6 +291,8 @@ class PostCreate(BaseModel):
     def _texts_not_empty(cls, v):
         if not v or not any(t.strip() for t in v):
             raise ValueError("texts precisa ter ao menos um item com texto")
+        if len(v) > MAX_THREAD_PARTS:
+            raise ValueError(f"Máximo de {MAX_THREAD_PARTS} partes por publicação")
         return v
 
 
@@ -303,6 +305,8 @@ class PostComposition(BaseModel):
     def _texts_not_empty(cls, value):
         if not value or not any(text.strip() for text in value):
             raise ValueError("texts precisa ter ao menos um item com texto")
+        if len(value) > MAX_THREAD_PARTS:
+            raise ValueError(f"Máximo de {MAX_THREAD_PARTS} partes por publicação")
         return value
 
 
@@ -345,6 +349,8 @@ class PostUpdate(BaseModel):
     def _texts_not_empty(cls, v):
         if not v or not any(t.strip() for t in v):
             raise ValueError("texts precisa ter ao menos um item com texto")
+        if len(v) > MAX_THREAD_PARTS:
+            raise ValueError(f"Máximo de {MAX_THREAD_PARTS} partes por publicação")
         return v
 
 
@@ -356,6 +362,21 @@ class GenerateCopyBody(BaseModel):
     provider: str | None = None
     # Redes marcadas: um texto por faixa de limite (api/text_variants.py).
     networks: list[NetworkLiteral] = []
+    # 1 = comportamento legado; 2..10 gera todas as partes em sequência.
+    part_count: int = Field(default=1, ge=1, le=MAX_THREAD_PARTS)
+    mode: Literal["full", "append"] = "full"
+    existing_texts: list[str] = []
+
+    @model_validator(mode="after")
+    def _valid_generation_mode(self):
+        if self.mode == "append":
+            if (not self.existing_texts or
+                    len(self.existing_texts) >= self.part_count or
+                    any(not text.strip() for text in self.existing_texts)):
+                raise ValueError("append exige partes anteriores preenchidas e novas partes disponíveis")
+        elif self.existing_texts:
+            raise ValueError("existing_texts só é válido no modo append")
+        return self
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
@@ -868,9 +889,13 @@ def _create_thread(
     agendamento e produtos vivem, mesma simplificação já usada pro
     resto da thread (ver docstring do módulo)."""
     profile_id = _require_profile_id(profile_id)
+    # As redes sem suporte a respostas encadeadas recebem apenas a legenda.
+    # A decisão final é do servidor, mesmo para quem chama a API diretamente.
+    from ..network_limits import NETWORK_RULES
+    publishable_texts = texts if NETWORK_RULES[network]["thread_parts"] else texts[:1]
     parent_id = None
     head = None
-    for text in texts:
+    for text in publishable_texts:
         row_data = {"user_id": user_id, "text": text, "post_id": parent_id}
         row_data["profile_id"] = profile_id
         if parent_id is None:
@@ -961,16 +986,45 @@ async def generate_copy(
     def complete(prompt: str, max_tokens: int) -> str:
         return llm.complete(provider, api_key, model, prompt, max_tokens)
 
-    try:
-        variants = await run_in_threadpool(
-            generate_variants, product_result.data, body.persona, body.networks, complete,
+    def generate():
+        if body.mode == "append":
+            replies = generate_thread_replies(
+                product_result.data, body.persona, body.networks,
+                body.existing_texts,
+                body.part_count - len(body.existing_texts), complete,
+            )
+            return [], replies
+
+        variants = generate_variants(
+            product_result.data, body.persona, body.networks, complete,
         )
+        # Threads/X may receive a shorter head variant than Facebook/Instagram.
+        # Continue the actual thread head, not the longest generic description.
+        thread_variant = next(
+            (v for v in variants if any(n in v["networks"] for n in ("threads", "x"))),
+            variants[0],
+        )
+        replies = generate_thread_replies(
+            product_result.data, body.persona, body.networks,
+            [thread_variant["text"]], body.part_count - 1, complete,
+        )
+        return variants, replies
+
+    try:
+        variants, replies = await run_in_threadpool(generate)
     except llm.LLMError as e:
-        # mensagem do LLMError já é segura (sem chave nem corpo do provedor)
         logger.warning("Falha ao gerar texto do produto %s (%s): %s", body.product_id, provider, e.kind)
         raise HTTPException(status_code=400, detail=str(e))
 
-    return {"text": variants[0]["text"], "variants": variants}
+    if body.mode == "append":
+        return {
+            "text": body.existing_texts[0], "variants": [],
+            "parts": replies, "start_index": len(body.existing_texts),
+        }
+    return {
+        "text": variants[0]["text"], "variants": variants,
+        "parts": [variants[0]["text"], *replies], "start_index": 0,
+    }
 
 
 @router.get("")
@@ -1092,7 +1146,7 @@ def _preview_batch(
         if disabled_reason:
             plans.append({
                 "network": composition.network,
-                "texts": composition.texts,
+                "texts": composition.texts[:1],
                 "mode": "blocked",
                 "media_draft_ids": [],
                 "warnings": [],
@@ -1108,7 +1162,7 @@ def _preview_batch(
         )
         entry = {
             "network": composition.network,
-            "texts": composition.texts,
+            "texts": plan.text_variant,
             "mode": plan.mode,
             "media_draft_ids": [str(media_id) for media_id in plan.media_ids],
             "warnings": plan.warnings,

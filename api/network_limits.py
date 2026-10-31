@@ -146,13 +146,6 @@ def validate_post(
             n = len(regex.findall(text))
             if key in rule and n > rule[key]:
                 add(key, f"máx. {rule[key]} {label}{where} (você tem {n})")
-    if not rule["thread_parts"] and len(texts) > 1:
-        issues.append({
-            "key": "thread_parts",
-            "level": "warn",
-            "message": f"{rule['label']}: só a 1ª parte é publicada (sem thread)",
-        })
-
     kinds = [media_kind(m.get("file_name") or "") for m in medias]
     if check_required_media:
         if rule.get("requires_media") == "video" and "video" not in kinds:
