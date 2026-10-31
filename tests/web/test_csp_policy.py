@@ -73,3 +73,11 @@ def test_react_pages_externalize_literal_style_elements():
 def test_login_page_has_no_inline_style_attributes():
     source = (project_root / "frontend" / "src" / "pages" / "LoginPage.tsx").read_text(encoding="utf-8")
     assert "style=" not in source
+
+
+def test_spa_forbids_inline_style_elements_while_legacy_is_unmodified():
+    with app.test_client() as client:
+        spa_policy = client.get("/").headers["Content-Security-Policy"]
+        health_policy = client.get("/health").headers["Content-Security-Policy"]
+    assert "style-src-elem 'self' https://fonts.googleapis.com;" in spa_policy
+    assert "style-src-elem" not in health_policy
