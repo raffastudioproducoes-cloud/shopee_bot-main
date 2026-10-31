@@ -293,6 +293,8 @@ function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalPr
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [gpsOptIn, setGpsOptIn] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -363,11 +365,16 @@ function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalPr
           disabled={!!success}
         />
 
+        <div style={{display:'grid',gap:12,fontSize:13}}>
+          <label><input type="checkbox" checked={acceptedTerms} onChange={e=>setAcceptedTerms(e.target.checked)}/> Li e aceito os <a href="/termos" target="_blank" rel="noreferrer">Termos de Uso</a> e fui informado sobre a <a href="/privacidade" target="_blank" rel="noreferrer">Política de Privacidade</a> e os <a href="/dados-coletados" target="_blank" rel="noreferrer">dados tratados</a>. (Obrigatório)</label>
+          <label><input type="checkbox" checked={gpsOptIn} onChange={e=>setGpsOptIn(e.target.checked)}/> Quero poder usar minha localização aproximada para estatísticas regionais enquanto estiver usando o site. (Opcional; GPS somente quando eu clicar em permitir, sem rastreamento contínuo)</label>
+          <p style={{margin:0,color:'var(--text-muted)'}}>Negar GPS não impede o cadastro. Você poderá autorizar ou revogar em Perfis. O navegador pedirá sua permissão separadamente.</p>
+        </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" disabled={loading || !!success}>
+          <Button type="submit" variant="primary" disabled={loading || !!success || !acceptedTerms}>
             {loading ? 'Trocando...' : 'Trocar senha'}
           </Button>
         </div>
@@ -394,6 +401,7 @@ function RegisterModal({ onClose }: RegisterModalProps) {
     e.preventDefault()
     setError('')
 
+    if (!acceptedTerms) { setError('É necessário ler e aceitar os Termos para criar a conta.'); return }
     if (password !== confirmPassword) {
       setError('As senhas não coincidem')
       return
@@ -401,7 +409,7 @@ function RegisterModal({ onClose }: RegisterModalProps) {
 
     setLoading(true)
     try {
-      await authApi.register(username, password)
+      await authApi.register(username, password, gpsOptIn)
       setSuccess('Conta criada! Faça login.')
       setTimeout(onClose, 1500)
     } catch (err: unknown) {
