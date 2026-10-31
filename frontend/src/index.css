@@ -8,6 +8,7 @@
 @import "./styles/tokens/base.css";
 
 @import "tailwindcss";
+@import "./styles/mobile.css";
 
 @theme {
   --color-primary: #1A5BE1;
