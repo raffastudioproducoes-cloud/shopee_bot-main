@@ -48,6 +48,7 @@ export const adminMetricsApi = {
   get: (days: number) => api.get<AdminMetrics>(`/admin/metrics?days=${days}`),
   getQueueHealth: () => api.get<AdminQueueHealth>('/admin/queue-health'),
   getOperations: () => api.get<AdminOperations>('/admin/operations'),
+  getMyRegion: () => api.get<{region: string | null}>('/admin/my-region'),
 }
 
 export interface AdminOperations {

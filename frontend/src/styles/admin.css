@@ -184,3 +184,27 @@ html:has(.admin-shell)::-webkit-scrollbar-corner, .admin-shell::-webkit-scrollba
 .admin-globe-heading .admin-card-tags { margin-bottom: 8px; }
 @media (max-width: 600px) { .admin-card-tags { gap: 4px; } .admin-card-tag { padding: 3px 7px; } }
 @media (forced-colors: active) { .admin-card-tag { forced-color-adjust: auto; border: 1px solid CanvasText; } }
+
+
+/* Cartões do resumo administrativo em colunas verticais balanceadas.
+   Evita o buraco causado por grid-row: span 3 no card do Render. */
+@media (min-width: 601px) {
+  .admin-metric-grid { display: block; columns: 2; column-gap: 12px; }
+  .admin-metric-grid > .admin-metric-card {
+    display: inline-block; width: 100%; vertical-align: top;
+    break-inside: avoid; margin-bottom: 12px;
+  }
+  .admin-metric-grid > .admin-render-card { grid-row: auto; }
+}
+@media (max-width: 600px) {
+  .admin-metric-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+}
+.admin-globe-own-halo { fill: rgba(255, 201, 90, .18); stroke: #f9c65d; stroke-width: 1.5; }
+.admin-globe-own-core { fill: #ffda85; filter: drop-shadow(0 0 5px #f9c65d); }
+.admin-globe-own-point { cursor: pointer; }
+.admin-globe-own-point text { fill: #ffda85; font-size: 12px; font-weight: 600; }
+.admin-globe-own-action {
+  background: transparent; border: 0; padding: 0 2px;
+  color: var(--highlight); cursor: pointer; text-decoration: underline;
+  font: inherit;
+}

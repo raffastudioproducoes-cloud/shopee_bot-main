@@ -5,6 +5,8 @@ import { Button } from '../ui/Button'
 import { clampZoom, earthRotation, projectGlobe, wheelGlobeZoom } from './globeGeometry'
 import { formatMetricTime, isStale } from './metricsPresentation'
 import { CardTags } from './CardTags'
+import { useQuery } from '@tanstack/react-query'
+import { adminMetricsApi } from '../../api/adminMetrics'
 import land from './globeLand.json'
 
 const places: Record<string, { name: string; longitude: number; latitude: number; country: string }> = {
@@ -33,6 +35,13 @@ const demoRegions = [
 const states = [['online', 'Atividade recente'], ['offline', 'Sem atividade recente'], ['deleted', 'Contas excluídas']] as const
 
 export function LocationGlobe({ data }: { data: AdminMetrics }) {
+  const { data: ownRegionResult } = useQuery({
+    queryKey: ['admin', 'my-region'],
+    queryFn: adminMetricsApi.getMyRegion,
+    refetchInterval: 60_000,
+    retry: 1,
+  })
+  const ownRegion = ownRegionResult?.region && places[ownRegionResult.region] ? ownRegionResult.region : null
   const id = useId().replace(/:/g, '')
   const [demo, setDemo] = useState(false)
   const [center, setCenter] = useState({ longitude: -45, latitude: -12 })
@@ -85,7 +94,7 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
   const regions = mapped.filter(row => country === 'all' || places[row.region].country === country)
   const selectedRegion = regions.find(row => row.region === selected)
   const totals = regions.reduce((sum, row) => ({ online: sum.online + row.online, offline: sum.offline + row.offline, deleted: sum.deleted + row.deleted }), { online: 0, offline: 0, deleted: 0 })
-  const hasData = demo || data.geography?.status === 'available'
+  const hasData = demo || mapped.length > 0
   const projection = (longitude: number, latitude: number) => projectGlobe(longitude, latitude, center.longitude, center.latitude, zoom, 23.44)
   const dots = useMemo(() => land.map(([lon, lat]) => projectGlobe(lon, lat, center.longitude, center.latitude, zoom, 23.44)).filter(point => point.visible).map(point => `M${point.x.toFixed(1)},${point.y.toFixed(1)}h.01`).join(''), [center, zoom])
   const grid = useMemo(() => {
@@ -124,7 +133,7 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
   }
   return <Panel surface="dark" className="admin-globe-panel">
     <div className="admin-globe-heading"><div><CardTags tags={demo ? ['app', 'demo'] : hasData ? ['clients', 'geography'] : ['app', 'no_data']} /><span className="admin-globe-eyebrow">PRESENÇA GLOBAL</span><h2>Onde estão seus clientes</h2><p>Explore países e regiões · localização aproximada</p></div><Button variant="ghost" aria-pressed={demo} onClick={() => { setDemo(!demo); setSelected(null); chooseCountry('all') }}>{demo ? 'Voltar aos dados reais' : 'Explorar demonstração'}</Button></div>
-    <div className="admin-globe-status" role="status">{demo ? 'DEMONSTRAÇÃO · todos os pontos e números são fictícios' : hasData ? `Coleta: ${data.geography?.updated_at ? formatMetricTime(data.geography.updated_at) : 'horário indisponível'}${data.geography?.updated_at && isStale(data.geography.updated_at) ? ' · Dados antigos' : ''}` : 'Ainda sem coleta de regiões autorizada. Nenhum ponto real é exibido.'}</div>
+    <div className="admin-globe-status" role="status">{demo ? 'DEMONSTRAÇÃO · todos os pontos e números são fictícios' : hasData ? `Coleta: ${data.geography?.updated_at ? formatMetricTime(data.geography.updated_at) : 'horário indisponível'}${data.geography?.updated_at && isStale(data.geography.updated_at) ? ' · Dados antigos' : ''}` : ownRegion ? 'Sua região voluntária está visível de forma privada; ainda não há grupos de clientes suficientes para estatísticas coletivas.' : 'Nenhuma conta informou uma região exibível. Cadastre sua região em Perfis; estatísticas coletivas exigem ao menos três contas por região.'}</div>
     <div className="admin-globe-layout">
       <div className="admin-globe-scene" onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocusCapture={() => setFocusWithin(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocusWithin(false) }}>
         <svg ref={svgRef} className="admin-globe" viewBox="0 0 640 500" role="group" aria-label="Globo interativo: arraste para girar; setas para rotação; roda do mouse ou botões para zoom" tabIndex={0}
@@ -147,18 +156,29 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
               {states.map(([state], index) => row[state] > 0 && <circle key={state} cx={point.x + (index - 1) * 10} cy={point.y} r={Math.min(7, 2.5 + Math.log10(row[state] + 1))} className={`admin-globe-light is-${state}`} />)}
               {zoom > 1.3 && selected === row.region && <text x={point.x} y={point.y - 17} textAnchor="middle">{place.name}</text>}
             </g> })}
+            {!demo && ownRegion && (() => {
+              const point = projection(places[ownRegion].longitude, places[ownRegion].latitude)
+              return point.visible ? <g role="button" tabIndex={0} aria-label={`Minha região cadastrada: ${places[ownRegion].name}. Exibir região.`} className="admin-globe-own-point" onPointerDown={event => event.stopPropagation()} onClick={() => focus(ownRegion)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); focus(ownRegion) } }}>
+                <title>{`Minha região · ${places[ownRegion].name} (exibição privada)`}</title>
+                <circle cx={point.x} cy={point.y} r="19" fill="transparent" />
+                <circle cx={point.x} cy={point.y} r="8" className="admin-globe-own-halo" />
+                <circle cx={point.x} cy={point.y} r="4" className="admin-globe-own-core" />
+                {selected === ownRegion && <text x={point.x} y={point.y - 16} textAnchor="middle">Minha região</text>}
+              </g> : null
+            })()}
           </g>
         </svg>
         <div className="admin-globe-controls"><Button variant="secondary" aria-label="Diminuir zoom do globo" disabled={zoom <= 1} onClick={() => setZoom(current => clampZoom(current - .25))}>−</Button><output aria-label="Nível de zoom">{zoom.toFixed(2)}×</output><Button variant="secondary" aria-label="Aumentar zoom do globo" disabled={zoom >= 3} onClick={() => setZoom(current => clampZoom(current + .25))}>+</Button><Button variant="ghost" onClick={() => chooseCountry('all')}>Recentrar</Button><Button variant="ghost" disabled={reducedMotion} aria-pressed={rotating && !reducedMotion} onClick={() => setRotating(!rotating)}>{rotating && !reducedMotion ? 'Pausar rotação' : 'Girar'}</Button></div>
         <p className="admin-globe-help">Arraste para girar · roda do mouse para zoom · eixo inclinado 23,44°</p>
       </div>
       <div className="admin-globe-detail"><label htmlFor={`globe-country-${id}`}>Explorar região</label><select id={`globe-country-${id}`} value={country} onChange={event => chooseCountry(event.target.value)}><option value="all">Mundo</option>{['BR', 'PT', 'US', 'GB', 'DE', 'JP', 'AU'].map(code => <option value={code} key={code}>{places[code].name}</option>)}</select>
+        {!demo && <p className="admin-globe-privacy">{ownRegion ? <>Minha região cadastrada: <strong>{places[ownRegion].name}</strong>. Exibição privada, separada das estatísticas de clientes. <button type="button" className="admin-globe-own-action" onClick={() => focus(ownRegion)}>Localizar no globo</button></> : <>Sua conta ainda não informou uma região. <a href="/profiles">Configurar em Perfis</a> e autorizar o uso estatístico.</>}</p>}
         <h3>{selectedRegion ? places[selectedRegion.region].name : country === 'all' ? 'Visão global' : places[country].name}</h3>
         <dl className="admin-globe-counts">{states.map(([state, label]) => <div key={state}><dt><i className={`admin-globe-legend is-${state}`} />{label}</dt><dd>{hasData ? (selectedRegion ?? totals)[state].toLocaleString('pt-BR') : '—'}</dd></div>)}</dl>
-        <p>Contas atuais: {hasData ? ((selectedRegion ?? totals).online + (selectedRegion ?? totals).offline).toLocaleString('pt-BR') : '—'}. Excluídas são um agregado histórico separado.</p>
+        <p>Contas nas regiões agregadas: {hasData ? ((selectedRegion ?? totals).online + (selectedRegion ?? totals).offline).toLocaleString('pt-BR') : '—'}. Sua região privada não entra nesses números; excluídas são um agregado histórico separado.</p>
         {regions.length > 0 && <div className="admin-globe-regions" aria-label="Regiões disponíveis">{regions.map(row => <button type="button" key={row.region} aria-pressed={selected === row.region} onClick={() => focus(row.region)}><span>{places[row.region].name}</span><strong>{(row.online + row.offline).toLocaleString('pt-BR')}</strong></button>)}</div>}
         {source.length > mapped.length && <p>Há regiões sem representação cartográfica nesta versão.</p>}
-        <p className="admin-globe-privacy">Um ponto representa uma região, nunca uma pessoa. Luz acesa: atividade recente; apagada: sem atividade recente, não confirmação de logout. Vermelha: exclusões agregadas. Não há endereço, GPS ou IP neste mapa.</p>
+        <p className="admin-globe-privacy">Os pontos de clientes representam grupos de pelo menos três contas. O marcador separado Minha região mostra apenas a informação que a própria conta administrativa autorizou. Luz acesa: atividade recente; apagada: sem atividade recente, não confirmação de logout. Vermelha: exclusões agregadas. Não há endereço, coordenadas de GPS ou IP neste mapa.</p>
       </div>
     </div>
     <details className="admin-globe-method"><summary>Como os pontos serão contabilizados</summary><p>Localização aproximada declarada ou fonte autorizada, agregada por país/UF. Presença requer sinal recente com expiração; logout e exclusão precisam de eventos próprios. Contas sem região conhecida ficam fora dos pontos. Histórico de exclusões preserva apenas contagens por região e período. Dados reais são obtidos exclusivamente de regiões informadas voluntariamente, com mínimo de três participantes por região.</p><p>Base cartográfica: <a href="https://www.naturalearthdata.com/about/terms-of-use/" target="_blank" rel="noreferrer">Natural Earth · domínio público</a>.</p></details>

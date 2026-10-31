@@ -2,6 +2,8 @@
 from fastapi import APIRouter, Depends, Query
 
 from ..admin_metrics import AdminMetricsResponse, collect_admin_metrics
+from ..database import supabase
+from .auth import get_current_user_id
 from ..admin_operations import OperationsResponse, collect_operations
 from ..admin_queue_health import QueueHealthResponse, collect_queue_health
 from ..admin_views import AdminLogsResponse, AdminCredentialStatus
@@ -47,3 +49,19 @@ async def queue_health():
 @router.get("/operations", response_model=OperationsResponse)
 async def operations():
     return await collect_operations()
+
+
+@router.get("/my-region", response_model=dict[str, str | None])
+async def my_region(user_id: str = Depends(get_current_user_id)):
+    """Only the logged-in admin's voluntary region; never identifies another user.
+
+    This endpoint does not change the k>=3 threshold for all-client aggregates.
+    """
+    result = (
+        supabase.table("account_region_preferences")
+        .select("region")
+        .eq("user_id", user_id)
+        .maybe_single()
+        .execute()
+    )
+    return {"region": result.data.get("region") if result.data else None}
