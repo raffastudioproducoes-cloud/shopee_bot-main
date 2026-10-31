@@ -9,6 +9,7 @@ import { ProfileCard } from "../components/profiles/ProfileCard"
 import { ProfileFormModal } from "../components/profiles/ProfileFormModal"
 import { ConfirmModal } from "../components/profiles/ConfirmModal"
 import { BackupSection } from "../components/profiles/BackupSection"
+import { RegionConsent } from "../components/profiles/RegionConsent"
 import { Skeleton, SkeletonAvatar, SkeletonText, SkeletonRegion } from "../components/ui/Skeleton"
 
 const errMsg = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback)
@@ -178,6 +179,7 @@ export function ProfilesPage() {
         </ConfirmModal>
       )}
 
+      <RegionConsent />
       <BackupSection />
     </div>
   )
