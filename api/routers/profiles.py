@@ -120,6 +120,42 @@ class RegionPreference(BaseModel):
     consent: bool = False
 
 
+class LocationDecision(BaseModel):
+    choice: str
+    latitude: float | None = None
+    longitude: float | None = None
+    accuracy_m: int | None = None
+
+
+@router.get("/location-sharing")
+async def get_location_sharing(user_id: str = Depends(get_current_user_id)):
+    result = supabase.table("account_location_sharing").select("choice,latitude,longitude,collected_at").eq("user_id",user_id).limit(1).execute()
+    row = (result.data or [None])[0]
+    return row or {"choice":"pending","latitude":None,"longitude":None,"collected_at":None}
+
+
+@router.put("/location-sharing")
+async def put_location_sharing(body: LocationDecision, user_id: str = Depends(get_current_user_id)):
+    from datetime import datetime, timezone
+    if body.choice not in ("accepted","declined","revoked"):
+        raise HTTPException(status_code=422,detail="Escolha inválida")
+    if body.choice == "revoked":
+        supabase.table("account_location_sharing").delete().eq("user_id",user_id).execute()
+        return {"choice":"pending"}
+    now = datetime.now(timezone.utc).isoformat()
+    row = {"user_id":user_id,"choice":body.choice,"consent_version":"2026-10-31","decided_at":now,
+           "latitude":None,"longitude":None,"accuracy_m":None,"collected_at":None}
+    if body.choice=="accepted":
+        if body.latitude is None or body.longitude is None or not (-90 <= body.latitude <= 90) or not (-180 <= body.longitude <= 180):
+            raise HTTPException(status_code=422,detail="Coordenadas inválidas")
+        if body.accuracy_m is not None and not (0 <= body.accuracy_m <= 1000000):
+            raise HTTPException(status_code=422,detail="Precisão inválida")
+        row.update(latitude=round(body.latitude,2),longitude=round(body.longitude,2),
+                   accuracy_m=body.accuracy_m,collected_at=now)
+    supabase.table("account_location_sharing").upsert(row,on_conflict="user_id").execute()
+    return {"choice":body.choice}
+
+
 @router.get("/gps-preference")
 async def get_gps_preference(user_id: str = Depends(get_current_user_id)):
     result = supabase.table("users").select("gps_consented_at").eq("id", user_id).limit(1).execute()
