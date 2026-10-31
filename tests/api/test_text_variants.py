@@ -339,3 +339,24 @@ def test_preview_batch_filters_threads_per_network_on_server(api):
     for network in ("facebook", "instagram", "tiktok"):
         assert plans[network]["texts"] == ["Legenda"]
         assert not any("thread" in w.lower() for w in plans[network]["warnings"])
+
+
+def test_batch_persists_replies_only_for_supported_network(api):
+    c, db, _mp = api
+    texts = ["Legenda", "Passo dois", "Passo três"]
+    res = c.post("/posts/batch", json={
+        "compositions": [
+            {"network": "facebook", "texts": texts},
+            {"network": "threads", "texts": texts},
+        ],
+        "schedule": SCHEDULE,
+    })
+    assert res.status_code == 201, res.text
+    assert {item["network"] for item in res.json()["created"]} == {"facebook", "threads"}
+    rows = db.tables["posts"]
+    assert len(rows) == 4  # Facebook: 1, Threads: 3
+    assert len([row for row in rows if row.get("network") == "facebook"]) == 1
+    thread_head = next(row for row in rows if row.get("network") == "threads")
+    first_reply = next(row for row in rows if row.get("post_id") == thread_head["id"])
+    assert first_reply["text"] == "Passo dois"
+    assert any(row.get("post_id") == first_reply["id"] and row["text"] == "Passo três" for row in rows)
