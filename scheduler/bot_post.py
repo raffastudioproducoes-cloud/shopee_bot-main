@@ -1,7 +1,4 @@
-import os
-
 from shopee_bot.apis import threads as ThreadsAPI
-from shopee_bot.apis.cloudinary import ensure_configured as ensure_media_storage
 from shopee_bot.clogging import logger
 from shopee_bot.database import schedulers, threads_credentials, posts
 from shopee_bot.database.activities import (
@@ -14,19 +11,13 @@ from shopee_bot.scheduler.publication_result import succeeded, unknown
 
 
 MEDIA_FILE_MISSING_MESSAGE = (
-    "Arquivo de mídia não encontrado no servidor (o disco do servidor é "
-    "apagado a cada deploy/reinício). Reenvie a mídia do post."
+    "Mídia antiga não está no Supabase Storage. Reenvie a mídia do post."
 )
 
 
 def _ensure_media_ready(medias):
-    """Pré-condições do upload legado, com mensagem clara em vez de stack trace.
-    Mídia durável (storage://) não depende de disco nem do Cloudinary."""
-    legacy = [m for m in medias if not m["file_path"].startswith(STORAGE_PREFIX)]
-    if not legacy:
-        return
-    ensure_media_storage()
-    if any(not os.path.isfile(m["file_path"]) for m in legacy):
+    """Rejeita referências legadas: novos uploads são sempre Supabase Storage."""
+    if any(not m["file_path"].startswith(STORAGE_PREFIX) for m in medias):
         raise FileNotFoundError(MEDIA_FILE_MISSING_MESSAGE)
 
 

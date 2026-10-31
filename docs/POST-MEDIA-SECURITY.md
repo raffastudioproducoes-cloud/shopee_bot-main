@@ -6,6 +6,16 @@
 - O endpoint de rascunho limita leitura/tamanho, detecta assinatura real, confere extensao e MIME declarado, sanitiza nome, redecodifica e reencoda imagens sem metadados, e valida a estrutura basica de MP4. O objeto fica no bucket privado e e associado a usuario/perfil.
 - A etapa seguinte redecodifica e reencoda MP4 com FFmpeg antes do Storage, aceita so a primeira faixa de video e audio, remove legendas/dados/metadados e limita duracao, dimensoes, tamanho de saida, tempo de execucao e concorrencia. Falha ou binario ausente rejeita o upload. Isto nao e antivirus: o decodificador roda no mesmo container da API e ainda pode conter vulnerabilidades.
 
+## Política de hospedagem (31/10/2026)
+
+Cloudinary e dependências externas de mídia foram retirados do código ativo.
+Uploads novos usam exclusivamente o bucket privado `post-media` do Supabase
+Storage. Referências históricas a caminhos locais são rejeitadas com orientação
+de reenviar o arquivo; não há reupload automático para serviço externo.
+A consulta do banco antes da mudança encontrou 1 mídia em `storage://` e
+**zero mídias com caminho local legado ou referência a Cloudinary**.
+A consulta não substitui uma publicação real pelas redes.
+
 ## Risco aberto com upload de video habilitado
 
 O upload continua habilitado na versao 2.7.0 por decisao do produto, inclusive para usuarios comuns. As medidas abaixo ainda nao foram implantadas; a entrega nao deve ser descrita como livre de malware ou isolamento completo. Nenhum servico privado pago foi criado.

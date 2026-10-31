@@ -1,8 +1,8 @@
 """
 APIs do ShopeeAutoVendas - Módulos de integração externa.
 
-Nota: Alguns submódulos podem requerer dependências extras (cloudinary, etc.)
-que não estão instaladas no ambiente local. Use imports diretos quando necessário:
+Os clientes de redes sociais podem ter dependências próprias. Use imports
+diretos quando necessário:
     from apis.threads import ThreadsAPI
     from apis.threads_poster import post_to_threads
     from apis.x import XAPI
@@ -16,7 +16,6 @@ __all__ = [
     "threads",
     "shopee",
     "llm",
-    "cloudinary",
     "x",
     "facebook",
     "instagram",
