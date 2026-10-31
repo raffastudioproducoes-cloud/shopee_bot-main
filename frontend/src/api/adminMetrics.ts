@@ -47,4 +47,14 @@ export interface AdminQueueHealth {
 export const adminMetricsApi = {
   get: (days: number) => api.get<AdminMetrics>(`/admin/metrics?days=${days}`),
   getQueueHealth: () => api.get<AdminQueueHealth>('/admin/queue-health'),
+  getOperations: () => api.get<AdminOperations>('/admin/operations'),
+}
+
+export interface AdminOperations {
+  status: 'available' | 'unavailable'
+  collected_at: string | null
+  database: null | { active: number; idle: number; idle_in_transaction: number; blocked: number; max_connections: number }
+  queries: null | { tracked_statements: number; slow_patterns: number; worst: { rank: number; calls: number; mean_ms: number; max_ms: number; total_ms: number }[] }
+  uptime: null | { status: 'sampled' | 'no_samples'; ok: number; error: number; unanswered: number; latest: string | null; latest_at: string | null; recent: { at: string; status: 'ok' | 'error' | 'unanswered' }[] }
+  costs: { status: 'estimate' | 'not_configured'; monthly_brl: number | null; daily_brl: number | null; note: string }
 }
