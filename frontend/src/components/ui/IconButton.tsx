@@ -88,16 +88,7 @@ export function IconButton({
       <Icon name={icon} size={Math.round(size * 0.46)} />
       {badge ? (
         <span
-          style={{
-            position: "absolute",
-            top: 5,
-            right: 6,
-            width: 7,
-            height: 7,
-            borderRadius: "50%",
-            background: "var(--red-400)",
-            boxShadow: "0 0 0 2px rgba(0,0,0,.35)",
-          }}
+          className="csp-s-0108"
         />
       ) : null}
     </button>
