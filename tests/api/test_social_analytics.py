@@ -209,3 +209,72 @@ def test_collector_does_not_repeat_when_claim_unavailable(monkeypatch):
         raise AssertionError("não deve chamar API externa sem claim")
     monkeypatch.setattr(analytics_refresh, "_fetch_network", forbidden)
     assert asyncio.run(analytics_refresh.refresh_account("user-a", "profile-a")) == {"state": "recent"}
+
+
+
+def test_analytics_timeline_requires_login_and_rejects_invalid_filters():
+    app.dependency_overrides.clear()
+    client = TestClient(app)
+    assert client.get('/analytics/timeline').status_code == 401
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
+    try:
+        assert client.get('/analytics/timeline?days=15').status_code == 422
+        assert client.get('/analytics/timeline?network=kwai').status_code == 422
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_timeline_aggregates_only_authenticated_profile(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
+    rpc_query = MagicMock()
+    rpc_query.execute.return_value = MagicMock(data=[
+        {'day': '2026-10-30', 'network': 'threads', 'status': 'succeeded', 'total': 3},
+        {'day': '2026-10-31', 'network': 'threads', 'status': 'failed', 'total': 1},
+    ])
+    fake = MagicMock()
+    fake.rpc.return_value = rpc_query
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    try:
+        result = TestClient(app).get('/analytics/timeline?days=7&network=threads')
+        assert result.status_code == 200
+        assert result.json()['points'][0]['total'] == 3
+        assert result.json()['points'][1]['status'] == 'failed'
+        fake.rpc.assert_called_once_with('analytics_daily_job_counts', {
+            'p_user_id': 'user-a', 'p_profile_id': 'profile-a',
+            'p_days': 7, 'p_network': 'threads',
+        })
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_timeline_without_profile_never_queries_database(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: None
+    fake = MagicMock()
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    try:
+        result = TestClient(app).get('/analytics/timeline?days=30')
+        assert result.status_code == 200
+        assert result.json() == {'days': 30, 'points': []}
+        fake.rpc.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_timeline_does_not_expose_database_errors(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
+    fake = MagicMock()
+    fake.rpc.side_effect = RuntimeError('internal database connection')
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    try:
+        result = TestClient(app).get('/analytics/timeline')
+        assert result.status_code == 503
+        assert 'internal database connection' not in result.text
+    finally:
+        app.dependency_overrides.clear()

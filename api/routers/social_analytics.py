@@ -222,3 +222,32 @@ def summary(
         "provider_states": refresh.get("provider_states") if refresh else {},
         "auto_refresh_hours": 24,
     }
+
+
+@router.get("/timeline")
+def timeline(
+    days: int = Query(30),
+    network: Network | None = None,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Daily terminal-state counts scoped to the authenticated account and active profile.
+
+    The RPC performs SQL aggregation (max. 91 UTC calendar dates) and returns no
+    post text, provider identifiers, credentials, or other users' data.
+    """
+    if days not in (7, 30, 90):
+        raise HTTPException(status_code=422, detail="Período inválido")
+    if not profile_id:
+        return {"days": days, "points": []}
+    try:
+        response = supabase.rpc("analytics_daily_job_counts", {
+            "p_user_id": user_id,
+            "p_profile_id": profile_id,
+            "p_days": days,
+            "p_network": network,
+        }).execute()
+    except Exception:
+        # Never expose internal SQL/client details in a public endpoint.
+        raise HTTPException(status_code=503, detail="Histórico de análises temporariamente indisponível")
+    return {"days": days, "points": response.data or []}
