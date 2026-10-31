@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { profilesApi } from '../../api/profiles'
+import { useAuthStore } from '../../stores/authStore'
 import { Panel } from '../ui/Panel'
 import { Button } from '../ui/Button'
 
@@ -12,7 +13,8 @@ const options = [
 
 export function AcquisitionConsent() {
   const client = useQueryClient()
-  const { data, isLoading, isError, refetch } = useQuery({queryKey:['acquisition-source'], queryFn:profilesApi.getAcquisitionSource, retry:1})
+  const userId = useAuthStore(s => s.user?.id)
+  const { data, isLoading, isError, refetch } = useQuery({queryKey:['acquisition-source', userId], queryFn:profilesApi.getAcquisitionSource, enabled:Boolean(userId), retry:1})
   const [source,setSource] = useState('')
   const [confirmed,setConfirmed] = useState(false)
   const save=useMutation({mutationFn:profilesApi.saveAcquisitionSource,onSuccess:()=>{
