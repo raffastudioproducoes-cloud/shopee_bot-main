@@ -79,10 +79,10 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-column)' }}>
+    <div className="csp-s-0168">
       <header>
-        <h1 style={{ font: 'var(--text-role-hero)', color: 'var(--text-display)', margin: 0 }}>Análise de redes</h1>
-        <p style={{ color: 'var(--text-muted)', marginTop: 4 }}>Resultados das publicações do perfil ativo</p>
+        <h1 className="csp-s-0169">Análise de redes</h1>
+        <p className="csp-s-0170">Resultados das publicações do perfil ativo</p>
       </header>
 
       <div className="analytics-filters" style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
@@ -95,7 +95,7 @@ export default function AnalyticsPage() {
       </div>
 
       {isLoading ? <PageSkeleton variant="table" heading={false} /> : error ? (
-        <p role="alert" style={{ color: 'var(--negative)' }}>Não foi possível carregar as análises.</p>
+        <p role="alert" className="csp-s-0171">Não foi possível carregar as análises.</p>
       ) : (
         <>
           <div className="analytics-summary" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, padding: '16px 0', borderTop: '1px solid var(--border-card)', borderBottom: '1px solid var(--border-card)' }}>
@@ -104,13 +104,13 @@ export default function AnalyticsPage() {
             <span><strong>{uncertain}</strong> sem confirmação</span>
           </div>
           <div className="analytics-desktop-table" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 780, textAlign: 'left' }}>
+            <table className="csp-s-0172">
               <thead><tr>{['Rede', 'Envios concluídos', 'Falhas', 'Sem confirmação', 'Visualizações', 'Curtidas', 'Comentários', 'Reposts', 'Cliques'].map((label) => (
-                <th key={label} scope="col" style={{ padding: '12px 10px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-card)' }}>{label}</th>
+                <th key={label} scope="col" className="csp-s-0173">{label}</th>
               ))}</tr></thead>
               <tbody>{rows.map((row) => (
                 <tr key={row.network}>
-                  <th scope="row" style={{ padding: '12px 10px', borderBottom: '1px solid var(--border-card)' }}>{names[row.network]}</th>
+                  <th scope="row" className="csp-s-0174">{names[row.network]}</th>
                   {[row.succeeded, row.failed, row.unknown, row.network === 'facebook' ? facebookViews : row.views, row.likes, row.comments, row.reposts, row.clicks].map((value, index) => (
                     <td key={index} style={{ padding: '12px 10px', borderBottom: '1px solid var(--border-card)', color: value === null ? 'var(--text-muted)' : undefined }}>
                       {value === null ? <span title="Dados da plataforma ainda indisponíveis">—</span> : value.toLocaleString('pt-BR')}
@@ -121,7 +121,7 @@ export default function AnalyticsPage() {
             </table>
           </div>
           <section className="analytics-mobile-list" aria-label="Indicadores por rede social">
-            {rows.length === 0 && <p style={{ color: 'var(--text-muted)', margin: 0 }}>Nenhum resultado disponível para este período.</p>}
+            {rows.length === 0 && <p className="csp-s-0175">Nenhum resultado disponível para este período.</p>}
             {rows.map((row) => (
               <article className="analytics-mobile-card" key={row.network}>
                 <h2>{names[row.network]}</h2>
@@ -147,7 +147,7 @@ export default function AnalyticsPage() {
               </article>
             ))}
           </section>
-          <p style={{ color: 'var(--text-muted)', margin: 0 }}>
+          <p className="csp-s-0176">
             Envios vêm da fila do Auto Orbital. A visualização do Facebook é da Página conectada, somando somente os dias retornados pela Meta após a consulta manual; não representa visualizações individuais dos posts. Traço significa indisponível, não zero. Contagens de redes diferentes não representam pessoas únicas.
           </p>
           <div className="analytics-probe-actions" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
@@ -161,29 +161,29 @@ export default function AnalyticsPage() {
             {names[visibleProbe.network as Network]}: {visibleProbe.state === 'ok' ? `leitura autorizada (${visibleProbe.result_count} resultado(s))` : visibleProbe.state === 'no_data' ? 'leitura autorizada, sem períodos disponíveis' : visibleProbe.state === 'not_connected' ? 'conta não conectada neste perfil' : visibleProbe.state === 'api_error' ? `API recusou a leitura (HTTP ${visibleProbe.http_status}, código ${visibleProbe.error_code ?? 'não informado'})` : 'não foi possível confirmar a leitura'}.
           </p>}
           {visibleProbe?.network === 'facebook' && visibleProbe.state === 'ok' && facebookViews !== null && (network === 'all' || network === 'facebook') && (
-            <section aria-label="Métricas reais da Página do Facebook" style={{ padding: 16, border: '1px solid var(--border-card)', borderRadius: 12 }}>
-              <h2 style={{ margin: '0 0 8px', font: 'var(--text-role-title)', color: 'var(--text-display)' }}>
+            <section aria-label="Métricas reais da Página do Facebook" className="csp-s-0177">
+              <h2 className="csp-s-0178">
                 Visualizações da Página do Facebook
               </h2>
-              <p style={{ margin: '0 0 4px' }}>
+              <p className="csp-s-0179">
                 <strong>{facebookViews.toLocaleString('pt-BR')}</strong> visualizações nos {visibleProbe.days_returned} período(s) disponibilizados pela Meta.
               </p>
-              <p style={{ margin: '0 0 12px', color: 'var(--text-muted)' }}>
+              <p className="csp-s-0180">
                 Consulta dos últimos {visibleProbe.days_requested} dias · Métrica page_media_view · Fonte: Meta Graph API.
                 Valores iguais a zero são resultados válidos.
               </p>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', maxWidth: 460, textAlign: 'left' }}>
+              <div className="csp-s-0181">
+                <table className="csp-s-0182">
                   <thead><tr>
-                    <th scope="col" style={{ padding: 8, borderBottom: '1px solid var(--border-card)' }}>Período encerrado em (UTC)</th>
-                    <th scope="col" style={{ padding: 8, borderBottom: '1px solid var(--border-card)' }}>Visualizações</th>
+                    <th scope="col" className="csp-s-0183">Período encerrado em (UTC)</th>
+                    <th scope="col" className="csp-s-0184">Visualizações</th>
                   </tr></thead>
                   <tbody>{[...(visibleProbe.daily_values ?? [])].reverse().slice(0, 10).map((item) => (
                     <tr key={item.period_end}>
-                      <td style={{ padding: 8, borderBottom: '1px solid var(--border-card)' }}>
+                      <td className="csp-s-0185">
                         {item.period_end.split('-').reverse().join('/')}
                       </td>
-                      <td style={{ padding: 8, borderBottom: '1px solid var(--border-card)' }}>
+                      <td className="csp-s-0186">
                         {item.value.toLocaleString('pt-BR')}
                       </td>
                     </tr>
@@ -191,7 +191,7 @@ export default function AnalyticsPage() {
                 </table>
               </div>
               {(visibleProbe.daily_values?.length ?? 0) > 10 && (
-                <p style={{ marginBottom: 0, color: 'var(--text-muted)' }}>Exibindo os 10 períodos mais recentes; o total inclui todos os períodos retornados.</p>
+                <p className="csp-s-0187">Exibindo os 10 períodos mais recentes; o total inclui todos os períodos retornados.</p>
               )}
             </section>
           )}
