@@ -31,6 +31,7 @@ export function ProfileCard({ profile, active, activating, onActivate, onEdit, o
 
   return (
     <Panel
+      className="profile-card"
       surface={active ? "glass" : "dark"}
       style={{
         padding: 16,

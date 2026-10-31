@@ -266,6 +266,7 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
           e.preventDefault()
           handleSearch()
         }}
+        className="catalog-search-filters"
         style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}
       >
         <SearchField

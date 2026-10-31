@@ -85,7 +85,7 @@ export default function AnalyticsPage() {
         <p style={{ color: 'var(--text-muted)', marginTop: 4 }}>Resultados das publicações do perfil ativo</p>
       </header>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <div className="analytics-filters" style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
         <Select label="Período" value={days} onChange={(event) => setDays(event.target.value)} width={160} options={[
           { value: '7', label: '7 dias' }, { value: '30', label: '30 dias' }, { value: '90', label: '90 dias' },
         ]} />
@@ -98,12 +98,12 @@ export default function AnalyticsPage() {
         <p role="alert" style={{ color: 'var(--negative)' }}>Não foi possível carregar as análises.</p>
       ) : (
         <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, padding: '16px 0', borderTop: '1px solid var(--border-card)', borderBottom: '1px solid var(--border-card)' }}>
+          <div className="analytics-summary" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, padding: '16px 0', borderTop: '1px solid var(--border-card)', borderBottom: '1px solid var(--border-card)' }}>
             <span><strong>{total}</strong> envios concluídos</span>
             <span><strong>{failures}</strong> falhas</span>
             <span><strong>{uncertain}</strong> sem confirmação</span>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="analytics-desktop-table" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 780, textAlign: 'left' }}>
               <thead><tr>{['Rede', 'Envios concluídos', 'Falhas', 'Sem confirmação', 'Visualizações', 'Curtidas', 'Comentários', 'Reposts', 'Cliques'].map((label) => (
                 <th key={label} scope="col" style={{ padding: '12px 10px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-card)' }}>{label}</th>
@@ -120,10 +120,37 @@ export default function AnalyticsPage() {
               ))}</tbody>
             </table>
           </div>
+          <section className="analytics-mobile-list" aria-label="Indicadores por rede social">
+            {rows.length === 0 && <p style={{ color: 'var(--text-muted)', margin: 0 }}>Nenhum resultado disponível para este período.</p>}
+            {rows.map((row) => (
+              <article className="analytics-mobile-card" key={row.network}>
+                <h2>{names[row.network]}</h2>
+                <dl>
+                  {([
+                    ['Envios concluídos', row.succeeded],
+                    ['Falhas', row.failed],
+                    ['Sem confirmação', row.unknown],
+                    ['Visualizações', row.network === 'facebook' ? facebookViews : row.views],
+                    ['Curtidas', row.likes],
+                    ['Comentários', row.comments],
+                    ['Reposts', row.reposts],
+                    ['Cliques', row.clicks],
+                  ] as const).map(([label, value]) => (
+                    <div key={label}>
+                      <dt>{label}</dt>
+                      <dd>{value === null
+                        ? <span title="Dados da plataforma ainda indisponíveis">—</span>
+                        : value.toLocaleString('pt-BR')}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </article>
+            ))}
+          </section>
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>
             Envios vêm da fila do Auto Orbital. A visualização do Facebook é da Página conectada, somando somente os dias retornados pela Meta após a consulta manual; não representa visualizações individuais dos posts. Traço significa indisponível, não zero. Contagens de redes diferentes não representam pessoas únicas.
           </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+          <div className="analytics-probe-actions" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
             {(['threads', 'facebook', 'instagram'] as const).map((name) => (
               <Button key={name} variant="secondary" size="sm" loading={probing === name} disabled={probing !== null} onClick={() => testInsights(name)}>
                 Testar dados de {names[name]}

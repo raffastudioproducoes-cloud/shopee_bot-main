@@ -228,3 +228,29 @@ html:has(.admin-shell)::-webkit-scrollbar-corner, .admin-shell::-webkit-scrollba
 }
 .admin-globe-summary dt { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
 .admin-globe-summary dd { margin: 5px 0 0; font-size: 21px; font-weight: 700; color: var(--text-display); }
+
+/* Ajustes finais de densidade exclusivos para telefones; não alteram o painel desktop/tablet. */
+@media (max-width: 600px) {
+  .admin-shell { padding: 6px; }
+  .admin-frame { border-radius: var(--r-md); min-height: calc(100dvh - 12px); }
+  .admin-header { gap: 8px; padding: 8px 10px; }
+  .admin-menu { max-width: 100%; overflow-x: auto; justify-content: flex-start; scrollbar-width: thin; }
+  .admin-menu-link { padding: 0 7px; }
+  .admin-header-actions { gap: 4px; }
+  .admin-workspace { gap: 12px; padding: 12px 10px 0; border-radius: var(--r-md); }
+  .admin-content { padding-right: 0; min-width: 0; }
+  .admin-route, .admin-overview { min-width: 0; }
+  .admin-page-heading { gap: 8px; }
+  .admin-page-heading h1 { font-size: 25px; line-height: 1.15; }
+  .admin-overview-heading { flex-wrap: wrap; gap: 8px; }
+  .admin-summary { gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-user-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .admin-user-card { padding: 12px; min-height: 0; gap: 8px; }
+  .admin-metric-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .admin-metric-stat { padding: 10px !important; gap: 5px; }
+  .admin-metric-card { padding: 12px !important; }
+  .admin-chart-legend { flex-wrap: wrap; gap: 6px 12px; }
+  .admin-globe-panel { margin: 12px 0; padding: 12px !important; }
+  .admin-desk { gap: 10px; }
+  .admin-metric-table { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+}

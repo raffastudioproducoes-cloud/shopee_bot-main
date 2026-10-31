@@ -218,7 +218,7 @@ export function ProductsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
       {/* Header */}
-      <header style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+      <header className="products-page-header" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <div>
           <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Produtos</h1>
           <p style={{ color: "var(--text-muted)", marginTop: 4 }}>Catálogo de produtos da Shopee.</p>
@@ -374,7 +374,7 @@ export function ProductsPage() {
           }}
           style={{ display: "flex", flexDirection: "column", gap: 16 }}
         >
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="mobile-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <TextInput
               label="Nome *"
               value={form.name}
@@ -411,7 +411,7 @@ export function ProductsPage() {
             placeholder="https://..."
           />
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="mobile-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <TextInput
               label="Taxa de comissão (%)"
               type="number"
@@ -431,7 +431,7 @@ export function ProductsPage() {
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="mobile-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <TextInput
               label="Preço mínimo (R$)"
               type="number"
