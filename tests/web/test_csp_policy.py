@@ -86,3 +86,15 @@ def test_spa_forbids_inline_style_elements_while_legacy_is_unmodified():
 def test_legal_layout_has_no_inline_style_attributes():
     source = (project_root / "frontend" / "src" / "pages" / "legal" / "LegalLayout.tsx").read_text(encoding="utf-8")
     assert "style=" not in source
+
+
+def test_generated_stylesheet_covers_all_static_csp_classes():
+    import re
+    style_root = project_root / "frontend" / "src"
+    stylesheet = (style_root / "styles" / "csp-static-generated.css").read_text(encoding="utf-8")
+    declared = set(re.findall(r"\\.((?:csp-s-)\\d{4})\\s*\\{", stylesheet))
+    referenced = set()
+    for component in style_root.rglob("*.tsx"):
+        referenced.update(re.findall(r"className=\"((?:csp-s-)\\d{4})\"", component.read_text(encoding="utf-8")))
+    assert len(declared) >= 399
+    assert declared == referenced, "Cada classe CSP estatica deve existir no CSS e ser usada no JSX"
