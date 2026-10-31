@@ -90,8 +90,14 @@ export function PostLivePreview({
   const plan = network === "kwai" ? null : planMediaComposition(network, {
     texts: textFor(network), media: info, productCount: products.length,
   })
-  const allowedNames = new Set(plan?.media.map((m) => m.name) ?? [])
-  const visibleMedia = network === "kwai" ? media : media.filter((m) => allowedNames.has(m.name))
+  const allowedCounts = new Map<string, number>()
+  for (const entry of plan?.media ?? []) allowedCounts.set(entry.name, (allowedCounts.get(entry.name) ?? 0) + 1)
+  const visibleMedia = network === "kwai" ? media : media.filter((m) => {
+    const remaining = allowedCounts.get(m.name) ?? 0
+    if (!remaining) return false
+    allowedCounts.set(m.name, remaining - 1)
+    return true
+  })
   const chosenIndex = Math.min(mediaIndex, Math.max(0, visibleMedia.length - 1))
   const chosen = visibleMedia[chosenIndex]
   const caption = network === "kwai" ? (networks[0] ? textFor(networks[0])[0] : "")
