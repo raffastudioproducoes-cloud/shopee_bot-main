@@ -11,3 +11,6 @@
 :is(#root, body) .csp-named-sticky-th { padding: 10px 16px; position: sticky; top: 0; z-index: 1; background: var(--surface-card); box-shadow: inset 0 -1px 0 var(--border-hairline); }
 :is(#root, body) .csp-named-meta { font: var(--fw-regular) var(--fs-caption)/1 var(--font-sans); color: var(--text-muted); }
 :is(#root, body) .csp-named-label { display: block; font: var(--text-role-label); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+
+:is(#root, body) .csp-named-th-cell { text-align: left; padding: 8px 10px; color: var(--text-body); font: var(--fw-regular) var(--fs-small)/1.3 var(--font-sans); vertical-align: top; width: 38%; }
+:is(#root, body) .csp-named-td-cell { padding: 8px 10px; color: var(--text-muted); font: var(--fw-regular) var(--fs-small)/1.3 var(--font-sans); vertical-align: top; }
