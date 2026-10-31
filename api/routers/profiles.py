@@ -129,31 +129,83 @@ class LocationDecision(BaseModel):
 
 @router.get("/location-sharing")
 async def get_location_sharing(user_id: str = Depends(get_current_user_id)):
-    result = supabase.table("account_location_sharing").select("choice,latitude,longitude,collected_at").eq("user_id",user_id).limit(1).execute()
+    result = (
+        supabase.table("account_location_sharing")
+        .select("choice,latitude,longitude,collected_at")
+        .eq("user_id", user_id).limit(1).execute()
+    )
     row = (result.data or [None])[0]
-    return row or {"choice":"pending","latitude":None,"longitude":None,"collected_at":None}
+    return row or {"choice": "pending", "latitude": None, "longitude": None, "collected_at": None}
 
 
 @router.put("/location-sharing")
 async def put_location_sharing(body: LocationDecision, user_id: str = Depends(get_current_user_id)):
+    """Uma única decisão/coleta por conta; revogação mantém um registro sem coordenadas.
+
+    A chave primária do banco protege contra duas solicitações simultâneas.
+    Sem recolhimento de GPS após uma primeira decisão, mesmo após revogação.
+    """
     from datetime import datetime, timezone
-    if body.choice not in ("accepted","declined","revoked"):
-        raise HTTPException(status_code=422,detail="Escolha inválida")
-    if body.choice == "revoked":
-        supabase.table("account_location_sharing").delete().eq("user_id",user_id).execute()
-        return {"choice":"pending"}
+    from math import isfinite
+
+    if body.choice not in ("accepted", "declined", "revoked"):
+        raise HTTPException(status_code=422, detail="Escolha inválida")
+
+    result = (
+        supabase.table("account_location_sharing")
+        .select("choice").eq("user_id", user_id).limit(1).execute()
+    )
+    current = (result.data or [None])[0]
     now = datetime.now(timezone.utc).isoformat()
-    row = {"user_id":user_id,"choice":body.choice,"consent_version":"2026-10-31","decided_at":now,
-           "latitude":None,"longitude":None,"accuracy_m":None,"collected_at":None}
-    if body.choice=="accepted":
-        if body.latitude is None or body.longitude is None or not (-90 <= body.latitude <= 90) or not (-180 <= body.longitude <= 180):
-            raise HTTPException(status_code=422,detail="Coordenadas inválidas")
+
+    if body.choice == "revoked":
+        if current and current["choice"] == "revoked":
+            return {"choice": "revoked"}
+        if current:
+            supabase.table("account_location_sharing").update({
+                "choice": "revoked", "latitude": None, "longitude": None,
+                "accuracy_m": None, "collected_at": None, "decided_at": now,
+            }).eq("user_id", user_id).execute()
+        else:
+            supabase.table("account_location_sharing").insert({
+                "user_id": user_id, "choice": "revoked",
+                "consent_version": "2026-10-31", "decided_at": now,
+            }).execute()
+        return {"choice": "revoked"}
+
+    if current:
+        raise HTTPException(status_code=409, detail="A decisão de localização já foi registrada.")
+
+    row = {
+        "user_id": user_id, "choice": body.choice,
+        "consent_version": "2026-10-31", "decided_at": now,
+        "latitude": None, "longitude": None,
+        "accuracy_m": None, "collected_at": None,
+    }
+    if body.choice == "accepted":
+        if (body.latitude is None or body.longitude is None
+                or not isfinite(body.latitude) or not isfinite(body.longitude)
+                or not (-90 <= body.latitude <= 90)
+                or not (-180 <= body.longitude <= 180)):
+            raise HTTPException(status_code=422, detail="Coordenadas inválidas")
         if body.accuracy_m is not None and not (0 <= body.accuracy_m <= 1000000):
-            raise HTTPException(status_code=422,detail="Precisão inválida")
-        row.update(latitude=round(body.latitude,2),longitude=round(body.longitude,2),
-                   accuracy_m=body.accuracy_m,collected_at=now)
-    supabase.table("account_location_sharing").upsert(row,on_conflict="user_id").execute()
-    return {"choice":body.choice}
+            raise HTTPException(status_code=422, detail="Precisão inválida")
+        row.update({
+            "latitude": round(body.latitude, 2),
+            "longitude": round(body.longitude, 2),
+            "accuracy_m": body.accuracy_m, "collected_at": now,
+        })
+    elif body.latitude is not None or body.longitude is not None or body.accuracy_m is not None:
+        raise HTTPException(status_code=422, detail="Recusa não pode conter localização.")
+
+    try:
+        supabase.table("account_location_sharing").insert(row).execute()
+    except Exception as exc:
+        if "23505" in str(exc) or "duplicate key" in str(exc).lower():
+            raise HTTPException(status_code=409, detail="A decisão de localização já foi registrada.") from exc
+        logger.exception("Falha ao registrar decisão de localização")
+        raise HTTPException(status_code=503, detail="Não foi possível registrar a decisão.") from exc
+    return {"choice": body.choice}
 
 
 @router.get("/gps-preference")
