@@ -7,6 +7,7 @@ import { TopBar } from '../components/ui/TopBar'
 import { IconButton } from '../components/ui/IconButton'
 import { NotificationsBell } from '../components/ui/NotificationsBell'
 import { ActiveProfileChip } from '../components/profiles/ActiveProfileChip'
+import { LocationPermissionNotice } from '../components/profiles/LocationPermissionNotice'
 import { Icon } from '../components/ui/Icon'
 import { AppFooter } from '../components/layout/AppFooter'
 import { PageSkeleton } from '../components/ui/Skeleton'
@@ -96,6 +97,7 @@ export function PanelPage() {
 
   return (
     <div className="app-shell">
+      <LocationPermissionNotice />
       <SideRail
         id="app-nav"
         className="app-rail"
