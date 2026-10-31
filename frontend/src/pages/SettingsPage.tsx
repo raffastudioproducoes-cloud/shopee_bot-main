@@ -1,4 +1,7 @@
 import { useState } from "react"
+import { RegionConsent } from "../components/profiles/RegionConsent"
+import { AcquisitionConsent } from "../components/profiles/AcquisitionConsent"
+import { BackupSection } from "../components/profiles/BackupSection"
 import type { FormEvent } from "react"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
@@ -108,6 +111,15 @@ export function SettingsPage() {
           )}
         </form>
       </Panel>
+      <section aria-labelledby="privacy-settings-title" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <h2 id="privacy-settings-title" style={{ font: 'var(--text-role-title)', margin: 0 }}>Privacidade, localização e origem</h2>
+          <p style={{ color: 'var(--text-muted)', marginTop: 4 }}>Controle seus dados opcionais e autorizações.</p>
+        </div>
+        <RegionConsent />
+        <AcquisitionConsent />
+      </section>
+      <BackupSection />
     </div>
   )
 }

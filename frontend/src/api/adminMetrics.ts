@@ -49,6 +49,7 @@ export const adminMetricsApi = {
   getQueueHealth: () => api.get<AdminQueueHealth>('/admin/queue-health'),
   getOperations: () => api.get<AdminOperations>('/admin/operations'),
   getMyRegion: () => api.get<{region: string | null}>('/admin/my-region'),
+  getLocationPoints: () => api.get<{points: {account: string; latitude: number; longitude: number; accuracy_m: number | null; collected_at: string}[]}>('/admin/location-points'),
 }
 
 export interface AdminOperations {

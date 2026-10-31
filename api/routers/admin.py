@@ -66,3 +66,13 @@ async def my_region(user_id: str = Depends(get_current_user_id)):
     )
     own = (result.data or [None])[0]
     return {"region": own["region"] if own else None}
+
+
+@router.get("/location-points")
+async def location_points():
+    """Admin-only consented approximate coordinates; one current record per account."""
+    result = supabase.table("account_location_sharing").select("user_id,latitude,longitude,accuracy_m,collected_at").eq("choice","accepted").execute()
+    return {"points":[{"account":str(row["user_id"])[:8],"latitude":float(row["latitude"]),
+                       "longitude":float(row["longitude"]),"accuracy_m":row.get("accuracy_m"),
+                       "collected_at":row["collected_at"]}
+                      for row in (result.data or []) if row.get("latitude") is not None and row.get("longitude") is not None]}

@@ -89,3 +89,12 @@ def test_startup_uses_env_password_and_never_logs_it(client, monkeypatch):
     assert insert.call_args.args[0]["password"] == fake_pw
     logged = " ".join(str(c) for c in log.mock_calls)
     assert fake_pw not in logged
+
+
+def test_geolocation_permission_policy_limits_access_to_same_origin(client):
+    """O popup de GPS precisa funcionar em HTTPS, sem habilitar embeds/terceiros."""
+    res = client.get("/health")
+    policy = res.headers.get("Permissions-Policy", "")
+    assert "geolocation=(self)" in policy
+    assert "camera=()" in policy
+    assert "microphone=()" in policy
