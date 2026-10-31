@@ -48,3 +48,47 @@ As interfaces mudam constantemente. A visualização não garante equivalência 
 - Testes: tests/api/test_posts_media_drafts.py
 
 Cenários manuais: campos vazios, variantes de texto, 1+ imagens, carrossel, MP4, seleção de produto, formatos 360/768/1280 px, navegação por teclado.
+
+
+## Threads geradas por IA e filtragem por rede
+
+A API `POST /posts/generate-copy` aceita `part_count` (1 a 10):
+- `mode="full"` gera a descrição principal, variantes por limite de rede e
+  todas as respostas adicionais existentes (até 10 partes, incluindo a primeira).
+- `mode="append"` recebe `existing_texts` com o prefixo preenchido, gera
+  apenas as partes ausentes, devolvendo `parts` + `start_index`. O editor
+  aguarda 700 ms após adicionar partes para agrupar solicitações de IA e
+  preserva qualquer texto digitado manualmente enquanto aguarda.
+- A chave de IA é exclusiva do perfil; mantém o limite de 5 requisições por
+  60 segundos aplicado ao endpoint. Respostas de IA passam por validação de
+  comprimento e hashtags, com apenas uma tentativa adicional de correção.
+- **Máximo de 10 partes** é uma decisão preventiva do Auto Orbital, não um
+  limite oficial nem uma garantia contra bloqueio. As cotas e políticas de
+  automação de cada rede ainda se aplicam.
+
+### O que é enviado realmente
+
+| Rede | Publicação do Auto Orbital | Texto enviado |
+| --- | --- | --- |
+| Threads | Post original + replies encadeadas via `reply_to_id` | Até 10 partes, cada uma no máximo 500 caracteres. |
+| X | Suporta criação de replies via API, mas está indisponível no plano atual | O botão segue desativado; quando habilitado, até 10 partes de 280 unidades ponderadas. |
+| Facebook | Uma publicação de Página | Apenas a descrição principal; as partes adicionais são descartadas no servidor. |
+| Instagram | Uma publicação de imagem/carrossel/vídeo | Apenas a legenda principal (até 2.200 caracteres). |
+| TikTok | Uma publicação de vídeo | Apenas a legenda do vídeo (até 2.200 unidades UTF-16). |
+| Kwai | Não há integração confirmada | Botão inativo; nada é publicado. |
+
+A filtragem acontece no planejamento da API e novamente no armazenamento
+da thread: publicações sem suporte não recebem replies e não persistem
+partes extras. O editor não exibe mensagens desnecessárias sobre essa
+adaptação interna. Regras de mídia continuam sendo aplicadas por rede.
+
+Referências oficiais pesquisadas em 2026-10-31:
+- [Meta Threads API: criação e respostas `reply_to_id`](https://www.postman.com/meta/threads/documentation/dht3nzz/threads-api)
+- [X API: criação de posts e replies](https://github.com/xdevplatform/docs/blob/main/x-api/posts/manage-tweets/introduction.mdx)
+- [Instagram Publishing API](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api)
+- [TikTok Direct Post: legenda até 2.200 unidades UTF-16](https://developers.tiktok.com/docs/en/content-posting-api-reference-direct-post)
+
+O usuário não deve interpretar o teto de 10 como proteção completa contra
+punições: volume diário, conteúdo repetitivo, reclamações e rate limits
+continuam relevantes. Os publicadores registram falhas de plataforma sem
+tentar contornar bloqueios.

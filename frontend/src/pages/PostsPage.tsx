@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Eye } from "lucide-react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
@@ -644,6 +644,8 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const [trayOpen, setTrayOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [useShopeeImages, setUseShopeeImages] = useState(false)
+  const [aiAutoContinuation, setAiAutoContinuation] = useState(false)
+  const aiProductRef = useRef<number | null>(null)
   const [pickMessage, setPickMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Redes que já deram certo no último envio saem da seleção: reenviar só
@@ -671,11 +673,29 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const hasAiKey = aiStatus ? aiStatus.active !== null : true
 
   const generateMutation = useMutation({
-    mutationFn: (productId: number) => postsApi.generateCopy(productId, persona, networks),
-    onSuccess: (res) => {
-      setTexts((prev) => [res.text, ...prev.slice(1)])
+    mutationFn: (request: {
+      productId: number; partCount: number; mode: "full" | "append";
+      existingTexts?: string[]; snapshot?: string[]
+    }) => postsApi.generateCopy(request.productId, persona, networks, {
+      partCount: request.partCount, mode: request.mode, existingTexts: request.existingTexts,
+    }),
+    onSuccess: (res, request) => {
+      if (request.mode === "append") {
+        // Never overwrite edits the user typed while the background AI ran.
+        setTexts((prev) => {
+          if (request.snapshot?.some((text, index) => prev[index] !== text)) return prev
+          return prev.map((current, index) =>
+            index >= res.start_index && !current.trim()
+              ? (res.parts[index - res.start_index] ?? current) : current,
+          )
+        })
+        return
+      }
+      setTexts((prev) => prev.map((current, index) => res.parts[index] ?? current))
       const rest = (res.variants ?? []).slice(1)
-      setVariantTexts((prev) => ({ ...prev, ...Object.fromEntries(rest.map((v) => [v.key, v.text])) }))
+      setVariantTexts(Object.fromEntries(rest.map((v) => [v.key, v.text])))
+      aiProductRef.current = request.productId
+      setAiAutoContinuation(true)
     },
   })
 
@@ -702,8 +722,14 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     setTexts((prev) => prev.map((t, i) => (i === index ? value : t)))
   }
 
-  const addPart = () => setTexts((prev) => [...prev, ""])
-  const removePart = (index: number) => setTexts((prev) => prev.filter((_, i) => i !== index))
+  const addPart = () => setTexts((prev) => prev.length >= 10 ? prev : [...prev, ""])
+  const removePart = (index: number) => {
+    setTexts((prev) => prev.length <= 1 ? prev : prev.filter((_, i) => i !== index))
+    if (index === 0) {
+      setVariantTexts({})
+      setAiAutoContinuation(false)
+    }
+  }
   const clearComposer = () => {
     setTexts([""])
     setVariantTexts({})
@@ -712,6 +738,8 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     setPendingFiles([])
     setTrayOpen(false)
     setUseShopeeImages(false)
+    setAiAutoContinuation(false)
+    aiProductRef.current = null
     setWhen("now")
     setRunDayText("")
     setRunTimeText("")
@@ -767,6 +795,34 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     return variantTexts[p[i].key] ?? (selected ? texts[0] : "")
   }
   const textsFor = (n: PostNetwork) => [headFor(n), ...texts.slice(1)].map((t) => t.trim()).filter(Boolean)
+
+  // If the user opens more parts after using AI, batch all new empty parts
+  // into one continuation request. Debounce prevents ten rapid clicks from
+  // creating ten paid API requests. Existing/manual text is never overwritten.
+  const networkKey = activeNetworks.join(",")
+  useEffect(() => {
+    if (!aiAutoContinuation || !hasAiKey ||
+        generateMutation.isPending || generateMutation.isError ||
+        aiProductRef.current !== selectedProductIds[0] || !texts[0]?.trim()) return
+
+    const firstBlank = texts.findIndex((t, index) => index > 0 && !t.trim())
+    if (firstBlank < 0) return
+    const threadNetwork = activeNetworks.find((n) => NETWORK_RULES[n].threadParts)
+    const head = threadNetwork ? headFor(threadNetwork) : texts[0]
+    const existing = [head, ...texts.slice(1, firstBlank)]
+    if (existing.some((t) => !t.trim())) return
+
+    const timer = window.setTimeout(() => generateMutation.mutate({
+      productId: selectedProductIds[0],
+      partCount: texts.length,
+      mode: "append",
+      existingTexts: existing,
+      snapshot: texts.slice(0, firstBlank),
+    }), 700)
+    return () => window.clearTimeout(timer)
+    // headFor is derived from texts, variantTexts and networkKey.
+  }, [texts, variantTexts, networkKey, persona, selectedProductIds, aiAutoContinuation,
+    hasAiKey, generateMutation.isPending, generateMutation.isError])
 
   // Validação por rede em tempo real (lib/networkLimits.ts), cada uma com o seu texto.
   const media: MediaInfo[] = post
@@ -843,6 +899,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
 
   const canSubmit =
     !loading &&
+    !generateMutation.isPending &&
     trimmedTexts.length > 0 &&
     // Bloqueadas continuam marcadas (em vermelho, com motivo); basta uma entregável.
     deliverableNetworks.length > 0 &&
@@ -943,7 +1000,9 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
               variant="secondary"
               icon={generateMutation.isPending ? "loader-2" : "sparkles"}
               disabled={selectedProductIds.length === 0 || generateMutation.isPending}
-              onClick={() => generateMutation.mutate(selectedProductIds[0])}
+              onClick={() => generateMutation.mutate({
+                productId: selectedProductIds[0], partCount: texts.length, mode: "full",
+              })}
             >
               {generateMutation.isPending ? "Gerando..." : "Gerar texto com IA"}
             </Button>
@@ -1006,8 +1065,9 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
             </div>
             ),
           )}
-          <Button type="button" variant="ghost" icon="plus" onClick={addPart} style={{ alignSelf: "flex-start", padding: 0 }}>
-            Adicionar parte (thread)
+          <Button type="button" variant="ghost" icon="plus" onClick={addPart}
+            disabled={texts.length >= 10} style={{ alignSelf: "flex-start", padding: 0 }}>
+            Adicionar parte (thread) · {texts.length}/10
           </Button>
         </div>
 

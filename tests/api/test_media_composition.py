@@ -168,3 +168,16 @@ def test_threads_keeps_twenty_and_drops_the_extras():
     assert plan.mode == "carousel"
     assert plan.media_ids == list(range(1, 21))
     assert [d["id"] for d in plan.dropped] == [21, 22]
+
+
+def test_only_thread_capable_networks_receive_continuations_silently():
+    texts = ["Legenda principal", "Detalhes", "Conclusão"]
+    instagram = plan_network_composition("instagram", texts, [_image(1)])
+    facebook = plan_network_composition("facebook", texts, [])
+    tiktok = plan_network_composition("tiktok", texts, [_image(1, "video.mp4")])
+    threads = plan_network_composition("threads", texts, [])
+
+    for plan in (instagram, facebook, tiktok):
+        assert plan.text_variant == ["Legenda principal"]
+        assert not any("thread" in warning.lower() or "parte" in warning.lower() for warning in plan.warnings)
+    assert threads.text_variant == texts

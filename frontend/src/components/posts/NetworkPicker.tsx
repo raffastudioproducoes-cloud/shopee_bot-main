@@ -1,5 +1,5 @@
-// Seletor multi-rede do criador de post: botões quadrados com logo (toggle,
-// aria-pressed) + painel compacto com os limites das redes marcadas. Regras
+// Seletor multi-rede do criador de post: botões horizontais minimalistas,
+// logos vetoriais existentes e limites centralizados por plataforma. Regras
 // e textos de erro vêm de lib/networkLimits.ts.
 import type { ReactNode } from "react"
 import type { PostNetwork } from "../../api/posts"
@@ -72,41 +72,37 @@ interface SquareProps {
 
 function NetworkSquare({ network, label, pressed, invalid, disabledReason, onClick }: SquareProps) {
   const disabled = !!disabledReason
-  const disabledLabel = network === "kwai" ? "em breve" : disabled && network === "x" ? "em breve · plano pago" : undefined
   const border = invalid ? "var(--negative)" : pressed ? "var(--accent)" : "var(--border-hairline)"
   return (
     <button
       type="button"
       aria-pressed={pressed}
-      aria-disabled={disabled || undefined}
-      aria-label={disabledReason ? `${label} — ${disabledReason}` : label}
-      title={disabledReason ?? label}
-      onClick={() => !disabled && onClick?.()}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
       style={{
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
+        display: "inline-flex",
+        flexDirection: "row",
         alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        aspectRatio: "1 / 1",
-        minHeight: 64,
-        padding: 6,
+        justifyContent: "flex-start",
+        gap: 9,
+        minHeight: 42,
+        minWidth: 0,
+        padding: "8px 11px",
         borderRadius: "var(--r-md)",
-        border: `${pressed || invalid ? 2 : 1}px solid ${border}`,
+        border: `1px solid ${border}`,
         background: pressed ? "var(--accent-tint)" : "var(--surface-inset)",
         color: invalid ? "var(--negative)" : pressed ? "var(--accent)" : "var(--text-body)",
         cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled && !pressed ? 0.45 : 1,
-        font: "var(--fw-medium) var(--fs-caption)/1.1 var(--font-sans)",
+        opacity: disabled ? 0.3 : 1,
+        filter: disabled ? "grayscale(1)" : undefined,
+        font: "var(--fw-medium) var(--fs-caption)/1.3 var(--font-sans)",
         transition: "var(--t-hover)",
       }}
     >
-      <NetworkLogo network={network} />
-      <span style={{ textAlign: "center" }}>{label}</span>
-      {disabledLabel && (
-        <span style={{ position: "absolute", top: 4, right: 6, fontSize: 9, color: "var(--text-muted)" }}>{disabledLabel}</span>
-      )}
+      <NetworkLogo network={network} size={17} />
+      <span style={{ overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{label}</span>
     </button>
   )
 }
@@ -120,13 +116,12 @@ interface NetworkPickerProps {
 }
 
 export function NetworkPicker({ selected, states, onToggle, readOnly }: NetworkPickerProps) {
-  const disconnected = PICKER_NETWORKS.filter((n) => states[n].connected === false)
   return (
     <div>
       <div
         role="group"
         aria-label="Redes sociais"
-        style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))", gap: 8 }}
+        style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 132px), 1fr))", gap: 8 }}
       >
         {PICKER_NETWORKS.map((n) => {
           const disabledByPlan = isNetworkDisabled(n)
@@ -151,15 +146,7 @@ export function NetworkPicker({ selected, states, onToggle, readOnly }: NetworkP
         })}
         <NetworkSquare network="kwai" label="Kwai" pressed={false} disabledReason="em breve" />
       </div>
-      {!readOnly && disconnected.length > 0 && (
-        <p style={{ margin: "8px 0 0", font: "var(--fw-regular) var(--fs-caption)/1.4 var(--font-sans)", color: "var(--text-muted)" }}>
-          {disconnected.map((n) => NETWORK_RULES[n].label).join(", ")}: conecte em{" "}
-          <a href="/credentials" style={{ color: "var(--accent)" }}>
-            Credenciais
-          </a>{" "}
-          para publicar.
-        </p>
-      )}
+
     </div>
   )
 }
