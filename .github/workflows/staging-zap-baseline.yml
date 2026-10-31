@@ -27,11 +27,20 @@ jobs:
             sleep 10
           done
           exit 1
-      - name: OWASP ZAP baseline sem ataques ativos
-        uses: zaproxy/action-baseline@v0.15.0
-        with:
-          target: https://shopee-bot-staging.onrender.com/
-          fail_action: false
-          allow_issue_writing: false
-          artifact_name: zap-staging-baseline
-          cmd_options: "-m 1 -I"
+      # A cota de GitHub Actions Artifacts está esgotada; a action oficial
+      # tenta sempre subir um ZIP mesmo quando a varredura está correta.
+      # Executar o mesmo zap-baseline.py diretamente preserva os achados
+      # no log do workflow e falha somente em findings classificados FAIL.
+      - name: OWASP ZAP baseline sem ataques ativos (logs, sem ZIP)
+        shell: bash
+        run: |
+          set -o pipefail
+          docker run --rm --network=host ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t https://shopee-bot-staging.onrender.com/ -m 1 -I \
+            | tee zap-baseline.log
+          {
+            echo '### OWASP ZAP baseline - staging'
+            echo 'Somente varredura passiva, sem credenciais e sem ataques ativos.'
+            echo 'Os detalhes e exemplos de URLs ficam no log desta execução.'
+            grep -E '^(FAIL-NEW|WARN-NEW|PASS: Content Security Policy|PASS: X-Content-Type)' zap-baseline.log || true
+          } >> "$GITHUB_STEP_SUMMARY"
