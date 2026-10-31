@@ -4,6 +4,7 @@ import { adminMetricsApi } from '../api/adminMetrics'
 import { Panel } from '../components/ui/Panel'
 import { MetricTrend, PlanRings } from '../components/admin/MetricTrend'
 import { ScaleMetrics } from '../components/admin/ScaleMetrics'
+import { OperationalInsights } from '../components/admin/OperationalInsights'
 import { CardTags } from '../components/admin/CardTags'
 import { LocationGlobe } from '../components/admin/LocationGlobe'
 import { PageSkeleton } from '../components/ui/Skeleton'
@@ -101,6 +102,7 @@ export default function AdminOverviewPage() {
           : 'Indisponível porque a consulta do banco falhou.'}</p>}<ul className="admin-coverage">{[data.unavailable.traffic_sources, data.unavailable.session_time, data.unavailable.location].map(reason => <li key={reason}>{reason}</li>)}</ul></Panel>
     </div>
     <ScaleMetrics data={data} />
+    <OperationalInsights />
     <details className="admin-metric-notes"><summary>Como interpretar os números</summary><ul>{data.notes.map(note => <li key={note}>{note}</li>)}</ul></details>
     <p className="admin-muted">Consulta automática a cada minuto. Uma nova consulta pode retornar amostras antigas; confira os horários acima.</p>
   </div>
