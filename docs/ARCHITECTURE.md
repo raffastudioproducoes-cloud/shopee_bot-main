@@ -49,7 +49,7 @@ Fonte: `Dockerfile`, `gunicorn.conf.py`, `web/routes/api_proxy.py`, `api/interna
 | Backend novo | FastAPI (async), Pydantic-settings | Rotas `api/routers/`, roda em subprocesso uvicorn no mesmo container |
 | Scheduler | APScheduler 3.11, jobstore `SQLAlchemyJobStore` sobre Postgres | Jobs de publicação e atualização de produto, in-process |
 | Banco | Supabase (Postgres gerenciado), RLS habilitado em todas as tabelas, acesso via `psycopg` (não `supabase-py` no lado Flask) e cliente Python async no lado FastAPI | Persistência |
-| Mídia | Cloudinary (host temporário) | Upload/hospedagem de imagem de post |
+| Mídia | Supabase Storage (bucket privado `post-media`) | Armazenamento de imagens/vídeos de post, com URLs assinadas de expiração curta |
 | IA | Gemini / OpenAI / Anthropic com chave por usuário (`apis/llm.py`, tabela `ai_credentials`) | Copywriter de post por persona |
 | Cripto | `cryptography` (Fernet) — `utils/crypto.py` (Flask) e `api/crypto.py` (wrapper compatível, FastAPI) | Cifra credencial de rede social em repouso |
 | Infra/Deploy | Render (Web Service, Docker, plano Free), GitHub Actions (CI) | Deploy automático a cada push em `main` |
@@ -296,7 +296,7 @@ Detalhes, contratos e critérios de aceite:
 - **Recorrência**: `schedulers.days_of_week SMALLINT[]` (migração 047, 1 a 7 dias entre 0 e 6);
   `day_of_week` legado continua válido.
 - **Entrega**: `scheduler/media_delivery.py` transforma `storage://bucket/chave` em URL assinada
-  (1 h) para Threads, Facebook e Instagram; mídia legada em disco segue pelo Cloudinary. O X
+  (1 h) para Threads, Facebook e Instagram; referências legadas em disco são rejeitadas com orientação de reenvio. O X
   permanece no código, mas `DISABLED_NETWORKS` bloqueia criação/lote e faz o scheduler pular sem
   chamar a API até virar plano pago. Vídeo é somente MP4 neste app; `.mov` é bloqueado. O Instagram
   espera o container chegar a `FINISHED`, com tempo limite. TikTok foto segue bloqueado até Creator
