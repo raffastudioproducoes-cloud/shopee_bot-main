@@ -1,5 +1,4 @@
-"""bot_post (Threads) consome mídia durável (storage://) via delivery_url e
-mantém o caminho legado/Cloudinary para mídia antiga."""
+"""bot_post (Threads) publica mídia durável via URL assinada do Supabase Storage."""
 
 import sys
 
@@ -58,23 +57,20 @@ def test_carrossel_duravel(monkeypatch):
     assert len(storage.signed) == 2
 
 
-def test_midia_legada_continua_no_cloudinary(monkeypatch, tmp_path):
-    monkeypatch.setattr(module, "ensure_media_storage", lambda: None)
+def test_midia_legada_existente_e_rejeitada_sem_servico_externo(monkeypatch, tmp_path):
     f = tmp_path / "a.jpg"
     f.write_bytes(b"x")
     _setup(monkeypatch, [{"type": "IMAGE", "file_path": str(f), "file_name": "a.jpg"}])
-    destroyed = []
-    monkeypatch.setattr(media_delivery, "_upload_legacy",
-                        lambda m: ("https://cdn/x.jpg", lambda: destroyed.append(1)))
-    sent = {}
-    monkeypatch.setattr(module.ThreadsAPI, "make_post", lambda *a, **k: sent.update(kw=k) or "t1")
+    acts = []
+    monkeypatch.setattr(module, "insert_activities", lambda u, t, m, profile_id=None: acts.append(m))
+    monkeypatch.setattr(module.ThreadsAPI, "make_post", lambda *a, **k: (_ for _ in ()).throw(
+        AssertionError("não deve chamar a rede para mídia legada")
+    ))
     module.bot_post("j")
-    assert sent["kw"]["image_url"] == "https://cdn/x.jpg"
-    assert destroyed == [1]
+    assert "Reenvie" in str(acts[0])
 
 
 def test_midia_legada_ausente_falha_com_mensagem(monkeypatch):
-    monkeypatch.setattr(module, "ensure_media_storage", lambda: None)
     _setup(monkeypatch, [{"type": "IMAGE", "file_path": "C:/nao/existe.jpg", "file_name": "e.jpg"}])
     acts = []
     monkeypatch.setattr(module, "insert_activities", lambda u, t, m, profile_id=None: acts.append(m))
