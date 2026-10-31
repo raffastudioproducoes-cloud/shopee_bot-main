@@ -80,23 +80,58 @@ def test_invalid_or_unconsented_coordinates_rejected(context):
     assert db.tables["account_location_sharing"] == []
 
 
-def test_admin_sees_single_authorized_point_and_non_admin_cannot(context):
+def test_admin_gets_only_client_counts_and_authorized_points(context, monkeypatch):
+    """A API admin nunca mistura a localização do administrador com clientes."""
+    from unittest.mock import MagicMock
+    from api.routers import admin
+
     client, db, account_id, admin_id = context
     client.put("/profiles/location-sharing", json={
         "choice": "accepted", "latitude": -22.9, "longitude": -43.2,
     })
     assert client.get("/admin/location-points").status_code == 403
 
+    # O filtro de access é executado na RPC SQL; testamos o contrato da API,
+    # inclusive zero cliente ativo e o histórico independente de exclusões.
+    geo_db = MagicMock()
+    geo_db.rpc.return_value.execute.return_value = MagicMock(data={
+        "status": "available",
+        "updated_at": "2026-10-31T12:00:00Z",
+        "customers_total": 1,
+        "recent_active": 0,
+        "gps_points_total": 1,
+        "region_participants": 0,
+        "deleted_total": 30,
+        "deleted_since": "2026-01-01",
+        "points": [{
+            "account": account_id[:8],
+            "latitude": -22.9, "longitude": -43.2,
+            "accuracy_m": None,
+            "collected_at": "2026-10-31T11:00:00Z",
+        }],
+    })
+    monkeypatch.setattr(admin, "supabase", geo_db)
     app.dependency_overrides[get_current_user_id] = lambda: admin_id
+
     result = client.get("/admin/location-points")
     assert result.status_code == 200
-    points = result.json()["points"]
-    assert len(points) == 1
-    assert points[0]["account"] == account_id[:8]
-    assert points[0]["latitude"] == -22.9
-    assert points[0]["longitude"] == -43.2
+    body = result.json()
+    assert body["customers_total"] == 1
+    assert body["gps_points_total"] == 1
+    assert body["region_participants"] == 0
+    assert body["deleted_total"] == 30
+    assert body["points"][0]["account"] == account_id[:8]
+    geo_db.rpc.assert_called_once_with("admin_client_geo_overview")
+
+    # O total zero é informação comercial válida (não é mascarado como —).
+    geo_db.rpc.return_value.execute.return_value.data.update({
+        "customers_total": 0, "gps_points_total": 0, "points": [],
+    })
+    zero = client.get("/admin/location-points")
+    assert zero.status_code == 200
+    assert zero.json()["customers_total"] == 0
+    assert zero.json()["deleted_total"] == 30
+    assert zero.json()["points"] == []
 
     app.dependency_overrides[get_current_user_id] = lambda: account_id
-    client.put("/profiles/location-sharing", json={"choice": "revoked"})
-    app.dependency_overrides[get_current_user_id] = lambda: admin_id
-    assert client.get("/admin/location-points").json()["points"] == []
+    assert client.get("/admin/location-points").status_code == 403
