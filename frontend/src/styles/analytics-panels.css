@@ -105,7 +105,7 @@
   border-radius: 50%;
   flex: 0 0 auto;
 }
-.analytics-dot-success,
+.analytics-dot-success { background: var(--brand-electric-cyan); }
 .analytics-legend-succeeded { background: var(--positive); }
 .analytics-dot-failure,
 .analytics-legend-failed { background: var(--negative); }
