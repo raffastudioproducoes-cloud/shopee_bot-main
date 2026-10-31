@@ -1,13 +1,17 @@
-## Correção de publicações interrompidas por deploy — 31/10/2026
+## Correção de publicações interrompidas por deploy — fechamento 31/10/2026
 
-- [x] Causa isolada por logs do Render e jobs do Supabase: Threads #23 e #27 iniciados no horário exato de troca de instância, worker saiu em 2s/4s; lease expirou e não retornou ID externo.
-- [x] Implementação na branch `fix/scheduler-deploy-safe-20261031`, PR [#127](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/127): drain durante SIGTERM, barreira durável pré-API, guarda de token da versão legada (migração 061), retomada somente pré-envio, deduplicação e testes mockados.
-- [x] CI Python/frontend do PR #127 aprovada com testes de reinicialização; workflow final do PR #127 e CI da staging `41242311639` verdes.\n- [ ] Validar PR complementar de compatibilidade com worker legado e staging atualizada.
-- [x] Merge inicial e Render staging `e976449` `live` (`dep-dbj5icm417fc73aj8sqg`), migração 060 aplicada, CI/smoke HTTP/ZAP aprovados.\n- [ ] Revalidar staging após a guarda 061 antes de liberar main.
-- [ ] PR staging→main, CI, Render produção `live` e verificação sem regressões.
-- [ ] Publicação real Threads com destino de teste e autorização específica, caso a validação externa seja necessária. **Não** usar os posts antigos `unknown` como reenvio automático.
+- [x] **Causa confirmada:** Threads #23 e #27 iniciados durante deploys Render; workers antigos encerrados 2s/4s depois. Supabase registrou lease expirado, sem ID externo.
+- [x] **Proteção do encerramento:** `PublishingGeventWorker` recebe SIGTERM, impede novos disparos e aguarda jobs em voo dentro do limite do Render. PR [#127](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/127).
+- [x] **Recuperação segura e prevenção de duplicação:** migrações aditivas 060/061, `external_started_at` antes do primeiro POST/upload, `preflight_claim_token` ligado ao lease da versão nova e `idempotency_key`. Retoma somente pré-envio; `unknown` permanece sem retry. PR [#128](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/128).
+- [x] **Testes de reinício e concorrência:** novos testes mockados de SIGTERM, claim perdido, fronteira de envio, worker legado, status incerto e recovery. CI final de staging [41242800604](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41242800604) e CI PR main [41242969664](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41242969664) aprovados.
+- [x] **Staging:** commit `20fc710`, deploy `dep-dbj5l8mq1p3s73ae5feg` live; smoke HTTP [41242800586](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41242800586) e ZAP passivo [41242800631](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41242800631) aprovados. Migrações 060/061 confirmadas no Supabase compartilhado.
+- [x] **Produção:** PR [#129](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/129), `main` `86a23ff`, deploy `dep-dbj5mvlg1s2s73fl9110` live, CI [41243084679](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41243084679) aprovado; `/health` e `/api/health/ready` HTTP 200. Comparação entre branches retornou `files=[]`.
+- [x] **Preservação dos dados:** os dois jobs antigos permanecem `unknown`; nenhuma publicação real ou alteração de credenciais feita neste lote.
+- [ ] **Validação externa real:** confirmar uma publicação de teste autorizada no Threads e reconciliação, sem usar os dois posts antigos. Testes mockados não garantem resposta do provedor sob queda de rede.
+- [ ] **Limite estrutural conhecido:** Render Free pode suspender o processo por inatividade e o SIGKILL após o prazo de shutdown não é evitável pela aplicação. Reavaliar opção gratuita de acionamento confiável antes de prometer entrega 24/7 sem tráfego.
 
-\n# TASK — Shopee Auto Vendas
+
+# TASK — Shopee Auto Vendas
 
 ## Analise de redes — fase 1 em staging (2026-10-21)
 
