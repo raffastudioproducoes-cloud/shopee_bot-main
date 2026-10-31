@@ -41,6 +41,7 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
     refetchInterval: 60_000,
     retry: 1,
   })
+  const {data:locationData} = useQuery({queryKey:['admin','location-points'],queryFn:adminMetricsApi.getLocationPoints,refetchInterval:60000,retry:1})
   const ownRegion = ownRegionResult?.region && places[ownRegionResult.region] ? ownRegionResult.region : null
   const id = useId().replace(/:/g, '')
   const [demo, setDemo] = useState(false)
@@ -156,6 +157,7 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
               {states.map(([state], index) => row[state] > 0 && <circle key={state} cx={point.x + (index - 1) * 10} cy={point.y} r={Math.min(7, 2.5 + Math.log10(row[state] + 1))} className={`admin-globe-light is-${state}`} />)}
               {zoom > 1.3 && selected === row.region && <text x={point.x} y={point.y - 17} textAnchor="middle">{place.name}</text>}
             </g> })}
+            {!demo && (locationData?.points ?? []).map(point => { const projected = projection(point.longitude,point.latitude); return projected.visible ? <g key={point.account} className="admin-globe-own-point"><title>{`Conta ${point.account} · posição aproximada autorizada`}</title><circle cx={projected.x} cy={projected.y} r={8} className="admin-globe-own-halo" /><circle cx={projected.x} cy={projected.y} r={4} className="admin-globe-own-core" /></g> : null })}
             {!demo && ownRegion && (() => {
               const point = projection(places[ownRegion].longitude, places[ownRegion].latitude)
               return point.visible ? <g role="button" tabIndex={0} aria-label={`Minha região cadastrada: ${places[ownRegion].name}. Exibir região.`} className="admin-globe-own-point" onPointerDown={event => event.stopPropagation()} onClick={() => focus(ownRegion)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); focus(ownRegion) } }}>
@@ -178,7 +180,7 @@ export function LocationGlobe({ data }: { data: AdminMetrics }) {
         <p>Contas nas regiões agregadas: {hasData ? ((selectedRegion ?? totals).online + (selectedRegion ?? totals).offline).toLocaleString('pt-BR') : '—'}. Sua região privada não entra nesses números; excluídas são um agregado histórico separado.</p>
         {regions.length > 0 && <div className="admin-globe-regions" aria-label="Regiões disponíveis">{regions.map(row => <button type="button" key={row.region} aria-pressed={selected === row.region} onClick={() => focus(row.region)}><span>{places[row.region].name}</span><strong>{(row.online + row.offline).toLocaleString('pt-BR')}</strong></button>)}</div>}
         {source.length > mapped.length && <p>Há regiões sem representação cartográfica nesta versão.</p>}
-        <p className="admin-globe-privacy">Os pontos de clientes representam grupos de pelo menos três contas. O marcador separado Minha região mostra apenas a informação que a própria conta administrativa autorizou. Luz acesa: atividade recente; apagada: sem atividade recente, não confirmação de logout. Vermelha: exclusões agregadas. Não há endereço, coordenadas de GPS ou IP neste mapa.</p>
+        <p className="admin-globe-privacy">Os pontos de clientes representam grupos de pelo menos três contas. O marcador separado Minha região mostra apenas a informação que a própria conta administrativa autorizou. Luz acesa: atividade recente; apagada: sem atividade recente, não confirmação de logout. Vermelha: exclusões agregadas. As posições aproximadas só são exibidas com autorização do titular; não são exibidos endereços ou IPs.</p>
       </div>
     </div>
     <details className="admin-globe-method"><summary>Como os pontos serão contabilizados</summary><p>Localização aproximada declarada ou fonte autorizada, agregada por país/UF. Presença requer sinal recente com expiração; logout e exclusão precisam de eventos próprios. Contas sem região conhecida ficam fora dos pontos. Histórico de exclusões preserva apenas contagens por região e período. Dados reais são obtidos exclusivamente de regiões informadas voluntariamente, com mínimo de três participantes por região.</p><p>Base cartográfica: <a href="https://www.naturalearthdata.com/about/terms-of-use/" target="_blank" rel="noreferrer">Natural Earth · domínio público</a>.</p></details>
