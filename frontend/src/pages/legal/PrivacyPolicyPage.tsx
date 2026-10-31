@@ -13,7 +13,7 @@ import { LegalLayout } from './LegalLayout'
 
 export function PrivacyPolicyPage() {
   return (
-    <LegalLayout title="Política de Privacidade" updatedAt="13 de outubro de 2026">
+    <LegalLayout title="Política de Privacidade" updatedAt="30 de outubro de 2026">
       <h2>1. Quem somos</h2>
       <p>
         O Auto Orbital é um painel de automação que ajuda o usuário a publicar conteúdo em
@@ -90,6 +90,10 @@ export function PrivacyPolicyPage() {
         nem transações financeiras diretamente.
       </p>
 
+      <h2>2.1 Dados técnicos do dispositivo e GPS opcional</h2>
+      <p>Ao acessar o site por computador, tablet ou celular, a infraestrutura pode tratar endereço IP, cabeçalhos HTTP, informações técnicas do navegador, caminhos acessados e duração das respostas para operação e segurança. O registro da aplicação depende da configuração de auditoria; o provedor de hospedagem também pode manter logs próprios. Consulte a lista <a href="/dados-coletados">Quais dados utilizamos?</a>.</p>
+      <p>O GPS é <strong>inteiramente opcional</strong>. O aceite dos Termos não autoriza localização. Caso o titular habilite a preferência e clique em solicitar a região, o navegador apresenta sua própria permissão. A posição é processada apenas naquele momento no dispositivo para sugerir país/UF, sem envio de latitude ou longitude ao Auto Orbital. A região só é salva após confirmação e consentimento separados. Não há rastreamento em segundo plano, histórico de trajetos ou uso da localização para publicidade. É possível negar, corrigir e revogar em Perfis.</p>
+      <p>As estatísticas do mapa mostram apenas regiões com pelo menos três contas voluntárias; grupos menores ficam ocultos. A escolha de origem de aquisição também é voluntária e revogável. O cadastro básico funciona sem GPS.</p>
       <h2>3. Base legal (LGPD)</h2>
       <p>O tratamento desses dados se apoia nas seguintes bases legais do art. 7º da LGPD:</p>
       <ul>
@@ -101,6 +105,9 @@ export function PrivacyPolicyPage() {
           <strong>Consentimento do titular (inciso I):</strong> para a conexão de cada rede social
           e para a credencial da Shopee — nada é conectado sem uma ação explícita do usuário
           autorizando aquele escopo específico (fluxo OAuth) ou colando aquela credencial.
+        </li>
+        <li>
+          <strong>Consentimento específico e opcional (inciso I):</strong> para preferências de geolocalização e declaração de região, com revogação independente dos Termos.
         </li>
         <li>
           <strong>Legítimo interesse do controlador (inciso IX):</strong> para os logs de
@@ -189,6 +196,9 @@ export function PrivacyPolicyPage() {
       </ul>
       <p>Essas solicitações podem ser feitas pelo canal de contato indicado abaixo.</p>
 
+      <h2>7.1 Consentimentos e transparência</h2>
+      <p>Registramos a versão e a data de aceitação dos Termos no cadastro, separadamente da preferência GPS. A permissão do navegador pode ser negada ou retirada nos ajustes do próprio dispositivo. A preferência GPS e a região declarada podem ser apagadas em Perfis. A revogação não prejudica a licitude de tratamentos anteriores.</p>
+      <p>A finalidade da localização voluntária é exclusivamente produzir estatísticas regionais agregadas. Para acessar, corrigir, solicitar cópia ou eliminar dados, utilize os controles da conta ou o contato informado nesta Política.</p>
       <h2>8. Cookies</h2>
       <p>
         O Auto Orbital utiliza apenas o essencial de cookies para autenticação: o cookie{' '}
