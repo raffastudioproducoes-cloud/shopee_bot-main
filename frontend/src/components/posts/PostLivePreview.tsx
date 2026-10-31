@@ -78,10 +78,6 @@ export function PostLivePreview({
     return () => urls.forEach((item) => URL.revokeObjectURL(item.url))
   }, [files])
 
-  useEffect(() => {
-    if (networks.length && !networks.includes(network as PostNetwork)) setNetwork(networks[0])
-  }, [networks, network])
-
   const productMedia: PreviewMedia[] = productPhotos.filter((p) => p.image).map((p) => ({
     key: "product-" + p.id, name: "shopee-" + p.id + ".jpg",
     url: p.image!, kind: "image",
