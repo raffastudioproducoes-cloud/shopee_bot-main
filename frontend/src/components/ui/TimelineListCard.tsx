@@ -57,8 +57,9 @@ export function TimelineListCard({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <Panel surface="dark" style={{ padding: 0, ...style }}>
+    <Panel surface="dark" className="timeline-list-card" style={{ padding: 0, ...style }}>
       <div
+        className="timeline-card-heading"
         onClick={() => setOpen((v) => !v)}
         role="button"
         aria-expanded={open}
@@ -129,6 +130,7 @@ export function TimelineListCard({
 
           {stats.length > 0 ? (
             <div
+              className="timeline-card-stats"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
@@ -156,6 +158,7 @@ export function TimelineListCard({
             {sections.map((section, i) => (
               <div
                 key={i}
+                className="timeline-card-section"
                 style={{
                   position: "relative",
                   display: "flex",
