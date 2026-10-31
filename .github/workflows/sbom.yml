@@ -19,7 +19,7 @@ on:
     - cron: '20 9 * * 1'
 
 permissions:
-  contents: read
+  contents: write # somente SBOM em branch sbom-archive; não toca main/staging
 
 concurrency:
   group: sbom-${{ github.ref }}
@@ -47,7 +47,7 @@ jobs:
           format: cyclonedx-json
           artifact-name: "auto-orbital-${{ github.ref_name }}-${{ github.sha }}.cdx.json"
           output-file: "./auto-orbital.cdx.json"
-          upload-artifact: true
+          upload-artifact: false
           upload-release-assets: false
 
       - name: Confirmar saída do inventário e identificador do commit
@@ -61,3 +61,25 @@ jobs:
           assert doc["components"], "SBOM sem componentes"
           print("SBOM válido:", len(doc["components"]), "componentes; commit", os.environ["GITHUB_SHA"])
           PY
+
+      - name: Guardar SBOM na branch dedicada (sem disparar deploy)
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$SOURCE_BRANCH" in main|staging) ;; *) echo "Branch inesperada" >&2; exit 1 ;; esac
+          cp auto-orbital.cdx.json /tmp/auto-orbital.cdx.json
+          git fetch origin sbom-archive
+          git switch -C sbom-archive origin/sbom-archive
+          mkdir -p inventory
+          cp /tmp/auto-orbital.cdx.json "inventory/${SOURCE_BRANCH}.cdx.json"
+          printf 'source_sha=%s\nsource_branch=%s\nworkflow_run=%s\n' \
+            "$SOURCE_SHA" "$SOURCE_BRANCH" "$GITHUB_RUN_ID" > "inventory/${SOURCE_BRANCH}.provenance.txt"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "inventory/${SOURCE_BRANCH}.cdx.json" "inventory/${SOURCE_BRANCH}.provenance.txt"
+          if ! git diff --cached --quiet; then
+            git commit -m "sbom: ${SOURCE_BRANCH} ${SOURCE_SHA}"
+            git push origin HEAD:sbom-archive
+          fi

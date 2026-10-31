@@ -4,10 +4,10 @@ Atualização: 31/10/2026. Fonte de verdade: `.github/workflows/sbom.yml`.
 
 ## O que foi automatizado
 
-O workflow `SBOM - imagem Docker (CycloneDX)` constrói uma imagem local a partir do `Dockerfile` e do commit atual, sem passar segredos ao build, e gera um inventário **CycloneDX JSON** com Syft. O resultado é armazenado nos **Artifacts do GitHub Actions**, identificado por branch e SHA.
+O workflow `SBOM - imagem Docker (CycloneDX)` constrói uma imagem local a partir do `Dockerfile` e do commit atual, sem passar segredos ao build, e gera um inventário **CycloneDX JSON** com Syft. O resultado é versionado em **sbom-archive/inventory/main.cdx.json** ou **staging.cdx.json**, acompanhado por arquivo de proveniência com o SHA e a execução. A branch de inventário não dispara deploy. A primeira tentativa de upload no Actions em 31/10 falhou porque a cota de Artifacts estava esgotada; a geração do inventário Syft havia sido concluída.
 
 - Disparos: push de dependências/Dockerfile/workflow para `main` ou `staging`, execução manual e agenda semanal.
-- Abrir GitHub → Actions → SBOM - imagem Docker → execução → Artifacts.
+- Abrir GitHub → branch **sbom-archive** → pasta **inventory**; verificar arquivo `.cdx.json` e `.provenance.txt`. Conferir também o log do workflow.
 - Identificar a branch, o commit SHA e verificar a presença de componentes do SO, Python e frontend.
 - Evitar publicar relatórios com conteúdo sensível: a imagem é criada sem secrets, mas os nomes de pacotes podem revelar a tecnologia em uso.
 
@@ -15,7 +15,7 @@ O workflow `SBOM - imagem Docker (CycloneDX)` constrói uma imagem local a parti
 
 ## Critérios de aceite
 
-- [ ] Primeiro workflow completo, artefato CycloneDX baixável e parseado; conferir imagem e dependências efetivas.
+- [ ] Primeiro workflow completo, SBOM CycloneDX gravado na branch `sbom-archive` com proveniência e parse validado; conferir dependências efetivas.
 - [ ] Identificar digest da imagem efetiva de produção para associar a SBOM (se Render permitir).
 - [ ] Habilitar auditoria de CVEs de SO/Python/Node sobre o inventário e triagem com evidências, sem prometer ausência de vulnerabilidades.
 - [ ] Separar ambiente `staging` de dados reais de produção antes de testes destrutivos.

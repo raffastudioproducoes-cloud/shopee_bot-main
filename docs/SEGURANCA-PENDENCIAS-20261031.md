@@ -35,3 +35,7 @@ Documentos históricos de 17 e 20/10 descrevem um escopo anterior. Não reutiliz
 - Vault: `Projetos/ShopeeAutoVendas/TASK.md`
 - https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy
 - https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys
+
+## Armazenamento de SBOM — intercorrência 31/10
+
+O primeiro run `41226557115` gerou SBOM com Syft, porém o upload falhou por cota de GitHub Actions Artifacts esgotada. A estratégia foi alterada para escrever exclusivamente na branch `sbom-archive` (sem deploy), com proveniência SHA/branch. Marcar concluído apenas após execução e verificação de JSON no arquivo da branch.
