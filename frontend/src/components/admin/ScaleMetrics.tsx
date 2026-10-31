@@ -1,4 +1,5 @@
-import type { AdminMetrics } from '../../api/adminMetrics'
+import { useQuery } from '@tanstack/react-query'
+import { adminMetricsApi, type AdminMetrics } from '../../api/adminMetrics'
 import { Panel } from '../ui/Panel'
 import { MetricTrend } from './MetricTrend'
 import { CardTags } from './CardTags'
@@ -15,6 +16,13 @@ function Gauge({ label, percent, timestamp }: { label: string; percent: number |
 }
 
 export function ScaleMetrics({ data }: { data: AdminMetrics }) {
+  const { data: queue, isLoading: queueLoading, error: queueError } = useQuery({
+    queryKey: ['admin', 'queue-health'],
+    queryFn: adminMetricsApi.getQueueHealth,
+    refetchInterval: 60_000,
+    retry: 1,
+  })
+  const queueCounts = queue?.status === 'available' ? queue.counts : null
   const metrics = data.scale
   const db = metrics?.database
   const operations = metrics?.operations
@@ -40,6 +48,36 @@ export function ScaleMetrics({ data }: { data: AdminMetrics }) {
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'logs', 'performance']} /><h3>Saúde da aplicação</h3><dl><div><dt>Latência p99</dt><dd>{value(metrics?.p99_latency_ms, ' ms')}</dd></div><div><dt>Erros de servidor · 5xx</dt><dd>{value(metrics?.server_errors)}</dd></div><div><dt>Respostas 429 · aplicação</dt><dd>{value(metrics?.rate_limited_requests)}</dd></div><div><dt>Respostas com erro / total</dt><dd>{value(data.counts?.requests ? data.counts.errors / data.counts.requests * 100 : null, '%')}</dd></div></dl><p>Logs disponíveis no período. Não equivale a disponibilidade nem a erros dos provedores.</p></Panel>
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'database', 'capacity']} /><h3>Banco · pressão e espaço</h3><dl><div><dt>Conexões bloqueadas agora</dt><dd>{value(db?.blocked_connections)}</dd></div><div><dt>Transação aberta mais antiga</dt><dd>{value(db?.oldest_transaction_seconds, ' s')}</dd></div></dl>{db?.tables.length ? <details><summary>Tamanho por tabela e índices</summary><div className="admin-metric-table"><table><thead><tr><th>Tabela</th><th>Dados · MiB</th><th>Índices · MiB</th></tr></thead><tbody>{db.tables.map(table => <tr key={table.name}><td>{table.name}</td><td>{value(table.table_bytes / 1048576)}</td><td>{value(table.index_bytes / 1048576)}</td></tr>)}</tbody></table></div></details> : <p>Tamanho por tabela indisponível nesta coleta.</p>}<p>Snapshot das sessões visíveis ao coletor. Histórico diário de crescimento ativo; ocupação do pool, cota de disco e consultas mais caras ainda sem coleta.</p></Panel>
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'scheduler', 'publishing']} /><h3>Publicações e agendamentos</h3><dl><div><dt>Agendamentos cadastrados</dt><dd>{value(operations?.scheduled)}</dd></div><div><dt>Eventos de sucesso / falha</dt><dd>{value(operations?.published_events)} / {value(operations?.failed_events)}</dd></div><div><dt>Contas que publicaram no período</dt><dd>{value(operations?.publishing_accounts)}</dd></div></dl><p>Eventos preservados, não posts únicos. Agendamentos incluem recorrências e não representam fila pendente. Duração, tentativas e idade da fila ainda sem instrumentação.</p></Panel>
+      <Panel surface="dark" className="admin-metric-card">
+        <CardTags tags={['supabase', 'scheduler', 'diagnosis']} />
+        <h3>Saúde da fila de publicações</h3>
+        {queueCounts ? <>
+          <dl>
+            <div><dt>Aguardando execução</dt><dd>{value(queueCounts.pending)}</dd></div>
+            <div><dt>Em execução</dt><dd>{value(queueCounts.running)}</dd></div>
+            <div><dt>Concluídas</dt><dd>{value(queueCounts.succeeded)}</dd></div>
+            <div><dt>Confirmadas manualmente</dt><dd>{value(queueCounts.manually_confirmed)}</dd></div>
+            <div><dt>Falhas registradas</dt><dd>{value(queueCounts.failed)}</dd></div>
+            <div><dt>Sem confirmação</dt><dd>{value(queueCounts.unknown)}</dd></div>
+            <div><dt>Execuções com mais de uma tentativa</dt><dd>{value(queueCounts.multiple_attempts)}</dd></div>
+          </dl>
+          {queueCounts.unknown > 0 && <p role="status" className="admin-data-notice">
+            Atenção: {queueCounts.unknown} {queueCounts.unknown === 1 ? 'publicação precisa' : 'publicações precisam'} de conferência
+            {queue?.oldest_unknown_minutes != null ? ` (mais antiga há ${value(queue.oldest_unknown_minutes)} min)` : ''}.
+            Não reenvie sem verificar o resultado na rede.
+          </p>}
+          {queueCounts.running > 0 && queue?.oldest_running_minutes != null &&
+            <p>Execução ativa mais antiga: {value(queue.oldest_running_minutes)} min.</p>}
+          <p>Total registrado desde o início da fila: {value(queueCounts.total)} execuções, não posts únicos.
+            Os contadores não são limitados pelo filtro de período acima. Estados sem confirmação não significam falha.</p>
+          <p><a href="/posts">Ver postagens e conciliar resultados incertos</a></p>
+        </> : <p role="status">
+          {queueLoading ? 'Consultando a fila...' :
+            queueError || queue?.status === 'unavailable'
+              ? 'Não foi possível consultar a fila. O estado é desconhecido; não significa zero execuções.'
+              : 'Dados da fila ainda não disponíveis.'}
+        </p>}
+      </Panel>
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'clients', 'retention']} /><h3>Clientes · retorno semanal</h3><dl><div><dt>Ativos nos últimos 7 dias</dt><dd>{value(engagement?.active_week)}</dd></div><div><dt>Ativos nos 7 dias anteriores</dt><dd>{value(engagement?.previous_week)}</dd></div><div><dt>Presentes em ambas as semanas</dt><dd>{value(engagement?.returning_week)}</dd></div><div><dt>Retorno sobre semana anterior</dt><dd>{value(engagement?.previous_week ? engagement.returning_week / engagement.previous_week * 100 : null, '%')}</dd></div></dl><p>Requisições autenticadas bem-sucedidas de contas existentes. Janela fixa de 14 dias; não mede tempo ativo nem retenção por coorte de cadastro.</p></Panel>
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'plans', 'consumption']} /><h3>Consumo por plano</h3>{metrics?.consumption?.length ? <div className="admin-metric-table"><table><thead><tr><th>Plano atual</th><th>Requisições</th><th>Duração acumulada · s</th></tr></thead><tbody>{metrics.consumption.map(row => <tr key={row.plan}><td>{row.plan === 'unknown' ? 'Sem plano' : row.plan}</td><td>{value(row.requests)}</td><td>{value(row.request_duration_ms / 1000)}</td></tr>)}</tbody></table></div> : <p>Consumo por plano indisponível nesta coleta.</p>}<p>Contas existentes com requisições identificadas; usa o plano atual. Duração inclui espera e não representa CPU nem custo. Custo por cliente e publicação exige faturamento e atribuição de consumo.</p></Panel>
       <Panel surface="dark" className="admin-metric-card">
