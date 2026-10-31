@@ -68,3 +68,46 @@ def test_my_region_empty_without_opt_in(monkeypatch):
         assert response.json() == {"region": None}
     finally:
         app.dependency_overrides.clear()
+
+
+def test_my_location_returns_only_the_own_accepted_gps(monkeypatch):
+    _auth(monkeypatch)
+    location_db = MagicMock()
+    location_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(
+        data=[{"latitude": -22.91, "longitude": -43.19, "collected_at": "2026-10-31T09:00:00Z"}]
+    )
+    monkeypatch.setattr(admin, "supabase", location_db)
+    try:
+        response = TestClient(app).get("/admin/my-location")
+        assert response.status_code == 200
+        assert response.json() == {"point": {
+            "latitude": -22.91, "longitude": -43.19, "collected_at": "2026-10-31T09:00:00Z"
+        }}
+        location_db.table.assert_called_once_with("account_location_sharing")
+        location_db.table.return_value.select.assert_called_once_with(
+            "latitude,longitude,collected_at"
+        )
+        first = location_db.table.return_value.select.return_value.eq
+        first.assert_called_once_with("user_id", "owner-uuid")
+        first.return_value.eq.assert_called_once_with("choice", "accepted")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_my_location_no_consent_and_access_control(monkeypatch):
+    _auth(monkeypatch)
+    location_db = MagicMock()
+    location_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[])
+    monkeypatch.setattr(admin, "supabase", location_db)
+    try:
+        response = TestClient(app).get("/admin/my-location")
+        assert response.status_code == 200
+        assert response.json() == {"point": None}
+    finally:
+        app.dependency_overrides.clear()
+
+    _auth(monkeypatch, role="USER")
+    try:
+        assert TestClient(app).get("/admin/my-location").status_code == 403
+    finally:
+        app.dependency_overrides.clear()
