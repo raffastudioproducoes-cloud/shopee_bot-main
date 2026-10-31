@@ -470,15 +470,22 @@ Status: não iniciado.
 
 ## 31/10/2026 — Reenvio consciente de posts Threads sem confirmação
 
-- [ ] Permitir no modal de conciliação "não foi publicado" com aviso explícito
-  de possível duplicação e checkbox de consentimento; preservar design system.
-- [ ] Validar `retry-unknown` no backend (owner/profile, estado `unknown`,
-  origem exata e rede Threads) e atomicidade do RPC `enqueue_manual_post_retry`
-  com a migração 062; sem reaproveitar job original ou auto-retry inseguro.
-- [ ] Testes de sucesso, falha, concorrência, ownership e tipos inválidos
-  aprovados no CI; deploy de staging live e smoke antes de promover à main.
-- [ ] Promover à main, verificar os dois Render live, atualizar guia mestre e
-  documentos equivalentes no Vault.
-- [ ] Validar uma postagem externa manual somente quando o titular confirmar
-  que ela não existe na rede e clicar ele próprio em "Reenviar"; jamais usar os
-  dois posts incertos como teste destrutivo.
+- [x] **Modal:** opção de post não encontrado no Threads, aviso de duplicação,
+  confirmação explícita, estado "Reenvio na fila" e design system preservado.
+  Testado no build React de PR #132, CI `41244475449`.
+- [x] **Backend/fila:** `POST /posts/{id}/retry-unknown` valida dono, perfil,
+  rede, mídia, ocorrência exata e concordância; RPC transacional migração 062
+  enfileira tentativa única e mantém o `unknown` antigo. Testes Python aprovados.
+- [x] **Supabase:** função `SECURITY INVOKER`, EXECUTE de `service_role`
+  habilitado e anon/authenticated negados; chamada com IDs inexistentes devolveu
+  NULL sem escrever. Dois unknown originais e zero reenvios manuais permanecem.
+- [x] **Homologação:** PR #132, staging `b3492d3`, deploy
+  `dep-dbj60civcj2c73elnv90` live, CI `41244645656` e
+  smoke/ZAP `41244645690`/`41244645736` success;
+  `/health` e `/api/health/ready` HTTP 200.
+- [x] **Promoção:** PR #133 integrado à main `39026ad`; Render
+  `dep-dbj62cu417fc73ajp880` live; `/health` e
+  `/api/health/ready` HTTP 200 nos dois ambientes;
+  branches sem diferenças de arquivos. CI main `41244974927` aprovado.
+- [ ] **Validação real opcional:** reenvio externo somente se o titular verificar
+  pessoalmente a ausência e acionar o botão; nenhuma publicação feita em teste.
