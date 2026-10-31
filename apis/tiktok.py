@@ -341,8 +341,8 @@ def _wait_publish_complete(user_access_token, publish_id, timeout_s=120):
 def post_video(user_access_token, video_path, text, privacy_level="SELF_ONLY"):
     """Publica um vídeo no TikTok via Content Posting API (Direct Post).
 
-    `video_path` precisa ser um arquivo local (ex.: já baixado do
-    Cloudinary, igual o resto do projeto faz antes de publicar).
+    `video_path` precisa ser um arquivo local temporário preparado pelo
+    chamador; a origem persistente de mídias é o Supabase Storage.
     `privacy_level` default é SELF_ONLY porque contas sem aprovação de
     parceiro da TikTok só conseguem publicar assim — ver bloqueio no
     topo do módulo. Trocar pra PUBLIC_TO_EVERYONE só depois que o app
