@@ -401,22 +401,6 @@ export function PostsPage() {
                   >
                     {post.text}
                   </p>
-                  {post.text.length > 60 && (
-                    <button type="button" className="post-list-read-more"
-                      aria-controls={`post-text-${post.id}`}
-                      aria-expanded={expandedPosts.has(post.id)}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setExpandedPosts((current) => {
-                          const next = new Set(current)
-                          if (next.has(post.id)) next.delete(post.id)
-                          else next.add(post.id)
-                          return next
-                        })
-                      }}>
-                      {expandedPosts.has(post.id) ? "Mostrar menos" : "Ler texto completo"}
-                    </button>
-                  )}
                   {post.products.length > 0 && (
                     <div className="post-list-products" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                       {post.products.map((p) => (
@@ -501,6 +485,22 @@ export function PostsPage() {
                   )}
                 </div>
                 <div className="post-list-actions" style={{ display: "flex", alignItems: "center", gap: 4, flex: "0 0 auto" }}>
+                  {post.text.length > 60 && (
+                    <button type="button" className="post-list-read-more"
+                      aria-controls={`post-text-${post.id}`}
+                      aria-expanded={expandedPosts.has(post.id)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setExpandedPosts((current) => {
+                          const next = new Set(current)
+                          if (next.has(post.id)) next.delete(post.id)
+                          else next.add(post.id)
+                          return next
+                        })
+                      }}>
+                      {expandedPosts.has(post.id) ? "Mostrar menos" : "Ler texto completo"}
+                    </button>
+                  )}
                   {post.last_result?.status === "unknown" && post.network === "threads" && (
                     <Button variant="ghost" size="sm" icon="shield-check" onClick={(e) => {
                       e.stopPropagation()
