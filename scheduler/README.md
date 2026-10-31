@@ -49,7 +49,7 @@ quem interrompe é a troca da instância na etapa de deploy.
    scheduler aguardando os trabalhos ativos. O timeout de shutdown do Render
    ainda é limite rígido: SIGKILL não é recuperável no processo.
 
-A migração aditiva `060_track_external_publish_start.sql` marca como
+As migrações aditivas `060_track_external_publish_start.sql` e\n`061_guard_legacy_publish_leases.sql` registram a barreira e distinguem\nclaims da versão antiga da produção. A migração 060 marca como
 potencialmente externos todos os jobs `running` de versões antigas, evitando
 republicação após o upgrade. Não modificar a coluna para NULL em produção.
 

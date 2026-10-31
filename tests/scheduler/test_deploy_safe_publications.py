@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_migration_marks_old_running_as_uncertain():
     sql = (ROOT / "database/migrations/060_track_external_publish_start.sql").read_text()
     assert "ADD COLUMN IF NOT EXISTS external_started_at" in sql
+    compatibility = (ROOT / "database/migrations/061_guard_legacy_publish_leases.sql").read_text()
+    assert "ADD COLUMN IF NOT EXISTS preflight_claim_token UUID" in compatibility
     assert "WHERE status = 'running' AND external_started_at IS NULL" in sql
 
 
@@ -36,7 +38,7 @@ def test_expired_job_is_retried_only_before_external_call(monkeypatch):
     monkeypatch.setattr(publish_jobs, "query_db", query)
     result = publish_jobs.expire_running(600)
     assert [row["status"] for row in result] == ["pending", "unknown"]
-    assert "when external_started_at is not null then 'unknown'" in seen["sql"]
+    assert "preflight_claim_token is distinct from claim_token" in seen["sql"]
     assert "else 'pending'" in seen["sql"]
     assert "attempt >= %s then 'failed'" in seen["sql"]
     assert seen["params"][-1] == 600
@@ -53,8 +55,8 @@ def test_only_claim_owner_can_cross_external_boundary(monkeypatch):
         lambda sql, args, one=False: seen.update(sql=sql, args=args) or {"id": "q1"},
     )
     assert publish_jobs.mark_external_started("q1", "claim-a")
-    assert seen["args"] == ("q1", "claim-a")
-    assert "claim_token = %s" in seen["sql"]
+    assert seen["args"] == ("q1", "claim-a", "claim-a")
+    assert "preflight_claim_token = %s" in seen["sql"]
     assert "status = 'running'" in seen["sql"]
 
 
@@ -65,7 +67,7 @@ def test_preflight_requeue_is_conditional_on_no_external_call(monkeypatch):
         lambda sql, args, one=False: seen.update(sql=sql, args=args) or {"id": "q1"},
     )
     publish_jobs.requeue_if_safe("q1", "claim-a")
-    assert seen["args"] == ("q1", "claim-a")
+    assert seen["args"] == ("q1", "claim-a", "claim-a")
     assert "external_started_at IS NULL" in seen["sql"]
     assert "claim_token = %s" in seen["sql"]
 
@@ -181,3 +183,30 @@ def test_provider_publishers_mark_boundary_before_network_calls():
         source = (ROOT / "scheduler" / filename).read_text(encoding="utf-8")
         assert "mark_external_delivery()" in source
         assert "from shopee_bot.scheduler.publication_context import mark_external_delivery" in source
+
+
+def test_legacy_worker_cannot_be_misclassified_as_recoverable(monkeypatch):
+    """Claims criados pela main antiga não terão token de versão rastreada."""
+    seen = {}
+    monkeypatch.setattr(
+        publish_jobs, "query_db",
+        lambda sql, args: seen.update(sql=sql.lower(), args=args) or [],
+    )
+    publish_jobs.expire_running(600)
+    assert "preflight_claim_token is distinct from claim_token" in seen["sql"]
+    assert "when preflight_claim_token is distinct from claim_token" in seen["sql"]
+    assert "unknown" in seen["sql"]
+
+
+def test_new_worker_claim_binds_tracking_token_to_current_claim(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        publish_jobs, "query_db",
+        lambda sql, args, one=False: seen.update(sql=sql.lower()) or {
+            "id": "q1", "claim_token": "token-new"
+        },
+    )
+    publish_jobs.claim("q1", "worker-new", 600)
+    assert "preflight_claim_token = candidate.token" in seen["sql"]
+    assert "claim_token = candidate.token" in seen["sql"]
+    assert "external_started_at = null" in seen["sql"]

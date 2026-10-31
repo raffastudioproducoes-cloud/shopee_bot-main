@@ -375,17 +375,17 @@ dispara o deploy; o ciclo SIGTERM da instância causa a interrupção.
 **Nova camada (PR #127):** `scheduler/gunicorn_worker.py` envolve o ciclo
 de vida do worker gevent e drena o scheduler no fechamento; `scheduler/
 publication_context.py` é a barreira persistente antes da chamada mutável
-externa. A coluna `publish_jobs.external_started_at` (migração 060, aditiva)
+externa. As colunas `publish_jobs.external_started_at` e `preflight_claim_token` (migrações 060/061, aditivas)
 separa duas situações:
 
-- **Preparação local abandonada:** sem chamada externa iniciada → devolve a
+- **Preparação local abandonada:** sem chamada externa iniciada **e claim com token instrumentado** → devolve a
   `pending` somente após comparação atômica de claim/token; recuperação
   periódica segura, limitada a 5 expirações por ocorrência.
 - **Chamada externa possivelmente iniciada:** `external_started_at` gravada →
   estado `unknown` após perda do lease. Sem retry automático, pois APIs
   externas não garantem idempotência por chave do banco local.
 
-A troca de versões é compatível com o Supabase compartilhado entre staging/main:
+Um claim obtido pela versão antiga da produção não possui o token de rastreamento correspondente e permanece `unknown`, nunca é automaticamente reenviado. A troca de versões é compatível com o Supabase compartilhado entre staging/main:
 a migração faz backfill conservador dos `running` legados. A proteção não
 elimina toda incerteza se houver SIGKILL ou perda de resposta após a chamada
 remota; exige conciliação. Não são adicionados serviços pagos, buckets, tokens
