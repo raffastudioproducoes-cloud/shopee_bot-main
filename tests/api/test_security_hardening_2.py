@@ -51,6 +51,9 @@ def _fake_supabase(monkeypatch, tables: dict):
         return q
 
     fake.table.side_effect = table
+    fake.rpc.return_value.execute.return_value = MagicMock(data={
+        "allowed": True, "reservation_id": "22222222-2222-4222-8222-222222222222",
+    })
     monkeypatch.setattr(database_module, "get_supabase", lambda: fake)
     return fake
 

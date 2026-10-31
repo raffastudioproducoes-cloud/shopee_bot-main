@@ -122,6 +122,25 @@ class SupabaseMetrics(BaseModel):
     latency_ms: float | None = None
 
 
+class StorageBucket(BaseModel):
+    bucket: str
+    objects: int = Field(ge=0)
+    used_bytes: int = Field(ge=0)
+
+
+class StorageMetrics(BaseModel):
+    status: Status
+    diagnostic: Diagnostic | None = None
+    collected_at: datetime | None = None
+    used_bytes: int | None = Field(default=None, ge=0)
+    reserved_bytes: int | None = Field(default=None, ge=0)
+    quota_bytes: int | None = Field(default=None, gt=0)
+    warning_percent: int = Field(default=75, ge=0, le=100)
+    critical_percent: int = Field(default=85, ge=0, le=100)
+    block_percent: int = Field(default=90, ge=0, le=100)
+    buckets: list[StorageBucket] = Field(default_factory=list, max_length=20)
+
+
 class ResourceMetric(BaseModel):
     value: float = Field(ge=0, allow_inf_nan=False)
     unit: str
@@ -170,6 +189,7 @@ class AdminMetricsResponse(BaseModel):
     counts: Counts | None
     daily: list[DailyPoint]
     supabase: SupabaseMetrics
+    storage: StorageMetrics = Field(default_factory=lambda: StorageMetrics(status="unavailable"))
     render: RenderMetrics
     geography: GeographyMetrics = Field(default_factory=GeographyMetrics)
     unavailable: UnavailableMetrics
@@ -212,6 +232,30 @@ async def _database_snapshot(days: int) -> tuple[Snapshot | None, float, Diagnos
         diagnostic = _database_diagnostic(exc)
         logger.warning("Métricas Supabase indisponíveis (%s; %s)", diagnostic, _safe_error(exc))
         return None, (time.perf_counter() - started) * 1000, diagnostic
+
+
+async def _storage_snapshot() -> StorageMetrics:
+    """Metrica de armazenamento fisico, diferente de egress e bytes do banco."""
+    try:
+        result = await asyncio.wait_for(
+            run_in_threadpool(lambda: supabase.rpc("admin_storage_snapshot").execute()),
+            timeout=6,
+        )
+        if not isinstance(result.data, dict) or not all(
+            isinstance(result.data.get(name), int) and result.data[name] >= 0
+            for name in ("used_bytes", "reserved_bytes", "quota_bytes")
+        ) or not isinstance(result.data.get("buckets"), list):
+            raise ValueError("invalid_storage_snapshot")
+        usage = StorageMetrics.model_validate({
+            **result.data,
+            "status": "available",
+            "collected_at": datetime.now(timezone.utc),
+        })
+        return usage
+    except Exception as exc:
+        diagnostic = _database_diagnostic(exc)
+        logger.warning("Capacidade Storage indisponivel (%s; %s)", diagnostic, _safe_error(exc))
+        return StorageMetrics(status="unavailable", diagnostic=diagnostic)
 
 
 def parse_render_metric(payload: list[dict]) -> ResourceMetric | None:
@@ -308,8 +352,8 @@ async def collect_admin_metrics(days: int) -> AdminMetricsResponse:
             logger.warning("Agregação geográfica indisponível (%s)", type(exc).__name__)
             return GeographyMetrics()
 
-    (snapshot, latency, db_diagnostic), render, geography = await asyncio.gather(
-        _database_snapshot(days), _render_snapshot(), read_geography()
+    (snapshot, latency, db_diagnostic), render, geography, storage = await asyncio.gather(
+        _database_snapshot(days), _render_snapshot(), read_geography(), _storage_snapshot()
     )
     if snapshot and snapshot.scale:
         snapshot.scale.collected_at = datetime.now(timezone.utc)
@@ -320,6 +364,7 @@ async def collect_admin_metrics(days: int) -> AdminMetricsResponse:
         "Exclusões: eventos preservados na auditoria disponível, não histórico anterior à coleta.",
         "Planos Free/Plus/Premium correspondem ao perfil principal, sem confirmação de pagamento.",
         "Tamanho do banco não equivale a disco total, armazenamento de arquivos ou cota faturável.",
+        "Storage: arquivos e reservas da consulta pontual; egress mensal deve ser conferido no painel de Usage do Supabase.",
         "Comparação: período atual inclui hoje incompleto; anterior contém o mesmo número de dias completos.",
     ]
     if snapshot and not settings.request_logging_enabled:
@@ -338,7 +383,7 @@ async def collect_admin_metrics(days: int) -> AdminMetricsResponse:
     return AdminMetricsResponse(
         status=status, updated_at=datetime.now(timezone.utc), days=days,
         counts=snapshot.counts if snapshot else None, daily=snapshot.daily if snapshot else [],
-        supabase=supabase_metrics, render=render, geography=geography,
+        supabase=supabase_metrics, storage=storage, render=render, geography=geography,
         unavailable=UnavailableMetrics(), notes=notes,
         previous_period=snapshot.previous_period if snapshot else None,
         scale=snapshot.scale if snapshot else None,
