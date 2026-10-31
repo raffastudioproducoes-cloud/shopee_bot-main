@@ -122,8 +122,9 @@ class RegionPreference(BaseModel):
 
 @router.get("/gps-preference")
 async def get_gps_preference(user_id: str = Depends(get_current_user_id)):
-    result = supabase.table("users").select("gps_consented_at").eq("id", user_id).maybe_single().execute()
-    return {"enabled": bool(result.data and result.data.get("gps_consented_at"))}
+    result = supabase.table("users").select("gps_consented_at").eq("id", user_id).limit(1).execute()
+    account = (result.data or [None])[0]
+    return {"enabled": bool(account and account.get("gps_consented_at"))}
 
 
 class GpsConsent(BaseModel):
@@ -146,8 +147,17 @@ async def put_gps_preference(body: GpsConsent, user_id: str = Depends(get_curren
 
 @router.get("/region-preference")
 async def get_region_preference(user_id: str = Depends(get_current_user_id)):
-    result = supabase.table("account_region_preferences").select("region").eq("user_id", user_id).maybe_single().execute()
-    return {"region": result.data.get("region") if result.data else None, "consented": bool(result.data)}
+    # Uma preferência ainda não cadastrada deve retornar resposta vazia,
+    # não depender de .maybe_single() (pode lançar 406 com zero linhas).
+    result = (
+        supabase.table("account_region_preferences")
+        .select("region")
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    preference = (result.data or [None])[0]
+    return {"region": preference["region"] if preference else None, "consented": bool(preference)}
 
 
 @router.put("/region-preference")
@@ -173,8 +183,16 @@ class AcquisitionPreference(BaseModel):
 
 @router.get("/acquisition-source")
 async def get_acquisition_source(user_id: str = Depends(get_current_user_id)):
-    result = supabase.table("account_acquisition_sources").select("source").eq("user_id", user_id).maybe_single().execute()
-    return {"source": result.data.get("source") if result.data else None, "declared": bool(result.data)}
+    # Primeiro acesso: zero registros é normal e não pode bloquear o formulário.
+    result = (
+        supabase.table("account_acquisition_sources")
+        .select("source")
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    preference = (result.data or [None])[0]
+    return {"source": preference["source"] if preference else None, "declared": bool(preference)}
 
 
 @router.put("/acquisition-source")
