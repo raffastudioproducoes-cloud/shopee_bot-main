@@ -57,4 +57,5 @@ export interface AdminOperations {
   queries: null | { tracked_statements: number; slow_patterns: number; worst: { rank: number; calls: number; mean_ms: number; max_ms: number; total_ms: number }[] }
   uptime: null | { status: 'sampled' | 'no_samples'; ok: number; error: number; unanswered: number; latest: string | null; latest_at: string | null; recent: { at: string; status: 'ok' | 'error' | 'unanswered' }[] }
   costs: { status: 'estimate' | 'not_configured'; monthly_brl: number | null; daily_brl: number | null; note: string }
+  acquisition: { status: 'available' | 'unavailable'; source: 'self_reported' | null; minimum_group_size: number; declared_total: number; groups: { source: string; accounts: number }[] }
 }
