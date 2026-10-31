@@ -36,6 +36,7 @@ def spa_app(tmp_path, monkeypatch):
     dist_dir = tmp_path / "dist"
     (dist_dir / "videos").mkdir(parents=True)
     (dist_dir / "index.html").write_text("<html>spa index</html>")
+    (dist_dir / "sw.js").write_text("self.skipWaiting()")
     (dist_dir / "videos" / "teste.mp4").write_bytes(b"fake-mp4-bytes")
 
     monkeypatch.setattr(module, "_DIST_DIR", dist_dir)
@@ -65,3 +66,26 @@ def test_unknown_spa_route_still_falls_back_to_index(spa_app):
     assert res.status_code == 200
     assert b"spa index" in res.data
     assert res.content_type == "text/html; charset=utf-8"
+
+
+def test_spa_navigation_html_cannot_be_cached_after_deploy(spa_app):
+    client = spa_app.test_client()
+    for path in ("/", "/admin/overview", "/index.html"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert response.headers["Cache-Control"] == "no-store, no-cache, must-revalidate"
+        assert response.headers["Pragma"] == "no-cache"
+        assert response.headers["Expires"] == "0"
+
+
+def test_worker_script_cache_is_disabled(spa_app):
+    response = spa_app.test_client().get("/sw.js")
+    assert response.status_code == 200
+    assert response.data == b"self.skipWaiting()"
+    assert response.headers["Cache-Control"] == "no-store, no-cache, must-revalidate"
+
+
+def test_regular_static_media_does_not_receive_no_store(spa_app):
+    response = spa_app.test_client().get("/videos/teste.mp4")
+    assert response.status_code == 200
+    assert "no-store" not in response.headers.get("Cache-Control", "")
