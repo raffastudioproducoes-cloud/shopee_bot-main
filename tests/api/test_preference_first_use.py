@@ -33,13 +33,9 @@ def _client(monkeypatch, data):
     ("/profiles/region-preference", {"region": None, "consented": False}),
     ("/profiles/acquisition-source", {"source": None, "declared": False}),
     ("/profiles/gps-preference", {"enabled": False}),
-    ("/admin/my-region", {"region": None}),
 ])
 def test_unset_preference_is_normal_not_error(monkeypatch, path, expected):
     client, db, query = _client(monkeypatch, [])
-    if path.startswith("/admin/"):
-        # Admin has a separate role check; this test covers user routes only.
-        return
     response = client.get(path)
     assert response.status_code == 200
     assert response.json() == expected
