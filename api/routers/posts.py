@@ -1407,19 +1407,19 @@ async def import_product_image_draft(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Import a previously registered product photo into private Supabase Storage.
+    """Import a catalog product photo into the active profile's private storage.
 
-    The product must belong to the authenticated account and active profile.
-    No general URL fetch endpoint is exposed; videos require manual uploads.
+    Products belong to the account (user_id), while media drafts remain scoped
+    to user_id + profile_id. No arbitrary URL fetch or video import is allowed.
     """
     profile_id = _require_profile_id(profile_id)
-    product = scope_owner(
+    product = scope_account(
         supabase.table("products").select("id,image").eq("id", product_id),
-        user_id, profile_id,
+        user_id,
     ).maybe_single().execute()
     row = product.data if product else None
     if not row:
-        raise HTTPException(status_code=404, detail="Produto não encontrado no perfil.")
+        raise HTTPException(status_code=404, detail="Produto não encontrado nesta conta.")
     if not row.get("image"):
         raise HTTPException(status_code=400, detail="O produto não possui foto cadastrada.")
     content = await _download_shopee_image(row["image"])
