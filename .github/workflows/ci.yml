@@ -26,8 +26,9 @@ jobs:
           if command -v ffmpeg >/dev/null 2>&1; then
             ffmpeg -version
           else
-            sudo apt-get update -o Acquire::Retries=2 -o Acquire::http::Timeout=20
-            sudo apt-get install -y --no-install-recommends ffmpeg
+            # O apt-get update pode travar no Ubuntu 24.04 do GitHub Actions.
+            # O índice padrão do runner normalmente já contém o pacote.
+            timeout 120s sudo apt-get install -y --no-install-recommends ffmpeg
           fi
 
       - uses: actions/setup-python@v5
