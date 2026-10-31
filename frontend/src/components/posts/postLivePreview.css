@@ -10,7 +10,7 @@
 .post-preview-heading strong{font:var(--text-role-body);color:var(--text-display)}
 .post-preview-heading span,.post-preview-stage-top small{font:var(--text-role-caption);color:var(--text-muted)}
 .post-preview-heading>button{display:grid;place-items:center;min-width:36px;min-height:36px;background:transparent;border:1px solid var(--border-hairline);border-radius:var(--r-sm);color:var(--text-body);cursor:pointer}
-.post-preview-tabs{display:flex;align-items:stretch;gap:6px;overflow-x:auto;scrollbar-width:thin;padding:3px 10px 12px;overscroll-behavior-x:contain}
+.post-preview-tabs{display:flex;align-items:stretch;gap:6px;overflow-x:auto;padding:3px 10px 12px;overscroll-behavior-x:contain}
 .post-preview-tabs button{display:flex;align-items:center;gap:6px;justify-content:center;flex:0 0 auto;min-height:38px;padding:6px 9px;background:var(--surface-card);border:1px solid var(--border-hairline);border-radius:var(--r-md);color:var(--text-muted);font:var(--text-role-caption);cursor:pointer}
 .post-preview-tabs button.is-selected{color:var(--accent);background:var(--accent-tint);border-color:var(--accent)}
 .post-preview-tabs button:focus-visible,.post-preview-heading button:focus-visible,.post-preview-carousel-controls button:focus-visible,.post-preview-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
