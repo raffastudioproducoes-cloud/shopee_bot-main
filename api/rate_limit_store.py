@@ -26,7 +26,6 @@ local window = tonumber(ARGV[1])
 redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - window)
 local count = redis.call('ZCARD', KEYS[1])
 if count >= tonumber(ARGV[2]) then
-  redis.call('PEXPIRE', KEYS[1], window)
   return 0
 end
 redis.call('ZADD', KEYS[1], now, ARGV[3])
