@@ -186,6 +186,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   termsRoute,
   privacyRoute,
+  dataCollectedRoute,
   adminRoute.addChildren([adminIndexRoute, adminOverviewRoute, usersRoute, logsRoute, adminCredentialsRoute]),
   panelRoute.addChildren([
     dashboardRoute,
