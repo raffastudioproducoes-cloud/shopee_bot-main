@@ -30,6 +30,8 @@ export function RegionConsent() {
   const client = useQueryClient()
   const {data, isLoading, isError, refetch} = useQuery({queryKey:['region-preference'],queryFn:profilesApi.getRegionPreference, retry:1})
   const [region,setRegion] = useState('')
+  const {data:location} = useQuery({queryKey:['location-sharing'],queryFn:profilesApi.getLocationSharing})
+  const revokeLocation = useMutation({mutationFn:()=>profilesApi.setLocationSharing({choice:'revoked'}),onSuccess:()=>{void client.invalidateQueries({queryKey:['location-sharing']});void client.invalidateQueries({queryKey:['admin','location-points']})}})
   const [agreed,setAgreed] = useState(false)
   const [gpsNote,setGpsNote] = useState('')
   const [gpsBusy,setGpsBusy] = useState(false)
@@ -69,6 +71,8 @@ export function RegionConsent() {
   }})
   return <Panel style={{padding:20}}>
     <h2 style={{marginTop:0}}>Escolha sua região (opcional)</h2>
+    <p>Compartilhamento do GPS para planejamento comercial: <strong>{location?.choice === "accepted"?"Autorizado":location?.choice==="declined"?"Recusado":"Ainda não decidido"}</strong>.</p>
+    {location?.choice === "accepted" && <div style={{display:"grid",gap:8}}><p>Foi registrada uma única posição aproximada em {location.collected_at ? new Date(location.collected_at).toLocaleString("pt-BR") : "data não disponível"}. O administrador pode ver esse ponto. Sem rastreamento contínuo.</p><Button variant="secondary" disabled={revokeLocation.isPending} onClick={()=>revokeLocation.mutate()}>Excluir minha localização e retirar autorização</Button></div>}
     <p>Selecione sua região manualmente, sem precisar de GPS, ou peça ao navegador uma sugestão. Salvamos apenas país/UF após sua confirmação. A região da própria conta administradora pode aparecer de forma privada no globo; estatísticas de clientes exigem pelo menos três participantes.</p>
     {isLoading && <p role="status">Consultando preferência salva...</p>}
     {isError && <p role="alert">Não foi possível carregar a preferência anterior. Você ainda pode selecionar uma região abaixo e salvá-la. <button type="button" onClick={() => { void refetch() }}>Tentar consultar novamente</button></p>}
@@ -97,6 +101,6 @@ export function RegionConsent() {
       </div>
       {(save.isError||revoke.isError)&&<p role="alert">Não foi possível salvar a preferência. Tente novamente.</p>}
     </>
-    <p style={{fontSize:12,opacity:.75}}>Regiões com menos de três participantes ficam ocultas. A retirada do consentimento exclui o registro regional; não há geolocalização automática ou em segundo plano.</p>
+    <p style={{fontSize:12,opacity:.75}}>O mapa administrativo pode apresentar localização individual quando autorizada; a região declarada pode ser alterada aqui. A retirada do consentimento exclui o registro regional; não há geolocalização automática ou em segundo plano.</p>
   </Panel>
 }
