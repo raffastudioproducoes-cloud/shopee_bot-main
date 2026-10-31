@@ -31,8 +31,9 @@ function undeliveredMessage(network: PostNetwork, mode: Exclude<MediaComposition
 
 export function planMediaComposition(network: PostNetwork, draft: PostDraft): MediaCompositionPlan {
   const rule = NETWORK_RULES[network]
+  const publishableTexts = rule.threadParts ? draft.texts : draft.texts.slice(0, 1)
   const { kept, dropped } = adaptMedia(rule, draft.media)
-  const issues = validateForNetwork(network, { ...draft, media: kept })
+  const issues = validateForNetwork(network, { ...draft, texts: publishableTexts, media: kept })
   const errorIssues = issues.filter((issue) => issue.level === "error")
   const errors = errorIssues.map((issue) => issue.message)
   const warnings = issues.filter((issue) => issue.level === "warn").map((issue) => issue.message)
@@ -40,7 +41,7 @@ export function planMediaComposition(network: PostNetwork, draft: PostDraft): Me
     warnings.unshift(`${rule.label}: ${kept.length} de ${draft.media.length} mídias — ${dropReasons(dropped)}`)
   }
 
-  const base = { network, textVariant: draft.texts, dropped }
+  const base = { network, textVariant: publishableTexts, dropped }
   const textOrBlock = (reason: string, notes: string[]): MediaCompositionPlan =>
     rule.supportsTextOnly
       ? { ...base, mode: "text_only", media: [], warnings: [...notes, ...warnings] }
