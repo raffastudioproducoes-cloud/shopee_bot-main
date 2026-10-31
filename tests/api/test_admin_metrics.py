@@ -213,3 +213,37 @@ def test_missing_snapshot_function_is_unavailable_not_zero(monkeypatch):
     body = TestClient(app).get("/admin/metrics").json()
     assert body["supabase"]["status"] == "unavailable"
     assert body["supabase"]["database_bytes"] is None and body["counts"] is None and body["daily"] == []
+
+
+
+def test_metrics_serializes_only_real_daily_capacity_observations(monkeypatch):
+    """Do not fabricate missing days or expose unrecognized row fields."""
+    db = fake_client(monkeypatch)
+    data = snapshot()
+    data["scale"] = {
+        "capacity_history": [{
+            "date": "2026-10-30", "database_bytes": 16297107,
+            "observed_connections": 15, "credential": "never-expose-this",
+        }],
+    }
+    db.rpc.return_value.execute.return_value = MagicMock(data=data)
+    response = TestClient(app).get("/admin/metrics", params={"days": 30})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["scale"]["capacity_history"] == [{
+        "date": "2026-10-30", "database_bytes": 16297107,
+        "observed_connections": 15,
+    }]
+    assert "never-expose-this" not in response.text
+    assert len(body["scale"]["capacity_history"]) == 1
+
+
+def test_metrics_keeps_missing_capacity_history_empty(monkeypatch):
+    """An absent series means not measured, never a zero-sized database."""
+    db = fake_client(monkeypatch)
+    data = snapshot()
+    data["scale"] = {"capacity_history": []}
+    db.rpc.return_value.execute.return_value = MagicMock(data=data)
+    response = TestClient(app).get("/admin/metrics")
+    assert response.status_code == 200
+    assert response.json()["scale"]["capacity_history"] == []
