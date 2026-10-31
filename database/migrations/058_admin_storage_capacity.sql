@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.storage_upload_reservations (
 );
 ALTER TABLE public.storage_upload_reservations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.storage_upload_reservations FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT, DELETE ON public.storage_upload_reservations TO service_role;
+-- Sem acesso direto via PostgREST nem para service_role; somente as funcoes.
 
 -- Retorna somente agregados; nomes e tamanhos de objetos nunca saem na resposta.
 CREATE OR REPLACE FUNCTION public.admin_storage_snapshot()
