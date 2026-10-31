@@ -425,11 +425,11 @@ export function PostsPage() {
                         Grupo · {groups.get(post.id)!.size} redes
                       </Badge>
                     )}
-                    <span style={metaTextStyle}>
+                    <span className="csp-named-meta">
                       Criado em {formatUtcTimestampBrasilia(post.created_at)}
                     </span>
                     {post.scheduled && post.schedule_trigger === "date" && post.scheduled_for && (
-                      <span style={metaTextStyle}>
+                      <span className="csp-named-meta">
                         Programado: {formatUtcTimestampBrasilia(post.scheduled_for)}
                       </span>
                     )}
@@ -459,7 +459,7 @@ export function PostsPage() {
                       <StatusBadge tone="negative" icon="x-circle">Falhou</StatusBadge>
                     )}
                     {!!post.parts_count && post.parts_count > 1 && (
-                      <span style={metaTextStyle}>{post.parts_count} partes</span>
+                      <span className="csp-named-meta">{post.parts_count} partes</span>
                     )}
                   </div>
                   {(post.last_result?.status === "failed" || post.last_result?.status === "unknown") && post.last_result.error && (
@@ -989,7 +989,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
       <div className={"post-composer-layout" + (previewOpen ? " is-preview-open" : "")}>
       <form className="post-composer-form" onSubmit={handleSubmit}>
         <div>
-          <span style={labelStyle}>{post ? "Rede social" : "Redes sociais * (uma ou mais)"}</span>
+          <span className="csp-named-label">{post ? "Rede social" : "Redes sociais * (uma ou mais)"}</span>
           <NetworkPicker selected={activeNetworks} states={states} onToggle={toggleNetwork} readOnly={!!post} />
         </div>
 
@@ -1095,7 +1095,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
         </div>
 
         <div>
-          <span style={labelStyle}>Mídia (imagem/vídeo)</span>
+          <span className="csp-named-label">Mídia (imagem/vídeo)</span>
           {post && post.medias.length > 0 && (
             <ul className="csp-s-0332">
               {post.medias.map((media) => (
@@ -1156,7 +1156,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
             <Button type="button" variant="ghost" onClick={() => fileInputRef.current?.click()}>
               Escolher arquivos
             </Button>
-            <span style={metaTextStyle}>
+            <span className="csp-named-meta">
               {post || pendingFiles.length === 0
                 ? "Nenhum arquivo escolhido"
                 : `${pendingFiles.length} ${pendingFiles.length === 1 ? "arquivo" : "arquivos"}`}
@@ -1231,7 +1231,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
 
         {!post && (
           <div>
-            <span style={labelStyle}>Quando publicar? *</span>
+            <span className="csp-named-label">Quando publicar? *</span>
             <div className="csp-s-0341">
               <SegmentedToggle
                 options={[
