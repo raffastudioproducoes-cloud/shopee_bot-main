@@ -756,3 +756,23 @@ def test_import_shopee_product_photo_rejects_missing_and_invalid_media(fake_db, 
     assert client.post("/posts/product-image-drafts/9").status_code == 415
     assert db.storage.uploads == []
     assert db.tables["temporary_media_uploads"] == []
+
+
+def test_import_shopee_png_is_normalized_to_jpeg(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+    db.tables["products"] = [{
+        "id": 11, "user_id": 42, "profile_id": "profile-a",
+        "image": "https://cf.shopee.com.br/file/example",
+    }]
+
+    async def png_download(_url):
+        return bytearray(_png())
+
+    monkeypatch.setattr(posts_module, "_download_shopee_image", png_download)
+    response = client.post("/posts/product-image-drafts/11")
+    assert response.status_code == 201, response.text
+    key, payload, options = db.storage.uploads[0]
+    assert key.endswith(".jpg")
+    assert payload.startswith(b"\xff\xd8\xff")
+    assert options["content-type"] == "image/jpeg"
