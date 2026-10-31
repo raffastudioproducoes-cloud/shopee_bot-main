@@ -77,6 +77,9 @@ dismissSplashAfterFirstPaint()
 // PWA: registra o service worker só em produção; ?v= muda a cada release e renova o cache.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(APP_VERSION)}`).catch(() => {})
+    // VERSION is a product version and can remain unchanged across deployments.
+    // Use the non-secret build commit instead so browsers discover new bundles.
+    const revision = import.meta.env.VITE_BUILD_SHA || APP_VERSION
+    navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(revision)}`).catch(() => {})
   })
 }
