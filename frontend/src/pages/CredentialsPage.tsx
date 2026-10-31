@@ -71,14 +71,14 @@ function OAuthConsentModal({
   const consent = OAUTH_CONSENT[network]
   return (
     <Modal open={open} onClose={onClose} title={`Conectar ${consent.label}`}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <p style={{ margin: 0, color: "var(--text-body)", font: "var(--text-role-body)" }}>
+      <div className="csp-s-0188">
+        <p className="csp-s-0189">
           Você será levado ao {consent.label} para autorizar esta conexão.
         </p>
-        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+        <p className="csp-s-0190">
           O Auto Orbital solicitará {consent.details}. A conexão é vinculada somente ao seu perfil ativo e pode ser removida a qualquer momento em “Desconectar”.
         </p>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <div className="csp-s-0191">
           <Button type="button" variant="ghost" disabled={busy} onClick={onClose}>Cancelar</Button>
           <Button type="button" variant="primary" disabled={busy} onClick={onContinue}>
             {busy ? "Redirecionando..." : `Continuar para ${consent.label}`}
@@ -126,9 +126,9 @@ function CredPanel({ id, children }: { id: string; children: ReactNode }) {
 function CredHeader({ title, trailing }: { title: ReactNode; trailing?: ReactNode }) {
   const { collapsed, toggle } = useContext(CollapseCtx)
   return (
-    <header style={{ display: "flex", flexDirection: "column", gap: 8, padding: "14px 16px 12px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
-        <span style={{ font: "var(--text-role-title)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+    <header className="csp-s-0192">
+      <div className="csp-s-0193">
+        <span className="csp-s-0194">
           {title}
         </span>
         <IconButton
@@ -163,7 +163,7 @@ function ConnectionStatus({ status }: { status: CredentialStatusWithLight }) {
       ) : (
         <ConnectionLight state={status.light} />
       )}
-      <span role="status" aria-live="polite" style={{ display: "inline-flex" }}>
+      <span role="status" aria-live="polite" className="csp-s-0195">
         <StatusBadge
           tone={status.light === "green" ? "positive" : "neutral"}
           icon={testing ? undefined : status.light === "green" ? "check-circle-2" : "x-circle"}
@@ -172,7 +172,7 @@ function ConnectionStatus({ status }: { status: CredentialStatusWithLight }) {
         </StatusBadge>
       </span>
       {status.checked_at && !testing && (
-        <span style={{ font: "var(--text-role-body)", color: "var(--text-muted)" }}>
+        <span className="csp-s-0196">
           Testado em {new Date(status.checked_at).toLocaleString("pt-BR")}
         </span>
       )}
@@ -288,15 +288,15 @@ export function CredentialsPage() {
 
   if (isLoading) {
     return (
-      <SkeletonRegion><div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}><div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="360px" /></div><div className="credentials-card-grid" style={CARD_GRID}>{[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
+      <SkeletonRegion><div className="csp-s-0197"><div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="360px" /></div><div className="credentials-card-grid" style={CARD_GRID}>{[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
     )
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
+    <div className="csp-s-0198">
       <div>
-        <h1 style={{ font: "var(--text-role-hero)", color: "var(--text-display)", margin: 0 }}>Credenciais</h1>
-        <p style={{ color: "var(--text-muted)", marginTop: 4 }}>
+        <h1 className="csp-s-0199">Credenciais</h1>
+        <p className="csp-s-0200">
           O valor da credencial nunca é reexibido depois de salvo — só o status de conexão.
         </p>
       </div>
@@ -412,7 +412,7 @@ function CredentialTrailing({
   })
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap", gap: 10 }}>
+    <div className="csp-s-0201">
       <ConnectionStatus status={status} />
       {status.connected && (
         <Button
@@ -476,8 +476,8 @@ function SimpleCredentialCard({
     return (
       <CredPanel id={label}>
         <CredHeader title={label} />
-        <div style={{ padding: "0 16px 16px" }}>
-          <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+        <div className="csp-s-0202">
+          <p className="csp-s-0203">
             Em breve — a ligação com {label} ainda não está disponível.
           </p>
         </div>
@@ -506,15 +506,15 @@ function SimpleCredentialCard({
           e.preventDefault()
           saveMutation.mutate()
         }}
-        style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}
+        className="csp-s-0204"
       >
         {helpUrl && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="csp-s-0205">
             <a
               href={helpUrl}
               target="_blank"
               rel="noreferrer"
-              style={{ font: "var(--text-role-body)", color: "var(--accent-500)" }}
+              className="csp-s-0206"
             >
               Abrir Portal de Afiliados da {label} (pegar App ID/Secret) ↗
             </a>
@@ -526,22 +526,7 @@ function SimpleCredentialCard({
                 onClick={() => {
                   window.location.href = "/ajuda?tab=shopee"
                 }}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 18,
-                  height: 18,
-                  flexShrink: 0,
-                  borderRadius: "50%",
-                  border: "1px solid currentColor",
-                  background: "none",
-                  color: "var(--accent-500)",
-                  cursor: "pointer",
-                  opacity: 0.75,
-                  font: "var(--fw-semibold) 10px/1 var(--font-sans)",
-                  padding: 0,
-                }}
+                className="csp-s-0207"
               >
                 ?
               </button>
@@ -566,7 +551,7 @@ function SimpleCredentialCard({
             required
           />
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <div className="csp-s-0208">
           {connected && (
             <Button
               type="button"
@@ -646,7 +631,7 @@ function AiCredentialCard({
       <CredHeader
         title="Inteligência Artificial"
         trailing={
-          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+          <div className="csp-s-0209">
             <ConnectionStatus status={status} />
             {status.connected && (
               <Button
@@ -666,9 +651,9 @@ function AiCredentialCard({
           e.preventDefault()
           saveMutation.mutate()
         }}
-        style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}
+        className="csp-s-0210"
       >
-        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+        <p className="csp-s-0211">
           Usada no "Gerar texto com IA" dos Posts. A chave é sua: o consumo é cobrado na sua conta do provedor.
           {data?.active ? ` Em uso agora: ${AI_PROVIDERS.find((p) => p.key === data.active)?.label}.` : ""}
         </p>
@@ -681,7 +666,7 @@ function AiCredentialCard({
             label: data?.providers[p.key]?.connected ? `${p.label} (salva)` : p.label,
           }))}
         />
-        <a href={info.helpUrl} target="_blank" rel="noreferrer" style={{ font: "var(--text-role-body)", color: "var(--accent-500)" }}>
+        <a href={info.helpUrl} target="_blank" rel="noreferrer" className="csp-s-0212">
           Como obter a chave da {info.label} ↗
         </a>
         <div style={FIELD_GRID}>
@@ -702,7 +687,7 @@ function AiCredentialCard({
             autoComplete="off"
           />
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <div className="csp-s-0213">
           {status.connected && (
             <Button
               type="button"
@@ -772,12 +757,12 @@ function ThreadsCredentialCard({
         }
       />
 
-      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+      <div className="csp-s-0214">
+        <p className="csp-s-0215">
           Conecte sua conta do Threads com um clique — nenhuma configuração técnica necessária.
         </p>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="csp-s-0216">
           <Button
             type="button"
             variant="primary"
@@ -861,12 +846,12 @@ function XCredentialCard({
         }
       />
 
-      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+      <div className="csp-s-0217">
+        <p className="csp-s-0218">
           Conecte sua conta do X com um clique — nenhuma configuração técnica necessária.
         </p>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="csp-s-0219">
           <Button
             type="button"
             variant="primary"
@@ -889,13 +874,13 @@ function XCredentialCard({
         </div>
 
         {disabledReason && (
-          <p role="status" style={{ margin: 0, color: "var(--amber-300)", font: "var(--text-role-body)" }}>
+          <p role="status" className="csp-s-0220">
             Plano pago em breve; publicação no X pausada.
           </p>
         )}
 
         {connected && status.missing_scopes?.includes("media.write") && (
-          <p role="alert" style={{ margin: 0, color: "var(--amber-300)", font: "var(--text-role-body)" }}>
+          <p role="alert" className="csp-s-0221">
             Reconecte o X para liberar imagens: esta conexão não tem a permissão de enviar mídia.
           </p>
         )}
@@ -960,13 +945,13 @@ function FacebookCredentialCard({
         }
       />
 
-      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+      <div className="csp-s-0222">
+        <p className="csp-s-0223">
           Conecte a Página do Facebook com um clique — nenhuma configuração técnica necessária.
           Se você administra mais de uma Página, a primeira encontrada é conectada automaticamente.
         </p>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="csp-s-0224">
           <Button
             type="button"
             variant="primary"
@@ -1049,12 +1034,12 @@ function TikTokCredentialCard({
         }
       />
 
-      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+      <div className="csp-s-0225">
+        <p className="csp-s-0226">
           Conecte sua conta do TikTok com um clique — nenhuma configuração técnica necessária.
         </p>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="csp-s-0227">
           <Button
             type="button"
             variant="primary"
@@ -1137,13 +1122,13 @@ function InstagramCredentialCard({
         }
       />
 
-      <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <p style={{ margin: 0, color: "var(--text-muted)", font: "var(--text-role-body)" }}>
+      <div className="csp-s-0228">
+        <p className="csp-s-0229">
           Publicar exige uma conta Business/Creator vinculada a uma Página do Facebook — conecte
           com um clique, nenhuma configuração técnica necessária.
         </p>
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="csp-s-0230">
           <Button
             type="button"
             variant="primary"
