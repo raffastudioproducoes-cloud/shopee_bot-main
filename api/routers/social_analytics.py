@@ -4,9 +4,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
 from apis.meta_version import GRAPH_URL, GRAPH_VERSION
+from ..analytics_refresh import TABLE as REFRESH_TABLE, refresh_account
 from ..crypto import decrypt
 from ..database import supabase
 from ..profiles import scope_owner
@@ -137,6 +138,46 @@ async def probe_insights(
     }
 
 
+@router.post("/refresh")
+async def refresh_information(
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    if not profile_id:
+        raise HTTPException(status_code=400, detail="Selecione um perfil")
+    return await refresh_account(user_id, profile_id, manual=True)
+
+
+def _read_refresh(user_id, profile_id):
+    response = scope_owner(
+        supabase.table(REFRESH_TABLE).select(
+            "last_attempt_at,last_completed_at,provider_states,facebook_daily_values,metrics_collected_at"
+        ), user_id, profile_id
+    ).maybe_single().execute()
+    return response.data if response else None
+
+
+def _facebook_views_for_period(refresh, days):
+    if not refresh or (refresh.get("provider_states") or {}).get("facebook") != "ok":
+        return None
+    values = refresh.get("facebook_daily_values")
+    if not isinstance(values, list) or not values:
+        return None
+    start_day = (datetime.now(timezone.utc).date() - timedelta(days=days - 1)).isoformat()
+    total = 0
+    has_value = False
+    for item in values:
+        if not isinstance(item, dict):
+            return None
+        day, value = item.get("period_end"), item.get("value")
+        if not isinstance(day, str) or not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            return None
+        if day >= start_day:
+            total += value
+            has_value = True
+    return total if has_value else None
+
+
 def _count_jobs(user_id: int, profile_id: str, network: Network, status: str, since: str) -> int:
     query = scope_owner(
         supabase.table("publish_jobs").select("id", count="exact"), user_id, profile_id
@@ -146,6 +187,7 @@ def _count_jobs(user_id: int, profile_id: str, network: Network, status: str, si
 
 @router.get("/summary")
 def summary(
+    background_tasks: BackgroundTasks,
     days: int = Query(30),
     network: Network | None = None,
     user_id: int = Depends(get_current_user_id),
@@ -155,6 +197,10 @@ def summary(
         raise HTTPException(status_code=422, detail="Período inválido")
     if not profile_id:
         return {"days": days, "networks": []}
+    # A leitura permanece rápida. Uma tarefa após a resposta registra o perfil
+    # e consulta provedores somente se o claim diário estiver vencido.
+    background_tasks.add_task(refresh_account, user_id, profile_id)
+    refresh = _read_refresh(user_id, profile_id)
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     rows = []
     for name in (network,) if network else NETWORKS:
@@ -162,11 +208,17 @@ def summary(
         rows.append({
             "network": name,
             **counts,
-            "views": None,
+            "views": _facebook_views_for_period(refresh, days) if name == "facebook" else None,
             "likes": None,
             "comments": None,
             "reposts": None,
             "clicks": None,
-            "insights_status": "not_collected",
+            "insights_status": (refresh.get("provider_states") or {}).get(name, "not_collected") if refresh else "not_collected",
         })
-    return {"days": days, "networks": rows}
+    return {
+        "days": days, "networks": rows,
+        "last_attempt_at": refresh.get("last_attempt_at") if refresh else None,
+        "last_completed_at": refresh.get("last_completed_at") if refresh else None,
+        "provider_states": refresh.get("provider_states") if refresh else {},
+        "auto_refresh_hours": 24,
+    }
