@@ -43,7 +43,7 @@ export function MediaTray({ items, limit, notes, onMove, onRemove }: Props) {
   const over = limit != null && items.length > limit
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+    <div className="csp-s-0024">
       <div style={{ display: "flex", justifyContent: "space-between", font: caption, color: "var(--text-muted)" }}>
         <span>Fotos do carrossel/álbum</span>
         <span aria-live="polite" style={{ color: over ? "var(--negative)" : undefined }}>
@@ -52,19 +52,7 @@ export function MediaTray({ items, limit, notes, onMove, onRemove }: Props) {
       </div>
       <ul
         aria-label="Fotos na ordem de envio"
-        style={{
-          listStyle: "none",
-          margin: 0,
-          padding: 8,
-          display: "flex",
-          gap: 8,
-          height: 112,
-          overflowX: "auto",
-          overflowY: "hidden",
-          borderRadius: "var(--r-md)",
-          background: "var(--surface-inset)",
-          border: "1px solid var(--border-hairline)",
-        }}
+        className="csp-s-0025"
       >
         {items.map((item, pos) => (
           <li
@@ -80,13 +68,13 @@ export function MediaTray({ items, limit, notes, onMove, onRemove }: Props) {
             onDragEnd={() => setDragFrom(null)}
             style={{ flex: "0 0 auto", width: 76, display: "flex", flexDirection: "column", gap: 4, opacity: dragFrom === pos ? 0.5 : 1, cursor: "grab" }}
           >
-            <div style={{ position: "relative", width: 76, height: 56, borderRadius: "var(--r-sm)", overflow: "hidden", background: "var(--surface-inset)" }}>
-              {urls[pos] && <img src={urls[pos]} alt={`Foto ${pos + 1}: ${item.file.name}`} draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+            <div className="csp-s-0026">
+              {urls[pos] && <img src={urls[pos]} alt={`Foto ${pos + 1}: ${item.file.name}`} draggable={false} className="csp-s-0027" />}
               <span style={{ position: "absolute", top: 2, left: 2, minWidth: 18, padding: "1px 5px", borderRadius: "var(--r-sm)", background: "rgba(0,0,0,.7)", color: "#fff", font: caption, textAlign: "center" }}>
                 {pos + 1}
               </span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div className="csp-s-0028">
               <button type="button" aria-label={`Mover foto ${pos + 1} para antes`} disabled={pos === 0} onClick={() => onMove(item.index, items[pos - 1].index)} style={{ ...smallBtn, opacity: pos === 0 ? 0.4 : 1 }}>◀</button>
               <button type="button" aria-label={`Remover foto ${pos + 1}`} onClick={() => onRemove(item.index)} style={{ ...smallBtn, color: "var(--red-300)" }}>✕</button>
               <button type="button" aria-label={`Mover foto ${pos + 1} para depois`} disabled={pos === items.length - 1} onClick={() => onMove(item.index, items[pos + 1].index)} style={{ ...smallBtn, opacity: pos === items.length - 1 ? 0.4 : 1 }}>▶</button>
