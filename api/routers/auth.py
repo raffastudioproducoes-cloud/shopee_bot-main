@@ -115,7 +115,6 @@ class RegisterRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str
     accepted_terms_version: str | None = None
-    gps_opt_in: bool = False
 
 
 def _validate_password_length(password: str) -> None:
@@ -474,8 +473,6 @@ async def register(body: RegisterRequest, request: Request):
             "access": "USER",
             "legal_terms_version": "2026-10-30",
             "legal_terms_accepted_at": datetime.now(timezone.utc).isoformat(),
-            "gps_consent_version": "2026-10-30" if body.gps_opt_in else None,
-            "gps_consented_at": datetime.now(timezone.utc).isoformat() if body.gps_opt_in else None,
         })
         .execute()
     )
