@@ -38,7 +38,7 @@ export function TermsPage() {
 
       <h2>3.1 Localização e consentimento opcional</h2>
       <p>Para criar uma conta é necessário tomar ciência da Política de Privacidade e aceitar os Termos de Uso vigentes. Essa aceitação é registrada com sua versão e data. Ela não substitui permissões específicas para recursos opcionais.</p>
-      <p>O uso da localização por GPS é facultativo e não condiciona o cadastro nem as funcionalidades essenciais. A plataforma somente solicita acesso ao navegador quando o titular habilita a opção e aciona o botão de localizar. As coordenadas são utilizadas temporariamente para sugerir a região, que deve ser confirmada pelo usuário; não há monitoramento contínuo de movimentos. A autorização pode ser retirada em Perfis.</p>
+      <p>O uso da localização por GPS é facultativo e não condiciona o cadastro nem as funcionalidades essenciais. A plataforma somente solicita acesso ao navegador quando o titular habilita a opção e aciona o botão de localizar. Com consentimento específico e autorização do navegador, uma única localização aproximada com coordenadas arredondadas poderá ser salva e mostrada ao administrador para planejar a expansão comercial. Não há monitoramento contínuo. É possível revogar e excluir os dados em Configurações.</p>
       <p>Leia também <a href="/dados-coletados">quais dados do dispositivo podem ser tratados</a>.</p>
       <h2>4. Responsabilidades do usuário</h2>
       <p>Ao usar o Auto Orbital, você concorda em:</p>
