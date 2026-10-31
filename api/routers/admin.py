@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from ..admin_metrics import AdminMetricsResponse, collect_admin_metrics
+from ..admin_queue_health import QueueHealthResponse, collect_queue_health
 from ..admin_views import AdminLogsResponse, AdminCredentialStatus
 
 from . import logs, users, credentials
@@ -34,3 +35,9 @@ async def connection_status(statuses: dict = Depends(credentials.list_credential
 @router.get("/metrics", response_model=AdminMetricsResponse)
 async def metrics(days: int = Query(30, ge=7, le=90)):
     return await collect_admin_metrics(days)
+
+
+@router.get("/queue-health", response_model=QueueHealthResponse)
+async def queue_health():
+    """Global, aggregate-only publication queue health; ADMIN dependency on router."""
+    return await collect_queue_health()

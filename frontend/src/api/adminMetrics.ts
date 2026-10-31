@@ -25,4 +25,25 @@ export interface AdminMetrics {
   }
   previous_period?: { starts_on: string; ends_on: string; registrations: number; deletions: number; requests: number; errors: number } | null
 }
-export const adminMetricsApi = { get: (days: number) => api.get<AdminMetrics>(`/admin/metrics?days=${days}`) }
+export interface AdminQueueHealth {
+  status: 'available' | 'unavailable'
+  counts: null | {
+    total: number
+    pending: number
+    running: number
+    unknown: number
+    failed: number
+    succeeded: number
+    manually_confirmed: number
+    multiple_attempts: number
+  }
+  oldest_unknown_minutes: number | null
+  oldest_running_minutes: number | null
+  last_started_at: string | null
+  collected_at: string | null
+}
+
+export const adminMetricsApi = {
+  get: (days: number) => api.get<AdminMetrics>(`/admin/metrics?days=${days}`),
+  getQueueHealth: () => api.get<AdminQueueHealth>('/admin/queue-health'),
+}
