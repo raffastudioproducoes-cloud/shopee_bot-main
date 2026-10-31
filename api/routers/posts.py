@@ -661,6 +661,7 @@ _PUBLISH_ACTIVITY_STATUS = {1: "published", 2: "failed"}
 
 MANUAL_CONFIRMATION_PREFIX = "MANUAL_CONFIRMED; "
 USER_REPORTED_REMOVED_PREFIX = "USER_REPORTED_REMOVED; "
+MANUAL_RETRY_PREFIX = "MANUAL_RETRY_REQUESTED; "
 
 
 def _utc_instant(value: str | None) -> datetime | None:
@@ -677,10 +678,11 @@ def _latest_publish_job(user_id: int, post_id: int, profile_id: str | None = Non
     """Última ocorrência de fila, sempre isolada pelo dono e perfil."""
     result = (
         scope_owner(supabase.table("publish_jobs").select(
-            "id,status,created_at,started_at,finished_at,last_error,external_id"
+            "id,status,idempotency_key,created_at,started_at,finished_at,last_error,external_id"
         ), user_id, profile_id)
         .eq("post_id", post_id)
         .order("created_at", desc=True)
+        .order("id", desc=True)
         .limit(1)
         .execute()
     )
@@ -718,7 +720,11 @@ def _get_last_publish_result(
             "at": activity.get("created_at"),
             "error": sanitize_log_data(str(error))[:200] if error else None,
         }
-    if not job or job["status"] == "pending":
+    if not job:
+        return None
+    if job["status"] == "pending":
+        if str(job.get("idempotency_key") or "").startswith("manual_retry:"):
+            return {"status": "retry_pending", "at": job.get("created_at"), "error": None}
         return None
 
     state = job["status"]
@@ -740,6 +746,7 @@ def _get_last_publish_result(
             else None
         ),
         **({"proof_url": job.get("external_id")} if manual else {}),
+        **({"job_id": job["id"]} if state == "unknown" and not reported_removed else {}),
     }
 
 
@@ -791,7 +798,7 @@ def reconcile_post(
             raise HTTPException(status_code=422, detail="Não forneça link no relato de publicação já removida")
         job = _latest_publish_job(user_id, post_id, profile_id)
         if not job or job.get("status") != "unknown" or (
-            job.get("last_error") or "").startswith(USER_REPORTED_REMOVED_PREFIX):
+            job.get("last_error") or "").startswith((USER_REPORTED_REMOVED_PREFIX, MANUAL_RETRY_PREFIX)):
             raise HTTPException(status_code=409, detail="Esta execução já foi tratada ou mudou de estado")
         old_error = sanitize_log_data(str(job.get("last_error") or ""))[:180]
         event = f"{USER_REPORTED_REMOVED_PREFIX}user={user_id}; original={old_error}"
@@ -824,7 +831,7 @@ def reconcile_post(
 
     job = _latest_publish_job(user_id, post_id, profile_id)
     if not job or job.get("status") != "unknown" or (
-        job.get("last_error") or "").startswith(USER_REPORTED_REMOVED_PREFIX):
+        job.get("last_error") or "").startswith((USER_REPORTED_REMOVED_PREFIX, MANUAL_RETRY_PREFIX)):
         raise HTTPException(status_code=409, detail="A publicação não está pendente de conciliação")
     old_error = sanitize_log_data(str(job.get("last_error") or ""))[:180]
     event = f"{MANUAL_CONFIRMATION_PREFIX}user={user_id}; original={old_error}"
@@ -838,6 +845,7 @@ def reconcile_post(
                 }), user_id, profile_id
             )
             .eq("id", job["id"]).eq("post_id", post_id).eq("status", "unknown")
+            .eq("last_error", job.get("last_error"))
             .execute()
         )
     except Exception:
@@ -853,6 +861,70 @@ def reconcile_post(
     )
     return {"status": "manual_confirmed", "proof_url": url,
             "msg": "Confirmado por você com o link fornecido, sem reenviar o post."}
+
+
+
+
+class RetryUnknownPostBody(BaseModel):
+    source_job_id: uuid.UUID
+    confirmed_not_published: bool = False
+    accepts_duplicate_risk: bool = False
+
+
+@router.post("/{post_id}/retry-unknown", status_code=202)
+def retry_unknown_post(
+    post_id: int,
+    body: RetryUnknownPostBody,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Enfileira nova ocorrência após conferência manual explícita.
+
+    RPC faz transição e INSERT numa transação com lock na ocorrência
+    original. Nunca reusa idempotency key antiga, nem publica nesta request.
+    """
+    profile_id = _require_profile_id(profile_id)
+    post = _get_post(user_id, post_id, profile_id)
+    if (post.get("network") or "threads") != "threads":
+        raise HTTPException(status_code=422, detail="Reenvio manual disponível apenas para Threads")
+    if body.confirmed_not_published is not True or body.accepts_duplicate_risk is not True:
+        raise HTTPException(
+            status_code=422,
+            detail="Confira a conta do Threads e aceite explicitamente o risco de publicação duplicada.",
+        )
+
+    _check_network_rules(
+        "threads", [row.get("text") or "" for row in _get_thread_chain(post_id)],
+        _get_post_medias(post_id), len(_get_post_products(post_id)),
+        check_required_media=True,
+    )
+    latest = _latest_publish_job(user_id, post_id, profile_id)
+    if not latest or latest.get("status") != "unknown" or str(latest["id"]) != str(body.source_job_id):
+        raise HTTPException(status_code=409, detail="O estado da publicação mudou. Atualize a lista.")
+    if (latest.get("last_error") or "").startswith(
+        (USER_REPORTED_REMOVED_PREFIX, MANUAL_RETRY_PREFIX)
+    ):
+        raise HTTPException(status_code=409, detail="Esta execução já foi tratada.")
+
+    try:
+        result = supabase.rpc("enqueue_manual_post_retry", {
+            "p_user_id": user_id,
+            "p_profile_id": profile_id,
+            "p_post_id": post_id,
+            "p_source_job_id": str(body.source_job_id),
+        }).execute()
+    except Exception:
+        logger.exception("Falha ao registrar reenvio manual do post %s", post_id)
+        raise HTTPException(status_code=503, detail="Não foi possível colocar o reenvio na fila.")
+    if not result.data:
+        raise HTTPException(status_code=409, detail="O estado da publicação mudou. Atualize a lista.")
+
+    log_action(
+        "post_manual_retry_requested",
+        f"post_id={post_id} previous_job={body.source_job_id} retry_job={result.data} network=threads",
+        user_id=user_id, profile_id=profile_id,
+    )
+    return {"status": "queued", "msg": "Reenvio colocado na fila. O resultado aparecerá no post em instantes."}
 
 
 

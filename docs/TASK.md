@@ -466,3 +466,19 @@ Status: não iniciado.
 - Vault: `00-INDICE-Estado-Atual.md`, `27-Migracao-App-Unico-OAuth.md`,
   `28-Historico-de-Requisicoes.md`
 - `git log --oneline` (histórico completo)
+
+
+## 31/10/2026 — Reenvio consciente de posts Threads sem confirmação
+
+- [ ] Permitir no modal de conciliação "não foi publicado" com aviso explícito
+  de possível duplicação e checkbox de consentimento; preservar design system.
+- [ ] Validar `retry-unknown` no backend (owner/profile, estado `unknown`,
+  origem exata e rede Threads) e atomicidade do RPC `enqueue_manual_post_retry`
+  com a migração 062; sem reaproveitar job original ou auto-retry inseguro.
+- [ ] Testes de sucesso, falha, concorrência, ownership e tipos inválidos
+  aprovados no CI; deploy de staging live e smoke antes de promover à main.
+- [ ] Promover à main, verificar os dois Render live, atualizar guia mestre e
+  documentos equivalentes no Vault.
+- [ ] Validar uma postagem externa manual somente quando o titular confirmar
+  que ela não existe na rede e clicar ele próprio em "Reenviar"; jamais usar os
+  dois posts incertos como teste destrutivo.

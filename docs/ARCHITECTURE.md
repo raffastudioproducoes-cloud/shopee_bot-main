@@ -397,3 +397,29 @@ concluídas.
 Render live), CI Python/frontend e smoke HTTP/ZAP aprovados; schema 060/061
 conferido no Supabase e duas publicações antigas `unknown` preservadas.
 A publicação externa real não foi executada neste lote.
+
+
+## Reenvio manual de Threads com resultado `unknown` (31/10/2026)
+
+A conciliação humana oferece três resultados exclusivos no modal Posts: link comprovado,
+relato de publicação removida, ou confirmação do titular de que **não encontrou**
+o post na conta correta. Só o último solicita envio novo; risco residual de duplicata
+é explicitado e aceito no frontend **e** validado no backend.
+
+- `api/routers/posts.py` oferece `POST /posts/{id}/retry-unknown`, resolve dono/perfil,
+  valida a composição Threads e exige `source_job_id` exato + declarações explícitas.
+- A migração `062_manual_post_retry.sql` cria `enqueue_manual_post_retry` com
+  `SECURITY INVOKER`, `EXECUTE` apenas `service_role`, `FOR UPDATE` e transação única;
+  preserva o `unknown` histórico, grava marcador e cria um novo `publish_jobs.pending`
+  com chave `manual_retry:<source_id>` única. Não reinicia o job/claim anterior.
+- A recuperação existente `drain_publish_jobs` faz claim seguro da nova tentativa a
+  cada minuto sem cron, Redis, bucket ou serviço adicional. A UI mostra
+  `retry_pending`, execução e resultado; nunca apresenta `202 Accepted` como sucesso externo.
+- Conciliação com link ou relato removido usa comparação otimista do erro original
+  para não sobrescrever uma solicitação concorrente. Repetir clique/recarregar
+  a página não agenda segundo envio; um novo `unknown` pode ser conciliado de novo
+  com declaração humana expressa.
+- **Limite:** não existe API que prove que um post não apareceu; a decisão
+  do titular pode duplicar conteúdo no Threads. Proteger com confirmação,
+  trilha auditável e recusa por status é a mitigação disponível sem inventar
+  confirmação do provedor. O Supabase é compartilhado por staging/main.

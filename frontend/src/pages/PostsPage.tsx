@@ -152,6 +152,8 @@ export function PostsPage() {
   const [editingPost, setEditingPost] = useState<Post | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [reconcilePostId, setReconcilePostId] = useState<number | null>(null)
+  const [reconcileSourceJobId, setReconcileSourceJobId] = useState<string | null>(null)
+  const [notPublishedOnThreads, setNotPublishedOnThreads] = useState(false)
   const [evidenceUrl, setEvidenceUrl] = useState("")
   const [confirmedOnThreads, setConfirmedOnThreads] = useState(false)
   const [reportedRemoved, setReportedRemoved] = useState(false)
@@ -161,7 +163,7 @@ export function PostsPage() {
     queryFn: () => postsApi.list(),
     refetchInterval: (query) =>
       query.state.data?.data?.some((post) => post.scheduled && (
-        !post.last_result?.status || post.last_result.status === 'running'
+        !post.last_result?.status || post.last_result.status === 'running' || post.last_result.status === 'retry_pending'
       )) ? 30_000 : false,
   })
   // Carrega antes da abertura do modal: uma conexão já testada não fica
@@ -269,6 +271,25 @@ export function PostsPage() {
       setEvidenceUrl("")
       setConfirmedOnThreads(false)
       setReportedRemoved(false)
+      setNotPublishedOnThreads(false)
+      setReconcileSourceJobId(null)
+    },
+    onError: onAuthError,
+  })
+
+  const retryUnknownMutation = useMutation({
+    mutationFn: ({ id, sourceJobId }: { id: number; sourceJobId: string }) =>
+      postsApi.retryUnknown(id, sourceJobId),
+    meta: { toast: { pending: "Registrando reenvio…", success: "Reenvio colocado na fila", error: "Não foi possível reenviar o post" } },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] })
+      refreshPublishResult()
+      setReconcilePostId(null)
+      setReconcileSourceJobId(null)
+      setNotPublishedOnThreads(false)
+      setConfirmedOnThreads(false)
+      setReportedRemoved(false)
+      setEvidenceUrl("")
     },
     onError: onAuthError,
   })
@@ -438,6 +459,9 @@ export function PostsPage() {
                         {post.schedule_trigger === "cron" ? "Recorrente" : "Agendado"}
                       </StatusBadge>
                     )}
+                    {post.last_result?.status === "retry_pending" && (
+                      <StatusBadge tone="info" icon="clock">Reenvio na fila</StatusBadge>
+                    )}
                     {post.last_result?.status === "running" && (
                       <StatusBadge tone="info" icon="loader-2">Em execução</StatusBadge>
                     )}
@@ -508,10 +532,13 @@ export function PostsPage() {
                     <Button variant="ghost" size="sm" icon="shield-check" onClick={(e) => {
                       e.stopPropagation()
                       setReconcilePostId(post.id)
+                      setReconcileSourceJobId(post.last_result?.job_id ?? null)
+                      setNotPublishedOnThreads(false)
                       setEvidenceUrl("")
                       setConfirmedOnThreads(false)
                       setReportedRemoved(false)
                       reconcileMutation.reset()
+                      retryUnknownMutation.reset()
                     }}>
                       Conferir post
                     </Button>
@@ -568,32 +595,73 @@ export function PostsPage() {
         />
       )}
 
-      <Modal open={reconcilePostId != null} onClose={() => setReconcilePostId(null)} title="Conferir publicação no Threads" width={510}>
+      <Modal open={reconcilePostId != null} onClose={() => { if (!reconcileMutation.isPending && !retryUnknownMutation.isPending) setReconcilePostId(null) }} title="Conferir publicação no Threads" width={510}>
         <p className="csp-s-0319">
-          O agendamento iniciou, mas o sistema não recebeu a confirmação. Esta ação não publica novamente.
+          O agendamento iniciou, mas o sistema não recebeu a confirmação. Antes de decidir, confira a conta correta no Threads.
         </p>
         <label className="csp-s-0320">
-          <input type="checkbox" checked={reportedRemoved} onChange={(event) => { setReportedRemoved(event.target.checked); setEvidenceUrl(""); setConfirmedOnThreads(false) }} />
+          <input type="checkbox" checked={reportedRemoved} disabled={reconcileMutation.isPending || retryUnknownMutation.isPending}
+            onChange={(event) => {
+              setReportedRemoved(event.target.checked)
+              setNotPublishedOnThreads(false)
+              setEvidenceUrl("")
+              setConfirmedOnThreads(false)
+            }} />
           A postagem apareceu no Threads, mas já foi removida e não tenho mais o link.
         </label>
-        {!reportedRemoved && <TextInput label="Link direto da publicação no Threads" type="url"
-          placeholder="https://www.threads.net/@perfil/post/..."
-          value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} />}
+        <label className="csp-s-0320">
+          <input type="checkbox" checked={notPublishedOnThreads} disabled={reconcileMutation.isPending || retryUnknownMutation.isPending}
+            onChange={(event) => {
+              setNotPublishedOnThreads(event.target.checked)
+              setReportedRemoved(false)
+              setEvidenceUrl("")
+              setConfirmedOnThreads(false)
+            }} />
+          Verifiquei que a postagem não apareceu no Threads e quero reenviá-la.
+        </label>
+        {!reportedRemoved && !notPublishedOnThreads && (
+          <TextInput label="Link direto da publicação no Threads" type="url"
+            placeholder="https://www.threads.net/@perfil/post/..."
+            value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} />
+        )}
+        {notPublishedOnThreads && (
+          <p className="csp-s-0322" role="alert">
+            Atenção: não é possível comprovar automaticamente a ausência do post. Se ele já estiver publicado ou ainda em processamento, o reenvio pode criar uma duplicata. Será criada uma única nova tentativa, sem apagar o histórico anterior.
+          </p>
+        )}
+        {notPublishedOnThreads && !reconcileSourceJobId && (
+          <p className="csp-s-0322" role="alert">Não foi possível identificar a execução. Atualize a lista antes de reenviar.</p>
+        )}
         <label className="csp-s-0321">
-          <input type="checkbox" checked={confirmedOnThreads} onChange={(event) => setConfirmedOnThreads(event.target.checked)} />
-          {reportedRemoved
-            ? "Declaro que vi esta publicação no Threads antes de removê-la. Não tenho link ou prova verificável; isto será registrado somente como meu relato."
-            : "Eu conferi no Threads que este post foi realmente publicado. Entendo que isto é uma confirmação manual."}
+          <input type="checkbox" checked={confirmedOnThreads} disabled={reconcileMutation.isPending || retryUnknownMutation.isPending}
+            onChange={(event) => setConfirmedOnThreads(event.target.checked)} />
+          {notPublishedOnThreads
+            ? "Conferi o perfil correto no Threads, não encontrei a postagem e assumo o risco de eventual duplicação."
+            : reportedRemoved
+              ? "Declaro que vi esta publicação no Threads antes de removê-la. Não tenho link ou prova verificável; isto será registrado somente como meu relato."
+              : "Eu conferi no Threads que este post foi realmente publicado. Entendo que isto é uma confirmação manual."}
         </label>
         {reconcileMutation.isError && (
           <p role="alert" className="csp-s-0322">{reconcileMutation.error.message}</p>
         )}
+        {retryUnknownMutation.isError && (
+          <p role="alert" className="csp-s-0322">{retryUnknownMutation.error.message}</p>
+        )}
         <div className="csp-s-0323">
-          <Button variant="ghost" onClick={() => setReconcilePostId(null)}>Cancelar</Button>
-          <Button variant="mint" loading={reconcileMutation.isPending}
-            disabled={!confirmedOnThreads || (!reportedRemoved && !evidenceUrl.trim())}
-            onClick={() => reconcilePostId != null && reconcileMutation.mutate({ id: reconcilePostId, url: evidenceUrl.trim(), removed: reportedRemoved })}>
-            Registrar confirmação
+          <Button variant="ghost" disabled={reconcileMutation.isPending || retryUnknownMutation.isPending}
+            onClick={() => setReconcilePostId(null)}>Cancelar</Button>
+          <Button variant="mint" loading={reconcileMutation.isPending || retryUnknownMutation.isPending}
+            disabled={!confirmedOnThreads || (!notPublishedOnThreads && !reportedRemoved && !evidenceUrl.trim()) ||
+              (notPublishedOnThreads && !reconcileSourceJobId)}
+            onClick={() => {
+              if (reconcilePostId == null) return
+              if (notPublishedOnThreads) {
+                if (reconcileSourceJobId) retryUnknownMutation.mutate({ id: reconcilePostId, sourceJobId: reconcileSourceJobId })
+              } else {
+                reconcileMutation.mutate({ id: reconcilePostId, url: evidenceUrl.trim(), removed: reportedRemoved })
+              }
+            }}>
+            {notPublishedOnThreads ? "Reenviar post" : "Registrar confirmação"}
           </Button>
         </div>
       </Modal>
