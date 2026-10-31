@@ -1,0 +1,11 @@
+# Links publicos e imagem de compartilhamento podem ser lidos por crawlers.
+# Rotas privadas exigem autenticacao; robots.txt nao substitui controle de acesso.
+User-agent: *
+Allow: /
+Allow: /brand/og-image.png
+Disallow: /admin/
+Disallow: /credentials
+Disallow: /posts
+Disallow: /profiles
+Disallow: /api/
+Disallow: /internal/
