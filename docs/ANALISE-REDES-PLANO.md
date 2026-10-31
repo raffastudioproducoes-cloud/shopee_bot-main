@@ -1,5 +1,22 @@
 # Analise de redes: contrato e fases
 
+## Painéis de visualização (31/10/2026)
+
+O frontend React apresenta a **mesma tabela detalhada de redes** após quatro cartões de KPI e quatro painéis no design system Auto Orbital (paleta Graphite / cyan / orbit blue / índigo / violeta, superfícies `Panel`), também responsivos:
+
+1. **KPI:** envios concluídos, falhas, sem confirmação e taxa confirmada. Taxa = `succeeded / (succeeded + failed + unknown)`; exibe **—** sem envios e não presume êxito dos inconclusivos.
+2. **Evolução diária:** linha de concluídos, falhas e sem confirmação; consulta `GET /api/analytics/timeline?days=7|30|90&network=...`. Cada ponto representa quantidade real de registros terminais em `publish_jobs` por data UTC, restrita à janela móvel selecionada. A janela de N×24 horas pode alcançar N+1 datas UTC.
+3. **Envios por rede:** anel calculado apenas com `succeeded` por rede filtrada. Se não houver envios, anel neutro e zero, nunca amostras de demonstração.
+4. **Situação dos envios:** anel com os três estados reais e legenda numérica. `unknown` significa sem confirmação, não falha ou êxito.
+5. **Insights oficiais:** estados da última coleta e, quando validado, `page_media_view` da **Página do Facebook** (não do post). Dados não oferecidos pelas APIs são indisponíveis, não zero.
+
+**Caminho e segurança:** `AnalyticsPage.tsx` consome `/analytics/summary` para KPI/anéis/tabela e `/analytics/timeline` para evolução. `social_analytics.py` autentica o usuário e o perfil ativo; a RPC `analytics_daily_job_counts` (`database/migrations/065_analytics_daily_job_counts.sql`) faz agrupamento no PostgreSQL com filtro explícito `user_id` + `profile_id` e verificação de titularidade do perfil, `SECURITY INVOKER`, `EXECUTE` exclusivo de `service_role`. Não retorna tokens, conteúdo de posts, IDs externos ou dados de outros perfis. Sem tabela de métricas extra ou dependência paga.
+
+**Atualização:** a consulta temporal participa da invalidação acionada por **Atualizar informações**, mantém o fluxo de 24h/ao voltar à aba, e o estado de erro do gráfico não oculta a tabela principal. Estados vazios são explicativos, sem números fictícios. As sondas técnicas seguem somente para `ADMIN`.
+
+**Testes:** `tests/api/test_social_analytics.py` valida login obrigatório, filtros rejeitados, escopo enviado à RPC, retorno vazio sem perfil e erros de banco sem vazamento de detalhes. TypeScript/Vite do frontend no CI; inspeção responsiva e comportamental deve ser feita após deploy de staging antes da promoção para `main`.
+
+
 **Permissão das sondas manuais (31/10/2026):** `GET /api/analytics/summary` continua disponível ao usuário autenticado para os seus próprios dados. `POST /api/analytics/probe/{network}` (Threads/Facebook/Instagram) é ferramenta de diagnóstico **exclusiva ADMIN**, protegida por papel no FastAPI; os botões correspondentes em Análises só aparecem para `ADMIN`. Isso não amplia as permissões de insights dos provedores e não muda a tabela de resultados para usuários comuns.
 
 Estado em 2026-10-21. As APIs abaixo oferecem conjuntos diferentes de dados; "indisponivel" nao significa zero. Nunca somar alcance unico de redes distintas como pessoas unicas globais. Cada coleta pertence a `user_id` + `profile_id` e usa somente o token desse perfil.
