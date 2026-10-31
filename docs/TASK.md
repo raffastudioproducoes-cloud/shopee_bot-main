@@ -1,4 +1,13 @@
-# TASK — Shopee Auto Vendas
+## Correção de publicações interrompidas por deploy — 31/10/2026
+
+- [x] Causa isolada por logs do Render e jobs do Supabase: Threads #23 e #27 iniciados no horário exato de troca de instância, worker saiu em 2s/4s; lease expirou e não retornou ID externo.
+- [x] Implementação na branch `fix/scheduler-deploy-safe-20261031`, PR [#127](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/127): drain durante SIGTERM, barreira durável pré-API, retomada somente pré-envio, deduplicação e testes mockados.
+- [ ] CI Python/frontend do PR #127 aprovada com testes de reinicialização.
+- [ ] Merge e Render staging `live` no SHA esperado, HTTP e logs sem erro.
+- [ ] PR staging→main, CI, Render produção `live` e verificação sem regressões.
+- [ ] Publicação real Threads com destino de teste e autorização específica, caso a validação externa seja necessária. **Não** usar os posts antigos `unknown` como reenvio automático.
+
+\n# TASK — Shopee Auto Vendas
 
 ## Analise de redes — fase 1 em staging (2026-10-21)
 
