@@ -105,6 +105,7 @@ export function AppFooter({ variant }: AppFooterProps) {
         <Link className="app-footer__link" to="/privacidade">
           <Icon name="lock" size={15} /> Privacidade & LGPD
         </Link>
+        <Link className="app-footer__link" to="/dados-coletados">Dados coletados</Link>
         <Link className="app-footer__link" to="/termos">
           <Icon name="file-text" size={15} /> Termos de Uso
         </Link>

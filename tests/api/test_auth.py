@@ -489,7 +489,7 @@ class TestRegister:
 
         res = client.post(
             "/auth/register",
-            json={"username": "newuser", "password": "12345678"},
+            json={"username": "newuser", "password": "12345678", "accepted_terms_version": "2026-10-30"},
         )
 
         assert res.status_code == 201
@@ -507,7 +507,7 @@ class TestRegister:
 
         res = client.post(
             "/auth/register",
-            json={"username": "x", "password": "12345678", "access": "ADMIN"},
+            json={"username": "x", "password": "12345678", "access": "ADMIN", "accepted_terms_version": "2026-10-30"},
         )
 
         assert res.status_code == 201
@@ -525,7 +525,7 @@ class TestRegister:
 
         res = client.post(
             "/auth/register",
-            json={"username": username, "password": "12345678"},
+            json={"username": username, "password": "12345678", "accepted_terms_version": "2026-10-30"},
         )
 
         assert res.status_code == 409
@@ -539,7 +539,7 @@ class TestRegister:
 
         res = client.post(
             "/auth/register",
-            json={"username": "dup", "password": "12345678"},
+            json={"username": "dup", "password": "12345678", "accepted_terms_version": "2026-10-30"},
         )
 
         assert res.status_code == 409
@@ -551,7 +551,7 @@ class TestRegister:
 
         res = client.post(
             "/auth/register",
-            json={"username": "shortpw", "password": "1234567"},
+            json={"username": "shortpw", "password": "1234567", "accepted_terms_version": "2026-10-30"},
         )
 
         assert res.status_code == 400
@@ -569,7 +569,7 @@ class TestRegister:
 
         res = client.post(
             "/auth/register",
-            json={"username": "newuser", "password": "12345678"},
+            json={"username": "newuser", "password": "12345678", "accepted_terms_version": "2026-10-30"},
         )
 
         assert res.status_code == 201
@@ -589,13 +589,13 @@ class TestRegister:
 
         first = client.post(
             "/auth/register",
-            json={"username": "cooldown1", "password": "12345678"},
+            json={"username": "cooldown1", "password": "12345678", "accepted_terms_version": "2026-10-30"},
         )
         assert first.status_code == 201
 
         second = client.post(
             "/auth/register",
-            json={"username": "cooldown2", "password": "12345678"},
+            json={"username": "cooldown2", "password": "12345678", "accepted_terms_version": "2026-10-30"},
         )
 
         assert second.status_code == 429
@@ -671,7 +671,7 @@ class TestRegisterProvisioningFailure:
         table_side_effect("profiles").execute.side_effect = Exception("db detalhe interno")
         monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
 
-        res = client.post("/auth/register", json={"username": "novo", "password": "12345678"})
+        res = client.post("/auth/register", json={"username": "novo", "password": "12345678", "accepted_terms_version": "2026-10-30"})
 
         assert res.status_code == 500
         assert "interno" not in res.text

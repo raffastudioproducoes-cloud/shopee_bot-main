@@ -120,6 +120,30 @@ class RegionPreference(BaseModel):
     consent: bool = False
 
 
+@router.get("/gps-preference")
+async def get_gps_preference(user_id: str = Depends(get_current_user_id)):
+    result = supabase.table("users").select("gps_consented_at").eq("id", user_id).maybe_single().execute()
+    return {"enabled": bool(result.data and result.data.get("gps_consented_at"))}
+
+
+class GpsConsent(BaseModel):
+    enabled: bool
+
+
+@router.put("/gps-preference")
+async def put_gps_preference(body: GpsConsent, user_id: str = Depends(get_current_user_id)):
+    from datetime import datetime, timezone
+    # Preference is not OS/browser geolocation permission and does not collect coordinates.
+    change = {
+        "gps_consented_at": datetime.now(timezone.utc).isoformat() if body.enabled else None,
+        "gps_consent_version": "2026-10-30" if body.enabled else None,
+    }
+    supabase.table("users").update(change).eq("id", user_id).execute()
+    if not body.enabled:
+        supabase.table("account_region_preferences").delete().eq("user_id", user_id).execute()
+    return {"enabled": body.enabled}
+
+
 @router.get("/region-preference")
 async def get_region_preference(user_id: str = Depends(get_current_user_id)):
     result = supabase.table("account_region_preferences").select("region").eq("user_id", user_id).maybe_single().execute()
