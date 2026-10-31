@@ -24,8 +24,8 @@ interface PostLivePreviewProps {
   networks: PostNetwork[]
   textFor: (network: PostNetwork) => string[]
   files: FileSelection[]
-  productPhotos: Product[]
-  products: Product[]
+  productPhotos: Array<Pick<Product, "id" | "name" | "image">>
+  products: Array<Pick<Product, "id" | "name" | "image">>
   existingMedia?: PostMedia[]
   onClose: () => void
 }
