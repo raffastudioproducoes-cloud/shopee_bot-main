@@ -29,4 +29,10 @@ export const profilesApi = {
   delete: (id: string) => api.delete<{ msg: string }>(`/profiles/${id}`),
   activate: (id: string) => api.post<{ msg: string }>(`/profiles/${id}/activate`, {}),
   uploadAvatar: (id: string, file: File) => api.upload<{ avatar_url: string }>(`/profiles/${id}/avatar`, file),
+  getRegionPreference: () => api.get<{ region: string | null; consented: boolean }>('/profiles/region-preference'),
+  saveRegionPreference: (region: string) => api.put<{region: string; consented: boolean}>('/profiles/region-preference', {region, consent: true}),
+  deleteRegionPreference: () => api.delete<{region: null; consented: boolean}>('/profiles/region-preference'),
+  getAcquisitionSource: () => api.get<{source: string | null; declared: boolean}>('/profiles/acquisition-source'),
+  saveAcquisitionSource: (source: string) => api.put<{source: string; declared: boolean}>('/profiles/acquisition-source', {source, consent: true}),
+  deleteAcquisitionSource: () => api.delete<{source: null; declared: boolean}>('/profiles/acquisition-source'),
 }

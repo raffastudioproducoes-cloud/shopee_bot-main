@@ -110,6 +110,63 @@ async def list_profiles(user_id: str = Depends(get_current_user_id)):
     return result.data
 
 
+
+# Independent, revocable regional preference. Never inferred from profile addresses or IPs.
+ALLOWED_REGIONS = frozenset(("BR-RJ","BR-SP","BR-MG","BR-BA","BR-OTHER","PT","US","GB","DE","JP","AU","OTHER"))
+
+
+class RegionPreference(BaseModel):
+    region: str
+    consent: bool = False
+
+
+@router.get("/region-preference")
+async def get_region_preference(user_id: str = Depends(get_current_user_id)):
+    result = supabase.table("account_region_preferences").select("region").eq("user_id", user_id).maybe_single().execute()
+    return {"region": result.data.get("region") if result.data else None, "consented": bool(result.data)}
+
+
+@router.put("/region-preference")
+async def put_region_preference(body: RegionPreference, user_id: str = Depends(get_current_user_id)):
+    if not body.consent or body.region not in ALLOWED_REGIONS:
+        raise HTTPException(status_code=422, detail="Selecione uma região válida e confirme o consentimento.")
+    supabase.table("account_region_preferences").upsert({"user_id": user_id, "region": body.region}, on_conflict="user_id").execute()
+    return {"region": body.region, "consented": True}
+
+
+@router.delete("/region-preference")
+async def delete_region_preference(user_id: str = Depends(get_current_user_id)):
+    supabase.table("account_region_preferences").delete().eq("user_id", user_id).execute()
+    return {"region": None, "consented": False}
+
+ALLOWED_ACQUISITION_SOURCES = frozenset(("search", "social", "referral", "direct", "other"))
+
+
+class AcquisitionPreference(BaseModel):
+    source: str
+    consent: bool = False
+
+
+@router.get("/acquisition-source")
+async def get_acquisition_source(user_id: str = Depends(get_current_user_id)):
+    result = supabase.table("account_acquisition_sources").select("source").eq("user_id", user_id).maybe_single().execute()
+    return {"source": result.data.get("source") if result.data else None, "declared": bool(result.data)}
+
+
+@router.put("/acquisition-source")
+async def put_acquisition_source(body: AcquisitionPreference, user_id: str = Depends(get_current_user_id)):
+    if not body.consent or body.source not in ALLOWED_ACQUISITION_SOURCES:
+        raise HTTPException(status_code=422, detail="Informe uma origem válida e confirme que deseja compartilhá-la.")
+    supabase.table("account_acquisition_sources").upsert({"user_id": user_id, "source": body.source}, on_conflict="user_id").execute()
+    return {"source": body.source, "declared": True}
+
+
+@router.delete("/acquisition-source")
+async def delete_acquisition_source(user_id: str = Depends(get_current_user_id)):
+    supabase.table("account_acquisition_sources").delete().eq("user_id", user_id).execute()
+    return {"source": None, "declared": False}
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_profile(body: ProfileCreate, user_id: str = Depends(get_current_user_id)):
     _check_login_rate_limit(f"profile-create:{user_id}")
