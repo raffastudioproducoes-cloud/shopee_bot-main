@@ -10,6 +10,7 @@ export interface AdminMetrics {
   counts: null | { accounts: number; new_accounts: number; deleted_accounts: number; free_accounts: number; plus_accounts: number; premium_accounts: number; active_accounts: number | null; requests: number; errors: number; avg_latency_ms: number | null; p95_latency_ms: number | null }
   daily: { date: string; registrations: number; deletions: number; requests: number }[]
   supabase: { status: Status; diagnostic?: Diagnostic | null; database_bytes: number | null; connections: number | null; max_connections: number | null; latency_ms: number | null }
+  storage?: { status: Status; diagnostic?: Diagnostic | null; collected_at: string | null; used_bytes: number | null; reserved_bytes: number | null; quota_bytes: number | null; warning_percent: number; critical_percent: number; block_percent: number; buckets: { bucket: string; used_bytes: number; objects: number }[] }
   render: { status: Status; diagnostic?: Diagnostic | null; missing_metrics?: string[]; cpu: ResourceMetric | null; memory: ResourceMetric | null; cpu_limit: ResourceMetric | null; memory_limit: ResourceMetric | null; bandwidth: ResourceMetric | null }
   unavailable: { paying_accounts: string; traffic_sources: string; session_time: string; location: string }
   notes: string[]
