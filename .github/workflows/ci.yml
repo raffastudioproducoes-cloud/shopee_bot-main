@@ -21,8 +21,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Instalar FFmpeg para os testes de video
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Disponibilizar FFmpeg para os testes de vídeo
+        run: |
+          if command -v ffmpeg >/dev/null 2>&1; then
+            ffmpeg -version
+          else
+            sudo apt-get update -o Acquire::Retries=2 -o Acquire::http::Timeout=20
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
 
       - uses: actions/setup-python@v5
         with:
