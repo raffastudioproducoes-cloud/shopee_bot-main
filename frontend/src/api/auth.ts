@@ -79,7 +79,7 @@ export const authApi = {
     return data.msg
   },
 
-  async register(username: string, password: string, gpsOptIn = false): Promise<RegisterResponse> {
-    return api.post<RegisterResponse>('/auth/register', { username, password, accepted_terms_version: '2026-10-30', gps_opt_in: gpsOptIn })
+  async register(username: string, password: string): Promise<RegisterResponse> {
+    return api.post<RegisterResponse>('/auth/register', { username, password, accepted_terms_version: '2026-10-30' })
   },
 }
