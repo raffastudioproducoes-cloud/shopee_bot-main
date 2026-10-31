@@ -391,3 +391,9 @@ elimina toda incerteza se houver SIGKILL ou perda de resposta após a chamada
 remota; exige conciliação. Não são adicionados serviços pagos, buckets, tokens
 nem dependências de mídia. Evidências de CI e deploy ficam na TASK quando
 concluídas.
+
+**Validação da entrega (31/10/2026):** PR #127 e #128 integrados no staging
+(`20fc710`, Render live), PR #129 integrado na main (`86a23ff`,
+Render live), CI Python/frontend e smoke HTTP/ZAP aprovados; schema 060/061
+conferido no Supabase e duas publicações antigas `unknown` preservadas.
+A publicação externa real não foi executada neste lote.
