@@ -111,18 +111,18 @@ export function PostLivePreview({
 
   return <aside className="post-live-preview" aria-label="Pré-visualização da publicação">
     <div className="post-preview-toolbar">
-    <header className="post-preview-heading">
-      <div><strong>Visualização da postagem</strong><span>Simulação · atualiza enquanto você edita</span></div>
-      <button type="button" aria-label="Fechar visualização" onClick={onClose}><X size={20} /></button>
-    </header>
-    <div className="post-preview-tabs" role="tablist" aria-label="Prévia por rede social">
-      {PREVIEW_NETWORKS.map((item) => <button key={item} type="button" role="tab"
-        aria-selected={network === item} className={network === item ? "is-selected" : ""}
-        onClick={() => { setNetwork(item); setMediaIndex(0) }}>
-        <NetworkLogo network={item} size={18} />
-        <span>{NAMES[item]}</span>
-      </button>)}
-    </div>
+      <header className="post-preview-heading">
+        <div><strong>Visualização da postagem</strong><span>Simulação · atualiza enquanto você edita</span></div>
+        <button type="button" aria-label="Fechar visualização" onClick={onClose}><X size={20} /></button>
+      </header>
+      <div className="post-preview-tabs" role="tablist" aria-label="Prévia por rede social">
+        {PREVIEW_NETWORKS.map((item) => <button key={item} type="button" role="tab"
+          aria-selected={network === item} className={network === item ? "is-selected" : ""}
+          onClick={() => { setNetwork(item); setMediaIndex(0) }}>
+          <NetworkLogo network={item} size={18} />
+          <span>{NAMES[item]}</span>
+        </button>)}
+      </div>
     </div>
     <div className="post-preview-stage">
       <div className="post-preview-stage-top">
