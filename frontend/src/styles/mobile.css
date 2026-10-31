@@ -1,0 +1,152 @@
+/* Ajustes exclusivos para telefones. Tablet e desktop preservam seus layouts.
+   As grades e tabelas continuam com todos os dados; nada e escondido por
+   conveniencia (somente a tabela duplicada quando existe a versao em cards). */
+.analytics-mobile-list { display: none; }
+
+@media (max-width: 600px) {
+  .app-shell {
+    --shell-pad: 10px;
+    --gap-column: 12px;
+    --gap-grid: 8px;
+    --pad-card: 10px;
+  }
+  .app-col { min-width: 0; gap: 12px; }
+  .app-col main { min-width: 0; }
+  .app-col main h1 {
+    font-size: clamp(26px, 7.5vw, 32px) !important;
+    line-height: 1.14 !important;
+    overflow-wrap: anywhere;
+  }
+  .app-col main p { overflow-wrap: anywhere; }
+  .app-topbar { min-height: 44px !important; flex-wrap: nowrap !important; gap: 6px !important; }
+  .active-profile-chip { min-width: 0; max-width: min(42vw, 150px); overflow: hidden; }
+  .active-profile-chip > span:last-child { min-width: 0; max-width: calc(100% - 44px) !important; }
+
+  /* Dashboard: quatro indicadores passam a duas colunas legiveis. */
+  .dashboard-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .dashboard-stats-grid > div { min-width: 0; padding: 10px !important; gap: 7px !important; }
+  .dashboard-stats-grid > div > div:first-child { gap: 6px !important; align-items: flex-start !important; }
+  .dashboard-stats-grid > div > div:first-child > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+  .dashboard-stats-grid > div > span:last-child { font-size: 23px !important; }
+  .dashboard-content-grid { gap: 10px !important; }
+  .dashboard-quick-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px !important;
+  }
+  .dashboard-quick-actions > button {
+    min-width: 0;
+    padding: 8px 6px !important;
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+  }
+  .dashboard-quick-actions > button:last-child { grid-column: 1 / -1; }
+
+  /* Análises: sem colunas cortadas; cada rede mostra as oito métricas. */
+  .analytics-filters { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px !important; }
+  .analytics-filters > label { min-width: 0; width: 100% !important; }
+  .analytics-summary {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px !important;
+    padding: 12px 0 !important;
+  }
+  .analytics-summary > span { min-width: 0; font-size: 11px; line-height: 1.3; color: var(--text-muted); }
+  .analytics-summary > span > strong { display: block; margin-bottom: 2px; color: var(--text-display); font-size: 21px; font-variant-numeric: tabular-nums; }
+  .analytics-desktop-table { display: none !important; }
+  .analytics-mobile-list { display: grid; gap: 10px; }
+  .analytics-mobile-card {
+    min-width: 0;
+    padding: 12px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border-card);
+    background: var(--surface-card);
+  }
+  .analytics-mobile-card h2 { margin: 0 0 10px; color: var(--text-display); font: var(--text-role-title); }
+  .analytics-mobile-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 0; }
+  .analytics-mobile-card dl > div { min-width: 0; padding: 8px; border-radius: var(--r-sm); background: var(--surface-inset); }
+  .analytics-mobile-card dt { margin: 0 0 5px; color: var(--text-muted); font-size: 11px; line-height: 1.3; }
+  .analytics-mobile-card dd { margin: 0; color: var(--text-display); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .analytics-probe-actions { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px !important; }
+  .analytics-probe-actions > button { min-width: 0; padding: 8px !important; white-space: normal !important; line-height: 1.25 !important; }
+  .analytics-probe-actions > button:last-child { grid-column: 1 / -1; }
+
+  /* Ajuda: seis categorias visíveis, sem uma faixa cortada na lateral. */
+  .help-mobile-tabs { overflow-x: visible !important; }
+  .help-mobile-tabs > [role="tablist"] {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    width: 100% !important;
+    border-radius: var(--r-md) !important;
+    gap: 4px !important;
+  }
+  .help-mobile-tabs [role="tab"] {
+    min-width: 0;
+    min-height: 42px;
+    height: auto !important;
+    padding: 7px 5px;
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    text-align: center;
+  }
+
+  /* Perfis: foto e identificacao na mesma linha, acoes completas embaixo. */
+  .profiles-grid { gap: 10px !important; }
+  .profile-card {
+    display: grid !important;
+    grid-template-columns: 96px minmax(0, 1fr);
+    grid-template-areas: "avatar identity" "avatar email" "avatar badges" "actions actions";
+    column-gap: 12px !important;
+    row-gap: 6px !important;
+    align-items: start;
+    padding: 12px !important;
+  }
+  .profile-card > div:nth-child(1) { grid-area: avatar; }
+  .profile-card > div:nth-child(2) { grid-area: identity; flex-wrap: wrap; min-width: 0; overflow-wrap: anywhere; }
+  .profile-card > div:nth-child(3) { grid-area: email; min-width: 0; }
+  .profile-card > div:nth-child(4) { grid-area: badges; min-width: 0; }
+  .profile-card > div:nth-child(5) { grid-area: actions; min-width: 0; padding-top: 6px !important; }
+
+  /* Cards de posts, listas, produtos e credenciais mais densos. */
+  .post-list-item { padding: 10px 12px !important; gap: 8px !important; }
+  .post-list-meta { gap: 6px !important; font-size: 12px; line-height: 1.35; }
+  .post-list-meta > * { max-width: 100%; overflow-wrap: anywhere; }
+  .credentials-card-grid { gap: 10px !important; }
+  .cred-card header { padding: 10px 12px 8px !important; gap: 6px !important; }
+  .timeline-card-heading { gap: 8px !important; padding: 12px !important; }
+  .timeline-card-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .timeline-card-section { display: block !important; padding-left: 20px !important; padding-bottom: 12px !important; }
+  .timeline-card-section > div:nth-child(2) { width: auto !important; margin-bottom: 4px; }
+  .timeline-card-section > div:nth-child(3) { width: auto !important; }
+  .products-page-header, .lists-page-header { gap: 10px !important; }
+  .mobile-form-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 10px !important; }
+  .catalog-search-filters { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px !important; }
+  .catalog-search-filters > :first-child { grid-column: 1 / -1; min-width: 0; width: 100% !important; }
+  .catalog-search-filters > label { min-width: 0; width: 100% !important; }
+  .catalog-search-filters > button { min-width: 0; white-space: normal !important; padding: 8px !important; line-height: 1.25 !important; }
+  .settings-password-card { max-width: 100% !important; padding: 14px !important; }
+
+  /* Diálogos menores sem cortar formulário, botoes ou rolagem. */
+  .app-modal { padding: 8px !important; }
+  .app-modal > div { max-width: 100% !important; }
+  .app-modal > div > section { max-height: calc(100dvh - 16px) !important; }
+  .app-modal > div > section > div:first-child { padding: 12px 12px 0 !important; }
+  .app-modal > div > section > div:last-child { padding: 12px !important; }
+
+  /* Rodapé: todos os links/textos permanecem, com quebra segura. */
+  .app-shell .app-footer--app { padding-top: 12px; }
+  .app-shell .app-footer { gap: 10px; }
+  .app-shell .app-footer__company { gap: 4px 8px; font-size: 11px; line-height: 1.4; }
+  .app-shell .app-footer__copyright { font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+  .app-shell .app-footer__links { gap: 10px 14px; }
+  .app-shell .app-footer__link, .app-shell .app-footer__security { font-size: 11px; }
+}
+
+@media (max-width: 360px) {
+  .app-topbar { gap: 4px !important; }
+  .active-profile-chip { max-width: 110px; }
+  .dashboard-stats-grid > div { padding: 8px !important; }
+  .analytics-mobile-card { padding: 10px; }
+}
