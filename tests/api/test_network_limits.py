@@ -33,9 +33,9 @@ class TestText:
 
     def test_thread_parts_checked_only_where_published(self):
         assert _errors("x", ["ok", "b" * 281], []) == ["X: texto máx. 280 caracteres na parte 2 (você tem 281)"]
-        # Instagram só publica a 1ª parte: aviso, não erro
+        # A filtragem é interna: Instagram publica só a legenda, sem aviso.
         issues = validate_post("instagram", ["ok", "b" * 5000], [{"file_name": "a.jpg", "size": 1}])
-        assert [i["level"] for i in issues] == ["warn"]
+        assert issues == []
 
     def test_tiktok_counts_utf16(self):
         assert text_length(NETWORK_RULES["tiktok"], "😀") == 2
