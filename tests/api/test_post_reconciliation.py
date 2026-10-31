@@ -90,14 +90,3 @@ def test_cannot_reconcile_other_users_posts(setup):
     app.dependency_overrides[get_current_user_id] = lambda: OTHER
     assert client.post("/posts/23/reconcile", json={"permalink": LINK, "confirmed": True}).status_code in (403, 404)
     assert db.tables["publish_jobs"][0]["status"] == "unknown"
-
-
-def test_old_activity_still_preferred_when_no_queue_entry(setup):
-    db, _, _ = setup
-    db.tables["publish_jobs"].clear()
-    db.tables["activities"].append({
-        "user_id": USER, "profile_id": PROFILE, "activity_id": 1,
-        "metadata": {"post_id": 23}, "created_at": NOW,
-    })
-    # FakeDB has no jsonb->> matching; legacy activity tests exercise that path separately.
-    assert posts_module._get_last_publish_result(USER, 23, PROFILE) is None or True
