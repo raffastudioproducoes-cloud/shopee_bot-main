@@ -700,7 +700,7 @@ def test_import_shopee_product_photo_persists_private_draft(fake_db, monkeypatch
     client, db = _client(fake_db, monkeypatch)
     db.storage = _RecordingStorage()
     db.tables["products"] = [{
-        "id": 7, "user_id": 42, "profile_id": "profile-a",
+        "id": 7, "user_id": 42, "profile_id": None,
         "image": "https://cf.shopee.com.br/file/example",
     }]
 
@@ -723,7 +723,8 @@ def test_import_shopee_product_photo_persists_private_draft(fake_db, monkeypatch
     assert db.tables["temporary_media_uploads"][0]["user_id"] == 42
 
 
-def test_import_shopee_product_photo_rejects_foreign_profile(fake_db, monkeypatch):
+def test_import_shopee_product_photo_allows_shared_catalog_across_profiles(fake_db, monkeypatch):
+    """Produtos da conta sao compartilhados; o rascunho pertence ao perfil ativo."""
     client, db = _client(fake_db, monkeypatch, profile_id="profile-b")
     db.storage = _RecordingStorage()
     db.tables["products"] = [{
@@ -731,8 +732,28 @@ def test_import_shopee_product_photo_rejects_foreign_profile(fake_db, monkeypatc
         "image": "https://cf.shopee.com.br/file/example",
     }]
 
+    async def trusted_download(_url):
+        return bytearray(_jpeg())
+
+    monkeypatch.setattr(posts_module, "_download_shopee_image", trusted_download)
+    response = client.post("/posts/product-image-drafts/7")
+    assert response.status_code == 201, response.text
+    assert response.json()["profile_id"] == "profile-b"
+    assert db.tables["temporary_media_uploads"][0]["profile_id"] == "profile-b"
+    assert db.tables["temporary_media_uploads"][0]["user_id"] == 42
+    assert len(db.storage.uploads) == 1
+
+
+def test_import_shopee_product_photo_rejects_foreign_account(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch, profile_id="profile-b")
+    db.storage = _RecordingStorage()
+    db.tables["products"] = [{
+        "id": 7, "user_id": 99, "profile_id": None,
+        "image": "https://cf.shopee.com.br/file/example",
+    }]
+
     async def forbidden_download(_url):
-        raise AssertionError("Nunca baixar imagem de outro perfil")
+        raise AssertionError("Nunca baixar imagem de outra conta")
 
     monkeypatch.setattr(posts_module, "_download_shopee_image", forbidden_download)
     response = client.post("/posts/product-image-drafts/7")
