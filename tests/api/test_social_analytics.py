@@ -9,12 +9,14 @@ from api.routers.auth import get_current_user_id
 from api.routers.credentials import _require_admin
 from api.routers.profiles import get_current_profile_id
 from api.routers import social_analytics
+from api import analytics_refresh
 
 
 def test_analytics_requires_login():
     app.dependency_overrides.clear()
     assert TestClient(app).get('/analytics/summary').status_code == 401
     assert TestClient(app).post('/analytics/probe/threads').status_code == 401
+    assert TestClient(app).post('/analytics/refresh').status_code == 401
 
 
 def test_analytics_counts_only_owned_profile_and_never_invents_social_metrics(monkeypatch):
@@ -36,6 +38,12 @@ def test_analytics_counts_only_owned_profile_and_never_invents_social_metrics(mo
     fake_client = MagicMock()
     fake_client.table.side_effect = table
     monkeypatch.setattr(database_module, 'get_supabase', lambda: fake_client)
+    monkeypatch.setattr(social_analytics, '_read_refresh', lambda *args: None)
+
+    async def skip_background(*args, **kwargs):
+        return {"state": "recent"}
+
+    monkeypatch.setattr(social_analytics, 'refresh_account', skip_background)
     response = TestClient(app).get('/analytics/summary?days=7&network=threads')
     assert response.status_code == 200
     data = response.json()
@@ -117,3 +125,87 @@ def test_insights_probe_uses_owned_token_and_returns_only_safe_metadata(monkeypa
     assert ("profile_id", "profile-a") in seen
     assert "private-token" not in str(result)
     app.dependency_overrides.clear()
+
+
+def test_manual_refresh_scoped_to_logged_in_profile(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
+    called = []
+
+    async def fake_refresh(user_id, profile_id, *, manual=False):
+        called.append((user_id, profile_id, manual))
+        return {"state": "updated", "provider_states": {"facebook": "not_connected"}}
+
+    monkeypatch.setattr(social_analytics, "refresh_account", fake_refresh)
+    try:
+        response = TestClient(app).post('/analytics/refresh')
+        assert response.status_code == 200
+        assert response.json()["state"] == "updated"
+        assert called == [('user-a', 'profile-a', True)]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_refresh_requires_active_profile(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: None
+    try:
+        assert TestClient(app).post('/analytics/refresh').status_code == 400
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_facebook_cached_daily_values_never_fill_missing_days():
+    cached = {"provider_states": {"facebook": "ok"},
+              "facebook_daily_values": [
+                  {"period_end": "2999-01-01", "value": 7},
+                  {"period_end": "2999-01-02", "value": 0},
+              ]}
+    assert social_analytics._facebook_views_for_period(cached, 7) == 7
+    cached["provider_states"] = {"facebook": "api_error"}
+    assert social_analytics._facebook_views_for_period(cached, 7) is None
+    cached["provider_states"] = {"facebook": "ok"}
+    cached["facebook_daily_values"][0]["value"] = True
+    assert social_analytics._facebook_views_for_period(cached, 7) is None
+
+
+def test_collector_parses_only_valid_metrics():
+    metrics = [{"name": "views", "total_value": {"value": 33}}]
+    assert analytics_refresh._threads_views(metrics) == 33
+    assert analytics_refresh._threads_views([{"name": "views", "values": [
+        {"value": 10}, {"value": 10}
+    ]}]) is None
+    assert analytics_refresh._threads_views([{"name": "views", "total_value": {"value": True}}]) is None
+    daily = [{"name": "page_media_view", "values": [
+        {"value": 0, "end_time": "2026-10-30T00:00:00+0000"},
+    ]}]
+    assert analytics_refresh._facebook_daily_values(daily) == [
+        {"period_end": "2026-10-30", "value": 0}
+    ]
+
+
+def test_collector_credentials_restricted_by_user_and_profile(monkeypatch):
+    fields = []
+    query = MagicMock()
+    query.select.return_value = query
+    query.eq.side_effect = lambda key, value: (fields.append((key, value)), query)[1]
+    query.maybe_single.return_value = query
+    query.execute.return_value = MagicMock(data={"page_id": "page-a", "page_access_token": "cipher"})
+    fake = MagicMock()
+    fake.table.return_value = query
+    monkeypatch.setattr(database_module, "get_supabase", lambda: fake)
+    assert analytics_refresh._credential("user-a", "profile-a", "facebook") == ("page-a", "cipher")
+    assert ("user_id", "user-a") in fields
+    assert ("profile_id", "profile-a") in fields
+    assert "cipher" not in str(fields)
+
+
+def test_collector_does_not_repeat_when_claim_unavailable(monkeypatch):
+    import asyncio
+    monkeypatch.setattr(analytics_refresh, "_claim", lambda *args: None)
+    async def forbidden(*args, **kwargs):
+        raise AssertionError("não deve chamar API externa sem claim")
+    monkeypatch.setattr(analytics_refresh, "_fetch_network", forbidden)
+    assert asyncio.run(analytics_refresh.refresh_account("user-a", "profile-a")) == {"state": "recent"}
