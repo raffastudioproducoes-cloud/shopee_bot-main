@@ -145,6 +145,7 @@ export function PostsPage() {
   const { logout } = useAuthStore()
   const queryClient = useQueryClient()
   const [modalOpen, setModalOpen] = useState(false)
+  const [expandedPosts, setExpandedPosts] = useState<Set<number>>(() => new Set())
   const [editingPost, setEditingPost] = useState<Post | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [reconcilePostId, setReconcilePostId] = useState<number | null>(null)
@@ -327,6 +328,7 @@ export function PostsPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-column)" }}>
       <div
+        className="posts-page-header"
         style={{
           display: "flex",
           flexWrap: "wrap",
@@ -362,7 +364,7 @@ export function PostsPage() {
           </div>
         </Panel>
       ) : (
-        <Panel surface="dark">
+        <Panel surface="dark" className="posts-list-panel">
           <PanelHeader title="Posts" />
           {posts.map((post, index) => (
             <div key={post.id}>
@@ -382,8 +384,10 @@ export function PostsPage() {
                   cursor: "pointer",
                 }}
               >
-                <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="post-list-content" style={{ minWidth: 0, flex: 1 }}>
                   <p
+                    id={`post-text-${post.id}`}
+                    className={`post-list-copy${expandedPosts.has(post.id) ? " is-expanded" : ""}`}
                     style={{
                       margin: 0,
                       font: "var(--text-role-body)",
@@ -398,7 +402,7 @@ export function PostsPage() {
                     {post.text}
                   </p>
                   {post.products.length > 0 && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                    <div className="post-list-products" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                       {post.products.map((p) => (
                         <Badge key={p.id} tone="outline">
                           {p.name}
@@ -480,7 +484,23 @@ export function PostsPage() {
                     </p>
                   )}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 4, flex: "0 0 auto" }}>
+                <div className="post-list-actions" style={{ display: "flex", alignItems: "center", gap: 4, flex: "0 0 auto" }}>
+                  {post.text.length > 60 && (
+                    <button type="button" className="post-list-read-more"
+                      aria-controls={`post-text-${post.id}`}
+                      aria-expanded={expandedPosts.has(post.id)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setExpandedPosts((current) => {
+                          const next = new Set(current)
+                          if (next.has(post.id)) next.delete(post.id)
+                          else next.add(post.id)
+                          return next
+                        })
+                      }}>
+                      {expandedPosts.has(post.id) ? "Mostrar menos" : "Ler texto completo"}
+                    </button>
+                  )}
                   {post.last_result?.status === "unknown" && post.network === "threads" && (
                     <Button variant="ghost" size="sm" icon="shield-check" onClick={(e) => {
                       e.stopPropagation()
