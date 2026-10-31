@@ -16,6 +16,9 @@ worker_class = "gevent"
 # gevent notifica o master em loop próprio, então 120s não mata requisição
 # longa que esteja só aguardando I/O.
 timeout = 120
+# Give in-flight publications time to finish on rolling deploy.
+# The queue will remain "unknown" if the host terminates us earlier.
+graceful_timeout = 120
 
 # FastAPI (api/main.py) sobe como processo uvicorn separado no mesmo
 # container — gevent monkey-patch do Flask (web/__init__.py) é incompatível
@@ -91,6 +94,15 @@ def _supervise_uvicorn():
 
 # Server Hooks
 post_fork = post_fork
+
+
+def worker_exit(server, worker):
+    """Scheduler runs inside the gevent worker, not the Gunicorn master."""
+    try:
+        from shopee_bot.scheduler import shutdown_gracefully
+        shutdown_gracefully()
+    except Exception:
+        _log.exception("Falha ao encerrar scheduler do worker")
 
 
 def on_starting(server):

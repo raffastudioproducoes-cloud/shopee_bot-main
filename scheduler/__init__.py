@@ -36,6 +36,24 @@ PASSWORD = os.environ.get("SHOPEE_PG_PASSWORD")
 REDIS_HOST = os.environ.get("REDIS_HOST")
 
 _scheduler = None
+_shutting_down = False
+
+
+def shutdown_gracefully() -> None:
+    """Stop new triggers and wait for in-flight publish jobs on worker exit.
+
+    Platform termination deadlines may still cut this short; in that case the
+    durable queue deliberately remains unknown instead of blindly retrying.
+    """
+    global _shutting_down, _scheduler
+    _shutting_down = True
+    current = _scheduler
+    if current is None or not current.running:
+        return
+    current.pause()
+    current.shutdown(wait=True)
+    _scheduler = None
+
 
 # Job "date" com run_date = agora (botão "Agora" do front) chega ao
 # scheduler alguns ms/s depois do horário e o default do APScheduler
@@ -66,7 +84,7 @@ def request_wakeup() -> bool:
     """Solicita verificação dos horários ao scheduler já inicializado."""
     current = _scheduler
 
-    if not scheduler_enabled():
+    if not scheduler_enabled() or _shutting_down:
         return False
 
     if current is None or not current.running:
@@ -124,6 +142,9 @@ def drain_publish_jobs():
 
 def execute_publication(job_id):
     """Executa uma publicacao somente quando esta instancia detem o lease."""
+    if _shutting_down:
+        logger.info("Ignorando novo disparo durante encerramento: %s", job_id)
+        return
     job_data = schedulers.get_by_id(job_id)
     if not job_data:
         logger.warning("Job de publicacao %s nao encontrado", job_id)
@@ -315,7 +336,8 @@ def _jobstore_dsn() -> str:
 
 
 def init():
-    global _scheduler
+    global _scheduler, _shutting_down
+    _shutting_down = False
     logger.info("Scheduler initializing...")
 
     _scheduler = GeventScheduler(
