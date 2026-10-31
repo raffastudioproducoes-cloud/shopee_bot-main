@@ -55,7 +55,7 @@ export function ScaleMetrics({ data }: { data: AdminMetrics }) {
     <div className="admin-scale-grid">
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['render', 'capacity']} /><h3>Capacidade do Render</h3><div className="admin-capacity-pair"><Gauge label="CPU / limite" percent={cpu} timestamp={data.render.cpu?.timestamp} /><Gauge label="RAM / limite" percent={memory} timestamp={data.render.memory?.timestamp} /></div><p>Percentuais de amostras compatíveis. Pico sustentado e disponibilidade exigem histórico próprio e sondas externas.</p></Panel>
       <Panel surface="dark" className="admin-metric-card">
-        <CardTags tags={['supabase', 'storage', 'capacity']} />
+        <CardTags tags={['supabase', 'capacity']} />
         <h3>Storage · arquivos e cota Free</h3>
         {storagePercent == null ? <p role="status">Consumo indisponível. Nenhum valor foi estimado; a proteção de uploads funciona em modo seguro (recusa quando não consegue consultar).</p> : <>
           <div className="admin-capacity-pair"><Gauge label="Espaço usado + reservado" percent={storagePercent} timestamp={storage?.collected_at ?? undefined} /></div>
