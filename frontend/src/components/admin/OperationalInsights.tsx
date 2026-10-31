@@ -6,7 +6,7 @@ import { Panel } from '../ui/Panel'
 const fmt = (n: number | null | undefined) => n == null ? 'Indisponível' : n.toLocaleString('pt-BR', {maximumFractionDigits: 1})
 const money = (n: number | null | undefined) => n == null ? 'Indisponível' : n.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})
 
-export function OperationalInsights() {
+export function OperationalInsights({ accountCount }: { accountCount?: number | null }) {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'operations'],
     queryFn: adminMetricsApi.getOperations,
@@ -50,9 +50,9 @@ export function OperationalInsights() {
       </Panel>
       <Panel surface="dark" className="admin-metric-card">
         <CardTags tags={['app', 'plans', 'consumption']}/><h3>Custos operacionais estimados</h3>
-        {data?.costs.status === 'estimate' ? <dl><div><dt>Orçamento mensal informado</dt><dd>{money(data.costs.monthly_brl)}</dd></div><div><dt>Equivalente diário (30 dias)</dt><dd>{money(data.costs.daily_brl)}</dd></div></dl>
+        {data?.costs.status === 'estimate' ? <dl><div><dt>Orçamento mensal informado</dt><dd>{money(data.costs.monthly_brl)}</dd></div><div><dt>Equivalente diário (30 dias)</dt><dd>{money(data.costs.daily_brl)}</dd></div><div><dt>Rateio mensal por conta cadastrada</dt><dd>{accountCount && data.costs.monthly_brl != null ? money(data.costs.monthly_brl / accountCount) : 'Indisponível'}</dd></div></dl>
           : <p>Orçamento não configurado. Defina ADMIN_ESTIMATED_MONTHLY_BRL no backend do Render para informar o custo mensal em reais.</p>}
-        <p>Valor ilustrativo definido pelo operador, não extraído do Render ou Supabase. Não se trata de fatura, cobrança confirmada nem custo por cliente atribuível. Atribuição por conta exige medições e faturas reais.</p>
+        <p>Valor ilustrativo definido pelo operador, não extraído do Render ou Supabase. Não se trata de fatura ou cobrança confirmada. O rateio por conta divide um orçamento informado entre contas existentes e não mede custo efetivo individual. Atribuição por conta exige medições e faturas reais.</p>
       </Panel>
     </div>
   </section>
