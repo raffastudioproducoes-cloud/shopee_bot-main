@@ -1,3 +1,5 @@
+> **Escopo real de 31/10/2026:** o Guia Mestre distingue o que está implementado, condicional, planejado ou indisponível (ex.: X/Kwai/Shopee Vídeo). Não tratar esta fotografia histórica como prova de publicação externa. **Primeira leitura obrigatória:** [AGENTS.md](../AGENTS.md) e [docs/GUIA-MESTRE-IA.md](GUIA-MESTRE-IA.md).
+
 # PRD — Shopee Auto Vendas
 
 > Documento canônico vivo. Cenário A (projeto existente) — todo o conteúdo abaixo vem do
