@@ -12,7 +12,7 @@ export function TermsPage() {
       <p>
         Ao criar uma conta ou usar o Auto Orbital ("nós", "plataforma", "serviço"), você
         concorda com estes Termos de Serviço e com a nossa{' '}
-        <a href="/privacidade" style={{ color: 'var(--accent)' }}>
+        <a href="/privacidade" className="csp-s-0399">
           Política de Privacidade
         </a>
         . Se você não concorda com algum ponto, não utilize o serviço.
