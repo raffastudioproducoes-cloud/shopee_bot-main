@@ -148,10 +148,19 @@ class UnavailableMetrics(BaseModel):
     location: str = "Localização não coletada; nenhum IP ou endereço é usado neste painel."
 
 
+class GeographyRegion(BaseModel):
+    region: str
+    online: int = Field(ge=0)
+    offline: int = Field(ge=0)
+    deleted: int = Field(default=0, ge=0)
+
+
 class GeographyMetrics(BaseModel):
-    status: Literal["not_configured"] = "not_configured"
+    status: Literal["available", "not_configured"] = "not_configured"
     updated_at: datetime | None = None
-    regions: list = Field(default_factory=list, max_length=0)
+    source: Literal["voluntary"] | None = None
+    minimum_group_size: int = Field(default=3, ge=3)
+    regions: list[GeographyRegion] = Field(default_factory=list, max_length=20)
 
 
 class AdminMetricsResponse(BaseModel):
@@ -288,7 +297,20 @@ async def _render_snapshot() -> RenderMetrics:
 
 
 async def collect_admin_metrics(days: int) -> AdminMetricsResponse:
-    (snapshot, latency, db_diagnostic), render = await asyncio.gather(_database_snapshot(days), _render_snapshot())
+    async def read_geography() -> GeographyMetrics:
+        try:
+            response = await asyncio.wait_for(
+                run_in_threadpool(lambda: supabase.rpc("admin_region_aggregates").execute()),
+                timeout=5,
+            )
+            return GeographyMetrics.model_validate(response.data)
+        except Exception as exc:
+            logger.warning("Agregação geográfica indisponível (%s)", type(exc).__name__)
+            return GeographyMetrics()
+
+    (snapshot, latency, db_diagnostic), render, geography = await asyncio.gather(
+        _database_snapshot(days), _render_snapshot(), read_geography()
+    )
     if snapshot and snapshot.scale:
         snapshot.scale.collected_at = datetime.now(timezone.utc)
     notes = [
@@ -315,7 +337,7 @@ async def collect_admin_metrics(days: int) -> AdminMetricsResponse:
     return AdminMetricsResponse(
         status=status, updated_at=datetime.now(timezone.utc), days=days,
         counts=snapshot.counts if snapshot else None, daily=snapshot.daily if snapshot else [],
-        supabase=supabase_metrics, render=render, geography=GeographyMetrics(),
+        supabase=supabase_metrics, render=render, geography=geography,
         unavailable=UnavailableMetrics(), notes=notes,
         previous_period=snapshot.previous_period if snapshot else None,
         scale=snapshot.scale if snapshot else None,
