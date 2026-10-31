@@ -41,10 +41,12 @@ export interface Post {
 }
 
 export interface PostPublishResult {
-  status: 'published' | 'failed' | 'running' | 'unknown' | 'manual_confirmed' | 'reported_removed' | null
+  status: 'published' | 'failed' | 'running' | 'unknown' | 'retry_pending' | 'manual_confirmed' | 'reported_removed' | null
   at: string | null
   error: string | null
   proof_url?: string | null
+  /** Identificador exato da ocorrência incerta para evitar reenvio com lista desatualizada. */
+  job_id?: string | null
 }
 
 export interface PostSchedule {
@@ -217,6 +219,14 @@ export const postsApi = {
 
   async reconcile(id: number, payload: { permalink?: string; reported_removed?: boolean }): Promise<{ status: string; proof_url?: string; msg: string }> {
     return api.post(`/posts/${id}/reconcile`, { ...payload, confirmed: true })
+  },
+
+  async retryUnknown(id: number, sourceJobId: string): Promise<{ status: string; msg: string }> {
+    return api.post(`/posts/${id}/retry-unknown`, {
+      source_job_id: sourceJobId,
+      confirmed_not_published: true,
+      accepts_duplicate_risk: true,
+    })
   },
 
   async uploadMedia(postId: number, file: File): Promise<PostMedia> {
