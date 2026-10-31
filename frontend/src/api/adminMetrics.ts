@@ -44,12 +44,40 @@ export interface AdminQueueHealth {
   collected_at: string | null
 }
 
+export interface ClientGeoPoint {
+  account: string
+  latitude: number
+  longitude: number
+  accuracy_m: number | null
+  collected_at: string
+}
+
+export interface ClientGeoOverview {
+  status: 'available'
+  updated_at: string
+  customers_total: number
+  recent_active: number
+  activity_available: boolean
+  gps_points_total: number
+  region_participants: number
+  deleted_total: number
+  deleted_since: string | null
+  points: ClientGeoPoint[]
+}
+
+export interface OwnGeoPoint {
+  latitude: number
+  longitude: number
+  collected_at: string
+}
+
 export const adminMetricsApi = {
   get: (days: number) => api.get<AdminMetrics>(`/admin/metrics?days=${days}`),
   getQueueHealth: () => api.get<AdminQueueHealth>('/admin/queue-health'),
   getOperations: () => api.get<AdminOperations>('/admin/operations'),
   getMyRegion: () => api.get<{region: string | null}>('/admin/my-region'),
-  getLocationPoints: () => api.get<{points: {account: string; latitude: number; longitude: number; accuracy_m: number | null; collected_at: string}[]}>('/admin/location-points'),
+  getLocationPoints: () => api.get<ClientGeoOverview>('/admin/location-points'),
+  getMyLocation: () => api.get<{point: OwnGeoPoint | null}>('/admin/my-location'),
 }
 
 export interface AdminOperations {

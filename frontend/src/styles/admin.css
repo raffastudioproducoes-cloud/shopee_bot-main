@@ -208,3 +208,23 @@ html:has(.admin-shell)::-webkit-scrollbar-corner, .admin-shell::-webkit-scrollba
   color: var(--highlight); cursor: pointer; text-decoration: underline;
   font: inherit;
 }
+
+
+/* Admin geography: personal marker is gold; voluntarily shared client points are cyan. */
+.admin-globe-client-halo { fill: rgba(53, 210, 240, .17); stroke: #43d9fa; stroke-width: 1.5; }
+.admin-globe-client-core { fill: #77edff; filter: drop-shadow(0 0 5px #43d9fa); }
+.admin-globe-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+.admin-globe-summary > div {
+  min-width: 0;
+  border: 1px solid var(--border-hairline);
+  background: var(--surface-card);
+  border-radius: var(--r-md);
+  padding: 10px;
+}
+.admin-globe-summary dt { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
+.admin-globe-summary dd { margin: 5px 0 0; font-size: 21px; font-weight: 700; color: var(--text-display); }

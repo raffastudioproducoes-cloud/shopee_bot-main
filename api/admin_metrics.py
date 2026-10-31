@@ -315,7 +315,8 @@ async def collect_admin_metrics(days: int) -> AdminMetricsResponse:
         snapshot.scale.collected_at = datetime.now(timezone.utc)
     notes = [
         "Ativos: contas com requisição autenticada nos últimos 5 minutos, não presença exata em tempo real.",
-        "Cadastros: contas que ainda existem e foram criadas no período; excluídas não integram essa série.",
+        "Clientes: métricas de contas, atividade, cadastros, planos e exclusões consideram somente USER; ADMIN é excluído.",
+        "Cadastros: clientes que ainda existem e foram criados no período; excluídos não integram essa série.",
         "Exclusões: eventos preservados na auditoria disponível, não histórico anterior à coleta.",
         "Planos Free/Plus/Premium correspondem ao perfil principal, sem confirmação de pagamento.",
         "Tamanho do banco não equivale a disco total, armazenamento de arquivos ou cota faturável.",

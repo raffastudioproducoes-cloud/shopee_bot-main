@@ -36,10 +36,10 @@ export default function AdminOverviewPage() {
   if (!data) return <div><p role="alert">Não foi possível carregar as métricas administrativas.</p><Button onClick={() => { void refetch() }}>Tentar novamente</Button></div>
   const counts = data.counts
   const stats = [
-    ['Contas atuais', counts?.accounts, ['supabase', 'clients']],
-    ['Ativos · últimos 5 min', counts?.active_accounts, ['supabase', 'clients']],
-    ['Cadastros no período', counts?.new_accounts, ['supabase', 'clients']],
-    ['Exclusões auditadas', counts?.deleted_accounts, ['supabase', 'clients']],
+    ['Clientes atuais (USER)', counts?.accounts, ['supabase', 'clients']],
+    ['Clientes ativos · últimos 5 min', counts?.active_accounts, ['supabase', 'clients']],
+    ['Clientes cadastrados no período', counts?.new_accounts, ['supabase', 'clients']],
+    ['Exclusões de clientes no período', counts?.deleted_accounts, ['supabase', 'clients']],
   ] as const
   return <div className="admin-overview">
     <div className="admin-overview-heading"><div><h1>Visão geral</h1><p>Operação e audiência · somente dados agregados</p></div><label>Período<select value={days} onChange={event => setDays(Number(event.target.value))}>{[7, 30, 90].map(value => <option key={value} value={value}>{value} dias</option>)}</select></label></div>
@@ -61,8 +61,8 @@ export default function AdminOverviewPage() {
     {compare && (data.previous_period && counts ? <section aria-label="Comparação entre períodos" className="admin-period-comparison">
       <p>Atual inclui hoje incompleto. Anterior: {data.previous_period.starts_on.split('-').reverse().join('/')} a {data.previous_period.ends_on.split('-').reverse().join('/')} — dias completos.</p>
       <div className="admin-metric-stats">{[
-        ['Cadastros existentes', counts.new_accounts, data.previous_period.registrations],
-        ['Exclusões auditadas', counts.deleted_accounts, data.previous_period.deletions],
+        ['Clientes cadastrados', counts.new_accounts, data.previous_period.registrations],
+        ['Exclusões de clientes no período', counts.deleted_accounts, data.previous_period.deletions],
         ['Requisições', counts.requests, data.previous_period.requests],
         ['Respostas com erro', counts.errors, data.previous_period.errors],
       ].map(([label, current, previous]) => <Panel key={label} surface="dark" className="admin-comparison-card"><CardTags tags={['supabase', 'comparison']} /><h2>{label}</h2><strong>{number(current as number)}</strong><p>Anterior: {number(previous as number)}</p><span>{comparisonDelta(current as number, previous as number)}</span></Panel>)}</div>
@@ -95,7 +95,7 @@ export default function AdminOverviewPage() {
       <Panel surface="dark" className="admin-metric-card admin-growth"><CardTags tags={['supabase', 'traffic']} /><h2>Atividade da aplicação</h2><p>Volume diário de requisições · horário de Brasília</p>{data.daily.length ? <><div className="admin-chart" ><MetricTrend values={data.daily.map(point => point.requests)} label={`Requisições diárias: ${number(counts?.requests)} no período.`} start={data.daily[0]?.date.split('-').reverse().slice(0, 2).join('/')} end={data.daily[data.daily.length - 1]?.date.split('-').reverse().slice(0, 2).join('/')} /></div><div className="admin-chart-legend"><span>● Requisições</span><span>Cadastros e exclusões na tabela</span></div><details><summary>Consultar dados do gráfico</summary><div className="admin-metric-table"><table><thead><tr><th>Data</th><th>Cadastros</th><th>Exclusões</th><th>Requisições</th></tr></thead><tbody>{data.daily.map(point => <tr key={point.date}><td>{point.date.split('-').reverse().join('/')}</td><td>{point.registrations}</td><td>{point.deletions}</td><td>{point.requests}</td></tr>)}</tbody></table></div></details></> : <p>Histórico indisponível.</p>}</Panel>
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'clients', 'plans']} /><h2>Planos cadastrados</h2><p>Perfil principal · não confirma pagamento</p>{counts && <PlanRings values={[counts.free_accounts, counts.plus_accounts, counts.premium_accounts]} total={counts.accounts} />}{[['Free', counts?.free_accounts], ['Plus', counts?.plus_accounts], ['Premium', counts?.premium_accounts]].map(([label, value]) => <div className="admin-plan" key={label}><span>{label}</span><strong>{number(value as number | undefined)}</strong></div>)}<p>{data.unavailable.paying_accounts}</p></Panel>
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'performance']} /><h2>Uso da aplicação</h2><dl><div><dt>Requisições</dt><dd>{number(counts?.requests)}</dd></div><div><dt>Respostas com erro</dt><dd>{number(counts?.errors)}</dd></div><div><dt>Latência média / p95</dt><dd>{number(counts?.avg_latency_ms, ' ms')} / {number(counts?.p95_latency_ms, ' ms')}</dd></div></dl></Panel>
-      <Panel surface="dark" className="admin-metric-card"><CardTags tags={['app', 'coverage']} /><h2>Cobertura de dados</h2><p>Regiões: participação voluntária por país/UF, sem IP ou GPS. Só exibimos regiões com ao menos três contas participantes.</p>{data.scale && <p>Histórico de capacidade: {data.scale.capacity_history?.length
+      <Panel surface="dark" className="admin-metric-card"><CardTags tags={['app', 'coverage']} /><h2>Cobertura de dados</h2><p>Regiões: participação voluntária por país/UF, sem IP ou GPS. Só exibimos regiões com ao menos três clientes participantes. A conta ADMIN não entra nas estatísticas comerciais.</p>{data.scale && <p>Histórico de capacidade: {data.scale.capacity_history?.length
         ? `${data.scale.capacity_history.length} ${data.scale.capacity_history.length === 1 ? 'dia observado' : 'dias observados'}; veja a evolução abaixo. Coleta automática programada para 00h15 (Brasília).`
         : data.supabase.status === 'available'
           ? 'Ainda sem histórico. Coleta diária programada às 00h15 (Brasília); ausência de medições não representa consumo zero.'
