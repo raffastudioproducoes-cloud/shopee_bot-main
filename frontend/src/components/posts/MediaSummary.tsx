@@ -29,24 +29,24 @@ export function MediaSummary({ networks, plans }: Props) {
   const detailed = rows.filter((p) => p.dropped.length > 0 || p.warnings.length > 0)
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div className="csp-s-0019">
       <span style={{ font: caption, color: "var(--text-muted)" }}>Mídia por rede</span>
-      <ul aria-live="polite" style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
+      <ul aria-live="polite" className="csp-s-0020">
         {rows.map((p) => (
           <li
             key={p.network}
             style={{ display: "flex", alignItems: "center", gap: 6, font: caption, color: p.mode === "blocked" ? "var(--negative)" : "var(--text-body)" }}
           >
             <NetworkLogo network={p.network} size={14} />
-            <strong style={{ fontWeight: "var(--fw-medium)" }}>{NETWORK_RULES[p.network].label}</strong>
+            <strong className="csp-s-0021">{NETWORK_RULES[p.network].label}</strong>
             <span>— {summaryLine(p)}</span>
           </li>
         ))}
       </ul>
       {detailed.length > 0 && (
         <details style={{ font: caption, color: "var(--text-muted)" }}>
-          <summary style={{ cursor: "pointer" }}>Ver detalhes</summary>
-          <ul style={{ margin: "6px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2 }}>
+          <summary className="csp-s-0022">Ver detalhes</summary>
+          <ul className="csp-s-0023">
             {detailed.flatMap((p) => [
               ...p.dropped.map((d, i) => (
                 <li key={`${p.network}-d${i}`}>
