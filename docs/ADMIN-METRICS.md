@@ -118,3 +118,8 @@ falha fechada propositalmente.
 
 Referencias: [Supabase tamanho de Storage](https://supabase.com/docs/guides/platform/manage-your-usage/storage-size),
 [Supabase egress](https://supabase.com/docs/guides/storage/serving/bandwidth).
+
+A migração corretiva `059_revoke_storage_reservation_direct_grants.sql`
+revoga também os privilégios diretos concedidos automaticamente pelo
+Supabase a `service_role` na tabela de reservas. O backend permanece com
+acesso por RPC `SECURITY DEFINER` apenas, sem consultas diretas.
