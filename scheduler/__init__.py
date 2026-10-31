@@ -306,6 +306,12 @@ def _add_job(user_id, job, conn):
             trigger=trigger,
             run_date=job["run_date"]
         )
+    else:
+        raise ValueError(f"trigger de agenda não suportado: {trigger}")
+
+    # A API precisa do ID real para desfazer uma agenda de múltiplos
+    # horários caso a criação de um dos próximos jobs falhe.
+    return str(job_id)
 
 
 def add_job(user_id, job, open_conn=None):
@@ -313,15 +319,15 @@ def add_job(user_id, job, open_conn=None):
 
     conn: Connection = open_conn if open_conn else get_conn()
 
-    # 2 = INTRANS
-    if conn.info.transaction_status == TransactionStatus(2):
-        _add_job(user_id, job, conn)
-    else:
+    try:
+        # 2 = INTRANS; preserve a transaction supplied by the caller.
+        if conn.info.transaction_status == TransactionStatus(2):
+            return _add_job(user_id, job, conn)
         with conn.transaction():
-            _add_job(user_id, job, conn)
-
-    if not open_conn:
-        put_conn(conn)
+            return _add_job(user_id, job, conn)
+    finally:
+        if not open_conn:
+            put_conn(conn)
 
 
 def _jobstore_dsn() -> str:

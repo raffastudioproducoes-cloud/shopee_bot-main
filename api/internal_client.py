@@ -10,6 +10,7 @@ docstring de web/routes/internal.py e Fase 8 em docs/ROADMAP_MIGRACAO.md.
 
 import logging
 import os
+import uuid
 
 import httpx
 
@@ -48,8 +49,14 @@ async def create_scheduler_job(user_id: str, post_id: int, func: str, trigger: s
             headers=_headers(),
         )
     if resp.status_code >= 400:
-        raise InternalApiError(f"create_scheduler_job falhou: {resp.status_code} {resp.text}")
-    return resp.json()["job_id"]
+        # O detalhe completo fica no log do Flask, sem retornar o corpo de
+        # exceções internas do serviço (que pode conter dados sensíveis).
+        raise InternalApiError(f"create_scheduler_job falhou: HTTP {resp.status_code}")
+    try:
+        job_id = str(uuid.UUID(str(resp.json()["job_id"])))
+    except (ValueError, TypeError, KeyError, AttributeError) as exc:
+        raise InternalApiError("Agendador retornou um ID inválido ou ausente") from exc
+    return job_id
 
 
 async def remove_scheduler_job(user_id: str, job_id: str) -> None:

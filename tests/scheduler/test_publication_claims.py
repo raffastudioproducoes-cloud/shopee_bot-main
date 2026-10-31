@@ -198,6 +198,8 @@ def test_existing_publication_jobs_are_upgraded_to_claiming_wrapper(monkeypatch)
     scheduler._upgrade_existing_publication_jobs()
 
     assert updated == [
-        (("job-1",), {"jobstore": "default", "func": scheduler.execute_publication, "args": ("job-1",)}),
-        (("job-2",), {"jobstore": "default", "func": scheduler.execute_publication, "args": ("job-2",)}),
+        (("job-1",), {"jobstore": "default", "func": scheduler.execute_publication,
+                      "args": ("job-1",), "misfire_grace_time": scheduler.JOB_DEFAULTS["misfire_grace_time"]}),
+        (("job-2",), {"jobstore": "default", "func": scheduler.execute_publication,
+                      "args": ("job-2",), "misfire_grace_time": scheduler.JOB_DEFAULTS["misfire_grace_time"]}),
     ]

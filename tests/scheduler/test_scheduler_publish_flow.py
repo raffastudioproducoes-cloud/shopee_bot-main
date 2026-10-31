@@ -163,3 +163,66 @@ def test_bot_post_without_threads_credential_raises_clear_error(monkeypatch):
         assert "Credenciais" in str(exc)
     else:
         raise AssertionError("esperava RuntimeError")
+
+
+def test_add_job_returns_persisted_id_and_releases_connection(monkeypatch):
+    from contextlib import nullcontext
+    from psycopg.pq import TransactionStatus
+
+    class FakeConnection:
+        info = SimpleNamespace(transaction_status=TransactionStatus.IDLE)
+
+        def transaction(self):
+            return nullcontext()
+
+    conn = FakeConnection()
+    released = []
+    scheduled = []
+    monkeypatch.setattr(sched, "get_conn", lambda: conn)
+    monkeypatch.setattr(sched, "put_conn", lambda c: released.append(c))
+    monkeypatch.setattr(sched.schedulers, "insert", lambda *_args: "8cbe9ecb-3dc7-4fe5-a864-573c385c73c4")
+    monkeypatch.setattr(
+        sched, "_scheduler",
+        SimpleNamespace(add_job=lambda **kwargs: scheduled.append(kwargs)),
+    )
+
+    job_id = sched.add_job("user-1", {
+        "post_id": 7, "func": "bot_post", "trigger": "cron",
+        "time": time(13, 0), "days_of_week": [0, 2],
+        "profile_id": "profile-a",
+    })
+
+    assert job_id == "8cbe9ecb-3dc7-4fe5-a864-573c385c73c4"
+    assert len(scheduled) == 1
+    assert scheduled[0]["id"] == job_id
+    assert scheduled[0]["day_of_week"] == "0,2"
+    assert released == [conn]
+
+
+def test_add_job_releases_connection_when_scheduler_rejects_job(monkeypatch):
+    from contextlib import nullcontext
+    from psycopg.pq import TransactionStatus
+    import pytest
+
+    class FakeConnection:
+        info = SimpleNamespace(transaction_status=TransactionStatus.IDLE)
+
+        def transaction(self):
+            return nullcontext()
+
+    conn = FakeConnection()
+    released = []
+    monkeypatch.setattr(sched, "get_conn", lambda: conn)
+    monkeypatch.setattr(sched, "put_conn", lambda c: released.append(c))
+    monkeypatch.setattr(sched.schedulers, "insert", lambda *_args: "job-1")
+
+    def reject(**_kwargs):
+        raise RuntimeError("jobstore indisponível")
+
+    monkeypatch.setattr(sched, "_scheduler", SimpleNamespace(add_job=reject))
+    with pytest.raises(RuntimeError, match="jobstore"):
+        sched.add_job("user-1", {
+            "post_id": 7, "func": "bot_post", "trigger": "date",
+            "run_date": datetime(2030, 1, 1), "profile_id": "profile-a",
+        })
+    assert released == [conn]
