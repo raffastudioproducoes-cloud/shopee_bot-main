@@ -1,0 +1,63 @@
+# SBOM do artefato Docker reconstruído a partir do commit do repositório.
+# Importante: o Render recompila sua própria imagem. Este SBOM cobre a imagem
+# construída no GitHub pelo MESMO Dockerfile/commit, não prova identidade byte
+# a byte com a instância em execução no Render.
+name: SBOM - imagem Docker (CycloneDX)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, staging]
+    paths:
+      - Dockerfile
+      - requirements.txt
+      - api/requirements.txt
+      - frontend/package.json
+      - frontend/package-lock.json
+      - .github/workflows/sbom.yml
+  schedule:
+    - cron: '20 9 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sbom-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inventory:
+    name: Inventário de dependências e SO
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Construir imagem do commit (sem publicar nem injetar secrets)
+        run: |
+          docker build --pull \
+            --build-arg RENDER_GIT_COMMIT="$GITHUB_SHA" \
+            --tag "auto-orbital-sbom:$GITHUB_SHA" .
+
+      - name: Criar SBOM CycloneDX da imagem de teste
+        uses: anchore/sbom-action@v0
+        with:
+          image: "auto-orbital-sbom:${{ github.sha }}"
+          format: cyclonedx-json
+          artifact-name: "auto-orbital-${{ github.ref_name }}-${{ github.sha }}.cdx.json"
+          output-file: "./auto-orbital.cdx.json"
+          upload-artifact: true
+          upload-release-assets: false
+
+      - name: Confirmar saída do inventário e identificador do commit
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          doc = json.loads(Path("auto-orbital.cdx.json").read_text())
+          assert doc["bomFormat"] == "CycloneDX"
+          assert doc["components"], "SBOM sem componentes"
+          print("SBOM válido:", len(doc["components"]), "componentes; commit", os.environ["GITHUB_SHA"])
+          PY
