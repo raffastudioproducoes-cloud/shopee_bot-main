@@ -1,0 +1,34 @@
+name: Staging - security smoke HTTP
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 11 * * *'
+  push:
+    branches: [staging]
+    paths:
+      - scripts/staging_security_smoke.py
+      - .github/workflows/staging-security-smoke.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-security-smoke
+  cancel-in-progress: true
+
+jobs:
+  external-smoke:
+    name: Staging public and optional authenticated probes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Health, CSP, unauthorized session and login throttle
+        env:
+          STAGING_SMOKE_USERNAME: ${{ secrets.STAGING_SMOKE_USERNAME }}
+          STAGING_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+        run: python scripts/staging_security_smoke.py
