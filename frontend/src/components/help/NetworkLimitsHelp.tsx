@@ -114,10 +114,10 @@ function NetworkCard({ n }: { n: (typeof PICKER_NETWORKS)[number] }) {
           <tbody>
             {[...ruleRows(n), ...help.facts].map((row) => (
               <tr key={row.label} className="csp-named-row-border">
-                <th scope="row" style={{ ...th, width: "38%", font: small, color: "var(--text-body)" }}>
+                <th scope="row" className="csp-named-th-cell">
                   {row.label}
                 </th>
-                <td style={{ ...td, font: small }}>
+                <td className="csp-named-td-cell">
                   {row.value}
                   {row.unconfirmed && <Unconfirmed />}
                 </td>
