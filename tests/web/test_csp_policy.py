@@ -92,9 +92,9 @@ def test_generated_stylesheet_covers_all_static_csp_classes():
     import re
     style_root = project_root / "frontend" / "src"
     stylesheet = (style_root / "styles" / "csp-static-generated.css").read_text(encoding="utf-8")
-    declared = set(re.findall(r"\\.((?:csp-s-)\\d{4})\\s*\\{", stylesheet))
+    declared = set(re.findall(r"\.((?:csp-s-)\d{4})\s*\{", stylesheet))
     referenced = set()
     for component in style_root.rglob("*.tsx"):
-        referenced.update(re.findall(r"className=\"((?:csp-s-)\\d{4})\"", component.read_text(encoding="utf-8")))
+        referenced.update(re.findall(r"className=\"((?:csp-s-)\d{4})\"", component.read_text(encoding="utf-8")))
     assert len(declared) >= 399
     assert declared == referenced, "Cada classe CSP estatica deve existir no CSS e ser usada no JSX"
