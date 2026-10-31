@@ -428,3 +428,10 @@ o post na conta correta. Só o último solicita envio novo; risco residual de du
 main `39026ad`; ambos Render live, endpoints `/health` e
 `/api/health/ready` HTTP 200, testes Python/frontend e smoke/ZAP
 staging aprovados. Nenhum post real foi reenviado no teste.
+
+
+## Atualização de Análises — 31/10/2026 (PR #140)
+
+Fluxo: `AnalyticsPage.tsx` → `GET /api/analytics/summary` (contadores de `publish_jobs` por usuário/perfil em tempo real + cache de métricas da Página Facebook), e `POST /api/analytics/refresh` (coleta sob demanda para USER/ADMIN). A leitura inicial agenda revalidação não bloqueante. `api/analytics_refresh.py` consulta Threads, Facebook e Instagram com a credencial pertencente **à mesma conta e perfil**, por HTTPS, sem enviar token ao cliente; registra somente métricas validadas, estado e horário em `public.analytics_daily_refreshes`.
+
+`scheduler/__init__.py` verifica até 12 caches vencidos a cada hora, com claim PostgreSQL (`claim_analytics_refresh`, mínimo 24h automático, lease de 60 s, 5 minutos entre pedidos manuais), evitando dupla consulta no Supabase compartilhado por main/staging. Após suspensão Render Free, a próxima hora ativa ou a abertura da tela recupera a coleta. A rotina cadastra o perfil na primeira visita à tela, não cria novo serviço/plano. Uma coleta da API pode não entregar dados por OAuth/permissão, período não disponível ou indisponibilidade. A coluna Visualizações usa apenas dados diários reais do Facebook; demais valores não disponíveis permanecem `null`/traço. RLS ativo na nova tabela, grants diretos de anon/authenticated revogados e função `SECURITY INVOKER` só para `service_role`; o backend conserva filtros `user_id`/`profile_id`.
