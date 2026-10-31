@@ -423,3 +423,8 @@ o post na conta correta. Só o último solicita envio novo; risco residual de du
   do titular pode duplicar conteúdo no Threads. Proteger com confirmação,
   trilha auditável e recusa por status é a mitigação disponível sem inventar
   confirmação do provedor. O Supabase é compartilhado por staging/main.
+
+**Evidência de implantação:** PR #132 staging `b3492d3`, PR #133
+main `39026ad`; ambos Render live, endpoints `/health` e
+`/api/health/ready` HTTP 200, testes Python/frontend e smoke/ZAP
+staging aprovados. Nenhum post real foi reenviado no teste.
