@@ -32,6 +32,7 @@ export interface AdminQueueHealth {
     pending: number
     running: number
     unknown: number
+    reported_removed: number
     failed: number
     succeeded: number
     manually_confirmed: number
