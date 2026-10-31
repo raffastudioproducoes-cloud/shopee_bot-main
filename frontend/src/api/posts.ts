@@ -41,7 +41,7 @@ export interface Post {
 }
 
 export interface PostPublishResult {
-  status: 'published' | 'failed' | 'running' | 'unknown' | 'manual_confirmed' | null
+  status: 'published' | 'failed' | 'running' | 'unknown' | 'manual_confirmed' | 'reported_removed' | null
   at: string | null
   error: string | null
   proof_url?: string | null
@@ -192,8 +192,8 @@ export const postsApi = {
     return api.post<{ msg: string }>(`/posts/${id}/publish`, {})
   },
 
-  async reconcile(id: number, permalink: string): Promise<{ status: string; proof_url: string; msg: string }> {
-    return api.post(`/posts/${id}/reconcile`, { permalink, confirmed: true })
+  async reconcile(id: number, payload: { permalink?: string; reported_removed?: boolean }): Promise<{ status: string; proof_url?: string; msg: string }> {
+    return api.post(`/posts/${id}/reconcile`, { ...payload, confirmed: true })
   },
 
   async uploadMedia(postId: number, file: File): Promise<PostMedia> {

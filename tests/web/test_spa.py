@@ -89,3 +89,58 @@ def test_regular_static_media_does_not_receive_no_store(spa_app):
     response = spa_app.test_client().get("/videos/teste.mp4")
     assert response.status_code == 200
     assert "no-store" not in response.headers.get("Cache-Control", "")
+
+
+def test_social_preview_declared_in_server_html_and_brand_png():
+    """Social bots get metadata from HTML without running JavaScript."""
+    import struct
+    from html.parser import HTMLParser
+
+    root = Path(__file__).resolve().parents[2]
+    html = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+
+    class Metadata(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.meta = {}
+            self.links = {}
+
+        def handle_starttag(self, tag, attrs):
+            props = dict(attrs)
+            if tag == "meta":
+                key = props.get("property") or props.get("name")
+                if key:
+                    self.meta[key] = props.get("content")
+            if tag == "link" and props.get("rel"):
+                self.links[props["rel"]] = props.get("href")
+
+    parsed = Metadata()
+    parsed.feed(html)
+    canonical = "https://shopee-bot-fj0w.onrender.com/"
+    image_url = canonical + "brand/og-image.png"
+    assert parsed.links["canonical"] == canonical
+    assert parsed.meta["og:url"] == canonical
+    assert parsed.meta["og:type"] == "website"
+    assert parsed.meta["og:locale"] == "pt_BR"
+    assert parsed.meta["og:title"] and parsed.meta["og:description"]
+    assert parsed.meta["twitter:card"] == "summary_large_image"
+    assert parsed.meta["og:image"] == parsed.meta["twitter:image"] == image_url
+    assert parsed.meta["og:image:secure_url"] == image_url
+    assert parsed.meta["og:image:type"] == "image/png"
+    assert parsed.meta["og:image:alt"] and parsed.meta["twitter:image:alt"]
+    image_data = (root / "frontend" / "public" / "brand" / "og-image.png").read_bytes()
+    assert image_data.startswith(bytes.fromhex("89504e470d0a1a0a"))
+    assert struct.unpack(">II", image_data[16:24]) == (1200, 630)
+    assert len(image_data) < 600_000
+
+
+def test_social_assets_are_files_not_spa_fallback(spa_app, tmp_path):
+    # A social crawler must receive image/png, not the SPA's text/html fallback.
+    module = sys.modules["_test_spa_module"]
+    image = module._DIST_DIR / "brand" / "og-image.png"
+    image.parent.mkdir(parents=True)
+    image.write_bytes(bytes.fromhex("89504e470d0a1a0a") + b"preview")
+    response = spa_app.test_client().get("/brand/og-image.png")
+    assert response.status_code == 200
+    assert response.content_type == "image/png"
+    assert response.data.startswith(bytes.fromhex("89504e47"))

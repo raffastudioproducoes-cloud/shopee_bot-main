@@ -21,6 +21,7 @@ class QueueCounts(BaseModel):
     pending: int = Field(ge=0)
     running: int = Field(ge=0)
     unknown: int = Field(ge=0)
+    reported_removed: int = Field(default=0, ge=0)
     failed: int = Field(ge=0)
     succeeded: int = Field(ge=0)
     manually_confirmed: int = Field(ge=0)
