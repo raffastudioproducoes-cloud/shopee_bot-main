@@ -1,0 +1,29 @@
+/* Seletor de produtos do post: as duas abas compartilham a seleção.
+   Sem larguras rígidas: também cabe no modal de 560px e no telefone. */
+.post-product-picker{display:grid;gap:8px;min-width:0}
+.post-product-picker-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.post-product-picker-title{font:var(--text-role-label);text-transform:uppercase;letter-spacing:var(--ls-label);color:var(--text-muted)}
+.post-product-picker-count{font:var(--fw-regular) var(--fs-caption)/var(--lh-normal) var(--font-sans);color:var(--text-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.post-product-picker-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;padding:4px;background:var(--surface-inset);border:1px solid var(--border-hairline);border-radius:var(--r-md)}
+.post-product-picker-tabs button{min-width:0;min-height:38px;padding:7px 10px;border:1px solid transparent;border-radius:var(--r-sm);background:transparent;color:var(--text-muted);font:var(--text-role-body);cursor:pointer}
+.post-product-picker-tabs button.is-active{background:var(--surface-elevated);border-color:var(--border-strong);color:var(--text-display);font-weight:600}
+.post-product-picker-tabs button:hover:not(.is-active){color:var(--text-display);background:var(--panel-row-hover)}
+.post-product-picker-list-control{display:grid;gap:4px;min-width:0}
+.post-product-picker-bulk,.post-product-picker-more{justify-self:start;border:none;background:transparent;color:var(--accent);font:var(--fw-regular) var(--fs-caption)/var(--lh-normal) var(--font-sans);padding:6px 3px;min-height:36px;cursor:pointer}
+.post-product-picker-bulk:hover,.post-product-picker-more:hover{text-decoration:underline}
+.post-product-picker-more:disabled{opacity:.65;cursor:wait}
+.post-product-picker-search{width:100%;min-width:0;min-height:38px;padding:8px 12px;border:1px solid var(--border-hairline);border-radius:var(--r-md);background:var(--surface-inset);color:var(--text-body);font:var(--text-role-body)}
+.post-product-picker-items{display:grid;align-content:start;gap:2px;max-height:172px;min-height:45px;overflow-y:auto;overscroll-behavior:contain;padding:7px;background:var(--surface-inset);border:1px solid var(--border-hairline);border-radius:var(--r-md)}
+.post-product-picker-item{display:flex;align-items:flex-start;gap:9px;min-width:0;padding:7px 8px;border-radius:var(--r-sm);color:var(--text-body);font:var(--text-role-body);line-height:1.4;cursor:pointer}
+.post-product-picker-item:hover,.post-product-picker-item:has(input:checked){background:var(--accent-tint)}
+.post-product-picker-item input{flex:0 0 16px;width:16px;height:16px;margin:3px 0 0;accent-color:var(--accent)}
+.post-product-picker-item span{min-width:0;overflow-wrap:anywhere}
+.post-product-picker-feedback,.post-product-picker-hint{margin:0;padding:7px 8px;color:var(--text-muted);font:var(--fw-regular) var(--fs-caption)/var(--lh-normal) var(--font-sans);line-height:1.5;overflow-wrap:anywhere}
+.post-product-picker-hint{padding:0 2px}
+.post-product-picker-tabs button:focus-visible,.post-product-picker-item input:focus-visible,.post-product-picker-bulk:focus-visible,.post-product-picker-more:focus-visible,.post-product-picker-search:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+@media(max-width:600px){
+  .post-product-picker{gap:7px}
+  .post-product-picker-tabs button{min-height:42px;font-size:13px}
+  .post-product-picker-items{max-height:172px;padding:5px}
+  .post-product-picker-item{min-height:40px;padding:8px 7px;font-size:13px}
+}
