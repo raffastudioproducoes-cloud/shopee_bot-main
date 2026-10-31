@@ -17,7 +17,7 @@ from .database import supabase
 logger = logging.getLogger("uvicorn.error")
 Status = Literal["available", "partial", "unavailable", "not_configured"]
 Diagnostic = Literal["timeout", "permission_denied", "rpc_missing", "invalid_response",
-                     "provider_error", "api_rejected", "no_samples", "not_configured"]
+                     "provider_error", "api_rejected", "bad_request", "no_samples", "not_configured"]
 
 
 class Counts(BaseModel):
@@ -250,8 +250,10 @@ async def _render_snapshot() -> RenderMetrics:
     resource = _render_service_id()
     if not token:
         return RenderMetrics(status="not_configured", diagnostic="not_configured")
-    end = datetime.now(timezone.utc)
-    params = {"resource": resource, "resolutionSeconds": 3600, "startTime": (end - timedelta(hours=24)).isoformat(), "endTime": end.isoformat()}
+    # Start with the documented minimum query: resource only. The Render API
+    # supplies the last hour by default. Optional time/resolution parameters
+    # previously triggered HTTP 400 for all five endpoints.
+    params = {"resource": resource}
     async with httpx.AsyncClient(timeout=httpx.Timeout(4, connect=2), follow_redirects=False) as client:
         async def fetch(kind: str) -> tuple[ResourceMetric | None, Diagnostic | None]:
             try:
@@ -260,7 +262,10 @@ async def _render_snapshot() -> RenderMetrics:
                 metric = parse_render_metric(response.json())
                 return metric, None if metric else "no_samples"
             except httpx.HTTPStatusError as exc:
-                diagnostic: Diagnostic = "api_rejected" if exc.response.status_code in (401, 403) else "provider_error"
+                diagnostic: Diagnostic = (
+                    "api_rejected" if exc.response.status_code in (401, 403) else
+                    "bad_request" if exc.response.status_code == 400 else "provider_error"
+                )
                 logger.warning("Métrica Render %s indisponível (%s; %s)", kind, diagnostic, _safe_error(exc))
                 return None, diagnostic
             except (httpx.TimeoutException, asyncio.TimeoutError) as exc:
@@ -275,7 +280,7 @@ async def _render_snapshot() -> RenderMetrics:
     missing_names = ("cpu", "memory", "cpu_limit", "memory_limit", "bandwidth")
     missing = [name for name, metric in zip(missing_names, metrics) if metric is None]
     errors = [reason for _, reason in results if reason]
-    priority = ("api_rejected", "timeout", "provider_error", "no_samples")
+    priority = ("api_rejected", "bad_request", "timeout", "provider_error", "no_samples")
     diagnostic = next((reason for reason in priority if reason in errors), None)
     status: Status = "available" if all(metrics) else "partial" if any(metrics) else "unavailable"
     return RenderMetrics(status=status, diagnostic=diagnostic, missing_metrics=missing,
