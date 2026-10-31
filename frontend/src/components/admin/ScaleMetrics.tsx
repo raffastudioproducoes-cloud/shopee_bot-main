@@ -8,10 +8,11 @@ import { capacityPercent, formatMetricTime, isStale } from './metricsPresentatio
 const value = (n: number | null | undefined, unit = '') => n == null ? 'Indisponível' : `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}${unit}`
 
 function Gauge({ label, percent, timestamp }: { label: string; percent: number | null; timestamp?: string }) {
-  return <div className="admin-capacity-gauge"><svg viewBox="0 0 120 120" role="img" aria-label={`${label}: ${value(percent, '%')}`}>
+  const shown = percent != null && percent > 0 && percent < 0.1 ? '<0,1%' : value(percent, '%')
+  return <div className="admin-capacity-gauge"><svg viewBox="0 0 120 120" role="img" aria-label={`${label}: ${shown}`}>
     <circle cx="60" cy="60" r="46" className="admin-gauge-track" />
     {percent != null && <circle cx="60" cy="60" r="46" className="admin-gauge-value" pathLength="100" strokeDasharray={`${Math.min(100, percent)} 100`} transform="rotate(-90 60 60)" />}
-    <text x="60" y="64" textAnchor="middle">{percent == null ? '—' : value(percent, '%')}</text>
+    <text x="60" y="64" textAnchor="middle">{percent == null ? '—' : shown}</text>
   </svg><strong>{label}</strong>{timestamp && <small>Amostra: {formatMetricTime(timestamp)}{isStale(timestamp, 7_200_000) ? ' · Antiga' : ''}</small>}</div>
 }
 
@@ -38,7 +39,7 @@ export function ScaleMetrics({ data }: { data: AdminMetrics }) {
   const storageReserved = storage?.status === 'available' ? storage.reserved_bytes : null
   const storageQuota = storage?.status === 'available' ? storage.quota_bytes : null
   const storagePercent = storageQuota != null && storageQuota > 0 && storageUsed != null && storageReserved != null
-    ? Math.round((storageUsed + storageReserved) / storageQuota * 1000) / 10 : null
+    ? (storageUsed + storageReserved) / storageQuota * 100 : null
   const cpu = capacityPercent(data.render.cpu, data.render.cpu_limit)
   const memory = capacityPercent(data.render.memory, data.render.memory_limit)
   const notices: string[] = []

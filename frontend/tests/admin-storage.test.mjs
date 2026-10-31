@@ -29,6 +29,9 @@ test('ADMIN usa painel existente, mostra buckets e limiares sem inventar egress'
   assert.ok(html.includes('nível crítico'))
   assert.ok(html.includes('Consultar a transferência oficial'))
   assert.ok(!html.includes('cota acumulada por usuário'))
+  data.storage.used_bytes = 462177
+  const tiny = JSON.stringify(exports.ScaleMetrics({ data }))
+  assert.ok(tiny.includes('<0,1%'), 'ocupacao real nao pode aparecer como zero')
   data.storage = { status: 'unavailable' }
   const unavailable = JSON.stringify(exports.ScaleMetrics({ data }))
   assert.ok(unavailable.includes('Consumo indisponível'))
