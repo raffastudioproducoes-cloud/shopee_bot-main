@@ -16,6 +16,7 @@ from shopee_bot.database.activities import (
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
+from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.publication_result import failed, succeeded, unknown
 
 
@@ -62,6 +63,7 @@ def _refresh_tokens(user_id, profile_id, user_data):
 
 def _post_with_refresh(user_id, profile_id, user_data, media, text):
     try:
+        mark_external_delivery()
         return TikTokAPI.post_video(
             user_data["tiktok_user_access_token"], media["file_path"], text
         )
@@ -78,6 +80,7 @@ def _post_with_refresh(user_id, profile_id, user_data, media, text):
         except Exception as err:
             logger.warning(f"TikTok: não marcou reconexão: {type(err).__name__}")
         raise TikTokAPI.TikTokAPIError(RECONNECT_MESSAGE)
+    mark_external_delivery()
     return TikTokAPI.post_video(new_token, media["file_path"], text)
 
 

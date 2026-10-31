@@ -27,6 +27,7 @@ from shopee_bot.scheduler.bot_post_tiktok import bot_post_tiktok
 from shopee_bot.scheduler.bot_post_x import bot_post_x
 from shopee_bot.scheduler.update_products import update_products
 from shopee_bot.scheduler.publication_result import PublicationResult, unknown
+from shopee_bot.scheduler import publication_context
 
 load_dotenv()
 HOST = os.environ.get("SHOPEE_PG_HOST")
@@ -39,14 +40,24 @@ _scheduler = None
 _shutting_down = False
 
 
+def mark_shutting_down() -> None:
+    """O SIGTERM do Gunicorn impede novos disparos antes do drain."""
+    global _shutting_down
+    _shutting_down = True
+
+
+def is_shutting_down() -> bool:
+    return _shutting_down
+
+
 def shutdown_gracefully() -> None:
     """Stop new triggers and wait for in-flight publish jobs on worker exit.
 
     Platform termination deadlines may still cut this short; in that case the
     durable queue deliberately remains unknown instead of blindly retrying.
     """
-    global _shutting_down, _scheduler
-    _shutting_down = True
+    global _scheduler
+    mark_shutting_down()
     current = _scheduler
     if current is None or not current.running:
         return
@@ -113,25 +124,46 @@ def _execute_publish_item(publish_job_id, job_data):
         logger.info("Fila de publicacao %s esta em execucao em outro worker", publish_job_id)
         return
 
-    try:
-        result = globals()[job_data["func"]](job_data["id"])
-    except Exception as exc:
-        publish_jobs.finish(
-            publish_job_id, queue_claim["claim_token"], "unknown",
-            error=f"{type(exc).__name__}: {exc}",
-        )
-        raise
-    if not isinstance(result, PublicationResult):
-        result = unknown("Publicador nao confirmou o desfecho da publicacao")
-    publish_jobs.finish(
-        publish_job_id, queue_claim["claim_token"], result.status,
-        external_id=result.external_id, error=result.error,
+    context_token = publication_context.activate(
+        publish_job_id, queue_claim["claim_token"]
     )
+    try:
+        try:
+            result = globals()[job_data["func"]](job_data["id"])
+        except publication_context.PublicationDeferred:
+            # SIGTERM/claim perdido antes da fronteira externa: pode retomar.
+            if not publish_jobs.requeue_if_safe(
+                publish_job_id, queue_claim["claim_token"]
+            ):
+                logger.warning(
+                    "Publicacao %s nao pode ser devolvida a fila; requer conciliacao",
+                    publish_job_id,
+                )
+            return
+        except Exception as exc:
+            publish_jobs.finish(
+                publish_job_id, queue_claim["claim_token"], "unknown",
+                error=f"{type(exc).__name__}: {exc}",
+            )
+            raise
+        if not isinstance(result, PublicationResult):
+            result = unknown("Publicador nao confirmou o desfecho da publicacao")
+        publish_jobs.finish(
+            publish_job_id, queue_claim["claim_token"], result.status,
+            external_id=result.external_id, error=result.error,
+        )
+    finally:
+        publication_context.reset(context_token)
 
 
 def drain_publish_jobs():
     """Retoma pendentes; claims vencidos exigem conciliacao antes de reenviar."""
-    publish_jobs.expire_running(PUBLISH_JOB_LEASE_SECONDS)
+    expired = publish_jobs.expire_running(PUBLISH_JOB_LEASE_SECONDS)
+    for item in expired:
+        logger.warning(
+            "Fila de publicacao %s saiu do lease com status %s",
+            item["id"], item["status"],
+        )
     for item in publish_jobs.recoverable(PUBLISH_JOB_LEASE_SECONDS):
         job_data = schedulers.get_by_id(item["scheduler_id"])
         if not job_data:

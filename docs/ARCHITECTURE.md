@@ -363,3 +363,31 @@ validacao em staging continuam pendentes da promocao/deploy deste conjunto.
 ## Preparação para escala (Fase 3)
 
 Esta fase adiciona mascaramento de DSN e tokens em logs/erros, advisory lock nas migrações, `X-Request-ID` com contexto de log e `/health/ready` com verificação curta do banco. Ficam para depois fila/idempotência de publicação, Redis, alteração de workers/instâncias e migrações de esquema.
+
+
+## Adendo — Resiliência de publicação durante deploy (31/10/2026)
+
+**Causa observada:** nas publicações Threads #23 e #27, o worker anterior
+iniciou a execução na troca de instância do Render e morreu após 2s/4s.
+O lease de 600s expirou sem resposta externa. `git commit/push` apenas
+dispara o deploy; o ciclo SIGTERM da instância causa a interrupção.
+
+**Nova camada (PR #127):** `scheduler/gunicorn_worker.py` envolve o ciclo
+de vida do worker gevent e drena o scheduler no fechamento; `scheduler/
+publication_context.py` é a barreira persistente antes da chamada mutável
+externa. A coluna `publish_jobs.external_started_at` (migração 060, aditiva)
+separa duas situações:
+
+- **Preparação local abandonada:** sem chamada externa iniciada → devolve a
+  `pending` somente após comparação atômica de claim/token; recuperação
+  periódica segura, limitada a 5 expirações por ocorrência.
+- **Chamada externa possivelmente iniciada:** `external_started_at` gravada →
+  estado `unknown` após perda do lease. Sem retry automático, pois APIs
+  externas não garantem idempotência por chave do banco local.
+
+A troca de versões é compatível com o Supabase compartilhado entre staging/main:
+a migração faz backfill conservador dos `running` legados. A proteção não
+elimina toda incerteza se houver SIGKILL ou perda de resposta após a chamada
+remota; exige conciliação. Não são adicionados serviços pagos, buckets, tokens
+nem dependências de mídia. Evidências de CI e deploy ficam na TASK quando
+concluídas.
