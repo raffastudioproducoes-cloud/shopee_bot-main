@@ -33,9 +33,18 @@ export function ScaleMetrics({ data }: { data: AdminMetrics }) {
   const capacityDeltaMiB = firstCapacityDay && lastCapacityDay
     ? (lastCapacityDay.database_bytes - firstCapacityDay.database_bytes) / 1048576
     : null
+  const storage = data.storage
+  const storageUsed = storage?.status === 'available' ? storage.used_bytes : null
+  const storageReserved = storage?.status === 'available' ? storage.reserved_bytes : null
+  const storageQuota = storage?.status === 'available' ? storage.quota_bytes : null
+  const storagePercent = storageQuota != null && storageQuota > 0 && storageUsed != null && storageReserved != null
+    ? Math.round((storageUsed + storageReserved) / storageQuota * 1000) / 10 : null
   const cpu = capacityPercent(data.render.cpu, data.render.cpu_limit)
   const memory = capacityPercent(data.render.memory, data.render.memory_limit)
   const notices: string[] = []
+  if (storagePercent != null && storagePercent >= (storage?.critical_percent ?? 85)) notices.push('Storage do Supabase em nível crítico. O backend bloqueia novos uploads antes de 90% da cota Free.')
+  else if (storagePercent != null && storagePercent >= (storage?.warning_percent ?? 75)) notices.push('Storage do Supabase acima de 75% da cota Free. Considere liberar rascunhos e mídia sem uso.')
+  if (storage?.status === 'unavailable') notices.push('Capacidade do Storage indisponível: novos uploads são recusados preventivamente até a verificação voltar.')
   if (db?.blocked_connections) notices.push(`${db.blocked_connections} conexões bloqueadas nesta consulta. Investigue transações antes de aumentar o servidor.`)
   if ((db?.oldest_transaction_seconds ?? 0) > 60) notices.push('Há transação aberta há mais de um minuto. Verifique se está prendendo recursos.')
   if (metrics?.rate_limited_requests) notices.push('A aplicação respondeu 429. Investigue limites internos; isso não confirma bloqueio de uma rede social.')
@@ -45,6 +54,22 @@ export function ScaleMetrics({ data }: { data: AdminMetrics }) {
     <div className="admin-section-heading"><span>CONTROLE DA OPERAÇÃO</span><h2 id="admin-scale-title">Capacidade e crescimento</h2><p>Sinais para investigar gargalos e planejar a expansão.</p>{metrics?.collected_at && <p>Banco e clientes: coleta de {formatMetricTime(metrics.collected_at)} · Brasília{isStale(metrics.collected_at) ? ' · Dados antigos' : ''}</p>}</div>
     <div className="admin-scale-grid">
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['render', 'capacity']} /><h3>Capacidade do Render</h3><div className="admin-capacity-pair"><Gauge label="CPU / limite" percent={cpu} timestamp={data.render.cpu?.timestamp} /><Gauge label="RAM / limite" percent={memory} timestamp={data.render.memory?.timestamp} /></div><p>Percentuais de amostras compatíveis. Pico sustentado e disponibilidade exigem histórico próprio e sondas externas.</p></Panel>
+      <Panel surface="dark" className="admin-metric-card">
+        <CardTags tags={['supabase', 'storage', 'capacity']} />
+        <h3>Storage · arquivos e cota Free</h3>
+        {storagePercent == null ? <p role="status">Consumo indisponível. Nenhum valor foi estimado; a proteção de uploads funciona em modo seguro (recusa quando não consegue consultar).</p> : <>
+          <div className="admin-capacity-pair"><Gauge label="Espaço usado + reservado" percent={storagePercent} timestamp={storage?.collected_at ?? undefined} /></div>
+          <dl>
+            <div><dt>Objetos armazenados</dt><dd>{value(storageUsed != null ? storageUsed / 1048576 : null, ' MiB')}</dd></div>
+            <div><dt>Uploads em andamento (reserva)</dt><dd>{value(storageReserved != null ? storageReserved / 1048576 : null, ' MiB')}</dd></div>
+            <div><dt>Cota de referência · Free</dt><dd>{value(storageQuota != null ? storageQuota / 1048576 : null, ' MiB')}</dd></div>
+            <div><dt>Alerta / crítico / bloqueio</dt><dd>{storage?.warning_percent}% / {storage?.critical_percent}% / {storage?.block_percent}%</dd></div>
+          </dl>
+          {storage?.buckets.length ? <details><summary>Detalhar uso por bucket</summary><div className="admin-metric-table"><table><thead><tr><th>Bucket</th><th>Objetos</th><th>MiB</th></tr></thead><tbody>{storage.buckets.map(bucket => <tr key={bucket.bucket}><td>{bucket.bucket}</td><td>{value(bucket.objects)}</td><td>{value(bucket.used_bytes / 1048576)}</td></tr>)}</tbody></table></div></details> : <p>Sem objetos registrados nesta consulta.</p>}
+        </>}
+        <p>O bloqueio é global para uploads do backend, sem limite individual por perfil. Reservas concorrentes vencem em até 30 minutos após interrupção inesperada.</p>
+        <p><strong>Transferência (egress):</strong> o valor faturável inclui serviços além de Storage e não está disponível pela credencial de aplicação. <a href="https://supabase.com/dashboard/org/_/usage" target="_blank" rel="noopener noreferrer">Consultar a transferência oficial no Supabase Usage</a>. Não confundir com o tráfego do Render.</p>
+      </Panel>
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'logs', 'performance']} /><h3>Saúde da aplicação</h3><dl><div><dt>Latência p99</dt><dd>{value(metrics?.p99_latency_ms, ' ms')}</dd></div><div><dt>Erros de servidor · 5xx</dt><dd>{value(metrics?.server_errors)}</dd></div><div><dt>Respostas 429 · aplicação</dt><dd>{value(metrics?.rate_limited_requests)}</dd></div><div><dt>Respostas com erro / total</dt><dd>{value(data.counts?.requests ? data.counts.errors / data.counts.requests * 100 : null, '%')}</dd></div></dl><p>Logs disponíveis no período. Não equivale a disponibilidade nem a erros dos provedores.</p></Panel>
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'database', 'capacity']} /><h3>Banco · pressão e espaço</h3><dl><div><dt>Conexões bloqueadas agora</dt><dd>{value(db?.blocked_connections)}</dd></div><div><dt>Transação aberta mais antiga</dt><dd>{value(db?.oldest_transaction_seconds, ' s')}</dd></div></dl>{db?.tables.length ? <details><summary>Tamanho por tabela e índices</summary><div className="admin-metric-table"><table><thead><tr><th>Tabela</th><th>Dados · MiB</th><th>Índices · MiB</th></tr></thead><tbody>{db.tables.map(table => <tr key={table.name}><td>{table.name}</td><td>{value(table.table_bytes / 1048576)}</td><td>{value(table.index_bytes / 1048576)}</td></tr>)}</tbody></table></div></details> : <p>Tamanho por tabela indisponível nesta coleta.</p>}<p>Snapshot das sessões visíveis ao coletor. Histórico diário de crescimento ativo; ocupação do pool, cota de disco e consultas mais caras ainda sem coleta.</p></Panel>
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['supabase', 'scheduler', 'publishing']} /><h3>Publicações e agendamentos</h3><dl><div><dt>Agendamentos cadastrados</dt><dd>{value(operations?.scheduled)}</dd></div><div><dt>Eventos de sucesso / falha</dt><dd>{value(operations?.published_events)} / {value(operations?.failed_events)}</dd></div><div><dt>Contas que publicaram no período</dt><dd>{value(operations?.publishing_accounts)}</dd></div></dl><p>Eventos preservados, não posts únicos. Agendamentos incluem recorrências e não representam fila pendente. Duração, tentativas e idade da fila ainda sem instrumentação.</p></Panel>
