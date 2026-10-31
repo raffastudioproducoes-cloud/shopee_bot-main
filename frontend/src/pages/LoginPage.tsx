@@ -1,3 +1,4 @@
+import './LoginPage.css'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -13,27 +14,6 @@ import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
 // Split-screen responsivo: sem breakpoint padrão no projeto (nenhum @media existente
 // em frontend/src), então define-se aqui. 768px = ponto de quebra usado no restante
 // deste componente (imagem/formulário lado a lado no desktop, empilhados no mobile).
-const splitScreenStyles = `
-  .login-page { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; background: var(--bg-app); }
-  .login-split { display: flex; flex: 1; flex-direction: column; min-height: 0; }
-  .login-split__image { width: 100%; height: 38vh; position: relative; overflow: hidden; }
-  /* max-width:none derruba o preflight do Tailwind (img,video{max-width:100%}), que
-     senão prende a largura do vídeo aos 45% do container pai mesmo com width:80vw. */
-  .login-split__video { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: center; }
-  .login-split__fade { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: linear-gradient(to bottom, transparent 0%, var(--bg-app) 85%); pointer-events: none; }
-  .login-split__form { width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
-  @media (min-width: 768px) {
-    .login-split { flex-direction: row; }
-    /* Largura/posição do painel de imagem no fluxo flex NÃO mudam (continua 45%) —
-       é isso que garante que .login-split__form (55%, via flex-grow) fique no mesmo
-       lugar de sempre. O vídeo por dentro é que se estende visualmente até 80vw via
-       position:absolute + overflow:visible no painel pai (ver .login-split__video). */
-    .login-split__image { width: 45%; height: auto; overflow: visible; z-index: 0; }
-    .login-split__video { top: 0; left: 0; right: auto; bottom: auto; width: 80vw; height: 100%; }
-    .login-split__fade { display: none; }
-    .login-split__form { width: 55%; height: auto; z-index: 1; }
-  }
-`
 
 const bannerStyle = (ok: boolean): React.CSSProperties => ({
   padding: '12px 16px',
@@ -88,8 +68,7 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      <style>{splitScreenStyles}</style>
-
+      
       <div className="login-split">
         <div
           className="login-split__image"
