@@ -16,9 +16,18 @@ resolve a rota via client-side routing (frontend/src/router.tsx).
 
 from pathlib import Path
 
-from flask import Blueprint, abort, send_from_directory
+from flask import Blueprint, abort, request, send_from_directory
 
 spa_bp = Blueprint("spa", __name__)
+
+
+@spa_bp.after_request
+def _staging_noindex(response):
+    """Keep staging SPA previews out of search indexes before JS executes."""
+    hostname = request.host.partition(":")[0].lower()
+    if hostname.endswith("-staging.onrender.com") and response.mimetype == "text/html":
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
 
 
 def _html_or_worker_response(directory: Path, filename: str):
