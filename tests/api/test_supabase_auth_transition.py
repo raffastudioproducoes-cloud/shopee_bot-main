@@ -199,3 +199,145 @@ def test_first_confirmed_login_provisions_only_after_email_verification(client, 
     second = client.post("/auth/supabase/login", json=values)
     assert second.status_code == 200
     assert len(db.tables["users"]) == 1
+
+
+def test_password_recovery_request_uses_supabase_mailer_not_legacy(client, monkeypatch):
+    _enable(monkeypatch)
+    keys = []
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key, detail=None: keys.append(key))
+    observed = {}
+
+    class FakeAuth:
+        def reset_password_for_email(self, email, options):
+            observed.update(email=email, options=options)
+
+    monkeypatch.setattr(sb, "_auth_client", lambda: SimpleNamespace(auth=FakeAuth()))
+    result = client.post("/auth/supabase/password/recovery", json={"email": " Person@Example.com "})
+    assert result.status_code == 202
+    assert "Se existir uma conta" in result.json()["msg"]
+    assert observed == {
+        "email": "person@example.com",
+        "options": {"redirect_to": "https://app.example.com/login"},
+    }
+    assert any(k.startswith("supabase-recovery-email:") for k in keys)
+    assert any(k.startswith("supabase-recovery-ip:") for k in keys)
+
+
+def test_password_recovery_is_disabled_until_supabase_is_enabled(client):
+    result = client.post("/auth/supabase/password/recovery", json={"email": "cliente@example.com"})
+    assert result.status_code == 503
+
+
+def test_password_recovery_does_not_expose_provider_email_failures(client, monkeypatch):
+    _enable(monkeypatch)
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key, detail=None: None)
+
+    class FakeAuth:
+        def reset_password_for_email(self, email, options):
+            raise RuntimeError("private_provider_detail")
+
+    monkeypatch.setattr(sb, "_auth_client", lambda: SimpleNamespace(auth=FakeAuth()))
+    result = client.post("/auth/supabase/password/recovery", json={"email": "cliente@example.com"})
+    assert result.status_code == 503
+    assert "private_provider_detail" not in result.text
+
+
+def test_password_recovery_rejects_mismatched_passwords_before_token_verification(client, monkeypatch):
+    _enable(monkeypatch)
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key, detail=None: None)
+    monkeypatch.setattr(sb, "_auth_client", lambda: pytest.fail("não deve validar token"))
+    result = client.post("/auth/supabase/password/complete", json={
+        "access_token": "token-simulado-valido-longo",
+        "new_password": "senhasegura123",
+        "confirm_password": "senhadiferente",
+    })
+    assert result.status_code == 422
+
+
+def test_password_recovery_rejects_invalid_link_without_updating_password(client, monkeypatch):
+    _enable(monkeypatch)
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key, detail=None: None)
+
+    class FakeAuth:
+        def get_user(self, token):
+            raise RuntimeError("invalid_grant")
+
+    monkeypatch.setattr(sb, "_auth_client", lambda: SimpleNamespace(auth=FakeAuth()))
+    result = client.post("/auth/supabase/password/complete", json={
+        "access_token": "token-simulado-invalido-longo",
+        "new_password": "senhasegura123",
+        "confirm_password": "senhasegura123",
+    })
+    assert result.status_code == 401
+    assert "Link de recuperação" in result.json()["detail"]
+
+
+def test_password_recovery_rejects_unconfirmed_identity(client, monkeypatch):
+    _enable(monkeypatch)
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key, detail=None: None)
+
+    class FakeAuth:
+        def get_user(self, token):
+            return SimpleNamespace(user=SimpleNamespace(id="ext-1", email_confirmed_at=None))
+
+    monkeypatch.setattr(sb, "_auth_client", lambda: SimpleNamespace(auth=FakeAuth()))
+    result = client.post("/auth/supabase/password/complete", json={
+        "access_token": "token-simulado-unconfirmed",
+        "new_password": "senhasegura123",
+        "confirm_password": "senhasegura123",
+    })
+    assert result.status_code == 401
+
+
+def test_password_recovery_updates_only_supabase_auth_with_verified_bearer(client, monkeypatch):
+    _enable(monkeypatch)
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key, detail=None: None)
+    captured = {}
+
+    class FakeAuth:
+        def get_user(self, token):
+            captured["verified_token"] = token
+            return SimpleNamespace(user=SimpleNamespace(id="ext-1", email_confirmed_at="2026-11-01T00:00:00Z"))
+
+    monkeypatch.setattr(sb, "_auth_client", lambda: SimpleNamespace(auth=FakeAuth()))
+
+    class FakeHttp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def put(self, url, headers, json):
+            captured.update(url=url, headers=headers, body=json)
+            return sb.httpx.Response(200, json={"id": "ext-1"}, request=sb.httpx.Request("PUT", url))
+
+    monkeypatch.setattr(sb.httpx, "Client", lambda timeout: FakeHttp())
+    token = "token-verificado-do-link"
+    result = client.post("/auth/supabase/password/complete", json={
+        "access_token": token,
+        "new_password": "senhasegura123",
+        "confirm_password": "senhasegura123",
+    })
+    assert result.status_code == 200
+    assert "Senha redefinida" in result.json()["msg"]
+    assert captured["verified_token"] == token
+    assert captured["url"] == "https://auth.example.com/auth/v1/user"
+    assert captured["headers"]["Authorization"] == f"Bearer {token}"
+    assert captured["headers"]["apikey"] == "sb_publishable_example"
+    assert captured["body"] == {"password": "senhasegura123"}
+
+
+def test_settings_password_route_cannot_write_local_password_after_cutover(client, monkeypatch):
+    from api.routers import settings as settings_router
+
+    _enable(monkeypatch)
+    app.dependency_overrides[settings_router.get_current_user_id] = lambda: "user-existing"
+    try:
+        result = client.put("/settings/password", json={
+            "current_password": "senhaantiga",
+            "new_password": "senhanova123",
+        })
+        assert result.status_code == 410
+    finally:
+        app.dependency_overrides.pop(settings_router.get_current_user_id, None)
