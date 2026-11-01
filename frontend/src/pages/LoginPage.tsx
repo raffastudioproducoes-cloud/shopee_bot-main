@@ -25,7 +25,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [forgotOpen, setForgotOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
-  const [capabilities, setCapabilities] = useState({ email_enabled: false, google_enabled: false })
+  const [capabilities, setCapabilities] = useState({ email_enabled: false, email_signup_enabled: false, google_enabled: false })
   const [useLegacyLogin, setUseLegacyLogin] = useState(false)
   const [googleSetupOpen, setGoogleSetupOpen] = useState(
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('google_setup') === '1'
@@ -33,7 +33,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     void authApi.capabilities().then(setCapabilities).catch(() => {
-      setCapabilities({ email_enabled: false, google_enabled: false })
+      setCapabilities({ email_enabled: false, email_signup_enabled: false, google_enabled: false })
     })
     if (new URLSearchParams(window.location.search).has('google_error')) {
       setError('Não foi possível autorizar a conta Google. Tente novamente.')
@@ -221,7 +221,7 @@ export default function LoginPage() {
         <ForgotPasswordModal initialUsername={username} onClose={() => setForgotOpen(false)} />
       )}
 
-      {registerOpen && <RegisterModal enabled={capabilities.email_enabled} onClose={() => setRegisterOpen(false)} />}
+      {registerOpen && <RegisterModal enabled={capabilities.email_signup_enabled} onClose={() => setRegisterOpen(false)} />}
       {googleSetupOpen && (
         <GoogleSetupModal
           onClose={() => {
