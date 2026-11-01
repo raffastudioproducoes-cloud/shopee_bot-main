@@ -1,3 +1,15 @@
+# V3.1 — REFINO SOMENTE DA ASSINATURA FINAL (01/11/2026)
+
+> **REVISÃO DE RAFA:** O estudo V3 ficou razoável e poderá servir como base, mas **não está aprovado como definitivo**. O proprietário pediu exclusivamente corrigir a marca e o nome no último quadro; mais velocidade e dinamismo ficam como observações para uma iteração futura, **sem alterar agora** tempo, cenas, câmera, transições, texto ou som.
+
+- **Versão preservada:** branch de arquivo [archive/landing-motion-v3-before-logo-2026-11-01](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/tree/archive/landing-motion-v3-before-logo-2026-11-01), apontando ao estado original da V3 (commit `ad3762e0979d70f8df3fcfb5cdf51804fd67a032`). É possível rever exatamente a animação anterior.
+- **Única alteração visual autorizada:** assinatura final `OrbitalSignature` e seus estilos: remover a elipse secundária sobre o buraco negro; reconstruir em SVG inline o “O” inclinado do wordmark conforme a matriz `/brand/wordmark.png` (núcleo escuro, horizonte ciano-azul-violeta, anel diagonal), mantendo “Auto” claro e “rbital” em degradê. É uma interpretação por código, não uma substituição do arquivo oficial.
+- **Imutável nesta etapa:** `drawSpace`, universo Canvas, produtos, cards, câmera, texto cinético, painel, 10 segundos, momentos de entrada/saída, conteúdo do subtítulo, aviso “EM DESENVOLVIMENTO”, controles e ausência de áudio. Nenhum PNG é usado dentro da animação.
+- **Preservação do “vídeo”:** o protótipo é uma animação procedural React/Canvas reprodutível em `/presentation/pilot`, **não um MP4 renderizado**. A branch de arquivo congela a versão anterior; a próxima revisão deve continuar separada e não deve alterar a produção.
+- **Validação pendente:** comparar o quadro final em staging, desktop e celular com o master da marca; aprovação visual explícita de Rafa antes de integração na landing principal. Feedback atual: melhora perceptível em relação à V2, porém ainda não definitiva.
+
+---
+
 # V3 — MOTION INTEGRALMENTE PROCEDURAL (01/11/2026)
 
 > **DECISÃO MAIS RECENTE DE RAFA:** V2 descartada como direção visual: cartões/postagens grudados, imagem PNG do buraco negro e movimentos que não representam o texto. **Não reutilizar a cena V2 nem descrever V1 ou V2 como aprovadas.** O código V3 substitui apenas a prévia isolada /presentation/pilot. Sem áudio, sem imagens coladas, sem alteração da landing ou produção.
