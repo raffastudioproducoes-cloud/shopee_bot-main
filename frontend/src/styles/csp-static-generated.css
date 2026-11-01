@@ -767,12 +767,6 @@
 /* frontend/src/pages/SettingsPage.tsx */
 :is(#root, body) .csp-s-0383 { font: var(--text-role-title); margin: 0; }
 /* frontend/src/pages/SettingsPage.tsx */
-:is(#root, body) .csp-s-0384 { margin: 0; color: var(--negative-on-glass); }
-/* frontend/src/pages/SettingsPage.tsx */
-:is(#root, body) .csp-s-0385 { margin: 0; color: var(--text-body); }
-/* frontend/src/pages/SettingsPage.tsx */
-:is(#root, body) .csp-s-0386 { margin: 0; color: var(--negative-on-glass); }
-/* frontend/src/pages/SettingsPage.tsx */
 :is(#root, body) .csp-s-0387 { display: flex; flex-direction: column; gap: 16px; }
 /* frontend/src/pages/SettingsPage.tsx */
 :is(#root, body) .csp-s-0388 { font: var(--text-role-title); margin: 0; }
