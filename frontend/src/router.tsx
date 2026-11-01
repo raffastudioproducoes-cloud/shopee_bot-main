@@ -3,6 +3,7 @@ import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@t
 import { authApi } from "./api/auth"
 import { useAuthStore } from "./stores/authStore"
 import LoginPage from "./pages/LoginPage"
+import PresentationPage from "./pages/PresentationPage"
 import DashboardPage from "./pages/DashboardPage"
 import { PanelPage } from "./pages/PanelPage"
 import { ProductsPage } from "./pages/ProductsPage"
@@ -59,6 +60,13 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   component: LoginPage,
+})
+
+// Prévia pública da landing; não altera a raiz autenticada nem o retorno OAuth.
+const presentationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/apresentacao",
+  component: PresentationPage,
 })
 
 // Rotas públicas (sem guard de autenticação, mesmo padrão de /login) exigidas
@@ -191,6 +199,7 @@ const settingsRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
+  presentationRoute,
   termsRoute,
   privacyRoute,
   dataCollectedRoute,
