@@ -29,8 +29,8 @@ Os caminhos `/products`, `/lists`, `/posts`, `/credentials`, `/profiles`, `/sett
 
 ## Compartilhamento e SEO
 - O link de divulgação recomendado será `/presentation`, sempre público. Abrir `/` na sessão autenticada encaminha ao painel por decisão do dono — compartilhar somente `/` não garante visualização da landing para destinatários autenticados.
-- A resposta HTML inicial precisa conter `og:title`, `og:description`, `og:image`, `og:url`, Twitter Card, `description`, imagem pública absoluta HTTPS e título da marca; social bots podem não executar JavaScript.
-- Não trocar automaticamente domínio, configuração de Auth do Supabase, DNS ou SMTP; domínio próprio será etapa posterior. Manter staging não indexável e evitar promessa de lançamento comercial.
+- A resposta HTML inicial precisa conter `og:title`, `og:description`, `og:image`, Twitter Card, `description`, imagem pública absoluta HTTPS e título da marca; social bots podem não executar JavaScript. **Não usar `og:url` ou canonical fixos de produção no HTML compartilhado por staging e produção**: manter a URL realmente divulgada até existir metadata dinâmica por host. Validar com prévia social real antes da comercialização.
+- Não trocar automaticamente domínio, configuração de Auth do Supabase, DNS ou SMTP; domínio próprio será etapa posterior. Manter staging não indexável inclusive para crawlers sem JS (`X-Robots-Tag` no HTML do host staging) e evitar promessa de lançamento comercial.
 
 ## Não objetivos
 - Não criar vídeo/Scroll World definitivo, planos/preços, novos provedores, banco, migration, pagamento ou serviço pago.
