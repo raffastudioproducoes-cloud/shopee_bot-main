@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlparse
 
 import jwt
 import pytest
+from types import SimpleNamespace
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -86,3 +87,71 @@ def test_google_completion_requires_pending_auth(client, monkeypatch):
         "username": "novousuario", "accepted_terms_version": "2026-10-31",
     })
     assert response.status_code == 401
+
+
+def test_email_signup_is_pending_until_validation(client, monkeypatch, fake_db):
+    _enable(monkeypatch)
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key: None)
+    db = fake_db({"users": [], "pending_auth_registrations": []})
+    monkeypatch.setattr(sb, "get_supabase", lambda: db)
+
+    captured = {}
+    class FakeAuth:
+        def sign_up(self, values):
+            captured.update(values)
+            return SimpleNamespace(user=SimpleNamespace(id="external-1"), session=None)
+    monkeypatch.setattr(sb, "_auth_client", lambda: SimpleNamespace(auth=FakeAuth()))
+    result = client.post("/auth/supabase/register", json={
+        "username": "novocliente", "email": "cliente@example.com",
+        "password": "senhasegura123", "confirm_password": "senhasegura123",
+        "accepted_terms_version": "2026-10-31",
+    })
+    assert result.status_code == 202
+    assert result.json()["email_confirmation_required"] is True
+    assert captured["options"]["email_redirect_to"] == "https://app.example.com/login"
+    assert db.tables["users"] == []
+    assert len(db.tables["pending_auth_registrations"]) == 1
+
+
+def test_login_email_not_confirmed_cannot_enter(client, monkeypatch):
+    _enable(monkeypatch)
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key: None)
+    class FakeAuth:
+        def sign_in_with_password(self, values):
+            return SimpleNamespace(
+                user=SimpleNamespace(id="external-1", email_confirmed_at=None),
+                session=object(),
+            )
+    monkeypatch.setattr(sb, "_auth_client", lambda: SimpleNamespace(auth=FakeAuth()))
+    result = client.post("/auth/supabase/login", json={
+        "email": "cliente@example.com", "password": "senhasegura123",
+    })
+    assert result.status_code == 403
+    assert "Confirme seu e-mail" in result.json()["detail"]
+
+
+def test_legacy_password_login_is_disabled_when_supabase_enabled(client, monkeypatch):
+    _enable(monkeypatch)
+    result = client.post("/auth/login", data={
+        "username": "legado", "password": "senha12345",
+    })
+    assert result.status_code == 410
+
+
+def test_signup_fails_closed_if_confirm_email_is_disabled(client, monkeypatch, fake_db):
+    _enable(monkeypatch)
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key: None)
+    db = fake_db({"users": [], "pending_auth_registrations": []})
+    monkeypatch.setattr(sb, "get_supabase", lambda: db)
+    class FakeAuth:
+        def sign_up(self, values):
+            return SimpleNamespace(user=SimpleNamespace(id="external-1"), session=object())
+    monkeypatch.setattr(sb, "_auth_client", lambda: SimpleNamespace(auth=FakeAuth()))
+    result = client.post("/auth/supabase/register", json={
+        "username": "novocliente", "email": "cliente@example.com",
+        "password": "senhasegura123", "confirm_password": "senhasegura123",
+        "accepted_terms_version": "2026-10-31",
+    })
+    assert result.status_code == 503
+    assert db.tables["users"] == []
+    assert db.tables["pending_auth_registrations"] == []
