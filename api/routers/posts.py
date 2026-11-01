@@ -707,14 +707,17 @@ def _ensure_post_editable(user_id: int, post_id: int, profile_id: str | None, po
     detail = "Este post já foi publicado ou está programado. Não é possível editar seu conteúdo ou suas mídias."
     if post.get("publish_immediately") or _get_post_schedule_entries(user_id, post_id):
         raise HTTPException(status_code=409, detail=detail)
-    if _latest_publish_job(user_id, post_id, profile_id):
+    queued = (
+        scope_owner(supabase.table("publish_jobs").select("id"), user_id, profile_id)
+        .eq("post_id", post_id).execute()
+    )
+    if queued.data:
         raise HTTPException(status_code=409, detail=detail)
     activities = (
         scope_owner(supabase.table("activities").select("activity_id"), user_id, profile_id)
-        .in_("activity_id", list(_PUBLISH_ACTIVITY_STATUS))
-        .eq("metadata->>post_id", str(post_id)).limit(1).execute()
+        .eq("metadata->>post_id", str(post_id)).execute()
     )
-    if activities.data:
+    if any(row.get("activity_id") in _PUBLISH_ACTIVITY_STATUS for row in (activities.data or [])):
         raise HTTPException(status_code=409, detail=detail)
 
 
