@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 from api.routers import supabase_auth as sb
+from api.routers import auth as legacy_auth
 from api.config import settings
 
 
@@ -19,6 +20,7 @@ def client(monkeypatch):
     monkeypatch.setattr(settings, "supabase_auth_email_signup_enabled", False)
     monkeypatch.setattr(settings, "supabase_auth_publishable_key", "")
     monkeypatch.setattr(settings, "supabase_auth_redirect_base_url", "")
+    monkeypatch.setattr(settings, "supabase_legacy_support_username", "")
     return TestClient(app, base_url="https://testserver")
 
 
@@ -33,7 +35,7 @@ def _enable(monkeypatch):
 def test_capabilities_are_disabled_by_default(client):
     response = client.get("/auth/supabase/config")
     assert response.status_code == 200
-    assert response.json() == {"email_enabled": False, "email_signup_enabled": False, "google_enabled": False}
+    assert response.json() == {"email_enabled": False, "email_signup_enabled": False, "google_enabled": False, "legacy_support_enabled": False}
 
 
 def test_registration_never_falls_back_to_legacy(client):
@@ -195,6 +197,61 @@ def test_legacy_password_login_is_disabled_when_supabase_enabled(client, monkeyp
         "username": "legado", "password": "senha12345",
     })
     assert result.status_code == 410
+
+
+def test_legacy_support_only_when_explicitly_enabled(client, monkeypatch):
+    _enable(monkeypatch)
+    monkeypatch.setattr(settings, "supabase_legacy_support_username", "RafaelTesteCliente")
+    caps = client.get("/auth/supabase/config")
+    assert caps.status_code == 200
+    assert caps.json()["legacy_support_enabled"] is True
+
+    # Outras contas continuam bloqueadas, mesmo com login legado válido.
+    blocked = client.post("/auth/login", data={
+        "username": "rafastudio", "password": "senhaantigavalida",
+    })
+    assert blocked.status_code == 410
+
+
+def test_legacy_support_account_can_still_login(client, monkeypatch):
+    _enable(monkeypatch)
+    monkeypatch.setattr(settings, "supabase_legacy_support_username", "RafaelTesteCliente")
+    monkeypatch.setattr(legacy_auth, "_check_login_rate_limit", lambda key: None)
+    password = "senha-testes-exclusiva"
+    local_user = {
+        "id": "support-user-uuid", "username": "RafaelTesteCliente",
+        "access": "USER", "password": legacy_auth.pwd_context.hash(password),
+        "supabase_auth_user_id": None,
+    }
+    monkeypatch.setattr(legacy_auth, "_get_user_from_supabase", lambda name: local_user)
+
+    class FakeProfileQuery:
+        def table(self, name):
+            return self
+
+        def select(self, fields):
+            return self
+
+        def eq(self, field, value):
+            return self
+
+        def maybe_single(self):
+            return self
+
+        def execute(self):
+            return SimpleNamespace(data={"id": "support-profile-uuid"})
+
+    monkeypatch.setattr(legacy_auth, "get_supabase", lambda: FakeProfileQuery())
+    result = client.post("/auth/login", data={
+        "username": "RafaelTesteCliente", "password": password,
+    })
+    assert result.status_code == 200
+    assert "access_token=" in result.headers.get("set-cookie", "")
+
+    wrong = client.post("/auth/login", data={
+        "username": "RafaelTesteCliente", "password": "senha-incorreta",
+    })
+    assert wrong.status_code == 401
 
 
 def test_signup_fails_closed_if_confirm_email_is_disabled(client, monkeypatch, fake_db):
