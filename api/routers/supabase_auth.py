@@ -30,8 +30,8 @@ router = APIRouter(prefix="/auth/supabase", tags=["auth"])
 logger = logging.getLogger(__name__)
 TERMS_VERSION = "2026-10-31"
 COOKIE_OPTS = dict(httponly=True, secure=True, samesite="lax", path="/")
-_EMAIL_RE = re.compile(r"^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
-_USERNAME_RE = re.compile(r"^[\\w.-]{3,64}$", re.UNICODE)
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+_USERNAME_RE = re.compile(r"^[\w.-]{3,64}$", re.UNICODE)
 
 
 def _require_config(google=False):
