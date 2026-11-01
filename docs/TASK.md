@@ -1,8 +1,8 @@
 ## Correção do retorno Google pós-mesclagem — PR #153, 01/11/2026
 
 - [x] Causa identificada por logs reais e leitura do SHA staging `645c815`: Supabase `/token` e `/user` 200, Render callback 303; frontend `PanelPage` redirecionava para `/login` porque o Zustand `isAuthenticated=false`, **antes** de consultar o cookie recém-criado em `/auth/me`.
-- [x] [PR #153](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/153) preparado: `PanelPage` recupera usuário exclusivamente de `/auth/me` e reidrata o store com sessão validada; erros continuam levando ao login. **Ainda em revisão/CI, não declarar deploy ou E2E concluídos.**
-- [ ] Exigir CI verde e deploy `live` em staging; teste real do Gmail ADMIN deve mostrar `rafastudio`, acesso ADMIN e 6 produtos/6 posts/4 listas. Produção não ativar.
+- [x] [PR #153](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/153) integrado a staging no merge `1613cb2`, CI #424 verde, Render `dep-dbjbsd2vcj2c73erdmag` **live**. `PanelPage` recupera usuário validado em `/auth/me` e reidrata Zustand antes de redirecionar.
+- [x] Browser no SHA novo: cookie Google existente reidratou a sessão, carregou `/admin/overview`, nome `rafastudio` e papel `Administrador`. [ ] OAuth completo novo pós-deploy ainda pendente; confirmar recursos no site e logout.
 - [ ] `RafaelTesteCliente`: usuário legado destinado a testes do suporte Shopee, deverá manter login com nome de usuário e senha, **sem qualquer e-mail/Google associado**. O hash atual está em `public.users` do Supabase, mas validação continua na API Render; Supabase GoTrue não possui login nativo por username sem e-mail/telefone. Não atribuir e-mail fictício, alterar senha, vincular identidade ou desativar acesso antes de uma decisão de arquitetura e aprovação explícita.
 
 ## Autenticação Google — primeiro vínculo manual concluído, 01/11/2026
@@ -11,7 +11,7 @@
 - [x] Rafa concluiu onboarding Google `raffastudioproducoes@gmail.com`; navegador confirmou USER `Raffastudio` com sessão ativa, zero produtos/posts/listas; logout confirmado.
 - [x] Sob autorização específica, operação SQL atômica transferiu o Auth UUID e e-mail ao ADMIN legado `rafastudio`, mantendo ID, perfil, 6 produtos, 6 posts, 4 listas, credenciais e função ADMIN. Origem USER provisória retida para auditoria, sem associação Auth. Ver `docs/SUPABASE-AUTH-MIGRACAO.md`.
 - [ ] **Homologar segundo login pós-mesclagem:** a solicitação de login no navegador foi recusada; retestar quando o proprietário solicitar, confirmar dashboard ADMIN e recursos antigos. Não alegar E2E concluído.
-- [ ] Segundo Gmail `rafael.c.m.galvao@gmail.com`/conta `RafaelTesteCliente`: cadastrar, verificar posse e **obter nova autorização** antes de qualquer vínculo.
+- [x] Decisão do proprietário: `RafaelTesteCliente` não terá Gmail nem qualquer e-mail por enquanto; conta destinada a suporte Shopee com usuário/senha. **Nenhuma segunda mesclagem autorizada.**
 - [ ] Recuperação de senha por email/SMTP e sessão Supabase completa; não ativar login Supabase em produção.
 
 ## Correção de publicações interrompidas por deploy — fechamento 31/10/2026
