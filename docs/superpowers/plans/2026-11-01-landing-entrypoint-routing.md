@@ -4,7 +4,7 @@
 
 **Goal:** Entregar entrada inteligente na raiz, dashboard em /app e link público /presentation sem regressão de autenticação.
 
-**Architecture:** Reusar TanStack Router e `authApi.me()` para validar cookie no servidor na entrada. Manter Flask SPA e Supabase OAuth intactos, com ajustes pontuais de navegação, alias legado e head Open Graph estático.
+**Architecture:** Reusar TanStack Router e `authApi.me()` para validar cookie no servidor na entrada. Preservar a SPA Flask e Supabase OAuth, com ajustes pontuais de navegação, alias legado, metadados Open Graph e header HTTP `X-Robots-Tag` exclusivo do host staging.
 
 **Tech Stack:** React 19, TanStack Router, Zustand, TypeScript/Vite, Flask SPA, Node test runner, GitHub Actions.
 
@@ -41,26 +41,26 @@
 - Consumes: `authApi.me(): Promise<MeResponse>` e `isAdminVisitingSite()`.
 - Produces: rota `/` landing com `beforeLoad` de sessão, `/app` dashboard no painel autenticado.
 
-- [ ] Step 1: Criar teste falhando cobrindo `/` público, `/app` privado, redirecionamentos USER/ADMIN, ausência de redirecionamento baseado só no Zustand e links internos.
-- [ ] Step 2: Executar `node --test frontend/tests/landing-entry-routing.test.mjs` e observar FAIL pelo comportamento ausente.
-- [ ] Step 3: Alterar somente as rotas e links necessários, preservar `requireAdmin` e guard do PanelPage, sem ciclos de redirect.
-- [ ] Step 4: Reexecutar Node tests pertinentes + `npm run build` no frontend e corrigir até PASS.
-- [ ] Step 5: Commitar a mudança no branch isolado.
+- [x] Step 1: Criar teste falhando cobrindo `/` público, `/app` privado, redirecionamentos USER/ADMIN, ausência de redirecionamento baseado só no Zustand e links internos.
+- [x] Step 2: Executar `node --test frontend/tests/landing-entry-routing.test.mjs` e observar FAIL pelo comportamento ausente.
+- [x] Step 3: Alterar somente as rotas e links necessários, preservar `requireAdmin` e guard do PanelPage, sem ciclos de redirect.
+- [x] Step 4: Reexecutar Node tests pertinentes + `npm run build` no frontend e corrigir até PASS.
+- [x] Step 5: Commitar a mudança no branch isolado.
 
 ### Task 2: URL estável de compartilhamento e metadados
 
 **Files:**
 - Modify: `frontend/src/router.tsx` (alias legado), `frontend/index.html`, `frontend/public/robots.txt` quando pertinente.
 - Modify as needed: `web/routes/spa.py` (somente se necessário para URL/OG por caminho; evitar SSR amplo).
-- Test: `frontend/tests/landing-entry-routing.test.mjs` e/ou `tests/web/test_landing_metadata.py`.
+- Test: `frontend/tests/landing-entry-routing.test.mjs` e/ou `tests/web/test_csp_policy.py` (noindex de staging).
 
 **Interfaces:**
 - Consumes: `PresentationPage` e SPA Flask existente.
-- Produces: `/presentation` estável, `/apresentacao` compatível, OG preview apontando apresentação.
+- Produces: `/presentation` estável, `/apresentacao` compatível, OG preview com marca e URL real do link compartilhado (sem canonical de produção estático).
 
-- [ ] Step 1: Escrever teste que falha para `/presentation`, alias antigo, HTML inicial com Open Graph e URL de preview coerente.
-- [ ] Step 2: Rodar teste e observar FAIL pelo cenário novo.
-- [ ] Step 3: Alterar router e metadados com URLs públicas HTTPS; garantir `/presentation` pública mesmo quando logado.
+- [x] Step 1: Escrever teste que falha para `/presentation`, alias antigo, HTML inicial com Open Graph e URL de preview coerente.
+- [x] Step 2: Rodar teste e observar FAIL pelo cenário novo.
+- [x] Step 3: Alterar router e metadados com URLs públicas HTTPS; garantir `/presentation` pública mesmo quando logado.
 - [ ] Step 4: Rodar Node tests, backend smoke unitário pertinente e build; corrigir até PASS.
 - [ ] Step 5: Commitar.
 
@@ -75,7 +75,7 @@
 - Produces: evidência de rotas, compatibilidade, status de testes e PR de staging.
 
 - [ ] Step 1: Rodar `node --test frontend/tests/landing-entry-routing.test.mjs`, testes relacionados e `npm run build`; reportar cada resultado real.
-- [ ] Step 2: Abrir PR para `staging` (não `main`); confirmar status da CI (`api` e `frontend`).
+- [x] Step 2: Abrir PR para `staging` (não `main`); confirmar status da CI (`api` e `frontend`) — [PR #165](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/165), CI final ainda pendente.
 - [ ] Step 3: Fazer merge em staging somente após CI verde e autorização prevista para homologação, verificar Render staging live e HTTP no `/` e `/presentation`; testes autenticados humanos seguem como pendência se não houver sessão de teste autorizada.
 - [ ] Step 4: Atualizar Vault `34-Planejamento-Landing-Publica-Auto-Orbital.md`, `TASK.md` e índice com SHAs e decisões reais em branch de docs/PR próprio, reler conteúdo salvo e checar gatilho domínio/SMTP.
 - [ ] Step 5: Solicitar a Rafa homologação da navegação, sem publicar em main.
