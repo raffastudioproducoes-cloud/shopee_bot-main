@@ -57,6 +57,65 @@ def test_registration_rejects_password_mismatch_before_auth_call(client, monkeyp
     assert response.status_code == 422
 
 
+def test_google_identity_verified_via_supabase_user_endpoint(client, monkeypatch):
+    """OAuth usa o JWT entregue pelo GoTrue, sem exigir SDK com sb_publishable."""
+    _enable(monkeypatch)
+    called = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"id": "auth-google-123", "email": "alguem@gmail.com"}
+
+    class FakeHttp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, url, headers):
+            called.update(url=url, headers=headers)
+            return FakeResponse()
+
+    monkeypatch.setattr(sb.httpx, "Client", lambda timeout: FakeHttp())
+    monkeypatch.setattr(sb, "_auth_client", lambda: pytest.fail("não criar sessão SDK"))
+    identity = sb._verify_google_token("token-temporario")
+    assert identity.id == "auth-google-123"
+    assert identity.email == "alguem@gmail.com"
+    assert called["url"] == "https://auth.example.com/auth/v1/user"
+    assert called["headers"]["apikey"] == "sb_publishable_example"
+    assert called["headers"]["Authorization"] == "Bearer token-temporario"
+
+
+def test_google_identity_missing_email_fails_closed(client, monkeypatch):
+    _enable(monkeypatch)
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"id": "auth-google-123"}
+
+    class FakeHttp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, url, headers):
+            return FakeResponse()
+
+    monkeypatch.setattr(sb.httpx, "Client", lambda timeout: FakeHttp())
+    with pytest.raises(sb.HTTPException) as error:
+        sb._verify_google_token("token-temporario")
+    assert error.value.status_code == 401
+
+
 def test_google_pkce_uses_secure_timed_cookie(client, monkeypatch):
     _enable(monkeypatch)
     response = client.get("/auth/supabase/google/authorize", follow_redirects=False)
