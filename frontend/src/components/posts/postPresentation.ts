@@ -42,6 +42,37 @@ export function scheduleLines(post: Post): string[] {
   return []
 }
 
+/** Um agendamento cron preservado significa que há novas ocorrências previstas,
+ * mesmo quando a última publicação já foi concluída. */
+export function recurringInProgress(post: Post): boolean {
+  return post.scheduled && postKind(post) === "Recorrente"
+}
+
+/** Cards usam somente um resumo; o mapeamento completo permanece no modal. */
+export function compactScheduleSummary(post: Post): string | null {
+  if (postKind(post) === "Imediato") return null
+  if (postKind(post) === "Agendado") {
+    const date = post.schedule_entries?.find((entry) => entry.trigger === "date")?.run_date ?? post.scheduled_for
+    return date ? "Programado: " + formatUtcTimestampBrasilia(date).replace(/:\d{2}$/, "") : "Agendamento registrado"
+  }
+
+  const recurring = (post.schedule_entries ?? []).filter((entry) => entry.trigger === "cron")
+  const days = new Set<number>()
+  const times = new Set<string>()
+  for (const entry of recurring) {
+    const entryDays = entry.days_of_week?.length ? entry.days_of_week : entry.day_of_week != null ? [entry.day_of_week] : []
+    for (const day of entryDays) days.add(day)
+    if (entry.time) times.add(entry.time.slice(0, 5))
+  }
+  const daysLabel = days.size === 7 ? "Todos os dias" : days.size ? days.size + (days.size === 1 ? " dia" : " dias") : "Recorrência"
+  const orderedTimes = [...times].sort()
+  const visibleTimes = orderedTimes.slice(0, 3).join(", ")
+  const timesLabel = visibleTimes
+    ? visibleTimes + (orderedTimes.length > 3 ? " +" + (orderedTimes.length - 3) : "")
+    : "horários no detalhe"
+  return daysLabel + " · " + timesLabel
+}
+
 export function lastPublishedLabel(post: Post): string | null {
   if (!post.last_result?.at) return null
   return formatUtcTimestampBrasilia(post.last_result.at)
