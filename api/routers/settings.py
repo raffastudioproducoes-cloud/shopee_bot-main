@@ -8,6 +8,7 @@ Troca de senha self-service para o usuário já autenticado (diferente de
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
+from ..config import settings
 from ..database import supabase
 from .auth import (
     _check_login_rate_limit,
@@ -34,6 +35,12 @@ async def change_password(
     response: Response,
     user_id: str = Depends(get_current_user_id),
 ):
+    # Novo fluxo: a senha pertence ao GoTrue, jamais a public.users.
+    if settings.supabase_auth_enabled:
+        raise HTTPException(
+            status_code=410,
+            detail="Troca de senha disponível somente por link de recuperação do Supabase Auth.",
+        )
     _check_login_rate_limit(f"changepw:{user_id}")
     _validate_password_length(body.new_password)
 
