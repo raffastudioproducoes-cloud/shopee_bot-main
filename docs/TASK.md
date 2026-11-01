@@ -1,3 +1,11 @@
+## 01/11/2026 — Placeholder de Automação de posts (apenas interface)
+
+- [x] Criar rota autenticada `/automacao-posts` com página simples e texto **“Automação de posts em breve”**, reutilizando o design system (Mona Sans, painel escuro, cores e ícone Lucide).
+- [x] Adicionar item **Automação** ao menu lateral, ícone `workflow`, junto à seção Posts, inclusive na navegação mobile existente.
+- [x] Nenhum endpoint, agendamento, IA, coleta, publicação automática ou persistência adicional foi implementado nesta entrega.
+- [ ] Definir com Rafa o escopo funcional, controles, limites, custos e fluxos de automação antes de desenvolver qualquer execução real.
+- [ ] Homologar a página em staging e solicitar aprovação separada antes do merge para `main`.
+
 ## 01/11/2026 — Ajuste fino da listagem de Posts: compactação e recorrência ativa
 
 - [x] Limitar a prévia do texto a uma única linha com reticências; exibir apenas o primeiro produto (+ quantidade adicional) e as redes de destino.
