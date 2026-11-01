@@ -7,8 +7,8 @@ const backendSource = () => readFile(new URL('../../api/routers/auth.py', import
 
 test('login usa campo texto para email ou usuario de suporte sem bloqueio nativo do navegador', async () => {
   const login = await loginSource()
-  assert.match(login, /label=\{capabilities\.legacy_support_enabled\s*\?\s*['"]E-mail ou usuário de suporte['"]/)
-  assert.match(login, /type=\{capabilities\.legacy_support_enabled\s*\?\s*['"]text['"]\s*:\s*['"]email['"]\}/)
+  assert.match(login, /const loginFieldLabel =[\s\S]*?['"]E-mail ou usuário de suporte['"]/)
+  assert.match(login, /const loginFieldType = !capabilities\.email_enabled \|\| capabilities\.legacy_support_enabled \? ['"]text['"] : ['"]email['"]/)\n  assert.match(login, /type=\{loginFieldType\}/)
   assert.match(login, /Para suporte Shopee, use o nome de usuário sem @/)
 })
 
