@@ -16,6 +16,10 @@ MIN_API_SECRET_KEY_LENGTH = 32
 class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_key: str = ""
+    # Supabase Auth (somente publicável no servidor; nunca usar service_role no fluxo de login).
+    supabase_auth_enabled: bool = False
+    supabase_auth_publishable_key: str = ""
+    supabase_auth_redirect_base_url: str = ""
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
     api_secret_key: str = ""
     frontend_url: str = "http://localhost:5173"
