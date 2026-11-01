@@ -29,6 +29,11 @@ export interface RegisterResponse {
   access: string
 }
 
+export interface RegistrationPendingResponse {
+  msg: string
+  email_confirmation_required: true
+}
+
 export const authApi = {
   async capabilities(): Promise<{ email_enabled: boolean; email_signup_enabled: boolean; google_enabled: boolean }> {
     return api.get('/auth/supabase/config')
@@ -94,8 +99,8 @@ export const authApi = {
     return data.msg
   },
 
-  async register(username: string, email: string, password: string, confirmPassword: string): Promise<RegisterResponse> {
-    return api.post<RegisterResponse>('/auth/supabase/register', {
+  async register(username: string, email: string, password: string, confirmPassword: string): Promise<RegistrationPendingResponse> {
+    return api.post<RegistrationPendingResponse>('/auth/supabase/register', {
       username, email, password, confirm_password: confirmPassword,
       accepted_terms_version: '2026-10-31',
     })
