@@ -253,8 +253,36 @@ function DashboardReveal({ progress }: { progress: number }) {
 function OrbitalSignature({ progress }: { progress: number }) {
   const show = ease(.755, .855, progress)
   return <div className="ao3-signature" style={{ opacity: show, transform: "translate(-50%,-50%) scale(" + lerp(.83, 1, show).toFixed(3) + ")" }} aria-hidden="true">
-    <div className="ao3-signature-ring"><i className="ao3-signature-orbit"/><i className="ao3-signature-point"/></div>
-    <div className="ao3-signature-word"><span>Auto</span><span className="ao3-signature-o">O</span><span>rbital</span></div>
+    {/* O horizonte de eventos da cena é a marca principal: não desenhar outro planeta sobre ele. */}
+    <div className="ao3-signature-horizon-space" />
+    <div className="ao3-signature-word">
+      <span className="ao3-signature-auto">Auto</span>
+      <svg className="ao3-signature-glyph" viewBox="0 0 104 104" fill="none" focusable="false" aria-hidden="true">
+        <defs>
+          <linearGradient id="ao3-glyph-horizon" x1="16" y1="18" x2="88" y2="91" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#35efff" />
+            <stop offset=".42" stopColor="#138ef5" />
+            <stop offset=".78" stopColor="#3574fa" />
+            <stop offset="1" stopColor="#ad68f8" />
+          </linearGradient>
+          <linearGradient id="ao3-glyph-orbit" x1="5" y1="90" x2="100" y2="8" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#7ba6ff" />
+            <stop offset=".45" stopColor="#b2edff" />
+            <stop offset="1" stopColor="#61dcff" />
+          </linearGradient>
+          <radialGradient id="ao3-glyph-shadow" cx=".33" cy=".2" r=".9">
+            <stop offset="0" stopColor="#071b43" />
+            <stop offset=".76" stopColor="#000714" />
+            <stop offset="1" stopColor="#00030c" />
+          </radialGradient>
+        </defs>
+        <ellipse cx="52" cy="52" rx="51" ry="18" transform="rotate(-36 52 52)" stroke="#2368c3" strokeWidth="2.5" opacity=".75" />
+        <circle cx="52" cy="52" r="34" fill="url(#ao3-glyph-shadow)" stroke="url(#ao3-glyph-horizon)" strokeWidth="10" />
+        <path d="M9 83 C28 92 72 52 98 15" stroke="url(#ao3-glyph-orbit)" strokeWidth="4.3" strokeLinecap="round" />
+        <path d="M11 83 C38 74 71 46 97 15" stroke="#b8dcff" strokeWidth="1.15" strokeLinecap="round" opacity=".72" />
+      </svg>
+      <span className="ao3-signature-rbital">rbital</span>
+    </div>
     <p>Produtos encontram seu caminho. Sua rotina encontra mais controle.</p>
     <span className="ao3-future">AUTOMAÇÃO COMPLETA COM IA · EM DESENVOLVIMENTO</span>
   </div>
