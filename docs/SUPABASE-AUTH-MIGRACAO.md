@@ -58,7 +58,7 @@ Quando houver homologação real, configurar as mesmas variáveis no serviço de
 - Migration versionada: `database/migrations/066_supabase_auth_identities.sql` adiciona `email` e `supabase_auth_user_id` opcionais, deixa `password` nullable, cria `pending_auth_registrations` com RLS bloqueada ao cliente e preserva IDs e dados legados.
 - Validar schema, backup/reversão, conflitos de e-mail e RLS antes de aplicar. A rotina de migrations do app pode executar DDL no startup: revisar deploy antes de mesclar em staging, já que staging/produção usam o mesmo DB.
 - Executar testes da API e build React. CI não autentica uma conta Google real.
-- Testar manualmente, com contas de teste aprovadas: entrega real do e-mail (SMTP), link de confirmação, negação antes de confirmar, login após confirmar, primeiro provisionamento e segundo login, Google OAuth, logout, criação de perfil, isolamento, ADMIN não concedido e PKCE adulterado/expirado. Testar mudança de senha e exclusão de conta após completar as rotas Supabase correspondentes.
+- Testar manualmente, com contas de teste aprovadas: entrega real do e-mail padrão a endereço autorizado, link de confirmação, negação antes de confirmar, login após confirmar, primeiro provisionamento e segundo login, Google OAuth, logout, criação de perfil, isolamento, ADMIN não concedido e PKCE adulterado/expirado. Testar recuperação de senha com link de verdade e atualizar senha, além de expiração do link e exclusão de conta.
 
 ## Confirmação obrigatória por e-mail (decisão de Rafa)
 
@@ -75,6 +75,17 @@ Fontes oficiais:
 - [Google sign-in](https://supabase.com/docs/guides/auth/social-sign-in/auth-google)
 - [Redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls)
 
+## Recuperação de senha pelo Supabase Auth — preparada no PR #149
+
+- No login, **Esqueci minha senha** abre modal que solicita **apenas o e-mail**. Em Configurações → Trocar senha, há o mesmo formulário de solicitação. Ambos chamam `POST /auth/supabase/password/recovery`.
+- O backend chama somente `supabase.auth.reset_password_for_email(email, {"redirect_to": ".../login"})` e responde de forma genérica para não revelar se o e-mail existe. A entrega depende das limitações do servidor padrão do Supabase e do endereço autorizado.
+- O link do template padrão **Reset password** é criado/validado pelo Supabase Auth e redireciona a `/login` (já autorizada em ambos os ambientes). A UI retira imediatamente o token do fragmento da URL, não salva refresh token nem senha em `localStorage` e mostra modal **Definir nova senha** com dois campos iguais e aviso explícito de alteração.
+- `POST /auth/supabase/password/complete` valida o token com GoTrue e efetua a alteração em `/auth/v1/user` sob o **token de acesso autorizado**, usando só a chave publicável. Nenhum endpoint novo grava em `public.users.password`. A rota antiga `PUT /settings/password` retorna 410 com `SUPABASE_AUTH_ENABLED=true`. O login/senha continua sob gestão do Supabase.
+- O cadastro exige usuário/nome de usuário, e-mail, senha, senha repetida e aceite dos Termos. O registro continua pendente até a confirmação por e-mail; o site não concede sessão nem cria perfil antes de login confirmado.
+- Testes automatizados de envio (mock), endereço normalizado, ausência de vazamento do erro SMTP, senhas diferentes, token inválido/não confirmado, atualização remota e bloqueio da rota local estão em `tests/api/test_supabase_auth_transition.py`. **Ainda não é teste de entrega real nem de clique em link.**
+- **Limite importante:** a sessão interna JWT permanece ponte de compatibilidade de até 24 horas, e a troca de senha no Supabase não invalida automaticamente todas essas sessões antigas. Revogação de sessões e migração completa de autenticação são pré-requisitos para abertura de produção.
+- **Estado:** arquivos preparados apenas na branch `feature/supabase-auth-email-google`. PR #149 em rascunho; não ativar em produção sem homologação, migração segura das contas existentes e possibilidade comprovada de envio de e-mails.
+
 ## Contas existentes — somente no final, nunca por e-mail automático
 
 1. Rafa identifica as duas contas legadas e os dois novos registros de Auth destinados a elas.
@@ -87,7 +98,7 @@ Fontes oficiais:
 ## Pendências para encerrar a migração de autenticação
 
 - Substituir a ponte JWT da aplicação pela validação e renovação de sessão Supabase Auth em todos os endpoints, inclusive mudança de perfil, settings, exclusão de conta, logout global e revogação.
-- Implementar troca/recuperação de senha das contas Supabase (o endpoint antigo de troca foi bloqueado para elas).
+- [Preparado no PR #149; falta E2E] Recuperação de senha das contas Supabase via e-mail/link e modal com senha repetida. Confirmar clique real, expiração e revogação de sessões internas.
 - Validar end-to-end o fluxo de confirmação, duplicidade e recuperação de cadastros pendentes, inclusive concorrência e falhas.
 - Validar concorrência/rollback do provisionamento de usuários e órfãos de Auth.
 - Introduzir tratamento de redirect/cookies com testes de proxy e teste OAuth em staging.
