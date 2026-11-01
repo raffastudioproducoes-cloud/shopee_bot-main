@@ -1,3 +1,11 @@
+## 01/11/2026 — Motion V3 PROCEDURAL / V2 REPROVADA
+
+- [x] **Rafa reprovou a V2:** cartões colados, PNG do buraco negro e movimentos desconectados da narrativa. Não promover V2.
+- [x] **Storyboard seis atos (0–10s) silencioso:** produto, tarefas, acúmulo, pausa, horizonte procedural, revelação do painel e assinatura, detalhado em PILOTO-LANDING-VIRADA-ORBITAL.md.
+- [x] **Implementação em laboratório:** /presentation/pilot substituído por elementos Canvas 2D/DOM/CSS, sem imagens ou sons, sem dependência adicional.
+- [ ] **QA da V3:** CI, revisão de quadros, independência das trajetórias, leitura mobile, redução de movimento, FPS, console e aceite de Rafa antes de mudar landing ou produção.
+- [ ] **Marca gerada por código:** comparar assinatura procedural com master oficial. Como o master é bitmap, não declarar que CSS produziu cópia pixel-a-pixel sem certificação/aceite. A marca usada em produção não é alterada.
+
 ## 01/11/2026 — REPROVAÇÃO DA CENA V1 / PILOTO V2 HORIZONTE DE EVENTOS
 
 - [x] **Feedback do proprietário:** V1 **descartada**; excessivamente lenta, transição/zoom superficial, letras paradas, sem jogos de câmera e sem vida. A referência correta da marca é o **buraco negro com horizonte de eventos**, papéis de **produtos** transformando-se em **propagandas** ao orbitar, metáfora de ciclo automático (visão futura, não funcionalidade pronta).
