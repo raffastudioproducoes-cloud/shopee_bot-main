@@ -1,5 +1,5 @@
 import './LoginPage.css'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useAuthStore } from '../stores/authStore'
@@ -25,6 +25,20 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [forgotOpen, setForgotOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
+  const [capabilities, setCapabilities] = useState({ email_enabled: false, google_enabled: false })
+  const [useLegacyLogin, setUseLegacyLogin] = useState(false)
+  const [googleSetupOpen, setGoogleSetupOpen] = useState(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('google_setup') === '1'
+  )
+
+  useEffect(() => {
+    void authApi.capabilities().then(setCapabilities).catch(() => {
+      setCapabilities({ email_enabled: false, google_enabled: false })
+    })
+    if (new URLSearchParams(window.location.search).has('google_error')) {
+      setError('Não foi possível autorizar a conta Google. Tente novamente.')
+    }
+  }, [])
   // ponytail: checagem única no mount, sem listener de mudança ao vivo — se o usuário
   // alternar a preferência do SO com a tela aberta, precisaria recarregar a página.
   const [prefersReducedMotion] = useState(
@@ -37,7 +51,11 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      await authApi.login(username, password)
+      if (capabilities.email_enabled && !useLegacyLogin) {
+        await authApi.loginEmail(username, password)
+      } else {
+        await authApi.login(username, password)
+      }
       const user = await authApi.me()
       clearAdminVisitingSite()
       login('', user)
@@ -46,7 +64,9 @@ export default function LoginPage() {
       if (err instanceof Error && 'status' in err) {
         const apiError = err as { status: number; message: string }
         if (apiError.status === 401) {
-          setError('Usuário ou senha inválidos')
+          setError(capabilities.email_enabled && !useLegacyLogin
+            ? 'E-mail ou senha inválidos'
+            : 'Usuário ou senha inválidos')
         } else {
           setError(apiError.message || 'Erro ao fazer login')
         }
@@ -90,12 +110,13 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="csp-login-09">
             <TextInput
-              label="Usuário"
+              label={capabilities.email_enabled && !useLegacyLogin ? 'E-mail' : 'Usuário'}
               icon="user"
+              type={capabilities.email_enabled && !useLegacyLogin ? 'email' : 'text'}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              placeholder="Digite seu usuário"
+              placeholder={capabilities.email_enabled && !useLegacyLogin ? 'Digite seu e-mail' : 'Digite seu usuário'}
               autoComplete="username"
             />
 
@@ -142,6 +163,13 @@ export default function LoginPage() {
               )}
             </Button>
 
+            {capabilities.email_enabled && (
+              <button type="button" className="csp-login-17"
+                onClick={() => { setUseLegacyLogin(v => !v); setUsername(''); setPassword(''); setError('') }}>
+                {useLegacyLogin ? 'Entrar com e-mail' : 'Tenho uma conta antiga (temporário)'}
+              </button>
+            )}
+
             <div className="csp-login-16">
               <button
                 type="button"
@@ -170,7 +198,9 @@ export default function LoginPage() {
 
             <div className="csp-login-24">
               <span className="csp-login-25" title="Em breve">
-                <Button variant="secondary" fullWidth disabled onClick={() => {}} className="csp-login-social-button">
+                <Button variant="secondary" fullWidth disabled={!capabilities.google_enabled}
+                  onClick={() => { window.location.assign('/api/auth/supabase/google/authorize') }}
+                  className="csp-login-social-button">
                   Google
                 </Button>
               </span>
@@ -191,7 +221,22 @@ export default function LoginPage() {
         <ForgotPasswordModal initialUsername={username} onClose={() => setForgotOpen(false)} />
       )}
 
-      {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} />}
+      {registerOpen && <RegisterModal enabled={capabilities.email_enabled} onClose={() => setRegisterOpen(false)} />}
+      {googleSetupOpen && (
+        <GoogleSetupModal
+          onClose={() => {
+            setGoogleSetupOpen(false)
+            window.history.replaceState({}, '', '/login')
+          }}
+          onSuccess={async () => {
+            const user = await authApi.me()
+            clearAdminVisitingSite()
+            login('', user)
+            setGoogleSetupOpen(false)
+            navigate({ to: user.access === 'ADMIN' ? '/admin/overview' : '/' })
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -294,11 +339,13 @@ function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalPr
 // ── Modal "criar conta" ─────────────────────────────────────────────────────────
 
 interface RegisterModalProps {
+  enabled: boolean
   onClose: () => void
 }
 
-function RegisterModal({ onClose }: RegisterModalProps) {
+function RegisterModal({ enabled, onClose }: RegisterModalProps) {
   const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
@@ -318,7 +365,7 @@ function RegisterModal({ onClose }: RegisterModalProps) {
 
     setLoading(true)
     try {
-      await authApi.register(username, password)
+      await authApi.register(username, email, password, confirmPassword)
       setSuccess('Conta criada! Faça login.')
       setTimeout(onClose, 1500)
     } catch (err: unknown) {
@@ -335,6 +382,7 @@ function RegisterModal({ onClose }: RegisterModalProps) {
   return (
     <Modal open onClose={onClose} title="Criar conta" width={400}>
       <form onSubmit={handleSubmit} className="csp-login-31">
+        {!enabled && <p className="csp-login-banner csp-login-banner-error">Cadastro aguardando configuração do Supabase Auth.</p>}
         {error && <div className="csp-login-banner csp-login-banner-error">{error}</div>}
         {success && <div className="csp-login-banner csp-login-banner-success">{success}</div>}
 
@@ -344,6 +392,15 @@ function RegisterModal({ onClose }: RegisterModalProps) {
           onChange={(e) => setUsername(e.target.value)}
           required
           autoComplete="username"
+          disabled={!!success}
+        />
+        <TextInput
+          label="E-mail"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
           disabled={!!success}
         />
         <TextInput
@@ -373,8 +430,52 @@ function RegisterModal({ onClose }: RegisterModalProps) {
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" disabled={loading || !!success || !acceptedTerms}>
+          <Button type="submit" variant="primary" disabled={loading || !!success || !acceptedTerms || !enabled}>
             {loading ? 'Criando...' : 'Criar conta'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+
+function GoogleSetupModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => Promise<void> }) {
+  const [username, setUsername] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!acceptedTerms) { setError('Aceite os Termos de Uso para continuar.'); return }
+    setLoading(true)
+    setError('')
+    try {
+      await authApi.completeGoogle(username)
+      await onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível concluir o cadastro Google.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Concluir cadastro com Google" width={400}>
+      <form onSubmit={submit} className="csp-login-31">
+        <p>Escolha um nome de usuário para sua nova conta do Auto Orbital.</p>
+        {error && <div className="csp-login-banner csp-login-banner-error">{error}</div>}
+        <TextInput label="Usuário" value={username} onChange={e => setUsername(e.target.value)}
+          required minLength={3} maxLength={64} autoComplete="username" />
+        <label><input type="checkbox" checked={acceptedTerms}
+          onChange={e => setAcceptedTerms(e.target.checked)} required /> Aceito os{' '}
+          <a href="/termos" target="_blank" rel="noreferrer">Termos de Uso</a> e li a{' '}
+          <a href="/privacidade" target="_blank" rel="noreferrer">Política de Privacidade</a>.</label>
+        <div className="csp-login-34">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" variant="primary" disabled={!acceptedTerms || loading}>
+            {loading ? 'Concluindo...' : 'Criar conta'}
           </Button>
         </div>
       </form>
