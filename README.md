@@ -294,6 +294,12 @@ Scheduler executa → publica na rede social
 Log de sucesso/falha + Atividade registrada
 ```
 
+## Autenticação Supabase — preparação em PR #149 (01/11/2026)
+
+O login por e-mail e Google, o cadastro com nome de usuário/e-mail/senhas iguais/aceite, a confirmação obrigatória de e-mail e a recuperação de senha por link estão em desenvolvimento na branch `feature/supabase-auth-email-google`. A nova UI de recuperação pede e-mail e permite definir nova senha somente após o link do Supabase Auth. A senha não é alterada na tabela comercial `public.users`.
+
+**Ainda não foi implantado em produção.** Não ativar `SUPABASE_AUTH_ENABLED` antes de migrar com segurança as duas contas legadas, testar recuperação e confirmação reais, avaliar sessões internas e resolver a entrega a e-mails de clientes externos (Supabase SMTP padrão é limitado a membros da equipe). Consulte [docs/SUPABASE-AUTH-MIGRACAO.md](docs/SUPABASE-AUTH-MIGRACAO.md).
+
 ## Documentação
 
 | Documento | Conteúdo |

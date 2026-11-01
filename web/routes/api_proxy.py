@@ -38,7 +38,7 @@ api_proxy_bp = Blueprint("api_proxy", __name__, url_prefix="/api")
     methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
 )
 def proxy(subpath):
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.cookies.get("access_token"):
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and (request.cookies.get("access_token") or request.cookies.get("sb_google_pending")):
         source = request.headers.get("Origin") or request.headers.get("Referer")
         parsed = urlparse(source or "")
         allowed = {request.host_url, *cors_origins()}

@@ -17,6 +17,8 @@ export interface TextInputProps {
   type?: InputHTMLAttributes<HTMLInputElement>["type"]
   placeholder?: string
   required?: boolean
+  minLength?: number
+  maxLength?: number
   disabled?: boolean
   name?: string
   autoComplete?: string
@@ -42,6 +44,8 @@ export function TextInput({
   type = "text",
   placeholder,
   required,
+  minLength,
+  maxLength,
   disabled,
   name,
   autoComplete,
@@ -91,6 +95,8 @@ export function TextInput({
           onChange={onChange}
           placeholder={placeholder}
           required={required}
+          minLength={minLength}
+          maxLength={maxLength}
           disabled={disabled}
           autoComplete={autoComplete}
           min={min}
