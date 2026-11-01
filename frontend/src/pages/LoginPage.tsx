@@ -49,6 +49,7 @@ export default function LoginPage() {
   const login = useAuthStore((state) => state.login)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [legacySupportMode, setLegacySupportMode] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -56,14 +57,14 @@ export default function LoginPage() {
   const [registerOpen, setRegisterOpen] = useState(false)
   const [recoveryLink, setRecoveryLink] = useState(readRecoveryLink)
   const [notice, setNotice] = useState(recoveryLink.notice)
-  const [capabilities, setCapabilities] = useState({ email_enabled: false, email_signup_enabled: false, google_enabled: false })
+  const [capabilities, setCapabilities] = useState({ email_enabled: false, email_signup_enabled: false, google_enabled: false, legacy_support_enabled: false })
   const [googleSetupOpen, setGoogleSetupOpen] = useState(
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('google_setup') === '1'
   )
 
   useEffect(() => {
     void authApi.capabilities().then(setCapabilities).catch(() => {
-      setCapabilities({ email_enabled: false, email_signup_enabled: false, google_enabled: false })
+      setCapabilities({ email_enabled: false, email_signup_enabled: false, google_enabled: false, legacy_support_enabled: false })
     })
     if (new URLSearchParams(window.location.search).has('google_error')) {
       setError('Não foi possível autorizar a conta Google. Tente novamente.')
@@ -75,13 +76,15 @@ export default function LoginPage() {
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   )
 
+  const useEmailLogin = capabilities.email_enabled && !(capabilities.legacy_support_enabled && legacySupportMode)
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      if (capabilities.email_enabled) {
+      if (useEmailLogin) {
         await authApi.loginEmail(username, password)
       } else {
         await authApi.login(username, password)
@@ -94,7 +97,7 @@ export default function LoginPage() {
       if (err instanceof Error && 'status' in err) {
         const apiError = err as { status: number; message: string }
         if (apiError.status === 401) {
-          setError(capabilities.email_enabled
+          setError(useEmailLogin
             ? 'E-mail ou senha inválidos'
             : 'Usuário ou senha inválidos')
         } else {
@@ -141,13 +144,13 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="csp-login-09">
             <TextInput
-              label={capabilities.email_enabled ? 'E-mail' : 'Usuário'}
+              label={useEmailLogin ? 'E-mail' : 'Usuário'}
               icon="user"
-              type={capabilities.email_enabled ? 'email' : 'text'}
+              type={useEmailLogin ? 'email' : 'text'}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              placeholder={capabilities.email_enabled ? 'Digite seu e-mail' : 'Digite seu usuário'}
+              placeholder={useEmailLogin ? 'Digite seu e-mail' : 'Digite seu usuário'}
               autoComplete="username"
             />
 
@@ -183,6 +186,21 @@ export default function LoginPage() {
               </div>
             </label>
 
+            {capabilities.legacy_support_enabled && (
+              <button
+                type="button"
+                className="csp-login-17"
+                onClick={() => {
+                  setLegacySupportMode((current) => !current)
+                  setUsername('')
+                  setPassword('')
+                  setError('')
+                }}
+              >
+                {legacySupportMode ? 'Voltar ao login por e-mail' : 'Acesso temporário para suporte Shopee'}
+              </button>
+            )}
+
             <Button type="submit" variant="primary" fullWidth disabled={loading}>
               {loading ? (
                 <>
@@ -198,6 +216,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setForgotOpen(true)}
+                disabled={legacySupportMode && capabilities.legacy_support_enabled}
                 className="csp-login-17"
               >
                 Esqueci minha senha
