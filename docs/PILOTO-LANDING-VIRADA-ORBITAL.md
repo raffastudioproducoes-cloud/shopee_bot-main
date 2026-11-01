@@ -1,3 +1,18 @@
+# V3.2 — PROFUNDIDADE 3D SOMENTE NOS CARDS (01/11/2026)
+
+> **Decisão de Rafa:** a V3.1 é provisória, mas a única alteração agora é nos cards de produto/propaganda da cena procedural. Eles não devem parecer cartões estáticos sobre um plano. **Não alterar** a assinatura final/logo, horizonte de eventos, câmera global, texto, cenas, ritmo, storyboard de 10s, controles, som ou landing principal.
+
+## Ajuste autorizado e isolado
+
+- **Geometria espacial:** cada uma das oito fichas passa a usar um `translateZ` independente, leve flutuação, inclinações `rotateX/rotateY` e ordenação visual por profundidade; as mesmas posições X/Y e janelas de entrada/saída são preservadas.
+- **Virada física:** no intervalo de transformação já existente, o antigo achatamento em `scaleX` é substituído por meia-volta em `rotateY`, com faces opostas em `backface-visibility:hidden`. A progressão de produto → propaganda e os textos continuam idênticos.
+- **Material:** espessura sutil da ficha com pseudo-elemento traseiro, reflexo e sombra próprios, sem WebGL, Three.js, bibliotecas, vídeos, imagens ou áudio adicionais.
+- **Restrições:** sem alteração de `drawSpace`, `ProceduralUniverse`, `KineticType`, `DashboardReveal`, `OrbitalSignature`, `chapters`, `DURATION_MS` ou `ao3-camera`. Apenas `Sheet`, CSS `ao3-sheet*`, teste de contrato e documentação.
+- **Referências consultadas:** [Impeccable](https://github.com/pbakaus/impeccable) para profundidade funcional e animação com propósito; [Taste Skill](https://github.com/Leonxlnx/taste-skill) para hierarquia, verificação visual e evitar excesso de efeitos. A URL [Christonit/emil-kowalski-animation-course](https://github.com/Christonit/emil-kowalski-animation-course) contém um README genérico React/Shadcn/Tailwind V4, sem guia específico de animação na raiz; nenhuma técnica foi importada dele.
+- **Estado:** proposta implementada em branch dedicada para staging, pendente de CI, inspeção de quadros no navegador e aceite estético de Rafa. **Produção e landing publicada intocadas.**
+
+---
+
 # V3.1 — REFINO SOMENTE DA ASSINATURA FINAL (01/11/2026)
 
 > **REVISÃO DE RAFA:** O estudo V3 ficou razoável e poderá servir como base, mas **não está aprovado como definitivo**. O proprietário pediu exclusivamente corrigir a marca e o nome no último quadro; mais velocidade e dinamismo ficam como observações para uma iteração futura, **sem alterar agora** tempo, cenas, câmera, transições, texto ou som.
