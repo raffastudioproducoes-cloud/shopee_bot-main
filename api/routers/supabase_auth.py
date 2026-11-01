@@ -148,6 +148,7 @@ async def configuration():
         "email_enabled": enabled,
         "email_signup_enabled": enabled and settings.supabase_auth_email_signup_enabled,
         "google_enabled": enabled,
+        "legacy_support_enabled": enabled and bool(settings.supabase_legacy_support_username.strip()),
     }
 
 
