@@ -30,7 +30,7 @@ export interface RegisterResponse {
 }
 
 export const authApi = {
-  async capabilities(): Promise<{ email_enabled: boolean; google_enabled: boolean }> {
+  async capabilities(): Promise<{ email_enabled: boolean; email_signup_enabled: boolean; google_enabled: boolean }> {
     return api.get('/auth/supabase/config')
   },
 
