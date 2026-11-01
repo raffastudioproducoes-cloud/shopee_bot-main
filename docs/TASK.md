@@ -1,3 +1,12 @@
+## 01/11/2026 — Correção do login temporário Shopee (PR #166, somente staging)
+
+- [x] **Erro reproduzido:** Rafa tentou `RafaelTesteCliente` em `/login`, mas o campo HTML `type=email` bloqueou o envio antes de chegar ao backend. O link anterior “Acesso temporário para suporte Shopee” não era suficientemente evidente.
+- [x] **Correção frontend:** campo único e identificado como “E-mail ou usuário de suporte”, HTML `type=text` só quando o modo de suporte estiver disponível; o formulário escolhe login por e-mail Supabase para identificadores com `@` e rota legada exclusivamente para o nome de usuário sem `@`. Quando Supabase Auth está desativado, mantém o login legado local original. Orientação visível e preservação da recuperação de senha por e-mail.
+- [x] **Limite de segurança preservado no backend:** `POST /api/auth/login` continua exigindo correspondência estrita com `SUPABASE_LEGACY_SUPPORT_USERNAME`, papel `USER` e conta sem identidade Supabase Auth, com limite de tentativas; sem liberar Render Auth a outros usuários.
+- [x] **Regressão automatizada:** `frontend/tests/support-username-login.test.mjs` incluído na CI, verificando o campo, direcionamento e whitelist do backend. CI [RED da falha original](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41345573736) (etapa frontend falhou antes do commit de implementação).
+- [ ] **Gate antes de staging:** CI completa da versão final (frontend + API), revisão do PR e merge APENAS `staging` com deploy Render `live`.
+- [ ] **Homologação de Rafa:** confirmar login real da conta `RafaelTesteCliente` com a senha existente; jamais coletar senha no chat nem alterar conta/credenciais apenas para teste. `main`/produção exigem ordem posterior.
+
 ## 01/11/2026 — Landing Auto Orbital, Fase 2 autorizada (somente staging)
 
 - [x] Rafa autorizou a próxima fase das rotas após aprovação do protótipo desktop e primeira versão mobile. **Não há autorização de promoção à `main`/produção.** [Escopo e gates](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/blob/feature/landing-entrypoint-routes-2026-11-01/docs/superpowers/plans/2026-11-01-landing-entrypoint-routing.md).
