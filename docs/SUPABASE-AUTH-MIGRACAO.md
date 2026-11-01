@@ -118,3 +118,10 @@ Fontes oficiais:
 - [ ] Associar explicitamente as identidades novas às contas legadas apenas na etapa final com nova autorização e plano transacional/verificação de propriedade.
 - [ ] Validar e-mail/recuperação com entrega real a endereços autorizados; sem SMTP próprio não abrir cadastro público por e-mail nem declarar esse fluxo homologado.
 
+
+### Incidente do primeiro login Google — 01/11/2026, 03:52 UTC
+
+- Teste real com `raffastudioproducoes@gmail.com`: Supabase Auth confirmou Google e respondeu `/token` 200 para PKCE. `auth.users` possui agora a identidade Google confirmada. Não houve vínculo automático com `public.users.rafastudio` nem criação de sessão Auto Orbital.
+- Render staging registrou `Callback Google rejeitado` (03:52:04/03:52:12 UTC) e redirecionamento a `/login?google_error=1`. Os logs Auth não exibiram a leitura `/user` entre o sucesso do token e a rejeição; o erro está no backend pós-troca, ainda sem stack específico porque o código capturava a exceção genericamente.
+- [Correção proposta no PR #152](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/152): validação do access token diretamente via `GET /auth/v1/user`, sem recriar cliente SDK antigo com chave publicável moderna, e logs apenas com status/classe de erro. **Não declarar resolvido antes de CI, deploy live e repetição real do login.**
+- Não apagar a identidade de Auth criada no teste; reutilizar o mesmo Gmail na repetição. O segundo Gmail e as duas associações legadas permanecem pendentes.
