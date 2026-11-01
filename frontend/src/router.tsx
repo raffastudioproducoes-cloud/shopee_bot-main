@@ -96,11 +96,18 @@ const loginRoute = createRoute({
   component: LoginPage,
 })
 
-// Prévia pública da landing; não altera a raiz autenticada nem o retorno OAuth.
+// Endereço público estável para compartilhar a landing, inclusive com sessão ativa.
 const presentationRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/apresentacao",
+  path: "/presentation",
   component: PresentationPage,
+})
+
+// Compatibilidade com o link de prévia anterior.
+const legacyPresentationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/apresentacao",
+  beforeLoad: () => { throw redirect({ to: "/presentation", replace: true }) },
 })
 
 // Rotas públicas (sem guard de autenticação, mesmo padrão de /login) exigidas
@@ -235,6 +242,7 @@ const routeTree = rootRoute.addChildren([
   landingRoute,
   loginRoute,
   presentationRoute,
+  legacyPresentationRoute,
   termsRoute,
   privacyRoute,
   dataCollectedRoute,
