@@ -28,6 +28,7 @@ const UsersPage = lazy(() => import("./pages/UsersPage"))
 const LogsPage = lazy(() => import("./pages/LogsPage"))
 const AdminCredentialsPage = lazy(() => import("./pages/AdminCredentialsPage"))
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"))
+const OrbitalPilotPage = lazy(() => import("./pages/OrbitalPilotPage"))
 
 async function requireAdmin() {
   let user
@@ -104,6 +105,12 @@ const presentationRoute = createRoute({
 })
 
 // Compatibilidade com o link de prévia anterior.
+const orbitalPilotRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/presentation/pilot",
+  component: lazyRoute(OrbitalPilotPage, "detail"),
+})
+
 const legacyPresentationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/apresentacao",
@@ -242,6 +249,7 @@ const routeTree = rootRoute.addChildren([
   landingRoute,
   loginRoute,
   presentationRoute,
+  orbitalPilotRoute,
   legacyPresentationRoute,
   termsRoute,
   privacyRoute,

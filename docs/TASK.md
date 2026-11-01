@@ -1,3 +1,10 @@
+## 01/11/2026 — Landing: piloto visual da transformação orbital (isolado, sem áudio)
+
+- [x] **Implementação em branch de trabalho:** `feature/landing-orbital-scene-pilot-2026-11-01`, baseada em `staging`; prévia interativa prevista em `/presentation/pilot`, sem qualquer modificação da landing aprovada (`/presentation`) ou da autenticação.
+- [x] **Peça de estudo com marca oficial:** arte `/brand/wordmark.png` e `/brand/symbol.png` do design system; roteiro “caos → pausa → convergência → fluxo organizado → assinatura”, 10 segundos como hipótese de piloto, reprodução/pausa/reinício e scrub manual, **sem som**. Contrato no [documento técnico](PILOTO-LANDING-VIRADA-ORBITAL.md) e Vault [storyboard 43](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/29).
+- [ ] **Gate de QA:** CI TypeScript/Vite, testes, inspeção real desktop/celular e `prefers-reduced-motion`; validar que a marca permanece fiel quadro a quadro. **Não alegar produção de vídeo final**: a cena atual é um protótipo visual React/CSS, não mídia exportada.
+- [ ] **Gate de aprovação:** obter aceite visual de Rafa antes de qualquer integração da cena à landing aprovada ou deploy em produção. Sem custo, dependência externa ou troca de rotas existentes.
+
 ## 01/11/2026 — Futuro vídeo cinematográfico de apresentação no LOGIN (documentação, sem código)
 
 - [x] **Decisão registrada:** Rafa quer substituir futuramente o vídeo atual da caixa em `/login` por uma animação premium original, com **logo oficial 100% fiel** e resumo visual de valor para afiliados; não aceita simples caixa/card e não autorizou implementar agora.
