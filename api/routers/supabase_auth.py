@@ -130,12 +130,15 @@ class CompleteGoogle(BaseModel):
 async def configuration():
     enabled = bool(settings.supabase_auth_enabled and settings.supabase_auth_publishable_key)
     return {"email_enabled": enabled,
+            "email_signup_enabled": enabled and settings.supabase_auth_email_signup_enabled,
             "google_enabled": enabled and bool(settings.supabase_auth_redirect_base_url)}
 
 
 @router.post("/register", status_code=201)
 async def register_email(body: EmailRegistration, request: Request):
     _require_config()
+    if not settings.supabase_auth_email_signup_enabled:
+        raise HTTPException(403, "Cadastro por e-mail aguardando verificação de segurança.")
     _check_login_rate_limit(f"supabase-register:{client_ip(request)}")
     if body.accepted_terms_version != TERMS_VERSION:
         raise HTTPException(422, "Aceite os Termos de Uso vigentes.")
