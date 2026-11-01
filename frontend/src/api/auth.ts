@@ -2,7 +2,7 @@ import { api, ApiError } from '../lib/api'
 import { formatApiError } from '../lib/apiError'
 
 export interface User {
-  id: number
+  id: string
   username: string
   access: string
 }
@@ -12,7 +12,7 @@ export interface LoginResponse {
 }
 
 export interface MeResponse {
-  id: number
+  id: string
   username: string
   access: string
   /** Perfil ativo validado pelo backend (claim do cookie); null = sem perfil/token antigo. */
@@ -24,12 +24,27 @@ export interface ResetPasswordResponse {
 }
 
 export interface RegisterResponse {
-  id: number
+  id: string
   username: string
   access: string
 }
 
 export const authApi = {
+  async capabilities(): Promise<{ email_enabled: boolean; google_enabled: boolean }> {
+    return api.get('/auth/supabase/config')
+  },
+
+  async loginEmail(email: string, password: string): Promise<string> {
+    const result = await api.post<LoginResponse>('/auth/supabase/login', { email, password })
+    return result.msg
+  },
+
+  async completeGoogle(username: string): Promise<RegisterResponse> {
+    return api.post<RegisterResponse>('/auth/supabase/google/complete', {
+      username, accepted_terms_version: '2026-10-31',
+    })
+  },
+
   async login(username: string, password: string): Promise<string> {
     const formData = new FormData()
     formData.append('username', username)
@@ -79,7 +94,10 @@ export const authApi = {
     return data.msg
   },
 
-  async register(username: string, password: string): Promise<RegisterResponse> {
-    return api.post<RegisterResponse>('/auth/register', { username, password, accepted_terms_version: '2026-10-31' })
+  async register(username: string, email: string, password: string, confirmPassword: string): Promise<RegisterResponse> {
+    return api.post<RegisterResponse>('/auth/supabase/register', {
+      username, email, password, confirm_password: confirmPassword,
+      accepted_terms_version: '2026-10-31',
+    })
   },
 }
