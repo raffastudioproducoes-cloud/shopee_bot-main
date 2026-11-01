@@ -49,7 +49,6 @@ export default function LoginPage() {
   const login = useAuthStore((state) => state.login)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [legacySupportMode, setLegacySupportMode] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -76,7 +75,14 @@ export default function LoginPage() {
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   )
 
-  const useEmailLogin = capabilities.email_enabled && !(capabilities.legacy_support_enabled && legacySupportMode)
+  // O backend restringe o login legado ao username de suporte explicitamente configurado.
+  // Se Supabase Auth estiver desativado em ambiente local, preserva o login legado original.
+  const useLegacyLogin = !capabilities.email_enabled ||
+    (capabilities.legacy_support_enabled && !username.trim().includes('@'))
+  const loginFieldLabel = !capabilities.email_enabled
+    ? 'Usuário'
+    : capabilities.legacy_support_enabled ? 'E-mail ou usuário de suporte' : 'E-mail'
+  const loginFieldType = !capabilities.email_enabled || capabilities.legacy_support_enabled ? 'text' : 'email'
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -84,10 +90,10 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      if (useEmailLogin) {
-        await authApi.loginEmail(username, password)
+      if (useLegacyLogin) {
+        await authApi.login(username.trim(), password)
       } else {
-        await authApi.login(username, password)
+        await authApi.loginEmail(username.trim(), password)
       }
       const user = await authApi.me()
       clearAdminVisitingSite()
@@ -97,9 +103,9 @@ export default function LoginPage() {
       if (err instanceof Error && 'status' in err) {
         const apiError = err as { status: number; message: string }
         if (apiError.status === 401) {
-          setError(useEmailLogin
-            ? 'E-mail ou senha inválidos'
-            : 'Usuário ou senha inválidos')
+          setError(useLegacyLogin
+            ? 'Usuário ou senha inválidos'
+            : 'E-mail ou senha inválidos')
         } else {
           setError(apiError.message || 'Erro ao fazer login')
         }
@@ -144,15 +150,18 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="csp-login-09">
             <TextInput
-              label={useEmailLogin ? 'E-mail' : 'Usuário'}
+              label={loginFieldLabel}
               icon="user"
-              type={useEmailLogin ? 'email' : 'text'}
+              type={loginFieldType}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              placeholder={useEmailLogin ? 'Digite seu e-mail' : 'Digite seu usuário'}
+              placeholder={capabilities.legacy_support_enabled ? 'Seu e-mail ou usuário de suporte' : capabilities.email_enabled ? 'Digite seu e-mail' : 'Digite seu usuário'}
               autoComplete="username"
             />
+            {capabilities.legacy_support_enabled && (
+              <p className="login-support-hint">Para suporte Shopee, use o nome de usuário sem @. Não é necessário selecionar outro modo de login.</p>
+            )}
 
             <label className="csp-login-10">
               <span
@@ -186,21 +195,6 @@ export default function LoginPage() {
               </div>
             </label>
 
-            {capabilities.legacy_support_enabled && (
-              <button
-                type="button"
-                className="csp-login-17"
-                onClick={() => {
-                  setLegacySupportMode((current) => !current)
-                  setUsername('')
-                  setPassword('')
-                  setError('')
-                }}
-              >
-                {legacySupportMode ? 'Voltar ao login por e-mail' : 'Acesso temporário para suporte Shopee'}
-              </button>
-            )}
-
             <Button type="submit" variant="primary" fullWidth disabled={loading}>
               {loading ? (
                 <>
@@ -216,7 +210,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setForgotOpen(true)}
-                disabled={legacySupportMode && capabilities.legacy_support_enabled}
+                disabled={Boolean(username.trim()) && useLegacyLogin}
                 className="csp-login-17"
               >
                 Esqueci minha senha
@@ -261,7 +255,7 @@ export default function LoginPage() {
       <AppFooter variant="login" />
 
       {forgotOpen && (
-        <PasswordRecoveryRequestModal initialEmail={username} onClose={() => setForgotOpen(false)} />
+        <PasswordRecoveryRequestModal initialEmail={username.includes('@') ? username : ''} onClose={() => setForgotOpen(false)} />
       )}
 
       {registerOpen && <RegisterModal enabled={capabilities.email_signup_enabled} onClose={() => setRegisterOpen(false)} />}
