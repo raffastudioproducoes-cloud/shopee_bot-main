@@ -1,3 +1,10 @@
+## 01/11/2026 — REPROVAÇÃO DA CENA V1 / PILOTO V2 HORIZONTE DE EVENTOS
+
+- [x] **Feedback do proprietário:** V1 **descartada**; excessivamente lenta, transição/zoom superficial, letras paradas, sem jogos de câmera e sem vida. A referência correta da marca é o **buraco negro com horizonte de eventos**, papéis de **produtos** transformando-se em **propagandas** ao orbitar, metáfora de ciclo automático (visão futura, não funcionalidade pronta).
+- [x] **V2 em branch independente:** `feature/rework-orbital-black-hole-cinematic-2026-11-01`; reconstrução da `/presentation/pilot` com o símbolo **oficial**, tipografia cinética por letras, perspectiva/câmera, cartões de dupla face, órbita e transições rápidas, 9,6s sem som. Ver [especificação da V2](PILOTO-LANDING-VIRADA-ORBITAL.md).
+- [ ] **Portão de QA e homologação:** aguardar testes TypeScript/Vite e revisão visual no staging desktop/mobile; submeter ao Rafa. **Não integrar V2 à landing sem aprovação expressa.**
+- [ ] **Automação total com IA:** permanece em desenvolvimento. Nenhuma promessa de disponibilidade ou mudanças na execução de postagens.
+
 ## 01/11/2026 — Landing: piloto visual da transformação orbital (isolado, sem áudio)
 
 - [x] **Implementação em branch de trabalho:** `feature/landing-orbital-scene-pilot-2026-11-01`, baseada em `staging`; prévia interativa prevista em `/presentation/pilot`, sem qualquer modificação da landing aprovada (`/presentation`) ou da autenticação.
