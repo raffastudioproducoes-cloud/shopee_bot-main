@@ -44,7 +44,9 @@ async def change_password(
         .single()
         .execute()
     )
-    if not result.data or not pwd_context.verify(
+    if result.data and result.data.get("supabase_auth_user_id"):
+        raise HTTPException(status_code=409, detail="Senha gerenciada pelo Supabase Auth; utilize o fluxo de alteração de senha do provedor.")
+    if not result.data or not result.data.get("password") or not pwd_context.verify(
         body.current_password, result.data["password"]
     ):
         raise HTTPException(status_code=403, detail="Senha atual incorreta")
