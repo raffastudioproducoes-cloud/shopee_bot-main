@@ -19,6 +19,16 @@ export interface PostMedia {
 
 export type PostNetwork = 'threads' | 'x' | 'facebook' | 'instagram' | 'tiktok'
 
+export interface PostScheduleEntry {
+  id: string
+  trigger: 'date' | 'cron'
+  run_date?: string | null
+  time?: string | null
+  day_of_week?: number | null
+  days_of_week?: number[] | null
+  start_date?: string | null
+}
+
 export interface Post {
   id: number
   text: string
@@ -30,6 +40,8 @@ export interface Post {
   products: PostProduct[]
   medias: PostMedia[]
   scheduled: boolean
+  publish_immediately?: boolean
+  schedule_entries?: PostScheduleEntry[]
   schedule_trigger?: 'date' | 'cron' | null
   scheduled_for?: string | null
   parts_count?: number
