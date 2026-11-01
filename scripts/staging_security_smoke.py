@@ -76,6 +76,21 @@ def check_login_limits(opener):
     # Username randomizado impossível de colidir com uma conta real:
     # não tenta senhas de pessoas nem interfere nos limites de usuários reais.
     probe_username = "security-probe-" + secrets.token_hex(14)
+    config_code, _, config_body = request(opener, "/api/auth/supabase/config")
+    assert config_code == 200, f"Auth capabilities returned {config_code}"
+    supabase_mode = bool(json.loads(config_body).get("email_enabled"))
+    if supabase_mode:
+        # A rota legada recusa qualquer usuário não explicitamente permitido.
+        # Não tentar senha da conta real de suporte para forçar rate limit.
+        code, _, _ = request(opener, "/api/auth/login", form={
+            "username": probe_username,
+            "password": "invalid-" + secrets.token_hex(12),
+        })
+        assert code == 410, f"Legacy login should be disabled for ordinary users, got {code}"
+        print("PASS: legacy login blocked with 410 for ordinary users (Supabase mode)")
+        return
+
+    # Modo antigo ainda em produção durante rollout: 5x401, depois 429.
     for index in range(6):
         code, _, _ = request(opener, "/api/auth/login", form={
             "username": probe_username,
@@ -83,7 +98,7 @@ def check_login_limits(opener):
         })
         expected = 429 if index == 5 else 401
         assert code == expected, f"Attempt {index + 1}: expected {expected}, got {code}"
-    print("PASS: sixth invalid login blocked with 429")
+    print("PASS: sixth invalid login blocked with 429 (legacy mode)")
 
 
 def check_optional_authenticated_flow(opener):
