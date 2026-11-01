@@ -616,6 +616,19 @@ def _media_shared_elsewhere(media_id: int, post_id: int) -> bool:
     return any(r.get("post_id") != post_id for r in (rows.data or []))
 
 
+def _get_post_schedule_entries(user_id: int, post_id: int) -> list[dict]:
+    """Retorna todas as ocorrências da agenda, inclusive horários recorrentes."""
+    fields = ("id", "trigger", "run_date", "time", "day_of_week", "days_of_week", "start_date")
+    result = (
+        supabase.table("schedulers").select(",".join(fields))
+        .eq("user_id", user_id).eq("post_id", post_id).execute()
+    )
+    entries = [{field: row.get(field) for field in fields} for row in (result.data or [])]
+    return sorted(entries, key=lambda row: (
+        str(row.get("run_date") or ""), str(row.get("time") or ""), str(row.get("id") or ""),
+    ))
+
+
 def _get_scheduler_job(post_id: int) -> dict | None:
     result = (
         supabase.table("schedulers").select("id,trigger,run_date")
@@ -687,6 +700,22 @@ def _latest_publish_job(user_id: int, post_id: int, profile_id: str | None = Non
         .execute()
     )
     return (result.data or [None])[0]
+
+
+def _ensure_post_editable(user_id: int, post_id: int, profile_id: str | None, post: dict) -> None:
+    """Proíbe edições que alterariam uma publicação já programada ou enviada."""
+    detail = "Este post já foi publicado ou está programado. Não é possível editar seu conteúdo ou suas mídias."
+    if post.get("publish_immediately") or _get_post_schedule_entries(user_id, post_id):
+        raise HTTPException(status_code=409, detail=detail)
+    if _latest_publish_job(user_id, post_id, profile_id):
+        raise HTTPException(status_code=409, detail=detail)
+    activities = (
+        scope_owner(supabase.table("activities").select("activity_id"), user_id, profile_id)
+        .in_("activity_id", list(_PUBLISH_ACTIVITY_STATUS))
+        .eq("metadata->>post_id", str(post_id)).limit(1).execute()
+    )
+    if activities.data:
+        raise HTTPException(status_code=409, detail=detail)
 
 
 def _get_last_publish_result(
@@ -1124,7 +1153,8 @@ async def list_posts(
 
     posts: list[dict] = []
     for item in result.data:
-        job = _get_scheduler_job(item["id"])
+        schedule_entries = _get_post_schedule_entries(user_id, item["id"])
+        job = schedule_entries[0] if schedule_entries else None
         chain = _get_thread_chain(item["id"])
 
         posts.append({
@@ -1134,6 +1164,7 @@ async def list_posts(
             "medias": _get_post_medias(item["id"]),
             "scheduled": _is_scheduled(job, item),
             "schedule_trigger": job.get("trigger") if job else None,
+            "schedule_entries": schedule_entries,
             "scheduled_for": (
                 job.get("run_date")
                 if job and job.get("trigger") == "date"
@@ -1557,7 +1588,8 @@ async def get_post(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     post = _get_post(user_id, post_id, profile_id)
-    job = _get_scheduler_job(post_id)
+    schedule_entries = _get_post_schedule_entries(user_id, post_id)
+    job = schedule_entries[0] if schedule_entries else None
     chain = _get_thread_chain(post_id)
     return {
         **post,
@@ -1566,6 +1598,8 @@ async def get_post(
         "medias": _get_post_medias(post_id),
         "scheduled": _is_scheduled(job, post),
         "schedule_trigger": job.get("trigger") if job else None,
+        "schedule_entries": schedule_entries,
+        "scheduled_for": job.get("run_date") if job and job.get("trigger") == "date" else None,
         "last_result": _get_last_publish_result(user_id, post_id, profile_id),
     }
 
@@ -1582,6 +1616,7 @@ async def update_post(
     não tenta casar partes antigas com as novas por id)."""
     profile_id = _require_profile_id(profile_id)
     post = _get_post(user_id, post_id, profile_id)  # ownership check
+    _ensure_post_editable(user_id, post_id, profile_id, post)
     _validate_product_ids(user_id, body.product_ids)
     _check_network_rules(
         post.get("network") or "threads", body.texts,
@@ -1634,6 +1669,7 @@ async def upload_media(
     privado `post-media` (`storage://`), nunca para o disco do servidor."""
     profile_id = _require_profile_id(profile_id)
     post = _get_post(user_id, post_id, profile_id)  # ownership check
+    _ensure_post_editable(user_id, post_id, profile_id, post)
 
     content = await _read_media_content(file)
     media = await _sanitize_upload(file, content)
@@ -1692,7 +1728,8 @@ async def delete_media(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    _get_post(user_id, post_id, profile_id)  # ownership check
+    post = _get_post(user_id, post_id, profile_id)  # ownership check
+    _ensure_post_editable(user_id, post_id, profile_id, post)
 
     media_result = (
         scope_owner(
