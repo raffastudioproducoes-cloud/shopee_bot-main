@@ -1,6 +1,23 @@
+# Revisão V2 — resposta à reprovação expressa de Rafa (01/11/2026)
+
+> **DECISÃO MAIS RECENTE / OBRIGATÓRIA:** Rafa reprovou e **descartou a direção visual V1** por falta de vida, excesso de zoom/transição simples, tipografia sem animação, câmera estática e conceito de marca equivocado. **Não voltar à V1 nem descrevê-la como aprovada.** A marca é um **buraco negro com horizonte de eventos**, com **papéis = produtos** que se transformam em **propagandas** ao entrar em órbita, representando um **ciclo de divulgação automático como visão futura**.
+
+## Contrato do novo piloto V2
+
+- Rota de laboratório preservada: `/presentation/pilot`, **somente staging**, sem modificar a landing, o login ou a produção.
+- **Marca inviolável:** usar PNG oficial `/brand/symbol.png` no centro e na assinatura final; wordmark oficial apenas como complemento. Não modificar pixels, paleta ou desenho originais. Horizonte de eventos deve ter protagonismo.
+- **Movimento com propósito:** câmera virtual em múltiplos ângulos (`rotateX/Y/Z`, deslocamento e dolly), perspectiva 3D e sobreposição de profundidade; tipos grandes com letras individuais em sequência e cortes mais rápidos.
+- **Metáfora compreensível:** folhas inicialmente com produto e informações, multiplicação por tarefas, atração gravitacional, rotação no horizonte, virada de face de cada folha para uma peça visual de propaganda, ciclo orbital estável; encerramento com o símbolo oficial.
+- **Tempo e controles:** 9,6s para experimento; play/pause/restart/scrub; sem áudio por decisão do proprietário. A velocidade, câmera e ritmo ainda dependem de avaliação visual de Rafa.
+- **Verdade funcional:** a automação ponta a ponta com IA ainda está **em desenvolvimento**. Não sugerir que já é serviço disponível; peças simuladas são identificadas como conceito artístico.
+- **Acessibilidade/performance:** versão estática em `prefers-reduced-motion`, layouts mobile, sem libs terceiras, assets PNG já servidos pelo produto, sem requisições de usuários.
+- **Aprovação:** V2 é apenas tentativa de correção; CI verde e QA de navegadores **não equivalem a aceite** do proprietário. Nenhuma integração em `#virada` sem decisão posterior.
+
+---
+
 # Landing Auto Orbital — piloto isolado “Do caos à órbita” (v0)
 
-> **Estado:** proposta de implementação em branch, sem integração na apresentação aprovada, sem publicação em produção. Rafa havia autorizado storyboard e piloto da transformação orbital, visual e silencioso, com logo fiel. Ver [Vault 34](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/34-Planejamento-Landing-Publica-Auto-Orbital.md), [guia 42](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/42-Guia-Motion-3D-Remotion-ThreeJS-Landing-Auto-Orbital.md) e [storyboard 43 no PR #29](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/29).
+> **Estado:** proposta de implementação em branch, sem integração na apresentação aprovada, sem publicação em produção. Rafa havia autorizado storyboard e piloto da transformação orbital, visual e silencioso, com logo fiel. Ver [Vault 34](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/34-Planejamento-Landing-Publica-Auto-Orbital.md), [guia 42](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/42-Guia-Motion-3D-Remotion-ThreeJS-Landing-Auto-Orbital.md) e [storyboard 43 no Vault](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/43-Storyboard-Piloto-Shorts-Audio-Transformacao-Orbital-2026-11-01.md).
 
 ## Propósito e limites
 
