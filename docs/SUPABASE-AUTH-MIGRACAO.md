@@ -1,6 +1,6 @@
 # Migração de autenticação — Supabase Auth (e-mail e Google)
 
-> **Estado atualizado (01/11/2026):** PR #149 em staging, migration 066 no Supabase compartilhado e callback Google corrigido pelo PR #152 (deploy staging `645c815`). O primeiro Gmail completou onboarding real, criou sessão USER e foi **vinculado transacionalmente ao ADMIN legado `rafastudio`**, com preservação de seus dados. **Login Google pós-mesclagem ainda sem homologação no navegador; segundo Gmail e sua mesclagem pendentes. Produção não ativada para Supabase Auth.**
+> **Estado atualizado (01/11/2026):** PR #149 em staging, migration 066 no Supabase compartilhado e callback Google corrigido pelo PR #152 (deploy staging `645c815`). O primeiro Gmail completou onboarding real, criou sessão USER e foi **vinculado transacionalmente ao ADMIN legado `rafastudio`**, com preservação de seus dados. **Sessão Google pré-existente recuperada no navegador pelo PR #153; OAuth totalmente novo pós-deploy ainda pendente. Segunda vinculação cancelada para `RafaelTesteCliente` por decisão atual do proprietário: conta de suporte sem e-mail/Google. Produção não ativada para Supabase Auth.**
 > Staging e produção compartilham o banco: a associação Google na `public.users` já é um fato no banco usado por ambos; o login Supabase só está ativado na staging.
 > Não fazer novas mesclagens sem autorização específica de Rafa, sobretudo `RafaelTesteCliente`.
 
@@ -146,3 +146,8 @@ Fontes oficiais:
 - **Causa no frontend:** o callback emitia cookie httpOnly e redirecionava a `/`, mas `PanelPage.tsx` verificava apenas `useAuthStore.isAuthenticated` persistido (false depois do logout). Antes de consultar o cookie via `/auth/me`, redirecionava a `/login`. Isso não significa que o vínculo `auth.users → public.users` falhou.
 - **Correção preparada no PR #153:** o painel primeiro valida a sessão no backend; se cookie válido e store deslogado/trocado, reidrata com a identidade retornada; sessão inválida continua indo para `/login`. CI, deploy e login real pós-fix pendentes. Não promover a main sem homologação.
 - **Exceção de conta de suporte:** `RafaelTesteCliente` deve permanecer username/senha sem e-mail pessoal nem Google. A senha hash já está em `public.users` (Supabase), mas a autenticação legada ainda ocorre no processo Render. GoTrue exige e-mail ou telefone para login com senha; não criar identificador falso e não mexer nos registros até escolher um fluxo sem email de verdade e com garantias equivalentes (rate-limit, revogação, recuperação de acesso).
+
+
+### Correção publicada e sessão ADMIN recuperada — 01/11/2026
+
+**Homologação complementar (01/11/2026):** PR #153 integrado em staging (merge `1613cb2ec4922d6ac1f32e7c000b2dd36a8db189`), CI #424 verde (build TS/Vite e testes API) e Render deploy `dep-dbjbsd2vcj2c73erdmag` **live**. Teste em browser com o cookie Google existente: navegar diretamente a `/` reidratou a sessão via `/auth/me` e abriu `/admin/overview`, exibindo `rafastudio` / `Administrador` e dados administrativos. **Ainda não foi executado OAuth completo a partir do zero depois desse deploy.** A conta `RafaelTesteCliente` continua USER com senha legada no Supabase, sem e-mail/Auth Google, reservada a testes do suporte Shopee; não migrar com email fictício nem tocar na senha.
