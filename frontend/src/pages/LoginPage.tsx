@@ -10,10 +10,39 @@ import { Modal } from '../components/ui/Modal'
 import { Icon } from '../components/ui/Icon'
 import { AppFooter } from '../components/layout/AppFooter'
 import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
+import { validatePassword } from '../lib/password'
+import { PasswordRecoveryRequestModal } from '../components/auth/PasswordRecoveryRequestModal'
 
 // Split-screen responsivo: sem breakpoint padrão no projeto (nenhum @media existente
 // em frontend/src), então define-se aqui. 768px = ponto de quebra usado no restante
 // deste componente (imagem/formulário lado a lado no desktop, empilhados no mobile).
+
+type RecoveryLinkState = { token: string | null; notice: string }
+
+/** O Supabase entrega o token de recuperação no fragmento, nunca ao servidor web.
+ *  Removemos esse fragmento imediatamente do histórico antes de exibir o modal. */
+function readRecoveryLink(): RecoveryLinkState {
+  if (typeof window === 'undefined') return { token: null, notice: '' }
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const token = params.get('access_token')
+  const type = params.get('type')
+  const isAuthResponse = params.has('access_token') || params.has('error') || params.has('type')
+  if (isAuthResponse) {
+    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
+  }
+  if (type === 'recovery') {
+    return token
+      ? { token, notice: '' }
+      : { token: null, notice: 'Link de recuperação inválido. Solicite um novo e-mail.' }
+  }
+  if (params.has('error')) {
+    return { token: null, notice: 'O link de confirmação expirou ou é inválido. Solicite outro.' }
+  }
+  if (type === 'signup' || type === 'email') {
+    return { token: null, notice: 'E-mail confirmado. Agora entre com seu e-mail e senha.' }
+  }
+  return { token: null, notice: '' }
+}
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -25,6 +54,8 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [forgotOpen, setForgotOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
+  const [recoveryLink, setRecoveryLink] = useState(readRecoveryLink)
+  const [notice, setNotice] = useState(recoveryLink.notice)
   const [capabilities, setCapabilities] = useState({ email_enabled: false, email_signup_enabled: false, google_enabled: false })
   const [googleSetupOpen, setGoogleSetupOpen] = useState(
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('google_setup') === '1'
@@ -105,7 +136,8 @@ export default function LoginPage() {
             <p className="csp-login-07">Entre para continuar</p>
           </div>
 
-          {error && <div className="csp-login-banner csp-login-banner-error csp-login-banner-spaced">{error}</div>}
+          {error && <div role="alert" className="csp-login-banner csp-login-banner-error csp-login-banner-spaced">{error}</div>}
+          {notice && <div role="status" className="csp-login-banner csp-login-banner-success csp-login-banner-spaced">{notice}</div>}
 
           <form onSubmit={handleSubmit} className="csp-login-09">
             <TextInput
@@ -168,7 +200,7 @@ export default function LoginPage() {
                 onClick={() => setForgotOpen(true)}
                 className="csp-login-17"
               >
-                Trocar senha
+                Esqueci minha senha
               </button>
               <span className="csp-login-18">·</span>
               <button
@@ -210,10 +242,20 @@ export default function LoginPage() {
       <AppFooter variant="login" />
 
       {forgotOpen && (
-        <ForgotPasswordModal initialUsername={username} onClose={() => setForgotOpen(false)} />
+        <PasswordRecoveryRequestModal initialEmail={username} onClose={() => setForgotOpen(false)} />
       )}
 
       {registerOpen && <RegisterModal enabled={capabilities.email_signup_enabled} onClose={() => setRegisterOpen(false)} />}
+      {recoveryLink.token && (
+        <PasswordRecoveryFinishModal
+          accessToken={recoveryLink.token}
+          onClose={() => setRecoveryLink({ token: null, notice: '' })}
+          onSuccess={(message) => {
+            setRecoveryLink({ token: null, notice: '' })
+            setNotice(message)
+          }}
+        />
+      )}
       {googleSetupOpen && (
         <GoogleSetupModal
           onClose={() => {
@@ -233,94 +275,66 @@ export default function LoginPage() {
   )
 }
 
-// ── Modal "trocar senha" (exige senha atual — não é recuperação de conta) ──────
+// ── Modal aberto somente após o link de recuperação autorizado pelo Supabase ──
 
-interface ForgotPasswordModalProps {
-  initialUsername: string
+function PasswordRecoveryFinishModal({
+  accessToken,
+  onClose,
+  onSuccess,
+}: {
+  accessToken: string
   onClose: () => void
-}
-
-function ForgotPasswordModal({ initialUsername, onClose }: ForgotPasswordModalProps) {
-  const [username, setUsername] = useState(initialUsername)
-  const [currentPassword, setCurrentPassword] = useState('')
+  onSuccess: (message: string) => void
+}) {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
     setError('')
-
-    if (newPassword !== confirmPassword) {
-      setError('As senhas não coincidem')
-      return
-    }
+    const passwordProblem = validatePassword(newPassword)
+    if (passwordProblem) { setError(passwordProblem); return }
+    if (newPassword !== confirmPassword) { setError('As senhas não coincidem.'); return }
 
     setLoading(true)
     try {
-      const msg = await authApi.resetPassword(username, currentPassword, newPassword)
-      setSuccess(msg || 'Senha atualizada. Faça login com a senha nova.')
-      setTimeout(onClose, 1500)
+      const message = await authApi.completePasswordRecovery(accessToken, newPassword, confirmPassword)
+      onSuccess(message)
     } catch (err: unknown) {
-      if (err instanceof Error && 'status' in err) {
-        setError((err as { message: string }).message || 'Erro ao trocar a senha')
-      } else {
-        setError('Erro inesperado. Tente novamente.')
-      }
+      setError(err instanceof Error ? err.message : 'Não foi possível redefinir a senha. Solicite outro link.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Modal open onClose={onClose} title="Trocar senha" width={400}>
+    <Modal open onClose={onClose} title="Definir nova senha" width={420}>
       <form onSubmit={handleSubmit} className="csp-login-29">
-        {error && <div className="csp-login-banner csp-login-banner-error">{error}</div>}
-        {success && <div className="csp-login-banner csp-login-banner-success">{success}</div>}
-
-        <TextInput
-          label="Usuário"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-          disabled={!!success}
-        />
-        <TextInput
-          label="Senha atual"
-          type="password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          required
-          autoComplete="current-password"
-          disabled={!!success}
-        />
+        <div role="status" className="csp-login-banner csp-login-banner-spaced">
+          Atenção: você está trocando a senha da conta vinculada ao e-mail de recuperação.
+          Confirme somente se foi você quem solicitou esta alteração.
+        </div>
+        {error && <div role="alert" className="csp-login-banner csp-login-banner-error">{error}</div>}
         <TextInput
           label="Nova senha"
           type="password"
           value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-          autoComplete="new-password"
-          disabled={!!success}
+          onChange={(event) => setNewPassword(event.target.value)}
+          required autoComplete="new-password"
         />
         <TextInput
-          label="Confirmar nova senha"
+          label="Repetir nova senha"
           type="password"
           value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-          autoComplete="new-password"
-          disabled={!!success}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          required autoComplete="new-password"
         />
-
         <div className="csp-login-30">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" variant="primary" disabled={loading || !!success}>
-            {loading ? 'Trocando...' : 'Trocar senha'}
+          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" variant="primary" disabled={loading || !newPassword || !confirmPassword}>
+            {loading ? 'Confirmando...' : 'Confirmar nova senha'}
           </Button>
         </div>
       </form>
@@ -350,6 +364,8 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
     setError('')
 
     if (!acceptedTerms) { setError('É necessário ler e aceitar os Termos para criar a conta.'); return }
+    const passwordProblem = validatePassword(password)
+    if (passwordProblem) { setError(passwordProblem); return }
     if (password !== confirmPassword) {
       setError('As senhas não coincidem')
       return
@@ -378,7 +394,7 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
         {success && <div className="csp-login-banner csp-login-banner-success">{success}</div>}
 
         <TextInput
-          label="Usuário"
+          label="Nome de usuário"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
@@ -414,7 +430,7 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
         />
 
         <div className="csp-login-32">
-          <label><input type="checkbox" checked={acceptedTerms} onChange={e=>setAcceptedTerms(e.target.checked)}/> Aceito os <a href="/termos" target="_blank" rel="noreferrer">Termos de Uso</a> e li a <a href="/privacidade" target="_blank" rel="noreferrer">Política de Privacidade</a> e a <a href="/dados-coletados" target="_blank" rel="noreferrer">lista de dados tratados</a>. (Obrigatório)</label>
+          <label><input type="checkbox" checked={acceptedTerms} onChange={e=>setAcceptedTerms(e.target.checked)} required /> Aceito os <a href="/termos" target="_blank" rel="noreferrer">Termos de Uso</a> e li a <a href="/privacidade" target="_blank" rel="noreferrer">Política de Privacidade</a> e a <a href="/dados-coletados" target="_blank" rel="noreferrer">lista de dados tratados</a>. (Obrigatório)</label>
           <p className="csp-login-33">No primeiro acesso, você poderá escolher se compartilha <strong>uma única localização aproximada</strong> para análise comercial. O navegador pedirá permissão separadamente. Você poderá recusar sem limitar sua conta e excluir o ponto em Configurações.</p>
         </div>
         <div className="csp-login-34">
