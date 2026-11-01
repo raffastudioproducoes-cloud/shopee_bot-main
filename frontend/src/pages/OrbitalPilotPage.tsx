@@ -1,270 +1,332 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react"
-import { ArrowLeft, Check, Pause, Play, RotateCcw } from "lucide-react"
+import { ArrowLeft, Pause, Play, RotateCcw } from "lucide-react"
 import "./OrbitalPilotPage.css"
 
-// V2: estudo cinematográfico original, sem áudio. Imagem da marca NÃO é desenhada no código.
-const DURATION_MS = 9_600
-const PAPER_COUNT = 9
-const clamp = (value: number, a = 0, b = 1) => Math.max(a, Math.min(b, value))
-const smooth = (a: number, b: number, value: number) => {
-  const t = clamp((value - a) / (b - a))
+/**
+ * Estudo V3: tudo é gerado por Canvas 2D, tipografia e DOM/CSS.
+ * Nenhuma imagem, vídeo, shader baixado ou áudio. Previa isolada.
+ * A marca no último beat é uma INTERPRETAÇÃO VETORIAL, não o master oficial.
+ */
+const DURATION_MS = 10_000
+const clamp = (x: number, a = 0, b = 1) => Math.max(a, Math.min(b, x))
+const ease = (a: number, b: number, x: number) => {
+  const t = clamp((x - a) / (b - a))
   return t * t * (3 - 2 * t)
 }
-const mix = (a: number, b: number, t: number) => a + (b - a) * t
-
-function shot(progress: number) {
-  const frames = [
-    { at: 0, rx: 16, ry: -21, rz: -9, scale: 1.18, x: -70, y: 24 },
-    { at: .16, rx: -5, ry: 19, rz: 7, scale: 1.35, x: 70, y: 18 },
-    { at: .32, rx: 14, ry: -27, rz: -13, scale: 1.52, x: -65, y: -18 },
-    { at: .43, rx: -22, ry: 36, rz: 19, scale: 1.72, x: 43, y: 7 },
-    { at: .55, rx: 26, ry: -36, rz: -24, scale: 1.3, x: -18, y: 4 },
-    { at: .72, rx: -13, ry: 23, rz: 12, scale: 1.18, x: 22, y: 4 },
-    { at: .86, rx: 0, ry: -4, rz: -2, scale: 1.06, x: 0, y: 0 },
-    { at: 1, rx: 0, ry: 0, rz: 0, scale: 1, x: 0, y: 0 },
-  ]
-  let index = frames.findIndex((frame) => frame.at > progress)
-  if (index === -1) index = frames.length - 1
-  const end = frames[index]
-  const begin = frames[Math.max(0, index - 1)]
-  const t = smooth(begin.at, end.at, progress)
-  return {
-    rx: mix(begin.rx, end.rx, t),
-    ry: mix(begin.ry, end.ry, t),
-    rz: mix(begin.rz, end.rz, t),
-    scale: mix(begin.scale, end.scale, t),
-    x: mix(begin.x, end.x, t),
-    y: mix(begin.y, end.y, t),
-  }
-}
-
-const headlines = [
-  { from: 0, to: .16, top: "UM PRODUTO.", bottom: "UM PONTO DE PARTIDA." },
-  { from: .16, to: .3, top: "COPIAR.", bottom: "ADAPTAR. REPETIR." },
-  { from: .3, to: .43, top: "E MAIS UMA VEZ.", bottom: "EM CADA REDE." },
-  { from: .43, to: .57, top: "PARE.", bottom: "IMAGINE OUTRO FLUXO." },
-  { from: .57, to: .74, top: "TUDO EM ÓRBITA.", bottom: "PRODUTOS VIRAM DIVULGAÇÃO." },
-  { from: .74, to: .87, top: "UM CICLO.", bottom: "UMA OPERAÇÃO MAIS CLARA." },
-  { from: .87, to: 1.01, top: "", bottom: "" },
-]
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+const fract = (n: number) => n - Math.floor(n)
+const random = (seed: number) => fract(Math.sin(seed * 127.1 + 42.23) * 43758.5453)
 
 const chapters = [
-  { at: .16, title: "O ponto de partida", detail: "Uma oportunidade exige preparação." },
-  { at: .3, title: "A repetição", detail: "Produtos, textos e redes competem por atenção." },
-  { at: .43, title: "A sobrecarga", detail: "Cada publicação manual acrescenta outra tarefa." },
-  { at: .57, title: "O horizonte de eventos", detail: "Os produtos começam a entrar em um único fluxo." },
-  { at: .74, title: "A transformação", detail: "Papéis se tornam peças de divulgação em uma órbita." },
-  { at: .87, title: "O ciclo orbital", detail: "A visão de uma operação cada vez mais automática." },
-  { at: 1.01, title: "Auto Orbital", detail: "Sua operação de afiliados em uma nova órbita." },
+  { until: .24, title: "O primeiro produto", detail: "Uma oportunidade vira muitas tarefas." },
+  { until: .37, title: "A sobrecarga", detail: "Abas e horários disputam a sua atenção." },
+  { until: .43, title: "A pausa", detail: "Existe outro caminho." },
+  { until: .61, title: "A transformação", detail: "Cada produto encontra seu lugar na órbita." },
+  { until: .76, title: "O painel", detail: "Produtos, posts e destinos em um único fluxo." },
+  { until: 1.01, title: "A identidade", detail: "Uma visão de organização e automação para afiliados." },
+]
+const sheets = [
+  { action: "COPIAR", platform: "Threads", category: "01" },
+  { action: "EDITAR TEXTO", platform: "Instagram", category: "02" },
+  { action: "ESCOLHER REDE", platform: "Facebook", category: "03" },
+  { action: "AGENDAR", platform: "TikTok", category: "04" },
+  { action: "PUBLICAR", platform: "X", category: "05" },
+  { action: "CONFERIR", platform: "Threads", category: "06" },
+  { action: "REPETIR", platform: "Instagram", category: "07" },
+  { action: "NOVA ABA", platform: "Facebook", category: "08" },
+]
+const scatter = [
+  [-355, -130], [310, -175], [-255, 145], [338, 145],
+  [40, -212], [-42, 210], [-390, 30], [400, 10],
 ]
 
-function Paper({ index, progress }: { index: number; progress: number }) {
-  const entry = index === 0 ? 1 : smooth(.02 + index * .013, .2 + index * .014, progress)
-  const crowd = smooth(.18, .36, progress)
-  const gravity = smooth(.39, .57, progress)
-  const orbit = smooth(.51, .63, progress)
-  const exit = smooth(.84, .95, progress)
-  const initialAngle = index * 2.3999
-  const spread = index === 0 ? 0 : 105 + index * 22
-  const originalX = Math.cos(initialAngle) * spread
-  const originalY = Math.sin(initialAngle) * spread * .7
-  const scatteredX = originalX + (index % 2 ? 55 : -68) * crowd
-  const scatteredY = originalY + (index % 3 - 1) * 38 * crowd
-  const spin = initialAngle + (progress - .4) * 15.5
-  const spiralRadius = mix(210, 130, gravity)
-  const spiralX = Math.cos(spin) * spiralRadius
-  const spiralY = Math.sin(spin) * spiralRadius * .47
-  const orbitalAngle = initialAngle + (progress - .57) * 16
-  const orbitalX = Math.cos(orbitalAngle) * 228
-  const orbitalY = Math.sin(orbitalAngle) * 92
-  const x = mix(scatteredX, mix(spiralX, orbitalX, orbit), gravity)
-  const y = mix(scatteredY, mix(spiralY, orbitalY, orbit), gravity)
-  const z = gravity * (36 + Math.sin(orbitalAngle) * 145)
-  const conversion = smooth(.51, .68, progress)
-  const switchToAd = smooth(.57, .62, progress)
-  const turn = mix(-13 + index * 9 + crowd * 25, 0, conversion)
-  const flip = Math.max(.08, Math.abs(Math.cos(conversion * Math.PI)))
-  const rot = mix((index - 4) * 14, Math.sin(orbitalAngle) * 23, gravity)
-  const scale = mix(.72 + (index % 3) * .09, .78 + (Math.sin(orbitalAngle) + 1) * .16, gravity)
-  const opacity = entry * (1 - exit)
+function drawSpace(canvas: HTMLCanvasElement, progress: number) {
+  const ctx = canvas.getContext("2d", { alpha: true })
+  if (!ctx) return
+  const bounds = canvas.getBoundingClientRect()
+  if (!bounds.width || !bounds.height) return
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
+  const width = Math.max(1, Math.round(bounds.width * dpr))
+  const height = Math.max(1, Math.round(bounds.height * dpr))
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width
+    canvas.height = height
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  const w = bounds.width, h = bounds.height
+  ctx.clearRect(0, 0, w, h)
+
+  // Estrelas procedurais: profundidade, parallax e riscos discretos.
+  for (let i = 0; i < 95; i++) {
+    const depth = .25 + random(i + 311) * .75
+    const x = (random(i * 7 + 21) * w + progress * (40 + 70 * depth)) % w
+    const y = (random(i * 3 + 189) * h + Math.sin(progress * 5 + i) * 5 * depth)
+    const r = .35 + depth * 1.5
+    ctx.fillStyle = "rgba(115,207,255," + (.1 + depth * .35).toFixed(3) + ")"
+    ctx.beginPath()
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  const reveal = ease(.405, .55, progress) * (1 - ease(.63, .72, progress) * .62)
+  const comeback = ease(.77, .9, progress)
+  const alpha = clamp(reveal + comeback * .92)
+  if (alpha < .005) return
+
+  ctx.save()
+  ctx.translate(w * .5, h * .52)
+  const scale = Math.min(w / 950, h / 590) * lerp(.68, 1.18, ease(.43, .75, progress))
+  ctx.scale(scale, scale)
+  ctx.rotate(lerp(-.2, .18, ease(.44, .72, progress)))
+  ctx.globalAlpha = alpha
+
+  // Luz de acreção e lente gravitacional: círculos, elipses e composições aditivas.
+  const aura = ctx.createRadialGradient(0, 0, 52, 0, 0, 280)
+  aura.addColorStop(0, "rgba(23,189,255,.25)")
+  aura.addColorStop(.52, "rgba(42,83,242,.15)")
+  aura.addColorStop(1, "rgba(20,47,140,0)")
+  ctx.fillStyle = aura
+  ctx.beginPath()
+  ctx.arc(0, 0, 280, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.save()
+  ctx.globalCompositeOperation = "lighter"
+  // Disco posterior: trajetórias não idênticas, brilho e sensação de perspectiva.
+  for (let ring = 0; ring < 20; ring++) {
+    const radius = 114 + ring * 4.4
+    const wobble = Math.sin(progress * 18 + ring * .62) * 2.5
+    ctx.beginPath()
+    ctx.ellipse(0, 0, radius + wobble, 39 + ring * 1.6, -.35, Math.PI * .9, Math.PI * 1.95)
+    ctx.strokeStyle = ring % 3 === 0 ? "rgba(180,94,255,.22)" : "rgba(35,191,255,.17)"
+    ctx.lineWidth = ring % 4 === 0 ? 3.1 : 1.4
+    ctx.shadowBlur = ring % 4 === 0 ? 12 : 3
+    ctx.shadowColor = ring % 3 === 0 ? "#a34dff" : "#18c8ff"
+    ctx.stroke()
+  }
+  ctx.restore()
+
+  // Horizonte: centro realmente escuro; a borda tem a luz dobrada pela gravidade.
+  const shadow = ctx.createRadialGradient(-15, -12, 20, 0, 0, 101)
+  shadow.addColorStop(0, "#000006")
+  shadow.addColorStop(.7, "#00030c")
+  shadow.addColorStop(.91, "#02091d")
+  shadow.addColorStop(1, "#34c9fa")
+  ctx.fillStyle = shadow
+  ctx.beginPath()
+  ctx.arc(0, 0, 103, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Arco frontal de acreção, partículas e distorções de luz.
+  ctx.save()
+  ctx.globalCompositeOperation = "lighter"
+  for (let band = 0; band < 12; band++) {
+    ctx.beginPath()
+    ctx.ellipse(0, 0, 127 + band * 5.4, 43 + band * 2.2, -.35, .04, Math.PI * 1.03)
+    ctx.strokeStyle = band % 3 === 0 ? "rgba(251,144,226,.45)" : "rgba(57,199,255,.38)"
+    ctx.lineWidth = band % 4 === 0 ? 4.4 : 1.6
+    ctx.shadowBlur = 10
+    ctx.shadowColor = band % 3 === 0 ? "#d456ee" : "#14caff"
+    ctx.stroke()
+  }
+  ctx.shadowBlur = 0
+  for (let i = 0; i < 55; i++) {
+    const a = random(i + 180) * Math.PI * 2 + progress * (2.4 + random(i + 719) * 2.8)
+    const rad = 135 + 80 * random(i + 550)
+    const x = Math.cos(a) * rad
+    const y = Math.sin(a) * rad * .32 - Math.cos(a) * 32
+    ctx.fillStyle = i % 3 ? "rgba(49,207,255,.56)" : "rgba(222,132,255,.6)"
+    ctx.beginPath()
+    ctx.arc(x, y, .8 + random(i + 95) * 2, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.restore()
+  ctx.restore()
+}
+
+function ProceduralUniverse({ progress }: { progress: number }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  const latestProgress = useRef(progress)
+  latestProgress.current = progress
+  useEffect(() => {
+    const canvas = ref.current
+    if (!canvas) return
+    drawSpace(canvas, progress)
+  }, [progress])
+  useEffect(() => {
+    const canvas = ref.current
+    if (!canvas) return
+    const observer = new ResizeObserver(() => drawSpace(canvas, latestProgress.current))
+    observer.observe(canvas)
+    return () => observer.disconnect()
+  }, [])
+  return <canvas ref={ref} className="ao3-universe" aria-hidden="true" />
+}
+
+function Sheet({ index, progress }: { index: number; progress: number }) {
+  const item = sheets[index]
+  const born = index === 0 ? 1 : ease(.065 + index * .022, .16 + index * .025, progress)
+  const scramble = ease(.24, .37, progress)
+  const capture = ease(.43 + index * .006, .57 + index * .006, progress)
+  const exit = ease(.6 + index * .005, .745 + index * .003, progress)
+  const angle = index * Math.PI * .79 + (progress - .43) * (8.2 + index * .08)
+  const radius = 196 + (index % 3) * 44
+  const firstProductUnpacks = index === 0 ? ease(.05, .23, progress) : 1
+  const beforeX = scatter[index][0] * lerp(.74, 1.08, scramble) * firstProductUnpacks
+  const beforeY = scatter[index][1] * lerp(.7, 1.17, scramble) * firstProductUnpacks
+  const orbitX = Math.cos(angle) * radius
+  const orbitY = Math.sin(angle) * (74 + (index % 2) * 16)
+  const x = lerp(beforeX, orbitX, capture)
+  const y = lerp(beforeY, orbitY, capture)
+  const depth = 1 + Math.sin(angle) * .19
+  const rotation = lerp((index % 2 ? 1 : -1) * (9 + index * 4), Math.sin(angle) * 19, capture)
+  // Flip controlado: duas faces programáticas, sem backface oculta do browser.
+  const convert = ease(.49 + index * .008, .585 + index * .008, progress)
+  const flip = Math.max(.07, Math.abs(Math.cos(convert * Math.PI)))
   const style: CSSProperties = {
-    opacity,
-    transform: "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px," + z.toFixed(1) + "px) rotateZ(" + rot.toFixed(1) + "deg) rotateY(" + turn.toFixed(1) + "deg) scaleX(" + flip.toFixed(2) + ") scale(" + scale.toFixed(2) + ")",
-    zIndex: gravity > .5 && Math.sin(orbitalAngle) < 0 ? 1 : 5,
+    opacity: born * (1 - exit),
+    transform: "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px," + (capture * Math.sin(angle) * 80).toFixed(1) + "px) rotate(" + rotation.toFixed(2) + "deg) scaleX(" + flip.toFixed(3) + ") scale(" + (lerp(.87, depth, capture)).toFixed(3) + ")",
+    zIndex: Math.sin(angle) > 0 ? 6 : 2,
   }
   return (
-    <div className="ao-film-paper" style={style} aria-hidden="true">
-      <div className="ao-film-paper-face ao-film-paper-face--product" style={{ opacity: 1 - switchToAd }}>
-        <span className="ao-film-page-index">CATÁLOGO / {String(index + 1).padStart(2, "0")}</span>
-        <div className="ao-film-product-thumb"><span /><i /><b /></div>
-        <strong>PRODUTO</strong>
-        <i className="ao-film-paper-line" /><i className="ao-film-paper-line short" />
-        <span className="ao-film-paper-price">OPORTUNIDADE</span>
+    <div className="ao3-sheet" style={style} aria-hidden="true">
+      <div className="ao3-sheet-front" style={{ opacity: 1 - ease(.535 + index * .008, .545 + index * .008, progress) }}>
+        <div className="ao3-sheet-top"><i /> PRODUTO {item.category}</div>
+        <div className="ao3-product-graphic"><span className={"ao3-product-shape ao3-shape-" + (index % 3)} /></div>
+        <strong>OPORTUNIDADE</strong>
+        <span className="ao3-line" /><span className="ao3-line ao3-line-short" />
+        <div className="ao3-card-foot">Adicionar ao fluxo <span>↗</span></div>
       </div>
-      <div className="ao-film-paper-face ao-film-paper-face--ad" style={{ opacity: switchToAd }}>
-        <div className="ao-film-ad-signal"><span /> PEÇA PRONTA</div>
-        <div className="ao-film-ad-visual"><span /></div>
+      <div className="ao3-sheet-back" style={{ opacity: ease(.535 + index * .008, .545 + index * .008, progress) }}>
+        <div className="ao3-sheet-top"><i /> {item.platform}</div>
+        <div className="ao3-post-graphic"><span className="ao3-post-orb" /><span className="ao3-post-ring" /></div>
         <strong>DIVULGAÇÃO</strong>
-        <small>Conteúdo preparado</small>
-        <div className="ao-film-ad-footer"><span /><span /><span /></div>
+        <small>Post preparado</small>
+        <div className="ao3-card-foot">Rede selecionada <span>✓</span></div>
       </div>
+      <span className="ao3-action">{item.action}</span>
     </div>
   )
 }
 
-function KineticText({ progress }: { progress: number }) {
-  const phrase = headlines.find((entry) => progress >= entry.from && progress < entry.to) || headlines[headlines.length - 1]
-  const local = clamp((progress - phrase.from) / Math.max(.01, phrase.to - phrase.from))
-  const reveal = (line: string, second: boolean) =>
-    line.split("").map((letter, index) => {
-      const at = (index / Math.max(1, line.length - 1)) * .34 + (second ? .2 : 0)
-      const enter = smooth(at, at + .18, local)
-      const leave = smooth(.82, 1, local)
-      return <span key={index} className="ao-film-glyph" style={{ opacity: enter * (1 - leave), transform: "translate3d(0," + ((1 - enter) * 75 - leave * 30).toFixed(1) + "px,0) rotateX(" + ((1 - enter) * -70).toFixed(1) + "deg)" }}>{letter === " " ? "\u00a0" : letter}</span>
-    })
-  return (
-    <div key={phrase.from} className={"ao-film-typography" + (progress >= .4 && progress < .58 ? " ao-film-typography--focus" : "")} aria-hidden="true">
-      <div className="ao-film-type-top">{reveal(phrase.top, false)}</div>
-      <div className="ao-film-type-bottom">{reveal(phrase.bottom, true)}</div>
-    </div>
-  )
+const lines = [
+  { start: 0, end: .24, first: "UMA OPORTUNIDADE.", second: "E TODO O TRABALHO DE DIVULGAR." },
+  { start: .24, end: .37, first: "ABA. TEXTO. REDE.", second: "REPETIR. REPETIR. REPETIR." },
+  { start: .37, end: .43, first: "PARE.", second: "E SE EXISTISSE OUTRA FORMA?" },
+  { start: .43, end: .61, first: "ENTRE EM ÓRBITA.", second: "O CAOS ENCONTRA UM FLUXO." },
+  { start: .61, end: .76, first: "MAIS CLAREZA.", second: "PRODUTOS · POSTS · DESTINOS." },
+  { start: .76, end: 1.01, first: "", second: "" },
+]
+
+function KineticType({ progress }: { progress: number }) {
+  const phrase = lines.find((line) => progress >= line.start && progress < line.end) || lines[lines.length - 1]
+  const local = clamp((progress - phrase.start) / (phrase.end - phrase.start))
+  const animate = (value: string, offset: number) => [...value].map((letter, i) => {
+    const start = i / Math.max(1, value.length - 1) * .3 + offset
+    const show = ease(start, start + .16, local)
+    const leave = ease(.8, 1, local)
+    return <span key={i} className="ao3-letter" style={{ opacity: show * (1 - leave), transform: "translateY(" + (62 * (1 - show) - leave * 35).toFixed(1) + "px) rotateX(" + (-75 * (1 - show)).toFixed(1) + "deg)" }}>{letter === " " ? "\u00a0" : letter}</span>
+  })
+  return <div className={"ao3-type" + (phrase.first === "PARE." ? " ao3-type-pause" : "")} aria-hidden="true">
+    <div className="ao3-type-main">{animate(phrase.first, 0)}</div>
+    <div className="ao3-type-sub">{animate(phrase.second, .13)}</div>
+  </div>
+}
+
+function DashboardReveal({ progress }: { progress: number }) {
+  const appear = ease(.602, .678, progress) * (1 - ease(.715, .785, progress))
+  const style: CSSProperties = { opacity: appear, transform: "translate(-50%,-50%) perspective(850px) rotateX(" + ((1 - appear) * 23).toFixed(1) + "deg) scale(" + lerp(.72, 1, appear).toFixed(2) + ")" }
+  return <div className="ao3-ui" style={style} aria-hidden="true">
+    <aside className="ao3-ui-rail"><div className="ao3-ui-mark">◉</div><span>▦</span><span>☰</span><span>◷</span><span>⌁</span></aside>
+    <section className="ao3-ui-body">
+      <div className="ao3-ui-top"><div className="ao3-ui-brand">AUTO <b>ORBITAL</b></div><span className="ao3-ui-status">PAINEL</span></div>
+      <div className="ao3-ui-title">Sua divulgação em um só lugar</div>
+      <div className="ao3-ui-work">
+        <div className="ao3-ui-product"><span className="ao3-product-illustration" /><div><small>PRODUTO</small><strong>Oportunidade organizada</strong><em>Selecionado para publicação</em></div></div>
+        <div className="ao3-ui-separator">→</div>
+        <div className="ao3-ui-destinations"><small>DESTINOS</small><div><b>Threads</b><b>Facebook</b><b>Instagram</b></div><span>Escolha as redes conectadas</span></div>
+      </div>
+      <div className="ao3-ui-schedule"><i /> POST PREPARADO <span>AGENDAR ▸</span></div>
+    </section>
+  </div>
+}
+
+function OrbitalSignature({ progress }: { progress: number }) {
+  const show = ease(.755, .855, progress)
+  return <div className="ao3-signature" style={{ opacity: show, transform: "translate(-50%,-50%) scale(" + lerp(.83, 1, show).toFixed(3) + ")" }} aria-hidden="true">
+    <div className="ao3-signature-ring"><i className="ao3-signature-orbit"/><i className="ao3-signature-point"/></div>
+    <div className="ao3-signature-word"><span>Auto</span><span className="ao3-signature-o">O</span><span>rbital</span></div>
+    <p>Produtos encontram seu caminho. Sua rotina encontra mais controle.</p>
+    <span className="ao3-future">AUTOMAÇÃO COMPLETA COM IA · EM DESENVOLVIMENTO</span>
+  </div>
 }
 
 export default function OrbitalPilotPage() {
   const [time, setTime] = useState(0)
   const [playing, setPlaying] = useState(false)
-  const [reducedMotion, setReducedMotion] = useState(false)
-  const currentTime = useRef(0)
-
+  const [reduced, setReduced] = useState(false)
+  const startedAt = useRef<number | null>(null)
+  const timeRef = useRef(0)
   useEffect(() => {
-    const oldTitle = document.title
-    document.title = "Auto Orbital — horizonte de eventos · estudo v2"
-    const meta = document.createElement("meta")
-    meta.name = "robots"
-    meta.content = "noindex, nofollow"
-    meta.dataset.orbitalPilot = "true"
-    document.head.appendChild(meta)
-    return () => { document.title = oldTitle; meta.remove() }
-  }, [])
-
-  useEffect(() => {
-    if (!window.matchMedia) return
+    const old = document.title
+    document.title = "Auto Orbital — estudo de motion procedural V3"
     const media = window.matchMedia("(prefers-reduced-motion: reduce)")
-    const handleChange = () => { setReducedMotion(media.matches); if (media.matches) setPlaying(false) }
-    handleChange()
-    media.addEventListener("change", handleChange)
-    return () => media.removeEventListener("change", handleChange)
+    const listener = () => { setReduced(media.matches); if (media.matches) setPlaying(false) }
+    listener()
+    media.addEventListener("change", listener)
+    return () => { document.title = old; media.removeEventListener("change", listener) }
   }, [])
-
   useEffect(() => {
-    if (!playing || reducedMotion) return
-    const start = performance.now() - currentTime.current
+    if (!playing || reduced) { startedAt.current = null; return }
     let frame = 0
-    const tick = (now: number) => {
-      const next = Math.min(DURATION_MS, now - start)
-      currentTime.current = next
+    const tick = (stamp: number) => {
+      if (startedAt.current === null) startedAt.current = stamp - timeRef.current
+      const next = Math.min(DURATION_MS, stamp - startedAt.current)
+      timeRef.current = next
       setTime(next)
-      if (next >= DURATION_MS) { setPlaying(false); return }
+      if (next >= DURATION_MS) { setPlaying(false); startedAt.current = null; return }
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
-  }, [playing, reducedMotion])
-
-  const seek = (value: number) => {
-    const next = clamp(value, 0, DURATION_MS)
-    setPlaying(false)
-    currentTime.current = next
-    setTime(next)
-  }
-  const toggle = () => {
-    if (reducedMotion) return
+    return () => { cancelAnimationFrame(frame); startedAt.current = null }
+  }, [playing, reduced])
+  const progress = reduced ? 1 : time / DURATION_MS
+  const chapterIndex = chapters.findIndex((chapter) => progress < chapter.until)
+  const chapter = chapters[Math.max(0, chapterIndex)]
+  const setTimeline = (value: number) => { const next = clamp(value, 0, DURATION_MS); setTime(next); timeRef.current = next; startedAt.current = null; setPlaying(false) }
+  const togglePlay = () => {
+    if (reduced) return
     if (playing) { setPlaying(false); return }
-    if (time >= DURATION_MS) {
-      currentTime.current = 0
-      setTime(0)
-    }
+    if (timeRef.current >= DURATION_MS) { setTime(0); timeRef.current = 0 }
     setPlaying(true)
   }
-  const p = reducedMotion ? 1 : time / DURATION_MS
-  const camera = shot(p)
-  const cameraTransform = "translate3d(" + camera.x + "px," + camera.y + "px,0) rotateX(" + camera.rx + "deg) rotateY(" + camera.ry + "deg) rotateZ(" + camera.rz + "deg) scale(" + camera.scale + ")"
-  const horizonAppear = smooth(.38, .51, p)
-  const finale = smooth(.86, .98, p)
-  const currentChapter = chapters.find((chapter) => p < chapter.at) || chapters[chapters.length - 1]
-  const particles = Array.from({ length: 40 }, (_, index) => index)
-
-  return (
-    <div className={"ao-film" + (reducedMotion ? " ao-film--reduced" : "")}>
-      <header className="ao-film-header">
-        <a href="/presentation" className="ao-film-back"><ArrowLeft size={17} /> Voltar à apresentação</a>
-        <span className="ao-film-topnote"><i /> PROTÓTIPO CINEMATOGRÁFICO / V2</span>
-        <img src="/brand/wordmark.png" alt="Auto Orbital" />
-      </header>
-
-      <main className="ao-film-main">
-        <section className="ao-film-intro">
-          <div className="ao-film-kicker">A VIRADA / HORIZONTE DE EVENTOS</div>
-          <h1>Produtos entram. <em>Divulgações ganham órbita.</em></h1>
-          <p>Nova direção visual: movimento de câmera, tipografia cinética e transformação de produtos em peças de divulgação. Estudo conceitual, sem áudio.</p>
-        </section>
-
-        <figure className="ao-film-figure">
-          <div className="ao-film-stage" aria-label="Estudo visual: produtos em papéis convergem para o horizonte de eventos do Auto Orbital e se transformam em anúncios organizados num ciclo de órbita">
-            <div className="ao-film-space" aria-hidden="true" />
-            <div className="ao-film-stars" aria-hidden="true">
-              {particles.map((index) => {
-                const x = (index * 137.23) % 100
-                const y = (index * 73.83) % 100
-                const depth = .5 + (index % 5) * .22
-                return <span key={index} style={{ left: x + "%", top: y + "%", opacity: .25 + .55 * Math.abs(Math.sin(p * 18 + index)), transform: "translate3d(" + (Math.sin(p * 9 + index) * 30 * depth).toFixed(1) + "px," + (Math.cos(p * 6 + index) * 22 * depth).toFixed(1) + "px,0) scale(" + depth + ")" }} />
-              })}
-            </div>
-            <div className="ao-film-camera" style={{ transform: cameraTransform }} aria-hidden="true">
-              <div className="ao-film-horizon" style={{ opacity: horizonAppear * (1 - finale * .18), transform: "translate(-50%, -50%) scale(" + mix(.55, 1.08, smooth(.39, .63, p)) + ")" }}>
-                <div className="ao-film-event-light" />
-                <img src="/brand/symbol.png" alt="" className="ao-film-original-mark" />
-                <div className="ao-film-arc ao-film-arc--front" />
-                <div className="ao-film-arc ao-film-arc--back" />
-              </div>
-              <div className="ao-film-orbiters">
-                {Array.from({ length: PAPER_COUNT }, (_, i) => <Paper key={i} index={i} progress={p} />)}
-              </div>
-            </div>
-            <KineticText progress={p} />
-            <div className="ao-film-flash" style={{ opacity: smooth(.355, .375, p) * (1 - smooth(.385, .405, p)) * .68 + smooth(.51, .53, p) * (1 - smooth(.54, .56, p)) * .4 }} aria-hidden="true" />
-            <div className="ao-film-final" style={{ opacity: finale, transform: "translate(-50%, -50%) scale(" + mix(1.16, 1, finale) + ")" }} aria-hidden="true">
-              <img src="/brand/symbol.png" className="ao-film-final-symbol" alt="" />
-              <img src="/brand/wordmark.png" className="ao-film-final-name" alt="" />
-              <p>O futuro da divulgação dos afiliados está tomando forma.</p>
-              <span className="ao-film-final-status"><Check size={12} /> VISÃO DE AUTOMAÇÃO EM DESENVOLVIMENTO</span>
-            </div>
-            <span className="ao-film-filmcode" aria-hidden="true">AO / V2 · CINEMATIC PROOF</span>
-            <span className="ao-film-timing" aria-hidden="true">{((reducedMotion ? DURATION_MS : time) / 1000).toFixed(1).replace(".", ",")} / 9,6 S</span>
-            <div className="ao-film-safe-edge" aria-hidden="true" />
+  const active = 1 - ease(.73, .86, progress)
+  return <div className="ao3-page">
+    <header className="ao3-header"><a href="/presentation"><ArrowLeft size={17}/> Voltar à apresentação</a><span>EXPERIMENTO DE MOTION / V3</span><b>Auto Orbital</b></header>
+    <main className="ao3-main">
+      <div className="ao3-intro"><span>STORYBOARD / 10 SEGUNDOS / SEM SOM</span><h1>Do trabalho repetitivo à <em>órbita.</em></h1><p>Uma cena procedural: nenhum elemento visual é uma imagem colada. Cada movimento demonstra uma etapa do trabalho do afiliado.</p></div>
+      <section className="ao3-frame" aria-label="Demonstração animada: uma ficha de produto se multiplica em tarefas, se organiza no horizonte de eventos e revela o fluxo de trabalho do Auto Orbital.">
+        <div className="ao3-stage">
+          <div className="ao3-grid" />
+          <ProceduralUniverse progress={progress} />
+          <div className="ao3-lens" style={{ opacity: ease(.39, .47, progress) * (1 - ease(.61, .73, progress)) }} />
+          <div className="ao3-camera" style={{ opacity: active, transform: "perspective(950px) rotateX(" + lerp(8, -11, ease(.24, .42, progress)).toFixed(1) + "deg) rotateY(" + (Math.sin(progress * 13) * ease(.24, .62, progress) * 18).toFixed(1) + "deg) translate3d(" + (Math.sin(progress * 19) * ease(.2, .39, progress) * 24).toFixed(1) + "px,0,0)" }}>
+            {sheets.map((_, i) => <Sheet key={i} index={i} progress={progress}/>)}
           </div>
-          <figcaption className="ao-film-caption" aria-live="polite">
-            <div><span className="ao-film-beat">CENA {String(chapters.indexOf(currentChapter) + 1).padStart(2, "0")} / 07</span><strong>{currentChapter.title}</strong><small>{currentChapter.detail}</small></div>
-            <span>Sem áudio · Direção conceitual</span>
-          </figcaption>
-        </figure>
-
-        <div className="ao-film-controls">
-          <button type="button" className="ao-film-play" onClick={toggle} disabled={reducedMotion}>
-            {playing ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" />}
-            {playing ? "Pausar" : time >= DURATION_MS ? "Reproduzir novamente" : "Reproduzir cena"}
-          </button>
-          <button type="button" className="ao-film-restart" onClick={() => seek(0)} disabled={reducedMotion}><RotateCcw size={17} /> Reiniciar</button>
-          <label htmlFor="ao-pilot-timeline" className="ao-film-timeline">
-            <span>EXPLORAR A SEQUÊNCIA / {(p * 100).toFixed(0)}%</span>
-            <input id="ao-pilot-timeline" type="range" min="0" max={DURATION_MS} step="50" value={reducedMotion ? DURATION_MS : time} disabled={reducedMotion} onChange={(event) => seek(Number(event.target.value))} aria-valuetext={((reducedMotion ? DURATION_MS : time) / 1000).toFixed(1) + " segundos"} />
-          </label>
+          <KineticType progress={progress}/>
+          <DashboardReveal progress={progress}/>
+          <OrbitalSignature progress={progress}/>
+          <div className="ao3-overlay-info"><span>AO / MOTION SYSTEM</span><span>{(progress * 10).toFixed(1)} / 10 S</span></div>
+          <div className="ao3-vignette"/>
         </div>
-        <div className="ao-film-disclaimer">
-          <p>A cena é uma visão artística: coleta e postagem totalmente automáticas com IA ainda estão em desenvolvimento. Os papéis e anúncios são ilustrativos, não registros de publicações reais.</p>
-          <p>O horizonte de eventos e as peças de mídia vêm do símbolo oficial. O arquivo da marca é exibido intacto. O login, a landing aprovada e a produção não são alterados nesta prévia.</p>
-        </div>
-      </main>
-    </div>
-  )
+        <div className="ao3-chapter"><span>ATO {String(chapterIndex + 1).padStart(2, "0")} / 06</span><strong>{chapter.title}</strong><small>{chapter.detail}</small><span>Silencioso · Renderização procedural</span></div>
+      </section>
+      <div className="ao3-controls">
+        <button type="button" onClick={togglePlay} disabled={reduced}>{playing ? <Pause size={17}/> : <Play size={17}/>} {playing ? "Pausar" : time >= DURATION_MS ? "Reproduzir novamente" : "Reproduzir cena"}</button>
+        <button type="button" className="ao3-replay" onClick={() => setTimeline(0)}><RotateCcw size={16}/> Reiniciar</button>
+        <label htmlFor="ao3-timeline">EXPLORAR QUADROS / {Math.round(progress * 100)}%</label>
+        <input id="ao3-timeline" type="range" min={0} max={DURATION_MS} step={50} value={reduced ? DURATION_MS : time} onChange={(e) => setTimeline(Number(e.target.value))} aria-label="Explorar quadros da cena"/>
+      </div>
+      <p className="ao3-disclaimer">Estudo criativo, ainda não aprovado. A coleta e publicação totalmente automáticas com IA continuam em desenvolvimento. Interface e anúncios são representações programáticas ilustrativas. O símbolo final é uma reconstrução procedural, não um novo arquivo de identidade oficial. Nenhuma imagem, som ou vídeo externo é usado nesta cena. A landing principal e o login permanecem inalterados.</p>
+    </main>
+  </div>
 }
