@@ -117,7 +117,7 @@ function KineticText({ progress }: { progress: number }) {
       const at = (index / Math.max(1, line.length - 1)) * .34 + (second ? .2 : 0)
       const enter = smooth(at, at + .18, local)
       const leave = smooth(.82, 1, local)
-      return <span key={index} className="ao-film-glyph" style={{ opacity: enter * (1 - leave), transform: "translate3d(0," + ((1 - enter) * 75 - leave * 30).toFixed(1) + "px,0) rotateX(" + ((1 - enter) * -70).toFixed(1) + "deg)", filter: "blur(" + ((1 - enter) * 9).toFixed(1) + "px)" }}>{letter === " " ? "\u00a0" : letter}</span>
+      return <span key={index} className="ao-film-glyph" style={{ opacity: enter * (1 - leave), transform: "translate3d(0," + ((1 - enter) * 75 - leave * 30).toFixed(1) + "px,0) rotateX(" + ((1 - enter) * -70).toFixed(1) + "deg)" }}>{letter === " " ? "\u00a0" : letter}</span>
     })
   return (
     <div key={phrase.from} className={"ao-film-typography" + (progress >= .4 && progress < .58 ? " ao-film-typography--focus" : "")} aria-hidden="true">
@@ -237,7 +237,7 @@ export default function OrbitalPilotPage() {
               <span className="ao-film-final-status"><Check size={12} /> VISÃO DE AUTOMAÇÃO EM DESENVOLVIMENTO</span>
             </div>
             <span className="ao-film-filmcode" aria-hidden="true">AO / V2 · CINEMATIC PROOF</span>
-            <span className="ao-film-timing" aria-hidden="true">{(time / 1000).toFixed(1).replace(".", ",")} / 9,6 S</span>
+            <span className="ao-film-timing" aria-hidden="true">{((reducedMotion ? DURATION_MS : time) / 1000).toFixed(1).replace(".", ",")} / 9,6 S</span>
             <div className="ao-film-safe-edge" aria-hidden="true" />
           </div>
           <figcaption className="ao-film-caption" aria-live="polite">
@@ -254,7 +254,7 @@ export default function OrbitalPilotPage() {
           <button type="button" className="ao-film-restart" onClick={() => seek(0)} disabled={reducedMotion}><RotateCcw size={17} /> Reiniciar</button>
           <label htmlFor="ao-pilot-timeline" className="ao-film-timeline">
             <span>EXPLORAR A SEQUÊNCIA / {(p * 100).toFixed(0)}%</span>
-            <input id="ao-pilot-timeline" type="range" min="0" max={DURATION_MS} step="50" value={reducedMotion ? DURATION_MS : time} disabled={reducedMotion} onChange={(event) => seek(Number(event.target.value))} aria-valuetext={(time / 1000).toFixed(1) + " segundos"} />
+            <input id="ao-pilot-timeline" type="range" min="0" max={DURATION_MS} step="50" value={reducedMotion ? DURATION_MS : time} disabled={reducedMotion} onChange={(event) => seek(Number(event.target.value))} aria-valuetext={((reducedMotion ? DURATION_MS : time) / 1000).toFixed(1) + " segundos"} />
           </label>
         </div>
         <div className="ao-film-disclaimer">
