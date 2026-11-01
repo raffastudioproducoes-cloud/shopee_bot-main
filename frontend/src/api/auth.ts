@@ -86,15 +86,16 @@ export const authApi = {
     return api.get<MeResponse>('/auth/me')
   },
 
-  async resetPassword(
-    username: string,
-    currentPassword: string,
-    newPassword: string
-  ): Promise<string> {
-    const data = await api.post<ResetPasswordResponse>('/auth/reset-password', {
-      username,
-      current_password: currentPassword,
+  async requestPasswordRecovery(email: string): Promise<string> {
+    const data = await api.post<ResetPasswordResponse>('/auth/supabase/password/recovery', { email })
+    return data.msg
+  },
+
+  async completePasswordRecovery(accessToken: string, newPassword: string, confirmPassword: string): Promise<string> {
+    const data = await api.post<ResetPasswordResponse>('/auth/supabase/password/complete', {
+      access_token: accessToken,
       new_password: newPassword,
+      confirm_password: confirmPassword,
     })
     return data.msg
   },
