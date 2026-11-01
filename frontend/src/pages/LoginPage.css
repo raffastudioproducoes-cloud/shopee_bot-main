@@ -61,3 +61,6 @@
 :is(#root, body) .csp-login-banner-success { background: var(--positive-on-glass); color: var(--positive-ink); }
 :is(#root, body) .csp-login-banner-spaced { margin-bottom: 20px; }
 :is(#root, body) .csp-login-social-button { border: 1px solid var(--border-hairline) !important; }
+
+/* Campo único: aviso discreto para a exceção temporária de suporte Shopee. */
+.login-support-hint { margin: -8px 0 0; font-size: 12px; line-height: 1.45; color: var(--text-muted); }
