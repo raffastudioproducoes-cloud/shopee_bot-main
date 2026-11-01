@@ -102,14 +102,11 @@ Fontes oficiais:
 - **Limite importante:** a sessão interna JWT permanece ponte de compatibilidade de até 24 horas, e a troca de senha no Supabase não invalida automaticamente todas essas sessões antigas. Revogação de sessões e migração completa de autenticação são pré-requisitos para abertura de produção.
 - **Estado 01/11/2026:** PR #149 integrado em `staging` e formulário/link Google testados visualmente; ainda não testado login efetivo com identidade Google nem clique real em e-mail. Não ativar em produção sem esses testes, migração segura dos administradores e solução de envio a clientes.
 
-## Contas existentes — mesclagem manual, nunca por e-mail automático
+## Contas existentes — vínculos autorizados manualmente, nunca por e-mail automático
 
-1. Rafa identifica as duas contas legadas e os dois novos registros de Auth destinados a elas.
-2. Ambas as sessões são verificadas por desafio legítimo (senha antiga + sessão Google correspondente).
-3. Listar IDs/FKs/objetos de cada conta, perfis, credenciais e jobs antes de quaisquer mudanças.
-4. Planejar transferência transacional dos registros novos (se houver) para os IDs `public.users` antigos, respeitando ownership/unique constraints e preservando o papel ADMIN apenas para o ID antigo já autorizado.
-5. Reatribuir `supabase_auth_user_id` sob lock/transação, revogar sessões legadas e validar com login Google real; só então inativar o login antigo.
-6. Fazer backup e registrar evidência da operação; não excluir identidades/usuários em massa.
+- A conta `rafastudio` (ADMIN) foi vinculada ao Google `raffastudioproducoes@gmail.com` mediante autorização específica e operação transacional documentada abaixo; ainda devem ser concluídos os testes E2E e de sessões necessários para produção.
+- **Exceção expressa:** `RafaelTesteCliente` permanece sem vínculo com e-mail/Google/Supabase Auth. Continua com username/senha legada para a Shopee até Rafa autorizar sua exclusão, após o encerramento dos testes. Não há uma segunda mesclagem pendente.
+- Para qualquer eventual vínculo futuro de outra conta: confirmar autorização de Rafa, verificar identidade e sessões, inventariar IDs/FKs e objetos, planejar backup e migração transacional com locks, revogar sessões antigas e testar o novo login antes de desativar o anterior. Nunca vincular automaticamente por coincidência de e-mail/nome, nem excluir identidades em massa.
 
 ## Pendências para encerrar a migração de autenticação
 
@@ -130,8 +127,8 @@ Fontes oficiais:
 - [x] Browser direto no staging mostrou login por e-mail e botão Google habilitado. Modal Criar conta: username, email, senha, confirmação e checkbox obrigatório. Recuperação de senha: email e envio de link.
 - [x] Clique em Google redirecionou à conta oficial do Google com client OAuth existente; URL de retorno indicava `/api/auth/supabase/google/callback` em staging e Supabase `/auth/v1/callback`.
 - [x] SQL de leitura confirmou `rafastudio` (ADMIN) e `RafaelTesteCliente` (USER) ainda sem `supabase_auth_user_id` nem e-mail gravado. Não alterar nem mesclar agora.
-- [ ] **BLOQUEIO DE HOMOLOGAÇÃO E2E**: Rafa deve entrar com `raffastudioproducoes@gmail.com` e `rafael.c.m.galvao@gmail.com` no OAuth Google e concluir onboarding com usernames temporários diferentes dos legados. Testar callback, primeira sessão, segundo login, logout, usuário USER, isolamento de recursos e ausência de associação automática a legados. Nunca registrar credenciais/códigos/URLs de callback com tokens na documentação.
-- [ ] Associar explicitamente as identidades novas às contas legadas apenas na etapa final com nova autorização e plano transacional/verificação de propriedade.
+- [ ] **BLOQUEIO DE HOMOLOGAÇÃO E2E (plano revisado):** concluir login fresco, segunda sessão, logout, isolamento de recursos e recuperação/cadastro Supabase sem afetar a conta de testes da Shopee. `rafastudio` já foi vinculado ao Google `raffastudioproducoes@gmail.com` por operação autorizada; verificar a sessão ADMIN de ponta a ponta. **Não exigir login com `rafael.c.m.galvao@gmail.com` nem associá-lo a `RafaelTesteCliente`.** Nunca registrar credenciais/códigos/URLs de callback com tokens na documentação.
+- [ ] Qualquer outra associação de identidade exige pedido novo, verificação de propriedade e plano transacional; `RafaelTesteCliente` está excluído do escopo de mesclagem nesta fase.
 - [ ] Validar e-mail/recuperação com entrega real a endereços autorizados; sem SMTP próprio não abrir cadastro público por e-mail nem declarar esse fluxo homologado.
 
 
@@ -140,7 +137,7 @@ Fontes oficiais:
 - Teste real com `raffastudioproducoes@gmail.com`: Supabase Auth confirmou Google e respondeu `/token` 200 para PKCE. `auth.users` possui agora a identidade Google confirmada. Não houve vínculo automático com `public.users.rafastudio` nem criação de sessão Auto Orbital.
 - Render staging registrou `Callback Google rejeitado` (03:52:04/03:52:12 UTC) e redirecionamento a `/login?google_error=1`. Os logs Auth não exibiram a leitura `/user` entre o sucesso do token e a rejeição; o erro está no backend pós-troca, ainda sem stack específico porque o código capturava a exceção genericamente.
 - [Correção aplicada em staging no PR #152](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/152): validação do access token diretamente via `GET /auth/v1/user`, sem recriar cliente SDK antigo com chave publicável moderna, e logs apenas com status/classe de erro. **CI #419 passou; merge `645c815a`, deploy Render `dep-dbjbhsdg1s2s73fqklh0` live. Novo OAuth real 04:00:27 UTC: Supabase `/token` 200, `/user` 200, callback levou a `/login?google_setup=1`. Ainda falta completar onboarding e validar sessão/painel.**
-- Não apagar a identidade de Auth criada no teste; reutilizar o mesmo Gmail na repetição. O segundo Gmail e as duas associações legadas permanecem pendentes.
+- Não apagar a identidade de Auth criada no teste; reutilizar o mesmo Gmail na repetição. **Nota posterior à homologação inicial:** a associação Google → `rafastudio` já foi realizada; a antiga hipótese de associar um segundo Gmail a `RafaelTesteCliente` foi explicitamente cancelada por Rafa. Ver decisão vigente no início deste documento.
 
 
 ### Mesclagem autorizada: Google do proprietário → ADMIN legado (01/11/2026)
