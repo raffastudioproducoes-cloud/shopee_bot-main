@@ -15,6 +15,7 @@ from api.config import settings
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setattr(settings, "supabase_auth_enabled", False)
+    monkeypatch.setattr(settings, "supabase_auth_email_signup_enabled", False)
     monkeypatch.setattr(settings, "supabase_auth_publishable_key", "")
     monkeypatch.setattr(settings, "supabase_auth_redirect_base_url", "")
     return TestClient(app, base_url="https://testserver")
@@ -22,6 +23,7 @@ def client(monkeypatch):
 
 def _enable(monkeypatch):
     monkeypatch.setattr(settings, "supabase_auth_enabled", True)
+    monkeypatch.setattr(settings, "supabase_auth_email_signup_enabled", True)
     monkeypatch.setattr(settings, "supabase_auth_publishable_key", "sb_publishable_example")
     monkeypatch.setattr(settings, "supabase_auth_redirect_base_url", "https://app.example.com")
     monkeypatch.setattr(settings, "supabase_url", "https://auth.example.com")
@@ -30,7 +32,7 @@ def _enable(monkeypatch):
 def test_capabilities_are_disabled_by_default(client):
     response = client.get("/auth/supabase/config")
     assert response.status_code == 200
-    assert response.json() == {"email_enabled": False, "google_enabled": False}
+    assert response.json() == {"email_enabled": False, "email_signup_enabled": False, "google_enabled": False}
 
 
 def test_registration_never_falls_back_to_legacy(client):
