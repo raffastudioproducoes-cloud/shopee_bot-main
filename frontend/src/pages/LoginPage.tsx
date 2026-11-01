@@ -197,7 +197,7 @@ export default function LoginPage() {
             </div>
 
             <div className="csp-login-24">
-              <span className="csp-login-25" title="Em breve">
+              <span className="csp-login-25" title={capabilities.google_enabled ? "Entrar com Google" : "Aguardando configuração Google"}>
                 <Button variant="secondary" fullWidth disabled={!capabilities.google_enabled}
                   onClick={() => { window.location.assign('/api/auth/supabase/google/authorize') }}
                   className="csp-login-social-button">
