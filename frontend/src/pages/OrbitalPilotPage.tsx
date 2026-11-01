@@ -81,25 +81,27 @@ function Paper({ index, progress }: { index: number; progress: number }) {
   const y = mix(scatteredY, mix(spiralY, orbitalY, orbit), gravity)
   const z = gravity * (36 + Math.sin(orbitalAngle) * 145)
   const conversion = smooth(.51, .68, progress)
-  const turn = mix(-13 + index * 9 + crowd * 25, 180, conversion)
+  const switchToAd = smooth(.57, .62, progress)
+  const turn = mix(-13 + index * 9 + crowd * 25, 0, conversion)
+  const flip = Math.max(.08, Math.abs(Math.cos(conversion * Math.PI)))
   const rot = mix((index - 4) * 14, Math.sin(orbitalAngle) * 23, gravity)
   const scale = mix(.72 + (index % 3) * .09, .78 + (Math.sin(orbitalAngle) + 1) * .16, gravity)
   const opacity = entry * (1 - exit)
   const style: CSSProperties = {
     opacity,
-    transform: "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px," + z.toFixed(1) + "px) rotateZ(" + rot.toFixed(1) + "deg) rotateY(" + turn.toFixed(1) + "deg) scale(" + scale.toFixed(2) + ")",
+    transform: "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px," + z.toFixed(1) + "px) rotateZ(" + rot.toFixed(1) + "deg) rotateY(" + turn.toFixed(1) + "deg) scaleX(" + flip.toFixed(2) + ") scale(" + scale.toFixed(2) + ")",
     zIndex: gravity > .5 && Math.sin(orbitalAngle) < 0 ? 1 : 5,
   }
   return (
     <div className="ao-film-paper" style={style} aria-hidden="true">
-      <div className="ao-film-paper-face ao-film-paper-face--product" style={{ opacity: 1 - conversion }}>
+      <div className="ao-film-paper-face ao-film-paper-face--product" style={{ opacity: 1 - switchToAd }}>
         <span className="ao-film-page-index">CATÁLOGO / {String(index + 1).padStart(2, "0")}</span>
         <div className="ao-film-product-thumb"><span /><i /><b /></div>
         <strong>PRODUTO</strong>
         <i className="ao-film-paper-line" /><i className="ao-film-paper-line short" />
         <span className="ao-film-paper-price">OPORTUNIDADE</span>
       </div>
-      <div className="ao-film-paper-face ao-film-paper-face--ad" style={{ opacity: conversion }}>
+      <div className="ao-film-paper-face ao-film-paper-face--ad" style={{ opacity: switchToAd }}>
         <div className="ao-film-ad-signal"><span /> PEÇA PRONTA</div>
         <div className="ao-film-ad-visual"><span /></div>
         <strong>DIVULGAÇÃO</strong>
