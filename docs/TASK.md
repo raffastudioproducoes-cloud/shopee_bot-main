@@ -1,3 +1,13 @@
+## 01/11/2026 — Landing Auto Orbital, Fase 2 autorizada (somente staging)
+
+- [x] Rafa autorizou a próxima fase das rotas após aprovação do protótipo desktop e primeira versão mobile. **Não há autorização de promoção à `main`/produção.** [Escopo e gates](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/blob/feature/landing-entrypoint-routes-2026-11-01/docs/superpowers/plans/2026-11-01-landing-entrypoint-routing.md).
+- [x] Branch `feature/landing-entrypoint-routes-2026-11-01` a partir de `staging`, [PR #165](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/165). Fase 2: `/` mostra landing ao visitante anônimo; sessão real validada por `authApi.me()` encaminha USER a `/app` e ADMIN a `/admin/overview` (ou `/app` se optou explicitamente por visitar o site de cliente).
+- [x] `/presentation` é landing pública estável para compartilhar inclusive para quem está logado; `/apresentacao` redireciona à nova rota. `/login` e `/admin/*` permanecem, assim como os caminhos atuais de produtos e posts.
+- [x] Open Graph e Twitter Card no HTML inicial anunciam `/presentation` com a imagem de marca já existente. `/app` excluído de indexação em robots.txt (sem substituir os controles reais de acesso).
+- [x] TDD remoto: contrato RED comprovado no [CI #463](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41339976693); contrato frontend e `tsc && vite build` GREEN no [CI #464](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41340196960).
+- [ ] Conferir CI integral (API), revisão do PR, merge apenas em `staging`, deploy Render `live`, smoke público de rotas, links e redirecionamentos; testes autenticados USER/ADMIN/Google em navegador autorizado de Rafa. **Sem tocar Supabase/credenciais/posts de usuário.**
+- [ ] Homologar com Rafa antes de qualquer promoção a `main` (produção). Preservar cópia, cenas, design system, persuasão e protótipo aprovado.
+
 ## 01/11/2026 — Landing Auto Orbital, Fase 1 aprovada: prévia pública em staging
 
 - [x] Rafa autorizou expressamente a Fase 1; escopo canônico integral em [Vault/34-Planejamento](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/34-Planejamento-Landing-Publica-Auto-Orbital.md). Aplicar na narrativa as skills `criar-sites-imersivos-premium` e `vender-com-valor`.
