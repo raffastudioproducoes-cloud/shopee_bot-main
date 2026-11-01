@@ -1,3 +1,11 @@
+## Estado vigente — Supabase Auth publicado em produção (01/11/2026, 05:13 UTC)
+
+- **Código/release:** PR [#155](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/155) integrado em `main` SHA `a6b87b3228db2164601225652d95b5bbbc38184c`; CI [#437](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41275819236) **success** (API, frontend e smoke de staging). PR #154 criou coexistência de login e PR #156 adequou o smoke; staging `1738c146`, deploy `dep-dbjcgjou01pc73f2scng` live.
+- **Render produção:** serviço `shopee-bot`, deploy `dep-dbjckhrbc2fs73cegte0` **live** após configuração. `SUPABASE_AUTH_ENABLED=true`; chave **publicável** do projeto correto configurada sem exposição; `SUPABASE_AUTH_REDIRECT_BASE_URL=https://shopee-bot-fj0w.onrender.com`; `SUPABASE_LEGACY_SUPPORT_USERNAME=RafaelTesteCliente`; `SUPABASE_AUTH_EMAIL_SIGNUP_ENABLED=false` (sem SMTP próprio para público).
+- **Smoke anônimo de produção:** `/login` 200, `/api/health/ready` 200, `/api/auth/supabase/config` 200 (`email_enabled=true`, `google_enabled=true`, `email_signup_enabled=false`, `legacy_support_enabled=true`), `/api/auth/supabase/google/authorize` 302; tentativa artificial com username inexistente no login legado retorna 410. Logs recentes sem novo erro de aplicação após deploy (somente SIGTERM normal do worker na troca).
+- **Conta de suporte Shopee preservada:** `RafaelTesteCliente` continua USER, sem e-mail/Google, validada no backend Render contra hash existente em `public.users` Supabase; bypass legado **apenas** para esse username autorizado, com bcrypt/rate limit. Nenhuma senha, vínculo ou dado foi alterado; não remover nem excluir automaticamente.
+- **Pendências explícitas:** Rafa precisa confirmar um **novo login Google completo em produção** até `rafastudio` ADMIN; o smoke 302 não prova callback/sessão real. Não foi usada senha verdadeira do suporte, portanto login E2E dele também não foi repetido. Recuperação de senha por link implementada, mas entrega real de e-mail não homologada. **Cadastro público por e-mail permanece desligado** até configuração/validação SMTP após domínio próprio. JWT interno de até 24h ainda é ponte transitória e requer plano futuro de revogação/migração.
+
 ## Decisão do proprietário — conta temporária da Shopee e retirada do login legado (01/11/2026)
 
 **Vigente até nova ordem de Rafa.** `RafaelTesteCliente` (USER, ID `2e895580-b2ac-4254-83ce-f465e77918c1`) é uma conta de testes destinada à equipe de suporte da Shopee. **Mantê-la exatamente como está:** acesso por nome de usuário e senha legada, sem e-mail, sem Google, sem outro provedor OAuth, sem cadastro fictício no Supabase Auth e sem alteração de senha/permissões/dados. O hash da senha já está em `public.users` no Supabase; a API atualmente hospedada no Render apenas valida esse login. O Supabase Auth/GoTrue não oferece senha+username nativos sem email/telefone; não iniciar autenticação especial/Edge Function para esta conta.
@@ -27,7 +35,7 @@
 - [x] Sob autorização específica, operação SQL atômica transferiu o Auth UUID e e-mail ao ADMIN legado `rafastudio`, mantendo ID, perfil, 6 produtos, 6 posts, 4 listas, credenciais e função ADMIN. Origem USER provisória retida para auditoria, sem associação Auth. Ver `docs/SUPABASE-AUTH-MIGRACAO.md`.
 - [ ] **Homologar segundo login pós-mesclagem:** a solicitação de login no navegador foi recusada; retestar quando o proprietário solicitar, confirmar dashboard ADMIN e recursos antigos. Não alegar E2E concluído.
 - [x] Decisão do proprietário: `RafaelTesteCliente` não terá Gmail nem qualquer e-mail por enquanto; conta destinada a suporte Shopee com usuário/senha. **Nenhuma segunda mesclagem autorizada.**
-- [ ] Recuperação de senha por email/SMTP e sessão Supabase completa; não ativar login Supabase em produção.
+- [ ] Homologar entrega real de e-mails/recovery e migração/revogação das sessões JWT transitórias. Supabase Auth já está **ativo em produção** para Google e e-mail; cadastro público por e-mail está desabilitado até SMTP próprio.
 
 ## Correção de publicações interrompidas por deploy — fechamento 31/10/2026
 
@@ -499,7 +507,7 @@ Status: não iniciado.
 - [ ] **Homologação real:** aplicar migration 066 de forma controlada, testar cadastro confirmado, login e recuperação com o **e-mail de um membro autorizado** no SMTP padrão; testar link expirado, navegador diferente e Google.
 - [ ] **Segurança:** finalizar sessões Supabase, revogação de JWTs locais na recuperação e preservação das contas legadas.
 - [ ] **Envio externo:** habilitar somente quando houver SMTP próprio autorizado após domínio, conforme a tarefa permanente do Vault; não prometer cadastro aberto ao público com SMTP padrão.
-- [ ] **Promoção:** não ativar Supabase Auth em produção enquanto isso desabilitar o login da conta de testes Shopee. Concluir homologação das demais contas e, só após exclusão explicitamente autorizada de `RafaelTesteCliente`, planejar corte de autenticação legada com CI, staging e rollback.
+- [x] **Promoção controlada de 01/11/2026:** Supabase Auth ativo em produção, com exceção restrita que **preserva** login de `RafaelTesteCliente`. CI #437 e smoke público registrados no topo. [ ] Concluir E2E Google real e migração de sessões; só após exclusão explicitamente autorizada planejar corte do legado.
 
 ## Referências
 

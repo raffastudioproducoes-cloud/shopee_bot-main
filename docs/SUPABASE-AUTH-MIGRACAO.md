@@ -1,5 +1,14 @@
 # Migração de autenticação — Supabase Auth (e-mail e Google)
 
+## Estado vigente — Supabase Auth publicado em produção (01/11/2026, 05:13 UTC)
+
+- **Código/release:** PR [#155](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/155) integrado em `main` SHA `a6b87b3228db2164601225652d95b5bbbc38184c`; CI [#437](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41275819236) **success** (API, frontend e smoke de staging). PR #154 criou coexistência de login e PR #156 adequou o smoke; staging `1738c146`, deploy `dep-dbjcgjou01pc73f2scng` live.
+- **Render produção:** serviço `shopee-bot`, deploy `dep-dbjckhrbc2fs73cegte0` **live** após configuração. `SUPABASE_AUTH_ENABLED=true`; chave **publicável** do projeto correto configurada sem exposição; `SUPABASE_AUTH_REDIRECT_BASE_URL=https://shopee-bot-fj0w.onrender.com`; `SUPABASE_LEGACY_SUPPORT_USERNAME=RafaelTesteCliente`; `SUPABASE_AUTH_EMAIL_SIGNUP_ENABLED=false` (sem SMTP próprio para público).
+- **Smoke anônimo de produção:** `/login` 200, `/api/health/ready` 200, `/api/auth/supabase/config` 200 (`email_enabled=true`, `google_enabled=true`, `email_signup_enabled=false`, `legacy_support_enabled=true`), `/api/auth/supabase/google/authorize` 302; tentativa artificial com username inexistente no login legado retorna 410. Logs recentes sem novo erro de aplicação após deploy (somente SIGTERM normal do worker na troca).
+- **Conta de suporte Shopee preservada:** `RafaelTesteCliente` continua USER, sem e-mail/Google, validada no backend Render contra hash existente em `public.users` Supabase; bypass legado **apenas** para esse username autorizado, com bcrypt/rate limit. Nenhuma senha, vínculo ou dado foi alterado; não remover nem excluir automaticamente.
+- **Pendências explícitas:** Rafa precisa confirmar um **novo login Google completo em produção** até `rafastudio` ADMIN; o smoke 302 não prova callback/sessão real. Não foi usada senha verdadeira do suporte, portanto login E2E dele também não foi repetido. Recuperação de senha por link implementada, mas entrega real de e-mail não homologada. **Cadastro público por e-mail permanece desligado** até configuração/validação SMTP após domínio próprio. JWT interno de até 24h ainda é ponte transitória e requer plano futuro de revogação/migração.
+
+
 ## Decisão do proprietário — conta temporária da Shopee e retirada do login legado (01/11/2026)
 
 **Vigente até nova ordem de Rafa.** `RafaelTesteCliente` (USER, ID `2e895580-b2ac-4254-83ce-f465e77918c1`) é uma conta de testes destinada à equipe de suporte da Shopee. **Mantê-la exatamente como está:** acesso por nome de usuário e senha legada, sem e-mail, sem Google, sem outro provedor OAuth, sem cadastro fictício no Supabase Auth e sem alteração de senha/permissões/dados. O hash da senha já está em `public.users` no Supabase; a API atualmente hospedada no Render apenas valida esse login. O Supabase Auth/GoTrue não oferece senha+username nativos sem email/telefone; não iniciar autenticação especial/Edge Function para esta conta.
@@ -26,7 +35,7 @@
 - `public.users.id` continua sendo o ID interno do Auto Orbital para produtos, perfis e publicações.
 - `public.users.supabase_auth_user_id` associa a identidade `auth.users.id` à conta interna. Não vincular pelo e-mail de perfil, nome ou coincidência de username.
 - A sessão JWT interna `access_token` ainda é **ponte transitória** para os routers existentes e NÃO representa a migração completa de sessão. Não declarar o Render fora da autenticação até substituir essa dependência e migrar settings, troca de perfil, sessões e revogação.
-- `api/routers/auth.py` mantém o código legado apenas enquanto a flag está desligada. Quando Supabase Auth é ativado, login, cadastro e troca de senha legados respondem 410. Não ativar na produção antes da vinculação dos administradores.
+- `api/routers/auth.py` mantém o login antigo disponível para todos apenas enquanto a flag está desligada. Com Supabase Auth ativo, **somente** o usuário configurado em `SUPABASE_LEGACY_SUPPORT_USERNAME` (`RafaelTesteCliente`, USER, sem Auth externo) pode usar a senha legada; os demais recebem 410. Cadastro e troca de senha legados continuam desabilitados. O ADMIN já foi vinculado ao Google.
 - Cadastro por e-mail fica em `pending_auth_registrations` até a confirmação da caixa postal. O primeiro login validado provisiona `public.users` (USER), o perfil principal e credenciais vazias. Google possui onboarding próprio.
 
 ## Passo a passo para o proprietário — não compartilhar chaves no chat
@@ -82,7 +91,7 @@ O cadastro solicita usuário, e-mail, senha e confirmação idêntica. O backend
 
 O código recusa o cadastro se o Supabase retornar uma sessão imediatamente (sinal de que Confirm Email pode ter sido desligado). Para produção, confirmar que o envio e o clique no e-mail funcionam, inclusive em navegadores diferentes.
 
-O login antigo do Render fica disponível somente enquanto SUPABASE_AUTH_ENABLED=false, durante preparação/rollback. A migração completa de sessões ainda está pendente e não foi aplicada.
+O login antigo do Render atende os legados enquanto `SUPABASE_AUTH_ENABLED=false`; no modo ativo, há exceção limitada ao usuário de suporte configurado, sem abrir login legado aos demais. A migração completa das sessões JWT continua pendente.
 
 Fontes oficiais:
 - [Identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking)
@@ -100,7 +109,7 @@ Fontes oficiais:
 - O cadastro exige usuário/nome de usuário, e-mail, senha, senha repetida e aceite dos Termos. O registro continua pendente até a confirmação por e-mail; o site não concede sessão nem cria perfil antes de login confirmado.
 - Testes automatizados de envio (mock), endereço normalizado, ausência de vazamento do erro SMTP, senhas diferentes, token inválido/não confirmado, atualização remota e bloqueio da rota local estão em `tests/api/test_supabase_auth_transition.py`. **Ainda não é teste de entrega real nem de clique em link.**
 - **Limite importante:** a sessão interna JWT permanece ponte de compatibilidade de até 24 horas, e a troca de senha no Supabase não invalida automaticamente todas essas sessões antigas. Revogação de sessões e migração completa de autenticação são pré-requisitos para abertura de produção.
-- **Estado 01/11/2026:** PR #149 integrado em `staging` e formulário/link Google testados visualmente; ainda não testado login efetivo com identidade Google nem clique real em e-mail. Não ativar em produção sem esses testes, migração segura dos administradores e solução de envio a clientes.
+- **Estado 01/11/2026:** PR #149 integrado em `staging` e formulário/link Google testados visualmente; ainda não testado login efetivo com identidade Google nem clique real em e-mail. **Registro histórico superado pela release acima:** produção foi ativada somente para login Google/e-mail, mantendo cadastro público desligado e exceção da conta de suporte; E2E Google novo, SMTP e migração de sessões seguem pendentes.
 
 ## Contas existentes — vínculos autorizados manualmente, nunca por e-mail automático
 
@@ -149,7 +158,7 @@ Fontes oficiais:
 - **Operação SQL atômica `DO` com `FOR UPDATE`, pré-condições e rollback automático em erro:** desassociou e-mail/UUID Auth da origem e associou-os ao ADMIN antigo; transferiu os campos de aceite legal (sem alterar GPS), preservando IDs e dados de ambos os registros. **Nenhum usuário, perfil, log, token social ou publicação foi excluído ou reatribuído.** O USER provisório permanece sem Google/e-mail, apenas para auditoria e reversão; limpeza futura exige inventário e autorização específicos.
 - **Verificação SQL após commit:** o ADMIN possui o UUID Google/e-mail confirmado, papel ADMIN, 1 perfil principal antigo, 6 produtos, 6 posts, 4 listas e 30 eventos de auditoria; origem mantém perfil e 19 request logs; `RafaelTesteCliente` (`2e895580-b2ac-4254-83ce-f465e77918c1`) intacta e ainda sem Auth.
 - **Sessão/UI:** antes da transferência, browser em staging exibiu `Perfil ativo: Raffastudio` com zero produtos; foi feito logout e confirmado `/login`. **Validação do novo login Google na conta ADMIN NÃO concluída:** o pedido de autenticação no browser foi recusado; não repetir sem nova solicitação do usuário. Ao autorizar novo teste, confirmar `Perfil ativo: rafastudio`, Painel Admin, 6 produtos, perfil/credenciais e logout. Não alegar E2E concluído.
-- **Pendentes:** autenticação Google completa do ADMIN, envio real SMTP/recovery e migração de sessão. **Sem segunda mesclagem** para `RafaelTesteCliente`: manter username/senha até fim dos testes da Shopee, exclusão autorizada e corte planejado do login legado. **Não publicar migração em main ainda.**
+- **Pendentes:** autenticação Google completa do ADMIN, envio real SMTP/recovery e migração de sessão. **Sem segunda mesclagem** para `RafaelTesteCliente`: manter username/senha até fim dos testes da Shopee, exclusão autorizada e corte planejado do login legado. **Atualização posterior: promoção para main concluída em PR #155, com exceção limitada à Shopee.**
 - **Reversibilidade:** dados e hashes anteriores preservados; eventual desfazer deve ocorrer em nova transação com conferências de IDs/únicos e retornar o `supabase_auth_user_id` e e-mail ao USER provisório, limpando-os do ADMIN; avaliar também os campos de termos, nunca reverter sem ordem do proprietário.
 
 
