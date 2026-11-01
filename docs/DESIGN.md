@@ -1,3 +1,5 @@
+> **Animação futura do login — decisão de 01/11/2026 (somente documentação, sem implementação):** Rafa definiu que o vídeo provisório de caixa do lado esquerdo de `/login` será substituído, em fase posterior e mediante aprovação, por **microapresentação cinematográfica premium do Auto Orbital** com a logo oficial preservada sem alterações. O roteiro/QA estão em [LOGIN-ANIMACAO-CINEMATOGRAFICA.md](LOGIN-ANIMACAO-CINEMATOGRAFICA.md) e no Vault documento 44. Preservar tokens, auth e `prefers-reduced-motion`. **Não modificar a mídia atual nesta tarefa.**
+
 > **Design atual de 31/10/2026:** preservar tokens e componentes de `frontend/src/`, mas validar o CSS da branch e o Guia Mestre; fotografias anteriores à identidade Auto Orbital podem estar desatualizadas. **Primeira leitura obrigatória:** [AGENTS.md](../AGENTS.md) e [docs/GUIA-MESTRE-IA.md](GUIA-MESTRE-IA.md).
 
 # DESIGN — Shopee Auto Vendas (frontend novo, React)
