@@ -1,6 +1,6 @@
 # Auto Orbital — Guia Mestre de Contexto para IAs e Mantenedores
 
-> **LEITURA OBRIGATÓRIA ANTES DE ALTERAR O PROJETO.** Versão documental: 31/10/2026. Produto anteriormente denominado **Shopee Auto Vendas**; o nome de marca atual é **Auto Orbital**. Este guia é um mapa de entrada operacional, não substitui código, migrações ou evidência de ambiente. **Não contém segredos.**
+> **LEITURA OBRIGATÓRIA ANTES DE ALTERAR O PROJETO.** Versão documental: 01/11/2026 (adendo de governança/SMTP, sem mudança operacional). Produto anteriormente denominado **Shopee Auto Vendas**; o nome de marca atual é **Auto Orbital**. Este guia é um mapa de entrada operacional, não substitui código, migrações ou evidência de ambiente. **Não contém segredos.**
 >
 > **Regra de precisão:** [IMPLEMENTADO] = observado no código/migração; [OPERACIONAL] = confirmado também em serviço/configuração; [CONDICIONAL] = depende de configuração, OAuth ou plataforma; [PLANEJADO] = documento ou código isolado sem entrega ao usuário; [NÃO OFERECIDO] = indisponível ou expressamente excluído. Uma feature existir no repositório **não prova** uma publicação externa bem-sucedida.
 
@@ -18,6 +18,10 @@
 3. Para estado atual e aprovação: Vault `39-Estado-Operacional-e-Seguranca-2026-10-31.md` e `TASK.md`. Histórico mais antigo pode conter status superados.
 4. Para deploy/segurança/banco: `SECURITY.md`, `docs/SEGURANCA-PENDENCIAS-20261031.md`, `docs/ADMIN-METRICS.md` e migrações; verificar o ambiente atual.
 5. Antes de editar, identificar branch, SHA, mudanças não commitadas, dependências, risco a dados e testes específicos. Nunca usar uma captura histórica como verdade presente.
+
+**Regra operacional de leitura antes e depois (Rafa, 01/11/2026):** antes de cada tarefa, a IA deve ler `AGENTS.md` no projeto, este Guia, os documentos específicos e o `TASK.md` vivo no Vault. **Após criar/alterar qualquer documentação**, deve reabrir a versão persistida, verificar a coerência entre projeto e Vault, atualizar links/referências pertinentes e **reconsultar as tarefas condicionais do Vault**. Se não conseguir acessar alguma fonte, declarar a limitação em vez de assumir que está atualizada.
+
+**Alerta condicionado a domínio próprio — SMTP:** [PENDENTE] Rafa decidiu manter temporariamente o **SMTP padrão do Supabase**, sem contratar domínio/serviço nem configurar SMTP externo agora. Se o site Auto Orbital passar a ter **domínio próprio registrado e configurado** e esse fato estiver documentado em qualquer fonte viva do Vault **ou** do projeto, a IA que identificar a evidência **na leitura inicial ou após atualizar documentos** deve **avisar Rafa na mesma sessão** e perguntar se deseja retomar a integração SMTP para e-mails de confirmação de clientes. **Não** executar compra, alteração de DNS/SMTP, OAuth ou cadastro público automaticamente. Detalhe e checklist em [Vault TASK.md](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/TASK.md). Não existe monitoramento automático fora de sessões ativas de agentes.
 
 **Precedência se houver divergência:** código **implantado** + schema/permissões reais + deploy/CI; depois decisões expressas de Rafa; depois documentos vivos com data; por último planos/relatos antigos. Para comportamentos externos, a resposta da API oficial e suas permissões prevalecem sobre inferência local. Registrar a divergência ao corrigi-la.
 

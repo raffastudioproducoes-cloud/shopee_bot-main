@@ -21,6 +21,14 @@
 - **Design:** preservar design system em [frontend/src/styles/tokens/], componentes UI, acessibilidade, layout desktop/mobile e idioma PT-BR.
 - **Docs:** cada alteração relevante deve atualizar documentação técnica e, quando alterar contrato/arquitetura/segurança, este guia **e o espelho no Vault**; registrar critério/evidência em TASK.md. Planos, ADRs e relatórios datados não devem ser apagados silenciosamente.
 
+## Porta documental obrigatória — antes e depois de cada trabalho (decisão de Rafa, 01/11/2026)
+
+- **Antes de mexer em qualquer arquivo ou planejar mudança:** ler este `AGENTS.md`, o Guia Mestre, as regras técnicas pertinentes e o **TASK.md vivo do Vault**, além do documento específico da tarefa. Confirmar decisões mais recentes e estado real; quando o Vault estiver inacessível, registrar a limitação e não presumir ausência de pendências.
+- **Depois de escrever ou atualizar qualquer documentação (inclusive Vault):** reabrir e reler a versão salva, confrontar com os documentos de entrada, conferir links/estado/evidências e atualizar as referências cruzadas afetadas. **Reavaliar os gatilhos de tarefas condicionais do TASK.md** antes de encerrar, mesmo se a alteração realizada não for sobre autenticação.
+- **Gatilho obrigatório — domínio próprio / e-mail público:** sempre que, na leitura inicial **ou pós-documentação**, houver registro verificável de que o Auto Orbital recebeu domínio próprio **registrado e configurado no site** (em qualquer documento vivo do Vault ou deste projeto), **avisar Rafa na resposta dessa sessão** que a configuração SMTP de confirmação de e-mail no Supabase está pendente e perguntar se autoriza retomá-la. Apontar a evidência e a tarefa do Vault. Não contratar domínio/serviço, ligar SMTP, trocar URLs, credenciais ou alterar autenticação automaticamente.
+- **Situação enquanto não há gatilho:** manter o **SMTP padrão do Supabase** para testes autorizados da equipe; não anunciar cadastro por e-mail público como operacional nem confundir confirmação obrigatória no Auth com entrega garantida a qualquer caixa postal. Estado documentado no [TASK.md do Vault](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/TASK.md).
+- Esta é uma **rotina de verificação na execução dos agentes**, não um monitor em segundo plano: sem agente executando e consultando as fontes, nenhum aviso automático é disparado.
+
 ## Regra final de entrega
 
 Declarar branch, PR, SHA, testes executados, deploy vivo, limitações e pendências com evidência. Não dizer “100% sem bugs” ou “todos os recursos disponíveis” quando existirem integrações não testadas ou dependências externas. A verificação deve ser específica para a mudança; o guia reduz pesquisa repetida, **não substitui testes necessários**.
