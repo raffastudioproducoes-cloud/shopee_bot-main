@@ -1,4 +1,13 @@
-## 01/11/2026 — UX de Posts: cards concisos, busca e detalhes somente leitura (código no PR #159; homologação staging pendente)
+## 01/11/2026 — Ajuste fino da listagem de Posts: compactação e recorrência ativa
+
+- [x] Limitar a prévia do texto a uma única linha com reticências; exibir apenas o primeiro produto (+ quantidade adicional) e as redes de destino.
+- [x] Reorganizar metadados em duas faixas compactas: etiquetas de tipo/execução e datas essenciais (criação, última tentativa e resumo do agendamento).
+- [x] Em recorrências com registro de agendamento ainda existente, exibir **Em andamento**, inclusive depois de publicação concluída de uma ocorrência; manter simultaneamente o resultado da última execução (`Publicado`, `Falhou`, `Sem confirmação` etc.).
+- [x] Mostrar resumo de dias/horários no card e preservar a agenda completa na visualização de detalhes e no texto pesquisável.
+- [x] Não alterar modal de visualização, edição/criação, API, banco ou semântica de publicação.
+- [ ] Homologar visualmente no staging após CI e deploy, sem publicar em produção.
+
+## 01/11/2026 — UX de Posts: cards concisos, busca e detalhes somente leitura (PR #159 integrado ao staging em a55e48b; refinamento visual em andamento)
 
 **Pedido de Rafa:** simplificar a listagem sem perder informações de execução, melhorar a busca enquanto se digita e impedir edição acidental de posts já construídos, agendados, recorrentes ou publicados.
 
