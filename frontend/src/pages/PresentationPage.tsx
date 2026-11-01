@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   ArrowDown,
   ArrowRight,
@@ -64,7 +64,7 @@ function Status({ children, tone = 'current' }: { children: string; tone?: 'curr
   return <span className={'ao-lp-status ao-lp-status--' + tone}>{children}</span>
 }
 
-function SectionHeading({ eyebrow, title, children }: { eyebrow: string; title: string; children: React.ReactNode }) {
+function SectionHeading({ eyebrow, title, children }: { eyebrow: string; title: string; children: ReactNode }) {
   return (
     <div className="ao-lp-section-heading">
       <span className="ao-lp-eyebrow"><span className="ao-lp-eyebrow-line" />{eyebrow}</span>
