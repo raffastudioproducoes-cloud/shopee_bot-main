@@ -1,3 +1,11 @@
+## Autenticação Google — homologação parcial de staging, 01/11/2026
+
+- [x] Migração Supabase Auth 066 aplicada e registrada; PR #149 em staging, Render flags apenas staging.
+- [x] No teste real de `raffastudioproducoes@gmail.com`, erro pós-token diagnosticado: Supabase `/token` 200, backend `google_error=1`. Correção do callback no [PR #152](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/152), CI #419 verde, staging `645c815` e deploy `dep-dbjbhsdg1s2s73fqklh0` live.
+- [x] Reteste real 01/11 04:00 UTC: `/auth/v1/token` 200 e `/auth/v1/user` 200, UI em `/login?google_setup=1` com modal de nome temporário e aceite.
+- [ ] Aguardar Rafa concluir onboarding com Google; confirmar criação de conta USER, sessão, segundo login, isolamento e logout. Repetir com `rafael.c.m.galvao@gmail.com`. Não unir a `rafastudio`/ `RafaelTesteCliente` nem ativar produção ainda.
+- [ ] Homologar email/recovery com entrega real e resolver limites SMTP antes de liberação pública.
+
 ## Correção de publicações interrompidas por deploy — fechamento 31/10/2026
 
 - [x] **Causa confirmada:** Threads #23 e #27 iniciados durante deploys Render; workers antigos encerrados 2s/4s depois. Supabase registrou lease expirado, sem ID externo.
