@@ -68,6 +68,6 @@ test("V3.1 corrige somente o lockup final da marca, sem duplicar a órbita e sem
   assert.match(source, /ao3-signature-rbital/)
   assert.doesNotMatch(source, /ao3-signature-orbit|ao3-signature-point/)
   assert.doesNotMatch(css, /ao3-signature-ring|ao3-signature-orbit/)
-  assert.match(source, /Produtos encontram seu caminho\\. Sua rotina encontra mais controle\\./)
+  assert.ok(source.includes("Produtos encontram seu caminho. Sua rotina encontra mais controle."))
   assert.match(source, /AUTOMAÇÃO COMPLETA COM IA · EM DESENVOLVIMENTO/)
 })
