@@ -3,6 +3,7 @@
 User-agent: *
 Allow: /
 Allow: /brand/og-image.png
+Disallow: /app
 Disallow: /admin/
 Disallow: /credentials
 Disallow: /posts

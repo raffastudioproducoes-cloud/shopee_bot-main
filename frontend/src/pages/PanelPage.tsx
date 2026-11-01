@@ -16,7 +16,7 @@ import { StatusMessage } from '../components/StatusMessage'
 import { clearAdminVisitingSite, isAdminVisitingSite } from '../lib/adminSiteFlag'
 
 const navItems: SideRailItem[] = [
-  { value: '/', label: 'Dashboard', icon: 'house' },
+  { value: '/app', label: 'Dashboard', icon: 'house' },
   { value: '/products', label: 'Produtos', icon: 'briefcase' },
   { value: '/lists', label: 'Listas', icon: 'sliders-horizontal' },
   { value: '/posts', label: 'Posts', icon: 'file-text' },
@@ -61,7 +61,8 @@ export function PanelPage() {
   useEffect(() => {
     let active = true
 
-    // O callback OAuth Google cria o cookie httpOnly e volta para "/".
+    // O callback OAuth Google cria o cookie httpOnly e volta para "/";
+    // a entrada pública redireciona sessões confirmadas para "/app".
     // Após um logout, o Zustand ainda está deslogado: recuperar a sessão
     // pelo backend antes de decidir que o usuário precisa voltar ao login.
     void authApi.me()
@@ -76,7 +77,7 @@ export function PanelPage() {
 
         setUser(userData)
         setRoleVerified(true)
-        if (userData.access === 'ADMIN' && location.pathname === '/' && !isAdminVisitingSite()) {
+        if (userData.access === 'ADMIN' && location.pathname === '/app' && !isAdminVisitingSite()) {
           navigate({ to: '/admin/overview' })
         }
       })

@@ -66,7 +66,7 @@ export function AdminLayout() {
           })}
         </nav>
         <div className="admin-header-actions">
-          <Link to="/" className="admin-site-link" onClick={setAdminVisitingSite} aria-label="Ir para o site de cliente" title="Ir para o site de cliente"><Icon name="house" size={16} /></Link>
+          <Link to="/app" className="admin-site-link" onClick={setAdminVisitingSite} aria-label="Ir para o site de cliente" title="Ir para o site de cliente"><Icon name="house" size={16} /></Link>
           <div className="admin-account">
             <span className="admin-account-icon"><Avatar name={activeProfile?.nome ?? user?.username ?? "Administrador"} src={activeProfile?.avatar_url} size={36} /></span>
             <span><strong>{user?.username}</strong><small>Administrador</small></span>
