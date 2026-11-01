@@ -47,6 +47,9 @@ import { Textarea } from "../components/ui/Textarea"
 import { Select } from "../components/ui/Select"
 import { SegmentedToggle } from "../components/ui/SegmentedToggle"
 import { PageSkeleton } from "../components/ui/Skeleton"
+import { PostDetailsModal } from "../components/posts/PostDetailsModal"
+import { usePostsSearchStore } from "../stores/postsSearchStore"
+import { compactScheduleSummary, matchesPost, postKind, recurringInProgress, scheduleLines } from "../components/posts/postPresentation"
 
 // Ver buildSchedule: run_date de segurança do "Agora" (disparado de fato
 // assim que a mídia termina de subir).
@@ -147,9 +150,11 @@ const metaTextStyle = {
 export function PostsPage() {
   const { logout } = useAuthStore()
   const queryClient = useQueryClient()
+  const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const [modalOpen, setModalOpen] = useState(false)
-  const [expandedPosts, setExpandedPosts] = useState<Set<number>>(() => new Set())
-  const [editingPost, setEditingPost] = useState<Post | null>(null)
+  const [detailsPost, setDetailsPost] = useState<Post | null>(null)
+  const searchQuery = usePostsSearchStore((state) => state.query)
+  const clearSearch = usePostsSearchStore((state) => state.clear)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [reconcilePostId, setReconcilePostId] = useState<number | null>(null)
   const [reconcileSourceJobId, setReconcileSourceJobId] = useState<string | null>(null)
@@ -158,13 +163,16 @@ export function PostsPage() {
   const [confirmedOnThreads, setConfirmedOnThreads] = useState(false)
   const [reportedRemoved, setReportedRemoved] = useState(false)
 
-  const { data: postsData, isLoading } = useQuery({
-    queryKey: ["posts"],
-    queryFn: () => postsApi.list(),
-    refetchInterval: (query) =>
-      query.state.data?.data?.some((post) => post.scheduled && (
-        !post.last_result?.status || post.last_result.status === 'running' || post.last_result.status === 'retry_pending'
-      )) ? 30_000 : false,
+  const { data: postsPages, isLoading, isError: postsLoadError, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["posts", activeProfileId],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => postsApi.list({ cursor: pageParam, limit: 100 }),
+    getNextPageParam: (page) => page.next_cursor ?? undefined,
+    refetchInterval: (query) => query.state.data?.pages?.some((page) =>
+      page.data.some((post) => post.scheduled && (
+        !post.last_result?.status || post.last_result.status === "running" || post.last_result.status === "retry_pending"
+      ))
+    ) ? 30_000 : false,
   })
   // Carrega antes da abertura do modal: uma conexão já testada não fica
   // momentaneamente parecendo indisponível no compositor.
@@ -174,7 +182,11 @@ export function PostsPage() {
     staleTime: 30_000,
   })
 
-  const posts = postsData?.data ?? []
+  const posts = postsPages?.pages.flatMap((page) => page.data) ?? []
+  const visiblePosts = searchQuery.trim() ? posts.filter((post) => matchesPost(post, searchQuery)) : posts
+  useEffect(() => {
+    if (searchQuery.trim() && hasNextPage && !isFetchingNextPage && !postsLoadError) void fetchNextPage()
+  }, [searchQuery, hasNextPage, isFetchingNextPage, postsLoadError, fetchNextPage, posts.length])
 
   const onAuthError = useCallback(
     (err: Error) => {
@@ -250,18 +262,6 @@ export function PostsPage() {
     onError: onAuthError,
   })
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, texts, product_ids }: { id: number; texts: string[]; product_ids: number[] }) =>
-      postsApi.update(id, { texts, product_ids }),
-    meta: { toast: { pending: "Salvando post…", success: "Post atualizado", error: "Não foi possível salvar o post" } },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts"] })
-      setModalOpen(false)
-      setEditingPost(null)
-    },
-    onError: onAuthError,
-  })
-
   const reconcileMutation = useMutation({
     mutationFn: ({ id, url, removed }: { id: number; url: string; removed: boolean }) =>
       postsApi.reconcile(id, removed ? { reported_removed: true } : { permalink: url }),
@@ -331,14 +331,9 @@ export function PostsPage() {
       productImageIds: number[],
       publishNow: boolean,
     ) => {
-      if (editingPost) {
-        const texts = textsByNetwork[editingPost.network ?? "threads"] ?? []
-        updateMutation.mutate({ id: editingPost.id, texts, product_ids: productIds })
-      } else {
-        createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, productImageIds, publishNow })
-      }
+      createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, productImageIds, publishNow })
     },
-    [editingPost, createMutation, updateMutation],
+    [createMutation],
   )
 
   if (isLoading) {
@@ -348,6 +343,19 @@ export function PostsPage() {
   }
 
   const groups = groupPosts(posts)
+  const networksByGroup = new Map<number, PostNetwork[]>()
+  for (const item of posts) {
+    const key = groups.get(item.id)?.key
+    if (key == null) continue
+    const networks = networksByGroup.get(key) ?? []
+    const network = item.network ?? "threads"
+    if (!networks.includes(network)) networks.push(network)
+    networksByGroup.set(key, networks)
+  }
+  const detailsGroupKey = detailsPost ? groups.get(detailsPost.id)?.key : undefined
+  const detailGroupNetworks: PostNetwork[] = detailsPost
+    ? [...new Set(posts.filter((p) => detailsGroupKey != null ? groups.get(p.id)?.key === detailsGroupKey : p.id === detailsPost.id).map((p) => p.network ?? "threads"))]
+    : []
 
   return (
     <div className="csp-s-0314">
@@ -372,7 +380,6 @@ export function PostsPage() {
           variant="primary"
           icon="plus"
           onClick={() => {
-            setEditingPost(null)
             createMutation.reset()
             setModalOpen(true)
           }}
@@ -381,7 +388,14 @@ export function PostsPage() {
         </Button>
       </div>
 
-      {posts.length === 0 ? (
+      {postsLoadError && <p role="alert" style={{ color: "var(--negative)" }}>Não foi possível carregar o histórico.</p>}
+      {searchQuery.trim() && (
+        <p role="status" style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 12 }}>
+          {visiblePosts.length} resultado(s). {hasNextPage ? "Pesquisando também em posts antigos..." : "Histórico consultado."}
+          <Button variant="ghost" size="sm" onClick={clearSearch}>Limpar busca</Button>
+        </p>
+      )}
+      {!searchQuery.trim() && posts.length === 0 ? (
         <Panel surface="dark">
           <div className="csp-s-0317">
             Nenhum post criado.
@@ -390,74 +404,67 @@ export function PostsPage() {
       ) : (
         <Panel surface="dark" className="posts-list-panel">
           <PanelHeader title="Posts" />
-          {posts.map((post, index) => (
+          {visiblePosts.map((post, index) => (
             <div key={post.id}>
               {index > 0 && <Divider />}
               <div
                 className="post-list-item"
-                onClick={() => {
-                  setEditingPost(post)
-                  setModalOpen(true)
+                role="button"
+                tabIndex={0}
+                aria-label="Visualizar detalhes da publicação"
+                onClick={() => setDetailsPost(post)}
+                onKeyDown={(event) => {
+                  if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                    event.preventDefault()
+                    setDetailsPost(post)
+                  }
                 }}
                 style={{
                   display: "flex",
                   alignItems: "flex-start",
                   justifyContent: "space-between",
                   gap: 16,
-                  padding: "12px 16px",
+                  padding: "10px 16px",
                   cursor: "pointer",
                 }}
               >
                 <div className="post-list-content" style={{ minWidth: 0, flex: 1 }}>
                   <p
                     id={`post-text-${post.id}`}
-                    className={`post-list-copy${expandedPosts.has(post.id) ? " is-expanded" : ""}`}
+                    className="post-list-copy"
+                    title={post.texts?.[0] || post.text}
                     style={{
                       margin: 0,
                       font: "var(--text-role-body)",
                       color: "var(--text-body)",
-                      whiteSpace: "pre-wrap",
                       overflow: "hidden",
-                      display: "-webkit-box",
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: "vertical",
+                      whiteSpace: "nowrap",
+                      textOverflow: "ellipsis",
                     }}
                   >
-                    {post.text}
+                    {post.texts?.[0] || post.text}
                   </p>
-                  {post.products.length > 0 && (
-                    <div className="post-list-products" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                      {post.products.map((p) => (
-                        <Badge key={p.id} tone="outline">
-                          {p.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  <div className="post-list-meta" style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
-                    <Badge tone="outline">
-                      <span className="csp-s-0318">
-                        <NetworkLogo network={post.network ?? "threads"} size={12} />
-                        {NETWORK_RULES[post.network ?? "threads"].label}
+                  <div className="post-list-meta" style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 7, flexWrap: "wrap" }}>
+                    {post.products.length > 0 && (
+                      <span
+                        className="csp-named-meta"
+                        title={post.products.map((product) => product.name).join(" · ")}
+                        style={{ maxWidth: 340, minWidth: 0, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}
+                      >
+                        {post.products[0].name}{post.products.length > 1 ? ` +${post.products.length - 1}` : ""}
                       </span>
-                    </Badge>
-                    {groups.has(post.id) && (
-                      <Badge tone="glass">
-                        Grupo · {groups.get(post.id)!.size} redes
+                    )}
+                    {(groups.has(post.id) ? networksByGroup.get(groups.get(post.id)!.key) ?? [post.network ?? "threads"] : [post.network ?? "threads"]).map((network) => (
+                      <Badge tone="outline" key={network}>
+                        <span className="csp-s-0318">
+                          <NetworkLogo network={network} size={12} />
+                          {NETWORK_RULES[network].label}
+                        </span>
                       </Badge>
-                    )}
-                    <span className="csp-named-meta">
-                      Criado em {formatUtcTimestampBrasilia(post.created_at)}
-                    </span>
-                    {post.scheduled && post.schedule_trigger === "date" && post.scheduled_for && (
-                      <span className="csp-named-meta">
-                        Programado: {formatUtcTimestampBrasilia(post.scheduled_for)}
-                      </span>
-                    )}
-                    {post.scheduled && (!post.last_result?.status || post.schedule_trigger === "cron") && (
-                      <StatusBadge tone="info" icon="calendar-clock">
-                        {post.schedule_trigger === "cron" ? "Recorrente" : "Agendado"}
-                      </StatusBadge>
+                    ))}
+                    <Badge tone="outline">{postKind(post)}</Badge>
+                    {recurringInProgress(post) && (
+                      <StatusBadge tone="info" icon="refresh-cw">Em andamento</StatusBadge>
                     )}
                     {post.last_result?.status === "retry_pending" && (
                       <StatusBadge tone="info" icon="clock">Reenvio na fila</StatusBadge>
@@ -469,9 +476,7 @@ export function PostsPage() {
                       <StatusBadge tone="warning" icon="alert-triangle">Sem confirmação</StatusBadge>
                     )}
                     {post.last_result?.status === "published" && (
-                      <StatusBadge tone="positive" icon="check-circle-2">
-                        Publicado{post.last_result.at ? ` em ${formatUtcTimestampBrasilia(post.last_result.at)}` : ""}
-                      </StatusBadge>
+                      <StatusBadge tone="positive" icon="check-circle-2">Publicado</StatusBadge>
                     )}
                     {post.last_result?.status === "manual_confirmed" && (
                       <StatusBadge tone="manual" icon="shield-check">Confirmado por você</StatusBadge>
@@ -482,29 +487,25 @@ export function PostsPage() {
                     {post.last_result?.status === "failed" && (
                       <StatusBadge tone="negative" icon="x-circle">Falhou</StatusBadge>
                     )}
+                  </div>
+                  <div
+                    className="post-list-timestamps"
+                    style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 14px", marginTop: 6, font: "var(--fw-regular) var(--fs-caption)/1.4 var(--font-sans)", color: "var(--text-muted)" }}
+                  >
+                    <span>Criado: {formatUtcTimestampBrasilia(post.created_at).replace(/:\d{2}$/, "")}</span>
+                    {post.last_result?.at && (
+                      <span>
+                        {post.last_result.status === "published" ? "Última publicação: " : "Último registro: "}
+                        {formatUtcTimestampBrasilia(post.last_result.at).replace(/:\d{2}$/, "")}
+                      </span>
+                    )}
+                    {compactScheduleSummary(post) && (
+                      <span title={scheduleLines(post).join(" · ")}>{compactScheduleSummary(post)}</span>
+                    )}
                     {!!post.parts_count && post.parts_count > 1 && (
-                      <span className="csp-named-meta">{post.parts_count} partes</span>
+                      <span>{post.parts_count} partes</span>
                     )}
                   </div>
-                  {(post.last_result?.status === "failed" || post.last_result?.status === "unknown") && post.last_result.error && (
-                    <p style={{ ...metaTextStyle, color: post.last_result.status === "unknown" ? "#fcd34d" : "var(--negative)", marginTop: 8 }}>
-                      {post.last_result.status === "unknown" ? "Atenção: " : "Última tentativa: "}
-                      {post.last_result.error}
-                    </p>
-                  )}
-                  {post.last_result?.status === "reported_removed" && (
-                    <p style={{ ...metaTextStyle, marginTop: 8 }}>
-                      Publicação relatada por você como publicada e depois removida do Threads. Não há comprovante externo; o sistema preservou o erro original e não reenviará.
-                    </p>
-                  )}
-                  {post.last_result?.status === "manual_confirmed" && post.last_result.proof_url && (
-                    <p style={{ ...metaTextStyle, marginTop: 8 }}>
-                      Confirmação manual, não verificação automática pela Meta.{" "}
-                      <a href={post.last_result.proof_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                        Ver publicação no Threads
-                      </a>
-                    </p>
-                  )}
                   {publishMutation.isError && publishMutation.variables === post.id && (
                     <p style={{ ...metaTextStyle, color: "var(--negative)", marginTop: 8 }}>
                       {publishMutation.error.message}
@@ -512,22 +513,6 @@ export function PostsPage() {
                   )}
                 </div>
                 <div className="post-list-actions" style={{ display: "flex", alignItems: "center", gap: 4, flex: "0 0 auto" }}>
-                  {post.text.length > 60 && (
-                    <button type="button" className="post-list-read-more"
-                      aria-controls={`post-text-${post.id}`}
-                      aria-expanded={expandedPosts.has(post.id)}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setExpandedPosts((current) => {
-                          const next = new Set(current)
-                          if (next.has(post.id)) next.delete(post.id)
-                          else next.add(post.id)
-                          return next
-                        })
-                      }}>
-                      {expandedPosts.has(post.id) ? "Mostrar menos" : "Ler texto completo"}
-                    </button>
-                  )}
                   {post.last_result?.status === "unknown" && post.network === "threads" && (
                     <Button variant="ghost" size="sm" icon="shield-check" onClick={(e) => {
                       e.stopPropagation()
@@ -576,22 +561,35 @@ export function PostsPage() {
               </div>
             </div>
           ))}
+          {visiblePosts.length === 0 && searchQuery.trim() && <p style={{ padding: 16, color: "var(--text-muted)" }}>{hasNextPage ? "Procurando em publicações anteriores..." : "Nenhuma publicação corresponde à busca."}</p>}
+          {hasNextPage && !searchQuery.trim() && (
+            <div style={{ padding: 16, display: "flex", justifyContent: "center" }}>
+              <Button variant="ghost" disabled={isFetchingNextPage} onClick={() => void fetchNextPage()}>
+                {isFetchingNextPage ? "Carregando..." : "Carregar mais posts"}
+              </Button>
+            </div>
+          )}
+          {isFetchingNextPage && searchQuery.trim() && <p role="status" style={{ padding: 16 }}>Consultando publicações anteriores...</p>}
         </Panel>
       )}
 
       {modalOpen && (
         <PostModal
-          post={editingPost}
-          onClose={() => {
-            setModalOpen(false)
-            setEditingPost(null)
-          }}
+          post={null}
+          onClose={() => setModalOpen(false)}
           onSave={handleSave}
-          loading={createMutation.isPending || updateMutation.isPending}
-          error={createMutation.error?.message ?? updateMutation.error?.message}
+          loading={createMutation.isPending}
+          error={createMutation.error?.message}
           results={createMutation.data}
           credentials={credentials}
           onClear={() => createMutation.reset()}
+        />
+      )}
+      {detailsPost && (
+        <PostDetailsModal
+          post={detailsPost}
+          groupNetworks={detailGroupNetworks}
+          onClose={() => setDetailsPost(null)}
         />
       )}
 

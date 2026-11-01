@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation, Outlet } from '@tanstack/react-router'
 import { useAuthStore } from '../stores/authStore'
+import { usePostsSearchStore } from '../stores/postsSearchStore'
 import { authApi } from '../api/auth'
 import { SideRail, type SideRailItem } from '../components/ui/SideRail'
 import { TopBar } from '../components/ui/TopBar'
@@ -33,6 +34,8 @@ const adminNavItems: SideRailItem[] = [
 export function PanelPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const postsSearch = usePostsSearchStore((state) => state.query)
+  const setPostsSearch = usePostsSearchStore((state) => state.setQuery)
   const { user, login, logout, setUser, isAuthenticated, isRoleVerified, setRoleVerified } = useAuthStore()
   const [menuOpen, setMenuOpen] = useState(false)
   const [logoutError, setLogoutError] = useState(false)
@@ -134,7 +137,8 @@ export function PanelPage() {
 
       <div className="app-col">
         <TopBar
-          query=""
+          query={location.pathname === "/posts" ? postsSearch : ""}
+          onQuery={location.pathname === "/posts" ? (event) => setPostsSearch(event.target.value) : undefined}
           leading={
             <button
               ref={menuBtnRef}
