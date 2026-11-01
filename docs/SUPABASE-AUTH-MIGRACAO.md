@@ -1,5 +1,21 @@
 # Migração de autenticação — Supabase Auth (e-mail e Google)
 
+## Decisão do proprietário — conta temporária da Shopee e retirada do login legado (01/11/2026)
+
+**Vigente até nova ordem de Rafa.** `RafaelTesteCliente` (USER, ID `2e895580-b2ac-4254-83ce-f465e77918c1`) é uma conta de testes destinada à equipe de suporte da Shopee. **Mantê-la exatamente como está:** acesso por nome de usuário e senha legada, sem e-mail, sem Google, sem outro provedor OAuth, sem cadastro fictício no Supabase Auth e sem alteração de senha/permissões/dados. O hash da senha já está em `public.users` no Supabase; a API atualmente hospedada no Render apenas valida esse login. O Supabase Auth/GoTrue não oferece senha+username nativos sem email/telefone; não iniciar autenticação especial/Edge Function para esta conta.
+
+**Gatilho futuro (não automático):** Rafa informa que a Shopee concluiu os testes e concedeu a aprovação necessária. **Só depois** ele decidirá/executará a exclusão de `RafaelTesteCliente` e autorizará, em tarefa separada, a retirada definitiva do fluxo de autenticação legado do backend no Render. Aprovação da Shopee, isoladamente, **não autoriza** nenhum agente a excluir conta, senha ou recursos.
+
+**Checklist futuro obrigatório:**
+1. Confirmar encerramento dos testes com Rafa; inventariar perfis, credenciais, posts, agendamentos, jobs, mídia, logs e obrigações de retenção da conta antes da exclusão.
+2. Planejar backup/reversibilidade, revogar sessões ativas e executar a exclusão **somente mediante ordem explícita**, com conferência dos IDs exatos e dependências/FKs. Preservar auditoria legal necessária; não limpar tabelas indiscriminadamente.
+3. Verificar que a conta não autentica mais nem detém recursos indevidos. Separadamente, garantir que login Google do ADMIN e todos os fluxos de email/recuperação/registro por Supabase estão testados em staging e prontos para produção.
+4. Remover verificação de senha legada, endpoints e modos de login antigos, hashes e dependências **somente após migração integral das demais contas e sessões**, com PR → CI → staging → testes → PR main → deploy/monitoramento e plano de reversão. A hospedagem da API no Render é outra decisão: \"tirar Auth do Render\" significa retirar a **verificação de credenciais legadas**, não necessariamente remover o serviço Render.
+5. Atualizar `AGENTS.md`, guia mestre, `docs/TASK.md` e espelhos no Vault, anotando consentimento, evidências, PR/commit e testes.
+
+**Até esse gatilho:** não criar novo mecanismo de username-only, não forçar Supabase Auth nativo nesta conta, não desligar o único login que permite os testes da Shopee e não promover a migração de autenticação para produção se ela bloquear essa conta.
+
+
 > **Estado atualizado (01/11/2026):** PR #149 em staging, migration 066 no Supabase compartilhado e callback Google corrigido pelo PR #152 (deploy staging `645c815`). O primeiro Gmail completou onboarding real, criou sessão USER e foi **vinculado transacionalmente ao ADMIN legado `rafastudio`**, com preservação de seus dados. **Sessão Google pré-existente recuperada no navegador pelo PR #153; OAuth totalmente novo pós-deploy ainda pendente. Segunda vinculação cancelada para `RafaelTesteCliente` por decisão atual do proprietário: conta de suporte sem e-mail/Google. Produção não ativada para Supabase Auth.**
 > Staging e produção compartilham o banco: a associação Google na `public.users` já é um fato no banco usado por ambos; o login Supabase só está ativado na staging.
 > Não fazer novas mesclagens sem autorização específica de Rafa, sobretudo `RafaelTesteCliente`.
@@ -102,7 +118,7 @@ Fontes oficiais:
 - Validar end-to-end o fluxo de confirmação, duplicidade e recuperação de cadastros pendentes, inclusive concorrência e falhas.
 - Validar concorrência/rollback do provisionamento de usuários e órfãos de Auth.
 - Introduzir tratamento de redirect/cookies com testes de proxy e teste OAuth em staging.
-- [Primeiro vínculo concluído em 01/11; falta login E2E] Validar no browser a identidade Google `raffastudioproducoes@gmail.com` vinculada ao ADMIN `rafastudio`; não repetir tentativa de autenticação recusada sem novo pedido. Vincular o segundo Gmail à `RafaelTesteCliente` apenas com nova autorização.
+- [Primeiro vínculo concluído em 01/11; falta login E2E] Validar no browser a identidade Google `raffastudioproducoes@gmail.com` vinculada ao ADMIN `rafastudio`; não repetir tentativa de autenticação recusada sem novo pedido. Não vincular o segundo Gmail à `RafaelTesteCliente`: a conta fica no login legado até o fim dos testes Shopee e exclusão autorizada.
 
 **Não promover para main enquanto essas pendências de autenticação essencial e validação real não forem resolvidas.**
 
@@ -136,7 +152,7 @@ Fontes oficiais:
 - **Operação SQL atômica `DO` com `FOR UPDATE`, pré-condições e rollback automático em erro:** desassociou e-mail/UUID Auth da origem e associou-os ao ADMIN antigo; transferiu os campos de aceite legal (sem alterar GPS), preservando IDs e dados de ambos os registros. **Nenhum usuário, perfil, log, token social ou publicação foi excluído ou reatribuído.** O USER provisório permanece sem Google/e-mail, apenas para auditoria e reversão; limpeza futura exige inventário e autorização específicos.
 - **Verificação SQL após commit:** o ADMIN possui o UUID Google/e-mail confirmado, papel ADMIN, 1 perfil principal antigo, 6 produtos, 6 posts, 4 listas e 30 eventos de auditoria; origem mantém perfil e 19 request logs; `RafaelTesteCliente` (`2e895580-b2ac-4254-83ce-f465e77918c1`) intacta e ainda sem Auth.
 - **Sessão/UI:** antes da transferência, browser em staging exibiu `Perfil ativo: Raffastudio` com zero produtos; foi feito logout e confirmado `/login`. **Validação do novo login Google na conta ADMIN NÃO concluída:** o pedido de autenticação no browser foi recusado; não repetir sem nova solicitação do usuário. Ao autorizar novo teste, confirmar `Perfil ativo: rafastudio`, Painel Admin, 6 produtos, perfil/credenciais e logout. Não alegar E2E concluído.
-- **Pendentes:** Google `rafael.c.m.galvao@gmail.com` e mesclagem de `RafaelTesteCliente` somente após novo consentimento explícito; validação de login e sessão Google do ADMIN, envio real SMTP/recovery, substituição de JWT interna e corte de senha legada. **Não publicar migração em main ainda.**
+- **Pendentes:** autenticação Google completa do ADMIN, envio real SMTP/recovery e migração de sessão. **Sem segunda mesclagem** para `RafaelTesteCliente`: manter username/senha até fim dos testes da Shopee, exclusão autorizada e corte planejado do login legado. **Não publicar migração em main ainda.**
 - **Reversibilidade:** dados e hashes anteriores preservados; eventual desfazer deve ocorrer em nova transação com conferências de IDs/únicos e retornar o `supabase_auth_user_id` e e-mail ao USER provisório, limpando-os do ADMIN; avaliar também os campos de termos, nunca reverter sem ordem do proprietário.
 
 
@@ -145,7 +161,7 @@ Fontes oficiais:
 - Evidência: Render staging `645c815` registrou sucessivos `GET /auth/supabase/google/authorize` 302 e `/callback` 303; Supabase Auth confirmou `POST /token` 200 e `GET /user` 200 para o UUID Google associado ao ADMIN antigo. Não havia `/auth/me` subsequente.
 - **Causa no frontend:** o callback emitia cookie httpOnly e redirecionava a `/`, mas `PanelPage.tsx` verificava apenas `useAuthStore.isAuthenticated` persistido (false depois do logout). Antes de consultar o cookie via `/auth/me`, redirecionava a `/login`. Isso não significa que o vínculo `auth.users → public.users` falhou.
 - **Correção preparada no PR #153:** o painel primeiro valida a sessão no backend; se cookie válido e store deslogado/trocado, reidrata com a identidade retornada; sessão inválida continua indo para `/login`. CI, deploy e login real pós-fix pendentes. Não promover a main sem homologação.
-- **Exceção de conta de suporte:** `RafaelTesteCliente` deve permanecer username/senha sem e-mail pessoal nem Google. A senha hash já está em `public.users` (Supabase), mas a autenticação legada ainda ocorre no processo Render. GoTrue exige e-mail ou telefone para login com senha; não criar identificador falso e não mexer nos registros até escolher um fluxo sem email de verdade e com garantias equivalentes (rate-limit, revogação, recuperação de acesso).
+- **Exceção de conta de suporte (DECISÃO FINAL DESTA FASE):** `RafaelTesteCliente` segue username/senha sem e-mail/Google até testes Shopee terminarem; hash já em Supabase e verificação permanece no Render. **Não desenvolver autenticação especial**, nem criar identificador falso. Após aprovação informada por Rafa: exclusão sob autorização separada, depois retirada segura do login legado. Detalhes no início do documento.
 
 
 ### Correção publicada e sessão ADMIN recuperada — 01/11/2026
