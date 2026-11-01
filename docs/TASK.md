@@ -1,3 +1,15 @@
+## 01/11/2026 — UX de Posts: cards concisos, busca e detalhes somente leitura (em implementação)
+
+**Pedido de Rafa:** simplificar a listagem sem perder informações de execução, melhorar a busca enquanto se digita e impedir edição acidental de posts já construídos, agendados, recorrentes ou publicados.
+
+- [ ] **Cards compactos:** trecho curto do texto, nomes dos produtos, redes de destino, criação, tipo (imediato / agendado / recorrente), última publicação, data/hora do agendamento e todos os dias/horários de recorrência. Manter status de publicação e alertas de confirmação incerta.
+- [ ] **Busca instantânea:** filtrar por texto, produto, rede, data/hora (criação, programação, execução e recorrência) e recuperar páginas adicionais do histórico, respeitando conta/perfil. Não modificar dados em função da busca.
+- [ ] **Detalhes imutáveis:** clicar no card abre um modal **exclusivamente de leitura** com textos completos (inclusive múltiplas partes), produtos, mídias/rede, datas, horas, configurações e status. Remover desta visualização seletores de produto, edição de texto, geração com IA, botões de salvar/remover partes/mídia. Preservar o fluxo separado de **Novo post**.
+- [ ] **Proteção API:** bloquear alterações diretas nas postagens agendadas, recorrentes, imediatamente publicadas ou com histórico de tentativa/envio; preservar o processamento legítimo do scheduler, conciliação e exclusão explícita com confirmação. Não confiar exclusivamente no modal.
+- [ ] **Homologação:** CI frontend/backend, testes de escopo entre perfis, caso de várias horas de recorrência, filtro de busca e smoke visual em staging. **Não executar publicação real, SQL, exclusões ou merge na main automaticamente.**
+
+**Governança:** branch `fix/posts-resumo-busca-detalhes-readonly-2026-11-01` a partir de `staging`; PR e evidências devem ser acrescentados após conclusão. Produção e banco Supabase compartilhado permanecerão inalterados nesta etapa. A aprovação de Rafa é necessária para promover à produção.
+
 ## Estado vigente — Supabase Auth publicado em produção (01/11/2026, 05:13 UTC)
 
 - **Código/release:** PR [#155](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/155) integrado em `main` SHA `a6b87b3228db2164601225652d95b5bbbc38184c`; CI [#437](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41275819236) **success** (API, frontend e smoke de staging). PR #154 criou coexistência de login e PR #156 adequou o smoke; staging `1738c146`, deploy `dep-dbjcgjou01pc73f2scng` live.
