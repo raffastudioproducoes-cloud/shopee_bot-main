@@ -155,3 +155,47 @@ def test_signup_fails_closed_if_confirm_email_is_disabled(client, monkeypatch, f
     assert result.status_code == 503
     assert db.tables["users"] == []
     assert db.tables["pending_auth_registrations"] == []
+
+
+
+def test_first_confirmed_login_provisions_only_after_email_verification(client, monkeypatch, fake_db):
+    _enable(monkeypatch)
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key: None)
+    db = fake_db({
+        "users": [],
+        "profiles": [],
+        "pending_auth_registrations": [{
+            "auth_user_id": "external-1", "email": "cliente@example.com",
+            "username": "novocliente", "legal_terms_version": sb.TERMS_VERSION,
+        }],
+    })
+    monkeypatch.setattr(sb, "get_supabase", lambda: db)
+    monkeypatch.setattr(sb, "provision_new_user", lambda database, user: database.table("profiles").insert({
+        "user_id": user["id"], "kind": "principal",
+    }).execute())
+
+    class FakeAuth:
+        def sign_in_with_password(self, values):
+            return SimpleNamespace(
+                user=SimpleNamespace(
+                    id="external-1", email="cliente@example.com",
+                    email_confirmed_at="2026-11-01T02:00:00Z",
+                ),
+                session=object(),
+            )
+
+    monkeypatch.setattr(sb, "_auth_client", lambda: SimpleNamespace(auth=FakeAuth()))
+    values = {"email": "cliente@example.com", "password": "senhasegura123"}
+    assert db.tables["users"] == []
+    first = client.post("/auth/supabase/login", json=values)
+    assert first.status_code == 200
+    assert "access_token" in first.cookies
+    assert len(db.tables["users"]) == 1
+    assert db.tables["users"][0]["access"] == "USER"
+    assert db.tables["users"][0]["password"] is None
+    assert db.tables["users"][0]["supabase_auth_user_id"] == "external-1"
+    assert db.tables["pending_auth_registrations"] == []
+
+    second = client.post("/auth/supabase/login", json=values)
+    assert second.status_code == 200
+    assert len(db.tables["users"]) == 1
