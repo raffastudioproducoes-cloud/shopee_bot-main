@@ -1,3 +1,29 @@
+# V3 — MOTION INTEGRALMENTE PROCEDURAL (01/11/2026)
+
+> **DECISÃO MAIS RECENTE DE RAFA:** V2 descartada como direção visual: cartões/postagens grudados, imagem PNG do buraco negro e movimentos que não representam o texto. **Não reutilizar a cena V2 nem descrever V1 ou V2 como aprovadas.** O código V3 substitui apenas a prévia isolada /presentation/pilot. Sem áudio, sem imagens coladas, sem alteração da landing ou produção.
+
+## Storyboard silencioso — seis atos, dez segundos
+
+| Tempo | Mensagem | Movimento programado | Aceite |
+| --- | --- | --- | --- |
+| 0–2,4 s | Um produto vira várias obrigações | Produto vetorial no centro gera fichas independentes de tarefas e redes, texto cinético | Relação causa → rotina legível |
+| 2,4–3,7 s | Acúmulo | Fichas com posições, velocidades, ângulos e profundidades diferentes, câmera atravessa o cenário | Sensação de carga, sem cartões colados |
+| 3,7–4,3 s | Pausa | Desaceleração perceptível, letras “PARE.” surgem no centro | Mudança de ritmo sem som |
+| 4,3–6,1 s | Transformação | Horizonte de eventos, lente, disco de acreção, plasma e partículas desenhados por Canvas 2D, anúncios convergem por órbitas distintas | Buraco negro programado e protagonista, produto → propaganda visível |
+| 6,1–7,6 s | Organização | O espaço revela composição HTML/CSS inspirada na interface do Auto Orbital: produto, destinos, agendamento | Painel reconhecível, sem recursos fictícios |
+| 7,6–10 s | Identidade | O buraco negro procedural permanece; assinatura vetorial CSS e mensagem final | Ciclo orbital e mensagem memoráveis |
+
+### Diretrizes técnicas obrigatórias
+
+- Nenhum arquivo de imagem, GIF, screenshot, sprite, vídeo ou áudio é usado na cena. A marca canônica de produção **não é modificada**. A assinatura CSS final é **interpretação procedural provisória**, não reprodução certificada/pixel-a-pixel do master; antes de substituir a landing, Rafa precisará avaliar fidelidade e, se necessário, fornecer ou aprovar curvas vetoriais da marca.
+- Canvas 2D com gradientes radiais, círculos, elipses, partículas, camadas luminosas e composição aditiva gera o buraco negro e o horizonte de eventos; DOM/CSS para produtos, anúncios, tipografia e interface. Relógio único de requestAnimationFrame com scrub, pausas e reinício. Nenhum serviço nem biblioteca externa.
+- Performance: DPR limitado, ResizeObserver, preferência de redução de movimento e versão mobile. Sem sons até nova instrução.
+- Mensagem comercial: dor → consequências → interrupção → solução → demonstração → visão. Coleta e postagem 100% com IA continuam **em desenvolvimento**; não afirmar disponibilidade ou vendas garantidas.
+- Não integrar na landing aprovada sem CI, QA real desktop/mobile, reprodução completa, sem erros, e aprovação de Rafa. Não fazer merge para main/produção nesta etapa.
+- Referências: https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/globalCompositeOperation ; https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Media_queries/Using_for_accessibility ; https://web.dev/articles/animations-and-performance
+
+---
+
 # Revisão V2 — resposta à reprovação expressa de Rafa (01/11/2026)
 
 > **DECISÃO MAIS RECENTE / OBRIGATÓRIA:** Rafa reprovou e **descartou a direção visual V1** por falta de vida, excesso de zoom/transição simples, tipografia sem animação, câmera estática e conceito de marca equivocado. **Não voltar à V1 nem descrevê-la como aprovada.** A marca é um **buraco negro com horizonte de eventos**, com **papéis = produtos** que se transformam em **propagandas** ao entrar em órbita, representando um **ciclo de divulgação automático como visão futura**.
