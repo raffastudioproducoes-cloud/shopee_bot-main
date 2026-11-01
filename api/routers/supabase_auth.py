@@ -10,6 +10,7 @@ import logging
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from urllib.parse import urlencode
 
 import httpx
@@ -310,15 +311,35 @@ async def complete_password_recovery(body: PasswordRecoveryComplete, request: Re
 
 
 def _verify_google_token(token: str):
+    """Valida no GoTrue o token retornado pelo OAuth, sem depender de sessão do SDK.
+
+    O cliente supabase-py legado pode falhar localmente com a chave publicável
+    moderna (sb_publishable_...), mesmo após /token ter retornado HTTP 200.
+    A chamada explícita /auth/v1/user valida a sessão no servidor Supabase.
+    Nunca registrar token, corpo da resposta ou e-mail do usuário.
+    """
     try:
-        result = _auth_client().auth.get_user(token)
-    except Exception:
+        with httpx.Client(timeout=10) as http:
+            response = http.get(
+                settings.supabase_url.rstrip("/") + "/auth/v1/user",
+                headers={
+                    "apikey": settings.supabase_auth_publishable_key,
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+        response.raise_for_status()
+        user = response.json()
+    except httpx.HTTPStatusError as exc:
+        logger.warning("Validação Google recusada pelo Supabase (HTTP %s)",
+                       exc.response.status_code)
         raise HTTPException(401, "Autorização Google expirada ou inválida.") from None
-    user = result.user
-    if not user or not user.id or not user.email:
+    except (httpx.RequestError, ValueError, TypeError) as exc:
+        logger.warning("Falha na validação Google (%s)", type(exc).__name__)
+        raise HTTPException(401, "Autorização Google expirada ou inválida.") from None
+    if not isinstance(user, dict) or not user.get("id") or not user.get("email"):
         raise HTTPException(401, "Identidade Google inválida.")
     # Escopos de perfil/e-mail, não permissão administrativa.
-    return user
+    return SimpleNamespace(id=str(user["id"]), email=str(user["email"]))
 
 
 @router.get("/google/authorize")
