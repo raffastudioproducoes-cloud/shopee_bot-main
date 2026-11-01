@@ -1,10 +1,11 @@
-## Autenticação Google — homologação parcial de staging, 01/11/2026
+## Autenticação Google — primeiro vínculo manual concluído, 01/11/2026
 
-- [x] Migração Supabase Auth 066 aplicada e registrada; PR #149 em staging, Render flags apenas staging.
-- [x] No teste real de `raffastudioproducoes@gmail.com`, erro pós-token diagnosticado: Supabase `/token` 200, backend `google_error=1`. Correção do callback no [PR #152](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/152), CI #419 verde, staging `645c815` e deploy `dep-dbjbhsdg1s2s73fqklh0` live.
-- [x] Reteste real 01/11 04:00 UTC: `/auth/v1/token` 200 e `/auth/v1/user` 200, UI em `/login?google_setup=1` com modal de nome temporário e aceite.
-- [ ] Aguardar Rafa concluir onboarding com Google; confirmar criação de conta USER, sessão, segundo login, isolamento e logout. Repetir com `rafael.c.m.galvao@gmail.com`. Não unir a `rafastudio`/ `RafaelTesteCliente` nem ativar produção ainda.
-- [ ] Homologar email/recovery com entrega real e resolver limites SMTP antes de liberação pública.
+- [x] Migração 066 registrada; PR #149 staging, Google Auth só em staging. Callback fixado no PR #152; CI #419 verde, deploy `645c815` live; /token e /user 200 em OAuth real.
+- [x] Rafa concluiu onboarding Google `raffastudioproducoes@gmail.com`; navegador confirmou USER `Raffastudio` com sessão ativa, zero produtos/posts/listas; logout confirmado.
+- [x] Sob autorização específica, operação SQL atômica transferiu o Auth UUID e e-mail ao ADMIN legado `rafastudio`, mantendo ID, perfil, 6 produtos, 6 posts, 4 listas, credenciais e função ADMIN. Origem USER provisória retida para auditoria, sem associação Auth. Ver `docs/SUPABASE-AUTH-MIGRACAO.md`.
+- [ ] **Homologar segundo login pós-mesclagem:** a solicitação de login no navegador foi recusada; retestar quando o proprietário solicitar, confirmar dashboard ADMIN e recursos antigos. Não alegar E2E concluído.
+- [ ] Segundo Gmail `rafael.c.m.galvao@gmail.com`/conta `RafaelTesteCliente`: cadastrar, verificar posse e **obter nova autorização** antes de qualquer vínculo.
+- [ ] Recuperação de senha por email/SMTP e sessão Supabase completa; não ativar login Supabase em produção.
 
 ## Correção de publicações interrompidas por deploy — fechamento 31/10/2026
 
