@@ -1,8 +1,8 @@
 # Migração de autenticação — Supabase Auth (e-mail e Google)
 
-> **Estado (01/11/2026):** PR #149 integrado em `staging` (`4c57385`), migration 066 aplicada e registrada no Supabase compartilhado, e Render staging com Google habilitado e segundo deploy `dep-dbjbbtbbc2fs73cb60hg` live. **Produção não ativada. Homologação Google E2E aguarda login real de Rafa nos dois Gmail.**
-> Preservar as duas contas legadas em `public.users`. Não associar IDs de Auth ou mesclar contas sem nova autorização de Rafa.
-> Staging e produção compartilham o mesmo projeto Supabase: qualquer criação de conta ou migration na staging é real nesse banco.
+> **Estado atualizado (01/11/2026):** PR #149 em staging, migration 066 no Supabase compartilhado e callback Google corrigido pelo PR #152 (deploy staging `645c815`). O primeiro Gmail completou onboarding real, criou sessão USER e foi **vinculado transacionalmente ao ADMIN legado `rafastudio`**, com preservação de seus dados. **Login Google pós-mesclagem ainda sem homologação no navegador; segundo Gmail e sua mesclagem pendentes. Produção não ativada para Supabase Auth.**
+> Staging e produção compartilham o banco: a associação Google na `public.users` já é um fato no banco usado por ambos; o login Supabase só está ativado na staging.
+> Não fazer novas mesclagens sem autorização específica de Rafa, sobretudo `RafaelTesteCliente`.
 
 ## Objetivo e fronteira
 
@@ -86,7 +86,7 @@ Fontes oficiais:
 - **Limite importante:** a sessão interna JWT permanece ponte de compatibilidade de até 24 horas, e a troca de senha no Supabase não invalida automaticamente todas essas sessões antigas. Revogação de sessões e migração completa de autenticação são pré-requisitos para abertura de produção.
 - **Estado 01/11/2026:** PR #149 integrado em `staging` e formulário/link Google testados visualmente; ainda não testado login efetivo com identidade Google nem clique real em e-mail. Não ativar em produção sem esses testes, migração segura dos administradores e solução de envio a clientes.
 
-## Contas existentes — somente no final, nunca por e-mail automático
+## Contas existentes — mesclagem manual, nunca por e-mail automático
 
 1. Rafa identifica as duas contas legadas e os dois novos registros de Auth destinados a elas.
 2. Ambas as sessões são verificadas por desafio legítimo (senha antiga + sessão Google correspondente).
@@ -102,7 +102,7 @@ Fontes oficiais:
 - Validar end-to-end o fluxo de confirmação, duplicidade e recuperação de cadastros pendentes, inclusive concorrência e falhas.
 - Validar concorrência/rollback do provisionamento de usuários e órfãos de Auth.
 - Introduzir tratamento de redirect/cookies com testes de proxy e teste OAuth em staging.
-- Concluir o vínculo manual das duas contas antigas somente com autorização final.
+- [Primeiro vínculo concluído em 01/11; falta login E2E] Validar no browser a identidade Google `raffastudioproducoes@gmail.com` vinculada ao ADMIN `rafastudio`; não repetir tentativa de autenticação recusada sem novo pedido. Vincular o segundo Gmail à `RafaelTesteCliente` apenas com nova autorização.
 
 **Não promover para main enquanto essas pendências de autenticação essencial e validação real não forem resolvidas.**
 
@@ -125,3 +125,16 @@ Fontes oficiais:
 - Render staging registrou `Callback Google rejeitado` (03:52:04/03:52:12 UTC) e redirecionamento a `/login?google_error=1`. Os logs Auth não exibiram a leitura `/user` entre o sucesso do token e a rejeição; o erro está no backend pós-troca, ainda sem stack específico porque o código capturava a exceção genericamente.
 - [Correção aplicada em staging no PR #152](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/152): validação do access token diretamente via `GET /auth/v1/user`, sem recriar cliente SDK antigo com chave publicável moderna, e logs apenas com status/classe de erro. **CI #419 passou; merge `645c815a`, deploy Render `dep-dbjbhsdg1s2s73fqklh0` live. Novo OAuth real 04:00:27 UTC: Supabase `/token` 200, `/user` 200, callback levou a `/login?google_setup=1`. Ainda falta completar onboarding e validar sessão/painel.**
 - Não apagar a identidade de Auth criada no teste; reutilizar o mesmo Gmail na repetição. O segundo Gmail e as duas associações legadas permanecem pendentes.
+
+
+### Mesclagem autorizada: Google do proprietário → ADMIN legado (01/11/2026)
+
+- **Ambiente:** Supabase compartilhado `wcentenooirmwwlwlljp` (o vínculo de dados impacta staging e produção); **somente** o código/Auth Google de Render staging está habilitado. A autorização explícita de Rafa foi dada depois de concluir onboarding e autenticar em staging.
+- **Identidade verificada:** `auth.users.id=a03469dc-daed-400c-8163-40120eba2c85`, Google `raffastudioproducoes@gmail.com`, com `email_confirmed_at` e identidade `auth.identities(provider=google)`.
+- **Destino preservado:** `public.users.id=bb62026a-a7bf-4aa0-a05f-7ac570db3509` (`rafastudio`, ADMIN), perfil principal `909789bc-1882-4803-9895-12daa40e8cf3`. A conta original continua ADMIN; a senha legada não foi modificada para manter a produção operante até o corte.
+- **Origem do onboarding:** `public.users.id=b4ef5316-f42a-4e6a-acab-74fb444a40e4` (`Raffastudio`, USER). Antes da mesclagem tinha a identidade Google e e-mail, perfil principal próprio, credenciais sociais vazias e logs, mas nenhum produto, post ou lista.
+- **Operação SQL atômica `DO` com `FOR UPDATE`, pré-condições e rollback automático em erro:** desassociou e-mail/UUID Auth da origem e associou-os ao ADMIN antigo; transferiu os campos de aceite legal (sem alterar GPS), preservando IDs e dados de ambos os registros. **Nenhum usuário, perfil, log, token social ou publicação foi excluído ou reatribuído.** O USER provisório permanece sem Google/e-mail, apenas para auditoria e reversão; limpeza futura exige inventário e autorização específicos.
+- **Verificação SQL após commit:** o ADMIN possui o UUID Google/e-mail confirmado, papel ADMIN, 1 perfil principal antigo, 6 produtos, 6 posts, 4 listas e 30 eventos de auditoria; origem mantém perfil e 19 request logs; `RafaelTesteCliente` (`2e895580-b2ac-4254-83ce-f465e77918c1`) intacta e ainda sem Auth.
+- **Sessão/UI:** antes da transferência, browser em staging exibiu `Perfil ativo: Raffastudio` com zero produtos; foi feito logout e confirmado `/login`. **Validação do novo login Google na conta ADMIN NÃO concluída:** o pedido de autenticação no browser foi recusado; não repetir sem nova solicitação do usuário. Ao autorizar novo teste, confirmar `Perfil ativo: rafastudio`, Painel Admin, 6 produtos, perfil/credenciais e logout. Não alegar E2E concluído.
+- **Pendentes:** Google `rafael.c.m.galvao@gmail.com` e mesclagem de `RafaelTesteCliente` somente após novo consentimento explícito; validação de login e sessão Google do ADMIN, envio real SMTP/recovery, substituição de JWT interna e corte de senha legada. **Não publicar migração em main ainda.**
+- **Reversibilidade:** dados e hashes anteriores preservados; eventual desfazer deve ocorrer em nova transação com conferências de IDs/únicos e retornar o `supabase_auth_user_id` e e-mail ao USER provisório, limpando-os do ADMIN; avaliar também os campos de termos, nunca reverter sem ordem do proprietário.
