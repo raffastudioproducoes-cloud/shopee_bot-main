@@ -306,7 +306,12 @@ async def login(
         pwd_context.hash("dummy_password_for_timing")
         raise HTTPException(status_code=401, detail=_INVALID_LOGIN_DETAIL)
 
-    if not pwd_context.verify(form_data.password, user.get("password", "")):
+    # Contas Supabase Auth não têm senha local. Contas antigas continuam
+    # disponíveis exclusivamente até a associação manual final.
+    if user.get("supabase_auth_user_id"):
+        raise HTTPException(status_code=401, detail=_INVALID_LOGIN_DETAIL)
+    local_password = user.get("password")
+    if not local_password or not pwd_context.verify(form_data.password, local_password):
         raise HTTPException(status_code=401, detail=_INVALID_LOGIN_DETAIL)
 
     principal = (
@@ -428,7 +433,7 @@ async def reset_password(payload: ResetPasswordRequest):
         pwd_context.hash("dummy_password_for_timing")
         return generic_response
 
-    if not pwd_context.verify(payload.current_password, user.get("password", "")):
+    if not user.get("password") or user.get("supabase_auth_user_id") or not pwd_context.verify(payload.current_password, user["password"]):
         # Mesma resposta genérica de "usuário não existe" — não revela se
         # foi o username ou a senha atual que estava errada.
         return generic_response
@@ -444,8 +449,9 @@ async def reset_password(payload: ResetPasswordRequest):
 
 @router.post("/register", status_code=201)
 async def register(body: RegisterRequest, request: Request):
-    """Cadastro público. Sempre cria com access="USER" — o cliente não tem
-    como enviar ADMIN, o campo nem existe no schema de entrada."""
+    """Cadastro legado, indisponível quando o Supabase Auth for ativado."""
+    if settings.supabase_auth_enabled:
+        raise HTTPException(status_code=410, detail="Utilize cadastro por e-mail no Supabase Auth.")
     ip = client_ip(request)
     if rate_limit_store.distributed_enabled():
         if not rate_limit_store.acquire_cooldown(
