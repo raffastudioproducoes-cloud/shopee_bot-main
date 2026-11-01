@@ -476,7 +476,7 @@ export function PostsPage() {
                     </span>
                     {post.last_result?.at && (
                       <span className="csp-named-meta">
-                        {["published", "manual_confirmed", "reported_removed"].includes(post.last_result.status ?? "") ? "Última publicação: " : "Última execução: "}
+                        {post.last_result.status === "published" ? "Última publicação: " : "Último registro: "}
                         {formatUtcTimestampBrasilia(post.last_result.at)}
                       </span>
                     )}
