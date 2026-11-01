@@ -56,3 +56,18 @@ test("Preview tem controle de reprodução, scrub, acessibilidade e bloqueio de 
   assert.match(source, /EM DESENVOLVIMENTO/)
   assert.match(source, /Estudo criativo, ainda não aprovado/)
 })
+
+test("V3.1 corrige somente o lockup final da marca, sem duplicar a órbita e sem importar imagens", async () => {
+  const source = await read("src/pages/OrbitalPilotPage.tsx")
+  const css = await read("src/pages/OrbitalPilotPage.css")
+  assert.match(source, /function OrbitalSignature/)
+  assert.match(source, /ao3-signature-horizon-space/)
+  assert.match(source, /<svg className="ao3-signature-glyph"/)
+  assert.match(source, /radialGradient id="ao3-glyph-shadow"/)
+  assert.match(source, /ao3-signature-auto/)
+  assert.match(source, /ao3-signature-rbital/)
+  assert.doesNotMatch(source, /ao3-signature-orbit|ao3-signature-point/)
+  assert.doesNotMatch(css, /ao3-signature-ring|ao3-signature-orbit/)
+  assert.ok(source.includes("Produtos encontram seu caminho. Sua rotina encontra mais controle."))
+  assert.match(source, /AUTOMAÇÃO COMPLETA COM IA · EM DESENVOLVIMENTO/)
+})
