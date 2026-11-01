@@ -35,7 +35,7 @@ export interface RegistrationPendingResponse {
 }
 
 export const authApi = {
-  async capabilities(): Promise<{ email_enabled: boolean; email_signup_enabled: boolean; google_enabled: boolean }> {
+  async capabilities(): Promise<{ email_enabled: boolean; email_signup_enabled: boolean; google_enabled: boolean; legacy_support_enabled: boolean }> {
     return api.get('/auth/supabase/config')
   },
 

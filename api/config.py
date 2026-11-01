@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     supabase_auth_email_signup_enabled: bool = True
     supabase_auth_publishable_key: str = ""
     supabase_auth_redirect_base_url: str = ""
+    # Exceção temporária para um único usuário legado de testes da Shopee.
+    # Vazio por padrão: nunca habilitar login antigo indiscriminadamente.
+    supabase_legacy_support_username: str = ""
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
     api_secret_key: str = ""
     frontend_url: str = "http://localhost:5173"
