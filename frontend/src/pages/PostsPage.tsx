@@ -49,7 +49,7 @@ import { SegmentedToggle } from "../components/ui/SegmentedToggle"
 import { PageSkeleton } from "../components/ui/Skeleton"
 import { PostDetailsModal } from "../components/posts/PostDetailsModal"
 import { usePostsSearchStore } from "../stores/postsSearchStore"
-import { matchesPost, postKind, scheduleLines } from "../components/posts/postPresentation"
+import { compactScheduleSummary, matchesPost, postKind, recurringInProgress, scheduleLines } from "../components/posts/postPresentation"
 
 // Ver buildSchedule: run_date de segurança do "Agora" (disparado de fato
 // assim que a mídia termina de subir).
@@ -432,29 +432,28 @@ export function PostsPage() {
                   <p
                     id={`post-text-${post.id}`}
                     className="post-list-copy"
+                    title={post.texts?.[0] || post.text}
                     style={{
                       margin: 0,
                       font: "var(--text-role-body)",
                       color: "var(--text-body)",
-                      whiteSpace: "pre-wrap",
                       overflow: "hidden",
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
+                      whiteSpace: "nowrap",
+                      textOverflow: "ellipsis",
                     }}
                   >
                     {post.texts?.[0] || post.text}
                   </p>
-                  {post.products.length > 0 && (
-                    <div className="post-list-products" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                      {post.products.map((p) => (
-                        <Badge key={p.id} tone="outline">
-                          {p.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  <div className="post-list-meta" style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+                  <div className="post-list-meta" style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 7, flexWrap: "wrap" }}>
+                    {post.products.length > 0 && (
+                      <span
+                        className="csp-named-meta"
+                        title={post.products.map((product) => product.name).join(" · ")}
+                        style={{ maxWidth: 340, minWidth: 0, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}
+                      >
+                        {post.products[0].name}{post.products.length > 1 ? ` +${post.products.length - 1}` : ""}
+                      </span>
+                    )}
                     {(groups.has(post.id) ? networksByGroup.get(groups.get(post.id)!.key) ?? [post.network ?? "threads"] : [post.network ?? "threads"]).map((network) => (
                       <Badge tone="outline" key={network}>
                         <span className="csp-s-0318">
@@ -463,28 +462,9 @@ export function PostsPage() {
                         </span>
                       </Badge>
                     ))}
-                    {groups.has(post.id) && (
-                      <Badge tone="glass">
-                        Grupo · {groups.get(post.id)!.size} redes
-                      </Badge>
-                    )}
-                    <StatusBadge tone="info" icon={postKind(post) === "Imediato" ? "send" : "calendar-clock"}>
-                      {postKind(post)}
-                    </StatusBadge>
-                    <span className="csp-named-meta">
-                      Criado em {formatUtcTimestampBrasilia(post.created_at)}
-                    </span>
-                    {post.last_result?.at && (
-                      <span className="csp-named-meta">
-                        {post.last_result.status === "published" ? "Última publicação: " : "Último registro: "}
-                        {formatUtcTimestampBrasilia(post.last_result.at)}
-                      </span>
-                    )}
-                    {scheduleLines(post).length > 0 && (
-                      <span className="csp-named-meta" style={{ lineHeight: 1.5, whiteSpace: "normal" }}>
-                        {postKind(post) === "Recorrente" ? "Dias e horários: " : ""}
-                        {scheduleLines(post).join(" · ")}
-                      </span>
+                    <Badge tone="outline">{postKind(post)}</Badge>
+                    {recurringInProgress(post) && (
+                      <StatusBadge tone="info" icon="refresh-cw">Em andamento</StatusBadge>
                     )}
                     {post.last_result?.status === "retry_pending" && (
                       <StatusBadge tone="info" icon="clock">Reenvio na fila</StatusBadge>
@@ -496,9 +476,7 @@ export function PostsPage() {
                       <StatusBadge tone="warning" icon="alert-triangle">Sem confirmação</StatusBadge>
                     )}
                     {post.last_result?.status === "published" && (
-                      <StatusBadge tone="positive" icon="check-circle-2">
-                        Publicado
-                      </StatusBadge>
+                      <StatusBadge tone="positive" icon="check-circle-2">Publicado</StatusBadge>
                     )}
                     {post.last_result?.status === "manual_confirmed" && (
                       <StatusBadge tone="manual" icon="shield-check">Confirmado por você</StatusBadge>
@@ -509,8 +487,23 @@ export function PostsPage() {
                     {post.last_result?.status === "failed" && (
                       <StatusBadge tone="negative" icon="x-circle">Falhou</StatusBadge>
                     )}
+                  </div>
+                  <div
+                    className="post-list-timestamps"
+                    style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 14px", marginTop: 6, font: "var(--fw-regular) var(--fs-caption)/1.4 var(--font-sans)", color: "var(--text-muted)" }}
+                  >
+                    <span>Criado: {formatUtcTimestampBrasilia(post.created_at).replace(/:\d{2}$/, "")}</span>
+                    {post.last_result?.at && (
+                      <span>
+                        {post.last_result.status === "published" ? "Última publicação: " : "Último registro: "}
+                        {formatUtcTimestampBrasilia(post.last_result.at).replace(/:\d{2}$/, "")}
+                      </span>
+                    )}
+                    {compactScheduleSummary(post) && (
+                      <span title={scheduleLines(post).join(" · ")}>{compactScheduleSummary(post)}</span>
+                    )}
                     {!!post.parts_count && post.parts_count > 1 && (
-                      <span className="csp-named-meta">{post.parts_count} partes</span>
+                      <span>{post.parts_count} partes</span>
                     )}
                   </div>
                   {publishMutation.isError && publishMutation.variables === post.id && (
