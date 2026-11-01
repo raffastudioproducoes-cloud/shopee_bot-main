@@ -1,6 +1,6 @@
 # Migração de autenticação — Supabase Auth (e-mail e Google)
 
-> **Estado:** preparação em `feature/supabase-auth-email-google`; NÃO foi ativado em produção.
+> **Estado (01/11/2026):** PR #149 integrado em `staging` (`4c57385`), migration 066 aplicada e registrada no Supabase compartilhado, e Render staging com Google habilitado e segundo deploy `dep-dbjbbtbbc2fs73cb60hg` live. **Produção não ativada. Homologação Google E2E aguarda login real de Rafa nos dois Gmail.**
 > Preservar as duas contas legadas em `public.users`. Não associar IDs de Auth ou mesclar contas sem nova autorização de Rafa.
 > Staging e produção compartilham o mesmo projeto Supabase: qualquer criação de conta ou migration na staging é real nesse banco.
 
@@ -51,7 +51,7 @@ No serviço **staging**:
 
 Quando houver homologação real, configurar as mesmas variáveis no serviço de produção, mas `SUPABASE_AUTH_REDIRECT_BASE_URL=https://shopee-bot-fj0w.onrender.com`.
 
-> Não configurar agora antes da revisão e do deploy controlado. O código tem flag `false` por padrão.
+> **Atualização 01/11/2026:** as quatro variáveis acima foram configuradas somente em staging, via Render, e o deploy está live. O código permanece com padrão `false` e a produção deve continuar sem ativação até homologação real.
 
 ### 4. Esquema e CI
 
@@ -84,7 +84,7 @@ Fontes oficiais:
 - O cadastro exige usuário/nome de usuário, e-mail, senha, senha repetida e aceite dos Termos. O registro continua pendente até a confirmação por e-mail; o site não concede sessão nem cria perfil antes de login confirmado.
 - Testes automatizados de envio (mock), endereço normalizado, ausência de vazamento do erro SMTP, senhas diferentes, token inválido/não confirmado, atualização remota e bloqueio da rota local estão em `tests/api/test_supabase_auth_transition.py`. **Ainda não é teste de entrega real nem de clique em link.**
 - **Limite importante:** a sessão interna JWT permanece ponte de compatibilidade de até 24 horas, e a troca de senha no Supabase não invalida automaticamente todas essas sessões antigas. Revogação de sessões e migração completa de autenticação são pré-requisitos para abertura de produção.
-- **Estado:** arquivos preparados apenas na branch `feature/supabase-auth-email-google`. PR #149 em rascunho; não ativar em produção sem homologação, migração segura das contas existentes e possibilidade comprovada de envio de e-mails.
+- **Estado 01/11/2026:** PR #149 integrado em `staging` e formulário/link Google testados visualmente; ainda não testado login efetivo com identidade Google nem clique real em e-mail. Não ativar em produção sem esses testes, migração segura dos administradores e solução de envio a clientes.
 
 ## Contas existentes — somente no final, nunca por e-mail automático
 
@@ -105,3 +105,16 @@ Fontes oficiais:
 - Concluir o vínculo manual das duas contas antigas somente com autorização final.
 
 **Não promover para main enquanto essas pendências de autenticação essencial e validação real não forem resolvidas.**
+
+## Registro de homologação parcial — staging, 01/11/2026
+
+- [x] PR #149 integrado em `staging` no merge commit `4c57385dba5b07c9d2de1b319d2c5d417cf1c604`; CI do PR verde antes do merge; **não em `main`**.
+- [x] `066_supabase_auth_identities.sql` aplicada ao Supabase `wcentenooirmwwlwlljp` e registrada na tabela `public.migrations` (campo real `aplied_at`). Estrutura/índice/tabela pendente/policy RLS verificados em SQL de leitura.
+- [x] Render staging `srv-daukgs17lnhs738tpl50` com as quatro flags/valores de Auth habilitados e segundo deploy `dep-dbjbbtbbc2fs73cb60hg` live. Logs de inicialização: versão 066 já aplicada, ignorada sem erro.
+- [x] Browser direto no staging mostrou login por e-mail e botão Google habilitado. Modal Criar conta: username, email, senha, confirmação e checkbox obrigatório. Recuperação de senha: email e envio de link.
+- [x] Clique em Google redirecionou à conta oficial do Google com client OAuth existente; URL de retorno indicava `/api/auth/supabase/google/callback` em staging e Supabase `/auth/v1/callback`.
+- [x] SQL de leitura confirmou `rafastudio` (ADMIN) e `RafaelTesteCliente` (USER) ainda sem `supabase_auth_user_id` nem e-mail gravado. Não alterar nem mesclar agora.
+- [ ] **BLOQUEIO DE HOMOLOGAÇÃO E2E**: Rafa deve entrar com `raffastudioproducoes@gmail.com` e `rafael.c.m.galvao@gmail.com` no OAuth Google e concluir onboarding com usernames temporários diferentes dos legados. Testar callback, primeira sessão, segundo login, logout, usuário USER, isolamento de recursos e ausência de associação automática a legados. Nunca registrar credenciais/códigos/URLs de callback com tokens na documentação.
+- [ ] Associar explicitamente as identidades novas às contas legadas apenas na etapa final com nova autorização e plano transacional/verificação de propriedade.
+- [ ] Validar e-mail/recuperação com entrega real a endereços autorizados; sem SMTP próprio não abrir cadastro público por e-mail nem declarar esse fluxo homologado.
+
