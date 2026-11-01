@@ -26,7 +26,6 @@ export default function LoginPage() {
   const [forgotOpen, setForgotOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
   const [capabilities, setCapabilities] = useState({ email_enabled: false, email_signup_enabled: false, google_enabled: false })
-  const [useLegacyLogin, setUseLegacyLogin] = useState(false)
   const [googleSetupOpen, setGoogleSetupOpen] = useState(
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('google_setup') === '1'
   )
@@ -51,7 +50,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      if (capabilities.email_enabled && !useLegacyLogin) {
+      if (capabilities.email_enabled) {
         await authApi.loginEmail(username, password)
       } else {
         await authApi.login(username, password)
@@ -64,7 +63,7 @@ export default function LoginPage() {
       if (err instanceof Error && 'status' in err) {
         const apiError = err as { status: number; message: string }
         if (apiError.status === 401) {
-          setError(capabilities.email_enabled && !useLegacyLogin
+          setError(capabilities.email_enabled
             ? 'E-mail ou senha inválidos'
             : 'Usuário ou senha inválidos')
         } else {
@@ -110,13 +109,13 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="csp-login-09">
             <TextInput
-              label={capabilities.email_enabled && !useLegacyLogin ? 'E-mail' : 'Usuário'}
+              label={capabilities.email_enabled ? 'E-mail' : 'Usuário'}
               icon="user"
-              type={capabilities.email_enabled && !useLegacyLogin ? 'email' : 'text'}
+              type={capabilities.email_enabled ? 'email' : 'text'}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              placeholder={capabilities.email_enabled && !useLegacyLogin ? 'Digite seu e-mail' : 'Digite seu usuário'}
+              placeholder={capabilities.email_enabled ? 'Digite seu e-mail' : 'Digite seu usuário'}
               autoComplete="username"
             />
 
@@ -163,14 +162,7 @@ export default function LoginPage() {
               )}
             </Button>
 
-            {capabilities.email_enabled && (
-              <button type="button" className="csp-login-17"
-                onClick={() => { setUseLegacyLogin(v => !v); setUsername(''); setPassword(''); setError('') }}>
-                {useLegacyLogin ? 'Entrar com e-mail' : 'Tenho uma conta antiga (temporário)'}
-              </button>
-            )}
-
-            <div className="csp-login-16">
+                        <div className="csp-login-16">
               <button
                 type="button"
                 onClick={() => setForgotOpen(true)}
