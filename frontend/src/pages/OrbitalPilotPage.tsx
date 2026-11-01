@@ -177,15 +177,22 @@ function Sheet({ index, progress }: { index: number; progress: number }) {
   const orbitY = Math.sin(angle) * (74 + (index % 2) * 16)
   const x = lerp(beforeX, orbitX, capture)
   const y = lerp(beforeY, orbitY, capture)
+  // Cada ficha ocupa uma camada de profundidade própria e oscila levemente,
+  // sem alterar posições, marcos de entrada/saída ou a câmera geral da cena.
+  const baseDepth = [28, -96, 91, -42, 74, -63, 112, -107][index]
+  const drift = Math.sin(progress * 12 + index * 1.47) * 10
+  const z = lerp(baseDepth * lerp(.8, 1.15, scramble) + drift, Math.sin(angle) * 128 + Math.cos(angle * 1.7) * 18, capture)
   const depth = 1 + Math.sin(angle) * .19
   const rotation = lerp((index % 2 ? 1 : -1) * (9 + index * 4), Math.sin(angle) * 19, capture)
-  // Flip controlado: duas faces programáticas, sem backface oculta do browser.
+  const tiltX = lerp((index % 3 - 1) * 9 + Math.cos(progress * 10 + index) * 4, Math.cos(angle) * 16, capture)
+  const tiltY = lerp((index % 2 ? 1 : -1) * (12 + index) + Math.sin(progress * 11 + index * .8) * 4, Math.sin(angle) * 19, capture)
+  // Virada física de meia-volta: as faces ocupam lados opostos de uma ficha com espessura.
   const convert = ease(.49 + index * .008, .585 + index * .008, progress)
-  const flip = Math.max(.07, Math.abs(Math.cos(convert * Math.PI)))
+  const turn = convert * 180
   const style: CSSProperties = {
     opacity: born * (1 - exit),
-    transform: "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px," + (capture * Math.sin(angle) * 80).toFixed(1) + "px) rotate(" + rotation.toFixed(2) + "deg) scaleX(" + flip.toFixed(3) + ") scale(" + (lerp(.87, depth, capture)).toFixed(3) + ")",
-    zIndex: Math.sin(angle) > 0 ? 6 : 2,
+    transform: "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px," + z.toFixed(1) + "px) rotateZ(" + rotation.toFixed(2) + "deg) rotateX(" + tiltX.toFixed(2) + "deg) rotateY(" + (tiltY + turn).toFixed(2) + "deg) scale(" + lerp(.87, depth, capture).toFixed(3) + ")",
+    zIndex: Math.round(z / 5) + 50,
   }
   return (
     <div className="ao3-sheet" style={style} aria-hidden="true">
@@ -203,7 +210,7 @@ function Sheet({ index, progress }: { index: number; progress: number }) {
         <small>Post preparado</small>
         <div className="ao3-card-foot">Rede selecionada <span>✓</span></div>
       </div>
-      <span className="ao3-action">{item.action}</span>
+      <span className="ao3-action" style={{ transform: "translateX(-50%) rotateY(" + (-turn).toFixed(2) + "deg) translateZ(12px)" }}>{item.action}</span>
     </div>
   )
 }
