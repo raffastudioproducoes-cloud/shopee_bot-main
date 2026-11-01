@@ -395,8 +395,6 @@ async def me(request: Request):
 
 @router.post("/reset-password")
 async def reset_password(payload: ResetPasswordRequest):
-    if settings.supabase_auth_enabled:
-        raise HTTPException(status_code=410, detail="Senha gerenciada pelo Supabase Auth.")
     """Troca de senha self-service, exigindo prova de posse da conta.
 
     Este endpoint NÃO é um fluxo de "esqueci minha senha" de verdade — o
@@ -409,6 +407,8 @@ async def reset_password(payload: ResetPasswordRequest):
     errada/sucesso, tempo de resposta equalizado (hash bcrypt dummy quando
     o usuário não existe) e cooldown por username.
     """
+    if settings.supabase_auth_enabled:
+        raise HTTPException(status_code=410, detail="Senha gerenciada pelo Supabase Auth.")
     if rate_limit_store.distributed_enabled():
         if not rate_limit_store.acquire_cooldown(
             "reset", payload.username.casefold(), _RESET_COOLDOWN_SECONDS
