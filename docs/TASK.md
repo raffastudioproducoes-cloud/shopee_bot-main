@@ -1,3 +1,12 @@
+## 01/11/2026 — Refinamento V3.2: apenas cards com profundidade tridimensional (em homologação)
+
+- [x] **Escopo de Rafa:** preservar integralmente as cenas/timeline/câmera/identidade da V3.1 e aprimorar somente as fichas de produto e propaganda, evitando aparência plana.
+- [x] **Alteração em branch isolada:** `fix/landing-pilot-3d-cards-v32`; apenas `Sheet`, estilos `ao3-sheet*` e testes de contrato, sem novas dependências.
+- [ ] **CI + Render staging live:** verificar testes do frontend, build e demais jobs antes de marcar.
+- [ ] **QA visual e aprovação:** inspecionar quadros de cartões, transformação física e legibilidade (desktop/mobile), sem assumir aprovação definitiva.
+- [ ] **Promoção à landing principal e main:** não autorizada; manter a prévia em `/presentation/pilot` isolada.
+
+
 ## 01/11/2026 — Motion V3 PROCEDURAL / V2 REPROVADA
 
 - [x] **Rafa reprovou a V2:** cartões colados, PNG do buraco negro e movimentos desconectados da narrativa. Não promover V2.
