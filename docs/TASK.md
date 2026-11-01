@@ -1,3 +1,10 @@
+## Correção do retorno Google pós-mesclagem — PR #153, 01/11/2026
+
+- [x] Causa identificada por logs reais e leitura do SHA staging `645c815`: Supabase `/token` e `/user` 200, Render callback 303; frontend `PanelPage` redirecionava para `/login` porque o Zustand `isAuthenticated=false`, **antes** de consultar o cookie recém-criado em `/auth/me`.
+- [x] [PR #153](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/153) preparado: `PanelPage` recupera usuário exclusivamente de `/auth/me` e reidrata o store com sessão validada; erros continuam levando ao login. **Ainda em revisão/CI, não declarar deploy ou E2E concluídos.**
+- [ ] Exigir CI verde e deploy `live` em staging; teste real do Gmail ADMIN deve mostrar `rafastudio`, acesso ADMIN e 6 produtos/6 posts/4 listas. Produção não ativar.
+- [ ] `RafaelTesteCliente`: usuário legado destinado a testes do suporte Shopee, deverá manter login com nome de usuário e senha, **sem qualquer e-mail/Google associado**. O hash atual está em `public.users` do Supabase, mas validação continua na API Render; Supabase GoTrue não possui login nativo por username sem e-mail/telefone. Não atribuir e-mail fictício, alterar senha, vincular identidade ou desativar acesso antes de uma decisão de arquitetura e aprovação explícita.
+
 ## Autenticação Google — primeiro vínculo manual concluído, 01/11/2026
 
 - [x] Migração 066 registrada; PR #149 staging, Google Auth só em staging. Callback fixado no PR #152; CI #419 verde, deploy `645c815` live; /token e /user 200 em OAuth real.
