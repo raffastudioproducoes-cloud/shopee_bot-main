@@ -59,13 +59,13 @@ const chapters = [
 ]
 
 function Paper({ index, progress }: { index: number; progress: number }) {
-  const entry = smooth(.02 + index * .013, .2 + index * .014, progress)
+  const entry = index === 0 ? 1 : smooth(.02 + index * .013, .2 + index * .014, progress)
   const crowd = smooth(.18, .36, progress)
   const gravity = smooth(.39, .57, progress)
   const orbit = smooth(.51, .63, progress)
   const exit = smooth(.84, .95, progress)
   const initialAngle = index * 2.3999
-  const spread = 105 + index * 22
+  const spread = index === 0 ? 0 : 105 + index * 22
   const originalX = Math.cos(initialAngle) * spread
   const originalY = Math.sin(initialAngle) * spread * .7
   const scatteredX = originalX + (index % 2 ? 55 : -68) * crowd
@@ -80,7 +80,8 @@ function Paper({ index, progress }: { index: number; progress: number }) {
   const x = mix(scatteredX, mix(spiralX, orbitalX, orbit), gravity)
   const y = mix(scatteredY, mix(spiralY, orbitalY, orbit), gravity)
   const z = gravity * (36 + Math.sin(orbitalAngle) * 145)
-  const turn = mix(-13 + index * 9 + crowd * 25, 180 + (index % 3) * 360, smooth(.51, .72, progress))
+  const conversion = smooth(.51, .68, progress)
+  const turn = mix(-13 + index * 9 + crowd * 25, 180, conversion)
   const rot = mix((index - 4) * 14, Math.sin(orbitalAngle) * 23, gravity)
   const scale = mix(.72 + (index % 3) * .09, .78 + (Math.sin(orbitalAngle) + 1) * .16, gravity)
   const opacity = entry * (1 - exit)
@@ -91,14 +92,14 @@ function Paper({ index, progress }: { index: number; progress: number }) {
   }
   return (
     <div className="ao-film-paper" style={style} aria-hidden="true">
-      <div className="ao-film-paper-face ao-film-paper-face--product">
+      <div className="ao-film-paper-face ao-film-paper-face--product" style={{ opacity: 1 - conversion }}>
         <span className="ao-film-page-index">CATÁLOGO / {String(index + 1).padStart(2, "0")}</span>
         <div className="ao-film-product-thumb"><span /><i /><b /></div>
         <strong>PRODUTO</strong>
         <i className="ao-film-paper-line" /><i className="ao-film-paper-line short" />
         <span className="ao-film-paper-price">OPORTUNIDADE</span>
       </div>
-      <div className="ao-film-paper-face ao-film-paper-face--ad">
+      <div className="ao-film-paper-face ao-film-paper-face--ad" style={{ opacity: conversion }}>
         <div className="ao-film-ad-signal"><span /> PEÇA PRONTA</div>
         <div className="ao-film-ad-visual"><span /></div>
         <strong>DIVULGAÇÃO</strong>
