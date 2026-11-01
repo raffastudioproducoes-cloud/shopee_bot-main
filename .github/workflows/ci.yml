@@ -97,7 +97,7 @@ jobs:
       - run: npm ci
 
       - name: Contrato de rotas da landing
-        run: node --test tests/landing-entry-routing.test.mjs
+        run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs
 
       - name: Build (tsc && vite build)
         run: npm run build
