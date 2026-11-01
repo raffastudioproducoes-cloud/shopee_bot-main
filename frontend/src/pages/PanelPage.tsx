@@ -33,7 +33,7 @@ const adminNavItems: SideRailItem[] = [
 export function PanelPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout, setUser, isAuthenticated, isRoleVerified, setRoleVerified } = useAuthStore()
+  const { user, login, logout, setUser, isAuthenticated, isRoleVerified, setRoleVerified } = useAuthStore()
   const [menuOpen, setMenuOpen] = useState(false)
   const [logoutError, setLogoutError] = useState(false)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
@@ -55,13 +55,21 @@ export function PanelPage() {
   useEffect(() => setMenuOpen(false), [location.pathname])
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate({ to: '/login' })
-      return
-    }
+    let active = true
 
-    authApi.me()
+    // O callback OAuth Google cria o cookie httpOnly e volta para "/".
+    // Após um logout, o Zustand ainda está deslogado: recuperar a sessão
+    // pelo backend antes de decidir que o usuário precisa voltar ao login.
+    void authApi.me()
       .then((userData) => {
+        if (!active) return
+
+        // Também evita manter o perfil de outra conta quando o cookie mudou.
+        if (!isAuthenticated || user?.id !== userData.id) {
+          login('', userData)
+          return
+        }
+
         setUser(userData)
         setRoleVerified(true)
         if (userData.access === 'ADMIN' && location.pathname === '/' && !isAdminVisitingSite()) {
@@ -69,10 +77,13 @@ export function PanelPage() {
         }
       })
       .catch(() => {
-        logout()
+        if (!active) return
+        if (isAuthenticated) logout()
         navigate({ to: '/login' })
       })
-  }, [isAuthenticated, navigate, logout, setRoleVerified, setUser])
+
+    return () => { active = false }
+  }, [isAuthenticated, user?.id, login, navigate, logout, setRoleVerified, setUser, location.pathname])
 
   if (!isAuthenticated) {
     return null
