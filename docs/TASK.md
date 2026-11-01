@@ -1,3 +1,11 @@
+## 01/11/2026 — Futuro vídeo cinematográfico de apresentação no LOGIN (documentação, sem código)
+
+- [x] **Decisão registrada:** Rafa quer substituir futuramente o vídeo atual da caixa em `/login` por uma animação premium original, com **logo oficial 100% fiel** e resumo visual de valor para afiliados; não aceita simples caixa/card e não autorizou implementar agora.
+- [x] **Especificação técnica/QA:** [`docs/LOGIN-ANIMACAO-CINEMATOGRAFICA.md`](LOGIN-ANIMACAO-CINEMATOGRAFICA.md), complementada pelo [Vault 44](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/44-Planejamento-Animacao-Cinematografica-Login-Auto-Orbital.md). Documentação em branch e PR de revisão, sem efeito no site até integração.
+- [ ] **LG.1 storyboard e direção fina — BLOQUEADO:** validar arte oficial, capacidades reais, copy com `vender-com-valor`, cenas desktop/mobile, poster, duração e proposta visual com Rafa.
+- [ ] **LG.2 render/integração — NÃO AUTORIZADO:** protótipo silencioso; depois branch isolada de staging, testes login Supabase/Google/usuário de suporte Shopee, `prefers-reduced-motion`, carga de vídeo e fallback; aprovação explícita antes de `main`.
+- **Arquivos de produção preservados:** `frontend/src/pages/LoginPage.tsx`, `LoginPage.css` e `frontend/public/videos/login-bg.mp4`. Sem alterar autenticação, vídeo, rotas ou dependências neste registro.
+
 ## 01/11/2026 — Correção do login temporário Shopee (PR #166, somente staging)
 
 - [x] **Erro reproduzido:** Rafa tentou `RafaelTesteCliente` em `/login`, mas o campo HTML `type=email` bloqueou o envio antes de chegar ao backend. O link anterior “Acesso temporário para suporte Shopee” não era suficientemente evidente.
