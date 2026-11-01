@@ -296,7 +296,12 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
     if settings.supabase_auth_enabled:
-        raise HTTPException(status_code=410, detail="Utilize o login Supabase Auth.")
+        # Transição controlada: somente a conta de suporte explicitamente
+        # configurada mantém usuário/senha. O login Google/e-mail das demais
+        # contas permanece exclusivamente no Supabase Auth.
+        allowed_username = settings.supabase_legacy_support_username.strip().casefold()
+        if not allowed_username or form_data.username.casefold() != allowed_username:
+            raise HTTPException(status_code=410, detail="Utilize o login Supabase Auth.")
 
     # A identidade é estável mesmo quando o proxy alterna o IP de origem entre
     # requisições. Isso impede contornar o limite mudando de conexão.
@@ -312,6 +317,11 @@ async def login(
     # Contas Supabase Auth não têm senha local. Contas antigas continuam
     # disponíveis exclusivamente até a associação manual final.
     if user.get("supabase_auth_user_id"):
+        raise HTTPException(status_code=401, detail=_INVALID_LOGIN_DETAIL)
+    if settings.supabase_auth_enabled and (
+        user.get("username", "").casefold() != allowed_username
+        or user.get("access") != "USER"
+    ):
         raise HTTPException(status_code=401, detail=_INVALID_LOGIN_DETAIL)
     local_password = user.get("password")
     if not local_password or not pwd_context.verify(form_data.password, local_password):
