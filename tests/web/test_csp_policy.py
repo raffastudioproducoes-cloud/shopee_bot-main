@@ -96,7 +96,8 @@ def test_generated_stylesheet_covers_all_static_csp_classes():
     referenced = set()
     for component in style_root.rglob("*.tsx"):
         referenced.update(re.findall(r"className=\"((?:csp-s-)\d{4})\"", component.read_text(encoding="utf-8")))
-    assert len(declared) >= 399
+    # Três seletores da troca local de senha foram removidos ao migrar para e-mail.
+    assert len(declared) >= 396
     assert declared == referenced, "Cada classe CSP estatica deve existir no CSS e ser usada no JSX"
 
 
