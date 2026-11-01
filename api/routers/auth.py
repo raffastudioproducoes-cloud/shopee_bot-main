@@ -295,6 +295,9 @@ async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
+    if settings.supabase_auth_enabled:
+        raise HTTPException(status_code=410, detail="Utilize o login Supabase Auth.")
+
     # A identidade é estável mesmo quando o proxy alterna o IP de origem entre
     # requisições. Isso impede contornar o limite mudando de conexão.
     _check_login_rate_limit(f"login:{form_data.username.casefold()}")
@@ -392,6 +395,8 @@ async def me(request: Request):
 
 @router.post("/reset-password")
 async def reset_password(payload: ResetPasswordRequest):
+    if settings.supabase_auth_enabled:
+        raise HTTPException(status_code=410, detail="Senha gerenciada pelo Supabase Auth.")
     """Troca de senha self-service, exigindo prova de posse da conta.
 
     Este endpoint NÃO é um fluxo de "esqueci minha senha" de verdade — o
