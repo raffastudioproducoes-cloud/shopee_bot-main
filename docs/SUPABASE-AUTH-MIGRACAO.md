@@ -39,6 +39,7 @@
      - `https://shopee-bot-fj0w.onrender.com/login` (confirmação de e-mail)
 3. **Authentication → Providers → Email**: mantenha **Email habilitado e Confirm email ligado**. Configuração pública verificada: `external.google=true`, `external.email=true`, `mailer_autoconfirm=false`, `disable_signup=false`. O envio e clique no e-mail ainda exigem teste real com caixa postal de teste.
 4. Abra **Project Settings / API Keys** e copie a chave `sb_publishable_...` do projeto; **nunca** use a secret/service_role no frontend ou no fluxo público de login.
+5. **Authentication → SMTP Settings**: configure um provedor SMTP próprio e valide remetente/domínio antes de abrir inscrições ao público. O SMTP integrado do Supabase envia confirmações somente aos e-mails da equipe do projeto; uma prova real com e-mail externo não pode ser presumida. Confirmar status no painel e testar entrega/links com conta de teste autorizada. [Documentação oficial SMTP](https://supabase.com/docs/guides/auth/auth-smtp).
 
 ### 3. Configuração Render (sem código de segredo no repositório)
 
@@ -57,7 +58,7 @@ Quando houver homologação real, configurar as mesmas variáveis no serviço de
 - Migration versionada: `database/migrations/066_supabase_auth_identities.sql` adiciona `email` e `supabase_auth_user_id` opcionais, deixa `password` nullable, cria `pending_auth_registrations` com RLS bloqueada ao cliente e preserva IDs e dados legados.
 - Validar schema, backup/reversão, conflitos de e-mail e RLS antes de aplicar. A rotina de migrations do app pode executar DDL no startup: revisar deploy antes de mesclar em staging, já que staging/produção usam o mesmo DB.
 - Executar testes da API e build React. CI não autentica uma conta Google real.
-- Testar manualmente, com contas de teste aprovadas: primeira autorização Google, onboarding com aceite de Termos, retorno, segundo login, logout, criação de perfil, isolamento de outro usuário, ADMIN não concedido, código PKCE adulterado/expirado, mudança de senha e exclusão de conta.
+- Testar manualmente, com contas de teste aprovadas: entrega real do e-mail (SMTP), link de confirmação, negação antes de confirmar, login após confirmar, primeiro provisionamento e segundo login, Google OAuth, logout, criação de perfil, isolamento, ADMIN não concedido e PKCE adulterado/expirado. Testar mudança de senha e exclusão de conta após completar as rotas Supabase correspondentes.
 
 ## Confirmação obrigatória por e-mail (decisão de Rafa)
 
