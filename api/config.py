@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     supabase_key: str = ""
     # Supabase Auth (somente publicável no servidor; nunca usar service_role no fluxo de login).
     supabase_auth_enabled: bool = False
-    # Não habilitar cadastro email público sem comprovação de propriedade da caixa.
-    supabase_auth_email_signup_enabled: bool = False
+    # Cadastro email exige confirmação real pelo Supabase Auth.
+    supabase_auth_email_signup_enabled: bool = True
     supabase_auth_publishable_key: str = ""
     supabase_auth_redirect_base_url: str = ""
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
