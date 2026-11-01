@@ -139,3 +139,19 @@ def test_spa_csp_defines_fallbackless_protective_directives():
     assert "base-uri 'none';" in policy
     assert "form-action 'self';" in policy
     assert "object-src 'none'" in policy
+
+
+def test_spa_staging_host_prohibits_indexing_without_relying_on_js():
+    from shopee_bot.web.routes.spa import _staging_noindex
+
+    with app.test_request_context(
+        "/presentation", headers={"Host": "shopee-bot-staging.onrender.com"}
+    ):
+        response = _staging_noindex(app.response_class("preview"))
+        assert response.headers["X-Robots-Tag"] == "noindex, nofollow"
+
+    with app.test_request_context(
+        "/presentation", headers={"Host": "shopee-bot-fj0w.onrender.com"}
+    ):
+        response = _staging_noindex(app.response_class("preview"))
+        assert "X-Robots-Tag" not in response.headers
