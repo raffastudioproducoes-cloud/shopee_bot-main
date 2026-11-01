@@ -1,6 +1,7 @@
 """API routers package."""
 
 from .auth import router as auth_router
+from .supabase_auth import router as supabase_auth_router
 from .catalog import router as catalog_router
 from .products import router as products_router
 from .lists import router as lists_router
@@ -16,6 +17,7 @@ from .meta_callbacks import router as meta_callbacks_router
 
 __all__ = [
     "auth_router",
+    "supabase_auth_router",
     "catalog_router",
     "products_router",
     "lists_router",
