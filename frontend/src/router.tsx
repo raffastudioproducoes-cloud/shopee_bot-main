@@ -8,6 +8,7 @@ import { PanelPage } from "./pages/PanelPage"
 import { ProductsPage } from "./pages/ProductsPage"
 import { ListasPage } from "./pages/ListasPage"
 import { PostsPage } from "./pages/PostsPage"
+import { PostsAutomationPage } from "./pages/PostsAutomationPage"
 import { CredentialsPage } from "./pages/CredentialsPage"
 import { ProfilesPage } from "./pages/ProfilesPage"
 import { HelpPage } from "./pages/HelpPage"
@@ -119,6 +120,12 @@ const postsRoute = createRoute({
   component: PostsPage,
 })
 
+const postsAutomationRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: "/automacao-posts",
+  component: PostsAutomationPage,
+})
+
 const analyticsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/analytics",
@@ -193,6 +200,7 @@ const routeTree = rootRoute.addChildren([
     productsRoute,
     listsRoute,
     postsRoute,
+    postsAutomationRoute,
     analyticsRoute,
     credentialsRoute,
     profilesRoute,
