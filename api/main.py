@@ -28,6 +28,7 @@ logger = logging.getLogger("uvicorn.error")
 _ready_cache = (0.0, False)
 from .routers import (
     auth_router,
+    supabase_auth_router,
     catalog_router,
     products_router,
     lists_router,
@@ -65,6 +66,7 @@ app.add_middleware(RequestLoggingMiddleware)
 
 # Routers
 app.include_router(auth_router)
+app.include_router(supabase_auth_router)
 app.include_router(admin_router)
 # catalog_router ANTES de products_router: registra rotas literais
 # "/products/catalog-search" e "/products/catalog-categories" — se

@@ -460,6 +460,16 @@ Critérios de aceite: sem layout shift (CLS ~0) na troca esqueleto→conteúdo; 
 
 Status: não iniciado.
 
+## 01/11/2026 — Autenticação Supabase e recuperação por e-mail (PR #149, rascunho)
+
+- [x] **Código preparado no PR #149:** cadastro com nome de usuário, e-mail, duas senhas iguais e aceite dos Termos; login por e-mail/Google dependente da flag; confirmação via Supabase antes de liberar acesso.
+- [x] **Código preparado no PR #149:** modal "Esqueci minha senha" solicita apenas e-mail; Supabase Auth envia link de recuperação; `/login` abre modal com duas senhas e aviso; Configurações deixa de editar senha local quando a flag estiver ativa.
+- [x] **Testes unitários mockados versionados:** falhas de token, senhas diferentes, envio, atualização exclusiva pelo GoTrue e bloqueio de troca local (CI GitHub Actions #415, run 41269584721, `success`; 1004 testes API, 117 scheduler, 4 SQL e 25 web; build React aprovado no SHA `473e450`).
+- [ ] **Homologação real:** aplicar migration 066 de forma controlada, testar cadastro confirmado, login e recuperação com o **e-mail de um membro autorizado** no SMTP padrão; testar link expirado, navegador diferente e Google.
+- [ ] **Segurança:** finalizar sessões Supabase, revogação de JWTs locais na recuperação e preservação das contas legadas.
+- [ ] **Envio externo:** habilitar somente quando houver SMTP próprio autorizado após domínio, conforme a tarefa permanente do Vault; não prometer cadastro aberto ao público com SMTP padrão.
+- [ ] **Promoção:** apenas depois de autorização de Rafa, PR staging com CI verde, smoke e migração segura das contas `rafastudio`/ `RafaelTesteCliente`. Nenhuma alteração de produção nesta rodada.
+
 ## Referências
 
 - `docs/ROADMAP_MIGRACAO.md`, `docs/CHECKLIST_MIGRACAO.md`
