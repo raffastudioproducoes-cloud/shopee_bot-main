@@ -1,3 +1,11 @@
+## 01/11/2026 — Landing Auto Orbital, Fase 1 aprovada: prévia pública em staging
+
+- [x] Rafa autorizou expressamente a Fase 1; escopo canônico integral em [Vault/34-Planejamento](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/34-Planejamento-Landing-Publica-Auto-Orbital.md). Aplicar na narrativa as skills `criar-sites-imersivos-premium` e `vender-com-valor`.
+- [x] Criada branch de implementação `feature/landing-preview-fase1-2026-11-01` a partir de `staging`. Nova rota pública `/apresentacao` não altera a rota `/` autenticada, o login ou os callbacks Google/Supabase.
+- [ ] Finalizar e homologar a prévia com nove etapas narrativas, três cenas ilustrativas/placeholder de Scroll World, CTAs **Ver como funciona** (âncora para demonstração) e **Entrar** (`/login`), layout mobile e reduced motion. Textos distinguem recursos existentes, condicionados e em desenvolvimento; não incluir preços ou checkout.
+- [ ] Registrar CI frontend/build, smoke anônimo HTTP da rota, navegação de CTA, inspeção visual desktop/mobile, sem mudanças em autenticação, API, banco, serviços adicionais ou produção. Somente depois submeter a Rafa para avaliação em staging.
+- [ ] **PRINCIPAIS GATES FUTUROS:** vídeos definitivos, promoção de `/` para landing e dashboard `/app`, migração de rotas OAuth, cadastro/planos/cobrança e deploy em `main` dependem de planejamento adicional, QA e autorização separada de Rafa.
+
 ## 01/11/2026 — Placeholder de Automação de posts (apenas interface)
 
 - [x] Criar rota autenticada `/automacao-posts` com página simples e texto **“Automação de posts em breve”**, reutilizando o design system (Mona Sans, painel escuro, cores e ícone Lucide).
