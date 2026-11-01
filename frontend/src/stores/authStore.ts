@@ -4,7 +4,7 @@ import { useProfileStore } from './profileStore'
 import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
 
 export interface User {
-  id: number
+  id: string
   username: string
   access: string
 }
