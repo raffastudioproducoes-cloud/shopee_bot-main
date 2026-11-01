@@ -128,17 +128,25 @@ class CompleteGoogle(BaseModel):
 
 @router.get("/config")
 async def configuration():
-    enabled = bool(settings.supabase_auth_enabled and settings.supabase_auth_publishable_key)
-    return {"email_enabled": enabled,
-            "email_signup_enabled": enabled and settings.supabase_auth_email_signup_enabled,
-            "google_enabled": enabled and bool(settings.supabase_auth_redirect_base_url)}
+    enabled = bool(
+        settings.supabase_auth_enabled
+        and settings.supabase_auth_publishable_key
+        and settings.supabase_auth_redirect_base_url
+    )
+    return {
+        "email_enabled": enabled,
+        "email_signup_enabled": enabled and settings.supabase_auth_email_signup_enabled,
+        "google_enabled": enabled,
+    }
 
 
-@router.post("/register", status_code=201)
-async def register_email(body: EmailRegistration, request: Request):
+@router.post("/register", status_code=202)
+async def register_email(body: EmailRegistration, request: Request, response: Response):
     _require_config()
     if not settings.supabase_auth_email_signup_enabled:
-        raise HTTPException(403, "Cadastro por e-mail aguardando verificação de segurança.")
+        raise HTTPException(403, "Cadastro por e-mail indisponível.")
+    if not settings.supabase_auth_redirect_base_url:
+        raise HTTPException(503, "Redirecionamento de confirmação não configurado.")
     _check_login_rate_limit(f"supabase-register:{client_ip(request)}")
     if body.accepted_terms_version != TERMS_VERSION:
         raise HTTPException(422, "Aceite os Termos de Uso vigentes.")
@@ -146,20 +154,46 @@ async def register_email(body: EmailRegistration, request: Request):
     _validate_password_length(body.password)
     if body.password != body.confirm_password:
         raise HTTPException(422, "As senhas não coincidem.")
+
     email = _normalized_email(body.email)
+    db = get_supabase()
+    if db.table("users").select("id").eq("username", body.username).limit(1).execute().data:
+        raise HTTPException(409, "Nome de usuário já existe.")
+
+    # A verificação pertence ao Supabase Auth; a aplicação não aprova o
+    # cadastro por conta própria nem cria um usuário comercial antes da confirmação.
+    redirect_url = settings.supabase_auth_redirect_base_url.rstrip("/") + "/login"
     try:
         result = _auth_client().auth.sign_up({
-            "email": email, "password": body.password,
+            "email": email,
+            "password": body.password,
+            "options": {"email_redirect_to": redirect_url},
         })
     except Exception:
-        logger.warning("Supabase Auth recusou cadastro", exc_info=False)
-        raise HTTPException(400, "Não foi possível criar a conta com esse e-mail.") from None
-    if not result.user or not result.session:
-        # Não provisionar sem sessão válida. Desative a confirmação de e-mail
-        # no painel Supabase conforme decisão explícita do proprietário.
-        raise HTTPException(409, "Cadastro pendente no Supabase. Verifique a configuração de confirmação de e-mail.")
-    user = _create_local_account(body.username, email, str(result.user.id))
-    return {"id": user["id"], "username": user["username"], "access": "USER"}
+        logger.warning("Falha no início do cadastro com confirmação", exc_info=False)
+        raise HTTPException(503, "Não foi possível enviar a confirmação agora.") from None
+
+    if result.session:
+        # Falha segura se alguém desligar Confirm Email por engano.
+        raise HTTPException(503, "Confirmação de e-mail obrigatória no Supabase Auth.")
+    if result.user:
+        try:
+            db.table("pending_auth_registrations").insert({
+                "auth_user_id": str(result.user.id),
+                "email": email,
+                "username": body.username,
+                "legal_terms_version": TERMS_VERSION,
+                "legal_terms_accepted_at": datetime.now(timezone.utc).isoformat(),
+            }).execute()
+        except Exception:
+            # GoTrue pode retornar usuário ofuscado quando o e-mail já existe.
+            # Não revelar existência de conta; login posterior é validado
+            # exclusivamente pelo Auth e pelo vínculo pendente.
+            logger.warning("Solicitação de cadastro sem registro pendente", exc_info=False)
+    return {
+        "msg": "Se este e-mail puder ser cadastrado, você receberá uma mensagem para confirmar sua conta.",
+        "email_confirmation_required": True,
+    }
 
 
 @router.post("/login")
@@ -171,13 +205,28 @@ async def login_email(body: EmailLogin, request: Request, response: Response):
         result = _auth_client().auth.sign_in_with_password({
             "email": email, "password": body.password,
         })
-    except Exception:
+    except Exception as exc:
+        if getattr(exc, "code", None) == "email_not_confirmed":
+            raise HTTPException(403, "Confirme seu e-mail antes de entrar.") from None
         raise HTTPException(401, "E-mail ou senha inválidos.") from None
     if not result.user or not result.session:
         raise HTTPException(401, "E-mail ou senha inválidos.")
-    user = _local_user(str(result.user.id))
+    if not getattr(result.user, "email_confirmed_at", None):
+        raise HTTPException(403, "Confirme seu e-mail antes de entrar.")
+
+    auth_id = str(result.user.id)
+    user = _local_user(auth_id)
     if not user:
-        raise HTTPException(403, "Identidade ainda não associada a uma conta do Auto Orbital.")
+        db = get_supabase()
+        row = (db.table("pending_auth_registrations")
+               .select("auth_user_id,email,username,legal_terms_version")
+               .eq("auth_user_id", auth_id).maybe_single().execute())
+        pending = row.data if row else None
+        if not pending or _normalized_email(pending["email"]) != email or pending["legal_terms_version"] != TERMS_VERSION:
+            raise HTTPException(403, "Cadastro ainda não concluído. Contate o suporte.")
+        user = _create_local_account(pending["username"], email, auth_id)
+        db.table("pending_auth_registrations").delete().eq("auth_user_id", auth_id).execute()
+
     _issue_session(response, user)
     return {"msg": "Login realizado com Supabase Auth"}
 
