@@ -15,9 +15,10 @@ test('endereco de compartilhamento presentation permanece publico e alias legado
   assert.match(legacy, /redirect\(\{\s*to:\s*["']\/presentation["']/)
 })
 
-test('html inicial anuncia presentation aos compartilhadores com imagem HTTPS', async () => {
+test('html inicial usa URL compartilhada de cada ambiente e imagem HTTPS', async () => {
   const html = await read('index.html')
-  assert.match(html, /property="og:url" content="https:\/\/shopee-bot-fj0w\.onrender\.com\/presentation"/)
+  assert.doesNotMatch(html, /<meta\s+property="og:url"/)
+  assert.doesNotMatch(html, /<link\s+rel="canonical"/)
   assert.match(html, /property="og:image" content="https:\/\/shopee-bot-fj0w\.onrender\.com\/brand\/og-image\.png"/)
   assert.match(html, /name="twitter:card" content="summary_large_image"/)
   assert.match(html, /<meta name="description" content="[^"]+"/)
