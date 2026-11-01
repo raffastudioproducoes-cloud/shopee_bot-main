@@ -121,6 +121,16 @@ class EmailLogin(BaseModel):
     password: str
 
 
+class PasswordRecoveryRequest(BaseModel):
+    email: str
+
+
+class PasswordRecoveryComplete(BaseModel):
+    access_token: str = Field(min_length=20, max_length=16384)
+    new_password: str
+    confirm_password: str
+
+
 class CompleteGoogle(BaseModel):
     username: str = Field(min_length=3, max_length=64)
     accepted_terms_version: str
@@ -229,6 +239,74 @@ async def login_email(body: EmailLogin, request: Request, response: Response):
 
     _issue_session(response, user)
     return {"msg": "Login realizado com Supabase Auth"}
+
+
+@router.post("/password/recovery", status_code=202)
+async def request_password_recovery(body: PasswordRecoveryRequest, request: Request):
+    """Somente GoTrue envia o e-mail; a aplicação não gera links nem altera senhas locais."""
+    _require_config()
+    if not settings.supabase_auth_redirect_base_url:
+        raise HTTPException(503, "Redirecionamento de recuperação não configurado.")
+    email = _normalized_email(body.email)
+    limit_msg = "Muitas solicitações de recuperação. Aguarde antes de tentar novamente."
+    _check_login_rate_limit(f"supabase-recovery-email:{email}", detail=limit_msg)
+    _check_login_rate_limit(f"supabase-recovery-ip:{client_ip(request)}", detail=limit_msg)
+    redirect_url = settings.supabase_auth_redirect_base_url.rstrip("/") + "/login"
+    try:
+        _auth_client().auth.reset_password_for_email(
+            email, {"redirect_to": redirect_url},
+        )
+    except Exception:
+        logger.warning("Falha ao solicitar recuperação de senha no Supabase Auth", exc_info=False)
+        raise HTTPException(503, "Não foi possível enviar o e-mail de recuperação agora.") from None
+    # Resposta igual para endereço existente ou inexistente (sem enumeração).
+    return {"msg": "Se existir uma conta para este e-mail, enviaremos um link para redefinir a senha."}
+
+
+@router.post("/password/complete")
+async def complete_password_recovery(body: PasswordRecoveryComplete, request: Request):
+    """Senha atualizada exclusivamente pelo Supabase Auth após autenticar o link de recuperação.
+
+    O token do link chega ao navegador no fragmento e é removido da URL no mount.
+    Somente o token de acesso é enviado; nenhum refresh token ou segredo de serviço.
+    """
+    _require_config()
+    _check_login_rate_limit(
+        f"supabase-recovery-complete:{client_ip(request)}",
+        detail="Muitas tentativas. Aguarde antes de tentar novamente.",
+    )
+    _validate_password_length(body.new_password)
+    if body.new_password != body.confirm_password:
+        raise HTTPException(422, "As senhas não coincidem.")
+
+    try:
+        verified = _auth_client().auth.get_user(body.access_token)
+    except Exception:
+        raise HTTPException(401, "Link de recuperação inválido ou expirado. Solicite outro.") from None
+    if not verified.user or not verified.user.id or not getattr(verified.user, "email_confirmed_at", None):
+        raise HTTPException(401, "Link de recuperação inválido ou expirado. Solicite outro.")
+
+    try:
+        # GoTrue /user aplica a nova senha na identidade Supabase. Nunca alterar
+        # public.users.password, que é apenas legado/compatibilidade.
+        with httpx.Client(timeout=10) as http:
+            result = http.put(
+                settings.supabase_url.rstrip("/") + "/auth/v1/user",
+                headers={
+                    "apikey": settings.supabase_auth_publishable_key,
+                    "Authorization": f"Bearer {body.access_token}",
+                },
+                json={"password": body.new_password},
+            )
+        if result.status_code in (401, 403):
+            raise HTTPException(401, "Link de recuperação inválido ou expirado. Solicite outro.")
+        result.raise_for_status()
+    except HTTPException:
+        raise
+    except httpx.HTTPError:
+        logger.warning("Falha ao atualizar senha no Supabase Auth", exc_info=False)
+        raise HTTPException(503, "Não foi possível redefinir a senha agora.") from None
+    return {"msg": "Senha redefinida no Supabase. Entre novamente com sua nova senha."}
 
 
 def _verify_google_token(token: str):
