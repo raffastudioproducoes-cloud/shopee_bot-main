@@ -365,9 +365,8 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
 
     setLoading(true)
     try {
-      await authApi.register(username, email, password, confirmPassword)
-      setSuccess('Conta criada! Faça login.')
-      setTimeout(onClose, 1500)
+      const result = await authApi.register(username, email, password, confirmPassword)
+      setSuccess(result.msg || 'Enviamos uma confirmação ao seu e-mail. Confirme antes de entrar.')
     } catch (err: unknown) {
       if (err instanceof Error && 'status' in err) {
         setError((err as { message: string }).message || 'Erro ao criar conta')
@@ -431,7 +430,7 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
             Cancelar
           </Button>
           <Button type="submit" variant="primary" disabled={loading || !!success || !acceptedTerms || !enabled}>
-            {loading ? 'Criando...' : 'Criar conta'}
+            {loading ? 'Enviando...' : 'Criar conta'}
           </Button>
         </div>
       </form>
