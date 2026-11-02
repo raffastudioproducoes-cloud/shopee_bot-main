@@ -1895,6 +1895,111 @@ async def get_post(
     }
 
 
+class PostFutureRevision(BaseModel):
+    texts: list[str]
+    product_ids: list[int] = []
+
+    @field_validator("texts")
+    @classmethod
+    def _check_future_texts(cls, value: list[str]) -> list[str]:
+        if not value or len(value) > MAX_THREAD_PARTS or any(
+            not isinstance(item, str) or not item.strip() for item in value
+        ):
+            raise ValueError("Informe textos válidos para a revisão futura")
+        return value
+
+
+def _revision_media_snapshot(user_id: int, post_id: int, profile_id: str) -> list[dict]:
+    """Mantém as mídias originais no Storage, sem sobrescrever/vazar objetos."""
+    links = (
+        supabase.table("posts_medias")
+        .select("media_id,display_order")
+        .eq("post_id", post_id)
+        .order("display_order")
+        .execute()
+    )
+    ids = [item["media_id"] for item in (links.data or [])]
+    if not ids:
+        return []
+    rows = (
+        scope_owner(
+            supabase.table("medias").select("id,file_name,file_path,size,type"),
+            user_id, profile_id,
+        )
+        .in_("id", ids)
+        .execute()
+    )
+    found = {row["id"]: row for row in (rows.data or [])}
+    if len(found) != len(set(ids)):
+        raise HTTPException(status_code=409, detail="Mídia do post indisponível para revisão")
+    return [found[media_id] for media_id in ids]
+
+
+@router.post("/{post_id}/future-revisions", status_code=status.HTTP_201_CREATED)
+def create_future_revision(
+    post_id: int,
+    body: PostFutureRevision,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Cria revisão imutável. Somente slots pendentes > T+30 a recebem.
+
+    O RPC transacional usa o relógio do banco e conserva posts e mídias originais.
+    A edição de novos arquivos ocorrerá na etapa de mídia, com vínculo durável.
+    """
+    profile_id = _require_profile_id(profile_id)
+    post = _get_post(user_id, post_id, profile_id)
+    if post.get("post_id") is not None or post.get("publish_immediately"):
+        raise HTTPException(status_code=409, detail="Este post não admite edição futura")
+    if not _get_post_schedule_entries(user_id, post_id):
+        raise HTTPException(status_code=409, detail="Post sem agenda futura")
+
+    original_ids = [product["id"] for product in _get_post_products(post_id)]
+    if body.product_ids != original_ids:
+        raise HTTPException(
+            status_code=422,
+            detail="Troca de produto não está disponível nesta revisão. O produto atual foi preservado.",
+        )
+    media_snapshot = _revision_media_snapshot(user_id, post_id, profile_id)
+    _check_network_rules(
+        post.get("network") or "threads",
+        body.texts, media_snapshot, len(original_ids), check_required_media=True,
+    )
+    payload = {
+        "texts": body.texts,
+        "product_ids": original_ids,
+        "medias": media_snapshot,
+    }
+    try:
+        result = supabase.rpc("create_future_post_revision", {
+            "p_post_id": post_id,
+            "p_user_id": str(user_id),
+            "p_profile_id": str(profile_id),
+            "p_snapshot": payload,
+        }).execute()
+    except Exception as exc:
+        error = str(exc)
+        if "POST_NOT_EDITABLE" in error or "NO_EDITABLE_FUTURE_SLOTS" in error:
+            raise HTTPException(
+                status_code=409,
+                detail="Nenhuma ocorrência futura pode ser editada. O limite é 30 minutos antes de cada publicação.",
+            ) from None
+        logger.error("Falha de revisão futura: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=503, detail="Não foi possível salvar a revisão agora. Tente novamente."
+        ) from None
+
+    row = (result.data or [{}])[0] if isinstance(result.data, list) else (result.data or {})
+    if not row.get("revision_id") or not row.get("cutover_at"):
+        raise HTTPException(status_code=503, detail="A revisão não foi confirmada pelo banco")
+    return {
+        "post_id": post_id,
+        "revision_id": row["revision_id"],
+        "effective_after": row["cutover_at"],
+        "msg": "Edição salva apenas para publicações futuras elegíveis.",
+    }
+
+
 @router.put("/{post_id}")
 async def update_post(
     post_id: int,
