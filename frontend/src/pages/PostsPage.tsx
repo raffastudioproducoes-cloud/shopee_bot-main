@@ -35,6 +35,7 @@ import { productsApi, type Product } from "../api/products"
 import { listsApi } from "../api/lists"
 import { useProfileStore } from "../stores/profileStore"
 import { PostProductPicker } from "../components/posts/PostProductPicker"
+import { PostTimePicker } from "../components/posts/PostTimePicker"
 import { aiCredentialsApi } from "../api/credentials"
 import { Panel, PanelHeader, Divider } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
@@ -61,24 +62,6 @@ const PERSONAS = [
   { value: "divertido", label: "Divertido" },
   { value: "persuasivo", label: "Persuasivo" },
 ]
-
-// "Data específica" é sempre horário de Brasília, independente do fuso do
-// navegador. ponytail: offset fixo -03:00 (Brasil sem horário de verão desde
-// 2019); se voltar, trocar por cálculo de offset via Intl.
-const SP_OFFSET = "-03:00"
-const nowInSaoPaulo = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date())
-  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? ""
-  return { day: `${value("year")}-${value("month")}-${value("day")}`, time: `${value("hour")}:${value("minute")}` }
-}
 
 // Posts do mesmo envio multi-rede: `group_id` (UUID gerado por envio,
 // migração 044). Posts antigos sem group_id: heurística de antes (mesmo
@@ -493,12 +476,8 @@ export function PostsPage() {
                     style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 14px", marginTop: 6, font: "var(--fw-regular) var(--fs-caption)/1.4 var(--font-sans)", color: "var(--text-muted)" }}
                   >
                     <span>Criado: {formatUtcTimestampBrasilia(post.created_at).replace(/:\d{2}$/, "")}</span>
-                    {post.last_result?.at && (
-                      <span>
-                        {post.last_result.status === "published" ? "Última publicação: " : "Último registro: "}
-                        {formatUtcTimestampBrasilia(post.last_result.at).replace(/:\d{2}$/, "")}
-                      </span>
-                    )}
+                    {post.last_published_at && <span>Última publicação: {formatUtcTimestampBrasilia(post.last_published_at).replace(/:\d{2}$/, "")}</span>}
+                    {post.last_result?.at && <span>Última execução: {formatUtcTimestampBrasilia(post.last_result.at).replace(/:\d{2}$/, "")}</span>}
                     {compactScheduleSummary(post) && (
                       <span title={scheduleLines(post).join(" · ")}>{compactScheduleSummary(post)}</span>
                     )}
@@ -707,7 +686,7 @@ interface PostModalProps {
   onClear: () => void
 }
 
-type WhenOption = "now" | "date" | "cron"
+type WhenOption = "now" | "cron"
 
 function PostModal({ post, onClose, onSave, loading, error, results, credentials, onClear }: PostModalProps) {
   const queryClient = useQueryClient()
@@ -720,18 +699,14 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const [persona, setPersona] = useState("casual")
   const [networks, setNetworks] = useState<PostNetwork[]>(post ? [post.network ?? "threads"] : [])
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>(
-    post?.products.map((p) => p.id) ?? [],
+    post?.products.slice(0, 1).map((p) => p.id) ?? [],
   )
   const [productTab, setProductTab] = useState<"products" | "lists">("products")
   const [productListId, setProductListId] = useState<number | null>(null)
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const accountId = useAuthStore((state) => state.user?.id)
   const [when, setWhen] = useState<WhenOption>("now")
-  const [runDayText, setRunDayText] = useState("")
-  const [runTimeText, setRunTimeText] = useState("")
   const [cronTimes, setCronTimes] = useState(["09:00"])
-  const runDay = runDayText
-  const runTime = runTimeText
   const cronTime = cronTimes[0]
   const [cronDays, setCronDays] = useState<number[]>([0])
   const [pendingFiles, setPendingFiles] = useState<{ file: File; info: MediaInfo }[]>([])
@@ -830,15 +805,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   })
 
   const toggleProduct = (id: number) => {
-    setSelectedProductIds((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
-    )
-  }
-  const toggleListProducts = (ids: number[], select: boolean) => {
-    const selection = new Set(ids)
-    setSelectedProductIds((prev) => select
-      ? [...new Set([...prev, ...ids])]
-      : prev.filter((id) => !selection.has(id)))
+    setSelectedProductIds((prev) => prev.includes(id) ? [] : [id])
   }
 
   const setPartText = (index: number, value: string) => {
@@ -880,28 +847,17 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     }
     // "Agora" = rede de segurança de 5 min: o post é disparado explicitamente
     // logo após o envio da mídia (ver createMutation), sem duplicar.
-    const runAt =
-      when === "now" ? new Date(Date.now() + NOW_SAFETY_DELAY_MS) : (scheduledAt ?? new Date(NaN))
-    return { trigger: "date", run_date: runAt.toISOString() }
+    return { trigger: "date", run_date: new Date(Date.now() + NOW_SAFETY_DELAY_MS).toISOString() }
   }
 
   const trimmedTexts = texts.map((t) => t.trim()).filter(Boolean)
   const activeNetworks = networks.filter((n) => !isNetworkDisabled(n))
 
-  // Data específica: dia + hora em America/Sao_Paulo; precisa ser futura.
-  const scheduledAt = runDay && runTime ? new Date(`${runDay}T${runTime}:00${SP_OFFSET}`) : null
-  const dateError =
-    when === "cron"
-      ? (cronTimes.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)) && new Set(cronTimes).size === cronTimes.length ? null : "Escolha até cinco horários diferentes.")
-      : when !== "date"
-        ? null
-        : !runDay
-          ? "Escolha uma data."
-          : !scheduledAt
-            ? "Escolha uma hora."
-            : !(scheduledAt.getTime() > Date.now())
-              ? "Essa data/hora já passou (horário de Brasília)."
-              : null
+  const dateError = when === "cron" && (
+    cronDays.length === 0 || !cronTimes.length ||
+    !cronTimes.every((time) => /^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)) ||
+    new Set(cronTimes).size !== cronTimes.length
+  ) ? "Escolha dias e até cinco horários diferentes no formato 24h." : null
 
   // Conjunto mínimo de textos pras redes marcadas: abas só com 2+ faixas.
   const plans = planVariants(activeNetworks)
@@ -1064,7 +1020,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           products={products} lists={lists} listId={productListId}
           onListChange={setProductListId}
           selectedIds={selectedProductIds}
-          onToggle={toggleProduct} onToggleList={toggleListProducts}
+          onToggle={toggleProduct}
           productsLoading={productPages.isPending} productsError={productPages.isError}
           listsLoading={listPages.isPending} listsError={listPages.isError}
           hasMoreProducts={productPages.hasNextPage} hasMoreLists={listPages.hasNextPage}
@@ -1302,7 +1258,6 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
               <SegmentedToggle
                 options={[
                   { value: "now", label: "Agora" },
-                  { value: "date", label: "Agendar" },
                   { value: "cron", label: "Recorrente" },
                 ]}
                 value={when}
@@ -1310,31 +1265,6 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                 fullWidth
               />
             </div>
-
-            {when === "date" && (
-              <div>
-                <div className="csp-s-0342">
-                  <TextInput
-                    label="Dia"
-                    type="date"
-                    value={runDayText}
-                    min={nowInSaoPaulo().day}
-                    onChange={(e) => setRunDayText(e.target.value)}
-                    required
-                  />
-                  <TextInput
-                    label="Hora"
-                    type="time"
-                    value={runTimeText}
-                    onChange={(e) => setRunTimeText(e.target.value)}
-                    required
-                  />
-                </div>
-                <p role="status" style={{ ...metaTextStyle, marginTop: 6, color: dateError ? "var(--negative)" : "var(--text-muted)" }}>
-                  {dateError ?? "Horário de Brasília (America/Sao_Paulo)."}
-                </p>
-              </div>
-            )}
 
             {when === "cron" && (
               <div className="csp-s-0343">
@@ -1367,16 +1297,15 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                 </div>
                 {cronTimes.map((time, index) => (
                   <div key={index} className="csp-s-0347">
-                    <TextInput
+                    <PostTimePicker
                       label={`Horário ${index + 1}`}
-                      type="time"
                       value={time}
-                      onChange={(e) => setCronTimes((times) => times.map((value, i) => i === index ? e.target.value : value))}
+                      onChange={(next) => setCronTimes((times) => times.map((value, i) => i === index ? next : value))}
                     />
                     {index > 0 && <IconButton icon="trash-2" label={`Remover horário ${index + 1}`} onClick={() => setCronTimes((times) => times.filter((_, i) => i !== index))} />}
                   </div>
                 ))}
-                {cronTimes.length < 5 && <Button type="button" variant="ghost" icon="plus" onClick={() => setCronTimes((times) => [...times, ""])} style={{ alignSelf: "flex-start" }}>Adicionar horário</Button>}
+                {cronTimes.length < 5 && <Button type="button" variant="ghost" icon="plus" onClick={() => setCronTimes((times) => [...times, ["09:00", "12:00", "15:00", "18:00", "21:00", "10:00"].find((value) => !times.includes(value)) ?? "00:00"])} style={{ alignSelf: "flex-start" }}>Adicionar horário</Button>}
                 {dateError && (
                   <p role="status" style={{ ...metaTextStyle, color: "var(--negative)" }}>
                     {dateError}

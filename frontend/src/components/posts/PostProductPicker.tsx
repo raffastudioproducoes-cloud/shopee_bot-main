@@ -16,7 +16,6 @@ interface PostProductPickerProps {
   onListChange: (id: number | null) => void
   selectedIds: number[]
   onToggle: (id: number) => void
-  onToggleList: (ids: number[], selected: boolean) => void
   productsLoading: boolean
   productsError: boolean
   listsLoading: boolean
@@ -33,7 +32,7 @@ interface PostProductPickerProps {
  * Nunca troca IDs selecionados ao alternar abas ou abrir uma lista. */
 export function PostProductPicker({
   tab, onTabChange, products, lists, listId, onListChange,
-  selectedIds, onToggle, onToggleList,
+  selectedIds, onToggle,
   productsLoading, productsError, listsLoading, listsError,
   hasMoreProducts, hasMoreLists, loadingMoreProducts, loadingMoreLists,
   onLoadProducts, onLoadLists,
@@ -45,8 +44,6 @@ export function PostProductPicker({
   const filtered = shown.filter((product) =>
     product.name.toLocaleLowerCase("pt-BR").includes(search.trim().toLocaleLowerCase("pt-BR")),
   )
-  const allListIds = [...new Set((activeList?.products ?? []).map((p) => p.id))]
-  const allListSelected = allListIds.length > 0 && allListIds.every((id) => selected.has(id))
   const loading = tab === "products" ? productsLoading : listsLoading
   const error = tab === "products" ? productsError : listsError
   const hasMore = tab === "products" ? hasMoreProducts : hasMoreLists
@@ -70,9 +67,11 @@ export function PostProductPicker({
       <div className="post-product-picker-heading">
         <span className="post-product-picker-title">Produtos</span>
         <span className="post-product-picker-count" aria-live="polite">
-          {selectedIds.length} selecionado{selectedIds.length === 1 ? "" : "s"}
+          {selectedIds.length ? "1 produto selecionado" : "Nenhum produto selecionado"}
         </span>
       </div>
+      <p className="post-product-picker-hint">Selecione somente um produto por publicação.</p>
+      {selectedIds.length > 0 && <button type="button" className="post-product-picker-clear" onClick={() => onToggle(selectedIds[0])}>Remover produto selecionado</button>}
       <div className="post-product-picker-tabs" role="group" aria-label="Origem dos produtos">
         <button type="button" aria-pressed={tab === "products"}
           className={tab === "products" ? "is-active" : ""}
@@ -92,12 +91,7 @@ export function PostProductPicker({
               </option>
             ))}
           </Select>
-          {activeList && allListIds.length > 0 && (
-            <button type="button" className="post-product-picker-bulk"
-              onClick={() => onToggleList(allListIds, !allListSelected)}>
-              {allListSelected ? "Desmarcar produtos da lista" : "Selecionar todos da lista"}
-            </button>
-          )}
+
         </div>
       )}
       {(tab === "products" || activeList) && shown.length > 5 && (
@@ -117,7 +111,7 @@ export function PostProductPicker({
           <p className="post-product-picker-feedback">{emptyText}</p>
         ) : filtered.map((product) => (
           <label className="post-product-picker-item" key={product.id}>
-            <input type="checkbox" checked={selected.has(product.id)}
+            <input type="radio" name="post-product-single" checked={selected.has(product.id)}
               onChange={() => onToggle(product.id)} />
             <span>{product.name}</span>
           </label>

@@ -29,7 +29,7 @@ import shopee_bot.database.posts as posts_db
 
 
 def _schedule() -> PostSchedule:
-    return PostSchedule(trigger="date", run_date="2030-01-01T00:00:00")
+    return PostSchedule(trigger="cron", time="09:00", days_of_week=[0])
 
 
 class TestApiNetworkDefaultsToThreads:
@@ -96,6 +96,12 @@ class TestApiNetworkDefaultsToThreads:
     def test_recurring_schedule_rejects_invalid_weekday_sets(self, days):
         with pytest.raises(ValidationError):
             PostSchedule(trigger="cron", time="09:00", days_of_week=days)
+
+    def test_one_off_date_is_rejected_in_creates(self):
+        with pytest.raises(ValidationError):
+            PostCreate(texts=["oi"], schedule={"trigger": "date", "run_date": "2030-01-01T00:00:00Z"})
+        with pytest.raises(ValidationError):
+            PostBatchCreate(compositions=[{"network": "threads", "texts": ["oi"]}], schedule={"trigger": "date", "run_date": "2030-01-01T00:00:00Z"})
 
     def test_network_omitted_defaults_to_threads(self):
         body = PostCreate(texts=["oi"], schedule=_schedule())
