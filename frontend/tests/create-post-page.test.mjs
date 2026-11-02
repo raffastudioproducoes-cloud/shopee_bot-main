@@ -77,4 +77,8 @@ test("foto da Shopee e arquivos de PC/celular coexistem no editor", async () => 
   assert.match(productsApi, /\/shopee-gallery-probe/)
   assert.match(create, /postsApi\.importProductImageDraft/)
   assert.match(create, /postsApi\.uploadDraftMedia/)
+  assert.match(composer, /Selecionar foto Shopee adicional/)
+  assert.match(composer, /selectedAdditionalPhotoUrls/)
+  assert.match(create, /postsApi\.importProductImageDraft\(selectedId, url\)/)
+  assert.match(composer, /setSelectedShopeeExtras\(\[\]\)/)
 })
