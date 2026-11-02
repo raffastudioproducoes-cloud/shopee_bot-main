@@ -9,7 +9,7 @@ import { useProfileStore } from "../stores/profileStore"
 
 /** A edição nunca cria outro post nem publica novamente: mantém o ID original. */
 export function EditPostPage() {
-  const { postId } = useParams({ from: "/posts/$postId/editar" })
+  const { postId } = useParams({ from: "/panel/posts/$postId/editar" })
   const id = Number(postId)
   const validId = Number.isSafeInteger(id) && id > 0
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
