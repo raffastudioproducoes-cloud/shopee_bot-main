@@ -366,7 +366,7 @@ class GenerateCopyBody(BaseModel):
     # Provedor de IA (gemini/openai/anthropic). Omitido: o único salvo ou o
     # salvo mais recentemente pelo usuário/perfil (ver resolve_ai_key).
     provider: str | None = None
-    # Redes marcadas: um texto por faixa de limite (api/text_variants.py).
+    # Redes marcadas: uma versão individual por rede (api/text_variants.py).
     networks: list[NetworkLiteral] = []
     # 1 = comportamento legado; 2..10 gera todas as partes em sequência.
     part_count: int = Field(default=1, ge=1, le=MAX_THREAD_PARTS)
@@ -1269,9 +1269,8 @@ async def generate_copy(
     IA do PRÓPRIO usuário/perfil (Credenciais). Sem chave global: sem chave
     cadastrada -> 400 pedindo pra cadastrar.
 
-    Com `networks`, devolve o conjunto mínimo de textos (`variants`, um por
-    faixa de limite) numa só chamada; `text` = variante principal (a mais
-    longa), compatível com o front antigo."""
+    Com `networks`, devolve uma descrição por rede em uma geração;
+    `text` mantém a primeira descrição para compatibilidade."""
     from apis import llm
     from .credentials import resolve_ai_key
 
