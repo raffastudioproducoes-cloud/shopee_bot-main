@@ -19,7 +19,7 @@
 .ao3-lens{position:absolute;inset:-10%;z-index:2;pointer-events:none;background:radial-gradient(ellipse 27% 39% at 50% 54%,transparent 16%,rgba(31,211,253,.06) 38%,transparent 76%);mix-blend-mode:screen}
 .ao3-camera{position:absolute;inset:0;z-index:4;transform-style:preserve-3d;pointer-events:none}
 .ao3-sheet{position:absolute;left:50%;top:50%;width:146px;height:193px;margin-left:-73px;margin-top:-96px;transform-origin:center center;transform-style:preserve-3d;will-change:transform,opacity}
-.ao3-sheet::before{content:"";position:absolute;inset:0;transform:translateZ(-8px);border-radius:12px;background:linear-gradient(150deg,#142c59,#071124 65%,#35235f);border:1px solid #6bbdff55;box-shadow:13px 27px 46px #000b,0 0 18px #208ed633}
+.ao3-sheet::before{content:"";position:absolute;inset:0;transform:translateZ(0);border-radius:12px;background:linear-gradient(150deg,#142c59,#071124 65%,#35235f);border:1px solid #6bbdff55;box-shadow:13px 27px 46px #000b,0 0 18px #208ed633}
 .ao3-sheet-front,.ao3-sheet-back{position:absolute;inset:0;border-radius:11px;overflow:hidden;backface-visibility:hidden;box-shadow:9px 20px 38px rgba(0,0,0,.54),inset 0 1px 0 #fff5;padding:13px 13px 10px}
 .ao3-sheet-front{transform:translateZ(5px);background:linear-gradient(135deg,#f4fdff,#cce7ff 53%,#8cbcf3);border:1px solid rgba(255,255,255,.98);color:#12365b}
 .ao3-sheet-back{transform:rotateY(180deg) translateZ(5px);background:linear-gradient(145deg,#082881,#112768 56%,#310f70);border:1px solid #2fe4ff9e;color:#e3faff;box-shadow:0 0 19px #11caff44,10px 24px 44px #000b}
