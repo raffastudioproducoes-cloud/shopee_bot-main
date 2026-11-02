@@ -179,7 +179,16 @@ export interface PostsResponse {
   next_cursor: string | null
 }
 
+export interface SchedulerStatus {
+  available: boolean
+  message: string
+}
+
 export const postsApi = {
+  async schedulerStatus(): Promise<SchedulerStatus> {
+    return api.get<SchedulerStatus>('/posts/scheduler-status')
+  },
+
   async list(params?: { cursor?: string; limit?: number }): Promise<PostsResponse> {
     const searchParams = new URLSearchParams()
     if (params?.cursor) searchParams.append('cursor', params.cursor)
