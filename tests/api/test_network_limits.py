@@ -100,7 +100,7 @@ def client(fake_db, monkeypatch):
     app.dependency_overrides.clear()
 
 
-SCHEDULE = {"trigger": "date", "run_date": "2030-01-01T10:00:00"}
+SCHEDULE = {"trigger": "cron", "time": "10:00", "days_of_week": [0]}
 
 
 def test_create_rejects_text_over_network_limit(client):

@@ -176,7 +176,7 @@ def test_generate_copy_is_scoped_to_owner_and_validates_networks(api):
     assert c.post("/posts/generate-copy", json={"product_id": 1, "networks": ["myspace"]}).status_code == 422
 
 
-SCHEDULE = {"trigger": "date", "run_date": "2030-01-01T10:00:00"}
+SCHEDULE = {"trigger": "cron", "time": "10:00", "days_of_week": [0]}
 GROUP = "6f1c1f3e-2b7a-4c39-9a8e-0c7d2f5b1a11"
 
 

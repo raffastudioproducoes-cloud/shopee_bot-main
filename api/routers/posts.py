@@ -1290,7 +1290,7 @@ async def list_posts(
     result = query.execute()
 
     posts: list[dict] = []
-    is_admin = _post_admin_access(user_id)
+    is_admin = _post_admin_access(user_id) if result.data else False
     for item in result.data:
         schedule_entries = _get_post_schedule_entries(user_id, item["id"])
         job = schedule_entries[0] if schedule_entries else None
