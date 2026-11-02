@@ -135,3 +135,108 @@ def test_gallery_endpoint_returns_stored_main_photo_if_shopee_unavailable(monkey
     assert response.json()["status"] == "unavailable"
     assert response.json()["image_urls"] == ["https://img.susercontent.com/main.jpg"]
     app.dependency_overrides.clear()
+
+
+def _draft_import_harness(monkeypatch):
+    """Suprime rede/Storage e deixa passar a validação de procedência."""
+    from types import SimpleNamespace
+    from api.routers import posts as posts_router
+
+    fake_db = MagicMock()
+    query = fake_db.table.return_value
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.maybe_single.return_value = query
+    query.execute.return_value = MagicMock(data={
+        "id": 10, "product_id": "123",
+        "image": "https://img.susercontent.com/main.jpg",
+    })
+    monkeypatch.setattr(posts_router, "supabase", fake_db)
+    monkeypatch.setattr(catalog, "_check_search_rate_limit", lambda _user: None)
+    monkeypatch.setattr(catalog, "_get_shopee_credential", lambda _user: ("app", "secret"))
+    calls = []
+
+    async def fake_download(url):
+        calls.append(url)
+        return bytearray(b"mock image")
+
+    async def fake_threadpool(fn, *_args, **_kwargs):
+        return SimpleNamespace(mime_type="image/jpeg")
+
+    monkeypatch.setattr(posts_router, "_download_shopee_image", fake_download)
+    monkeypatch.setattr(posts_router, "detect_media_type", lambda _data: SimpleNamespace(
+        media_type="IMAGE", extension=".jpg", mime_type="image/jpeg",
+    ))
+    monkeypatch.setattr(posts_router, "run_in_threadpool", fake_threadpool)
+    monkeypatch.setattr(posts_router, "cleanup_expired_media_drafts", lambda: None)
+    monkeypatch.setattr(posts_router, "_store_sanitized_draft", lambda *_args: {"id": "draft-id"})
+    return posts_router, calls
+
+
+def test_extra_photo_import_revalidates_exact_product_url(monkeypatch):
+    posts_router, calls = _draft_import_harness(monkeypatch)
+    official_queries = []
+
+    async def official(*_args, **kwargs):
+        official_queries.append(kwargs["item_id"])
+        return {"image_urls": ["https://img.susercontent.com/extra.jpg"],
+                "status": "multiple"}
+
+    monkeypatch.setattr(shopee_catalog, "probe_product_gallery", official)
+    result = run(posts_router.import_product_image_draft(
+        product_id=10, body=posts_router.ProductImageImportSelection(
+            image_url="https://img.susercontent.com/extra.jpg"),
+        user_id=42, profile_id="11111111-1111-4111-8111-111111111111",
+    ))
+    assert result == {"id": "draft-id"}
+    assert official_queries == [123]
+    assert calls == ["https://img.susercontent.com/extra.jpg"]
+
+
+def test_extra_photo_import_rejects_unproven_cdn_url_before_download(monkeypatch):
+    from fastapi import HTTPException
+
+    posts_router, calls = _draft_import_harness(monkeypatch)
+
+    async def official(*_args, **_kwargs):
+        return {"image_urls": ["https://img.susercontent.com/actual.jpg"],
+                "status": "multiple"}
+
+    monkeypatch.setattr(shopee_catalog, "probe_product_gallery", official)
+    with pytest.raises(HTTPException) as err:
+        run(posts_router.import_product_image_draft(
+            product_id=10, body=posts_router.ProductImageImportSelection(
+                image_url="https://img.susercontent.com/attacker.jpg"),
+            user_id=42, profile_id="11111111-1111-4111-8111-111111111111",
+        ))
+    assert err.value.status_code == 409
+    assert calls == []
+
+
+def test_existing_main_image_import_remains_available_without_gallery_probe(monkeypatch):
+    posts_router, calls = _draft_import_harness(monkeypatch)
+
+    async def must_not_probe(*_args, **_kwargs):
+        raise AssertionError("foto principal não depende de campo imageUrls")
+
+    monkeypatch.setattr(shopee_catalog, "probe_product_gallery", must_not_probe)
+    result = run(posts_router.import_product_image_draft(
+        product_id=10, body=posts_router.ProductImageImportSelection(),
+        user_id=42, profile_id="11111111-1111-4111-8111-111111111111",
+    ))
+    assert result == {"id": "draft-id"}
+    assert calls == ["https://img.susercontent.com/main.jpg"]
+
+
+def test_extra_photo_import_rejects_untrusted_host_even_if_shopee_returns_it(monkeypatch):
+    from fastapi import HTTPException
+
+    posts_router, calls = _draft_import_harness(monkeypatch)
+    with pytest.raises(HTTPException) as err:
+        run(posts_router.import_product_image_draft(
+            product_id=10, body=posts_router.ProductImageImportSelection(
+                image_url="https://untrusted.example.org/image.jpg"),
+            user_id=42, profile_id="11111111-1111-4111-8111-111111111111",
+        ))
+    assert err.value.status_code == 400
+    assert calls == []
