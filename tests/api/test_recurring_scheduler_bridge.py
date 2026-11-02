@@ -112,3 +112,74 @@ def test_recurring_failure_undoes_previous_time_using_real_id(monkeypatch):
 
     assert created == ["13:00", "15:00"]
     assert removed == [(42, first_id)]
+
+
+def test_scheduler_status_bridge_reads_boolean_without_creating_job(monkeypatch):
+    calls = []
+
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, url, **_kwargs):
+            calls.append(url)
+            return SimpleNamespace(status_code=200, json=lambda: {"available": False})
+
+    monkeypatch.setattr(internal_client.httpx, "AsyncClient", lambda **_kw: FakeClient())
+    assert asyncio.run(internal_client.scheduler_availability()) is False
+    assert len(calls) == 1
+    assert calls[0].endswith("/internal/scheduler/status")
+
+
+def test_scheduler_status_bridge_fails_closed_on_invalid_response(monkeypatch):
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def get(self, *_args, **_kwargs):
+            return SimpleNamespace(status_code=200, json=lambda: {"available": "false"})
+
+    monkeypatch.setattr(internal_client.httpx, "AsyncClient", lambda **_kw: FakeClient())
+    with pytest.raises(internal_client.InternalApiError, match="Resposta inválida"):
+        asyncio.run(internal_client.scheduler_availability())
+
+
+def test_batch_blocks_without_writing_when_scheduler_is_disabled(monkeypatch):
+    from fastapi import HTTPException
+
+    async def scheduler_off():
+        return False
+
+    def no_mutation(*_args, **_kwargs):
+        pytest.fail("Mídias e posts não devem ser escritos com agendador desativado")
+
+    monkeypatch.setattr(posts, "scheduler_availability", scheduler_off)
+    monkeypatch.setattr(posts, "_validate_product_ids", lambda *_args: None)
+    monkeypatch.setattr(posts, "_get_owned_ready_drafts", no_mutation)
+    monkeypatch.setattr(posts, "_create_thread", no_mutation)
+
+    body = posts.PostBatchCreate(
+        compositions=[posts.PostComposition(network="threads", texts=["Teste não publicável"])],
+        schedule=_schedule(),
+    )
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(posts.create_posts_batch(body, user_id=42, profile_id="profile-a"))
+    assert exc.value.status_code == 503
+    assert "agendador" in exc.value.detail.lower()
+    assert "rascunho" in exc.value.detail.lower()
+
+
+def test_scheduler_status_endpoint_reports_disabled_without_posting(monkeypatch):
+    async def scheduler_off():
+        return False
+
+    monkeypatch.setattr(posts, "scheduler_availability", scheduler_off)
+    result = asyncio.run(posts.get_scheduler_status(_user_id=42))
+    assert result["available"] is False
+    assert "nenhuma publicação" in result["message"].lower()
