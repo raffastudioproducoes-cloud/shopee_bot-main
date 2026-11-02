@@ -728,6 +728,8 @@ def _public_publish_result(result: dict | None, is_admin: bool) -> dict | None:
         return result
     # Dados brutos da Meta e textos técnicos ficam restritos ao administrador.
     return {**result, "error": (
+        "Falha parcial na publicação. Confira o post na rede antes de tentar novamente."
+        if result.get("partial_failure") else
         "Falha ao publicar. Confira o horário da execução."
         if result.get("status") == "failed" else
         result.get("error") if result.get("status") == "unknown" else None
@@ -760,31 +762,38 @@ def _last_successful_post_at(user_id: int, post_id: int, profile_id: str | None)
     return latest[-1] if latest else None
 
 
-def _confirmed_legacy_container_rejection(activity: dict | None, job: dict) -> bool:
-    """Reconhece 4xx na criação do PRIMEIRO contêiner em logs antigos.
+def _legacy_container_error_parts(activity: dict | None, job: dict) -> int | None:
+    """Evidência de 4xx ao criar mídia, ligada à ocorrência e ao número já enviado.
 
-    Antes do ajuste, esses HTTP 403 eram marcados como unknown na fila,
-    mas o evento de falha informa published_parts=0 e o job da agenda.
-    Exige vínculo de scheduler e proximidade do término; qualquer dúvida
-    continua unknown para evitar reenvio duplicado.
+    O erro na parte 2 não significa que a parte 1 falhou. A fila continua
+    unknown para impedir reenvio duplicado; só a apresentação sinaliza
+    a falha parcial no horário correto.
     """
     if not activity or activity.get("activity_id") != 2 or job.get("status") != "unknown":
-        return False
+        return None
     metadata = activity.get("metadata") or {}
-    if str(metadata.get("published_parts")) != "0":
-        return False
-    if str(metadata.get("job_id")) != str(job.get("scheduler_id")):
-        return False
+    try:
+        published_parts = int(metadata.get("published_parts"))
+    except (TypeError, ValueError):
+        return None
+    if published_parts < 0 or str(metadata.get("job_id")) != str(job.get("scheduler_id")):
+        return None
     error = str(metadata.get("error") or "")
     if not re.search(
         r"Failed to Create (?:Media Container|Carousel Item|Carousel Container).*?(?:Status:|HTTP)\s*4\d\d",
         error, re.IGNORECASE | re.DOTALL,
     ):
-        return False
+        return None
     event_time = _utc_instant(activity.get("created_at"))
     finish_time = _utc_instant(job.get("finished_at") or job.get("started_at"))
-    return bool(event_time and finish_time and abs((event_time - finish_time).total_seconds()) <= 300)
+    if not event_time or not finish_time or abs((event_time - finish_time).total_seconds()) > 300:
+        return None
+    return published_parts
 
+
+def _confirmed_legacy_container_rejection(activity: dict | None, job: dict) -> bool:
+    """Primeiro contêiner recusado: falha confirmada sem partes publicadas."""
+    return _legacy_container_error_parts(activity, job) == 0
 
 def _schedule_slot_history(
     user_id: int, post_id: int, profile_id: str | None,
@@ -822,8 +831,10 @@ def _schedule_slot_history(
     def slot_state(job: dict | None) -> str:
         if not job:
             return "programado"
-        if any(_confirmed_legacy_container_rejection(row, job) for row in legacy_rejections):
-            return "erro"
+        for row in legacy_rejections:
+            parts = _legacy_container_error_parts(row, job)
+            if parts is not None:
+                return "erro" if parts == 0 else "erro parcial"
         return {
             "succeeded": "postado", "failed": "erro",
             "pending": "programado", "running": "em execução",
@@ -866,7 +877,7 @@ def _schedule_slot_history(
                     "status": slot_state(job),
                     "last_at": (job.get("finished_at") or job.get("started_at") or job.get("created_at")) if job else None,
                     "error": sanitize_log_data(str(job.get("last_error")))[:200]
-                    if is_admin and job and slot_state(job) == "erro" and job.get("last_error") else None,
+                    if is_admin and job and slot_state(job) in ("erro", "erro parcial") and job.get("last_error") else None,
                 })
         else:
             job = latest_by_slot.get((None, str(entry.get("run_date") or ""), scheduler_id))
@@ -875,7 +886,7 @@ def _schedule_slot_history(
                 "status": slot_state(job),
                 "last_at": (job.get("finished_at") or job.get("started_at") or job.get("created_at")) if job else None,
                 "error": sanitize_log_data(str(job.get("last_error")))[:200]
-                if is_admin and job and slot_state(job) == "erro" and job.get("last_error") else None,
+                if is_admin and job and slot_state(job) in ("erro", "erro parcial") and job.get("last_error") else None,
             })
     return sorted(slots, key=lambda item: (item["day_of_week"] if item["day_of_week"] is not None else 7, item["time"]))
 
@@ -920,13 +931,18 @@ def _get_last_publish_result(
     except Exception:
         logger.warning("Falha ao ler resultado de publicação do post %s", post_id, exc_info=True)
 
-    if job and _confirmed_legacy_container_rejection(activity, job):
-        error = (activity.get("metadata") or {}).get("error")
-        return {
-            "status": "failed",
-            "at": activity.get("created_at"),
-            "error": sanitize_log_data(str(error))[:200] if error else None,
-        }
+    if job:
+        published_parts = _legacy_container_error_parts(activity, job)
+        if published_parts is not None:
+            error = (activity.get("metadata") or {}).get("error")
+            result = {
+                "status": "failed" if published_parts == 0 else "unknown",
+                "at": activity.get("created_at"),
+                "error": sanitize_log_data(str(error))[:200] if error else None,
+            }
+            if published_parts > 0:
+                result.update({"partial_failure": True, "job_id": job.get("id")})
+            return result
 
     if activity and (not job or (
         (_utc_instant(activity.get("created_at")) or datetime.min.replace(tzinfo=timezone.utc))
