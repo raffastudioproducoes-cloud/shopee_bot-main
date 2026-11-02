@@ -56,6 +56,7 @@ from .. import x_oauth
 from ..text_variants import generate_variants, generate_thread_replies, MAX_THREAD_PARTS
 from ..internal_client import (
     create_scheduler_job,
+    scheduler_availability,
     remove_scheduler_job,
     run_scheduler_job,
     InternalApiError,
@@ -567,6 +568,26 @@ def _attach_medias(
         }).execute()
         medias.append(media)
     return medias
+
+
+SCHEDULER_UNAVAILABLE_MESSAGE = (
+    "O agendador de publicações está indisponível neste ambiente. "
+    "Seu rascunho foi preservado; nenhuma publicação foi criada."
+)
+
+
+async def _scheduler_is_available() -> bool:
+    try:
+        return await scheduler_availability()
+    except InternalApiError as exc:
+        # Nunca expor segredo interno, URL de bridge ou detalhes de rede.
+        logger.warning("Consulta de disponibilidade do agendador falhou: %s", type(exc).__name__)
+        return False
+
+
+async def _ensure_scheduler_available() -> None:
+    if not await _scheduler_is_available():
+        raise HTTPException(status_code=503, detail=SCHEDULER_UNAVAILABLE_MESSAGE)
 
 
 def _block_reason(exc: Exception) -> str:
@@ -1404,6 +1425,7 @@ async def create_post(
     _validate_product_ids(user_id, body.product_ids)
     medias = _get_owned_medias(user_id, body.media_ids, profile_id)
     _check_network_rules(body.network, body.texts, medias, len(body.product_ids))
+    await _ensure_scheduler_available()
     head = _create_thread(
         user_id, body.texts, body.network, profile_id,
         str(body.group_id) if body.group_id else None,
@@ -1494,6 +1516,16 @@ def _preview_batch(
     return plans
 
 
+@router.get("/scheduler-status")
+async def get_scheduler_status(
+    _user_id: int = Depends(get_current_user_id),
+):
+    return {
+        "available": await _scheduler_is_available(),
+        "message": SCHEDULER_UNAVAILABLE_MESSAGE,
+    }
+
+
 @router.post("/preview")
 async def preview_post_batch(
     body: PostBatchCreate,
@@ -1516,6 +1548,7 @@ async def create_posts_batch(
     """Cria somente as redes entregáveis; falhas de uma não cancelam as outras."""
     profile_id = _require_profile_id(profile_id)
     _validate_product_ids(user_id, body.product_ids)
+    await _ensure_scheduler_available()
     drafts = _get_owned_ready_drafts(user_id, body.draft_media_ids, profile_id)
     drafts_by_id = {str(draft["id"]): draft for draft in drafts}
     plans = _preview_batch(body, drafts, _x_media_for(body, user_id, profile_id))

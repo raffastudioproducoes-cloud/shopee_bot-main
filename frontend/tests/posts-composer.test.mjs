@@ -53,3 +53,15 @@ test('resumo de mídia explicita exclusão e publicação sem arquivo', async ()
   assert.match(summary, /publicará sem imagem\/vídeo/)
   assert.match(summary, /de \$\{total\} mídias/)
 })
+
+
+test('agendador indisponível bloqueia envio antes de upload e preserva rascunho', async () => {
+  const page = await source('pages/PostsPage.tsx')
+  const client = await source('api/posts.ts')
+  assert.match(client, /schedulerStatus\(\)/)
+  assert.match(client, /\/posts\/scheduler-status/)
+  assert.ok(page.indexOf('await postsApi.schedulerStatus()') < page.indexOf('for (const file of data.files)'))
+  assert.match(page, /schedulerAvailable &&/)
+  assert.match(page, /role="alert"/)
+  assert.match(page, /Seu rascunho permanece salvo|seu rascunho permanece salvo|seu rascunho foi preservado/i)
+})

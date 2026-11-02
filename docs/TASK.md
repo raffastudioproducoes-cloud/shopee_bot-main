@@ -1,3 +1,10 @@
+## 02/11/2026 — Falha de recorrência Threads no staging: scheduler 503
+
+- **Incidente (04:43 UTC):** importação de foto 201, preview 200, lote 201 com Threads bloqueado; bridge `create_scheduler_job` retornou HTTP 503 antes de registrar o primeiro horário. Agendador de staging sem iniciar desde 30/10; produção tem scheduler ativo e Supabase compartilhado.
+- **Correção:** preflight da disponibilidade no frontend/API, status interno privado read-only, desabilitar Criar com aviso claro e preservar rascunho; nenhum job/post/arquivo novo quando scheduler indisponível. **Não habilitar scheduler do staging sem isolamento e autorização.**
+- **Referência:** `docs/POSTS-SCHEDULER-503-20261102.md`, testes em `tests/api/test_recurring_scheduler_bridge.py`, `tests/web/test_internal_func_whitelist.py` e frontend.
+- **Pendência:** homologar staging/CI e definir execução segura por ambiente antes de testar publicação real. `main` intocada.
+
 ## 02/11/2026 — Rascunhos locais persistentes nos formulários (somente staging)
 
 - Pedido de Rafa: persistir o formulário ao fechar modal, atualizar, perder conexão ou reiniciar navegador, inclusive reconhecer remoção intencional de texto e **não ressuscitar o valor antigo**.

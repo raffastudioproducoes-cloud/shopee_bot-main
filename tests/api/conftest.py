@@ -45,6 +45,21 @@ def _init_database():
 
 
 @pytest.fixture(autouse=True)
+def _mock_active_scheduler_for_api_contracts(monkeypatch):
+    """Mocks do Supabase não iniciam Flask; status ativo por padrão.
+
+    Casos de indisponibilidade sobrescrevem este mock em cada teste e
+    verificam explicitamente o 503 antes de qualquer persistência.
+    """
+    from api.routers import posts
+
+    async def available():
+        return True
+
+    monkeypatch.setattr(posts, "scheduler_availability", available)
+
+
+@pytest.fixture(autouse=True)
 def _enable_all_networks_in_tests(monkeypatch):
     from api import network_limits
 
