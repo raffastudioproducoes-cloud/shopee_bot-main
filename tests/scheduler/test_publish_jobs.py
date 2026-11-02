@@ -86,7 +86,7 @@ def test_expired_running_item_after_external_call_becomes_unknown(monkeypatch):
     assert publish_jobs.expire_running(300) == []
     assert "preflight_claim_token is distinct from claim_token" in seen["sql"].lower()
     assert "status = 'running'" in seen["sql"].lower()
-    assert seen["args"] == (5, 5, 5, 300)
+    assert seen["args"] == (5, 5, 5, 300, "production")
 
 
 def test_execute_publication_does_not_repeat_unknown_delivery(monkeypatch):
