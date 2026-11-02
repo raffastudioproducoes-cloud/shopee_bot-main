@@ -714,6 +714,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const [previewOpen, setPreviewOpen] = useState(false)
   const [useShopeeImages, setUseShopeeImages] = useState(false)
   const [aiAutoContinuation, setAiAutoContinuation] = useState(false)
+  const [aiAdjustmentNotice, setAiAdjustmentNotice] = useState<string | null>(null)
   const aiProductRef = useRef<number | null>(null)
   const [pickMessage, setPickMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -786,6 +787,10 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
       setTexts((prev) => prev.map((current, index) => res.parts[index] ?? current))
       const rest = (res.variants ?? []).slice(1)
       setVariantTexts(Object.fromEntries(rest.map((v) => [v.key, v.text])))
+      const adjusted = (res.variants ?? []).filter((v) => v.adjusted)
+      setAiAdjustmentNotice(adjusted.length
+        ? `A IA excedeu os limites em ${adjusted.map((v) => v.networks.join(", ")).join(", ")}. O texto foi reduzido, as hashtags excedentes foram removidas e o link do produto preservado. Revise cada aba antes de publicar.`
+        : null)
       aiProductRef.current = request.productId
       setAiAutoContinuation(true)
     },
@@ -809,6 +814,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   }
 
   const setPartText = (index: number, value: string) => {
+    setAiAdjustmentNotice(null)
     setTexts((prev) => prev.map((t, i) => (i === index ? value : t)))
   }
 
@@ -831,6 +837,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     setTrayOpen(false)
     setUseShopeeImages(false)
     setAiAutoContinuation(false)
+    setAiAdjustmentNotice(null)
     aiProductRef.current = null
     setWhen("now")
     setCronTimes(["09:00"])
@@ -857,15 +864,17 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     new Set(cronTimes).size !== cronTimes.length
   ) ? "Escolha dias e até cinco horários diferentes no formato 24h." : null
 
-  // Conjunto mínimo de textos pras redes marcadas: abas só com 2+ faixas.
+  // Uma versão por rede selecionada; as abas aparecem quando há 2+ redes.
   const plans = planVariants(activeNetworks)
   const hasTabs = !post && plans.length > 1
   const variantValue = (i: number) => (i === 0 ? texts[0] : (variantTexts[plans[i].key] ?? texts[0]))
-  const setVariantValue = (i: number, value: string) =>
-    i === 0 ? setPartText(0, value) : setVariantTexts((prev) => ({ ...prev, [plans[i].key]: value }))
+  const setVariantValue = (i: number, value: string) => {
+    setAiAdjustmentNotice(null)
+    if (i === 0) setPartText(0, value)
+    else setVariantTexts((prev) => ({ ...prev, [plans[i].key]: value }))
+  }
 
-  // Parte 1 que cada rede publica. Rede ainda não marcada que formaria uma
-  // faixa nova ganharia a própria aba: o texto dela não bloqueia marcá-la.
+  // Parte principal específica da rede, preservando edições manuais.
   const headFor = (n: PostNetwork): string => {
     const selected = networks.includes(n)
     const p = selected ? plans : planVariants([...networks, n])
@@ -974,6 +983,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const toggleNetwork = (n: PostNetwork) => {
     if (isNetworkDisabled(n)) return
     setNetworks((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]))
+    setAiAdjustmentNotice(null)
   }
 
   const canSubmit =
@@ -1169,7 +1179,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
               type="button"
               variant="secondary"
               icon={generateMutation.isPending ? "loader-2" : "sparkles"}
-              disabled={selectedProductIds.length === 0 || generateMutation.isPending}
+              disabled={selectedProductIds.length === 0 || activeNetworks.length === 0 || generateMutation.isPending}
               onClick={() => generateMutation.mutate({
                 productId: selectedProductIds[0], partCount: texts.length, mode: "full",
               })}
@@ -1189,6 +1199,10 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
         </div>
         {generateMutation.isError && (
           <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{generateMutation.error.message}</p>
+        )}
+        {aiAdjustmentNotice && <p role="status" style={{ ...metaTextStyle, color: "var(--amber-300)" }}>{aiAdjustmentNotice}</p>}
+        {!post && selectedProductIds.length > 0 && activeNetworks.length === 0 && (
+          <p style={metaTextStyle}>Selecione pelo menos uma rede para a IA adaptar todas as descrições.</p>
         )}
 
         <div className="csp-s-0327">

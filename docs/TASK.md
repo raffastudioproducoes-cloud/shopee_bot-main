@@ -1,3 +1,10 @@
+## 02/11/2026 — Descrições IA e mídia individual por rede (somente staging)
+
+- Correção da geração que devolvia Threads acima de 500 caracteres e seis hashtags apesar de retry; tratamento determinístico com revisão e link preservado.
+- Um texto por rede escolhida com abas individuais; resumo de mídia esclarece subset, texto sem mídia e redes excluídas.
+- Documento técnico: `docs/POSTS-COPY-IA-POR-REDE-20261102.md`.
+- Android e usuário USER: aprovados conforme relato de Rafa; Threads: acompanhamento de agendamentos pelo usuário, sem publicações de teste.
+
 ## 02/11/2026 — Complemento pós-deploy staging: falha histórica 403
 
 - [x] CI #521 **verde** no PR #181; deploy staging `dep-dbk0blfavr4c73cj0srg` SHA `4ffc0f7` **live**; `/api/health/ready` respondeu `{"status":"ok"}`.
@@ -656,3 +663,4 @@ Status: não iniciado.
   branches sem diferenças de arquivos. CI main `41244974927` aprovado.
 - [ ] **Validação real opcional:** reenvio externo somente se o titular verificar
   pessoalmente a ausência e acionar o botão; nenhuma publicação feita em teste.
+

@@ -1,5 +1,7 @@
 > **Entrada obrigatória para agentes e IAs:** leia primeiro [AGENTS.md](AGENTS.md) e o [Guia Mestre de Contexto](docs/GUIA-MESTRE-IA.md) — propósito, localização do Vault, arquitetura, módulos, fluxos, APIs, segurança, RLS, custos, limites e método de verificação. Documentos históricos não substituem o código implantado.\n\n<div align="center">
 
+> **Homologação de posts, 02/11/2026:** PR [#186](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/186) implementa geração de uma descrição de IA por rede, limites validados e avisos de compatibilidade de mídia. Somente staging, sem publicação real de teste; [detalhes](docs/POSTS-COPY-IA-POR-REDE-20261102.md).
+
 # Shopee Auto Vendas
 
 ### Divulgação automática de afiliado, do garimpo ao post.
