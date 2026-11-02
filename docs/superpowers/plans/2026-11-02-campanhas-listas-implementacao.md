@@ -128,7 +128,7 @@
 
 ### Task 7 — Schema aditivo, ownership e snapshot
 
-**Files:** Create `database/migrations/068_*campaign*.sql` (substituir pelo próximo número livre), `api/routers/campaigns.py`, `tests/api/test_campaigns.py`; modify `api/main.py`.
+**Files:** Create `database/migrations/069_*campaign*.sql (ou próximo número livre após 068)` (substituir pelo próximo número livre), `api/routers/campaigns.py`, `tests/api/test_campaigns.py`; modify `api/main.py`.
 
 **Interfaces:** Produces `CampaignCreate`, `CampaignItemUpdate`, `CampaignDetail`, `POST /campaigns`, `GET /campaigns/{id}`, `PATCH /campaigns/{id}`, `PATCH /campaigns/{id}/items/{item_id}`; dados com owner `user_id/profile_id`, ordem e revision. Consumes: listas existentes e mídias Task 6.
 
