@@ -206,8 +206,8 @@ export const postsApi = {
     return api.upload<MediaDraft>('/posts/media-drafts', file)
   },
 
-  async importProductImageDraft(productId: number): Promise<MediaDraft> {
-    return api.post<MediaDraft>('/posts/product-image-drafts/' + productId, {})
+  async importProductImageDraft(productId: number, imageUrl?: string): Promise<MediaDraft> {
+    return api.post<MediaDraft>('/posts/product-image-drafts/' + productId, imageUrl ? { image_url: imageUrl } : {})
   },
 
   async deleteDraftMedia(id: string): Promise<{ msg: string }> {
