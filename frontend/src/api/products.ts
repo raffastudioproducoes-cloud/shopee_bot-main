@@ -47,6 +47,14 @@ export interface ProductsResponse {
   page_size: number
 }
 
+export interface ShopeeGalleryProbe {
+  image_urls: string[]
+  status: "multiple" | "single" | "field_unavailable" | "not_found" |
+    "not_identified" | "not_connected" | "unavailable"
+  message: string
+  field_tested?: string
+}
+
 export const productsApi = {
   async list(params?: {
     search?: string
@@ -74,6 +82,11 @@ export const productsApi = {
 
   async create(data: ProductCreate): Promise<Product> {
     return api.post<Product>('/products', data)
+  },
+
+  /** Consulta autenticada sob demanda; não baixa nem publica imagens. */
+  async probeShopeeGallery(id: number): Promise<ShopeeGalleryProbe> {
+    return api.get<ShopeeGalleryProbe>(`/products/${id}/shopee-gallery-probe`)
   },
 
   async get(id: number): Promise<Product> {
