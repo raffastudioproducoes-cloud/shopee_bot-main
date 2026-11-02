@@ -62,3 +62,19 @@ test("Compositor reutiliza as funções anteriores em página, com rascunho", as
   assert.match(composer, /<PostLivePreview/)
   assert.doesNotMatch(composer, /<Modal\b/)
 })
+
+test("foto da Shopee e arquivos de PC/celular coexistem no editor", async () => {
+  const [composer, productsApi, create] = await Promise.all([
+    src("components/posts/PostComposer.tsx"),
+    src("api/products.ts"),
+    src("pages/CreatePostPage.tsx"),
+  ])
+  assert.match(composer, /Usar fotos dos produtos Shopee na publicação/)
+  assert.match(composer, /type="file"/)
+  assert.match(composer, /multiple=\{!post\}/)
+  assert.match(composer, /Mídia \(imagem\/vídeo\)/)
+  assert.match(composer, /productsApi\.probeShopeeGallery/)
+  assert.match(productsApi, /\/shopee-gallery-probe/)
+  assert.match(create, /postsApi\.importProductImageDraft/)
+  assert.match(create, /postsApi\.uploadDraftMedia/)
+})
