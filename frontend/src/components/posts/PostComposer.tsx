@@ -98,6 +98,7 @@ export interface PostComposerProps {
     networks: PostNetwork[],
     files: File[],
     productImageIds: number[],
+    extraShopeePhotoUrls: string[],
     publishNow: boolean,
   ) => void
   loading: boolean
@@ -135,6 +136,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
   const [trayOpen, setTrayOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [useShopeeImages, setUseShopeeImages] = useState(false)
+  const [selectedShopeeExtras, setSelectedShopeeExtras] = useState<string[]>([])
   const [aiAutoContinuation, setAiAutoContinuation] = useState(false)
   const [aiAdjustmentNotice, setAiAdjustmentNotice] = useState<string | null>(null)
   const aiProductRef = useRef<number | null>(null)
@@ -174,6 +176,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
       ? draft.cronDays.filter((day): day is number => Number.isInteger(day) && day >= 0 && day <= 6)
       : [0])
     setUseShopeeImages(draft?.useShopeeImages === true)
+    setSelectedShopeeExtras([]) // Revalida URLs na Shopee; nunca restaura foto remota sem prova atual.
     setPreviewOpen(draft?.previewOpen === true)
     setPendingFiles([])
     setTrayOpen(false)
@@ -228,6 +231,10 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     staleTime: 60_000,
     retry: false,
   })
+  const selectedAdditionalPhotoUrls = useShopeeImages && !post && galleryProbe.data
+    ? galleryProbe.data.image_urls.filter((url) =>
+        url !== selectedProducts[0]?.image && selectedShopeeExtras.includes(url))
+    : []
 
   // Sem chave de IA própria não há o que chamar (não existe chave global):
   // em vez do botão, atalho pra Credenciais.
@@ -294,6 +301,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
 
   const toggleProduct = (id: number) => {
     setSelectedProductIds((prev) => prev.includes(id) ? [] : [id])
+    setSelectedShopeeExtras([]) // Outra seleção exige nova prova oficial.
   }
 
   const setPartText = (index: number, value: string) => {
@@ -320,6 +328,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     setPendingFiles([])
     setTrayOpen(false)
     setUseShopeeImages(false)
+    setSelectedShopeeExtras([])
     setAiAutoContinuation(false)
     setAiAdjustmentNotice(null)
     aiProductRef.current = null
@@ -399,7 +408,8 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
   // Validação por rede em tempo real (lib/networkLimits.ts), cada uma com o seu texto.
   const media: MediaInfo[] = post
     ? post.medias.map((m) => ({ name: m.file_name, size: m.size, kind: m.type === "VIDEO" ? "video" : mediaKind(m.file_name) }))
-    : [...pendingFiles.map((p) => p.info), ...importablePhotos.map((p) => ({ name: "shopee-" + p.id + ".jpg", size: 1, kind: "image" as const }))]
+    : [...pendingFiles.map((p) => p.info), ...importablePhotos.map((p) => ({ name: "shopee-" + p.id + ".jpg", size: 1, kind: "image" as const })),
+      ...selectedAdditionalPhotoUrls.map((_, index) => ({ name: "shopee-extra-" + index + ".jpg", size: 1, kind: "image" as const }))]
   // Seletor: máximo absoluto por tipo entre as redes marcadas.
   const limits = pickLimits(activeNetworks.map((n) => NETWORK_RULES[n]))
   const draftFor = (n: PostNetwork) => {
@@ -493,6 +503,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
       activeNetworks,
       pendingFiles.map((p) => p.file),
       importablePhotos.map((p) => p.id),
+      selectedAdditionalPhotoUrls,
       when === "now",
     )
   }
@@ -546,7 +557,10 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
 
         {!post && selectedProducts.length > 0 && <div className="post-composer-shopee-media">
           <label><input type="checkbox" checked={useShopeeImages}
-            onChange={(event) => setUseShopeeImages(event.target.checked)} />
+            onChange={(event) => {
+              setUseShopeeImages(event.target.checked)
+              if (!event.target.checked) setSelectedShopeeExtras([])
+            }} />
             <span>Usar fotos dos produtos Shopee na publicação</span></label>
           <p>As fotos cadastradas serão copiadas para o armazenamento privado ao criar o post. Vídeos da Shopee só ficam disponíveis após o envio de um arquivo de vídeo.</p>
           {useShopeeImages && importablePhotos.length === 0 && <p role="status">Nenhum produto selecionado possui foto cadastrada.</p>}
@@ -557,12 +571,26 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
           {useShopeeImages && galleryProbe.data && <div aria-label="Diagnóstico de fotos Shopee">
             <p role="status">{galleryProbe.data.message}</p>
             {galleryProbe.data.image_urls.length > 1 && <>
-              <p style={metaTextStyle}>Prévia informativa: as fotos adicionais ainda não são importadas neste envio. Use os seus arquivos locais enquanto a seleção automática é validada.</p>
+              <p style={metaTextStyle}>A imagem principal permanece selecionada. Marque fotos adicionais confirmadas pela API; o servidor revalidará cada uma ao importar. Você ainda pode enviar fotos e vídeos do dispositivo.</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {galleryProbe.data.image_urls.map((url, index) => (
-                  <img key={url} src={url} alt={`Foto Shopee ${index + 1} (prévia)`}
-                    loading="lazy" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8 }} />
-                ))}
+                {galleryProbe.data.image_urls.map((url, index) => {
+                  const isMain = url === selectedProducts[0]?.image
+                  return (
+                    <label key={url} style={{ display: "grid", gap: 4, justifyItems: "center" }}>
+                      <img src={url} alt={`Foto Shopee ${index + 1}`}
+                        loading="lazy" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8 }} />
+                      {isMain ? <span style={metaTextStyle}>Principal</span> : (
+                        <span style={metaTextStyle}>
+                          <input type="checkbox" aria-label={`Selecionar foto Shopee adicional ${index + 1}`}
+                            checked={selectedAdditionalPhotoUrls.includes(url)}
+                            onChange={(event) => setSelectedShopeeExtras((current) =>
+                              event.target.checked ? [...current, url] : current.filter((value) => value !== url))} />
+                          Adicionar
+                        </span>
+                      )}
+                    </label>
+                  )
+                })}
               </div>
             </>}
           </div>}
