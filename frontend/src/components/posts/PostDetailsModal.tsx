@@ -58,7 +58,7 @@ export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
           </button>
         ) : (
           <p style={{ margin: "0 0 8px", color: "var(--text-muted)" }}>Este post já está agendado ou possui histórico de execução; conteúdo e mídias são protegidos.</p>
-        )
+        )}
         {isFetching && <p role="status" style={{ margin: 0, color: "var(--text-muted)" }}>Carregando informações atualizadas...</p>}
         {isError && <p role="alert" style={{ margin: 0, color: "var(--negative)" }}>Não foi possível atualizar os detalhes. Exibindo as informações da lista.</p>}
         <section style={sectionStyle}>
