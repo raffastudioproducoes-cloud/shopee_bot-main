@@ -16,7 +16,9 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
 
 from shopee_bot.database import get_conn, put_conn, publication_claims, publish_jobs, schedulers
-from shopee_bot.database.scheduler_environment import current_environment
+from shopee_bot.database.scheduler_environment import current_environment, publication_executor_environment
+from shopee_bot.database.central_dispatch import central_dispatch_enabled
+from shopee_bot.scheduler import central_reconciler
 from shopee_bot.clogging import logger
 from shopee_bot.database.activities import insert_activities, activity_metadata_wrapper
 from shopee_bot.database.activity_types import ActivityType
@@ -118,6 +120,36 @@ def request_wakeup() -> bool:
 
 def _scheduled_function(func: str):
     return execute_publication if func in PROFILE_SCOPED_FUNCS else globals()[func]
+
+
+def execute_central_publication(job_id):
+    """A barreira protege inclusive mirrors persistidos após desligar o gate."""
+    if (
+        _shutting_down
+        or not central_dispatch_enabled()
+        or current_environment() != publication_executor_environment()
+    ):
+        logger.warning("Mirror central ignorado fora da autoridade: %s", job_id)
+        return
+    job = schedulers.get_by_id(job_id)
+    if not job or job.get("dispatch_mode") != "central":
+        logger.warning("Mirror central sem intenção ativa autorizada: %s", job_id)
+        return
+    execute_publication(job_id)
+
+
+def reconcile_central_jobs():
+    if (
+        _scheduler is None
+        or not central_dispatch_enabled()
+        or current_environment() != publication_executor_environment()
+    ):
+        return
+    for expired in schedulers.expire_missed_central_dates(
+        central_reconciler.MISFIRE_SECONDS
+    ):
+        logger.warning("Agenda central expirada sem envio: %s", expired["scheduler_id"])
+    central_reconciler.reconcile(_scheduler, execute_central_publication)
 
 
 def _occurrence_key(job_id, job_data):
@@ -241,7 +273,12 @@ def _on_job_problem(event):
     usuário via "Publicação disparada" e nada acontecia, sem rastro em
     Atividade."""
     try:
-        job_data = schedulers.get_by_id(event.job_id)
+        original_id = (
+            event.job_id[len(central_reconciler.PREFIX):]
+            if str(event.job_id).startswith(central_reconciler.PREFIX)
+            else event.job_id
+        )
+        job_data = schedulers.get_by_id(original_id)
         if not job_data or not job_data.get("post_id"):
             return
         if event.code == EVENT_JOB_MISSED:
@@ -267,6 +304,10 @@ def _on_job_problem(event):
 
 def _remove_job(user_id, job_id, conn):
     global _scheduler
+    if central_dispatch_enabled() and schedulers.cancel_central(user_id, job_id, conn):
+        # O job central será removido do espelho de produção no tick de
+        # reconciliação. Mesmo se disparar antes, get_by_id o bloqueia.
+        return
     schedulers.delete(user_id, job_id, conn)
 
     job = _scheduler.get_job(job_id)
@@ -292,6 +333,11 @@ def remove_job(user_id, job_id, open_conn=None):
 
 def run_job(job_id):
     global _scheduler
+
+    if central_dispatch_enabled() and schedulers.expedite_central(job_id):
+        # Não executa no staging: intenção durável lida pela produção.
+        reconcile_central_jobs()
+        return
 
     # Job "date" ainda pendente (fluxo "Agora": post criado com run_date de
     # segurança, mídia enviada, e só então disparado): antecipa o próprio
@@ -323,6 +369,11 @@ def _add_job(user_id, job, conn):
     if func in PROFILE_SCOPED_FUNCS and not job.get("profile_id"):
         raise ValueError("profile_id obrigatorio para publicacao em rede social")
     job_id = schedulers.insert(user_id, job, conn)
+
+    if central_dispatch_enabled():
+        # Sem jobstore local de staging e sem segunda chamada ao provedor.
+        # O executor de produção materializará a intenção persistida.
+        return str(job_id)
 
     if trigger == "cron":
         minute = job["time"].minute
@@ -425,7 +476,23 @@ def init():
     _scheduler.start(paused=True)
     
     _upgrade_existing_publication_jobs()
-    
+
+    if (
+        central_dispatch_enabled()
+        and environment == publication_executor_environment()
+    ):
+        # Reconciliador único: não criar outro cron no Supabase.
+        reconcile_central_jobs()
+        _scheduler.add_job(
+            reconcile_central_jobs,
+            trigger="interval",
+            seconds=30,
+            jobstore="on_demand",
+            id="central_reconciliation",
+            replace_existing=True,
+            max_instances=1,
+        )
+
     _scheduler.add_job(
         drain_publish_jobs,
         trigger="interval",
