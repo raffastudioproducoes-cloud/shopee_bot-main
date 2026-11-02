@@ -1190,12 +1190,16 @@ def _get_thread_chain(head_id: int) -> list[dict]:
     pra nunca entrar em loop infinito se o dado estiver corrompido."""
     MAX_PARTS = 50
     chain = [_get_post_by_id_only(head_id)]
+    owner = chain[0]["user_id"]
+    profile = chain[0].get("profile_id")
     current_id = head_id
     for _ in range(MAX_PARTS):
-        next_result = (
+        query = (
             supabase.table("posts").select("*")
-            .eq("post_id", current_id).maybe_single().execute()
+            .eq("post_id", current_id).eq("user_id", owner)
         )
+        query = query.eq("profile_id", profile) if profile else query.is_("profile_id", "null")
+        next_result = query.maybe_single().execute()
         if not next_result or not next_result.data:
             break
         chain.append(next_result.data)
