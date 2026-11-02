@@ -795,6 +795,7 @@ def _confirmed_legacy_container_rejection(activity: dict | None, job: dict) -> b
     """Primeiro contêiner recusado: falha confirmada sem partes publicadas."""
     return _legacy_container_error_parts(activity, job) == 0
 
+
 def _schedule_slot_history(
     user_id: int, post_id: int, profile_id: str | None,
     entries: list[dict], is_admin: bool,
