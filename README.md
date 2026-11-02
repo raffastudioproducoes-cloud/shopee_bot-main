@@ -59,6 +59,8 @@ Banco: **Supabase** (Postgres gerenciado).
 
 **Versão atual:** `3.0.0` (fonte oficial: [`VERSION`](VERSION), histórico: [`CHANGELOG.md`](CHANGELOG.md)). Esta atualização consolida as alterações incompatíveis do fluxo de posts: um produto por publicação e criação somente em `Agora` ou `Recorrente`. Inclui descrições de IA por rede, rascunhos persistentes, identificadores `#ID`, melhorias de concorrência e histórico de ocorrências. `2.7.0` introduziu até cinco horários diários de recorrência e o tratamento/reencodificação de MP4. O processamento de vídeo permanece sem scanner antivírus isolado (ver `docs/POST-MEDIA-SECURITY.md`).
 
+**Histórico anterior:** `2.6.0` (15/10/2026) trouxe painel administrativo, métricas/capacidade, separação cliente/`/admin` e overrides de credenciais. `2.5.0` adicionou splash, esqueletos de carregamento e correções de segurança. `2.4.0` (14/10/2026) aplicou a identidade AUTO ORBITAL, PWA, Ajuda/FAQ, documentos legais e callbacks Meta/Threads. O app Meta segue condicionado à aprovação da plataforma; X continua desabilitado pela regra do produto e TikTok foto é melhoria futura. O histórico de integração multi-perfil permanece preservado em `CHANGELOG.md`.
+
 **Limitações de validação:** deploy/CI e autenticação não substituem teste externo de publicação; Threads 403 continua sob acompanhamento. `staging` e `main` usam o mesmo Supabase, e a decisão posterior de centralizar os disparos na produção demanda ajuste técnico próprio. O acesso de revisão `RafaelTesteCliente` deve ser preservado.
 
 ## Objetivo
