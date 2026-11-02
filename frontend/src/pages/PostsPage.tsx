@@ -204,6 +204,10 @@ export function PostsPage() {
     }): Promise<NetworkResult[]> => {
       const draftMedia = []
       try {
+        // Antes de enviar arquivos ao Storage, verificar se há worker ativo.
+        // O backend repete a verificação imediatamente antes de criar posts.
+        const scheduler = await postsApi.schedulerStatus()
+        if (!scheduler.available) throw new Error(scheduler.message)
         for (const file of data.files) draftMedia.push(await postsApi.uploadDraftMedia(file))
         for (const productId of data.productImageIds) draftMedia.push(await postsApi.importProductImageDraft(productId))
         const payload = {
@@ -815,6 +819,17 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     queryFn: () => aiCredentialsApi.list(),
   })
   const hasAiKey = aiStatus ? aiStatus.active !== null : true
+  const schedulerQuery = useQuery({
+    queryKey: ["posts", "scheduler-status"],
+    queryFn: postsApi.schedulerStatus,
+    enabled: !post,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    retry: false,
+  })
+  const schedulerAvailable = !!post || (
+    !schedulerQuery.isError && schedulerQuery.data?.available === true
+  )
 
   const generateMutation = useMutation({
     mutationFn: (request: {
@@ -1041,6 +1056,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const canSubmit =
     !loading &&
     !generateMutation.isPending &&
+    schedulerAvailable &&
     trimmedTexts.length > 0 &&
     // Bloqueadas continuam marcadas (em vermelho, com motivo); basta uma entregável.
     deliverableNetworks.length > 0 &&
@@ -1330,6 +1346,17 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                 fullWidth
               />
             </div>
+
+            {!post && schedulerQuery.isPending && (
+              <p role="status" style={{ ...metaTextStyle, marginTop: 8 }}>
+                Conferindo disponibilidade do agendador...
+              </p>
+            )}
+            {!post && !schedulerQuery.isPending && !schedulerAvailable && (
+              <p role="alert" style={{ ...metaTextStyle, color: "var(--negative)", marginTop: 8 }}>
+                {schedulerQuery.data?.message ?? "Não foi possível consultar o agendador. Tente novamente em instantes; seu rascunho permanece salvo."}
+              </p>
+            )}
 
             {when === "cron" && (
               <div className="csp-s-0343">
