@@ -17,8 +17,14 @@ class PublicationDeferred(BaseException):
     """Controle interno: interromper ANTES da rede, sem engolir em except Exception."""
 
 
-def activate(publish_job_id, claim_token):
-    return _active_attempt.set((publish_job_id, claim_token))
+def activate(publish_job_id, claim_token, content_snapshot=None):
+    return _active_attempt.set((publish_job_id, claim_token, content_snapshot))
+
+
+def current_content_snapshot():
+    """Somente revisão congelada pelo claim atual, sem consulta dinâmica."""
+    attempt = _active_attempt.get()
+    return attempt[2] if attempt else None
 
 
 def reset(token):
@@ -39,5 +45,5 @@ def mark_external_delivery():
 
     if is_shutting_down():
         raise PublicationDeferred("Worker encerrando antes do envio externo")
-    if not publish_jobs.mark_external_started(*attempt):
+    if not publish_jobs.mark_external_started(*attempt[:2]):
         raise PublicationDeferred("Claim perdido antes do envio externo")
