@@ -1,4 +1,4 @@
-"""Conjunto mínimo de textos por limite das redes (api/text_variants.py),
+"""Descrições individuais por rede (api/text_variants.py),
 geração com refação única por variante e group_id na criação multi-rede.
 Provedor de IA simulado: nenhuma chamada real."""
 import json
@@ -26,25 +26,30 @@ def _plan(nets):
     return [(v["max_chars"], v["networks"]) for v in plan_variants(nets)]
 
 
-# ── agrupamento ───────────────────────────────────────────────────────────────
+# ── uma descrição por rede ──────────────────────────────────────────────────
 
-def test_x_facebook_instagram_gives_long_shared_and_short_x():
-    assert _plan(["x", "facebook", "instagram"]) == [(2200, ["facebook", "instagram"]), (280, ["x"])]
-
-
-def test_threads_and_x_are_two_ranges():
-    assert _plan(["x", "threads"]) == [(500, ["threads"]), (280, ["x"])]
-
-
-def test_all_networks_three_ranges():
-    assert _plan(list(NETWORK_RULES)) == [
-        (2200, ["facebook", "instagram", "tiktok"]), (500, ["threads"]), (280, ["x"]),
+def test_each_network_gets_own_variant_even_with_same_limit():
+    assert _plan(["x", "facebook", "instagram"]) == [
+        (2200, ["facebook"]), (2200, ["instagram"]), (280, ["x"]),
     ]
 
 
-def test_single_network_and_same_limit_have_one_text():
+def test_threads_and_x_are_separate():
+    assert _plan(["x", "threads"]) == [(500, ["threads"]), (280, ["x"])]
+
+
+def test_all_networks_individual_versions():
+    assert _plan(list(NETWORK_RULES)) == [
+        (2200, ["facebook"]), (2200, ["instagram"]), (2200, ["tiktok"]),
+        (500, ["threads"]), (280, ["x"]),
+    ]
+
+
+def test_single_network_and_duplicates():
     assert _plan(["facebook"]) == [(PRACTICAL_MAX_CHARS, ["facebook"])]
-    assert _plan(["instagram", "tiktok", "facebook"]) == [(2200, ["facebook", "instagram", "tiktok"])]
+    assert _plan(["instagram", "tiktok", "facebook"]) == [
+        (2200, ["facebook"]), (2200, ["instagram"]), (2200, ["tiktok"]),
+    ]
     assert _plan(["x", "x"]) == [(280, ["x"])]
     assert _plan([]) == [(PRACTICAL_MAX_CHARS, [])]
 
@@ -80,38 +85,70 @@ class FakeAI:
         return self.answers.pop(0)
 
 
-def test_one_call_for_all_variants_with_limits_in_prompt():
-    ai = FakeAI(json.dumps({"2200": "longo " + LINK, "280": "curto " + LINK}))
+def test_one_call_generates_individual_versions_with_limits_in_prompt():
+    ai = FakeAI(json.dumps({
+        "facebook": "Explicação " + LINK,
+        "instagram": "Legenda visual " + LINK,
+        "x": "Chamada breve " + LINK,
+    }))
     out = generate_variants(PRODUCT, "casual", ["x", "facebook", "instagram"], ai)
 
     assert len(ai.prompts) == 1
-    assert "no máximo 2200 caracteres" in ai.prompts[0] and "no máximo 280 caracteres" in ai.prompts[0]
+    assert "no máximo 2200 caracteres" in ai.prompts[0]
+    assert "no máximo 280 caracteres" in ai.prompts[0]
     assert "cada link conta 23" in ai.prompts[0] and LINK in ai.prompts[0]
     assert [(v["networks"], v["text"], v["over_limit"]) for v in out] == [
-        (["facebook", "instagram"], "longo " + LINK, False), (["x"], "curto " + LINK, False),
+        (["facebook"], "Explicação " + LINK, False),
+        (["instagram"], "Legenda visual " + LINK, False),
+        (["x"], "Chamada breve " + LINK, False),
     ]
+    assert not any(v["adjusted"] for v in out)
 
 
 def test_over_limit_variant_is_redone_once_alone():
     ai = FakeAI(
-        FENCE + "json\n" + json.dumps({"2200": "longo", "280": "x" * 300}) + "\n" + FENCE,
-        json.dumps({"280": "curtinho"}),
+        FENCE + "json\n" + json.dumps({
+            "facebook": "longo " + LINK, "x": "x" * 300,
+        }) + "\n" + FENCE,
+        json.dumps({"x": "curtinho " + LINK}),
     )
     out = generate_variants(PRODUCT, "casual", ["x", "facebook"], ai)
 
     assert len(ai.prompts) == 2 and "MAIS CURTO" in ai.prompts[1]
-    assert json.dumps("2200") not in ai.prompts[1]  # só a variante que passou
-    assert [v["text"] for v in out] == ["longo", "curtinho"]
-    assert not any(v["over_limit"] for v in out)
+    assert json.dumps("facebook") not in ai.prompts[1]
+    assert [v["text"] for v in out] == ["longo " + LINK, "curtinho " + LINK]
+    assert not any(v["adjusted"] for v in out)
 
 
-def test_still_over_after_retry_returns_with_warning_untruncated():
-    ai = FakeAI(json.dumps({"280": "x" * 300}), json.dumps({"280": "y" * 290}))
+def test_still_over_after_retry_gets_safe_validated_version_with_link():
+    ai = FakeAI(json.dumps({"x": "x" * 300}), json.dumps({"x": "y" * 290}))
     (out,) = generate_variants(PRODUCT, "casual", ["x"], ai)
 
-    assert len(ai.prompts) == 2  # refaz UMA vez só
-    assert out["text"] == "y" * 290 and out["over_limit"] is True
-    assert out["issues"] == ["X: texto máx. 280 caracteres (você tem 290)"]
+    assert len(ai.prompts) == 2
+    assert LINK in out["text"]
+    assert variant_issues(out, out["text"]) == []
+    assert out["over_limit"] is False and out["adjusted"] is True
+
+
+def test_threads_1208_characters_and_six_hashtags_is_adapted():
+    bad = "Organize sua casa. " + "A" * 1050 + " #a #b #c #d #e #f " + LINK
+    ai = FakeAI(json.dumps({"threads": bad}), json.dumps({"threads": bad}))
+    (out,) = generate_variants(PRODUCT, "casual", ["threads"], ai)
+
+    assert len(ai.prompts) == 2
+    assert variant_issues(out, out["text"]) == []
+    assert LINK in out["text"]
+    assert out["text"].count("#") <= 1
+    assert len(out["text"]) <= 500
+    assert out["adjusted"] and not out["over_limit"]
+
+
+def test_missing_product_link_is_restored_with_revalidation():
+    ai = FakeAI(json.dumps({"threads": "Conheça o produto #casa"}))
+    (out,) = generate_variants(PRODUCT, "casual", ["threads"], ai)
+    assert len(ai.prompts) == 1
+    assert LINK in out["text"] and out["adjusted"]
+    assert not variant_issues(out, out["text"])
 
 
 def test_bad_json_with_many_variants_is_clear_error():
@@ -149,16 +186,22 @@ def _fake_llm(monkeypatch, answer):
     monkeypatch.setattr(apis.llm, "complete", lambda *_a, **_k: answer)
 
 
-def test_generate_copy_returns_variants_and_legacy_text(api):
+def test_generate_copy_returns_individual_variants_and_legacy_text(api):
     c, _db, mp = api
-    _fake_llm(mp, json.dumps({"2200": "longo", "280": "curto"}))
+    _fake_llm(mp, json.dumps({
+        "facebook": "Facebook " + LINK,
+        "instagram": "Instagram " + LINK,
+        "x": "X " + LINK,
+    }))
     res = c.post("/posts/generate-copy", json={"product_id": 1, "networks": ["x", "facebook", "instagram"]})
 
-    assert res.status_code == 200
+    assert res.status_code == 200, res.text
     body = res.json()
-    assert body["text"] == "longo"
+    assert body["text"] == "Facebook " + LINK
     assert [(v["key"], v["max_chars"], v["networks"], v["text"]) for v in body["variants"]] == [
-        ("2200", 2200, ["facebook", "instagram"], "longo"), ("280", 280, ["x"], "curto"),
+        ("facebook", 2200, ["facebook"], "Facebook " + LINK),
+        ("instagram", 2200, ["instagram"], "Instagram " + LINK),
+        ("x", 280, ["x"], "X " + LINK),
     ]
 
 
@@ -252,7 +295,7 @@ def test_generate_replies_rejects_wrong_length_and_too_many_parts():
 def test_generate_copy_populates_all_open_parts(api):
     c, _db, mp = api
     answers = iter([
-        json.dumps({"2200": "Post Facebook", "500": "Post Threads"}),
+        json.dumps({"facebook": "Post Facebook " + LINK, "threads": "Post Threads " + LINK}),
         json.dumps({"parts": ["Dica dois", "Dica três"]}),
     ])
     import apis.llm
@@ -262,11 +305,11 @@ def test_generate_copy_populates_all_open_parts(api):
     })
     assert res.status_code == 200, res.text
     body = res.json()
-    assert body["text"] == "Post Facebook"
-    assert body["parts"] == ["Post Facebook", "Dica dois", "Dica três"]
+    assert body["text"] == "Post Facebook " + LINK
+    assert body["parts"] == ["Post Facebook " + LINK, "Dica dois", "Dica três"]
     assert body["start_index"] == 0
     assert [(v["key"], v["text"]) for v in body["variants"]] == [
-        ("2200", "Post Facebook"), ("500", "Post Threads"),
+        ("facebook", "Post Facebook " + LINK), ("threads", "Post Threads " + LINK),
     ]
 
 
