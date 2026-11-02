@@ -14,17 +14,24 @@ import { Select } from "../components/ui/Select"
 import { SearchField } from "../components/ui/SearchField"
 import { Avatar } from "../components/profiles/Avatar"
 import { useAuthStore } from "../stores/authStore"
+import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
+import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { PageSkeleton } from "../components/ui/Skeleton"
 
 export default function UsersPage() {
   const navigate = useNavigate()
   const logout = useAuthStore((state) => state.logout)
+  const accountId = useAuthStore((state) => state.user?.id)
   const queryClient = useQueryClient()
   const [modalOpen, setModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<AppUser | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [accessFilter, setAccessFilter] = useState("ALL")
+  useAutosavedDraft(formDraftKey(accountId, "users-filters", null, false), { search, accessFilter }, (saved) => {
+    setSearch(typeof saved?.search === "string" ? saved.search : "")
+    setAccessFilter(typeof saved?.accessFilter === "string" ? saved.accessFilter : "ALL")
+  })
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["users"],
@@ -44,6 +51,7 @@ export default function UsersPage() {
     mutationFn: usersApi.create,
     onSuccess: () => {
       invalidate()
+      clearFormDraft(formDraftKey(accountId, "user-create", null, false))
       setModalOpen(false)
     },
     onError: onAuthError,
@@ -54,6 +62,7 @@ export default function UsersPage() {
       usersApi.update(id, { username, access }),
     onSuccess: () => {
       invalidate()
+      clearFormDraft(formDraftKey(accountId, `user-edit:${editingUser?.id}`, null, false))
       setModalOpen(false)
       setEditingUser(null)
     },
@@ -189,6 +198,15 @@ function UserModal({ user, onClose, onCreate, onUpdate, loading, apiError }: Use
   const [username, setUsername] = useState(user?.username ?? "")
   const [password, setPassword] = useState("")
   const [access, setAccess] = useState<UserAccess>(user?.access ?? "USER")
+  const accountId = useAuthStore((state) => state.user?.id)
+  useAutosavedDraft(formDraftKey(accountId, user ? `user-edit:${user.id}` : "user-create", null, false),
+    { username, access }, (saved) => {
+      setUsername(typeof saved?.username === "string" ? saved.username : (user?.username ?? ""))
+      setAccess(saved?.access === "ADMIN" ? "ADMIN" : (user?.access ?? "USER"))
+      // Nunca persistir senha, nem em rascunho.
+      setPassword("")
+    },
+  )
   const passwordError = !user && password ? validatePassword(password) : null
 
   const handleSubmit = (event: React.FormEvent) => {
