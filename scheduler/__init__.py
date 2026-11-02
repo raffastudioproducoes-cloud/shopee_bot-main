@@ -91,6 +91,16 @@ def scheduler_enabled() -> bool:
     return os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true"
 
 
+def scheduler_ready() -> bool:
+    """Requer flag ativa e instância realmente inicializada, sem shutdown."""
+    return (
+        scheduler_enabled()
+        and not _shutting_down
+        and _scheduler is not None
+        and _scheduler.running
+    )
+
+
 def request_wakeup() -> bool:
     """Solicita verificação dos horários ao scheduler já inicializado."""
     current = _scheduler
