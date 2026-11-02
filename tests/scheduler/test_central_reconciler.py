@@ -219,3 +219,44 @@ def test_new_central_insert_records_dispatch_mode_and_original_owner(monkeypatch
     assert result == "central-a"
     assert "dispatch_mode" in seen["sql"]
     assert seen["args"][-3:] == ("profile", "staging", "central")
+
+
+
+def test_expired_date_produces_terminal_failed_without_external_retry(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        schedulers, "query_db",
+        lambda sql, args: captured.update(sql=sql, args=args) or [],
+    )
+    assert schedulers.expire_missed_central_dates(3600) == []
+    sql = captured["sql"]
+    assert "INSERT INTO publish_jobs" in sql
+    assert "s.id::text, 'failed'" in sql
+    assert "ON CONFLICT (idempotency_key) DO NOTHING" in sql
+    assert "NOT EXISTS" in sql
+    assert "dispatch_mode = 'central'" in sql
+    assert captured["args"][1] == 3600
+
+
+def test_staging_never_expires_central_dates(monkeypatch):
+    monkeypatch.setenv("SCHEDULER_ENVIRONMENT", "staging")
+    monkeypatch.setattr(
+        schedulers, "query_db",
+        lambda *_a, **_kw: pytest.fail("Somente produção pode marcar expiração"),
+    )
+    assert schedulers.expire_missed_central_dates() == []
+
+
+def test_run_now_repeated_calls_return_same_id_without_replay(monkeypatch):
+    captured = []
+    monkeypatch.setattr(
+        schedulers, "execute_db",
+        lambda sql, args: captured.append((sql, args)) or "central-a",
+    )
+    assert schedulers.expedite_central("central-a") == "central-a"
+    assert schedulers.expedite_central("central-a") == "central-a"
+    assert len(captured) == 2
+    for sql, args in captured:
+        assert "NOT EXISTS" in sql
+        assert "THEN 1 ELSE 0" in sql
+        assert args == ("central-a", "production")

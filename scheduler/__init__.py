@@ -145,6 +145,10 @@ def reconcile_central_jobs():
         or current_environment() != publication_executor_environment()
     ):
         return
+    for expired in schedulers.expire_missed_central_dates(
+        central_reconciler.MISFIRE_SECONDS
+    ):
+        logger.warning("Agenda central expirada sem envio: %s", expired["scheduler_id"])
     central_reconciler.reconcile(_scheduler, execute_central_publication)
 
 

@@ -191,26 +191,86 @@ def cancel_central(user_id, scheduler_id, open_conn=None):
 
 
 def expedite_central(job_id):
-    """Fluxo 'Agora': adianta uma agenda date da origem, sem novo job.
+    """Fluxo 'Agora' idempotente: um único UUID de agenda e de ocorrência.
 
-    Não adianta quando já existe uma ocorrência na fila. A produção
-    fará reconciliação no próximo tick de seu scheduler.
+    Chamadas repetidas devolvem o mesmo ID; nunca criam um segundo job.
+    Apenas antecipa enquanto ainda não existe entrada em publish_jobs.
     """
     if not central_dispatch_enabled():
         return None
     return execute_db(
         """
         UPDATE schedulers s
-        SET run_date = now() AT TIME ZONE 'America/Sao_Paulo',
-            dispatch_revision = dispatch_revision + 1
+        SET run_date = CASE
+                WHEN s.run_date > (now() AT TIME ZONE 'America/Sao_Paulo')
+                     AND NOT EXISTS (
+                         SELECT 1 FROM publish_jobs pj WHERE pj.scheduler_id = s.id
+                     )
+                  THEN now() AT TIME ZONE 'America/Sao_Paulo'
+                ELSE s.run_date
+            END,
+            dispatch_revision = s.dispatch_revision + CASE
+                WHEN s.run_date > (now() AT TIME ZONE 'America/Sao_Paulo')
+                     AND NOT EXISTS (
+                         SELECT 1 FROM publish_jobs pj WHERE pj.scheduler_id = s.id
+                     )
+                  THEN 1 ELSE 0
+            END
         WHERE s.id = %s AND s.environment = %s
           AND s.dispatch_mode = 'central'
           AND s.dispatch_cancelled_at IS NULL
           AND s.trigger = 'date'
-          AND NOT EXISTS (
-              SELECT 1 FROM publish_jobs pj WHERE pj.scheduler_id = s.id
-          )
         RETURNING id
         """,
         (job_id, current_environment()),
+    )
+
+
+def expire_missed_central_dates(grace_seconds=3600):
+    """Grava falha terminal de data única vencida sem chamada externa.
+
+    Nunca reenvia a publicação. Usa idempotency_key=UUID da agenda,
+    a mesma chave do executor date, e só toca central/sem histórico.
+    """
+    if (
+        not central_dispatch_enabled()
+        or current_environment() != publication_executor_environment()
+    ):
+        return []
+    return query_db(
+        """
+        INSERT INTO publish_jobs (
+            scheduler_id, post_id, user_id, profile_id, network,
+            idempotency_key, status, last_error, finished_at
+        )
+        SELECT
+            s.id, s.post_id, s.user_id, s.profile_id,
+            CASE s.func
+                WHEN 'bot_post' THEN 'threads'
+                WHEN 'bot_post_x' THEN 'x'
+                WHEN 'bot_post_facebook' THEN 'facebook'
+                WHEN 'bot_post_instagram' THEN 'instagram'
+                WHEN 'bot_post_tiktok' THEN 'tiktok'
+            END,
+            s.id::text, 'failed',
+            'Horário de publicação expirado sem executor; envio não realizado',
+            now()
+        FROM schedulers s
+        JOIN posts p ON p.id = s.post_id
+          AND p.user_id = s.user_id
+          AND p.profile_id IS NOT DISTINCT FROM s.profile_id
+        WHERE s.dispatch_mode = 'central'
+          AND s.dispatch_cancelled_at IS NULL
+          AND s.trigger = 'date'
+          AND s.func = ANY(%s)
+          AND s.run_date < (
+              now() AT TIME ZONE 'America/Sao_Paulo'
+          ) - make_interval(secs => %s)
+          AND NOT EXISTS (
+              SELECT 1 FROM publish_jobs pj WHERE pj.scheduler_id = s.id
+          )
+        ON CONFLICT (idempotency_key) DO NOTHING
+        RETURNING scheduler_id, status
+        """,
+        (list(NETWORK_FUNC_MAP.values()), grace_seconds),
     )
