@@ -189,28 +189,30 @@ function Sheet({ index, progress }: { index: number; progress: number }) {
   // Virada física de meia-volta: as faces ocupam lados opostos de uma ficha com espessura.
   const convert = ease(.49 + index * .008, .585 + index * .008, progress)
   const turn = convert * 180
-  const style: CSSProperties = {
-    opacity: born * (1 - exit),
+  // Opacidade no contêiner achataria as duas faces; aplicar o mesmo fade às superfícies.
+  const visibility = born * (1 - exit)
+  const style: CSSProperties & { "--ao3-sheet-opacity": number } = {
+    "--ao3-sheet-opacity": visibility,
     transform: "translate3d(" + x.toFixed(1) + "px," + y.toFixed(1) + "px," + z.toFixed(1) + "px) rotateZ(" + rotation.toFixed(2) + "deg) rotateX(" + tiltX.toFixed(2) + "deg) rotateY(" + (tiltY + turn).toFixed(2) + "deg) scale(" + lerp(.87, depth, capture).toFixed(3) + ")",
     zIndex: Math.round(z / 5) + 50,
   }
   return (
     <div className="ao3-sheet" style={style} aria-hidden="true">
-      <div className="ao3-sheet-front" style={{ opacity: 1 - ease(.535 + index * .008, .545 + index * .008, progress) }}>
+      <div className="ao3-sheet-front" style={{ opacity: visibility * (1 - ease(.535 + index * .008, .545 + index * .008, progress)) }}>
         <div className="ao3-sheet-top"><i /> PRODUTO {item.category}</div>
         <div className="ao3-product-graphic"><span className={"ao3-product-shape ao3-shape-" + (index % 3)} /></div>
         <strong>OPORTUNIDADE</strong>
         <span className="ao3-line" /><span className="ao3-line ao3-line-short" />
         <div className="ao3-card-foot">Adicionar ao fluxo <span>↗</span></div>
       </div>
-      <div className="ao3-sheet-back" style={{ opacity: ease(.535 + index * .008, .545 + index * .008, progress) }}>
+      <div className="ao3-sheet-back" style={{ opacity: visibility * ease(.535 + index * .008, .545 + index * .008, progress) }}>
         <div className="ao3-sheet-top"><i /> {item.platform}</div>
         <div className="ao3-post-graphic"><span className="ao3-post-orb" /><span className="ao3-post-ring" /></div>
         <strong>DIVULGAÇÃO</strong>
         <small>Post preparado</small>
         <div className="ao3-card-foot">Rede selecionada <span>✓</span></div>
       </div>
-      <span className="ao3-action" style={{ transform: "translateX(-50%) rotateY(" + (-turn).toFixed(2) + "deg) translateZ(12px)" }}>{item.action}</span>
+      <span className="ao3-action" style={{ opacity: visibility, transform: "translateX(-50%) rotateY(" + (-turn).toFixed(2) + "deg) translateZ(12px)" }}>{item.action}</span>
     </div>
   )
 }
