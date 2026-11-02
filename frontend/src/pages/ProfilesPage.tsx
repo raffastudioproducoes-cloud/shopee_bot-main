@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
+import { useAuthStore } from "../stores/authStore"
+import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
 import { profilesApi, type Profile, type ProfileInput } from "../api/profiles"
 import { PROFILE_LIMIT, useActivateProfile, useProfiles } from "../hooks/useProfiles"
 import { Panel } from "../components/ui/Panel"
@@ -14,6 +16,7 @@ const errMsg = (err: unknown, fallback: string) => (err instanceof Error && err.
 
 export function ProfilesPage() {
   const queryClient = useQueryClient()
+  const userId = useAuthStore((state) => state.user?.id)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null)
   const [deletingProfile, setDeletingProfile] = useState<Profile | null>(null)
@@ -27,6 +30,7 @@ export function ProfilesPage() {
   const createProfileMutation = useMutation({
     mutationFn: profilesApi.create,
     onSuccess: () => {
+      clearFormDraft(formDraftKey(userId, "profile-create", null, false))
       invalidateProfiles()
       setProfileModalOpen(false)
       setFeedback({ kind: "success", text: "Perfil criado." })
@@ -35,7 +39,8 @@ export function ProfilesPage() {
 
   const updateProfileMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: ProfileInput }) => profilesApi.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
+      clearFormDraft(formDraftKey(userId, `profile-edit:${variables.id}`, null, false))
       invalidateProfiles()
       setEditingProfile(null)
       setFeedback({ kind: "success", text: "Perfil atualizado." })
