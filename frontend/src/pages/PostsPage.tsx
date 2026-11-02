@@ -455,7 +455,7 @@ export function PostsPage() {
                       <StatusBadge tone="info" icon="loader-2">Em execução</StatusBadge>
                     )}
                     {post.last_result?.status === "unknown" && (
-                      <StatusBadge tone="warning" icon="alert-triangle">Sem confirmação</StatusBadge>
+                      <StatusBadge tone={post.last_result?.partial_failure ? "negative" : "warning"} icon="alert-triangle">{post.last_result?.partial_failure ? "Falha parcial" : "Sem confirmação"}</StatusBadge>
                     )}
                     {post.last_result?.status === "published" && (
                       <StatusBadge tone="positive" icon="check-circle-2">Publicado</StatusBadge>
