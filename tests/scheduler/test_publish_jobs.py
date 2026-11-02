@@ -146,3 +146,73 @@ def test_finish_redacts_token_from_provider_error(monkeypatch):
 
     publish_jobs.finish("queue-1", "claim-1", "unknown", error="access_token=private-value")
     assert "private-value" not in seen["args"][2]
+
+
+
+def test_concurrent_posts_keep_distinct_occurrence_keys(monkeypatch):
+    """Mesmo segundo/produto não deve deduplicar posts diferentes ou clientes."""
+    jobs = {
+        "schedule-a": {"id": "schedule-a", "post_id": 100, "user_id": "user-a", "profile_id": "profile-a", "func": "bot_post", "trigger": "cron"},
+        "schedule-b": {"id": "schedule-b", "post_id": 101, "user_id": "user-a", "profile_id": "profile-a", "func": "bot_post", "trigger": "cron"},
+        "schedule-c": {"id": "schedule-c", "post_id": 102, "user_id": "user-b", "profile_id": "profile-b", "func": "bot_post", "trigger": "cron"},
+        "schedule-d": {"id": "schedule-d", "post_id": 103, "user_id": "user-a", "profile_id": "profile-other", "func": "bot_post", "trigger": "cron"},
+    }
+    enqueued = []
+    executed = []
+    released = []
+    monkeypatch.setattr(scheduler.schedulers, "get_by_id", lambda job_id: jobs[job_id])
+    monkeypatch.setattr(scheduler.publication_claims, "try_claim", lambda key, lease: f"lease-{key}")
+    monkeypatch.setattr(scheduler.publication_claims, "release", lambda *args: released.append(args))
+    monkeypatch.setattr(scheduler.publish_jobs, "enqueue",
+                        lambda **kwargs: enqueued.append(kwargs) or {"id": f"queue-{kwargs['scheduler_id']}", "status": "pending"})
+    monkeypatch.setattr(scheduler, "_execute_publish_item",
+                        lambda queue_id, job_data: executed.append((queue_id, job_data["post_id"])))
+    monkeypatch.setattr(scheduler, "_shutting_down", False)
+
+    for identifier in jobs:
+        scheduler.execute_publication(identifier)
+
+    assert len(executed) == 4
+    assert {data["post_id"] for data in enqueued} == {100, 101, 102, 103}
+    assert len({data["idempotency_key"] for data in enqueued}) == 4
+    assert len({data["scheduler_id"] for data in enqueued}) == 4
+    assert [(x["user_id"], x["profile_id"]) for x in enqueued] == [
+        ("user-a", "profile-a"), ("user-a", "profile-a"),
+        ("user-b", "profile-b"), ("user-a", "profile-other"),
+    ]
+    assert len(released) == 4
+
+
+def test_enqueue_rejects_cross_tenant_conflict_even_for_same_key(monkeypatch):
+    from shopee_bot.database import publish_jobs
+
+    queries = []
+    monkeypatch.setattr(publish_jobs, "query_db",
+                        lambda sql, args, one=False: queries.append(sql) or None)
+
+    import pytest
+    with pytest.raises(RuntimeError, match="Conflito de identidade"):
+        publish_jobs.enqueue(
+            scheduler_id="schedule-a", post_id=17, user_id="user-a",
+            profile_id="profile-a", network="threads", idempotency_key="same-key",
+        )
+    sql = queries[0].lower()
+    assert "publish_jobs.scheduler_id = excluded.scheduler_id" in sql
+    assert "publish_jobs.user_id = excluded.user_id" in sql
+    assert "publish_jobs.profile_id is not distinct from excluded.profile_id" in sql
+    assert "publish_jobs.post_id = excluded.post_id" in sql
+
+
+def test_claim_rejects_mismatched_owner_and_profile(monkeypatch):
+    from shopee_bot.database import publish_jobs
+
+    seen = {}
+    monkeypatch.setattr(publish_jobs, "query_db",
+                        lambda sql, args, one=False: seen.update(sql=sql) or None)
+
+    assert publish_jobs.claim("queue-a", "worker", 600) is None
+    sql = seen["sql"].lower()
+    assert "schedule.user_id = job.user_id" in sql
+    assert "schedule.profile_id is not distinct from job.profile_id" in sql
+    assert "post.user_id = job.user_id" in sql
+    assert "for update of job skip locked" in sql
