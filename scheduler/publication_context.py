@@ -8,6 +8,7 @@ esse resultado permanece 'unknown' até conciliação humana/oficial.
 from contextvars import ContextVar
 
 from shopee_bot.database import publish_jobs
+from shopee_bot.database import post_content_snapshot
 
 
 _active_attempt = ContextVar("active_publish_attempt", default=None)
@@ -18,17 +19,15 @@ class PublicationDeferred(BaseException):
 
 
 def activate(publish_job_id, claim_token, content_snapshot=None):
-    return _active_attempt.set((publish_job_id, claim_token, content_snapshot))
+    attempt_token = _active_attempt.set((publish_job_id, claim_token))
+    snapshot_token = post_content_snapshot.bind(content_snapshot)
+    return attempt_token, snapshot_token
 
 
-def current_content_snapshot():
-    """Somente revisão congelada pelo claim atual, sem consulta dinâmica."""
-    attempt = _active_attempt.get()
-    return attempt[2] if attempt else None
-
-
-def reset(token):
-    _active_attempt.reset(token)
+def reset(tokens):
+    attempt_token, snapshot_token = tokens
+    post_content_snapshot.reset(snapshot_token)
+    _active_attempt.reset(attempt_token)
 
 
 def mark_external_delivery():
@@ -45,5 +44,5 @@ def mark_external_delivery():
 
     if is_shutting_down():
         raise PublicationDeferred("Worker encerrando antes do envio externo")
-    if not publish_jobs.mark_external_started(*attempt[:2]):
+    if not publish_jobs.mark_external_started(*attempt):
         raise PublicationDeferred("Claim perdido antes do envio externo")
