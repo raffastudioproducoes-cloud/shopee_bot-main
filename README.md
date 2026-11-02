@@ -57,14 +57,9 @@ Banco: **Supabase** (Postgres gerenciado).
 > (`LEGACY_PANEL_ENABLED=false`) e o painel principal é o React (`frontend/`). Ver
 > [Roadmap da migração](#roadmap-da-migração).
 
-**Versão atual**: 2.7.0 (arquivo `VERSION`). A 2.7.0 distingue publicação imediata de agendamento, permite até cinco horários por dia na recorrência e reencoda MP4 antes do Storage. Vídeo continua disponível sem varredura antivírus isolada; consulte `docs/POST-MEDIA-SECURITY.md`. A 2.6.0 (2026-10-15) trouxe o painel admin (globo de localização em demonstração, métricas de escala/capacidade e tendências), a separação entre site de cliente e `/admin` e overrides manuais de credenciais em `/admin/credentials`. A 2.5.0 adicionou o painel administrativo isolado, splash, esqueletos de carregamento e correções de segurança; a migração 051 permanece documentada em `docs/migrations-pendentes/`. A 2.4.0 (2026-10-14) traz a identidade AUTO ORBITAL
-(paleta, logos, favicon, PWA instalável, nome visível), Ajuda/FAQ e Termos/Privacidade
-reescritos (revisão jurídica pendente) e os callbacks públicos da Meta/Threads (desautorizar,
-exclusão de dados e status). O app Meta segue em modo desenvolvimento: só testadores conectam;
-publicar para clientes exige verificação da empresa e análise do app. X desativado até plano
-pago; TikTok foto é melhoria futura. As mudanças da branch de integração
-(multi-perfil completo, endurecimento de segurança e CI) estão em `CHANGELOG.md` na
-seção "Não lançado" e só viram versão no merge para `main`.
+**Versão atual:** `3.0.0` (fonte oficial: [`VERSION`](VERSION), histórico: [`CHANGELOG.md`](CHANGELOG.md)). Esta atualização consolida as alterações incompatíveis do fluxo de posts: um produto por publicação e criação somente em `Agora` ou `Recorrente`. Inclui descrições de IA por rede, rascunhos persistentes, identificadores `#ID`, melhorias de concorrência e histórico de ocorrências. `2.7.0` introduziu até cinco horários diários de recorrência e o tratamento/reencodificação de MP4. O processamento de vídeo permanece sem scanner antivírus isolado (ver `docs/POST-MEDIA-SECURITY.md`).
+
+**Limitações de validação:** deploy/CI e autenticação não substituem teste externo de publicação; Threads 403 continua sob acompanhamento. `staging` e `main` usam o mesmo Supabase, e a decisão posterior de centralizar os disparos na produção demanda ajuste técnico próprio. O acesso de revisão `RafaelTesteCliente` deve ser preservado.
 
 ## Objetivo
 
@@ -72,7 +67,7 @@ Tirar o trabalho manual de quem divulga produto de afiliado:
 
 - **garimpar** produto elegível (comissão, vendas, categoria) sem sair do painel;
 - **gerar copy** com IA (Gemini) por persona, sem escrever do zero toda vez;
-- **agendar ou publicar na hora**, com retry e log de falha — sem post perdido silenciosamente;
+- **publicar agora ou programar recorrência**, com acompanhamento de ocorrências, falhas e resultados incertos;
 - **organizar** produtos em listas reaproveitáveis entre posts;
 - **conectar credenciais** de cada rede social de forma cifrada, nunca expostas de volta na tela;
 - **acompanhar** o que foi feito por atividade, com histórico auditável.
@@ -84,7 +79,7 @@ Tirar o trabalho manual de quem divulga produto de afiliado:
 | **Garimpo** | Busca de produtos na Shopee Open API por categoria, palavra-chave, comissão mínima e vendas |
 | **Produtos** | Cadastro, edição, listagem com busca — origem manual ou vinda do garimpo. Aba "Pesquisa Avançada" busca em tempo real no catálogo da Shopee (API de afiliados), com filtros e importação direta pro catálogo pessoal |
 | **Listas de produtos** | Agrupamento de produtos reaproveitável entre posts |
-| **Posts** | Criação, agendamento (imediato, data ou recorrência de até 7 dias), publicação sob demanda, retry e log de falha. Preview e criação em lote por rede com mídia em rascunho durável (bucket privado, expira em 24 h); rede incompatível é bloqueada sem cancelar as demais. Entregues no código: Threads, Facebook, Instagram e X (foto única); TikTok foto bloqueado. Ainda sem validação em staging |
+| **Posts** | Criação de post com um produto, publicação imediata ou recorrente (até 7 dias, até cinco horários diários), histórico de ocorrências e tratamento de resultados incertos. Preview e variantes por rede com mídia privada e adaptação conforme compatibilidade; sucesso real depende de OAuth/escopos e teste na rede. |
 | **Copywriter IA** | Geração de texto de post por persona com a chave de IA do próprio usuário (Gemini, OpenAI ou Anthropic — Credenciais; `apis/llm.py`) |
 | **Credenciais** | Shopee, Threads, X, Facebook, Instagram, TikTok, Kwai — cifradas em repouso (Fernet), nunca reexibidas |
 | **Atividades** | Histórico auditável de ações do usuário |
