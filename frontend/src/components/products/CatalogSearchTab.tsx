@@ -2,6 +2,9 @@ import { useMemo, useState, useCallback, type ReactNode } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { catalogApi, CATALOG_SORT_OPTIONS, type CatalogProduct, type CatalogSortType } from "../../api/catalog"
 import { productsApi } from "../../api/products"
+import { useAuthStore } from "../../stores/authStore"
+import { formDraftKey } from "../../lib/formDraftStorage"
+import { useAutosavedDraft } from "../../hooks/useAutosavedDraft"
 import { Panel } from "../ui/Panel"
 import { Button } from "../ui/Button"
 import { IconButton } from "../ui/IconButton"
@@ -184,6 +187,7 @@ interface CatalogSearchTabProps {
 
 export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTabProps) {
   const queryClient = useQueryClient()
+  const accountId = useAuthStore((state) => state.user?.id)
   const [keywordInput, setKeywordInput] = useState("")
   const [searchKeyword, setSearchKeyword] = useState<string | undefined>(undefined)
   const [sortType, setSortType] = useState<CatalogSortType>(1)
@@ -192,6 +196,18 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [hasSearched, setHasSearched] = useState(false)
   const [selected, setSelected] = useState<CatalogProduct | null>(null)
+
+  useAutosavedDraft(formDraftKey(accountId, "catalog-search", null, false),
+    { keywordInput, searchKeyword, sortType, categoryId, page, hasSearched },
+    (saved) => {
+      setKeywordInput(typeof saved?.keywordInput === "string" ? saved.keywordInput : "")
+      setSearchKeyword(typeof saved?.searchKeyword === "string" ? saved.searchKeyword : undefined)
+      setSortType(saved?.sortType && [1, 2, 3, 4, 5].includes(saved.sortType) ? saved.sortType : 1)
+      setCategoryId(typeof saved?.categoryId === "string" ? saved.categoryId : "")
+      setPage(typeof saved?.page === "number" && saved.page > 0 ? Math.floor(saved.page) : 1)
+      setHasSearched(saved?.hasSearched === true)
+    },
+  )
 
   const categoriesQuery = useQuery({
     queryKey: ["catalog-categories"],

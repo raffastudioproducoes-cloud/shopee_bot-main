@@ -10,6 +10,9 @@ import { LocationGlobe } from '../components/admin/LocationGlobe'
 import { PageSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
 import { ApiError } from '../lib/api'
+import { useAuthStore } from '../stores/authStore'
+import { formDraftKey } from '../lib/formDraftStorage'
+import { useAutosavedDraft } from '../hooks/useAutosavedDraft'
 import { comparisonDelta, formatMetricTime, isStale } from '../components/admin/metricsPresentation'
 
 const number = (value: number | null | undefined, suffix = '') => value == null ? 'Indisponível' : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}${suffix}`
@@ -30,6 +33,11 @@ const diagnosticLabels: Record<string, string> = {
 export default function AdminOverviewPage() {
   const [days, setDays] = useState(30)
   const [compare, setCompare] = useState(false)
+  const accountId = useAuthStore((state) => state.user?.id)
+  useAutosavedDraft(formDraftKey(accountId, 'admin-overview-filters', null, false), { days, compare }, (saved) => {
+    setDays(typeof saved?.days === 'number' && [7, 30, 90].includes(saved.days) ? saved.days : 30)
+    setCompare(saved?.compare === true)
+  })
   const { data, isLoading, isFetching, error, refetch } = useQuery({ queryKey: ['admin', 'metrics', days], queryFn: () => adminMetricsApi.get(days), refetchInterval: 60_000, retry: 1 })
   if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return <p role="alert">Acesso às métricas não autorizado. Reentre com uma conta administrativa.</p>
   if (isLoading) return <PageSkeleton variant="cards" heading={false} count={2} />

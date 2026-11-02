@@ -1,3 +1,10 @@
+## 02/11/2026 — Rascunhos locais persistentes nos formulários (somente staging)
+
+- Pedido de Rafa: persistir o formulário ao fechar modal, atualizar, perder conexão ou reiniciar navegador, inclusive reconhecer remoção intencional de texto e **não ressuscitar o valor antigo**.
+- Implementado: armazenamento local versionado e isolado por conta/perfil/tipo de formulário, recuperação no retorno, limpeza só após sucesso do backend; posts, produtos, catálogo, listas, perfis, usuário admin sem senha, preferências não secretas das credenciais, filtros e buscas; `File`, tokens e credenciais excluídos.
+- Documentação e bateria de testes: `docs/FORM-DRAFTS-PERSISTENCE-20261102.md` e `frontend/tests/form-drafts.test.mjs`.
+- **Homologação:** validar CI, staging implantado e QA com sessão autenticada; nenhum deploy na main/produção e nenhuma postagem real de teste.
+
 ## 02/11/2026 — Descrições IA e mídia individual por rede (somente staging)
 
 - Correção da geração que devolvia Threads acima de 500 caracteres e seis hashtags apesar de retry; tratamento determinístico com revisão e link preservado.

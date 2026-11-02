@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useCallback } from "react"
 import { useAuthStore } from "../stores/authStore"
+import { formDraftKey, clearFormDraft, saveFormDraft } from "../lib/formDraftStorage"
+import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
 import { productsApi, type Product } from "../api/products"
 import { Panel } from "../components/ui/Panel"
@@ -50,15 +52,36 @@ function toFormNumber(value: number | string | null | undefined): string {
 const formNumber = (value: string) => (value ? round2(Number(value)) : null)
 
 export function ProductsPage() {
-  const { isAuthenticated, logout } = useAuthStore()
+  const { isAuthenticated, logout, user } = useAuthStore()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<ProductsTab>("mine")
   const [search, setSearch] = useState("")
+  useAutosavedDraft(formDraftKey(user?.id, "products-filters", null, false), { activeTab, search }, (saved) => {
+    setActiveTab(saved?.activeTab === "catalog" ? "catalog" : "mine")
+    setSearch(typeof saved?.search === "string" ? saved.search : "")
+  })
   const [view, handleViewChange] = useViewMode("products-view")
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [formBase, setFormBase] = useState(emptyForm)
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const activeDraftKey = modalOpen
+    ? formDraftKey(user?.id, editingId ? `product-edit:${editingId}` : "product-create", null, false)
+    : null
+  useAutosavedDraft(activeDraftKey, form, (saved) => {
+    const base = saved && typeof saved === "object" ? saved : formBase
+    setForm({
+      name: typeof base.name === "string" ? base.name : "",
+      product_id: typeof base.product_id === "string" ? base.product_id : "",
+      original_link: typeof base.original_link === "string" ? base.original_link : "",
+      commission_link: typeof base.commission_link === "string" ? base.commission_link : "",
+      commission: typeof base.commission === "string" ? base.commission : "",
+      image: typeof base.image === "string" ? base.image : "",
+      price_min: typeof base.price_min === "string" ? base.price_min : "",
+      price_max: typeof base.price_max === "string" ? base.price_max : "",
+    })
+  })
 
   // ── Query ──────────────────────────────────────────────────────────────────────
 
@@ -87,6 +110,7 @@ export function ProductsPage() {
       }),
     meta: { toast: { pending: "Salvando produto…", success: "Produto adicionado a Meus Produtos", error: "Não foi possível salvar" } },
     onSuccess: () => {
+      clearFormDraft(formDraftKey(user?.id, "product-create", null, false))
       queryClient.invalidateQueries({ queryKey: ["products"] })
       setModalOpen(false)
       setForm(emptyForm)
@@ -98,7 +122,8 @@ export function ProductsPage() {
     mutationFn: ({ id, body }: { id: number; body: Partial<Product> }) =>
       productsApi.update(id, body),
     meta: { toast: { pending: "Salvando alterações…", success: "Produto atualizado", error: "Não foi possível salvar" } },
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
+      clearFormDraft(formDraftKey(user?.id, `product-edit:${variables.id}`, null, false))
       queryClient.invalidateQueries({ queryKey: ["products"] })
       setEditingId(null)
       setModalOpen(false)
@@ -156,7 +181,7 @@ export function ProductsPage() {
 
   const handleEdit = useCallback((product: Product) => {
     setEditingId(product.id)
-    setForm({
+    const nextForm = {
       name: product.name || "",
       product_id: product.product_id || "",
       original_link: product.original_link || "",
@@ -165,13 +190,15 @@ export function ProductsPage() {
       image: product.image || "",
       price_min: toFormNumber(product.price_min),
       price_max: toFormNumber(product.price_max),
-    })
+    }
+    setFormBase(nextForm)
+    setForm(nextForm)
     setModalOpen(true)
   }, [])
 
   const handlePrefill = useCallback((p: CatalogProduct) => {
     setEditingId(null)
-    setForm({
+    const nextForm = {
       name: p.name,
       product_id: p.product_id,
       original_link: p.original_link || "",
@@ -180,9 +207,12 @@ export function ProductsPage() {
       image: p.image || "",
       price_min: toFormNumber(p.price_min),
       price_max: toFormNumber(p.price_max),
-    })
+    }
+    setFormBase(nextForm)
+    setForm(nextForm)
+    saveFormDraft(formDraftKey(user?.id, "product-create", null, false), nextForm)
     setModalOpen(true)
-  }, [])
+  }, [user?.id])
 
   const handleCancel = useCallback(() => {
     setModalOpen(false)
@@ -192,6 +222,7 @@ export function ProductsPage() {
 
   const openCreateModal = useCallback(() => {
     setEditingId(null)
+    setFormBase(emptyForm)
     setForm(emptyForm)
     setModalOpen(true)
   }, [])
@@ -440,6 +471,7 @@ export function ProductsPage() {
             Ganho estimado por venda: <strong className="csp-s-0368">{formatEarnings(form.price_min, form.price_max, form.commission)}</strong>
           </p>
 
+          <p style={{ color: "var(--text-muted)", font: "var(--text-role-caption)" }}>Rascunho salvo neste navegador até você salvar o produto.</p>
           <div className="csp-s-0369">
             <Button type="button" variant="ghost" onClick={handleCancel}>
               Cancelar
