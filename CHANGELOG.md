@@ -7,10 +7,25 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 > Toda alteração integrada em `staging` deve ser registrada aqui por PR. `VERSION` é a fonte oficial da versão; nenhuma mudança passa para `main` sem classificação SemVer, changelog e validação. A próxima versão só é decidida na promoção aprovada.
 
-### Planned (especificação registrada, ainda não implementada)
-- Plano vinculante das campanhas por listas: página `Criar POST`, edição por item, galeria de múltiplas fotos Shopee, prévia e rotação sequencial de horários dentro de 30 dias inclusivos, integração com publicações existentes, mensagens de falha e QA de concorrência. Detalhes em `docs/superpowers/specs/2026-11-02-campanhas-listas-design.md` e plano em `docs/superpowers/plans/2026-11-02-campanhas-listas-implementacao.md`.
-- Verificação prévia da execução centralizada do scheduler com Supabase compartilhado; staging exclusivo do desenvolvedor e aprovação obrigatória antes de main. TikTok Photo e limites/tags por plano permanecem explicitamente pendentes.
-- Esta entrada documenta o escopo aprovado; **nenhum comportamento foi alterado por este registro**. Versões previstas: 3.0.1 (se houver bug de scheduler), 3.1.0 (página/mídias) e 3.2.0 (campanhas), sujeitas à validação real.
+### Added (branch `feat/campanhas-listas-20261102`; não publicado)
+- Rota privada `/posts/criar` e página dedicada de criação, com `PostComposer` separado do modal, preservando seleção de produto único, redes, IA, rascunhos e composição de mídias.
+- Planejador **puro** de slots de campanha com datas inclusivas até 30 dias, rotação de um produto por horário, índice crescente, fuso Brasília→UTC e rejeição de horas inexistentes/ambíguas.
+- Testes dos contratos de editor em página e de calendário, incluídos no CI, com ciclo RED→GREEN documentado em `docs/POSTS-CAMPANHAS-RESULTADOS-20261102.md`.
+- Contrato técnico `publication_executor_environment()` que define a futura autoridade de publicação; **não altera** o executor atual.
+
+### Changed (branch isolada; aguardando revisão visual)
+- `PostsPage` mantém a listagem e o modal de detalhes, sem o compositor de criação.
+- Menu lateral recebe **Criar POST** imediatamente acima de **Automação**.
+- Testes de regressão de posts e persistência apontam para o novo componente, preservando suas expectativas.
+
+### Planejado / pendente (não implementado)
+- Correção integral da execução de agendas criadas no staging pelo worker da produção e migração segura do legado. O contrato acima não corrige sozinho o problema.
+- Galeria multi-imagem **autorizada** da Shopee e seleção de várias fotos na postagem individual e nas campanhas; origem oficial ainda não validada.
+- Editor completo de campanhas por lista, snapshots, revisão futura, prévia de cobertura, limites de intervalo por rede, ocorrências idempotentes e execução central.
+- Auditoria do fluxo **TikTok Photo** logo que possível; tags/limites de criação e duração por plano na etapa comercial. Staging é exclusivo do dono/desenvolvedor, compartilha o banco da produção e não precisa de segundo cron.
+- Aprovação visual desktop/Android, QA de conta de teste, ensaios de concorrência e validação real do staging antes de qualquer merge.
+- `VERSION` permanece `3.0.0`; números `3.0.1` (bug do scheduler), `3.1.0` (página/mídias) e `3.2.0` (campanhas) são **previsões**, a classificar no release aprovado.
+
 
 ## [3.0.0] - 2026-11-02
 
