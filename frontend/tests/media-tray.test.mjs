@@ -25,8 +25,10 @@ test('trayLimit usa o menor maxMedia das redes que entregam carrossel', () => {
   assert.equal(trayLimit([]), undefined)
 })
 
-test('PostModal usa a bandeja e envia pendingFiles em ordem', () => {
-  const page = readFileSync(new URL('../src/pages/PostsPage.tsx', import.meta.url), 'utf8')
-  assert.match(page, /<MediaTray/)
+test('PostComposer mantém bandeja e CreatePostPage sobe arquivos na ordem', () => {
+  const composer = readFileSync(new URL('../src/components/posts/PostComposer.tsx', import.meta.url), 'utf8')
+  const page = readFileSync(new URL('../src/pages/CreatePostPage.tsx', import.meta.url), 'utf8')
+  assert.match(composer, /<MediaTray/)
+  assert.match(composer, /moveItem\(prev, from, to\)/)
   assert.match(page, /for \(const file of data\.files\) draftMedia\.push\(await postsApi\.uploadDraftMedia\(file\)\)/)
 })
