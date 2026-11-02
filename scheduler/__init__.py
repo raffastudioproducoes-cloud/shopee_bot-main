@@ -168,7 +168,7 @@ def _execute_publish_item(publish_job_id, job_data):
         return
 
     context_token = publication_context.activate(
-        publish_job_id, queue_claim["claim_token"]
+        publish_job_id, queue_claim["claim_token"], queue_claim.get("content_snapshot")
     )
     try:
         try:
