@@ -34,6 +34,8 @@ import {
 import { productsApi, type Product } from "../api/products"
 import { listsApi } from "../api/lists"
 import { useProfileStore } from "../stores/profileStore"
+import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
+import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { PostProductPicker } from "../components/posts/PostProductPicker"
 import { PostTimePicker } from "../components/posts/PostTimePicker"
 import { aiCredentialsApi } from "../api/credentials"
@@ -138,6 +140,11 @@ export function PostsPage() {
   const [detailsPost, setDetailsPost] = useState<Post | null>(null)
   const searchQuery = usePostsSearchStore((state) => state.query)
   const clearSearch = usePostsSearchStore((state) => state.clear)
+  const setSearchQuery = usePostsSearchStore((state) => state.setQuery)
+  const accountId = useAuthStore((state) => state.user?.id)
+  useAutosavedDraft(formDraftKey(accountId, "posts-search", activeProfileId), { query: searchQuery }, (saved) => {
+    setSearchQuery(typeof saved?.query === "string" ? saved.query : "")
+  })
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [reconcilePostId, setReconcilePostId] = useState<number | null>(null)
   const [reconcileSourceJobId, setReconcileSourceJobId] = useState<string | null>(null)
@@ -241,7 +248,10 @@ export function PostsPage() {
     onSuccess: (results, data) => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
       if (data.publishNow) refreshPublishResult()
-      if (results.every((r) => r.ok)) setModalOpen(false)
+      if (results.every((r) => r.ok)) {
+        clearFormDraft(formDraftKey(useAuthStore.getState().user?.id, "post-create", activeProfileId))
+        setModalOpen(false)
+      }
     },
     onError: onAuthError,
   })
@@ -721,6 +731,47 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   // Redes que já deram certo no último envio saem da seleção: reenviar só
   // repete as que falharam, sem duplicar post.
   const [handledResults, setHandledResults] = useState<NetworkResult[] | undefined>(undefined)
+  // Rascunho apenas no navegador, isolado por conta/perfil. Nunca salva File.
+  const postDraftKey = !post ? formDraftKey(accountId, "post-create", activeProfileId) : null
+  useAutosavedDraft(postDraftKey, {
+    texts, variantTexts, persona, networks, selectedProductIds, productTab,
+    productListId, when, cronTimes, cronDays, useShopeeImages, previewOpen,
+    pendingFileNames: pendingFiles.map(({ file }) => file.name),
+  }, (saved) => {
+    const draft = saved && typeof saved === "object" ? saved : null
+    setTexts(Array.isArray(draft?.texts) && draft.texts.length > 0
+      ? draft.texts.slice(0, 10).filter((part): part is string => typeof part === "string")
+      : [""])
+    setVariantTexts(draft?.variantTexts && typeof draft.variantTexts === "object"
+      ? Object.fromEntries(Object.entries(draft.variantTexts).filter((entry) => typeof entry[1] === "string"))
+      : {})
+    setPersona(typeof draft?.persona === "string" ? draft.persona : "casual")
+    setNetworks(Array.isArray(draft?.networks)
+      ? draft.networks.filter((net): net is PostNetwork => typeof net === "string" && net in NETWORK_RULES)
+      : [])
+    setSelectedProductIds(Array.isArray(draft?.selectedProductIds)
+      ? draft.selectedProductIds.filter((id): id is number => typeof id === "number" && Number.isInteger(id)).slice(0, 1)
+      : [])
+    setProductTab(draft?.productTab === "lists" ? "lists" : "products")
+    setProductListId(typeof draft?.productListId === "number" ? draft.productListId : null)
+    setWhen(draft?.when === "cron" ? "cron" : "now")
+    setCronTimes(Array.isArray(draft?.cronTimes) && draft.cronTimes.length > 0
+      ? draft.cronTimes.filter((t): t is string => typeof t === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(t)).slice(0, 5)
+      : ["09:00"])
+    setCronDays(Array.isArray(draft?.cronDays)
+      ? draft.cronDays.filter((day): day is number => Number.isInteger(day) && day >= 0 && day <= 6)
+      : [0])
+    setUseShopeeImages(draft?.useShopeeImages === true)
+    setPreviewOpen(draft?.previewOpen === true)
+    setPendingFiles([])
+    setTrayOpen(false)
+    setAiAutoContinuation(false) // nunca chamar uma IA paga automaticamente após recarregar
+    aiProductRef.current = null
+    setPickMessage(Array.isArray(draft?.pendingFileNames) && draft.pendingFileNames.length
+      ? "Rascunho recuperado. Selecione novamente os arquivos locais de imagem/vídeo; o navegador não permite recuperá-los automaticamente."
+      : null)
+  })
+
   if (results && results !== handledResults) {
     setHandledResults(results)
     setNetworks((prev) => prev.filter((n) => !results.some((r) => r.network === n && r.ok)))
@@ -827,6 +878,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     }
   }
   const clearComposer = () => {
+    clearFormDraft(postDraftKey)
     setTexts([""])
     setVariantTexts({})
     setNetworks([])
