@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   ArrowDown,
   ArrowRight,
@@ -24,8 +24,6 @@ import {
   Zap,
 } from 'lucide-react'
 import './PresentationPage.css'
-
-const OrbitalMotionPlayer = lazy(() => import('./OrbitalPilotPage').then((module) => ({ default: module.OrbitalMotionPlayer })))
 
 type DemoStep = 'produtos' | 'listas' | 'editor' | 'agenda' | 'historico'
 
@@ -72,28 +70,6 @@ function SectionHeading({ eyebrow, title, children }: { eyebrow: string; title: 
       <span className="ao-lp-eyebrow"><span className="ao-lp-eyebrow-line" />{eyebrow}</span>
       <h2>{title}</h2>
       <p>{children}</p>
-    </div>
-  )
-}
-
-function OrbitalLandingScene() {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    if (!containerRef.current) return
-    if (!('IntersectionObserver' in window)) { setReady(true); return }
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) { setReady(true); observer.disconnect() }
-    }, { rootMargin: '420px 0px' })
-    observer.observe(containerRef.current)
-    return () => observer.disconnect()
-  }, [])
-
-  const placeholder = <div className="ao-lp-turn-loading" role="status"><Orbit size={42} strokeWidth={1} /><span>Preparando a transformação orbital…</span></div>
-  return (
-    <div ref={containerRef} className="ao-lp-turn-motion">
-      {ready ? <Suspense fallback={placeholder}><OrbitalMotionPlayer embedded /></Suspense> : placeholder}
     </div>
   )
 }
@@ -263,12 +239,12 @@ export default function PresentationPage() {
         <section className="ao-lp-section ao-lp-turn" id="virada">
           <div className="ao-lp-container ao-lp-turn-inner">
             <div className="ao-lp-turn-beam" aria-hidden="true" />
+            <div className="ao-lp-turn-symbol" aria-hidden="true"><span><Orbit size={68} strokeWidth={1.1} /></span></div>
             <span className="ao-lp-eyebrow ao-lp-eyebrow--center">03 / A virada</span>
             <h2>Menos abas abertas.<br /><em>Mais clareza para avançar.</em></h2>
             <p>Imagine suas oportunidades, conteúdos e programações seguindo um mesmo fluxo. Sem transformar cada nova divulgação em uma lista de tarefas dispersas.</p>
-            <OrbitalLandingScene />
             <div className="ao-lp-flow-pills" aria-label="Etapas organizadas"><span>Produto</span><ArrowRight size={19} /><span>Conteúdo</span><ArrowRight size={19} /><span>Agenda</span><ArrowRight size={19} /><span>Acompanhamento</span></div>
-            <div className="ao-lp-story-note ao-lp-story-note--center"><span className="ao-lp-story-index">CENA 02</span><span>A transformação orbital · estudo 3D</span><Status tone="planned">Prévia visual em avaliação</Status></div>
+            <div className="ao-lp-story-note ao-lp-story-note--center"><span className="ao-lp-story-index">CENA 02</span><span>A transformação orbital</span><Status tone="planned">Movimento cinematográfico futuro</Status></div>
           </div>
         </section>
 

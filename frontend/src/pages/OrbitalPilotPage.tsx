@@ -297,38 +297,21 @@ function OrbitalSignature({ progress }: { progress: number }) {
   </div>
 }
 
-export function OrbitalMotionPlayer({ embedded = false }: { embedded?: boolean }) {
+export default function OrbitalPilotPage() {
   const [time, setTime] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [reduced, setReduced] = useState(false)
   const startedAt = useRef<number | null>(null)
   const timeRef = useRef(0)
-  const frameRef = useRef<HTMLElement>(null)
-  const autoPlayed = useRef(false)
-  const [inViewport, setInViewport] = useState(!embedded)
   useEffect(() => {
     const old = document.title
-    if (!embedded) document.title = "Auto Orbital — estudo de motion procedural V3"
+    document.title = "Auto Orbital — estudo de motion procedural V3"
     const media = window.matchMedia("(prefers-reduced-motion: reduce)")
     const listener = () => { setReduced(media.matches); if (media.matches) setPlaying(false) }
     listener()
     media.addEventListener("change", listener)
-    return () => { if (!embedded) document.title = old; media.removeEventListener("change", listener) }
-  }, [embedded])
-  useEffect(() => {
-    if (!embedded || !frameRef.current) return
-    if (!("IntersectionObserver" in window)) { setInViewport(true); return }
-    const observer = new IntersectionObserver(([entry]) => setInViewport(entry.isIntersecting), { threshold: 0.35 })
-    observer.observe(frameRef.current)
-    return () => observer.disconnect()
-  }, [embedded])
-  useEffect(() => {
-    if (!embedded) return
-    if (!inViewport) { setPlaying(false); return }
-    if (reduced || autoPlayed.current) return
-    autoPlayed.current = true
-    setPlaying(true)
-  }, [embedded, inViewport, reduced])
+    return () => { document.title = old; media.removeEventListener("change", listener) }
+  }, [])
   useEffect(() => {
     if (!playing || reduced) { startedAt.current = null; return }
     let frame = 0
@@ -354,11 +337,11 @@ export function OrbitalMotionPlayer({ embedded = false }: { embedded?: boolean }
     setPlaying(true)
   }
   const active = 1 - ease(.73, .86, progress)
-  return <div className={embedded ? "ao3-embed" : "ao3-page"}>
-    {!embedded && <header className="ao3-header"><a href="/presentation"><ArrowLeft size={17}/> Voltar à apresentação</a><span>EXPERIMENTO DE MOTION / V3</span><b>Auto Orbital</b></header>}
+  return <div className="ao3-page">
+    <header className="ao3-header"><a href="/presentation"><ArrowLeft size={17}/> Voltar à apresentação</a><span>EXPERIMENTO DE MOTION / V3</span><b>Auto Orbital</b></header>
     <main className="ao3-main">
-      {!embedded && <div className="ao3-intro"><span>STORYBOARD / 10 SEGUNDOS / SEM SOM</span><h1>Do trabalho repetitivo à <em>órbita.</em></h1><p>Uma cena procedural: nenhum elemento visual é uma imagem colada. Cada movimento demonstra uma etapa do trabalho do afiliado.</p></div>}
-      <section ref={frameRef} className="ao3-frame" aria-label="Demonstração animada: uma ficha de produto se multiplica em tarefas, se organiza no horizonte de eventos e revela o fluxo de trabalho do Auto Orbital.">
+      <div className="ao3-intro"><span>STORYBOARD / 10 SEGUNDOS / SEM SOM</span><h1>Do trabalho repetitivo à <em>órbita.</em></h1><p>Uma cena procedural: nenhum elemento visual é uma imagem colada. Cada movimento demonstra uma etapa do trabalho do afiliado.</p></div>
+      <section className="ao3-frame" aria-label="Demonstração animada: uma ficha de produto se multiplica em tarefas, se organiza no horizonte de eventos e revela o fluxo de trabalho do Auto Orbital.">
         <div className="ao3-stage">
           <div className="ao3-grid" />
           <ProceduralUniverse progress={progress} />
@@ -380,11 +363,7 @@ export function OrbitalMotionPlayer({ embedded = false }: { embedded?: boolean }
         <label htmlFor="ao3-timeline">EXPLORAR QUADROS / {Math.round(progress * 100)}%</label>
         <input id="ao3-timeline" type="range" min={0} max={DURATION_MS} step={50} value={reduced ? DURATION_MS : time} onChange={(e) => setTimeline(Number(e.target.value))} aria-label="Explorar quadros da cena"/>
       </div>
-      {embedded ? <p className="ao3-embed-note">Cena ilustrativa em avaliação, sem som. A automação completa com IA permanece em desenvolvimento; os anúncios e a assinatura final são representações criativas provisórias.</p> : <p className="ao3-disclaimer">Estudo criativo, ainda não aprovado. A coleta e publicação totalmente automáticas com IA continuam em desenvolvimento. Interface e anúncios são representações programáticas ilustrativas. O símbolo final é uma reconstrução procedural, não um novo arquivo de identidade oficial. Nenhuma imagem, som ou vídeo externo é usado nesta cena. A landing principal e o login permanecem inalterados.</p>}
+      <p className="ao3-disclaimer">Estudo criativo, ainda não aprovado. A coleta e publicação totalmente automáticas com IA continuam em desenvolvimento. Interface e anúncios são representações programáticas ilustrativas. O símbolo final é uma reconstrução procedural, não um novo arquivo de identidade oficial. Nenhuma imagem, som ou vídeo externo é usado nesta cena. A landing principal e o login permanecem inalterados.</p>
     </main>
   </div>
-}
-
-export default function OrbitalPilotPage() {
-  return <OrbitalMotionPlayer />
 }
