@@ -55,3 +55,34 @@ Completar Task 1/2 do [plano de execução](superpowers/plans/2026-11-02-campanh
 - Três testes demonstram os filtros atuais por ambiente e o registro no scheduler local. Um quarto contrato de execução centralizada permanece `xfail(strict=True)`: é uma lacuna **esperada**, não uma correção já entregue.
 - [CI #41527390056](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41527390056) concluído com verificações Python e frontend aprovadas; os jobs externos e a prévia Supabase foram pulados.
 - Próximo gate: auditoria **somente leitura, com autorização aplicável**, das agendas de staging e jobs antigos antes de propor compatibilidade/migração; depois teste da solução com o fluxo `Agora`, recorrência, cancelamento, claims concorrentes e estados `unknown`. Nenhum teste E2E externo foi realizado.
+
+## F0 — auditoria read-only do Supabase compartilhado (02/11/2026, 18h32 Brasília)
+
+**Autorização:** leitura expressa do Rafa; somente `SELECT` de metadados estruturais e agregados. **Nenhuma** alteração de linha, execução de migration, mudança de ambiente, leitura de conteúdo de post/credenciais/job_state ou chamada a rede social. Snapshot observado em `2026-11-02 21:32:18+00`; contagens podem mudar com a atividade normal do serviço.
+
+### Inventário real
+
+| Recurso | Produção | Staging | Interpretação |
+|---|---:|---:|---|
+| `schedulers` | 6 (2 cron, 4 date) | 5 (5 cron) | `environment` identifica a origem atual, não autoridade central |
+| Jobstore APScheduler persistido | 3 | 6 | Em cada tabela: 1 job interno `publish_queue_recovery`; 2 cron de produção e 5 cron de staging |
+| Agendas com ID no próprio jobstore | 2 | 5 | Nenhum ID de scheduler aparece em **ambos** os jobstores |
+| Agendas `date` sem jobstore | 4 | 0 | As 4 têm data passada e histórico em `publish_jobs`; isso **não** prova perda de agenda futura |
+| `publish_jobs` `succeeded` | 4 | 0 | Somente Threads nas linhas observadas |
+| `publish_jobs` `unknown` | 6 | 2 | **Estado terminal/incerto; não autoriza retry** |
+
+- Dos **8** registros `unknown`, **6** têm `external_started_at` preenchido (4 produção, 2 staging). Os outros 2 não têm essa marca, mas também não podem ser reenviados cegamente sem conciliação.
+- Os **5** agendamentos recorrentes do staging apontam para **um único post, usuário e perfil**; já iniciaram a janela de vigência. Isso aumenta o risco de transferência automática de um conjunto de testes para a autoridade de produção.
+- No instante da consulta, os próximos disparos registrados (sem contar recuperação) iam de **03/11 15h a 18h** no jobstore de produção e de **02/11 21h a 03/11 18h** no de staging (horários Brasília). Nenhuma entrada listada estava atrasada nessa amostra.
+- `publication_claims` tinha **1** linha, criada em 30/10. Auditar comportamento de TTL/renovação no código; **não** remover nem inferir que o claim ainda bloqueia.
+- As tabelas envolvidas têm RLS habilitado (segundo inventário). O diagnóstico não valida as políticas para futuras tabelas de campanha.
+
+### Implicações técnicas e bloqueio de rollout
+
+1. **Não reidratar as 4 agendas `date` da produção** por ausência no jobstore: são antigas, possuem histórico e podem ter sido consumidas normalmente. A correlação de históricos por status/identidade deve reger qualquer recuperação.
+2. **Não converter automaticamente as 5 agendas atuais do staging** nem apagar o jobstore staging antes de decidir com Rafa se são testes descartáveis ou agendas que devem permanecer e passar à produção. O staging ainda possui executor próprio hoje.
+3. **Não repetir os 8 `unknown`** (inclusive os 6 marcados como operação externa iniciada). Guardar identidade, status e trilha; conciliação externa deve ser explicitamente autorizada e preferencialmente de leitura.
+4. A correção da Task 2 precisa de transição **feature-gated**, preservando IDs, escopo `user_id/profile_id/post_id`, chave de ocorrência e histórico, sem dois workers responsáveis por novas chamadas externas. Primeiro compatibilidade em código e testes; depois migração/configuração sob autorização própria, com ordem de deploy e rollback seguros.
+5. A origem da agenda (`staging`/`production`) deve continuar rastreável; a autoridade para publicar é **produção**. Edição/cancelamento precisam chegar ao executor central de modo durável e idempotente, inclusive para o fluxo `Agora`.
+
+**Gate de decisão com o Rafa:** o que fazer com os cinco cron ativos de staging: (A) preservá-los para transferência futura à produção, após homologação controlada; ou (B) tratá-los como testes e pausá-los/encerrá-los antes da transição? Nenhuma das alternativas foi executada. Até a resposta: somente testes e implementação isolada na branch DRAFT, sem ativação/migração.

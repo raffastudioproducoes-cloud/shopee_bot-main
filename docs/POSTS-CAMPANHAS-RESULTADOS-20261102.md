@@ -98,3 +98,11 @@ Pendentes: ledger imutável por ocorrência, idempotência, snapshot/revision, a
 - Três testes demonstram os filtros atuais por ambiente e o registro no scheduler local. Um quarto contrato de execução centralizada permanece `xfail(strict=True)`: é uma lacuna **esperada**, não uma correção já entregue.
 - [CI #41527390056](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41527390056) concluído com verificações Python e frontend aprovadas; os jobs externos e a prévia Supabase foram pulados.
 - Próximo gate: auditoria **somente leitura, com autorização aplicável**, das agendas de staging e jobs antigos antes de propor compatibilidade/migração; depois teste da solução com o fluxo `Agora`, recorrência, cancelamento, claims concorrentes e estados `unknown`. Nenhum teste E2E externo foi realizado.
+
+## F0 — auditoria operacional do Supabase autorizada (02/11/2026)
+
+- Executadas apenas consultas `SELECT` de esquema e agregados no projeto Supabase compartilhado, observação às **18h32 Brasília**; sem alterar jobs, dados, configuração, serviços, arquivos de usuário ou publicar externamente.
+- Inventário: 11 agendas (6 produção, 5 staging); jobstores isolados 3/6 registros, respectivamente, contando 1 job de recuperação em cada; 4 registros `date` históricos da produção sem jobstore, todos com data passada e histórico de execução.
+- Risco: `publish_jobs` mostra **8 `unknown`**, dos quais **6** têm indício de início de chamada externa. Proibido novo disparo automático ou migração que os reencaminhe.
+- Cinco cron de staging são ativos e pertencem ao mesmo post/perfil. A migração depende de escolha explícita do Rafa quanto à preservação ou encerramento desses testes. Os detalhes, ressalvas e sequência de rollout estão em [F0 — diagnóstico](POSTS-CAMPANHAS-F0-SCHEDULER-DIAGNOSTICO-20261102.md).
+- **Estado F0:** Task 1 de auditoria read-only concluída; Task 2 de convergência central pendente, sem migration nem deploy.
