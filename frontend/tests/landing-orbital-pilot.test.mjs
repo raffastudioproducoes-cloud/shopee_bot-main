@@ -84,7 +84,7 @@ test("V3.2 dá profundidade real somente aos cards e mantém a transição produ
   assert.match(cards, /DIVULGAÇÃO/)
   assert.doesNotMatch(cards, /scaleX\(/)
   assert.match(css, /\.ao3-sheet\{[^}]*transform-style:preserve-3d/)
-  assert.match(css, /\.ao3-sheet::before\{[^}]*translateZ\(-8px\)/)
+  assert.match(css, /\.ao3-sheet::before\{[^}]*translateZ\(0\)/)
   assert.match(css, /backface-visibility:hidden/)
   assert.match(css, /transform:rotateY\(180deg\) translateZ\(5px\)/)
   assert.match(source, /const DURATION_MS = 10_000/)
