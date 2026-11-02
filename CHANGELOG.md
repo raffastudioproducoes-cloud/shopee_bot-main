@@ -8,8 +8,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 > Toda alteração integrada em `staging` deve ser registrada aqui por PR. `VERSION` é a fonte oficial da versão; nenhuma mudança passa para `main` sem classificação SemVer, changelog e validação. A próxima versão só é decidida na promoção aprovada.
 
 ### Added (branch `feat/campanhas-listas-20261102`; não publicado)
+- R06: probe opcional de galeria via Shopee Affiliate Open API (campo candidato `imageUrls` e fallback `imageUrl`), seleção de fotos extras somente quando confirmadas, importação para Storage privado condicionada a nova validação de pertencimento ao produto/CDN. Foto principal Shopee e uploads locais de foto/vídeo PC/mobile continuam disponíveis; origem real da galeria extra ainda aguarda teste autenticado, sem scraping nem deploy.
+- R12: política pura de edição futura com corte estrito T–30 minutos e seletor de revisão por instante original do slot, com testes de bloqueio, múltiplas revisões e claim atrasado. **Não** libera o PUT legado nem altera o publicador: integração transacional/snapshots ainda pendentes.
 - Registro terminal `failed` para agendamento central `date` expirado sem publicação e comando `Agora` idempotente por UUID; CI #41534333686 aprovado em testes mockados, sem ativação externa.
-- Núcleo de despacho central F0 atrás de `ORBITAL_CENTRAL_DISPATCH_ENABLED=false` (migration 068 apenas no Git, escopos SQL, reconciliação opt-in e cancelamento lógico), com CI #41533585972 aprovado; sem deploy, migração executada ou mudança nas cinco agendas legadas do staging.
+- Núcleo de despacho central F0 atrás de `ORBITAL_CENTRAL_DISPATCH_ENABLED=false` (migration 068 aditiva, escopos SQL, reconciliação opt-in e cancelamento lógico), com CI #41533585972 aprovado; a migration foi aplicada no Supabase compartilhado pelo boot autorizado do staging do PR #199 com gate central OFF, sem mudança nas cinco agendas legadas.
 - Testes simulados da lacuna F0 no agendamento compartilhado, com contrato central ainda `xfail(strict=True)`; CI #41527390056 aprovado, sem alteração de worker ou dados.
 - Rota privada `/posts/$postId/editar` para edição condicional em página, mantendo `posts.id`, sem novo envio; backend mantém bloqueio 409 para agendados/publicados, e QA visual permanece pendente.
 - Rota privada `/posts/criar` e página dedicada de criação, com `PostComposer` separado do modal, preservando seleção de produto único, redes, IA, rascunhos e composição de mídias.
@@ -24,7 +26,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Planejado / pendente (não implementado)
 - Correção integral da execução de agendas criadas no staging pelo worker da produção e migração segura do legado. O contrato acima não corrige sozinho o problema.
-- Galeria multi-imagem **autorizada** da Shopee e seleção de várias fotos na postagem individual e nas campanhas; origem oficial ainda não validada.
+- Comprovação autenticada **real** de `imageUrls` ou campo permitido da galeria Shopee, teste E2E da importação condicional e reordenação/capa; o código em branch não confirma a disponibilidade da fonte e a galeria de campanha continua pendente.
 - Editor completo de campanhas por lista, snapshots, revisão futura, prévia de cobertura, limites de intervalo por rede, ocorrências idempotentes e execução central.
 - Auditoria do fluxo **TikTok Photo** logo que possível; tags/limites de criação e duração por plano na etapa comercial. Staging é exclusivo do dono/desenvolvedor, compartilha o banco da produção e não precisa de segundo cron.
 - Aprovação visual desktop/Android, QA de conta de teste, ensaios de concorrência e validação real do staging antes de qualquer merge.
