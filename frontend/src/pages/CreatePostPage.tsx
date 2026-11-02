@@ -52,6 +52,7 @@ export function CreatePostPage() {
       networks: PostNetwork[]
       files: File[]
       productImageIds: number[]
+      extraShopeePhotoUrls: string[]
       publishNow: boolean
     }): Promise<NetworkResult[]> => {
       const draftMedia = []
@@ -62,6 +63,13 @@ export function CreatePostPage() {
         if (!scheduler.available) throw new Error(scheduler.message)
         for (const file of data.files) draftMedia.push(await postsApi.uploadDraftMedia(file))
         for (const productId of data.productImageIds) draftMedia.push(await postsApi.importProductImageDraft(productId))
+        if (data.extraShopeePhotoUrls.length > 0) {
+          const selectedId = data.product_ids[0]
+          if (!selectedId) throw new Error("Selecione um produto para importar fotos adicionais da Shopee.")
+          for (const url of data.extraShopeePhotoUrls) {
+            draftMedia.push(await postsApi.importProductImageDraft(selectedId, url))
+          }
+        }
         const payload = {
           compositions: data.networks.map((network) => ({ network, texts: data.textsByNetwork[network] ?? [] })),
           product_ids: data.product_ids,
@@ -133,9 +141,10 @@ export function CreatePostPage() {
       networks: PostNetwork[],
       files: File[],
       productImageIds: number[],
+      extraShopeePhotoUrls: string[],
       publishNow: boolean,
     ) => {
-      createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, productImageIds, publishNow })
+      createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, productImageIds, extraShopeePhotoUrls, publishNow })
     },
     [createMutation],
   )
