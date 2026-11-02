@@ -7,6 +7,17 @@
 
 > Este documento distingue deliberadamente implementação em código, testes automatizados, revisão em navegador, staging publicado e execução real de redes sociais. Um deles **não** substitui o outro.
 
+## Checkpoint posterior — decisão vinculante R06/R12 (02/11/2026)
+
+> As seções F0–F6 abaixo preservam o acompanhamento incremental inicial. O estado mais recente prevalece neste checkpoint.
+
+- **F0 staging:** PR #199 já foi integrado **somente em staging**, migration 068 aditiva aplicada pelo boot autorizado, gate `ORBITAL_CENTRAL_DISPATCH_ENABLED=false`, cinco agendas legacy do staging intactas, produção/main sem deploy. Supabase continua compartilhado.
+- **R06/F2 aprovado:** Rafa confirmou que foto principal Shopee **e** uploads de fotos/vídeos PC/mobile precisam coexistir com galeria de múltiplas imagens. `productOfferV2` agora tem probe oficial condicional de campo `imageUrls` (fallback seguro), preview e seleção das URLs extras **se realmente retornarem**. Importador opcional verifica itemId/URL novamente antes de baixar para Storage privado. Testes novos mockados; **ainda não há prova real autenticada do campo, nem QA de publicação ou merge/deploy da branch F1/F2**. Ver [evidências F2](POSTS-CAMPANHAS-F2-GALERIA-SHOPEE-EVIDENCIA-20261102.md).
+- **R12/edição aprovado:** apenas ocorrência `pending`, não reivindicada, com horário **estritamente após T+30min** no instante da confirmação. T+30m exatos já bloqueia; slots posteriores elegíveis continuam editáveis. Posts já publicados, `running`, `failed`, `unknown` permanecem imutáveis. O fluxo de edição constava no Vault 06 histórico; não pedir novamente a decisão.
+- **Código de R12 nesta branch:** `api/post_edit_policy.py` e testes cobrem status/claim/corte UTC, seleção de revisão pelo instante original de ocorrência e preservação do slot bloqueado em caso de claim atrasado. **Somente contrato puro:** `PUT /posts/{id}` ainda devolve 409 em agendados/publicados. Para habilitar a edição real faltam persistência transacional de revisões/snapshots, retenção de mídia, vínculo de tentativa e integração do scheduler/worker. Nenhum banco foi alterado por essa parte.
+- **CI:** [#41543055641](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41543055641) passou antes das alterações subsequentes de seleção/importação; CI final da branch deve ser conferido pelo último SHA, porque execuções intermediárias são canceladas por concorrência.
+- **Proteções:** conta de revisão Shopee e destinos externos intocados, 8 jobs `unknown` não reexecutados, sem ativação de dispatcher, sem atualização `VERSION=3.0.0`.
+
 ## Escopo normativo e decisões de Rafa
 
 Referência integral: [especificação](superpowers/specs/2026-11-02-campanhas-listas-design.md) e [plano de 15 tarefas](superpowers/plans/2026-11-02-campanhas-listas-implementacao.md).
