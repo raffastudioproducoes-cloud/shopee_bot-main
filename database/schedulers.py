@@ -1,5 +1,18 @@
 from shopee_bot.database import execute_db, query_db
 from shopee_bot.database.scheduler_environment import current_environment
+from shopee_bot.database.central_dispatch import central_dispatch_enabled, publication_scope_sql
+
+
+def _execution_scope(alias, *, legacy_only=False):
+    """Legado local permanece isolado; central só na produção com gate ativo."""
+    if not central_dispatch_enabled():
+        return f"{alias}.environment = %s", (current_environment(),)
+    if legacy_only:
+        return (
+            f"{alias}.environment = %s AND {alias}.dispatch_mode = 'legacy'",
+            (current_environment(),),
+        )
+    return publication_scope_sql(alias)
 
 # Rede social do post -> função de publicação chamada pelo scheduler
 # (ver scheduler/__init__.py, que resolve o nome via globals()).
@@ -17,16 +30,19 @@ NETWORK_FUNC_MAP = {
 
 
 def get_publication_jobs():
-    query = """
+    # Upgrade dos jobs locais pré-existentes. Os futuros espelhos centrais
+    # terão IDs distintos no APScheduler e reconciliação própria.
+    scope, scope_args = _execution_scope("s", legacy_only=True)
+    query = f"""
         SELECT s.id
         FROM schedulers s
         JOIN posts p ON p.id = s.post_id
           AND p.user_id = s.user_id
           AND p.profile_id IS NOT DISTINCT FROM s.profile_id
         WHERE s.func = ANY(%s)
-          AND s.environment = %s
+          AND {scope}
     """
-    return query_db(query, (list(NETWORK_FUNC_MAP.values()), current_environment()))
+    return query_db(query, (list(NETWORK_FUNC_MAP.values()), *scope_args))
 
 
 def get_by_post_id(user_id, post_id):
@@ -42,7 +58,8 @@ def get_by_post_id(user_id, post_id):
 
 
 def get_by_id(job_id):
-    query = """
+    scope, scope_args = _execution_scope("s")
+    query = f"""
         SELECT
             s.id, s.post_id, s.user_id, s.profile_id, s.func, s.trigger,
             s.time, s.day_of_week, s.days_of_week, s.start_date, s.run_date,
@@ -51,9 +68,9 @@ def get_by_id(job_id):
         JOIN posts p ON p.id = s.post_id
           AND p.user_id = s.user_id
           AND p.profile_id IS NOT DISTINCT FROM s.profile_id
-        WHERE s.id = %s AND s.environment = %s
+        WHERE s.id = %s AND ({scope})
     """
-    args = (job_id, current_environment())
+    args = (job_id, *scope_args)
     return query_db(query, args, True)
 
 
