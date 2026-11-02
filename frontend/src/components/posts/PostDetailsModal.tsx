@@ -96,7 +96,12 @@ export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
                     {slot.status === "erro" ? "Erro" : slot.status === "erro parcial" ? "Erro parcial" : slot.status === "postado" ? "Postado" : slot.status === "programado" ? "Programado" : slot.status}
                   </StatusBadge>
                   {slot.last_at && <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Última tentativa: {formatUtcTimestampBrasilia(slot.last_at)}</span>}
-                  {isAdmin && slot.error && <p style={{ ...valueStyle, flexBasis: "100%", color: "var(--negative)", fontSize: 12 }}>{slot.error}</p>}
+                  {isAdmin && slot.error && (
+                    <details style={{ flexBasis: "100%", minWidth: 0 }}>
+                      <summary style={{ color: "var(--text-muted)", cursor: "pointer", fontSize: 11 }}>Ver diagnóstico</summary>
+                      <p style={{ ...valueStyle, color: "var(--negative)", fontSize: 12, marginTop: 6 }}>{slot.error}</p>
+                    </details>
+                  )}
                 </div>
               ))}
             </div>
