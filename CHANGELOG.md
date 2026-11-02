@@ -7,6 +7,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 > Toda alteração integrada em `staging` deve ser registrada aqui por PR. `VERSION` é a fonte oficial da versão; nenhuma mudança passa para `main` sem classificação SemVer, changelog e validação. A próxima versão só é decidida na promoção aprovada.
 
+### Planned (especificação registrada, ainda não implementada)
+- Plano vinculante das campanhas por listas: página `Criar POST`, edição por item, galeria de múltiplas fotos Shopee, prévia e rotação sequencial de horários dentro de 30 dias inclusivos, integração com publicações existentes, mensagens de falha e QA de concorrência. Detalhes em `docs/superpowers/specs/2026-11-02-campanhas-listas-design.md` e plano em `docs/superpowers/plans/2026-11-02-campanhas-listas-implementacao.md`.
+- Verificação prévia da execução centralizada do scheduler com Supabase compartilhado; staging exclusivo do desenvolvedor e aprovação obrigatória antes de main. TikTok Photo e limites/tags por plano permanecem explicitamente pendentes.
+- Esta entrada documenta o escopo aprovado; **nenhum comportamento foi alterado por este registro**. Versões previstas: 3.0.1 (se houver bug de scheduler), 3.1.0 (página/mídias) e 3.2.0 (campanhas), sujeitas à validação real.
+
 ## [3.0.0] - 2026-11-02
 
 ### Breaking Changes
