@@ -1,3 +1,15 @@
+# 02/11/2026 — INSERÇÃO DO PILOTO V3.2 NA LANDING (SOMENTE STAGING)
+
+> **Nova autorização de Rafa:** mostrar a animação já existente no contexto real da página, na seção `#virada`, mantendo seu caráter provisório. Esta autorização substitui apenas o bloqueio anterior de integração na landing **de staging**; não autoriza promoção à `main`, à produção ou finalização estética.
+
+- **Posição:** seção 03, “A virada”, entre o texto de transição e o fluxo Produto → Conteúdo → Agenda → Acompanhamento. Preservam-se as demais seções, copy, rotas, login e experiência do produto.
+- **Reuso:** o player `OrbitalMotionPlayer` é compartilhado entre `/presentation/pilot` e a landing, sem duplicar cenas. Mantém seis atos/10 s, física 3D dos cards, Canvas, câmera, quadro final e ausência de som.
+- **Comportamento contextual:** carregamento sob demanda próximo da seção, reprodução automática única quando a cena fica visível, pausa ao sair de quadro, botões para controlar/reiniciar e scrub. `prefers-reduced-motion` mostra o final estático. O módulo não altera o título/metadados da landing.
+- **Transparência:** legenda “Prévia visual em avaliação”; as peças são ilustrativas, a automação integral com IA continua em desenvolvimento, e a marca procedural final não é o arquivo oficial.
+- **Escopo de publicação:** somente branch de trabalho com destino `staging`. `main` e Render produção permanecem fora do escopo; QA móvel e aceite estético de Rafa continuam pendentes.
+
+---
+
 # V3.2 — PROFUNDIDADE 3D SOMENTE NOS CARDS (01/11/2026)
 
 > **Decisão de Rafa:** a V3.1 é provisória, mas a única alteração agora é nos cards de produto/propaganda da cena procedural. Eles não devem parecer cartões estáticos sobre um plano. **Não alterar** a assinatura final/logo, horizonte de eventos, câmera global, texto, cenas, ritmo, storyboard de 10s, controles, som ou landing principal.
