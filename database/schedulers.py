@@ -1,6 +1,7 @@
 from shopee_bot.database import execute_db, query_db
 from shopee_bot.database.scheduler_environment import current_environment
-from shopee_bot.database.central_dispatch import central_dispatch_enabled, publication_scope_sql
+from shopee_bot.database.central_dispatch import central_dispatch_enabled, publication_scope_sql, new_schedule_dispatch_mode
+from shopee_bot.database.scheduler_environment import publication_executor_environment
 
 
 def _execution_scope(alias, *, legacy_only=False):
@@ -63,7 +64,7 @@ def get_by_id(job_id):
         SELECT
             s.id, s.post_id, s.user_id, s.profile_id, s.func, s.trigger,
             s.time, s.day_of_week, s.days_of_week, s.start_date, s.run_date,
-            s.environment
+            s.environment, s.dispatch_mode, s.dispatch_cancelled_at
         FROM schedulers s
         JOIN posts p ON p.id = s.post_id
           AND p.user_id = s.user_id
@@ -87,12 +88,15 @@ def query(user_id):
 
 
 def insert(user_id, job, open_conn=None):
+    # A migration 068 garante 'legacy' para todos os registros anteriores.
+    # Novos comandos centrais não entram no jobstore do processo de origem.
+    mode = new_schedule_dispatch_mode()
     query = """
         INSERT INTO schedulers (
             post_id, user_id, func, trigger, time, day_of_week, days_of_week,
-            start_date, run_date, profile_id, environment
+            start_date, run_date, profile_id, environment, dispatch_mode
         )
-        VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
     args = (
@@ -106,16 +110,102 @@ def insert(user_id, job, open_conn=None):
         job["start_date"] if "start_date" in job else None,
         job["run_date"] if "run_date" in job else None,
         job.get("profile_id"),
-        current_environment()
+        current_environment(),
+        mode,
     )
     return execute_db(query, args, open_conn)
 
 
 def delete(user_id, scheduler_id, open_conn=None):
+    # A remoção física é legada: para central, usar cancel_central()
+    # para preservar publish_jobs (FK ON DELETE CASCADE).
     query = """
         DELETE FROM schedulers
-        WHERE id = %s AND user_id = %s
+        WHERE id = %s AND user_id = %s AND dispatch_mode = 'legacy'
         RETURNING id
     """
     args = (scheduler_id, user_id)
     return execute_db(query, args, open_conn)
+
+
+def list_central_dispatch_jobs():
+    """Somente produção lista intenções centrais; legacy nunca é copiado."""
+    if (
+        not central_dispatch_enabled()
+        or current_environment() != publication_executor_environment()
+    ):
+        return []
+    return query_db(
+        """
+        SELECT
+            s.id, s.post_id, s.user_id, s.profile_id, s.environment,
+            s.func, s.trigger, s.time, s.day_of_week, s.days_of_week,
+            s.start_date, s.run_date, s.dispatch_revision
+        FROM schedulers s
+        JOIN posts p ON p.id = s.post_id
+          AND p.user_id = s.user_id
+          AND p.profile_id IS NOT DISTINCT FROM s.profile_id
+        WHERE s.dispatch_mode = 'central'
+          AND s.dispatch_cancelled_at IS NULL
+          AND s.func = ANY(%s)
+          AND (
+              s.trigger = 'cron'
+              OR (
+                  s.trigger = 'date'
+                  AND s.run_date >= (
+                      now() AT TIME ZONE 'America/Sao_Paulo'
+                  ) - INTERVAL '1 hour'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM publish_jobs pj
+                      WHERE pj.scheduler_id = s.id
+                  )
+              )
+          )
+        ORDER BY s.id
+        """,
+        (list(NETWORK_FUNC_MAP.values()),),
+    )
+
+
+def cancel_central(user_id, scheduler_id, open_conn=None):
+    """Cancela apenas agendas centrais da origem atual, SEM apagar histórico."""
+    if not central_dispatch_enabled():
+        return None
+    return execute_db(
+        """
+        UPDATE schedulers
+        SET dispatch_cancelled_at = now(),
+            dispatch_revision = dispatch_revision + 1
+        WHERE id = %s AND user_id = %s AND environment = %s
+          AND dispatch_mode = 'central' AND dispatch_cancelled_at IS NULL
+        RETURNING id
+        """,
+        (scheduler_id, user_id, current_environment()),
+        open_conn,
+    )
+
+
+def expedite_central(job_id):
+    """Fluxo 'Agora': adianta uma agenda date da origem, sem novo job.
+
+    Não adianta quando já existe uma ocorrência na fila. A produção
+    fará reconciliação no próximo tick de seu scheduler.
+    """
+    if not central_dispatch_enabled():
+        return None
+    return execute_db(
+        """
+        UPDATE schedulers s
+        SET run_date = now() AT TIME ZONE 'America/Sao_Paulo',
+            dispatch_revision = dispatch_revision + 1
+        WHERE s.id = %s AND s.environment = %s
+          AND s.dispatch_mode = 'central'
+          AND s.dispatch_cancelled_at IS NULL
+          AND s.trigger = 'date'
+          AND NOT EXISTS (
+              SELECT 1 FROM publish_jobs pj WHERE pj.scheduler_id = s.id
+          )
+        RETURNING id
+        """,
+        (job_id, current_environment()),
+    )
