@@ -48,3 +48,10 @@
 ## Próxima implementação
 
 Completar Task 1/2 do [plano de execução](superpowers/plans/2026-11-02-campanhas-listas-implementacao.md): testes de criação→reconciliação→claim, desenho de persistência do comando de agenda e rollout compatível. Não declarar F0 como concluída antes do cenário staging→produção se tornar comprovadamente funcional.
+
+## F0 — checkpoint adicional: regressões automatizadas (02/11/2026)
+
+- Commit [`1b5cb3b`](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/commit/1b5cb3b13d77682b19e71f88740b292c94aee30d) acrescentou `tests/scheduler/test_central_dispatch_gap.py`, exclusivamente com simulações; não mexeu no runtime nem no banco.
+- Três testes demonstram os filtros atuais por ambiente e o registro no scheduler local. Um quarto contrato de execução centralizada permanece `xfail(strict=True)`: é uma lacuna **esperada**, não uma correção já entregue.
+- [CI #41527390056](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41527390056) concluído com verificações Python e frontend aprovadas; os jobs externos e a prévia Supabase foram pulados.
+- Próximo gate: auditoria **somente leitura, com autorização aplicável**, das agendas de staging e jobs antigos antes de propor compatibilidade/migração; depois teste da solução com o fluxo `Agora`, recorrência, cancelamento, claims concorrentes e estados `unknown`. Nenhum teste E2E externo foi realizado.

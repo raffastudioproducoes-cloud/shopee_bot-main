@@ -91,3 +91,10 @@ Pendentes: ledger imutável por ocorrência, idempotência, snapshot/revision, a
 5. Validar a conta teste Shopee, registrar evidências reais e submeter staging para aprovação do Rafa; só então preparar main.
 
 **Risco residual principal:** os códigos de F1/F4 passaram em testes, mas a cadeia de criação no staging e execução central na produção **ainda não está implementada**. É incorreto anunciar campanhas prontas ou agendamentos convergentes.
+
+## F0 — checkpoint adicional: regressões automatizadas (02/11/2026)
+
+- Commit [`1b5cb3b`](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/commit/1b5cb3b13d77682b19e71f88740b292c94aee30d) acrescentou `tests/scheduler/test_central_dispatch_gap.py`, exclusivamente com simulações; não mexeu no runtime nem no banco.
+- Três testes demonstram os filtros atuais por ambiente e o registro no scheduler local. Um quarto contrato de execução centralizada permanece `xfail(strict=True)`: é uma lacuna **esperada**, não uma correção já entregue.
+- [CI #41527390056](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41527390056) concluído com verificações Python e frontend aprovadas; os jobs externos e a prévia Supabase foram pulados.
+- Próximo gate: auditoria **somente leitura, com autorização aplicável**, das agendas de staging e jobs antigos antes de propor compatibilidade/migração; depois teste da solução com o fluxo `Agora`, recorrência, cancelamento, claims concorrentes e estados `unknown`. Nenhum teste E2E externo foi realizado.

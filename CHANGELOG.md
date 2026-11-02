@@ -8,6 +8,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 > Toda alteração integrada em `staging` deve ser registrada aqui por PR. `VERSION` é a fonte oficial da versão; nenhuma mudança passa para `main` sem classificação SemVer, changelog e validação. A próxima versão só é decidida na promoção aprovada.
 
 ### Added (branch `feat/campanhas-listas-20261102`; não publicado)
+- Testes simulados da lacuna F0 no agendamento compartilhado, com contrato central ainda `xfail(strict=True)`; CI #41527390056 aprovado, sem alteração de worker ou dados.
 - Rota privada `/posts/criar` e página dedicada de criação, com `PostComposer` separado do modal, preservando seleção de produto único, redes, IA, rascunhos e composição de mídias.
 - Planejador **puro** de slots de campanha com datas inclusivas até 30 dias, rotação de um produto por horário, índice crescente, fuso Brasília→UTC e rejeição de horas inexistentes/ambíguas.
 - Testes dos contratos de editor em página e de calendário, incluídos no CI, com ciclo RED→GREEN documentado em `docs/POSTS-CAMPANHAS-RESULTADOS-20261102.md`.
