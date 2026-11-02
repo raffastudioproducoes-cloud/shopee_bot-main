@@ -102,6 +102,18 @@ Estados de campanha: `draft`, `ready`, `active`, `paused`, `completed`, `cancell
 
 **Não fazer:** remover funcionalidades atuais de post único; desbloquear redes não suportadas; inferir êxito de postagem pelo agendamento; reenviar automaticamente `unknown`; configurar duplicidade cron em staging; alterar `main` sem aprovação; salvar segredos localmente; eliminar linhas antigas compartilhadas; ampliar escopo para landing/animações.
 
+## 8.1. Decisões de engenharia após revisão independente
+
+**Autoridade de agendamento:** staging grava/edita/cancela a intenção durável no Supabase compartilhado; um único executor de produção lê/reivindica e publica. Não criar jobs consumidores em staging. A transição do mecanismo legado (`schedulers.environment` e APScheduler jobstore segregados) será feita por migração **compatível**, com auditoria de agendamentos de staging existentes e janela em que o código de produção novo reconhece ambos formatos antes de desativar o executor staging. Controle baseado em claims transacionais, não na quantidade de usuários que acessa staging; cron do Supabase continua só despertando produção.
+
+**Edição futura:** ao confirmar uma edição, gerar nova `revision` da campanha; propagar conteúdo/link/mídia/ordem/horários apenas para slots futuros com status `pending` que **não foram reivindicados**. Regenerar suas atribuições a partir do próximo ordinal elegível e apresentar diff/preview antes de salvar. Slots `running/succeeded/failed/unknown` são imutáveis. Links de auditoria guardam `revision` e snapshot efetivo por tentativa.
+
+**Estado agregado da ocorrência:** todas as redes com sucesso confirmado → `postado`; pelo menos um sucesso e pelo menos uma falha confirmada → `erro parcial`; todas falhas confirmadas → `erro`; qualquer resultado `unknown` sem encerramento verificável → `sem confirmação` (com detalhe por rede); ainda executando → `em execução`; não iniciada → `programado`. A próxima ocorrência é elegível independentemente do estado da anterior. Diagnóstico técnico só ADMIN, mas usuário vê produto, horário e rede afetada.
+
+**Marco de mídia:** se a API autorizada Shopee comprovadamente só oferecer `imageUrl` singular, **não declarar entregue a obtenção automática de várias fotos Shopee** com mero upload manual; documentar impedimento e consultar Rafa antes de substituir essa parte do requisito. Isso não impede desenvolver editor, upload múltiplo, galeria interna e publicação de arquivos próprios em branch de trabalho. Não promover F2 como concluída sem decisão registrada.
+
+**Índices e calendário:** `occurrence_index` começa em **0**; item = `occurrence_index % item_count`. IDs de banco podem começar em 1, mas são independentes do índice. Validar semana sem dia válido, data/hora passada, janela que cruza meia-noite (não suportada inicialmente: bloquear), fim que não coincide com intervalo, timezone e suas transições, horários inexistentes/ambíguos e multiplicação por redes. Se não houver qualquer horário futuro válido, não ativar; sem postar fora da janela aprovada.
+
 ## 9. Critério de saída
 
 Código e testes de cada fase concluídos em branch derivada de staging; CI verde; staging live verificado com conta e dados autorizados; documentação atualizada com evidências e pendências; aprovação estética/funcional de Rafa antes da promoção de cada versão para `main`. Sem evidência real, status `não validado E2E` deve ser explícito.
