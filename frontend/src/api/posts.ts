@@ -43,6 +43,7 @@ export interface Post {
   id: number
   text: string
   texts: string[]
+  future_revision?: { id: number; effective_after: string; texts: string[] } | null
   post_id: number | null
   user_id: number
   created_at: string
@@ -228,6 +229,10 @@ export const postsApi = {
 
   async update(id: number, data: PostUpdate): Promise<Post> {
     return api.put<Post>(`/posts/${id}`, data)
+  },
+
+  async updateFuture(id: number, data: PostUpdate): Promise<{ revision_id: number; effective_after: string; msg: string }> {
+    return api.post(`/posts/${id}/future-revisions`, data)
   },
 
   async delete(id: number): Promise<{ msg: string }> {
