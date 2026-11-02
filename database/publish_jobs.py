@@ -1,6 +1,7 @@
 """Operacoes atomicas da fila duravel de publicacao."""
 
 from shopee_bot.database import query_db
+from shopee_bot.database.scheduler_environment import current_environment
 from api.utils.log_sanitizer import sanitize_log_data
 
 
@@ -10,13 +11,18 @@ TERMINAL_STATUSES = frozenset({"succeeded", "failed", "unknown"})
 def recoverable(lease_seconds, limit=100):
     """Somente itens que ainda nao iniciaram chamada externa podem ser retomados."""
     query = """
-        SELECT id, scheduler_id
-        FROM publish_jobs
-        WHERE status = 'pending'
-        ORDER BY created_at
+        SELECT job.id, job.scheduler_id
+        FROM publish_jobs job
+        JOIN schedulers schedule ON schedule.id = job.scheduler_id
+          AND schedule.post_id = job.post_id
+          AND schedule.user_id = job.user_id
+          AND schedule.profile_id IS NOT DISTINCT FROM job.profile_id
+        WHERE job.status = 'pending'
+          AND schedule.environment = %s
+        ORDER BY job.created_at
         LIMIT %s
     """
-    return query_db(query, (limit,))
+    return query_db(query, (current_environment(), limit))
 
 
 MAX_PREFLIGHT_ATTEMPTS = 5
@@ -51,11 +57,19 @@ def expire_running(lease_seconds):
             claim_token = NULL, locked_by = NULL, locked_at = NULL
         WHERE status = 'running'
           AND locked_at < now() - make_interval(secs => %s)
+          AND EXISTS (
+              SELECT 1 FROM schedulers schedule
+              WHERE schedule.id = publish_jobs.scheduler_id
+                AND schedule.post_id = publish_jobs.post_id
+                AND schedule.user_id = publish_jobs.user_id
+                AND schedule.profile_id IS NOT DISTINCT FROM publish_jobs.profile_id
+                AND schedule.environment = %s
+          )
         RETURNING id, status
     """
     return query_db(query, (
         MAX_PREFLIGHT_ATTEMPTS, MAX_PREFLIGHT_ATTEMPTS,
-        MAX_PREFLIGHT_ATTEMPTS, lease_seconds,
+        MAX_PREFLIGHT_ATTEMPTS, lease_seconds, current_environment(),
     ))
 
 
@@ -99,6 +113,7 @@ def claim(publish_job_id, worker_id, lease_seconds):
               AND post.profile_id IS NOT DISTINCT FROM job.profile_id
             WHERE job.id = %s
               AND job.status = 'pending'
+              AND schedule.environment = %s
             FOR UPDATE OF job SKIP LOCKED
         )
         UPDATE publish_jobs AS job
@@ -114,7 +129,7 @@ def claim(publish_job_id, worker_id, lease_seconds):
         WHERE job.id = candidate.id
         RETURNING job.id, job.claim_token
     """
-    return query_db(query, (publish_job_id, worker_id), one=True)
+    return query_db(query, (publish_job_id, current_environment(), worker_id), one=True)
 
 
 def finish(publish_job_id, claim_token, status, *, external_id=None, error=None):
