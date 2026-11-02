@@ -1036,84 +1036,6 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           {useShopeeImages && importablePhotos.length === 0 && <p role="status">Nenhum produto selecionado possui foto cadastrada.</p>}
         </div>}
 
-        <div className="csp-s-0326">
-          <Select
-            label="Persona da IA"
-            value={persona}
-            onChange={(e) => setPersona(e.target.value)}
-            options={PERSONAS}
-            width={200}
-          />
-          {hasAiKey ? (
-            <Button
-              type="button"
-              variant="secondary"
-              icon={generateMutation.isPending ? "loader-2" : "sparkles"}
-              disabled={selectedProductIds.length === 0 || generateMutation.isPending}
-              onClick={() => generateMutation.mutate({
-                productId: selectedProductIds[0], partCount: texts.length, mode: "full",
-              })}
-            >
-              {generateMutation.isPending ? "Gerando..." : "Gerar texto com IA"}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="secondary"
-              icon="sparkles"
-              onClick={() => router.navigate({ to: "/credentials" })}
-            >
-              Cadastre sua chave de IA em Credenciais
-            </Button>
-          )}
-        </div>
-        {generateMutation.isError && (
-          <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{generateMutation.error.message}</p>
-        )}
-
-        <div className="csp-s-0327">
-          {texts.map((partText, index) =>
-            index === 0 && hasTabs ? (
-              <div key={index} className="csp-s-0328">
-                <span style={{ ...labelStyle, marginBottom: 0 }}>Texto do post *</span>
-                <TextVariantTabs
-                  plans={plans}
-                  values={plans.map((_, i) => variantValue(i))}
-                  onChange={setVariantValue}
-                  issues={variantIssues}
-                />
-              </div>
-            ) : (
-            <div key={index} className="csp-s-0329">
-              <div className="csp-s-0330">
-                <span style={{ ...labelStyle, marginBottom: 0 }}>
-                  {index === 0 ? "Texto do post *" : `Parte ${index + 1} (resposta em thread)`}
-                </span>
-                {texts.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removePart(index)}
-                    className="csp-s-0331"
-                  >
-                    Remover parte
-                  </button>
-                )}
-              </div>
-              <Textarea
-                value={partText}
-                onChange={(e) => setPartText(index, e.target.value)}
-                required={index === 0}
-                rows={index === 0 ? 6 : 3}
-              />
-            </div>
-            ),
-          )}
-          <Button type="button" variant="ghost" icon="plus" onClick={addPart}
-            disabled={texts.length >= 10} style={{ alignSelf: "flex-start", padding: 0 }}>
-            Adicionar parte (thread) · {texts.length}/10
-          </Button>
-        </div>
-
         <div>
           <span className="csp-named-label">Mídia (imagem/vídeo)</span>
           {post && post.medias.length > 0 && (
@@ -1233,6 +1155,85 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
             </p>
           )}
         </div>
+
+        <div className="csp-s-0326">
+          <Select
+            label="Persona da IA"
+            value={persona}
+            onChange={(e) => setPersona(e.target.value)}
+            options={PERSONAS}
+            width={200}
+          />
+          {hasAiKey ? (
+            <Button
+              type="button"
+              variant="secondary"
+              icon={generateMutation.isPending ? "loader-2" : "sparkles"}
+              disabled={selectedProductIds.length === 0 || generateMutation.isPending}
+              onClick={() => generateMutation.mutate({
+                productId: selectedProductIds[0], partCount: texts.length, mode: "full",
+              })}
+            >
+              {generateMutation.isPending ? "Gerando..." : "Gerar texto com IA"}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              icon="sparkles"
+              onClick={() => router.navigate({ to: "/credentials" })}
+            >
+              Cadastre sua chave de IA em Credenciais
+            </Button>
+          )}
+        </div>
+        {generateMutation.isError && (
+          <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{generateMutation.error.message}</p>
+        )}
+
+        <div className="csp-s-0327">
+          {texts.map((partText, index) =>
+            index === 0 && hasTabs ? (
+              <div key={index} className="csp-s-0328">
+                <span style={{ ...labelStyle, marginBottom: 0 }}>Texto do post *</span>
+                <TextVariantTabs
+                  plans={plans}
+                  values={plans.map((_, i) => variantValue(i))}
+                  onChange={setVariantValue}
+                  issues={variantIssues}
+                />
+              </div>
+            ) : (
+            <div key={index} className="csp-s-0329">
+              <div className="csp-s-0330">
+                <span style={{ ...labelStyle, marginBottom: 0 }}>
+                  {index === 0 ? "Texto do post *" : `Parte ${index + 1} (resposta em thread)`}
+                </span>
+                {texts.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removePart(index)}
+                    className="csp-s-0331"
+                  >
+                    Remover parte
+                  </button>
+                )}
+              </div>
+              <Textarea
+                value={partText}
+                onChange={(e) => setPartText(index, e.target.value)}
+                required={index === 0}
+                rows={index === 0 ? 6 : 3}
+              />
+            </div>
+            ),
+          )}
+          <Button type="button" variant="ghost" icon="plus" onClick={addPart}
+            disabled={texts.length >= 10} style={{ alignSelf: "flex-start", padding: 0 }}>
+            Adicionar parte (thread) · {texts.length}/10
+          </Button>
+        </div>
+
 
         <NetworkLimitsPanel
           selected={activeNetworks}

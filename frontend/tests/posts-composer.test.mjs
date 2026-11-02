@@ -24,3 +24,14 @@ test('validação de hora usa dígitos reais e controle 24h', async () => {
   assert.match(picker, /Array\.from\(\{ length: 60 \}/)
   assert.match(picker, /type="time"/)
 })
+
+test('envio de mídia do computador aparece logo após fotos Shopee, antes da persona', async () => {
+  const page = await source('pages/PostsPage.tsx')
+  const shopee = page.indexOf('Usar fotos dos produtos Shopee na publicação')
+  const media = page.indexOf('Mídia (imagem/vídeo)')
+  const persona = page.indexOf('label="Persona da IA"')
+  assert.ok(shopee >= 0 && shopee < media && media < persona,
+    'Seletor de arquivo deve ficar diretamente abaixo das fotos Shopee e acima da IA')
+  assert.equal(page.split('ref={fileInputRef}').length - 1, 1,
+    'O mesmo input de mídia deve continuar único, sem duplicação de comportamento')
+})
