@@ -3,6 +3,7 @@
 from shopee_bot.database import query_db
 from shopee_bot.database.scheduler_environment import current_environment
 from shopee_bot.database.central_dispatch import central_dispatch_enabled, publication_scope_sql
+from api.utils.log_sanitizer import sanitize_log_data
 
 
 def _execution_scope():
@@ -12,7 +13,6 @@ def _execution_scope():
         "schedule.environment = %s AND schedule.dispatch_mode = 'legacy'",
         (current_environment(),),
     )
-from api.utils.log_sanitizer import sanitize_log_data
 
 
 TERMINAL_STATUSES = frozenset({"succeeded", "failed", "unknown"})

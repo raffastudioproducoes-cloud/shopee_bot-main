@@ -200,3 +200,22 @@ def test_run_now_in_staging_sets_intent_for_production_only(monkeypatch):
     ))
     scheduler.run_job("central-a")
     assert called == ["reconcile"]
+
+
+def test_new_central_insert_records_dispatch_mode_and_original_owner(monkeypatch):
+    seen = {}
+    monkeypatch.setenv("SCHEDULER_ENVIRONMENT", "staging")
+    monkeypatch.setattr(
+        schedulers, "execute_db",
+        lambda sql, args, conn=None: seen.update(sql=sql, args=args) or "central-a",
+    )
+    result = schedulers.insert(
+        "owner", {
+            "post_id": 17, "profile_id": "profile",
+            "func": "bot_post", "trigger": "date",
+            "run_date": datetime(2026, 11, 5, 12, 0),
+        },
+    )
+    assert result == "central-a"
+    assert "dispatch_mode" in seen["sql"]
+    assert seen["args"][-3:] == ("profile", "staging", "central")
