@@ -1,10 +1,7 @@
-// Abas "Texto longo / curto" do criador de post: só aparecem quando as redes
-// marcadas não cabem no mesmo texto (lib/networkLimits.ts → planVariants).
-// Cada aba: redes que usam o texto, contador vs limite do grupo, textarea e
-// os bloqueios só daquele grupo. Padrão WAI-ARIA tabs: setas/Home/End movem
-// e ativam a aba (foco visível em index.css).
+// Abas de descrição por rede: uma versão editável para cada rede marcada.
+// A IA preenche todas com um clique. Setas/Home/End navegam entre as abas.
 import { useId, useRef, useState, type KeyboardEvent } from "react"
-import { NETWORK_RULES, textLength, variantTitle, type Issue, type TextVariantPlan } from "../../lib/networkLimits"
+import { NETWORK_RULES, textLength, type Issue, type TextVariantPlan } from "../../lib/networkLimits"
 import { Textarea } from "../ui/Textarea"
 import { NetworkLogo } from "./NetworkPicker"
 
@@ -50,7 +47,7 @@ export function TextVariantTabs({ plans, values, onChange, issues }: Props) {
   return (
     <div className="csp-s-0036">
       <p style={{ margin: 0, font: caption, color: "var(--text-muted)" }}>
-        As redes marcadas têm limites diferentes: cada aba é o texto de um grupo de redes.
+        Cada rede tem sua própria descrição, adaptada ao seu formato e limite.
       </p>
       <div role="tablist" aria-label="Texto do post por rede" onKeyDown={onKeyDown} className="csp-s-0037">
         {plans.map((p, i) => {
@@ -83,7 +80,7 @@ export function TextVariantTabs({ plans, values, onChange, issues }: Props) {
                 transition: "var(--t-hover)",
               }}
             >
-              {variantTitle(i, plans.length)} — {names(p)}
+              {names(p)}
               {invalid && " · bloqueado"}
             </button>
           )
@@ -121,7 +118,7 @@ export function TextVariantTabs({ plans, values, onChange, issues }: Props) {
           </span>
         </div>
         <Textarea
-          ariaLabel={`${variantTitle(current, plans.length)} — ${names(plan)}`}
+          ariaLabel={`Descrição para ${names(plan)}`}
           value={text}
           onChange={(e) => onChange(current, e.target.value)}
           required={current === 0}
@@ -129,7 +126,7 @@ export function TextVariantTabs({ plans, values, onChange, issues }: Props) {
         />
         {current > 0 && text === values[0] && (
           <p style={{ margin: 0, font: caption, color: "var(--text-muted)" }}>
-            Começa igual ao texto longo: reduza para caber em {names(plan)}.
+            Começa com a descrição principal: personalize para {names(plan)} ou gere todas com IA.
           </p>
         )}
         {bad && (
