@@ -701,7 +701,7 @@ def _latest_publish_job(user_id: int, post_id: int, profile_id: str | None = Non
     """Última ocorrência de fila, sempre isolada pelo dono e perfil."""
     result = (
         scope_owner(supabase.table("publish_jobs").select(
-            "id,status,idempotency_key,created_at,started_at,finished_at,last_error,external_id"
+            "id,scheduler_id,status,idempotency_key,created_at,started_at,finished_at,last_error,external_id"
         ), user_id, profile_id)
         .eq("post_id", post_id)
         .order("created_at", desc=True)
@@ -760,6 +760,32 @@ def _last_successful_post_at(user_id: int, post_id: int, profile_id: str | None)
     return latest[-1] if latest else None
 
 
+def _confirmed_legacy_container_rejection(activity: dict | None, job: dict) -> bool:
+    """Reconhece 4xx na criação do PRIMEIRO contêiner em logs antigos.
+
+    Antes do ajuste, esses HTTP 403 eram marcados como unknown na fila,
+    mas o evento de falha informa published_parts=0 e o job da agenda.
+    Exige vínculo de scheduler e proximidade do término; qualquer dúvida
+    continua unknown para evitar reenvio duplicado.
+    """
+    if not activity or activity.get("activity_id") != 2 or job.get("status") != "unknown":
+        return False
+    metadata = activity.get("metadata") or {}
+    if str(metadata.get("published_parts")) != "0":
+        return False
+    if str(metadata.get("job_id")) != str(job.get("scheduler_id")):
+        return False
+    error = str(metadata.get("error") or "")
+    if not re.search(
+        r"Failed to Create (?:Media Container|Carousel Item|Carousel Container).*?(?:Status:|HTTP)\s*4\d\d",
+        error, re.IGNORECASE | re.DOTALL,
+    ):
+        return False
+    event_time = _utc_instant(activity.get("created_at"))
+    finish_time = _utc_instant(job.get("finished_at") or job.get("started_at"))
+    return bool(event_time and finish_time and abs((event_time - finish_time).total_seconds()) <= 300)
+
+
 def _schedule_slot_history(
     user_id: int, post_id: int, profile_id: str | None,
     entries: list[dict], is_admin: bool,
@@ -782,6 +808,28 @@ def _schedule_slot_history(
         logger.warning("Falha ao obter ocorrências do post %s", post_id, exc_info=True)
         jobs = []
 
+    legacy_rejections: list[dict] = []
+    if any(job.get("status") == "unknown" for job in jobs):
+        try:
+            legacy_rejections = (scope_owner(
+                supabase.table("activities").select("activity_id,metadata,created_at"),
+                user_id, profile_id
+            ).eq("activity_id", 2).eq("metadata->>post_id", str(post_id))
+             .order("created_at", desc=True).limit(500).execute().data or [])
+        except Exception:
+            logger.warning("Falha ao consultar erros legados do post %s", post_id, exc_info=True)
+
+    def slot_state(job: dict | None) -> str:
+        if not job:
+            return "programado"
+        if any(_confirmed_legacy_container_rejection(row, job) for row in legacy_rejections):
+            return "erro"
+        return {
+            "succeeded": "postado", "failed": "erro",
+            "pending": "programado", "running": "em execução",
+            "unknown": "sem confirmação",
+        }.get(job.get("status"), "sem confirmação")
+
     for job in jobs:
         scheduler_id = str(job.get("scheduler_id") or "")
         key = str(job.get("idempotency_key") or "")
@@ -803,11 +851,6 @@ def _schedule_slot_history(
         slot_key = (day, time_value, scheduler_id)
         latest_by_slot.setdefault(slot_key, job)
 
-    states = {
-        "succeeded": "postado", "failed": "erro",
-        "pending": "programado", "running": "em execução",
-        "unknown": "sem confirmação",
-    }
     slots = []
     for entry in entries:
         scheduler_id = str(entry["id"])
@@ -820,19 +863,19 @@ def _schedule_slot_history(
                 job = latest_by_slot.get((int(day), time_value, scheduler_id))
                 slots.append({
                     "day_of_week": int(day), "time": time_value,
-                    "status": states.get(job.get("status"), "sem confirmação") if job else "programado",
+                    "status": slot_state(job),
                     "last_at": (job.get("finished_at") or job.get("started_at") or job.get("created_at")) if job else None,
                     "error": sanitize_log_data(str(job.get("last_error")))[:200]
-                    if is_admin and job and job.get("status") == "failed" and job.get("last_error") else None,
+                    if is_admin and job and slot_state(job) == "erro" and job.get("last_error") else None,
                 })
         else:
             job = latest_by_slot.get((None, str(entry.get("run_date") or ""), scheduler_id))
             slots.append({
                 "day_of_week": None, "time": str(entry.get("run_date") or ""),
-                "status": states.get(job.get("status"), "sem confirmação") if job else "programado",
+                "status": slot_state(job),
                 "last_at": (job.get("finished_at") or job.get("started_at") or job.get("created_at")) if job else None,
                 "error": sanitize_log_data(str(job.get("last_error")))[:200]
-                if is_admin and job and job.get("status") == "failed" and job.get("last_error") else None,
+                if is_admin and job and slot_state(job) == "erro" and job.get("last_error") else None,
             })
     return sorted(slots, key=lambda item: (item["day_of_week"] if item["day_of_week"] is not None else 7, item["time"]))
 
@@ -876,6 +919,14 @@ def _get_last_publish_result(
         activity = rows[0] if rows else None
     except Exception:
         logger.warning("Falha ao ler resultado de publicação do post %s", post_id, exc_info=True)
+
+    if job and _confirmed_legacy_container_rejection(activity, job):
+        error = (activity.get("metadata") or {}).get("error")
+        return {
+            "status": "failed",
+            "at": activity.get("created_at"),
+            "error": sanitize_log_data(str(error))[:200] if error else None,
+        }
 
     if activity and (not job or (
         (_utc_instant(activity.get("created_at")) or datetime.min.replace(tzinfo=timezone.utc))

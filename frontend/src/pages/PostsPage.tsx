@@ -355,8 +355,7 @@ export function PostsPage() {
         <div>
           <h1 className="csp-s-0315">Posts</h1>
           <p className="csp-s-0316">
-            Criação de post (com thread multi-parte) com copy manual ou gerado por IA, agendado
-            ou publicado na hora.
+            Crie posts com texto manual ou IA para publicar agora ou em horários recorrentes.
           </p>
         </div>
         <Button
@@ -853,7 +852,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
 
   const dateError = when === "cron" && (
     cronDays.length === 0 || !cronTimes.length ||
-    !cronTimes.every((time) => /^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)) ||
+    !cronTimes.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)) ||
     new Set(cronTimes).size !== cronTimes.length
   ) ? "Escolha dias e até cinco horários diferentes no formato 24h." : null
 
