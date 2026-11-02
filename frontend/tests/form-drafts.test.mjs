@@ -81,7 +81,7 @@ test("falhas de armazenamento e payload grande não impedem a edição", () => {
 
 test("contratos do hook e dos formulários não persistem File ou senha", async () => {
   const hook = await readFile(new URL("../src/hooks/useAutosavedDraft.ts", import.meta.url), "utf8")
-  const posts = await readFile(new URL("../src/pages/PostsPage.tsx", import.meta.url), "utf8")
+  const posts = await readFile(new URL("../src/components/posts/PostComposer.tsx", import.meta.url), "utf8")
   const credentials = await readFile(new URL("../src/pages/CredentialsPage.tsx", import.meta.url), "utf8")
   const users = await readFile(new URL("../src/pages/UsersPage.tsx", import.meta.url), "utf8")
   assert.match(hook, /readyKey === key/)

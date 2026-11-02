@@ -259,6 +259,60 @@ async def search_products(
     return nodes[:limit]
 
 
+# Diagnóstico explícito, read-only: campo candidato, não contratado oficialmente.
+# Nunca incorporar à busca normal: um campo inexistente geraria erro em toda
+# pesquisa de produtos e aumentaria o risco de rate limit.
+_MAX_PROBE_GALLERY_PHOTOS = 10
+
+
+async def probe_product_gallery(
+    app_id: str, secret: str, *, item_id: int,
+) -> dict:
+    """Testa, sob demanda, se a Affiliate Open API expõe fotos adicionais.
+
+    Usa somente o endpoint GraphQL oficial e a credencial da própria conta.
+    Tenta o campo candidato imageUrls; se o schema o rejeitar, consulta
+    imageUrl original. Não faz scraping, download nem persiste nada.
+    """
+    if type(item_id) is not int or not 0 < item_id < 2**63:
+        raise ValueError("item_id inválido")
+    base = f"query {{ productOfferV2(itemId: {item_id}) {{ nodes {{ itemId imageUrl"
+    suffix = " } } }"
+    schema_field_accepted = True
+    try:
+        data = await _post_graphql(
+            app_id, secret, base + " imageUrls" + suffix, {},
+        )
+    except ShopeeCatalogError as exc:
+        # Somente incompatibilidade de campo permite fallback. Credencial,
+        # timeout, rate limit e erros de negócio são propagados normalmente.
+        if isinstance(exc, (ShopeeAuthError, ShopeeRateLimitError)):
+            raise
+        if not _is_unknown_field_error(exc.errors):
+            raise
+        schema_field_accepted = False
+        data = await _post_graphql(app_id, secret, base + suffix, {})
+    nodes = (data.get("productOfferV2") or {}).get("nodes") or []
+    matches = [n for n in nodes if str(n.get("itemId")) == str(item_id)]
+    if not matches:
+        return {"image_urls": [], "status": "not_found", "field_tested": "imageUrls"}
+    node = matches[0]
+    candidates = [node.get("imageUrl")]
+    if schema_field_accepted:
+        additional = node.get("imageUrls")
+        if isinstance(additional, list):
+            candidates.extend(additional)
+    urls = []
+    for value in candidates:
+        if isinstance(value, str) and value.startswith("https://") and value not in urls:
+            urls.append(value)
+        if len(urls) >= _MAX_PROBE_GALLERY_PHOTOS:
+            break
+    status = ("multiple" if len(urls) > 1 else
+              "single" if schema_field_accepted else "field_unavailable")
+    return {"image_urls": urls, "status": status, "field_tested": "imageUrls"}
+
+
 async def _get_global_category_list(page: int, size: int = 1000) -> dict | None:
     try:
         async with httpx.AsyncClient(timeout=15) as client:

@@ -361,6 +361,11 @@ class PostUpdate(BaseModel):
         return v
 
 
+class ProductImageImportSelection(BaseModel):
+    # Omissa = foto principal legada; extra precisa de prova da API oficial.
+    image_url: str | None = None
+
+
 class GenerateCopyBody(BaseModel):
     product_id: int
     persona: str = "casual"
@@ -1761,6 +1766,7 @@ def _normalize_shopee_photo_as_jpeg(media, product_id: int):
 @router.post("/product-image-drafts/{product_id}", status_code=status.HTTP_201_CREATED)
 async def import_product_image_draft(
     product_id: int,
+    body: ProductImageImportSelection | None = None,
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
@@ -1771,7 +1777,7 @@ async def import_product_image_draft(
     """
     profile_id = _require_profile_id(profile_id)
     product = scope_account(
-        supabase.table("products").select("id,image").eq("id", product_id),
+        supabase.table("products").select("id,image,product_id").eq("id", product_id),
         user_id,
     ).maybe_single().execute()
     row = product.data if product else None
@@ -1779,7 +1785,39 @@ async def import_product_image_draft(
         raise HTTPException(status_code=404, detail="Produto não encontrado nesta conta.")
     if not row.get("image"):
         raise HTTPException(status_code=400, detail="O produto não possui foto cadastrada.")
-    content = await _download_shopee_image(row["image"])
+    chosen_url = row["image"]
+    if body and body.image_url is not None:
+        candidate = _check_shopee_image_url(body.image_url)
+        if candidate != chosen_url:
+            # Não confiar em URL fornecida pelo cliente, mesmo que o host
+            # seja uma CDN Shopee. Comprovar que ela pertence ao item via
+            # consulta oficial assinada antes de copiar para Storage privado.
+            from api.routers import catalog as catalog_router
+            from api import shopee_catalog
+            item_id = row.get("product_id")
+            if not str(item_id or "").isdigit() or not 0 < int(item_id) < 2**63:
+                raise HTTPException(status_code=409, detail="Produto sem identificação para validar fotos extras.")
+            catalog_router._check_search_rate_limit(user_id)
+            credential = catalog_router._get_shopee_credential(user_id)
+            if not credential:
+                raise HTTPException(status_code=409, detail="Conecte a API Shopee para importar fotos adicionais.")
+            try:
+                gallery = await shopee_catalog.probe_product_gallery(
+                    *credential, item_id=int(item_id),
+                )
+            except shopee_catalog.ShopeeCatalogError:
+                raise HTTPException(
+                    status_code=502,
+                    detail="Não foi possível confirmar esta foto na API Shopee. Use a imagem principal ou envie um arquivo.",
+                ) from None
+            if candidate not in gallery.get("image_urls", []):
+                raise HTTPException(
+                    status_code=409,
+                    detail="A API Shopee não confirmou esta imagem como parte do produto.",
+                )
+        chosen_url = candidate
+
+    content = await _download_shopee_image(chosen_url)
     try:
         detected = detect_media_type(content)
         if detected.media_type != "IMAGE":
