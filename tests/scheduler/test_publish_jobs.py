@@ -74,7 +74,7 @@ def test_claim_query_never_retries_a_running_item(monkeypatch):
 
     assert publish_jobs.claim("queue-1", "worker-1", 300) is None
     assert "status = 'pending'" in seen["sql"].lower()
-    assert "status = 'running'" not in seen["sql"].lower().split("for update skip locked")[0]
+    assert "status = 'running'" not in seen["sql"].lower().split("for update of job skip locked")[0]
 
 
 def test_expired_running_item_after_external_call_becomes_unknown(monkeypatch):
