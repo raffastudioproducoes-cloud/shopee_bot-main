@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { useAuthStore } from "../stores/authStore"
+import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
+import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
 import {
   credentialsApi,
@@ -436,12 +438,19 @@ function SimpleCredentialCard({
 }) {
   const [appId, setAppId] = useState("")
   const [secret, setSecret] = useState("")
+  const accountId = useAuthStore((state) => state.user?.id)
+  const publicIdDraftKey = formDraftKey(accountId, `credential-id:${network}`, null, false)
+  useAutosavedDraft(publicIdDraftKey, { appId }, (saved) => {
+    setAppId(typeof saved?.appId === "string" ? saved.appId : "")
+    setSecret("") // O segredo precisa ser digitado novamente.
+  })
   const connected = status.connected
   const helpUrl = network === "shopee" ? "https://affiliate.shopee.com.br/" : undefined
 
   const saveMutation = useMutation({
     mutationFn: () => credentialsApi.save(network, appId, secret),
     onSuccess: () => {
+      clearFormDraft(publicIdDraftKey)
       setAppId("")
       setSecret("")
       setBanner({ ok: true, text: `${label} salvo. Testando a conexão…` })
@@ -577,6 +586,13 @@ function AiCredentialCard({
   const [provider, setProvider] = useState<AiProvider>("gemini")
   const [apiKey, setApiKey] = useState("")
   const [model, setModel] = useState("")
+  const accountId = useAuthStore((state) => state.user?.id)
+  const modelDraftKey = formDraftKey(accountId, "ai-credential-preferences", null, false)
+  useAutosavedDraft(modelDraftKey, { provider, model }, (saved) => {
+    setProvider(saved?.provider && AI_PROVIDERS.some((item) => item.key === saved.provider) ? saved.provider : "gemini")
+    setModel(typeof saved?.model === "string" ? saved.model : "")
+    setApiKey("") // Nunca guardar chave de API no navegador.
+  })
   const { data } = useQuery({
     queryKey: ["credentials", "ai"],
     queryFn: () => aiCredentialsApi.list(),
@@ -589,6 +605,7 @@ function AiCredentialCard({
   const saveMutation = useMutation({
     mutationFn: () => aiCredentialsApi.save(provider, apiKey, model.trim()),
     onSuccess: () => {
+      clearFormDraft(modelDraftKey)
       setApiKey("")
       setModel("")
       setBanner({ ok: true, text: `Chave de IA (${info.label}) salva. Testando a conexão…` })
