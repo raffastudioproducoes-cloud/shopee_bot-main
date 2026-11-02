@@ -3,7 +3,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from api.post_edit_policy import occurrence_edit_window
+from api.post_edit_policy import (
+    ContentRevision, occurrence_edit_window, revision_cutover,
+    revision_for_occurrence,
+)
 
 
 def test_future_slot_more_than_thirty_minutes_is_editable():
@@ -52,3 +55,34 @@ def test_naive_datetime_is_rejected():
         occurrence_edit_window(aware.replace(tzinfo=None), now=aware)
     with pytest.raises(ValueError):
         occurrence_edit_window(aware, now=aware.replace(tzinfo=None))
+
+
+def test_new_revision_only_affects_occurrences_strictly_after_thirty_minutes():
+    now = datetime(2026, 11, 2, 14, tzinfo=timezone.utc)
+    baseline = ContentRevision(1, datetime(2020, 1, 1, tzinfo=timezone.utc))
+    revised = ContentRevision(2, revision_cutover(now))
+    assert revision_for_occurrence(now + timedelta(minutes=29), [baseline, revised]) == 1
+    assert revision_for_occurrence(now + timedelta(minutes=30), [baseline, revised]) == 1
+    assert revision_for_occurrence(now + timedelta(minutes=31), [baseline, revised]) == 2
+
+
+def test_future_edit_does_not_change_older_slot_even_when_claim_is_delayed():
+    now = datetime(2026, 11, 2, 14, tzinfo=timezone.utc)
+    revisions = [
+        ContentRevision(1, datetime(2020, 1, 1, tzinfo=timezone.utc)),
+        ContentRevision(2, revision_cutover(now)),
+        ContentRevision(3, revision_cutover(now + timedelta(hours=2))),
+    ]
+    assert revision_for_occurrence(now + timedelta(minutes=31), revisions) == 2
+    assert revision_for_occurrence(now + timedelta(hours=3), revisions) == 3
+    assert revision_for_occurrence(now + timedelta(minutes=10), revisions) == 1
+
+
+def test_no_revision_keeps_legacy_content_unchanged():
+    now = datetime(2026, 11, 2, 14, tzinfo=timezone.utc)
+    assert revision_for_occurrence(now + timedelta(hours=1), []) is None
+
+
+def test_revision_cutover_rejects_naive_time():
+    with pytest.raises(ValueError):
+        revision_cutover(datetime(2026, 11, 2, 14))
