@@ -461,16 +461,18 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     setAiAdjustmentNotice(null)
   }
 
-  const canSubmit =
-    !loading &&
-    !generateMutation.isPending &&
-    schedulerAvailable &&
-    trimmedTexts.length > 0 &&
-    // Bloqueadas continuam marcadas (em vermelho, com motivo); basta uma entregável.
-    deliverableNetworks.length > 0 &&
-    deliverableNetworks.every((n) => textsFor(n).length > 0) &&
-    deliverableNetworks.every((n) => states[n].connected === true) &&
-    !dateError
+  const canSubmit = post
+    ? !loading && !generateMutation.isPending && trimmedTexts.length > 0 &&
+      activeNetworks.length === 1 && !issues[activeNetworks[0]]?.some((issue) => issue.level === "error")
+    : !loading &&
+      !generateMutation.isPending &&
+      schedulerAvailable &&
+      trimmedTexts.length > 0 &&
+      // Bloqueadas continuam marcadas (em vermelho, com motivo); basta uma entregável.
+      deliverableNetworks.length > 0 &&
+      deliverableNetworks.every((n) => textsFor(n).length > 0) &&
+      deliverableNetworks.every((n) => states[n].connected === true) &&
+      !dateError
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
