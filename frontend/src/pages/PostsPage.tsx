@@ -65,47 +65,32 @@ const PERSONAS = [
   { value: "persuasivo", label: "Persuasivo" },
 ]
 
-// Posts do mesmo envio multi-rede: `group_id` (UUID gerado por envio,
-// migração 044). Posts antigos sem group_id: heurística de antes (mesmo
-// texto, criados juntos, redes diferentes).
-const GROUP_WINDOW_MS = 2 * 60 * 1000
+// Somente group_id explícito identifica um envio multi-rede.
+// Texto, produto e timestamp iguais nunca unem posts independentes, nem
+// mesmo nos registros antigos sem group_id.
 function groupPosts(posts: Post[]): Map<number, { key: number; size: number }> {
-  const groups: Post[][] = []
   const byId = new Map<string, Post[]>()
-  for (const p of posts) {
-    if (p.group_id) {
-      const g = byId.get(p.group_id)
-      if (g) g.push(p)
-      else {
-        byId.set(p.group_id, [p])
-        groups.push(byId.get(p.group_id)!)
-      }
-      continue
-    }
-    const g = groups[groups.length - 1]
-    const head = g?.[0]
-    const sameGroup =
-      head &&
-      !head.group_id &&
-      head.text === p.text &&
-      Math.abs(new Date(head.created_at).getTime() - new Date(p.created_at).getTime()) < GROUP_WINDOW_MS &&
-      !g.some((x) => (x.network ?? "threads") === (p.network ?? "threads"))
-    if (sameGroup) g.push(p)
-    else groups.push([p])
+  for (const post of posts) {
+    if (!post.group_id) continue
+    const group = byId.get(post.group_id) ?? []
+    group.push(post)
+    byId.set(post.group_id, group)
   }
-  const out = new Map<number, { key: number; size: number }>()
-  for (const g of groups) {
-    if (g.length < 2) continue
-    const key = Math.min(...g.map((p) => p.id))
-    for (const p of g) out.set(p.id, { key, size: g.length })
+  const result = new Map<number, { key: number; size: number }>()
+  for (const group of byId.values()) {
+    if (group.length < 2) continue
+    const key = Math.min(...group.map((post) => post.id))
+    for (const post of group) result.set(post.id, { key, size: group.length })
   }
-  return out
+  return result
 }
 
 export interface NetworkResult {
   network: PostNetwork
   ok: boolean
   error?: string
+  postId?: number
+  warning?: string
 }
 
 const WEEKDAYS = [
@@ -221,11 +206,21 @@ export function PostsPage() {
         // a autoridade final para evitar divergência entre o aviso e o envio.
         await postsApi.preview(payload)
         const result: PostBatchResult = await postsApi.createBatch(payload)
-        if (data.publishNow) {
-          await Promise.all(result.created.map((created) => postsApi.publishNow(created.post_id)))
-        }
+        // O lote já pode ter gravado posts antes de um erro de dispatch.
+        // Um 502 no disparo NÃO transforma um post existente em "falha de criação":
+        // a agenda de segurança permanece e reenviar o formulário duplicaria posts.
+        const dispatch = data.publishNow
+          ? await Promise.allSettled(result.created.map((created) => postsApi.publishNow(created.post_id)))
+          : []
         return [
-          ...result.created.map((created) => ({ network: created.network, ok: true })),
+          ...result.created.map((created, index) => ({
+            network: created.network,
+            ok: true,
+            postId: created.post_id,
+            warning: data.publishNow && dispatch[index]?.status === "rejected"
+              ? "Post criado, mas o disparo imediato não foi confirmado. Confira o histórico antes de tentar novamente."
+              : undefined,
+          })),
           ...result.blocked.map((blocked) => ({ network: blocked.network, ok: false, error: blocked.blocked_reason ?? blocked.warnings[0] ?? "Esta rede não aceita esta composição." })),
         ]
       } catch (err) {
@@ -244,7 +239,10 @@ export function PostsPage() {
         success: (results: unknown) => {
           const list = results as NetworkResult[]
           const failed = list.filter((r) => !r.ok).length
-          return failed === 0 ? "Post criado" : failed === list.length ? null : `Post criado em ${list.length - failed} de ${list.length} redes`
+          const pendingDispatch = list.some((r) => r.warning)
+          if (failed === list.length) return null
+          if (pendingDispatch) return "Post salvo, mas algum disparo não foi confirmado. Confira o histórico."
+          return failed === 0 ? "Post criado" : `Post criado em ${list.length - failed} de ${list.length} redes`
         },
         error: "Não foi possível criar o post",
       },
@@ -426,6 +424,7 @@ export function PostsPage() {
                 }}
               >
                 <div className="post-list-content" style={{ minWidth: 0, flex: 1 }}>
+                  <span className="post-list-id" aria-label={`ID do post: ${post.id}`} style={{ display: "inline-block", font: "var(--text-role-caption)", color: "var(--text-muted)", marginBottom: 4 }}>#{post.id}</span>
                   <p
                     id={`post-text-${post.id}`}
                     className="post-list-copy"
@@ -1419,7 +1418,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                 key={r.network}
                 style={{ ...metaTextStyle, lineHeight: 1.4, color: r.ok ? "var(--text-body)" : "var(--negative)" }}
               >
-                {NETWORK_RULES[r.network].label}: {r.ok ? "criado ✓" : `falhou — ${r.error}`}
+                {NETWORK_RULES[r.network].label}: {r.ok ? `criado #${r.postId ?? "—"} ✓${r.warning ? ` — ${r.warning}` : ""}` : `falhou — ${r.error}`}
               </li>
             ))}
             <li style={{ ...metaTextStyle, lineHeight: 1.4 }}>
