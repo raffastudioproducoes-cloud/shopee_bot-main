@@ -355,8 +355,7 @@ export function PostsPage() {
         <div>
           <h1 className="csp-s-0315">Posts</h1>
           <p className="csp-s-0316">
-            Criação de post (com thread multi-parte) com copy manual ou gerado por IA, agendado
-            ou publicado na hora.
+            Crie posts com texto manual ou IA para publicar agora ou em horários recorrentes.
           </p>
         </div>
         <Button

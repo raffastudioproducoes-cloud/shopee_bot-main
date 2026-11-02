@@ -39,3 +39,29 @@ def test_cron_occurrence_is_mapped_to_actual_weekday_and_time(monkeypatch):
     ]
     assert slots[0]["error"] is None
     assert "2026-11-02" in slots[0]["last_at"]
+
+
+def test_old_403_is_failure_only_with_first_part_and_same_scheduler():
+    job = {
+        "scheduler_id": "cron-one", "status": "unknown",
+        "started_at": "2026-11-01T21:00:00Z",
+        "finished_at": "2026-11-01T21:00:12Z",
+    }
+    activity = {
+        "activity_id": 2, "created_at": "2026-11-01T21:00:10Z",
+        "metadata": {
+            "job_id": "cron-one", "published_parts": 0,
+            "error": "Failed to Create Media Container:\\nStatus: 403\\nURL: https://graph.threads.net/",
+        },
+    }
+    assert module._confirmed_legacy_container_rejection(activity, job)
+    assert not module._confirmed_legacy_container_rejection(
+        {**activity, "metadata": {**activity["metadata"], "published_parts": 1}}, job
+    )
+    assert not module._confirmed_legacy_container_rejection(
+        {**activity, "metadata": {**activity["metadata"], "job_id": "other"}}, job
+    )
+    assert not module._confirmed_legacy_container_rejection(
+        {**activity, "metadata": {**activity["metadata"],
+                                  "error": "Failed to Publish Media Container: Status: 403"}}, job
+    )

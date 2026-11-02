@@ -1,3 +1,9 @@
+## 02/11/2026 — Complemento pós-deploy staging: falha histórica 403
+
+- [x] CI #521 **verde** no PR #181; deploy staging `dep-dbk0blfavr4c73cj0srg` SHA `4ffc0f7` **live**; `/api/health/ready` respondeu `{"status":"ok"}`.
+- [ ] Correção adicional em PR: erro HTTP 403 legado do primeiro contêiner (com `published_parts=0` e prova temporal/scheduler) reaparece como **Erro** no dia/hora correto. Sem reenvio externo; demais desconhecidos continuam sem confirmação.
+- [ ] Validar visualmente os modais e testar credenciais Threads autorizadas. Produção intocada.
+
 ## 02/11/2026 — Posts: produto único, só Agora/Recorrente, horários, status e privacidade — STAGING / EM VALIDAÇÃO
 
 - [x] Código de correção isolado em `fix/posts-recorrencia-20261102`, PR para `staging`; não alterar `main`.

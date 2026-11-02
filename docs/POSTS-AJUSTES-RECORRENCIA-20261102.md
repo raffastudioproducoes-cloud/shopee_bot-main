@@ -36,3 +36,8 @@ Mudança segura: rejeição 4xx **na criação** do primeiro contêiner resulta 
 - Em caso de falha de leitura do histórico da fila, a UI não deve inventar uma postagem bem-sucedida.
 - A resposta 403 específica não é “corrigida” sem seu código Meta e checagem de autorização real; código novo melhora diagnóstico, classificação e sigilo.
 
+
+## Complemento pós-smoke: falha 403 histórica (02/11/2026)
+
+O primeiro deploy staging do PR #181 (`4ffc0f7`) ficou **live** e `GET /api/health/ready` retornou `{"status":"ok"}`. A tela abriu com sessão pré-existente, mas uma falha de 01/11 foi exibida como “Sem confirmação” devido à diferença entre `activities.bot_post_failure` e `publish_jobs.unknown` na versão antiga. Correção adicional proposta: somente eventos antigos com `published_parts=0`, erro HTTP 4xx **na criação do primeiro contêiner**, mesmo scheduler e término a até 5 minutos são tratados como “Erro” (evidência definitiva, sem reenviar). Falhas na etapa `threads_publish` e envios parciais permanecem “Sem confirmação”. Contrato de slots e resultado de última execução usam o mesmo critério.
+
