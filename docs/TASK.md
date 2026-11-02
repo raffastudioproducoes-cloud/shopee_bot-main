@@ -1,3 +1,13 @@
+## 02/11/2026 — IDs dos posts, concorrência e isolamento por cliente (staging)
+
+- [x] Confirmar no Supabase que `posts.id` é SERIAL global, crescente e não reutilizável; editar preserva ID, inclusive com exclusão posterior. Auditoria read-only: 0 desvios de usuário/perfil nas relações post→agenda→ocorrência e partes de thread.
+- [x] Exibir `#ID` discreto à esquerda dos posts e no modal de detalhes; remover fusão de posts antigos por timestamp/texto (só `group_id`).
+- [x] Fortalecer conflito de idempotência e claim da fila para exigir identidade de usuário/perfil/post/agenda/rede; recursão de posts, agendamentos e leitura protegidas por dono/perfil; separar sucesso na criação de falha do disparo “Agora”.
+- [x] Adicionar testes de mesmo horário para múltiplos posts de um cliente e clientes/perfis diferentes, escopos SQL, UI e edição preservando ID.
+- [ ] Revisar CI/PR e staging; **não publicar posts reais** nos testes.
+- [ ] Para testar publicação recorrente em staging: **isolar jobstore/fila/banco** do ambiente de produção com autorização e avaliar custos. Com Supabase compartilhado, scheduler de staging segue desativado e o aviso de indisponibilidade permanece correto. Sem alterar `main`/produção.
+- **Guia:** `docs/POSTS-IDENTIDADE-CONCORRENCIA-20261102.md`.
+
 ## 02/11/2026 — Falha de recorrência Threads no staging: scheduler 503
 
 - **Incidente (04:43 UTC):** importação de foto 201, preview 200, lote 201 com Threads bloqueado; bridge `create_scheduler_job` retornou HTTP 503 antes de registrar o primeiro horário. Agendador de staging sem iniciar desde 30/10; produção tem scheduler ativo e Supabase compartilhado.

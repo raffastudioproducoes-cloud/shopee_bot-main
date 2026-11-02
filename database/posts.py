@@ -12,7 +12,7 @@ def get(user_id, post_id, profile_id):
     query = """
         WITH RECURSIVE post_hierarchy AS (
             -- parent node
-            SELECT id, text, created_at, updated_at, post_id, 0 as depth
+            SELECT id, text, created_at, updated_at, post_id, user_id, profile_id, 0 as depth
             FROM posts
             WHERE id = %s AND user_id = %s AND profile_id = %s::uuid
               AND post_id IS NULL
@@ -22,10 +22,10 @@ def get(user_id, post_id, profile_id):
             -- children nodes
             SELECT
                 p.id, p.text, p.created_at, p.updated_at, p.post_id,
-                ph.depth + 1
+                p.user_id, p.profile_id, ph.depth + 1
             FROM posts p
             INNER JOIN post_hierarchy ph ON p.post_id = ph.id
-            WHERE p.profile_id = %s::uuid
+            WHERE p.user_id = %s AND p.profile_id = %s::uuid
         )
         SELECT
             ph.id,
@@ -77,27 +77,30 @@ def get(user_id, post_id, profile_id):
         FROM post_hierarchy ph
         LEFT JOIN posts_products pp ON ph.id = pp.post_id
         LEFT JOIN schedulers s ON s.post_id = ph.id
+          AND s.user_id = ph.user_id
+          AND s.profile_id IS NOT DISTINCT FROM ph.profile_id
         GROUP BY
             ph.id, ph.text, ph.created_at, ph.updated_at, ph.post_id,
             ph.depth, pp.post_id, s.id
         ORDER BY ph.depth ASC
     """
-    args = (post_id, user_id, profile_id, profile_id)
+    args = (post_id, user_id, profile_id, user_id, profile_id)
     return query_db(query, args)
 
 
 def get_for_delete(user_id, post_id):
     query = """
         WITH RECURSIVE post_hierarchy AS (
-            SELECT id, 0 AS depth
+            SELECT id, user_id, profile_id, 0 AS depth
             FROM posts
             WHERE id = %s AND user_id = %s AND post_id IS NULL
 
             UNION ALL
 
-            SELECT p.id, ph.depth + 1
+            SELECT p.id, p.user_id, p.profile_id, ph.depth + 1
             FROM posts p
             INNER JOIN post_hierarchy ph ON p.post_id = ph.id
+            WHERE p.user_id = %s AND p.profile_id IS NOT DISTINCT FROM ph.profile_id
         )
         SELECT
             ph.id,
@@ -118,10 +121,12 @@ def get_for_delete(user_id, post_id):
         LEFT JOIN posts_medias pm ON ph.id = pm.post_id
         LEFT JOIN medias m ON pm.media_id = m.id
         LEFT JOIN schedulers s ON s.post_id = ph.id
+          AND s.user_id = ph.user_id
+          AND s.profile_id IS NOT DISTINCT FROM ph.profile_id
         GROUP BY ph.id, ph.depth, s.id
         ORDER BY ph.depth;
     """
-    args = (post_id, user_id)
+    args = (post_id, user_id, user_id)
     return query_db(query, args)
 
 
@@ -129,16 +134,17 @@ def query_paginated(user_id, cursor, limit):
     query = """
         WITH RECURSIVE post_hierarchy AS (
             -- Seleciona os posts raiz (onde post_id é NULL)
-            SELECT id, id AS root_id, 0 AS depth
+            SELECT id, id AS root_id, profile_id, 0 AS depth
             FROM posts
-            WHERE post_id IS NULL
+            WHERE post_id IS NULL AND user_id = %s
 
             UNION ALL
 
             -- Seleciona os filhos recursivamente, mantendo o root_id
-            SELECT p.id, ph.root_id, ph.depth + 1
+            SELECT p.id, ph.root_id, p.profile_id, ph.depth + 1
             FROM posts p
             INNER JOIN post_hierarchy ph ON p.post_id = ph.id
+            WHERE p.user_id = %s AND p.profile_id IS NOT DISTINCT FROM ph.profile_id
         )
         SELECT
             p.id,
@@ -179,6 +185,8 @@ def query_paginated(user_id, cursor, limit):
         LEFT JOIN posts_medias pm ON p.id = pm.post_id
         LEFT JOIN medias m ON m.id = pm.media_id
         LEFT JOIN schedulers s ON s.post_id = p.id
+          AND s.user_id = p.user_id
+          AND s.profile_id IS NOT DISTINCT FROM p.profile_id
         WHERE (
             %s::TIMESTAMP IS NULL OR (
                 p.created_at < %s OR (
@@ -205,6 +213,7 @@ def query_paginated(user_id, cursor, limit):
             last_created_at = last_created_at.strip()
             last_id = int(last_id.strip())
             args = [
+                user_id, user_id,
                 last_created_at,
                 last_created_at,
                 last_created_at,
@@ -217,7 +226,7 @@ def query_paginated(user_id, cursor, limit):
             return [], None
     else:
         # Primeira página
-        args = [None, None, None, None, user_id, limit]
+        args = [user_id, user_id, None, None, None, None, user_id, limit]
 
     # Executa a query
     medias = query_db(query, args)

@@ -67,24 +67,39 @@ def enqueue(*, scheduler_id, post_id, user_id, profile_id, network, idempotency_
         ) VALUES (%s, %s, %s, %s, %s, %s)
         ON CONFLICT (idempotency_key) DO UPDATE
             SET idempotency_key = EXCLUDED.idempotency_key
+        WHERE publish_jobs.scheduler_id = EXCLUDED.scheduler_id
+          AND publish_jobs.post_id = EXCLUDED.post_id
+          AND publish_jobs.user_id = EXCLUDED.user_id
+          AND publish_jobs.profile_id IS NOT DISTINCT FROM EXCLUDED.profile_id
+          AND publish_jobs.network = EXCLUDED.network
         RETURNING id, status
     """
-    return query_db(
+    result = query_db(
         query,
         (scheduler_id, post_id, user_id, profile_id, network, idempotency_key),
         one=True,
     )
+    if not result:
+        raise RuntimeError("Conflito de identidade na fila de publicação")
+    return result
 
 
 def claim(publish_job_id, worker_id, lease_seconds):
     """Um unico worker pode adquirir item que ainda nao foi iniciado."""
     query = """
         WITH candidate AS (
-            SELECT id, gen_random_uuid() AS token
-            FROM publish_jobs
-            WHERE id = %s
-              AND status = 'pending'
-            FOR UPDATE SKIP LOCKED
+            SELECT job.id, gen_random_uuid() AS token
+            FROM publish_jobs job
+            JOIN schedulers schedule ON schedule.id = job.scheduler_id
+              AND schedule.post_id = job.post_id
+              AND schedule.user_id = job.user_id
+              AND schedule.profile_id IS NOT DISTINCT FROM job.profile_id
+            JOIN posts post ON post.id = job.post_id
+              AND post.user_id = job.user_id
+              AND post.profile_id IS NOT DISTINCT FROM job.profile_id
+            WHERE job.id = %s
+              AND job.status = 'pending'
+            FOR UPDATE OF job SKIP LOCKED
         )
         UPDATE publish_jobs AS job
         SET status = 'running',
