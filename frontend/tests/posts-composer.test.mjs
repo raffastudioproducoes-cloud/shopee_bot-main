@@ -35,3 +35,21 @@ test('envio de mídia do computador aparece logo após fotos Shopee, antes da pe
   assert.equal(page.split('ref={fileInputRef}').length - 1, 1,
     'O mesmo input de mídia deve continuar único, sem duplicação de comportamento')
 })
+
+test('IA cria descrições por rede e sinaliza ajustes de limites', async () => {
+  const limits = await source('lib/networkLimits.ts')
+  const page = await source('pages/PostsPage.tsx')
+  const tabs = await source('components/posts/TextVariantTabs.tsx')
+  assert.match(limits, /key: network,/)
+  assert.match(limits, /networks: \[network\],/)
+  assert.match(page, /const adjusted = \(res\.variants \?\? \[\]\)\.filter/)
+  assert.match(page, /activeNetworks\.length === 0 \|\| generateMutation\.isPending/)
+  assert.match(tabs, /Cada rede tem sua própria descrição/)
+})
+
+test('resumo de mídia explicita exclusão e publicação sem arquivo', async () => {
+  const summary = await source('components/posts/MediaSummary.tsx')
+  assert.match(summary, /rede excluída deste envio/)
+  assert.match(summary, /publicará sem imagem\/vídeo/)
+  assert.match(summary, /de \$\{total\} mídias/)
+})
