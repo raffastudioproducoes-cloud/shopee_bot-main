@@ -65,3 +65,22 @@ test('agendador indisponível bloqueia envio antes de upload e preserva rascunho
   assert.match(page, /role="alert"/)
   assert.match(page, /Seu rascunho permanece salvo|seu rascunho permanece salvo|seu rascunho foi preservado/i)
 })
+
+
+test('IDs visíveis e agrupamento nunca funde posts independentes pelo texto ou horário', async () => {
+  const page = await source('pages/PostsPage.tsx')
+  const details = await source('components/posts/PostDetailsModal.tsx')
+  assert.match(page, /post-list-id/)
+  assert.match(page, /#\{post\.id\}/)
+  assert.match(details, /Post #\{details\.id\}/)
+  assert.match(page, /if \(!post\.group_id\) continue/)
+  assert.doesNotMatch(page, /GROUP_WINDOW_MS|head\.text === p\.text/)
+})
+
+test('falha após criar post não provoca reenvio automático da criação', async () => {
+  const page = await source('pages/PostsPage.tsx')
+  assert.match(page, /Promise\.allSettled\(result\.created\.map/)
+  assert.match(page, /postId: created\.post_id/)
+  assert.match(page, /Post criado, mas o disparo imediato não foi confirmado/)
+  assert.match(page, /const pendingDispatch = list\.some/)
+})
