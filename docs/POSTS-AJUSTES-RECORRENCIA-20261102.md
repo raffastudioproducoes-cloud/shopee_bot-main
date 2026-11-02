@@ -41,3 +41,6 @@ Mudança segura: rejeição 4xx **na criação** do primeiro contêiner resulta 
 
 O primeiro deploy staging do PR #181 (`4ffc0f7`) ficou **live** e `GET /api/health/ready` retornou `{"status":"ok"}`. A tela abriu com sessão pré-existente, mas uma falha de 01/11 foi exibida como “Sem confirmação” devido à diferença entre `activities.bot_post_failure` e `publish_jobs.unknown` na versão antiga. Correção adicional proposta: somente eventos antigos com `published_parts=0`, erro HTTP 4xx **na criação do primeiro contêiner**, mesmo scheduler e término a até 5 minutos são tratados como “Erro” (evidência definitiva, sem reenviar). Falhas na etapa `threads_publish` e envios parciais permanecem “Sem confirmação”. Contrato de slots e resultado de última execução usam o mesmo critério.
 
+
+### QA do formulário em staging (02/11/2026)
+Abertura real do modal no Chrome de staging confirmou dois tabs (Agora/Recorrente), catálogo com radio de seleção única e troca de produto sem manter o anterior. A opção de recorrência revelou **uma regressão na expressão regular de horas**: o código renderizava barras escapadas em excesso e acusava erro mesmo para `09:00`. A correção usa classe de dígitos real `\\d` em regex JavaScript e adiciona contrato frontend em CI, além dos testes backend. Não foi criado nenhum post durante o teste.

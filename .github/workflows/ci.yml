@@ -97,7 +97,7 @@ jobs:
       - run: npm ci
 
       - name: Contratos de rotas, login e piloto visual da landing
-        run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs
+        run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs tests/posts-composer.test.mjs
 
       - name: Build (tsc && vite build)
         run: npm run build

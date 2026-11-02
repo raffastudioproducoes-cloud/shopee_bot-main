@@ -852,7 +852,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
 
   const dateError = when === "cron" && (
     cronDays.length === 0 || !cronTimes.length ||
-    !cronTimes.every((time) => /^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)) ||
+    !cronTimes.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)) ||
     new Set(cronTimes).size !== cronTimes.length
   ) ? "Escolha dias e até cinco horários diferentes no formato 24h." : null
 
