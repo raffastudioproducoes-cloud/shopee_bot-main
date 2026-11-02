@@ -322,6 +322,22 @@ Detalhes, contratos e critérios de aceite:
   `v26.0` (`apis/meta_version.py`).
 - Rotas Flask de posts removidas; `/api/posts/*` (FastAPI) é o único caminho de escrita.
 
+### 9.3 Copy IA individual por rede (02/11/2026, PR #186; somente staging)
+
+- `api/text_variants.py` cria uma variante por rede escolhida, não mais por faixa compartilhada;
+  frontend `planVariants` usa chaves estáveis e abas específicas (inclusive para redes com
+  limites idênticos). `/posts/generate-copy` mantém a variante genérica só quando nenhuma
+  rede é informada pelo cliente legado.
+- A IA recebe as regras de cada rede num JSON único; respostas inválidas têm uma refação
+  seletiva. Persistindo erro, adaptação textual determinística conserva o link do afiliado,
+  reduz hashtags/menções e comprimento usando o contador correto; o resultado é revalidado
+  pelo backend e marcado `adjusted`, com aviso de revisão no frontend.
+- Composição de mídia segue `adapt_media`/`adaptMedia` e o lote existente; avisos visíveis
+  distinguem mídia omitida, postagem apenas de texto e destino excluído. Sem transcodificação
+  adicional por rede; testes são mockados, postagem externa exige homologação autorizada.
+- Documentação/QA: `docs/POSTS-COPY-IA-POR-REDE-20261102.md`. Não há migration nem
+  alteração de storage, OAuth, agendamentos ou dados já persistidos.
+
 ## 10. Conta, perfis e papeis (migracao em staging, 2026-10-11)
 
 O usuario possui uma conta e no maximo tres perfis, contando o perfil principal. A conta e dona
