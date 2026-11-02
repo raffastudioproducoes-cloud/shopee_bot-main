@@ -153,6 +153,7 @@ export function PostsPage() {
     getNextPageParam: (page) => page.next_cursor ?? undefined,
     refetchInterval: (query) => query.state.data?.pages?.some((page) =>
       page.data.some((post) => post.scheduled && (
+        post.schedule_trigger === "cron" ||
         !post.last_result?.status || post.last_result.status === "running" || post.last_result.status === "retry_pending"
       ))
     ) ? 30_000 : false,
