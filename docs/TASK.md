@@ -1,3 +1,12 @@
+## 02/11/2026 — Regularização de SemVer: Auto Orbital 3.0.0
+
+- **Decisão expressa de Rafa:** oficializar `3.0.0` em `staging` e `main`, mantendo `VERSION` como única fonte da versão da aplicação e `CHANGELOG.md` obrigatório em toda alteração/PR.
+- **Justificativa MAJOR:** o fluxo atual não aceita mais múltiplos produtos no novo post e removeu a criação de agendamento avulso; legados seguem preservados. O salto de `2.7.0` para `3.0.0` consolida mudanças já presentes na `main`, sem alterar sua lógica de execução nesta tarefa.
+- **Governança futura:** PATCH para correções de bugs/desempenho/segurança sem alterar regras de negócio, MINOR para funcionalidades compatíveis, MAJOR para quebras. Atualizar `[Não lançado]` por PR, fechar o changelog e incrementar versão na entrega aprovada; documentações isoladas não forçam nova versão.
+- **Documentação-alvo:** `VERSION`, `CHANGELOG.md`, `README.md`, `AGENTS.md`, `docs/RULES.md` e este `TASK.md`.
+- **Validações necessárias:** CI da PR em staging; conferir `VERSION` e `CHANGELOG` implantados em ambas as branches, depois CI/deploy/health da produção. Nenhum OAuth, token, banco, agendamento ou post real será alterado/testado por esta regularização.
+- **Pendências independentes:** erro externo Threads 403, publicação real E2E e adequação da arquitetura ao despacho centralizado em produção continuam fora desta alteração de versão.
+
 ## 02/11/2026 — IDs dos posts, concorrência e isolamento por cliente (staging)
 
 - [x] Confirmar no Supabase que `posts.id` é SERIAL global, crescente e não reutilizável; editar preserva ID, inclusive com exclusão posterior. Auditoria read-only: 0 desvios de usuário/perfil nas relações post→agenda→ocorrência e partes de thread.

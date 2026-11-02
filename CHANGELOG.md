@@ -3,6 +3,45 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+> Toda alteração integrada em `staging` deve ser registrada aqui por PR. `VERSION` é a fonte oficial da versão; nenhuma mudança passa para `main` sem classificação SemVer, changelog e validação. A próxima versão só é decidida na promoção aprovada.
+
+## [3.0.0] - 2026-11-02
+
+### Breaking Changes
+- Novas publicações aceitam **um único produto**; composições com múltiplos produtos são rejeitadas no frontend e pela API. Registros anteriores são preservados.
+- Foi removida a opção de **criar agendamento avulso ("Agendar")**. Novos posts utilizam `Agora` ou `Recorrente`; agendamentos históricos e o disparo interno de `Agora` não são apagados.
+
+### Added
+- Persistência local e isolada por conta/perfil de rascunhos de formulários, com recuperação após atualização ou fechamento e respeito a campos apagados intencionalmente; arquivos e segredos não são salvos.
+- Geração de descrição por IA **individual por rede social**, com variantes editáveis, revisão dos limites de texto e hashtags e mensagens de compatibilidade de mídia.
+- Identificador público `#ID` único e crescente para cada post, preservado em edições e não reutilizado após exclusão.
+- Detalhamento de ocorrências recorrentes por dia/horário, status discreto e última publicação efetivamente confirmada.
+- Entrada pública da landing e fluxos de autenticação Supabase Auth/Google, preservando o acesso legado controlado da conta de revisão Shopee.
+
+### Changed
+- Seletor de horários do desktop com controles de 24 horas e atalhos; experiência nativa Android mantida.
+- Campo de upload de imagem/vídeo reposicionado imediatamente abaixo de "Usar fotos dos produtos Shopee".
+- Mensagens de falha objetivas para USER; diagnóstico de API detalhado e recolhível restrito a ADMIN.
+- Navegação, prévia e consulta dos posts reorganizadas sem permitir alteração de publicação já programada/tentada.
+
+### Fixed
+- Isolamento de identidade de usuário/perfil/post/agenda/ocorrência, inclusive para múltiplas publicações no mesmo segundo.
+- Agrupamento de posts exclusivamente por `group_id` explícito, eliminando união indevida por texto ou horário.
+- Preflight de indisponibilidade do scheduler antes de gravar post/mídia e preservação do rascunho na falha; separação de jobstores e fila por ambiente no código atual.
+- Tratamento de retorno de postagem incerta, evitando apresentar envio não confirmado como sucesso ou repetir automaticamente uma publicação.
+
+### Security
+- Preservadas validações de dono/perfil, separação USER/ADMIN, sanitização das falhas da Meta e proteção de segredos e tokens.
+- A conta `RafaelTesteCliente` continua reservada para a revisão Shopee, sem alteração de senha ou credenciais nesta atualização de versão.
+
+### Verification and known limitations
+- Código de funcionalidade já integrado à `main` pelos PRs #190/#192; documentação e configuração operacional devem ser verificadas por SHA/CI/Render, não inferidas a partir da versão.
+- **Não houve novo teste de publicação real em redes sociais nesta atualização de metadados**; erro HTTP 403 Threads e permissões externas permanecem sob acompanhamento.
+- O Supabase é compartilhado por `staging` e `main`. A implementação atual possui agendadores separados por ambiente; a decisão posterior de Rafa de **centralizar o despacho em produção** ainda exige adequação técnica independente, não incluída neste release documental.
+- Referências: PRs #181, #184, #185, #186, #187, #189, #190, #191, #192 e #195.
+
 ## [2.7.0] - 2026-10-21
 
 ### Added
@@ -19,8 +58,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 ### Verification
 - Suite da API: 852 testes passaram com as versoes de dependencias fixadas no projeto. Deploy de `staging` do commit `ffbd470` confirmado live; upload autenticado de video no Render nao foi comprovado.
 
-## [Não lançado]
+## Arquivo histórico — integração de multi-perfil (estado documentado em 2026-10-06)
 
+> Registro histórico preservado; esta seção descreve a situação de sua época e não indica pendência atual da `main`.
+>
 > Branch `chore/phase-12-integration`. A versão (`VERSION`) só sobe no merge para `main`.
 > Migrações exigidas: 037, 038, 039, 040, 041 e 042 (aplicar no Supabase antes do deploy, ver `docs/RULES.md` item 11).
 
