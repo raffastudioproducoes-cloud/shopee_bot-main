@@ -145,6 +145,7 @@ def claim(publish_job_id, worker_id, lease_seconds):
         ),
         revisions AS (
             SELECT candidate.*,
+                original.id AS retry_source_id,
                 original.content_snapshot AS retry_snapshot,
                 original.content_revision_id AS retry_revision_id,
                 future.snapshot AS future_snapshot,
@@ -177,12 +178,14 @@ def claim(publish_job_id, worker_id, lease_seconds):
             started_at = COALESCE(job.started_at, now()),
             scheduled_for = COALESCE(job.scheduled_for, revisions.original_slot),
             content_revision_id = COALESCE(
-                job.content_revision_id, revisions.retry_revision_id,
-                revisions.future_revision_id
+                job.content_revision_id,
+                CASE WHEN revisions.retry_source_id IS NOT NULL
+                     THEN revisions.retry_revision_id ELSE revisions.future_revision_id END
             ),
             content_snapshot = COALESCE(
-                job.content_snapshot, revisions.retry_snapshot,
-                revisions.future_snapshot
+                job.content_snapshot,
+                CASE WHEN revisions.retry_source_id IS NOT NULL
+                     THEN revisions.retry_snapshot ELSE revisions.future_snapshot END
             )
         FROM revisions
         WHERE job.id = revisions.id
