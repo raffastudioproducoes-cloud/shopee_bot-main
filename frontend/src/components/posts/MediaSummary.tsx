@@ -16,9 +16,9 @@ const caption = "var(--fw-regular) var(--fs-caption)/1.4 var(--font-sans)"
 /** Texto curto da linha da rede. */
 export function summaryLine(p: MediaCompositionPlan): string {
   const total = p.media.length + p.dropped.length
-  if (p.mode === "blocked") return `não enviada — ${p.blockedReason ?? "nada compatível"}`
-  if (p.mode === "text_only") return `só texto — ${(p.dropped.length ? dropReasons(p.dropped) : p.warnings[0]) ?? "sem mídia compatível"}`
-  if (p.mode === "none") return "só texto"
+  if (p.mode === "blocked") return `rede excluída deste envio — ${p.blockedReason ?? "nada compatível"}`
+  if (p.mode === "text_only") return `publicará sem imagem/vídeo — ${(p.dropped.length ? dropReasons(p.dropped) : p.warnings[0]) ?? "nenhuma mídia suportada"}`
+  if (p.mode === "none") return "publicará somente o texto"
   const adapted = p.dropped.length ? ` · ${p.media.length} de ${total} mídias` : ""
   return `recebe: ${describeKept(p.media)}${adapted}`
 }
