@@ -1,4 +1,4 @@
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useParams } from "@tanstack/react-router"
 import { postsApi, type PostNetwork, type PostSchedule } from "../api/posts"
@@ -14,6 +14,7 @@ export function EditPostPage() {
   const validId = Number.isSafeInteger(id) && id > 0
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const queryClient = useQueryClient()
+  const [localWarning, setLocalWarning] = useState<string | null>(null)
 
   const postQuery = useQuery({
     queryKey: ["post-details", activeProfileId, id],
@@ -28,7 +29,9 @@ export function EditPostPage() {
   })
   const updateMutation = useMutation({
     mutationFn: async ({ texts, productIds }: { texts: string[]; productIds: number[] }) =>
-      postsApi.update(id, { texts, product_ids: productIds }),
+      (postQuery.data?.scheduled
+        ? postsApi.updateFuture(id, { texts, product_ids: productIds })
+        : postsApi.update(id, { texts, product_ids: productIds })),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["posts"] }),
@@ -49,9 +52,12 @@ export function EditPostPage() {
   ) => {
     const post = postQuery.data
     if (!post) return
-    // Arquivos de um post existente são gerenciados pelo próprio compositor.
-    // Não subir mídia nem disparar um novo post ao salvar conteúdo.
-    if (files.length || productImageIds.length) return
+    // Manter mídias originais; novos uploads não podem modificar slots bloqueados.
+    if (files.length || productImageIds.length) {
+      setLocalWarning("Novas fotos e vídeos para posts já agendados ainda não podem ser salvos nesta revisão. As mídias anteriores foram preservadas.")
+      return
+    }
+    setLocalWarning(null)
     const originalNetwork = post.network ?? "threads"
     updateMutation.mutate({
       texts: textsByNetwork[originalNetwork] ?? [],
@@ -70,24 +76,27 @@ export function EditPostPage() {
   )
 
   const post = postQuery.data
+  const postForEditor = post.future_revision?.texts?.length
+    ? { ...post, texts: post.future_revision.texts }
+    : post
   return (
     <div className="edit-post-page" style={{ width: "100%", paddingBottom: 32 }}>
       <header style={{ marginBottom: 22 }}>
         <h1>Editar POST #{post.id}</h1>
         <p style={{ color: "var(--text-muted)" }}>
-          O identificador permanece o mesmo. Posts já agendados, enviados ou em execução
-          são protegidos contra alterações retroativas.
+          O identificador permanece o mesmo. Uma edição agendada só vale para ocorrências
+          pendentes a mais de 30 minutos; publicações já iniciadas ou concluídas não mudam.
         </p>
       </header>
       <PostComposer
         key={post.id}
-        post={post}
+        post={postForEditor}
         onClose={goBack}
         onSave={handleSave}
         loading={updateMutation.isPending}
-        error={updateMutation.error?.message}
+        error={localWarning ?? updateMutation.error?.message}
         credentials={credentialsQuery.data}
-        onClear={() => updateMutation.reset()}
+        onClear={() => { updateMutation.reset(); setLocalWarning(null) }}
       />
     </div>
   )
