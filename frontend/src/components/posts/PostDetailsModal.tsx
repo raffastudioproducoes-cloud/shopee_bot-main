@@ -45,6 +45,7 @@ export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
   return (
     <Modal open onClose={onClose} title="Detalhes da publicação" width={760}>
       <div style={{ display: "grid", gap: 0 }}>
+        <p aria-label={`ID do post: ${details.id}`} style={{ margin: "0 0 6px", color: "var(--text-muted)", font: "var(--text-role-caption)" }}>Post #{details.id}</p>
         <p style={{ margin: "0 0 8px", color: "var(--text-muted)" }}>Somente leitura — esta publicação não pode ser alterada aqui.</p>
         {isFetching && <p role="status" style={{ margin: 0, color: "var(--text-muted)" }}>Carregando informações atualizadas...</p>}
         {isError && <p role="alert" style={{ margin: 0, color: "var(--negative)" }}>Não foi possível atualizar os detalhes. Exibindo as informações da lista.</p>}
