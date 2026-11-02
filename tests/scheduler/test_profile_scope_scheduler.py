@@ -33,7 +33,7 @@ def test_scheduler_insert_persists_profile_id(monkeypatch):
         {"post_id": 7, "func": "bot_post", "trigger": "date", "profile_id": "profile-a"},
     )
     assert "profile_id" in captured["q"]
-    assert captured["args"][-1] == "profile-a"
+    assert captured["args"][-2:] == ("profile-a", "production")
 
 
 def test_scheduler_insert_persists_recurring_weekdays(monkeypatch):
@@ -53,7 +53,7 @@ def test_scheduler_insert_persists_recurring_weekdays(monkeypatch):
     )
 
     assert "days_of_week" in captured["q"]
-    assert captured["args"][-1] == "profile-a"
+    assert captured["args"][-2:] == ("profile-a", "production")
     assert captured["args"][6] == [1, 3, 5]
 
 

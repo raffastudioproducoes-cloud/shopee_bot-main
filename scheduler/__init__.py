@@ -16,6 +16,7 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
 
 from shopee_bot.database import get_conn, put_conn, publication_claims, publish_jobs, schedulers
+from shopee_bot.database.scheduler_environment import current_environment
 from shopee_bot.clogging import logger
 from shopee_bot.database.activities import insert_activities, activity_metadata_wrapper
 from shopee_bot.database.activity_types import ActivityType
@@ -189,7 +190,7 @@ def execute_publication(job_id):
         return
     job_data = schedulers.get_by_id(job_id)
     if not job_data:
-        logger.warning("Job de publicacao %s nao encontrado", job_id)
+        logger.warning("Job de publicacao %s nao encontrado neste ambiente", job_id)
         return
 
     claim_token = publication_claims.try_claim(job_id, PUBLICATION_CLAIM_LEASE_SECONDS)
@@ -301,6 +302,8 @@ def run_job(job_id):
         return
 
     job_data = schedulers.get_by_id(job_id)
+    if not job_data:
+        raise ValueError("Agenda nao encontrada neste ambiente")
     func = job_data["func"]
 
     _scheduler.add_job(
@@ -396,12 +399,14 @@ def _run_daily_analytics_refresh():
 def init():
     global _scheduler, _shutting_down
     _shutting_down = False
-    logger.info("Scheduler initializing...")
+    environment = current_environment()
+    logger.info("Scheduler initializing in %s...", environment)
 
     _scheduler = GeventScheduler(
         jobstores={
             "default": SQLAlchemyJobStore(
-                url=_jobstore_dsn()
+                url=_jobstore_dsn(),
+                tablename=("apscheduler_jobs_staging" if environment == "staging" else "apscheduler_jobs"),
             ),
             "on_demand": MemoryJobStore()
         },

@@ -41,7 +41,7 @@ def test_expired_job_is_retried_only_before_external_call(monkeypatch):
     assert "preflight_claim_token is distinct from claim_token" in seen["sql"]
     assert "else 'pending'" in seen["sql"]
     assert "attempt >= %s then 'failed'" in seen["sql"]
-    assert seen["params"][-1] == 600
+    assert seen["params"][-2:] == (600, "production")
 
 
 def test_expired_preflight_is_bounded_to_five_attempts():
