@@ -23,3 +23,16 @@ def current_environment() -> str:
     if environment not in {"production", "staging"}:
         raise RuntimeError("SCHEDULER_ENVIRONMENT deve ser production ou staging")
     return environment
+
+
+def publication_executor_environment() -> str:
+    """Authority for publishing schedules stored in the shared Supabase.
+
+    Both sites may create scheduling intent, but only the production
+    executor may deliver external posts. Keep current_environment()
+    separate: it still identifies the source runtime and fails closed
+    for unknown Render branches. This function alone does not migrate
+    existing APScheduler jobs or disable the staging worker.
+    """
+    current_environment()
+    return "production"
