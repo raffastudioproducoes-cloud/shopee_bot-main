@@ -1,19 +1,15 @@
 """
-Conjunto MÍNIMO de textos que atende todas as redes marcadas num post.
+Geração de descrição individual por rede, com uma solicitação de IA.
 
-Cada rede recebe o texto mais longo que ela aceita: redes com o mesmo limite
-efetivo compartilham um texto; cada faixa de limite diferente ganha o seu
-(ex.: Facebook+Instagram -> um texto de até 2.200; X -> um de até 280).
-
-Limite efetivo = max_chars da rede (api/network_limits.py) limitado por
-PRACTICAL_MAX_CHARS: o Facebook aceita 63 mil, mas copy de venda não precisa
-disso. A contagem real (X: link = 23, emoji = 2; TikTok: UTF-16) e os
-limites de hashtag/link/@menção são cobrados por `validate_post` em cada
-rede do grupo, a mesma regra que o POST /posts aplica.
+Cada rede escolhida recebe uma versão própria, respeitando limites reais de
+caracteres, links, hashtags e menções. Se a IA falhar na segunda tentativa,
+uma adaptação determinística preserva o link e gera texto válido e revisável.
 """
 
 import json
 import re
+
+from .network_limits import _URL_RE, _HASHTAG_RE, _MENTION_RE
 
 from .network_limits import NETWORK_RULES, validate_post
 
@@ -30,19 +26,16 @@ def effective_limit(network: str) -> int:
 
 
 def plan_variants(networks: list[str]) -> list[dict]:
-    """Grupos por limite efetivo, do mais longo pro mais curto.
+    """Uma versão por rede; a maior capacidade aparece primeiro.
 
-    `[{key, max_chars, networks}]`; sem rede = um texto de até
-    PRACTICAL_MAX_CHARS. Ordem das redes segue NETWORK_RULES."""
+    Sem rede selecionada, mantém a variante genérica legada para a API.
+    """
     chosen = [n for n in NETWORK_RULES if n in set(networks)]
     if not chosen:
         return [{"key": str(PRACTICAL_MAX_CHARS), "max_chars": PRACTICAL_MAX_CHARS, "networks": []}]
-    by_limit: dict[int, list[str]] = {}
-    for n in chosen:
-        by_limit.setdefault(effective_limit(n), []).append(n)
     return [
-        {"key": str(limit), "max_chars": limit, "networks": by_limit[limit]}
-        for limit in sorted(by_limit, reverse=True)
+        {"key": n, "max_chars": effective_limit(n), "networks": [n]}
+        for n in sorted(chosen, key=lambda net: -effective_limit(net))
     ]
 
 
@@ -82,21 +75,25 @@ def build_prompt(product: dict, persona: str, variants: list[dict]) -> str:
     link = product.get("commission_link") or product.get("original_link") or ""
     shape = ", ".join(f'"{v["key"]}": "texto"' for v in variants)
     return (
-        "Você é um copywriter de afiliados da Shopee. Escreva o post para divulgar o "
-        f"produto abaixo, em português do Brasil, com {tone}.\n"
-        f"Gere {len(variants)} versão(ões) do MESMO post (mesmo produto, mesma persona e "
-        "tom), uma para cada limite de tamanho. Use o espaço de cada uma, sem passar:\n"
+        "Você escreve descrições comerciais para afiliados Shopee, em português do Brasil. "
+        f"Tom: {tone}.\n"
+        f"Crie {len(variants)} versão(ões) diferentes para o MESMO produto, "
+        "uma por rede social selecionada. Preserve informações verdadeiras do produto "
+        "e adapte linguagem, ritmo e chamada para ação à plataforma.\n"
         + "\n".join(_limit_line(v) for v in variants) + "\n\n"
         f"Produto: {product.get('name', '')}\n"
         f"Comissão: {product.get('commission')}%\n"
-        f"Faixa de preço: R$ {product.get('price_min')} a R$ {product.get('price_max')}\n"
+        f"Faixa de preço (somente se preenchida): R$ {product.get('price_min')} a R$ {product.get('price_max')}\n"
         f"Link de afiliado: {link}\n\n"
-        "Regras:\n"
-        "- Inclua o link de afiliado em cada versão; ele e as hashtags contam no limite.\n"
-        "- Texto pronto para publicar, com quebras de linha naturais.\n"
-        "- Não explique o que fez e não repita estas instruções.\n"
-        "- Responda SOMENTE com um objeto JSON válido, sem markdown, no formato: "
-        f"{{{shape}}}"
+        "Regras obrigatórias:\n"
+        "- Inclua o link de afiliado inteiro em cada versão; o link ocupa caracteres.\n"
+        "- Não invente benefícios, avaliações, preço promocional, estoque ou desconto.\n"
+        "- Threads: direto e até uma hashtag. X: conciso, link conta 23 caracteres.\n"
+        "- Instagram: legenda visual. Facebook: explicação e CTA naturais.\n"
+        "- TikTok: legenda orientada a vídeo e ao contexto da plataforma.\n"
+        "- Respeite também os limites individuais de hashtags, links e menções.\n"
+        "- Não explique o que fez. Responda SOMENTE com objeto JSON válido, "
+        f"sem markdown, no formato: {{{shape}}}"
     )
 
 
@@ -143,28 +140,116 @@ def _ask(complete, prompt: str, keys: list[str]) -> dict[str, str]:
     return parsed
 
 
-def generate_variants(product: dict, persona: str, networks: list[str], complete) -> list[dict]:
-    """Uma chamada pra todas as variantes; refaz UMA vez só as que passaram
-    do limite; se ainda passar, devolve com `over_limit=True` (sem truncar).
+def _keep_first_matches(text: str, pattern: re.Pattern, max_count: int | None) -> str:
+    """Remove tags/menções excedentes; não altera as demais palavras."""
+    if max_count is None:
+        return text
+    seen = 0
 
-    `complete(prompt, max_tokens) -> str` (apis.llm.complete já com chave)."""
+    def replace(match: re.Match) -> str:
+        nonlocal seen
+        seen += 1
+        return match.group() if seen <= max_count else ""
+
+    return pattern.sub(replace, text)
+
+
+def _repair_variant(variant: dict, text: str, product: dict) -> str:
+    """Fallback factual: não parte URL, preserva link e limita caracteres.
+
+    Conserva o começo da descrição da IA quando possível; a UI informa a
+    adaptação para revisão, sem publicar automaticamente.
+    """
+    from apis.llm import LLMError
+
+    rules = [NETWORK_RULES[n] for n in variant["networks"]]
+    link = (product.get("commission_link") or product.get("original_link") or "").strip()
+    link = link if _URL_RE.fullmatch(link) else ""
+    body = _URL_RE.sub("", text).strip() if link else text.strip()
+    for rule_key, pattern in (("max_hashtags", _HASHTAG_RE), ("max_mentions", _MENTION_RE)):
+        caps = [r[rule_key] for r in rules if rule_key in r]
+        body = _keep_first_matches(body, pattern, min(caps) if caps else None)
+    link_caps = [r["max_links"] for r in rules if "max_links" in r]
+    if link and link_caps and min(link_caps) < 1:
+        raise LLMError("bad_response", "O link do produto não cabe nas regras desta rede.")
+
+    body = re.sub(r"[ \t]{2,}", " ", body)
+    body = re.sub(r" *\n *", "\n", body).strip(" \n,;:-")
+    suffix = f"\n{link}" if link else ""
+
+    def compose(prefix: str) -> str:
+        return (prefix.rstrip(" \n,;:-") + suffix).strip()
+
+    candidate = compose(body)
+    if candidate and not variant_issues(variant, candidate):
+        return candidate
+
+    # Busca binária: cada candidato usa o contador real (X ponderado, TikTok
+    # UTF-16). O link permanece completo e também conta no orçamento.
+    lo, hi = 0, len(body)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if variant_issues(variant, compose(body[:mid])):
+            hi = mid - 1
+        else:
+            lo = mid
+
+    prefix = body[:lo].rstrip()
+    if lo < len(body):
+        boundary = max(prefix.rfind("\n"), prefix.rfind(". "), prefix.rfind("! "), prefix.rfind("? "))
+        if boundary >= max(35, len(prefix) // 2):
+            prefix = prefix[:boundary + (1 if prefix[boundary] in ".!?" else 0)]
+        elif " " in prefix:
+            prefix = prefix.rsplit(" ", 1)[0]
+    candidate = compose(prefix)
+    if prefix.strip() and not variant_issues(variant, candidate):
+        return candidate
+
+    # Não inventa características; nome e link vêm do catálogo do dono.
+    name = str(product.get("name") or "Produto Shopee").strip()
+    for size in range(len(name), -1, -1):
+        short = compose(f"Confira {name[:size].rstrip()}")
+        if not variant_issues(variant, short):
+            return short
+    raise LLMError("bad_response", "Não foi possível gerar uma descrição válida para a rede.")
+
+
+def generate_variants(product: dict, persona: str, networks: list[str], complete) -> list[dict]:
+    """Uma solicitação de IA para todas as redes, com reparo validado.
+
+    Refaz uma vez apenas variantes inválidas. Se a IA persistir, adapta
+    conservadoramente e sinaliza. Nunca retorna descrição fora da regra.
+    """
     variants = plan_variants(networks)
     keys = [v["key"] for v in variants]
     texts = _ask(complete, build_prompt(product, persona, variants), keys)
     issues = {v["key"]: variant_issues(v, texts[v["key"]]) for v in variants}
-
     over = [v for v in variants if issues[v["key"]]]
+
     if over:
         retry = _ask(complete, _shorten_prompt(over, texts, issues), [v["key"] for v in over])
         for v in over:
             texts[v["key"]] = retry[v["key"]]
             issues[v["key"]] = variant_issues(v, retry[v["key"]])
 
+    adjusted: set[str] = set()
+    link = (product.get("commission_link") or product.get("original_link") or "").strip()
+    for v in variants:
+        key = v["key"]
+        if issues[key] or (v["networks"] and link and _URL_RE.fullmatch(link) and link not in texts[key]):
+            repaired = _repair_variant(v, texts[key], product)
+            adjusted.add(key)
+            texts[key] = repaired
+            issues[key] = variant_issues(v, repaired)
+        if issues[key]:
+            from apis.llm import LLMError
+            raise LLMError("bad_response", "A IA não conseguiu gerar um texto válido. Tente novamente.")
+
     return [
-        {**v, "text": texts[v["key"]], "over_limit": bool(issues[v["key"]]), "issues": issues[v["key"]]}
+        {**v, "text": texts[v["key"]], "over_limit": False, "issues": [],
+         "adjusted": v["key"] in adjusted}
         for v in variants
     ]
-
 
 # Limite próprio do aplicativo. Não equivale a uma cota anti-spam oficial:
 # cada provedor ainda aplica limites de API e políticas de automação.
