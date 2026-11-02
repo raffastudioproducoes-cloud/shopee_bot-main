@@ -1295,11 +1295,13 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                 </div>
                 {cronTimes.map((time, index) => (
                   <div key={index} className="csp-s-0347">
-                    <PostTimePicker
-                      label={`Horário ${index + 1}`}
-                      value={time}
-                      onChange={(next) => setCronTimes((times) => times.map((value, i) => i === index ? next : value))}
-                    />
+                    <div className="csp-s-0342">
+                      <PostTimePicker
+                        label={`Horário ${index + 1}`}
+                        value={time}
+                        onChange={(next) => setCronTimes((times) => times.map((value, i) => i === index ? next : value))}
+                      />
+                    </div>
                     {index > 0 && <IconButton icon="trash-2" label={`Remover horário ${index + 1}`} onClick={() => setCronTimes((times) => times.filter((_, i) => i !== index))} />}
                   </div>
                 ))}
