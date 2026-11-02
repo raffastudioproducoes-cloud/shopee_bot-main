@@ -833,8 +833,6 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     setAiAutoContinuation(false)
     aiProductRef.current = null
     setWhen("now")
-    setRunDayText("")
-    setRunTimeText("")
     setCronTimes(["09:00"])
     setPickMessage(null)
     setCronDays([0])
