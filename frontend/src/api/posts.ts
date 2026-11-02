@@ -150,6 +150,8 @@ export interface GeneratedVariant {
   text: string
   over_limit: boolean
   issues: string[]
+  /** A IA ultrapassou algum limite; texto corrigido e validado no servidor. */
+  adjusted?: boolean
 }
 
 export interface GeneratedCopyResult {
