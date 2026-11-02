@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { formDraftKey } from '../lib/formDraftStorage'
+import { useAutosavedDraft } from '../hooks/useAutosavedDraft'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
@@ -61,6 +63,10 @@ export default function AnalyticsPage() {
   const userId = useAuthStore((state) => state.user?.id)
   const isAdmin = useAuthStore((state) => state.user?.access === 'ADMIN')
   const profileId = useProfileStore((state) => state.activeProfileId)
+  useAutosavedDraft(formDraftKey(userId, 'analytics-filters', profileId), { days, network }, (saved) => {
+    setDays(typeof saved?.days === 'string' ? saved.days : '30')
+    setNetwork(typeof saved?.network === 'string' ? saved.network : 'all')
+  })
   // Do not display another account's or another period's previous result.
   const profileScope = `${userId ?? ''}:${profileId ?? ''}`
   const scopeKey = `${profileScope}:${days}`
