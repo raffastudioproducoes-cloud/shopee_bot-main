@@ -1,9 +1,10 @@
 # Design - Composicao de Midia por Rede
 
 > Origem: decisao de Rafa em 2026-10-11.
-> Estado: aprovado por Rafa em 2026-10-11. A implementacao permanece restrita
-> ao staging e segue o plano de implementacao correspondente; nenhuma mudanca
-> desta funcionalidade vai para main sem validacao humana posterior.
+> Estado: aprovado por Rafa em 2026-10-11. Complemento de 2026-11-02:
+> a geração de **texto** passou a ser individual por rede, conforme novo pedido;
+> o agrupamento sem diferenças permanece aplicável apenas ao resumo de mídia.
+> Todas as alterações continuam restritas ao staging, sem main/produção.
 
 ## 1. Objetivo
 
@@ -19,9 +20,8 @@ Quando a plataforma nao oferecer post textual pela API ou o texto tambem nao
 tiver uma variante valida, somente aquela rede fica fora do envio, sem afetar
 as demais.
 
-Este comportamento completa o sistema atual de variantes de texto. As abas de
-texto e de midia aparecem somente quando existe uma diferenca real entre as
-redes selecionadas.
+Este comportamento completa o sistema atual de variantes de texto. As abas de texto aparecem quando duas ou mais redes foram marcadas (uma
+versão por rede). O resumo de mídia exibe apenas diferenças reais de composição.
 
 ## 2. Regras de produto aprovadas
 
@@ -65,9 +65,10 @@ na tela e e repetido na confirmacao final.
 
 ### 3.2 Abas dinamicas
 
-As abas de texto atuais continuam agrupadas por limite de caracteres. A nova
-area de midia usa abas apenas quando dois ou mais grupos de redes precisarem de
-composicoes diferentes. Ela nao cria uma aba por rede sem necessidade.
+Atualização de 2026-11-02: cada rede marcada possui sua **própria aba de texto**,
+mesmo com limites iguais (ex.: Facebook e Instagram). Uma geração da IA preenche
+todas com variantes próprias. A área de mídia só precisa separar grupos quando
+as composições efetivas forem diferentes, sem criar abas redundantes.
 
 Exemplos:
 
