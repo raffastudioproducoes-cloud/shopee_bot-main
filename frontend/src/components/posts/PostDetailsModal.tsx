@@ -10,6 +10,7 @@ import { Badge } from "../ui/Badge"
 import { StatusBadge } from "../ui/StatusBadge"
 import { NetworkLogo } from "./NetworkPicker"
 import { postKind, scheduleLines } from "./postPresentation"
+import { router } from "../../router"
 
 type Props = { post: Post; groupNetworks: PostNetwork[]; onClose: () => void }
 const sectionStyle = { display: "grid", gap: 8, padding: "14px 0", borderBottom: "1px solid var(--border-hairline)" } as const
@@ -42,11 +43,22 @@ export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
   const slots = details.schedule_slots ?? []
   const failedAt = lastAttempt ?? "horário não informado"
   const postSummary = details.text.trim().slice(0, 65) + (details.text.length > 65 ? "…" : "")
+  // O backend também confere fila, histórico e ownership; o botão é apenas uma indicação.
+  const canOfferEdit = !details.scheduled && !details.publish_immediately &&
+    !(details.schedule_entries?.length) && !details.last_published_at && !details.last_result
   return (
     <Modal open onClose={onClose} title="Detalhes da publicação" width={760}>
       <div style={{ display: "grid", gap: 0 }}>
         <p aria-label={`ID do post: ${details.id}`} style={{ margin: "0 0 6px", color: "var(--text-muted)", font: "var(--text-role-caption)" }}>Post #{details.id}</p>
-        <p style={{ margin: "0 0 8px", color: "var(--text-muted)" }}>Somente leitura — esta publicação não pode ser alterada aqui.</p>
+        <p style={{ margin: "0 0 8px", color: "var(--text-muted)" }}>Detalhes em somente leitura; a edição, quando permitida, abre em página própria.</p>
+        {canOfferEdit ? (
+          <button type="button" onClick={() => { onClose(); void router.navigate({ to: "/posts/$postId/editar", params: { postId: String(details.id) } }) }}
+            style={{ justifySelf: "start", padding: "8px 14px", borderRadius: 8, border: "1px solid var(--border-hairline)", background: "var(--surface-inset)", color: "var(--text-body)", cursor: "pointer" }}>
+            Editar post #{details.id}
+          </button>
+        ) : (
+          <p style={{ margin: "0 0 8px", color: "var(--text-muted)" }}>Este post já está agendado ou possui histórico de execução; conteúdo e mídias são protegidos.</p>
+        )
         {isFetching && <p role="status" style={{ margin: 0, color: "var(--text-muted)" }}>Carregando informações atualizadas...</p>}
         {isError && <p role="alert" style={{ margin: 0, color: "var(--negative)" }}>Não foi possível atualizar os detalhes. Exibindo as informações da lista.</p>}
         <section style={sectionStyle}>
