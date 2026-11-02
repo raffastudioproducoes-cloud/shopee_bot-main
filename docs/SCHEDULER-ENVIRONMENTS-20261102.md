@@ -17,11 +17,11 @@ Isso contraria a finalidade do ambiente: implementar e testar **todas as funçõ
 
 ## Ordem de rollout (obrigatória, não inverter)
 
-- [ ] PR da correção em `staging` e CI de scheduler/API/SQL verdes.
-- [ ] Render staging live no novo SHA, com `SCHEDULER_ENABLED=false` **temporariamente**, aplicando a migration aditiva 067. Conferir no Supabase a nova coluna/tabela, a migração registrada e a preservação das agendas de produção.
-- [ ] PR `staging` → `main`, CI verde; aguardar Render produção live com filtros de ambiente ativos e validar health, scheduler, credenciais e conta `RafaelTesteCliente` sem alterar login nem dados.
-- [ ] **Só depois do passo anterior**, atualizar via Render apenas `SCHEDULER_ENABLED=true` no serviço de staging (merge das variáveis, sem substituir as existentes) e aguardar novo deploy live.
-- [ ] Comprovar nos logs a inicialização `Scheduler initializing in staging`, disponibilidade do bridge e funcionamento da agenda de staging. Conferir que filas antigas da produção não passaram para staging.
+- [x] PR da correção em `staging` e CI de scheduler/API/SQL verdes.
+- [x] Render staging live no novo SHA, com `SCHEDULER_ENABLED=false` **temporariamente**, aplicando a migration aditiva 067. Conferir no Supabase a nova coluna/tabela, a migração registrada e a preservação das agendas de produção.
+- [x] PR `staging` → `main`, CI verde; aguardar Render produção live com filtros de ambiente ativos e validar health, inicialização do scheduler e preservação da conta `RafaelTesteCliente` sem testar credenciais externas.
+- [x] **Só depois do passo anterior**, atualizar via Render apenas `SCHEDULER_ENABLED=true` no serviço de staging (merge das variáveis, sem substituir as existentes) e aguardar novo deploy live.
+- [x] Comprovar nos logs a inicialização `Scheduler initializing in staging`, criação da rotina interna de recuperação no jobstore de staging e status 200 do bridge. Conferir que filas antigas da produção não passaram para staging.
 - [ ] Testar criação de agendamento para cliente de teste com destino de publicação explicitamente autorizado; não criar/publicar posts reais nem mexer nas credenciais durante smoke técnico.
 
 **Por que essa sequência?** A versão de produção anterior varria `publish_jobs` globalmente. Ligar staging antes de promover os filtros poderia fazer a produção antiga consumir testes do novo ambiente; por isso a ativação da variável é a última etapa, após o deploy de proteção em main.
@@ -41,3 +41,18 @@ Isso contraria a finalidade do ambiente: implementar e testar **todas as funçõ
 - Documentação do [APScheduler 3.x](https://apscheduler.readthedocs.io/en/3.x/userguide.html) afirma que dois schedulers não devem compartilhar jobstore.
 - Variável `RENDER_GIT_BRANCH` documentada em [Render Default Environment Variables](https://render.com/docs/environment-variables).
 - Evidências de CI/PR/deploy e SQL de verificação devem ser acrescentadas após cada fase, sem confundir implementação com produção.
+
+## Evidências observadas após ativação (02/11/2026, UTC)
+
+- Correção: [PR #191](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/191) mesclado à staging em `3e5bc94`; CI [#550](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41399520065) e CI PR de promoção [#552](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41399780481) concluídos com sucesso. A primeira rodada #549 encontrou apenas asserção obsoleta de teste de parâmetros, corrigida antes dos merges; scheduler: 132 testes aprovados.
+- Deploy staging da alteração de código `dep-dbk2pb7avr4c73clcrog` **live**; migration 067 constatada `aplicada` no Supabase antes de ligar o worker.
+- Promoção: [PR #192](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/192) mesclado à main em `c943c935`; CI de push [#41399960855](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41399960855) verde, CD [#41400102373](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41400102373) verde; Render produção `dep-dbk2qbqvcj2c73fipb00` **live**. Log às 06:27:44 confirma `Scheduler initializing in production`. A API `/api/health/ready` respondeu `{"status":"ok"}`.
+- Só após isso, Render staging recebeu **somente** `SCHEDULER_ENABLED=true` via merge de variáveis. Deploy de configuração `dep-dbk2r6ou01pc738t08ag` **live**, mesma SHA `3e5bc94`. Logs às 06:29:21–06:29:24 confirmam `Scheduler initializing in staging`, `Scheduler started` e `Resumed scheduler job processing`.
+- Supabase read-only após ativação: **6** agendas com `environment=production`, **0** com `environment=staging` (nenhuma postagem fictícia foi criada); **3** registros do `apscheduler_jobs` antigo intactos, **1** `publish_queue_recovery` no `apscheduler_jobs_staging`, RLS da nova tabela habilitado e migration 067 registrada. Não houve `DROP`, limpeza, alteração de tokens nem alteração dos horários.
+- Repositório: `main` e `staging` possuem **o mesmo tree SHA** `ff3083a29981c6117cc2304ad19c63469d289b69` apesar de históricos de commits diferentes.
+- Conta de revisão Shopee: `RafaelTesteCliente` ainda existe com papel `USER`, sem redefinição de credencial. Login real com sua senha **não foi refeito** nesta etapa, para não criar bloqueio de rate limit antes da avaliação externa.
+- Limites de homologação: sem acesso de sessão legítima a um perfil de teste e sem destino social autorizado, não fizemos um agendamento E2E nem envio externo real. O que foi efetivamente comprovado é inicialização de ambos os schedulers, persistência das duas tabelas e isolamento SQL/testes mockados. Publicação real continua pendente de validação autorizada.
+
+## Regra permanente para futuras mudanças
+
+**Nunca desligar o agendador em staging para compensar uma fila compartilhada.** A correção de segurança deve ocorrer no particionamento de ambientes, no jobstore e na fila. Qualquer mudança do scheduler precisa passar pelos testes de isolamento de ambiente e de `user_id/profile_id/post_id` com `SCHEDULER_ENABLED=true` em ambos os serviços após o rollout; scripts de teste não devem criar publicações reais sem destino autorizado.
