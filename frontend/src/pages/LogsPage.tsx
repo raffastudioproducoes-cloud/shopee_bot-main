@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { logsApi } from "../api/logs"
+import { useAuthStore } from "../stores/authStore"
+import { formDraftKey } from "../lib/formDraftStorage"
+import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { Badge } from "../components/ui/Badge"
@@ -15,6 +18,11 @@ const TABLE_MAX_HEIGHT = 500
 export default function LogsPage() {
   const [offset, setOffset] = useState(0)
   const [statusCode, setStatusCode] = useState("")
+  const accountId = useAuthStore((state) => state.user?.id)
+  useAutosavedDraft(formDraftKey(accountId, "logs-filters", null, false), { statusCode }, (saved) => {
+    setStatusCode(typeof saved?.statusCode === "string" ? saved.statusCode : "")
+    setOffset(0)
+  })
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["logs", offset, statusCode],
