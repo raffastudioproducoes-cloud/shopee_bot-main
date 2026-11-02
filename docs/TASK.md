@@ -1,3 +1,12 @@
+## 02/11/2026 — Cena 3D inserida na landing, homologação somente em staging
+
+- [x] **Nova autorização de Rafa:** visualizar a V3.2 no contexto da página, dentro de `#virada`, mesmo sem aprovação estética definitiva; não promover à produção.
+- [x] **Integração preparada:** player React compartilhado com `/presentation/pilot`, importação preguiçosa e renderização ao se aproximar da seção, início ao entrar na área visível, pausa fora dela, controles e modo de movimento reduzido. Sem novos pacotes, áudio, mídia ou mudança de backend.
+- [ ] **CI e deploy da integração:** conferir suíte frontend, build TypeScript/Vite, pipeline geral e SHA live do Render staging após PR.
+- [ ] **Inspeção visual da landing:** conferir reprodução e pausa em desktop, comportamento mobile, `prefers-reduced-motion`, layout sem transbordamento e preservação do restante da página.
+- [ ] **Aceite estético de Rafa e eventual promoção:** piloto provisório; nenhum merge em `main`/produção autorizado.
+- **Especificação:** [PILOTO-LANDING-VIRADA-ORBITAL.md](PILOTO-LANDING-VIRADA-ORBITAL.md).
+
 ## 02/11/2026 — Refinamento V3.2: cards 3D em staging, pendente de aceite estético
 
 - [x] **Escopo de Rafa:** preservar integralmente as cenas/timeline/câmera/identidade da V3.1 e aprimorar somente as fichas de produto e propaganda, evitando aparência plana.

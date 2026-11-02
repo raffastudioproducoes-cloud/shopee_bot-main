@@ -134,3 +134,19 @@
  .ao3-sheet,.ao3-letter,.ao3-ui,.ao3-signature{will-change:auto}
  .ao3-page *{scroll-behavior:auto!important}
 }
+
+/* A mesma cena do piloto pode viver na seção #virada sem assumir o layout da rota isolada. */
+.ao3-embed{width:100%;color:#ecf5ff;font-family:"Mona Sans",system-ui,sans-serif;text-align:left}
+.ao3-embed *{box-sizing:border-box}
+.ao3-embed .ao3-main{width:100%;max-width:none;padding:0}
+.ao3-embed .ao3-stage{height:clamp(500px,51vw,640px)}
+.ao3-embed .ao3-controls{margin-top:18px;flex-wrap:wrap}
+.ao3-embed :is(button,input):focus-visible{outline:3px solid #31e2ff;outline-offset:4px}
+.ao3-embed-note{margin:15px 0 0;color:#8fa8cc;font-size:11px;line-height:1.65}
+@media(max-width:580px){
+ .ao3-embed .ao3-stage{height:510px}
+ .ao3-embed .ao3-controls{gap:10px}
+ .ao3-embed .ao3-controls button{height:46px;padding:0 12px;font-size:12px}
+ .ao3-embed .ao3-controls label{width:100%;order:3}
+ .ao3-embed .ao3-controls input{order:4;flex-basis:100%}
+}
