@@ -41,6 +41,24 @@ def _headers() -> dict:
     return {"X-Internal-Secret": INTERNAL_API_SECRET}
 
 
+async def scheduler_availability() -> bool:
+    """Estado efetivo do worker Flask (sem registrar nem executar jobs)."""
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(
+                f"{FLASK_INTERNAL_URL}/internal/scheduler/status",
+                headers=_headers(),
+            )
+        if resp.status_code != 200:
+            raise InternalApiError(f"scheduler_availability falhou: HTTP {resp.status_code}")
+        available = resp.json().get("available")
+        if not isinstance(available, bool):
+            raise InternalApiError("Resposta inválida do status do agendador")
+        return available
+    except (httpx.HTTPError, ValueError) as exc:
+        raise InternalApiError("Não foi possível consultar o agendador") from exc
+
+
 async def create_scheduler_job(user_id: str, post_id: int, func: str, trigger: str, **fields) -> str:
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.post(
