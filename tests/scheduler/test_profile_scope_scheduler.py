@@ -94,7 +94,9 @@ def test_scheduler_post_query_requires_the_jobs_profile(monkeypatch):
     posts.get("user-1", 7, "profile-a")
 
     assert "profile_id = %s::uuid" in captured["query"]
-    assert captured["args"] == (7, "user-1", "profile-a", "profile-a")
+    assert captured["args"] == (7, "user-1", "profile-a", "user-1", "profile-a")
+    assert "p.user_id = %s" in captured["query"]
+    assert "p.profile_id = %s::uuid" in captured["query"]
 
 
 def test_shopee_refresh_requires_profile_but_reads_shared_catalog(monkeypatch):

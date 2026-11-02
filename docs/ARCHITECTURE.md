@@ -1,3 +1,7 @@
+> **02/11/2026 — Identidade e concorrência de posts (somente staging; aguardando CI/PR):** `posts.id` numérico já é único e crescente (mesmo após exclusão), agora exposto como `#ID` na lista e nos detalhes. O agrupamento visual usa apenas `group_id` explícito; fluxo “Agora” separa criação confirmada de disparo não confirmado; fila e leituras exigem correspondência entre usuário, perfil, post e agenda. Auditoria do banco compartilhado em leitura encontrou zero vínculos cruzados na amostra existente. **Scheduler de staging continua desligado** para não executar agendas da produção no Supabase compartilhado. Detalhes, limites e QA em [POSTS-IDENTIDADE-CONCORRENCIA-20261102.md](POSTS-IDENTIDADE-CONCORRENCIA-20261102.md). Não alterar `main`/produção.
+
+> **02/11/2026 — Correção dos posts em desenvolvimento (staging, ainda não publicada):** seleção de um produto, retirada de agendamento avulso, seletor desktop em 24h, histórico do estado de cada ocorrência, última postagem confirmada e erro simplificado para usuário. Supabase compartilhado impede apagar esquema/legado; erro HTTP 403 do Threads precisa de código Meta e autorização antes de declarar publicação funcionando. Detalhes e QA: [POSTS-AJUSTES-RECORRENCIA-20261102.md](POSTS-AJUSTES-RECORRENCIA-20261102.md). **Não alterar main/produção.**
+
 > **Arquitetura real de 31/10/2026:** React é o painel padrão; Flask serve SPA/proxy e Uvicorn roda interno. Topologia, ambientes, RLS e limites no Guia Mestre. **Primeira leitura obrigatória:** [AGENTS.md](../AGENTS.md) e [docs/GUIA-MESTRE-IA.md](GUIA-MESTRE-IA.md).
 
 # ARCHITECTURE — Shopee Auto Vendas
@@ -320,6 +324,22 @@ Detalhes, contratos e critérios de aceite:
   `v26.0` (`apis/meta_version.py`).
 - Rotas Flask de posts removidas; `/api/posts/*` (FastAPI) é o único caminho de escrita.
 
+### 9.3 Copy IA individual por rede (02/11/2026, PR #186; somente staging)
+
+- `api/text_variants.py` cria uma variante por rede escolhida, não mais por faixa compartilhada;
+  frontend `planVariants` usa chaves estáveis e abas específicas (inclusive para redes com
+  limites idênticos). `/posts/generate-copy` mantém a variante genérica só quando nenhuma
+  rede é informada pelo cliente legado.
+- A IA recebe as regras de cada rede num JSON único; respostas inválidas têm uma refação
+  seletiva. Persistindo erro, adaptação textual determinística conserva o link do afiliado,
+  reduz hashtags/menções e comprimento usando o contador correto; o resultado é revalidado
+  pelo backend e marcado `adjusted`, com aviso de revisão no frontend.
+- Composição de mídia segue `adapt_media`/`adaptMedia` e o lote existente; avisos visíveis
+  distinguem mídia omitida, postagem apenas de texto e destino excluído. Sem transcodificação
+  adicional por rede; testes são mockados, postagem externa exige homologação autorizada.
+- Documentação/QA: `docs/POSTS-COPY-IA-POR-REDE-20261102.md`. Não há migration nem
+  alteração de storage, OAuth, agendamentos ou dados já persistidos.
+
 ## 10. Conta, perfis e papeis (migracao em staging, 2026-10-11)
 
 O usuario possui uma conta e no maximo tres perfis, contando o perfil principal. A conta e dona
@@ -435,3 +455,8 @@ staging aprovados. Nenhum post real foi reenviado no teste.
 Fluxo: `AnalyticsPage.tsx` → `GET /api/analytics/summary` (contadores de `publish_jobs` por usuário/perfil em tempo real + cache de métricas da Página Facebook), e `POST /api/analytics/refresh` (coleta sob demanda para USER/ADMIN). A leitura inicial agenda revalidação não bloqueante. `api/analytics_refresh.py` consulta Threads, Facebook e Instagram com a credencial pertencente **à mesma conta e perfil**, por HTTPS, sem enviar token ao cliente; registra somente métricas validadas, estado e horário em `public.analytics_daily_refreshes`.
 
 `scheduler/__init__.py` verifica até 12 caches vencidos a cada hora, com claim PostgreSQL (`claim_analytics_refresh`, mínimo 24h automático, lease de 60 s, 5 minutos entre pedidos manuais), evitando dupla consulta no Supabase compartilhado por main/staging. Após suspensão Render Free, a próxima hora ativa ou a abertura da tela recupera a coleta. A rotina cadastra o perfil na primeira visita à tela, não cria novo serviço/plano. Uma coleta da API pode não entregar dados por OAuth/permissão, período não disponível ou indisponibilidade. A coluna Visualizações usa apenas dados diários reais do Facebook; demais valores não disponíveis permanecem `null`/traço. RLS ativo na nova tabela, grants diretos de anon/authenticated revogados e função `SECURITY INVOKER` só para `service_role`; o backend conserva filtros `user_id`/`profile_id`.
+
+
+### Proteção de criação de agenda quando o worker está inativo (02/11/2026 — staging)
+
+O FastAPI não possui APScheduler no próprio processo; registra agendas via HTTP interno `api/internal_client.py` → `web/routes/internal.py` (Flask/Gevent). O endpoint protegido `GET /internal/scheduler/status` fornece a prontidão efetiva do scheduler e `GET /posts/scheduler-status` a repassa ao compositor autenticado. `POST /posts/batch` valida prontidão antes de materializar mídia ou criar post, falhando em 503 e preservando rascunho se o worker estiver desligado. O frontend checa antes do upload e bloqueia Criar enquanto estiver offline. A produção pode continuar executando jobs do banco compartilhado; nunca ligar um segundo APScheduler em staging sem segmentação do jobstore/ambientes. Ver `docs/POSTS-SCHEDULER-503-20261102.md`.

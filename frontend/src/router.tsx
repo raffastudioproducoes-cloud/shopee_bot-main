@@ -1,8 +1,10 @@
 import { lazy, Suspense, type ComponentType } from "react"
 import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router"
 import { authApi } from "./api/auth"
+import { ApiError } from "./lib/api"
 import { useAuthStore } from "./stores/authStore"
 import LoginPage from "./pages/LoginPage"
+import PresentationPage from "./pages/PresentationPage"
 import DashboardPage from "./pages/DashboardPage"
 import { PanelPage } from "./pages/PanelPage"
 import { ProductsPage } from "./pages/ProductsPage"
@@ -26,6 +28,7 @@ const UsersPage = lazy(() => import("./pages/UsersPage"))
 const LogsPage = lazy(() => import("./pages/LogsPage"))
 const AdminCredentialsPage = lazy(() => import("./pages/AdminCredentialsPage"))
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"))
+const OrbitalPilotPage = lazy(() => import("./pages/OrbitalPilotPage"))
 
 async function requireAdmin() {
   let user
@@ -55,10 +58,63 @@ const rootRoute = createRootRoute({
   pendingComponent: () => <OrbitalLoader fullScreen size="lg" />,
 })
 
+// A raiz é uma entrada pública: só o backend pode confirmar uma sessão existente.
+const landingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  beforeLoad: async () => {
+    let user
+    try {
+      user = await authApi.me()
+    } catch (error) {
+      // Cookie expirado não é autenticação. Em falha transitória mostramos
+      // apenas a landing pública e deixamos as rotas privadas protegidas.
+      if (error instanceof ApiError && error.status === 401) {
+        useAuthStore.getState().logout()
+      }
+      return
+    }
+
+    const authStore = useAuthStore.getState()
+    if (!authStore.isAuthenticated || authStore.user?.id !== user.id) {
+      authStore.login("", user)
+    } else {
+      authStore.setUser(user)
+    }
+    authStore.setRoleVerified(true)
+
+    if (user.access === "ADMIN" && !isAdminVisitingSite()) {
+      throw redirect({ to: "/admin/overview" })
+    }
+    throw redirect({ to: "/app" })
+  },
+  component: PresentationPage,
+})
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   component: LoginPage,
+})
+
+// Endereço público estável para compartilhar a landing, inclusive com sessão ativa.
+const presentationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/presentation",
+  component: PresentationPage,
+})
+
+// Compatibilidade com o link de prévia anterior.
+const orbitalPilotRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/presentation/pilot",
+  component: lazyRoute(OrbitalPilotPage, "detail"),
+})
+
+const legacyPresentationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/apresentacao",
+  beforeLoad: () => { throw redirect({ to: "/presentation", replace: true }) },
 })
 
 // Rotas públicas (sem guard de autenticação, mesmo padrão de /login) exigidas
@@ -92,7 +148,7 @@ const panelRoute = createRoute({
 
 const dashboardRoute = createRoute({
   getParentRoute: () => panelRoute,
-  path: "/",
+  path: "/app",
   beforeLoad: () => {
     const { isAuthenticated, user } = useAuthStore.getState()
     if (isAuthenticated && user?.access === "ADMIN" && !isAdminVisitingSite()) {
@@ -190,7 +246,11 @@ const settingsRoute = createRoute({
 })
 
 const routeTree = rootRoute.addChildren([
+  landingRoute,
   loginRoute,
+  presentationRoute,
+  orbitalPilotRoute,
+  legacyPresentationRoute,
   termsRoute,
   privacyRoute,
   dataCollectedRoute,

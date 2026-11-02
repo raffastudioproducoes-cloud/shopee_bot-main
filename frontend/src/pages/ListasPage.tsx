@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useCallback } from "react"
 import { useAuthStore } from "../stores/authStore"
+import { useProfileStore } from "../stores/profileStore"
+import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
+import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
 import { listsApi, type ProductList, type ProductListsResponse } from "../api/lists"
 import { productsApi, type ProductsResponse } from "../api/products"
@@ -22,7 +25,8 @@ function estimatedListValue(list: ProductList): string {
 }
 
 export function ListasPage() {
-  const { logout } = useAuthStore()
+  const { logout, user } = useAuthStore()
+  const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const queryClient = useQueryClient()
   const [modalOpen, setModalOpen] = useState(false)
   const [editingList, setEditingList] = useState<ProductList | null>(null)
@@ -60,6 +64,7 @@ export function ListasPage() {
       },
     },
     onSuccess: () => {
+      clearFormDraft(formDraftKey(user?.id, "list-create", activeProfileId))
       queryClient.invalidateQueries({ queryKey: ["lists"] })
       setModalOpen(false)
     },
@@ -72,7 +77,8 @@ export function ListasPage() {
     mutationFn: ({ id, name, productIds }: { id: number; name: string; productIds?: number[] }) =>
       listsApi.update(id, { name, product_ids: productIds }),
     meta: { toast: { pending: "Salvando lista…", success: "Lista atualizada", error: "Não foi possível salvar a lista" } },
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
+      clearFormDraft(formDraftKey(user?.id, `list-edit:${variables.id}`, activeProfileId))
       queryClient.invalidateQueries({ queryKey: ["lists"] })
       setModalOpen(false)
       setEditingList(null)
@@ -296,6 +302,16 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
     () => new Set((list?.products ?? []).map((p) => p.id)),
   )
   const [search, setSearch] = useState("")
+  const userId = useAuthStore((state) => state.user?.id)
+  const activeProfileId = useProfileStore((state) => state.activeProfileId)
+  const draftKey = formDraftKey(userId, list ? `list-edit:${list.id}` : "list-create", activeProfileId)
+  useAutosavedDraft(draftKey, { name, selectedIds: Array.from(selectedIds), search }, (saved) => {
+    setName(typeof saved?.name === "string" ? saved.name : (list?.name ?? ""))
+    setSelectedIds(new Set(Array.isArray(saved?.selectedIds)
+      ? saved.selectedIds.filter((id): id is number => typeof id === "number" && Number.isInteger(id))
+      : (list?.products ?? []).map((p) => p.id)))
+    setSearch(typeof saved?.search === "string" ? saved.search : "")
+  })
 
   const { data: productsData } = useQuery<ProductsResponse>({
     queryKey: ["products", "for-list"],
@@ -364,6 +380,7 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
           </div>
         )}
 
+        <p style={{ color: "var(--text-muted)", font: "var(--text-role-body)" }}>Rascunho salvo neste navegador até você salvar a lista.</p>
         <div className="csp-s-0294">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar

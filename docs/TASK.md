@@ -1,3 +1,121 @@
+## 02/11/2026 — IDs dos posts, concorrência e isolamento por cliente (staging)
+
+- [x] Confirmar no Supabase que `posts.id` é SERIAL global, crescente e não reutilizável; editar preserva ID, inclusive com exclusão posterior. Auditoria read-only: 0 desvios de usuário/perfil nas relações post→agenda→ocorrência e partes de thread.
+- [x] Exibir `#ID` discreto à esquerda dos posts e no modal de detalhes; remover fusão de posts antigos por timestamp/texto (só `group_id`).
+- [x] Fortalecer conflito de idempotência e claim da fila para exigir identidade de usuário/perfil/post/agenda/rede; recursão de posts, agendamentos e leitura protegidas por dono/perfil; separar sucesso na criação de falha do disparo “Agora”.
+- [x] Adicionar testes de mesmo horário para múltiplos posts de um cliente e clientes/perfis diferentes, escopos SQL, UI e edição preservando ID.
+- [ ] Revisar CI/PR e staging; **não publicar posts reais** nos testes.
+- [ ] Para testar publicação recorrente em staging: **isolar jobstore/fila/banco** do ambiente de produção com autorização e avaliar custos. Com Supabase compartilhado, scheduler de staging segue desativado e o aviso de indisponibilidade permanece correto. Sem alterar `main`/produção.
+- **Guia:** `docs/POSTS-IDENTIDADE-CONCORRENCIA-20261102.md`.
+
+## 02/11/2026 — Falha de recorrência Threads no staging: scheduler 503
+
+- **Incidente (04:43 UTC):** importação de foto 201, preview 200, lote 201 com Threads bloqueado; bridge `create_scheduler_job` retornou HTTP 503 antes de registrar o primeiro horário. Agendador de staging sem iniciar desde 30/10; produção tem scheduler ativo e Supabase compartilhado.
+- **Correção:** preflight da disponibilidade no frontend/API, status interno privado read-only, desabilitar Criar com aviso claro e preservar rascunho; nenhum job/post/arquivo novo quando scheduler indisponível. **Não habilitar scheduler do staging sem isolamento e autorização.**
+- **Referência:** `docs/POSTS-SCHEDULER-503-20261102.md`, testes em `tests/api/test_recurring_scheduler_bridge.py`, `tests/web/test_internal_func_whitelist.py` e frontend.
+- **Pendência:** homologar staging/CI e definir execução segura por ambiente antes de testar publicação real. `main` intocada.
+
+## 02/11/2026 — Rascunhos locais persistentes nos formulários (somente staging)
+
+- Pedido de Rafa: persistir o formulário ao fechar modal, atualizar, perder conexão ou reiniciar navegador, inclusive reconhecer remoção intencional de texto e **não ressuscitar o valor antigo**.
+- Implementado: armazenamento local versionado e isolado por conta/perfil/tipo de formulário, recuperação no retorno, limpeza só após sucesso do backend; posts, produtos, catálogo, listas, perfis, usuário admin sem senha, preferências não secretas das credenciais, filtros e buscas; `File`, tokens e credenciais excluídos.
+- Documentação e bateria de testes: `docs/FORM-DRAFTS-PERSISTENCE-20261102.md` e `frontend/tests/form-drafts.test.mjs`.
+- **Homologação:** validar CI, staging implantado e QA com sessão autenticada; nenhum deploy na main/produção e nenhuma postagem real de teste.
+
+## 02/11/2026 — Descrições IA e mídia individual por rede (somente staging)
+
+- Correção da geração que devolvia Threads acima de 500 caracteres e seis hashtags apesar de retry; tratamento determinístico com revisão e link preservado.
+- Um texto por rede escolhida com abas individuais; resumo de mídia esclarece subset, texto sem mídia e redes excluídas.
+- Documento técnico: `docs/POSTS-COPY-IA-POR-REDE-20261102.md`.
+- Android e usuário USER: aprovados conforme relato de Rafa; Threads: acompanhamento de agendamentos pelo usuário, sem publicações de teste.
+
+## 02/11/2026 — Complemento pós-deploy staging: falha histórica 403
+
+- [x] CI #521 **verde** no PR #181; deploy staging `dep-dbk0blfavr4c73cj0srg` SHA `4ffc0f7` **live**; `/api/health/ready` respondeu `{"status":"ok"}`.
+- [ ] Correção adicional em PR: erro HTTP 403 legado do primeiro contêiner (com `published_parts=0` e prova temporal/scheduler) reaparece como **Erro** no dia/hora correto. Sem reenvio externo; demais desconhecidos continuam sem confirmação.
+- [ ] Validar visualmente os modais e testar credenciais Threads autorizadas. Produção intocada.
+
+## 02/11/2026 — Posts: produto único, só Agora/Recorrente, horários, status e privacidade — STAGING / EM VALIDAÇÃO
+
+- [x] Código de correção isolado em `fix/posts-recorrencia-20261102`, PR para `staging`; não alterar `main`.
+- [x] UI: rádio para exatamente zero ou um produto, sem selecionar lista em massa; hora desktop 24h e atalhos, Android nativo.
+- [x] API: máximo um `product_id`; novos agendamentos avulsos são rejeitados. `trigger=date` interno necessário para Agora e legados, sem migração por Supabase compartilhado.
+- [x] Detalhes: `schedule_slots` por dia/hora e estado real via `publish_jobs`; `last_published_at` independente da última execução; erro simples USER e diagnóstico ADMIN.
+- [x] Threads: erro 403 agora captura code/subcode da Meta sem URL/token; 4xx confirmado na criação de contêiner classificado failed, publish ambíguo continua unknown.
+- [ ] CI, revisão de desktop e Android, validação da conta Threads e aceitação de Rafa. O 403 real não pode ser considerado resolvido sem código da Meta e autorização/reconexão, quando necessária.
+- [ ] Deploy staging após CI e revisão; produção proibida.
+
+Detalhamento em `docs/POSTS-AJUSTES-RECORRENCIA-20261102.md`.
+
+## 02/11/2026 — Refinamento V3.2: cards 3D em staging, pendente de aceite estético
+
+- [x] **Escopo de Rafa:** preservar integralmente as cenas/timeline/câmera/identidade da V3.1 e aprimorar somente as fichas de produto e propaganda, evitando aparência plana.
+- [x] **Implementação isolada:** `fix/landing-pilot-3d-cards-v32`, PR [#174](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/174); apenas `Sheet`, estilos `ao3-sheet*` e testes de contrato, sem novas dependências.
+- [x] **Correções de virada/visibilidade:** PRs [#175](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/175), [#176](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/176) e [#177](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/177). Face de divulgação agora é legível após rotação completa; transparência nas superfícies não achata o contêiner 3D.
+- [x] **CI + Render staging live:** frontend (testes e build) e API verdes nas revisões; commit `2f8967d74bd5bff2195e18e494d35a74f995d7d8` ao vivo no staging.
+- [x] **QA visual desktop:** capturas reais dos quadros 3.0s (volume das fichas), 5.6s (virada), 6.1s (verso publicitário visível) e 9.0s (assinatura final preservada).
+- [ ] **QA móvel e aprovação de Rafa:** ainda não testado visualmente em viewport móvel nesta rodada; aguardar aceite estético. A V3.2 continua piloto provisório.
+- [ ] **Promoção à landing principal e main:** não autorizada; manter a prévia em `/presentation/pilot` isolada.
+
+
+
+## 01/11/2026 — Motion V3 PROCEDURAL / V2 REPROVADA
+
+- [x] **Rafa reprovou a V2:** cartões colados, PNG do buraco negro e movimentos desconectados da narrativa. Não promover V2.
+- [x] **Storyboard seis atos (0–10s) silencioso:** produto, tarefas, acúmulo, pausa, horizonte procedural, revelação do painel e assinatura, detalhado em PILOTO-LANDING-VIRADA-ORBITAL.md.
+- [x] **Implementação em laboratório:** /presentation/pilot substituído por elementos Canvas 2D/DOM/CSS, sem imagens ou sons, sem dependência adicional.
+- [ ] **QA da V3:** CI, revisão de quadros, independência das trajetórias, leitura mobile, redução de movimento, FPS, console e aceite de Rafa antes de mudar landing ou produção.
+- [ ] **Marca gerada por código:** comparar assinatura procedural com master oficial. Como o master é bitmap, não declarar que CSS produziu cópia pixel-a-pixel sem certificação/aceite. A marca usada em produção não é alterada.
+
+## 01/11/2026 — REPROVAÇÃO DA CENA V1 / PILOTO V2 HORIZONTE DE EVENTOS
+
+- [x] **Feedback do proprietário:** V1 **descartada**; excessivamente lenta, transição/zoom superficial, letras paradas, sem jogos de câmera e sem vida. A referência correta da marca é o **buraco negro com horizonte de eventos**, papéis de **produtos** transformando-se em **propagandas** ao orbitar, metáfora de ciclo automático (visão futura, não funcionalidade pronta).
+- [x] **V2 em branch independente:** `feature/rework-orbital-black-hole-cinematic-2026-11-01`; reconstrução da `/presentation/pilot` com o símbolo **oficial**, tipografia cinética por letras, perspectiva/câmera, cartões de dupla face, órbita e transições rápidas, 9,6s sem som. Ver [especificação da V2](PILOTO-LANDING-VIRADA-ORBITAL.md).
+- [ ] **Portão de QA e homologação:** aguardar testes TypeScript/Vite e revisão visual no staging desktop/mobile; submeter ao Rafa. **Não integrar V2 à landing sem aprovação expressa.**
+- [ ] **Automação total com IA:** permanece em desenvolvimento. Nenhuma promessa de disponibilidade ou mudanças na execução de postagens.
+
+## 01/11/2026 — Landing: piloto visual da transformação orbital (isolado, sem áudio)
+
+- [x] **Implementação em branch de trabalho:** `feature/landing-orbital-scene-pilot-2026-11-01`, baseada em `staging`; prévia interativa prevista em `/presentation/pilot`, sem qualquer modificação da landing aprovada (`/presentation`) ou da autenticação.
+- [x] **Peça de estudo com marca oficial:** arte `/brand/wordmark.png` e `/brand/symbol.png` do design system; roteiro “caos → pausa → convergência → fluxo organizado → assinatura”, 10 segundos como hipótese de piloto, reprodução/pausa/reinício e scrub manual, **sem som**. Contrato no [documento técnico](PILOTO-LANDING-VIRADA-ORBITAL.md) e Vault [storyboard 43](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/29).
+- [ ] **Gate de QA:** CI TypeScript/Vite, testes, inspeção real desktop/celular e `prefers-reduced-motion`; validar que a marca permanece fiel quadro a quadro. **Não alegar produção de vídeo final**: a cena atual é um protótipo visual React/CSS, não mídia exportada.
+- [ ] **Gate de aprovação:** obter aceite visual de Rafa antes de qualquer integração da cena à landing aprovada ou deploy em produção. Sem custo, dependência externa ou troca de rotas existentes.
+
+## 01/11/2026 — Futuro vídeo cinematográfico de apresentação no LOGIN (documentação, sem código)
+
+- [x] **Decisão registrada:** Rafa quer substituir futuramente o vídeo atual da caixa em `/login` por uma animação premium original, com **logo oficial 100% fiel** e resumo visual de valor para afiliados; não aceita simples caixa/card e não autorizou implementar agora.
+- [x] **Especificação técnica/QA:** [`docs/LOGIN-ANIMACAO-CINEMATOGRAFICA.md`](LOGIN-ANIMACAO-CINEMATOGRAFICA.md), complementada pelo [Vault 44](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/44-Planejamento-Animacao-Cinematografica-Login-Auto-Orbital.md). Documentação em branch e PR de revisão, sem efeito no site até integração.
+- [ ] **LG.1 storyboard e direção fina — BLOQUEADO:** validar arte oficial, capacidades reais, copy com `vender-com-valor`, cenas desktop/mobile, poster, duração e proposta visual com Rafa.
+- [ ] **LG.2 render/integração — NÃO AUTORIZADO:** protótipo silencioso; depois branch isolada de staging, testes login Supabase/Google/usuário de suporte Shopee, `prefers-reduced-motion`, carga de vídeo e fallback; aprovação explícita antes de `main`.
+- **Arquivos de produção preservados:** `frontend/src/pages/LoginPage.tsx`, `LoginPage.css` e `frontend/public/videos/login-bg.mp4`. Sem alterar autenticação, vídeo, rotas ou dependências neste registro.
+
+## 01/11/2026 — Correção do login temporário Shopee (PR #166, somente staging)
+
+- [x] **Erro reproduzido:** Rafa tentou `RafaelTesteCliente` em `/login`, mas o campo HTML `type=email` bloqueou o envio antes de chegar ao backend. O link anterior “Acesso temporário para suporte Shopee” não era suficientemente evidente.
+- [x] **Correção frontend:** campo único e identificado como “E-mail ou usuário de suporte”, HTML `type=text` só quando o modo de suporte estiver disponível; o formulário escolhe login por e-mail Supabase para identificadores com `@` e rota legada exclusivamente para o nome de usuário sem `@`. Quando Supabase Auth está desativado, mantém o login legado local original. Orientação visível e preservação da recuperação de senha por e-mail.
+- [x] **Limite de segurança preservado no backend:** `POST /api/auth/login` continua exigindo correspondência estrita com `SUPABASE_LEGACY_SUPPORT_USERNAME`, papel `USER` e conta sem identidade Supabase Auth, com limite de tentativas; sem liberar Render Auth a outros usuários.
+- [x] **Regressão automatizada:** `frontend/tests/support-username-login.test.mjs` incluído na CI, verificando o campo, direcionamento e whitelist do backend. CI [RED da falha original](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41345573736) (etapa frontend falhou antes do commit de implementação).
+- [ ] **Gate antes de staging:** CI completa da versão final (frontend + API), revisão do PR e merge APENAS `staging` com deploy Render `live`.
+- [ ] **Homologação de Rafa:** confirmar login real da conta `RafaelTesteCliente` com a senha existente; jamais coletar senha no chat nem alterar conta/credenciais apenas para teste. `main`/produção exigem ordem posterior.
+
+## 01/11/2026 — Landing Auto Orbital, Fase 2 autorizada (somente staging)
+
+- [x] Rafa autorizou a próxima fase das rotas após aprovação do protótipo desktop e primeira versão mobile. **Não há autorização de promoção à `main`/produção.** [Escopo e gates](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/blob/feature/landing-entrypoint-routes-2026-11-01/docs/superpowers/plans/2026-11-01-landing-entrypoint-routing.md).
+- [x] Branch `feature/landing-entrypoint-routes-2026-11-01` a partir de `staging`, [PR #165](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/165). Fase 2: `/` mostra landing ao visitante anônimo; sessão real validada por `authApi.me()` encaminha USER a `/app` e ADMIN a `/admin/overview` (ou `/app` se optou explicitamente por visitar o site de cliente).
+- [x] `/presentation` é landing pública estável para compartilhar inclusive para quem está logado; `/apresentacao` redireciona à nova rota. `/login` e `/admin/*` permanecem, assim como os caminhos atuais de produtos e posts.
+- [x] Open Graph/Twitter Card no HTML inicial usam imagem pública de marca e **preservam o host compartilhado**; nenhuma URL canônica hardcoded redireciona staging para produção. `/app` excluído em robots.txt; resposta HTML de staging inclui `X-Robots-Tag: noindex, nofollow` antes do JavaScript. Proteção por cookie/papel continua exclusivamente no backend.
+- [x] TDD remoto: RED da raiz no [CI #459](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41339768886), RED de compartilhamento no [CI #463](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41339976693), GREEN inicial no [CI #464](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41340196960), RED específico da resposta noindex no [CI #466](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41340727402). Aguardando GREEN final após correções.
+- [ ] Conferir CI integral (API), revisão do PR, merge apenas em `staging`, deploy Render `live`, smoke público de rotas, links e redirecionamentos; testes autenticados USER/ADMIN/Google em navegador autorizado de Rafa. **Sem tocar Supabase/credenciais/posts de usuário.**
+- [ ] Homologar com Rafa antes de qualquer promoção a `main` (produção). Preservar cópia, cenas, design system, persuasão e protótipo aprovado.
+
+## 01/11/2026 — Landing Auto Orbital, Fase 1 aprovada: prévia pública em staging
+
+- [x] Rafa autorizou expressamente a Fase 1; escopo canônico integral em [Vault/34-Planejamento](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/34-Planejamento-Landing-Publica-Auto-Orbital.md). Aplicar na narrativa as skills `criar-sites-imersivos-premium` e `vender-com-valor`.
+- [x] Criada branch de implementação `feature/landing-preview-fase1-2026-11-01` a partir de `staging`. Nova rota pública `/apresentacao` não altera a rota `/` autenticada, o login ou os callbacks Google/Supabase.
+- [ ] Finalizar e homologar a prévia com nove etapas narrativas, três cenas ilustrativas/placeholder de Scroll World, CTAs **Ver como funciona** (âncora para demonstração) e **Entrar** (`/login`), layout mobile e reduced motion. Textos distinguem recursos existentes, condicionados e em desenvolvimento; não incluir preços ou checkout.
+- [ ] Registrar CI frontend/build, smoke anônimo HTTP da rota, navegação de CTA, inspeção visual desktop/mobile, sem mudanças em autenticação, API, banco, serviços adicionais ou produção. Somente depois submeter a Rafa para avaliação em staging.
+- [ ] **PRINCIPAIS GATES FUTUROS:** vídeos definitivos, promoção de `/` para landing e dashboard `/app`, migração de rotas OAuth, cadastro/planos/cobrança e deploy em `main` dependem de planejamento adicional, QA e autorização separada de Rafa.
+
 ## 01/11/2026 — Placeholder de Automação de posts (apenas interface)
 
 - [x] Criar rota autenticada `/automacao-posts` com página simples e texto **“Automação de posts em breve”**, reutilizando o design system (Mona Sans, painel escuro, cores e ícone Lucide).
@@ -569,3 +687,4 @@ Status: não iniciado.
   branches sem diferenças de arquivos. CI main `41244974927` aprovado.
 - [ ] **Validação real opcional:** reenvio externo somente se o titular verificar
   pessoalmente a ausência e acionar o botão; nenhuma publicação feita em teste.
+

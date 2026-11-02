@@ -138,3 +138,16 @@ def test_create_job_rejects_invalid_recurring_days(client, monkeypatch):
 
     assert res.status_code == 400
     mock_add_job.assert_not_called()
+
+
+def test_scheduler_status_is_private_read_only_and_reports_unavailable(client, monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_SECRET", INTERNAL_SECRET)
+    monkeypatch.setattr("shopee_bot.web.routes.internal.scheduler_ready", lambda: False)
+
+    assert client.get("/internal/scheduler/status").status_code == 403
+
+    with patch("shopee_bot.web.routes.internal.add_job") as mock_add_job:
+        res = client.get("/internal/scheduler/status", headers=_headers())
+    assert res.status_code == 200
+    assert res.json == {"available": False}
+    mock_add_job.assert_not_called()

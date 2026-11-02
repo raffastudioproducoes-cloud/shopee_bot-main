@@ -10,7 +10,7 @@ test('flag de visita ao site usa sessionStorage protegido por try/catch', async 
   assert.match(flag, /sessionStorage/)
 })
 
-test('login e rota / enviam ADMIN para /admin/overview, respeitando a flag', async () => {
+test('login e rota /app enviam ADMIN para /admin/overview, respeitando a flag', async () => {
   const login = await source('pages/LoginPage.tsx')
   const router = await source('router.tsx')
   const panel = await source('pages/PanelPage.tsx')

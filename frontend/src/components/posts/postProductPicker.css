@@ -27,3 +27,6 @@
   .post-product-picker-items{max-height:172px;padding:5px}
   .post-product-picker-item{min-height:40px;padding:8px 7px;font-size:13px}
 }
+
+.post-product-picker-clear{justify-self:start;border:0;background:transparent;color:var(--accent);padding:4px 2px;font:var(--text-role-caption);cursor:pointer}
+.post-product-picker-clear:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}

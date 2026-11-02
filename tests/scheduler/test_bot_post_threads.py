@@ -85,3 +85,24 @@ def test_texto_inalterado(monkeypatch):
     monkeypatch.setattr(module.ThreadsAPI, "make_post", lambda *a, **k: sent.update(a=a, kw=k) or "t1")
     module.bot_post("j")
     assert sent["a"][2] == "oi" and "media_type" not in sent["kw"]
+
+
+def test_threads_403_ao_criar_container_e_erro_confirmado(monkeypatch):
+    _setup(monkeypatch, [_durable("a.jpg")])
+    def rejected(*_args, **_kwargs):
+        raise module.ThreadsAPI.ThreadsApiError(
+            "Failed to Create Media Container", 403, 10, 2018336, "Permissão insuficiente"
+        )
+    monkeypatch.setattr(module.ThreadsAPI, "make_post", rejected)
+    result = module.bot_post("j")
+    assert result.status == "failed"
+    assert "403" in result.error
+    assert "access_token" not in result.error
+
+
+def test_threads_falha_de_publicacao_permanece_indeterminada(monkeypatch):
+    _setup(monkeypatch, [])
+    monkeypatch.setattr(module.ThreadsAPI, "make_post", lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        module.ThreadsAPI.ThreadsApiError("Failed to Publish Media Container", 403)
+    ))
+    assert module.bot_post("j").status == "unknown"

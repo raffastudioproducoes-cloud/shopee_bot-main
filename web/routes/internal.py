@@ -24,7 +24,7 @@ from functools import wraps
 
 from flask import Blueprint, request, jsonify, current_app
 
-from shopee_bot.scheduler import add_job, remove_job, run_job, scheduler_enabled
+from shopee_bot.scheduler import add_job, remove_job, run_job, scheduler_enabled, scheduler_ready
 from shopee_bot.apis import shopee as ShopeeAPI
 from shopee_bot.apis import x as XAPI
 from shopee_bot.apis import facebook as FacebookAPI
@@ -90,6 +90,13 @@ def _parse_days_of_week(value):
     ):
         raise ValueError("days_of_week deve ter de um a sete dias únicos entre 0 e 6")
     return value
+
+
+@internal_bp.get("/scheduler/status")
+@_require_internal_secret
+def scheduler_status():
+    # Endpoint somente de leitura para impedir upload/criação sem worker.
+    return jsonify({"available": scheduler_ready()}), 200
 
 
 @internal_bp.post("/scheduler/jobs")

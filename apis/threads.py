@@ -31,14 +31,40 @@ def _remove_non_utf8(text):
     return bytes(text, "utf-8").decode("utf-8", "ignore")
 
 
+class ThreadsApiError(Exception):
+    """Erro HTTP confirmado da Meta, sem URL (que contém token e texto do post)."""
+
+    def __init__(self, stage: str, status_code: int, meta_code=None, meta_subcode=None, detail=""):
+        self.stage = stage
+        self.status_code = status_code
+        self.meta_code = meta_code
+        self.meta_subcode = meta_subcode
+        parts = [f"{stage}: HTTP {status_code}"]
+        if meta_code is not None:
+            parts.append(f"Meta code={meta_code}")
+        if meta_subcode is not None:
+            parts.append(f"subcode={meta_subcode}")
+        if detail:
+            parts.append(detail[:240])
+        super().__init__(" | ".join(parts))
+
+
 def _raise_exception(err_text, res, url):
-    raise Exception(
-        "{0}:\nStatus: {1}\nURL: {2}\nText: {3}".format(
-            err_text,
-            res.status_code,
-            sanitize_log_data(url),
-            sanitize_log_data(res.text)
-        )
+    # Nunca persistir/mostrar a URL: contém access_token, mídia assinada e
+    # o texto integral do post. Os códigos da Meta são a trilha diagnóstica.
+    try:
+        payload = res.json()
+        meta = payload.get("error", {}) if isinstance(payload, dict) else {}
+        if not isinstance(meta, dict):
+            meta = {}
+    except (ValueError, TypeError):
+        meta = {}
+    description = sanitize_log_data(str(meta.get("message") or ""))
+    # Mensagens arbitrárias podem conter links externos; evita expor querystring.
+    description = description.split("http://")[0].split("https://")[0].strip()
+    raise ThreadsApiError(
+        err_text, res.status_code, meta.get("code"), meta.get("error_subcode"),
+        description,
     )
 
 

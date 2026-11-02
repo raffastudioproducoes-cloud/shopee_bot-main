@@ -34,7 +34,10 @@ import {
 import { productsApi, type Product } from "../api/products"
 import { listsApi } from "../api/lists"
 import { useProfileStore } from "../stores/profileStore"
+import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
+import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { PostProductPicker } from "../components/posts/PostProductPicker"
+import { PostTimePicker } from "../components/posts/PostTimePicker"
 import { aiCredentialsApi } from "../api/credentials"
 import { Panel, PanelHeader, Divider } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
@@ -62,65 +65,32 @@ const PERSONAS = [
   { value: "persuasivo", label: "Persuasivo" },
 ]
 
-// "Data específica" é sempre horário de Brasília, independente do fuso do
-// navegador. ponytail: offset fixo -03:00 (Brasil sem horário de verão desde
-// 2019); se voltar, trocar por cálculo de offset via Intl.
-const SP_OFFSET = "-03:00"
-const nowInSaoPaulo = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date())
-  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? ""
-  return { day: `${value("year")}-${value("month")}-${value("day")}`, time: `${value("hour")}:${value("minute")}` }
-}
-
-// Posts do mesmo envio multi-rede: `group_id` (UUID gerado por envio,
-// migração 044). Posts antigos sem group_id: heurística de antes (mesmo
-// texto, criados juntos, redes diferentes).
-const GROUP_WINDOW_MS = 2 * 60 * 1000
+// Somente group_id explícito identifica um envio multi-rede.
+// Texto, produto e timestamp iguais nunca unem posts independentes, nem
+// mesmo nos registros antigos sem group_id.
 function groupPosts(posts: Post[]): Map<number, { key: number; size: number }> {
-  const groups: Post[][] = []
   const byId = new Map<string, Post[]>()
-  for (const p of posts) {
-    if (p.group_id) {
-      const g = byId.get(p.group_id)
-      if (g) g.push(p)
-      else {
-        byId.set(p.group_id, [p])
-        groups.push(byId.get(p.group_id)!)
-      }
-      continue
-    }
-    const g = groups[groups.length - 1]
-    const head = g?.[0]
-    const sameGroup =
-      head &&
-      !head.group_id &&
-      head.text === p.text &&
-      Math.abs(new Date(head.created_at).getTime() - new Date(p.created_at).getTime()) < GROUP_WINDOW_MS &&
-      !g.some((x) => (x.network ?? "threads") === (p.network ?? "threads"))
-    if (sameGroup) g.push(p)
-    else groups.push([p])
+  for (const post of posts) {
+    if (!post.group_id) continue
+    const group = byId.get(post.group_id) ?? []
+    group.push(post)
+    byId.set(post.group_id, group)
   }
-  const out = new Map<number, { key: number; size: number }>()
-  for (const g of groups) {
-    if (g.length < 2) continue
-    const key = Math.min(...g.map((p) => p.id))
-    for (const p of g) out.set(p.id, { key, size: g.length })
+  const result = new Map<number, { key: number; size: number }>()
+  for (const group of byId.values()) {
+    if (group.length < 2) continue
+    const key = Math.min(...group.map((post) => post.id))
+    for (const post of group) result.set(post.id, { key, size: group.length })
   }
-  return out
+  return result
 }
 
 export interface NetworkResult {
   network: PostNetwork
   ok: boolean
   error?: string
+  postId?: number
+  warning?: string
 }
 
 const WEEKDAYS = [
@@ -155,6 +125,11 @@ export function PostsPage() {
   const [detailsPost, setDetailsPost] = useState<Post | null>(null)
   const searchQuery = usePostsSearchStore((state) => state.query)
   const clearSearch = usePostsSearchStore((state) => state.clear)
+  const setSearchQuery = usePostsSearchStore((state) => state.setQuery)
+  const accountId = useAuthStore((state) => state.user?.id)
+  useAutosavedDraft(formDraftKey(accountId, "posts-search", activeProfileId), { query: searchQuery }, (saved) => {
+    setSearchQuery(typeof saved?.query === "string" ? saved.query : "")
+  })
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [reconcilePostId, setReconcilePostId] = useState<number | null>(null)
   const [reconcileSourceJobId, setReconcileSourceJobId] = useState<string | null>(null)
@@ -170,6 +145,7 @@ export function PostsPage() {
     getNextPageParam: (page) => page.next_cursor ?? undefined,
     refetchInterval: (query) => query.state.data?.pages?.some((page) =>
       page.data.some((post) => post.scheduled && (
+        post.schedule_trigger === "cron" ||
         !post.last_result?.status || post.last_result.status === "running" || post.last_result.status === "retry_pending"
       ))
     ) ? 30_000 : false,
@@ -213,6 +189,10 @@ export function PostsPage() {
     }): Promise<NetworkResult[]> => {
       const draftMedia = []
       try {
+        // Antes de enviar arquivos ao Storage, verificar se há worker ativo.
+        // O backend repete a verificação imediatamente antes de criar posts.
+        const scheduler = await postsApi.schedulerStatus()
+        if (!scheduler.available) throw new Error(scheduler.message)
         for (const file of data.files) draftMedia.push(await postsApi.uploadDraftMedia(file))
         for (const productId of data.productImageIds) draftMedia.push(await postsApi.importProductImageDraft(productId))
         const payload = {
@@ -226,11 +206,21 @@ export function PostsPage() {
         // a autoridade final para evitar divergência entre o aviso e o envio.
         await postsApi.preview(payload)
         const result: PostBatchResult = await postsApi.createBatch(payload)
-        if (data.publishNow) {
-          await Promise.all(result.created.map((created) => postsApi.publishNow(created.post_id)))
-        }
+        // O lote já pode ter gravado posts antes de um erro de dispatch.
+        // Um 502 no disparo NÃO transforma um post existente em "falha de criação":
+        // a agenda de segurança permanece e reenviar o formulário duplicaria posts.
+        const dispatch = data.publishNow
+          ? await Promise.allSettled(result.created.map((created) => postsApi.publishNow(created.post_id)))
+          : []
         return [
-          ...result.created.map((created) => ({ network: created.network, ok: true })),
+          ...result.created.map((created, index) => ({
+            network: created.network,
+            ok: true,
+            postId: created.post_id,
+            warning: data.publishNow && dispatch[index]?.status === "rejected"
+              ? "Post criado, mas o disparo imediato não foi confirmado. Confira o histórico antes de tentar novamente."
+              : undefined,
+          })),
           ...result.blocked.map((blocked) => ({ network: blocked.network, ok: false, error: blocked.blocked_reason ?? blocked.warnings[0] ?? "Esta rede não aceita esta composição." })),
         ]
       } catch (err) {
@@ -249,7 +239,10 @@ export function PostsPage() {
         success: (results: unknown) => {
           const list = results as NetworkResult[]
           const failed = list.filter((r) => !r.ok).length
-          return failed === 0 ? "Post criado" : failed === list.length ? null : `Post criado em ${list.length - failed} de ${list.length} redes`
+          const pendingDispatch = list.some((r) => r.warning)
+          if (failed === list.length) return null
+          if (pendingDispatch) return "Post salvo, mas algum disparo não foi confirmado. Confira o histórico."
+          return failed === 0 ? "Post criado" : `Post criado em ${list.length - failed} de ${list.length} redes`
         },
         error: "Não foi possível criar o post",
       },
@@ -257,7 +250,10 @@ export function PostsPage() {
     onSuccess: (results, data) => {
       queryClient.invalidateQueries({ queryKey: ["posts"] })
       if (data.publishNow) refreshPublishResult()
-      if (results.every((r) => r.ok)) setModalOpen(false)
+      if (results.every((r) => r.ok)) {
+        clearFormDraft(formDraftKey(useAuthStore.getState().user?.id, "post-create", activeProfileId))
+        setModalOpen(false)
+      }
     },
     onError: onAuthError,
   })
@@ -372,8 +368,7 @@ export function PostsPage() {
         <div>
           <h1 className="csp-s-0315">Posts</h1>
           <p className="csp-s-0316">
-            Criação de post (com thread multi-parte) com copy manual ou gerado por IA, agendado
-            ou publicado na hora.
+            Crie posts com texto manual ou IA para publicar agora ou em horários recorrentes.
           </p>
         </div>
         <Button
@@ -429,6 +424,7 @@ export function PostsPage() {
                 }}
               >
                 <div className="post-list-content" style={{ minWidth: 0, flex: 1 }}>
+                  <span className="post-list-id" aria-label={`ID do post: ${post.id}`} style={{ display: "inline-block", font: "var(--text-role-caption)", color: "var(--text-muted)", marginBottom: 4 }}>#{post.id}</span>
                   <p
                     id={`post-text-${post.id}`}
                     className="post-list-copy"
@@ -473,7 +469,7 @@ export function PostsPage() {
                       <StatusBadge tone="info" icon="loader-2">Em execução</StatusBadge>
                     )}
                     {post.last_result?.status === "unknown" && (
-                      <StatusBadge tone="warning" icon="alert-triangle">Sem confirmação</StatusBadge>
+                      <StatusBadge tone={post.last_result?.partial_failure ? "negative" : "warning"} icon="alert-triangle">{post.last_result?.partial_failure ? "Falha parcial" : "Sem confirmação"}</StatusBadge>
                     )}
                     {post.last_result?.status === "published" && (
                       <StatusBadge tone="positive" icon="check-circle-2">Publicado</StatusBadge>
@@ -493,12 +489,8 @@ export function PostsPage() {
                     style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 14px", marginTop: 6, font: "var(--fw-regular) var(--fs-caption)/1.4 var(--font-sans)", color: "var(--text-muted)" }}
                   >
                     <span>Criado: {formatUtcTimestampBrasilia(post.created_at).replace(/:\d{2}$/, "")}</span>
-                    {post.last_result?.at && (
-                      <span>
-                        {post.last_result.status === "published" ? "Última publicação: " : "Último registro: "}
-                        {formatUtcTimestampBrasilia(post.last_result.at).replace(/:\d{2}$/, "")}
-                      </span>
-                    )}
+                    {post.last_published_at && <span>Última publicação: {formatUtcTimestampBrasilia(post.last_published_at).replace(/:\d{2}$/, "")}</span>}
+                    {post.last_result?.at && <span>Última execução: {formatUtcTimestampBrasilia(post.last_result.at).replace(/:\d{2}$/, "")}</span>}
                     {compactScheduleSummary(post) && (
                       <span title={scheduleLines(post).join(" · ")}>{compactScheduleSummary(post)}</span>
                     )}
@@ -707,7 +699,7 @@ interface PostModalProps {
   onClear: () => void
 }
 
-type WhenOption = "now" | "date" | "cron"
+type WhenOption = "now" | "cron"
 
 function PostModal({ post, onClose, onSave, loading, error, results, credentials, onClear }: PostModalProps) {
   const queryClient = useQueryClient()
@@ -720,18 +712,14 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const [persona, setPersona] = useState("casual")
   const [networks, setNetworks] = useState<PostNetwork[]>(post ? [post.network ?? "threads"] : [])
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>(
-    post?.products.map((p) => p.id) ?? [],
+    post?.products.slice(0, 1).map((p) => p.id) ?? [],
   )
   const [productTab, setProductTab] = useState<"products" | "lists">("products")
   const [productListId, setProductListId] = useState<number | null>(null)
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const accountId = useAuthStore((state) => state.user?.id)
   const [when, setWhen] = useState<WhenOption>("now")
-  const [runDayText, setRunDayText] = useState("")
-  const [runTimeText, setRunTimeText] = useState("")
   const [cronTimes, setCronTimes] = useState(["09:00"])
-  const runDay = runDayText
-  const runTime = runTimeText
   const cronTime = cronTimes[0]
   const [cronDays, setCronDays] = useState<number[]>([0])
   const [pendingFiles, setPendingFiles] = useState<{ file: File; info: MediaInfo }[]>([])
@@ -739,12 +727,54 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const [previewOpen, setPreviewOpen] = useState(false)
   const [useShopeeImages, setUseShopeeImages] = useState(false)
   const [aiAutoContinuation, setAiAutoContinuation] = useState(false)
+  const [aiAdjustmentNotice, setAiAdjustmentNotice] = useState<string | null>(null)
   const aiProductRef = useRef<number | null>(null)
   const [pickMessage, setPickMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Redes que já deram certo no último envio saem da seleção: reenviar só
   // repete as que falharam, sem duplicar post.
   const [handledResults, setHandledResults] = useState<NetworkResult[] | undefined>(undefined)
+  // Rascunho apenas no navegador, isolado por conta/perfil. Nunca salva File.
+  const postDraftKey = !post ? formDraftKey(accountId, "post-create", activeProfileId) : null
+  useAutosavedDraft(postDraftKey, {
+    texts, variantTexts, persona, networks, selectedProductIds, productTab,
+    productListId, when, cronTimes, cronDays, useShopeeImages, previewOpen,
+    pendingFileNames: pendingFiles.map(({ file }) => file.name),
+  }, (saved) => {
+    const draft = saved && typeof saved === "object" ? saved : null
+    setTexts(Array.isArray(draft?.texts) && draft.texts.length > 0
+      ? draft.texts.slice(0, 10).filter((part): part is string => typeof part === "string")
+      : [""])
+    setVariantTexts(draft?.variantTexts && typeof draft.variantTexts === "object"
+      ? Object.fromEntries(Object.entries(draft.variantTexts).filter((entry) => typeof entry[1] === "string"))
+      : {})
+    setPersona(typeof draft?.persona === "string" ? draft.persona : "casual")
+    setNetworks(Array.isArray(draft?.networks)
+      ? draft.networks.filter((net): net is PostNetwork => typeof net === "string" && net in NETWORK_RULES)
+      : [])
+    setSelectedProductIds(Array.isArray(draft?.selectedProductIds)
+      ? draft.selectedProductIds.filter((id): id is number => typeof id === "number" && Number.isInteger(id)).slice(0, 1)
+      : [])
+    setProductTab(draft?.productTab === "lists" ? "lists" : "products")
+    setProductListId(typeof draft?.productListId === "number" ? draft.productListId : null)
+    setWhen(draft?.when === "cron" ? "cron" : "now")
+    setCronTimes(Array.isArray(draft?.cronTimes) && draft.cronTimes.length > 0
+      ? draft.cronTimes.filter((t): t is string => typeof t === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(t)).slice(0, 5)
+      : ["09:00"])
+    setCronDays(Array.isArray(draft?.cronDays)
+      ? draft.cronDays.filter((day): day is number => Number.isInteger(day) && day >= 0 && day <= 6)
+      : [0])
+    setUseShopeeImages(draft?.useShopeeImages === true)
+    setPreviewOpen(draft?.previewOpen === true)
+    setPendingFiles([])
+    setTrayOpen(false)
+    setAiAutoContinuation(false) // nunca chamar uma IA paga automaticamente após recarregar
+    aiProductRef.current = null
+    setPickMessage(Array.isArray(draft?.pendingFileNames) && draft.pendingFileNames.length
+      ? "Rascunho recuperado. Selecione novamente os arquivos locais de imagem/vídeo; o navegador não permite recuperá-los automaticamente."
+      : null)
+  })
+
   if (results && results !== handledResults) {
     setHandledResults(results)
     setNetworks((prev) => prev.filter((n) => !results.some((r) => r.network === n && r.ok)))
@@ -788,6 +818,17 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     queryFn: () => aiCredentialsApi.list(),
   })
   const hasAiKey = aiStatus ? aiStatus.active !== null : true
+  const schedulerQuery = useQuery({
+    queryKey: ["posts", "scheduler-status"],
+    queryFn: postsApi.schedulerStatus,
+    enabled: !post,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    retry: false,
+  })
+  const schedulerAvailable = !!post || (
+    !schedulerQuery.isError && schedulerQuery.data?.available === true
+  )
 
   const generateMutation = useMutation({
     mutationFn: (request: {
@@ -811,6 +852,10 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
       setTexts((prev) => prev.map((current, index) => res.parts[index] ?? current))
       const rest = (res.variants ?? []).slice(1)
       setVariantTexts(Object.fromEntries(rest.map((v) => [v.key, v.text])))
+      const adjusted = (res.variants ?? []).filter((v) => v.adjusted)
+      setAiAdjustmentNotice(adjusted.length
+        ? `A IA excedeu os limites em ${adjusted.map((v) => v.networks.join(", ")).join(", ")}. O texto foi reduzido, as hashtags excedentes foram removidas e o link do produto preservado. Revise cada aba antes de publicar.`
+        : null)
       aiProductRef.current = request.productId
       setAiAutoContinuation(true)
     },
@@ -830,18 +875,11 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   })
 
   const toggleProduct = (id: number) => {
-    setSelectedProductIds((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
-    )
-  }
-  const toggleListProducts = (ids: number[], select: boolean) => {
-    const selection = new Set(ids)
-    setSelectedProductIds((prev) => select
-      ? [...new Set([...prev, ...ids])]
-      : prev.filter((id) => !selection.has(id)))
+    setSelectedProductIds((prev) => prev.includes(id) ? [] : [id])
   }
 
   const setPartText = (index: number, value: string) => {
+    setAiAdjustmentNotice(null)
     setTexts((prev) => prev.map((t, i) => (i === index ? value : t)))
   }
 
@@ -854,6 +892,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     }
   }
   const clearComposer = () => {
+    clearFormDraft(postDraftKey)
     setTexts([""])
     setVariantTexts({})
     setNetworks([])
@@ -864,10 +903,9 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     setTrayOpen(false)
     setUseShopeeImages(false)
     setAiAutoContinuation(false)
+    setAiAdjustmentNotice(null)
     aiProductRef.current = null
     setWhen("now")
-    setRunDayText("")
-    setRunTimeText("")
     setCronTimes(["09:00"])
     setPickMessage(null)
     setCronDays([0])
@@ -880,38 +918,29 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
     }
     // "Agora" = rede de segurança de 5 min: o post é disparado explicitamente
     // logo após o envio da mídia (ver createMutation), sem duplicar.
-    const runAt =
-      when === "now" ? new Date(Date.now() + NOW_SAFETY_DELAY_MS) : (scheduledAt ?? new Date(NaN))
-    return { trigger: "date", run_date: runAt.toISOString() }
+    return { trigger: "date", run_date: new Date(Date.now() + NOW_SAFETY_DELAY_MS).toISOString() }
   }
 
   const trimmedTexts = texts.map((t) => t.trim()).filter(Boolean)
   const activeNetworks = networks.filter((n) => !isNetworkDisabled(n))
 
-  // Data específica: dia + hora em America/Sao_Paulo; precisa ser futura.
-  const scheduledAt = runDay && runTime ? new Date(`${runDay}T${runTime}:00${SP_OFFSET}`) : null
-  const dateError =
-    when === "cron"
-      ? (cronTimes.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)) && new Set(cronTimes).size === cronTimes.length ? null : "Escolha até cinco horários diferentes.")
-      : when !== "date"
-        ? null
-        : !runDay
-          ? "Escolha uma data."
-          : !scheduledAt
-            ? "Escolha uma hora."
-            : !(scheduledAt.getTime() > Date.now())
-              ? "Essa data/hora já passou (horário de Brasília)."
-              : null
+  const dateError = when === "cron" && (
+    cronDays.length === 0 || !cronTimes.length ||
+    !cronTimes.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)) ||
+    new Set(cronTimes).size !== cronTimes.length
+  ) ? "Escolha dias e até cinco horários diferentes no formato 24h." : null
 
-  // Conjunto mínimo de textos pras redes marcadas: abas só com 2+ faixas.
+  // Uma versão por rede selecionada; as abas aparecem quando há 2+ redes.
   const plans = planVariants(activeNetworks)
   const hasTabs = !post && plans.length > 1
   const variantValue = (i: number) => (i === 0 ? texts[0] : (variantTexts[plans[i].key] ?? texts[0]))
-  const setVariantValue = (i: number, value: string) =>
-    i === 0 ? setPartText(0, value) : setVariantTexts((prev) => ({ ...prev, [plans[i].key]: value }))
+  const setVariantValue = (i: number, value: string) => {
+    setAiAdjustmentNotice(null)
+    if (i === 0) setPartText(0, value)
+    else setVariantTexts((prev) => ({ ...prev, [plans[i].key]: value }))
+  }
 
-  // Parte 1 que cada rede publica. Rede ainda não marcada que formaria uma
-  // faixa nova ganharia a própria aba: o texto dela não bloqueia marcá-la.
+  // Parte principal específica da rede, preservando edições manuais.
   const headFor = (n: PostNetwork): string => {
     const selected = networks.includes(n)
     const p = selected ? plans : planVariants([...networks, n])
@@ -1020,11 +1049,13 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
   const toggleNetwork = (n: PostNetwork) => {
     if (isNetworkDisabled(n)) return
     setNetworks((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]))
+    setAiAdjustmentNotice(null)
   }
 
   const canSubmit =
     !loading &&
     !generateMutation.isPending &&
+    schedulerAvailable &&
     trimmedTexts.length > 0 &&
     // Bloqueadas continuam marcadas (em vermelho, com motivo); basta uma entregável.
     deliverableNetworks.length > 0 &&
@@ -1064,7 +1095,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           products={products} lists={lists} listId={productListId}
           onListChange={setProductListId}
           selectedIds={selectedProductIds}
-          onToggle={toggleProduct} onToggleList={toggleListProducts}
+          onToggle={toggleProduct}
           productsLoading={productPages.isPending} productsError={productPages.isError}
           listsLoading={listPages.isPending} listsError={listPages.isError}
           hasMoreProducts={productPages.hasNextPage} hasMoreLists={listPages.hasNextPage}
@@ -1081,84 +1112,6 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           <p>As fotos cadastradas serão copiadas para o armazenamento privado ao criar o post. Vídeos da Shopee só ficam disponíveis após o envio de um arquivo de vídeo.</p>
           {useShopeeImages && importablePhotos.length === 0 && <p role="status">Nenhum produto selecionado possui foto cadastrada.</p>}
         </div>}
-
-        <div className="csp-s-0326">
-          <Select
-            label="Persona da IA"
-            value={persona}
-            onChange={(e) => setPersona(e.target.value)}
-            options={PERSONAS}
-            width={200}
-          />
-          {hasAiKey ? (
-            <Button
-              type="button"
-              variant="secondary"
-              icon={generateMutation.isPending ? "loader-2" : "sparkles"}
-              disabled={selectedProductIds.length === 0 || generateMutation.isPending}
-              onClick={() => generateMutation.mutate({
-                productId: selectedProductIds[0], partCount: texts.length, mode: "full",
-              })}
-            >
-              {generateMutation.isPending ? "Gerando..." : "Gerar texto com IA"}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="secondary"
-              icon="sparkles"
-              onClick={() => router.navigate({ to: "/credentials" })}
-            >
-              Cadastre sua chave de IA em Credenciais
-            </Button>
-          )}
-        </div>
-        {generateMutation.isError && (
-          <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{generateMutation.error.message}</p>
-        )}
-
-        <div className="csp-s-0327">
-          {texts.map((partText, index) =>
-            index === 0 && hasTabs ? (
-              <div key={index} className="csp-s-0328">
-                <span style={{ ...labelStyle, marginBottom: 0 }}>Texto do post *</span>
-                <TextVariantTabs
-                  plans={plans}
-                  values={plans.map((_, i) => variantValue(i))}
-                  onChange={setVariantValue}
-                  issues={variantIssues}
-                />
-              </div>
-            ) : (
-            <div key={index} className="csp-s-0329">
-              <div className="csp-s-0330">
-                <span style={{ ...labelStyle, marginBottom: 0 }}>
-                  {index === 0 ? "Texto do post *" : `Parte ${index + 1} (resposta em thread)`}
-                </span>
-                {texts.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removePart(index)}
-                    className="csp-s-0331"
-                  >
-                    Remover parte
-                  </button>
-                )}
-              </div>
-              <Textarea
-                value={partText}
-                onChange={(e) => setPartText(index, e.target.value)}
-                required={index === 0}
-                rows={index === 0 ? 6 : 3}
-              />
-            </div>
-            ),
-          )}
-          <Button type="button" variant="ghost" icon="plus" onClick={addPart}
-            disabled={texts.length >= 10} style={{ alignSelf: "flex-start", padding: 0 }}>
-            Adicionar parte (thread) · {texts.length}/10
-          </Button>
-        </div>
 
         <div>
           <span className="csp-named-label">Mídia (imagem/vídeo)</span>
@@ -1280,6 +1233,89 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
           )}
         </div>
 
+        <div className="csp-s-0326">
+          <Select
+            label="Persona da IA"
+            value={persona}
+            onChange={(e) => setPersona(e.target.value)}
+            options={PERSONAS}
+            width={200}
+          />
+          {hasAiKey ? (
+            <Button
+              type="button"
+              variant="secondary"
+              icon={generateMutation.isPending ? "loader-2" : "sparkles"}
+              disabled={selectedProductIds.length === 0 || activeNetworks.length === 0 || generateMutation.isPending}
+              onClick={() => generateMutation.mutate({
+                productId: selectedProductIds[0], partCount: texts.length, mode: "full",
+              })}
+            >
+              {generateMutation.isPending ? "Gerando..." : "Gerar texto com IA"}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              icon="sparkles"
+              onClick={() => router.navigate({ to: "/credentials" })}
+            >
+              Cadastre sua chave de IA em Credenciais
+            </Button>
+          )}
+        </div>
+        {generateMutation.isError && (
+          <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{generateMutation.error.message}</p>
+        )}
+        {aiAdjustmentNotice && <p role="status" style={{ ...metaTextStyle, color: "var(--amber-300)" }}>{aiAdjustmentNotice}</p>}
+        {!post && selectedProductIds.length > 0 && activeNetworks.length === 0 && (
+          <p style={metaTextStyle}>Selecione pelo menos uma rede para a IA adaptar todas as descrições.</p>
+        )}
+
+        <div className="csp-s-0327">
+          {texts.map((partText, index) =>
+            index === 0 && hasTabs ? (
+              <div key={index} className="csp-s-0328">
+                <span style={{ ...labelStyle, marginBottom: 0 }}>Texto do post *</span>
+                <TextVariantTabs
+                  plans={plans}
+                  values={plans.map((_, i) => variantValue(i))}
+                  onChange={setVariantValue}
+                  issues={variantIssues}
+                />
+              </div>
+            ) : (
+            <div key={index} className="csp-s-0329">
+              <div className="csp-s-0330">
+                <span style={{ ...labelStyle, marginBottom: 0 }}>
+                  {index === 0 ? "Texto do post *" : `Parte ${index + 1} (resposta em thread)`}
+                </span>
+                {texts.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removePart(index)}
+                    className="csp-s-0331"
+                  >
+                    Remover parte
+                  </button>
+                )}
+              </div>
+              <Textarea
+                value={partText}
+                onChange={(e) => setPartText(index, e.target.value)}
+                required={index === 0}
+                rows={index === 0 ? 6 : 3}
+              />
+            </div>
+            ),
+          )}
+          <Button type="button" variant="ghost" icon="plus" onClick={addPart}
+            disabled={texts.length >= 10} style={{ alignSelf: "flex-start", padding: 0 }}>
+            Adicionar parte (thread) · {texts.length}/10
+          </Button>
+        </div>
+
+
         <NetworkLimitsPanel
           selected={activeNetworks}
           textFor={(n) => textsFor(n)[0] ?? ""}
@@ -1302,7 +1338,6 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
               <SegmentedToggle
                 options={[
                   { value: "now", label: "Agora" },
-                  { value: "date", label: "Agendar" },
                   { value: "cron", label: "Recorrente" },
                 ]}
                 value={when}
@@ -1311,29 +1346,15 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
               />
             </div>
 
-            {when === "date" && (
-              <div>
-                <div className="csp-s-0342">
-                  <TextInput
-                    label="Dia"
-                    type="date"
-                    value={runDayText}
-                    min={nowInSaoPaulo().day}
-                    onChange={(e) => setRunDayText(e.target.value)}
-                    required
-                  />
-                  <TextInput
-                    label="Hora"
-                    type="time"
-                    value={runTimeText}
-                    onChange={(e) => setRunTimeText(e.target.value)}
-                    required
-                  />
-                </div>
-                <p role="status" style={{ ...metaTextStyle, marginTop: 6, color: dateError ? "var(--negative)" : "var(--text-muted)" }}>
-                  {dateError ?? "Horário de Brasília (America/Sao_Paulo)."}
-                </p>
-              </div>
+            {!post && schedulerQuery.isPending && (
+              <p role="status" style={{ ...metaTextStyle, marginTop: 8 }}>
+                Conferindo disponibilidade do agendador...
+              </p>
+            )}
+            {!post && !schedulerQuery.isPending && !schedulerAvailable && (
+              <p role="alert" style={{ ...metaTextStyle, color: "var(--negative)", marginTop: 8 }}>
+                {schedulerQuery.data?.message ?? "Não foi possível consultar o agendador. Tente novamente em instantes; seu rascunho permanece salvo."}
+              </p>
             )}
 
             {when === "cron" && (
@@ -1367,16 +1388,17 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                 </div>
                 {cronTimes.map((time, index) => (
                   <div key={index} className="csp-s-0347">
-                    <TextInput
-                      label={`Horário ${index + 1}`}
-                      type="time"
-                      value={time}
-                      onChange={(e) => setCronTimes((times) => times.map((value, i) => i === index ? e.target.value : value))}
-                    />
+                    <div className="csp-s-0342">
+                      <PostTimePicker
+                        label={`Horário ${index + 1}`}
+                        value={time}
+                        onChange={(next) => setCronTimes((times) => times.map((value, i) => i === index ? next : value))}
+                      />
+                    </div>
                     {index > 0 && <IconButton icon="trash-2" label={`Remover horário ${index + 1}`} onClick={() => setCronTimes((times) => times.filter((_, i) => i !== index))} />}
                   </div>
                 ))}
-                {cronTimes.length < 5 && <Button type="button" variant="ghost" icon="plus" onClick={() => setCronTimes((times) => [...times, ""])} style={{ alignSelf: "flex-start" }}>Adicionar horário</Button>}
+                {cronTimes.length < 5 && <Button type="button" variant="ghost" icon="plus" onClick={() => setCronTimes((times) => [...times, ["09:00", "12:00", "15:00", "18:00", "21:00", "10:00"].find((value) => !times.includes(value)) ?? "00:00"])} style={{ alignSelf: "flex-start" }}>Adicionar horário</Button>}
                 {dateError && (
                   <p role="status" style={{ ...metaTextStyle, color: "var(--negative)" }}>
                     {dateError}
@@ -1396,7 +1418,7 @@ function PostModal({ post, onClose, onSave, loading, error, results, credentials
                 key={r.network}
                 style={{ ...metaTextStyle, lineHeight: 1.4, color: r.ok ? "var(--text-body)" : "var(--negative)" }}
               >
-                {NETWORK_RULES[r.network].label}: {r.ok ? "criado ✓" : `falhou — ${r.error}`}
+                {NETWORK_RULES[r.network].label}: {r.ok ? `criado #${r.postId ?? "—"} ✓${r.warning ? ` — ${r.warning}` : ""}` : `falhou — ${r.error}`}
               </li>
             ))}
             <li style={{ ...metaTextStyle, lineHeight: 1.4 }}>
