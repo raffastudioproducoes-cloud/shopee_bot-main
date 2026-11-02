@@ -219,6 +219,15 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     return product ? [product] : []
   })
   const importablePhotos = !post && useShopeeImages ? selectedProducts.filter((p) => !!p.image) : []
+  // Prova de capacidade sob demanda: não confundir URLs extras com mídias
+  // já importadas/validadas no Storage. Mantém a foto principal e uploads.
+  const galleryProbe = useQuery({
+    queryKey: ["shopee-gallery-probe", accountId, activeProfileId, selectedProductIds[0]],
+    queryFn: () => productsApi.probeShopeeGallery(selectedProductIds[0]!),
+    enabled: !!accountId && !!activeProfileId && !!selectedProductIds[0] && useShopeeImages && !post,
+    staleTime: 60_000,
+    retry: false,
+  })
 
   // Sem chave de IA própria não há o que chamar (não existe chave global):
   // em vez do botão, atalho pra Credenciais.
@@ -541,6 +550,22 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
             <span>Usar fotos dos produtos Shopee na publicação</span></label>
           <p>As fotos cadastradas serão copiadas para o armazenamento privado ao criar o post. Vídeos da Shopee só ficam disponíveis após o envio de um arquivo de vídeo.</p>
           {useShopeeImages && importablePhotos.length === 0 && <p role="status">Nenhum produto selecionado possui foto cadastrada.</p>}
+          {useShopeeImages && galleryProbe.isFetching && <p role="status">Verificando fotos adicionais pela API oficial da Shopee...</p>}
+          {useShopeeImages && galleryProbe.isError && <p role="status">
+            Não foi possível verificar fotos extras agora. A imagem principal e o upload de arquivos continuam disponíveis.
+          </p>}
+          {useShopeeImages && galleryProbe.data && <div aria-label="Diagnóstico de fotos Shopee">
+            <p role="status">{galleryProbe.data.message}</p>
+            {galleryProbe.data.image_urls.length > 1 && <>
+              <p style={metaTextStyle}>Prévia informativa: as fotos adicionais ainda não são importadas neste envio. Use os seus arquivos locais enquanto a seleção automática é validada.</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {galleryProbe.data.image_urls.map((url, index) => (
+                  <img key={url} src={url} alt={`Foto Shopee ${index + 1} (prévia)`}
+                    loading="lazy" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8 }} />
+                ))}
+              </div>
+            </>}
+          </div>}
         </div>}
 
         <div>
