@@ -22,7 +22,7 @@ const LAST_RESULT_LABEL: Record<string, string> = {
 const DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
 const SLOT_TONE = {
   programado: "neutral", "em execução": "info", postado: "positive",
-  erro: "negative", "sem confirmação": "warning",
+  erro: "negative", "erro parcial": "negative", "sem confirmação": "warning",
 } as const
 const valueStyle = { margin: 0, color: "var(--text-body)", whiteSpace: "pre-wrap", overflowWrap: "anywhere" } as const
 
@@ -93,7 +93,7 @@ export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
                     {slot.day_of_week === null ? formatUtcTimestampBrasilia(slot.time) : `${DAYS[slot.day_of_week] ?? "Dia"} · ${slot.time}`}
                   </span>
                   <StatusBadge tone={SLOT_TONE[slot.status] ?? "neutral"} style={{ fontSize: 11, padding: "2px 7px", opacity: .85 }}>
-                    {slot.status === "erro" ? "Erro" : slot.status === "postado" ? "Postado" : slot.status === "programado" ? "Programado" : slot.status}
+                    {slot.status === "erro" ? "Erro" : slot.status === "erro parcial" ? "Erro parcial" : slot.status === "postado" ? "Postado" : slot.status === "programado" ? "Programado" : slot.status}
                   </StatusBadge>
                   {slot.last_at && <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Última tentativa: {formatUtcTimestampBrasilia(slot.last_at)}</span>}
                   {isAdmin && slot.error && <p style={{ ...valueStyle, flexBasis: "100%", color: "var(--negative)", fontSize: 12 }}>{slot.error}</p>}
@@ -110,10 +110,11 @@ export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
         </section>
         <section style={{ ...sectionStyle, borderBottom: 0 }}>
           <h3 style={headingStyle}>Resultado da última execução</h3>
-          <p style={valueStyle}>Estado: {LAST_RESULT_LABEL[details.last_result?.status ?? ""] ?? "Pendente"}</p>
-          {details.last_result?.status === "failed" && !isAdmin ? (
+          <p style={valueStyle}>Estado: {details.last_result?.partial_failure ? "Falha parcial — conferir na rede" : LAST_RESULT_LABEL[details.last_result?.status ?? ""] ?? "Pendente"}</p>
+          {(details.last_result?.status === "failed" || details.last_result?.partial_failure) && !isAdmin ? (
             <p role="status" style={{ ...valueStyle, color: "var(--negative)" }}>
-              Falha na publicação de “{postSummary}” em {failedAt}.
+              {details.last_result?.partial_failure ? "Falha parcial" : "Falha"} na publicação de “{postSummary}” em {failedAt}.
+              {details.last_result?.partial_failure && " Uma parte pode ter sido enviada; confira na rede antes de tentar novamente."}
             </p>
           ) : details.last_result?.error ? (
             <p role="status" style={{ ...valueStyle, color: "var(--text-muted)" }}>{details.last_result.error}</p>

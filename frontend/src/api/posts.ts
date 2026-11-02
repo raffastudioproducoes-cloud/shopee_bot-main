@@ -33,7 +33,7 @@ export interface PostScheduleSlot {
   /** 0=segunda ... 6=domingo; null para publicações antigas por data. */
   day_of_week: number | null
   time: string
-  status: 'programado' | 'em execução' | 'postado' | 'erro' | 'sem confirmação'
+  status: 'programado' | 'em execução' | 'postado' | 'erro' | 'erro parcial' | 'sem confirmação'
   last_at: string | null
   /** Causa técnica retornada somente para ADMIN. */
   error?: string | null
@@ -66,6 +66,8 @@ export interface Post {
 
 export interface PostPublishResult {
   status: 'published' | 'failed' | 'running' | 'unknown' | 'retry_pending' | 'manual_confirmed' | 'reported_removed' | null
+  /** Houve falha HTTP depois de ao menos uma parte enviada; a fila segue unknown. */
+  partial_failure?: boolean
   at: string | null
   error: string | null
   proof_url?: string | null
