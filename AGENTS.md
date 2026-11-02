@@ -20,6 +20,7 @@
 - **Governança:** não executar pentest externo independente, mudança de digest OCI/deploy ou contratar Key Value adicional sem decisão de Rafa. Teste de login/OAuth/postagem real exige destino e autorização apropriados; não pedir que o dono cole chaves no chat.
 - **Design:** preservar design system em [frontend/src/styles/tokens/], componentes UI, acessibilidade, layout desktop/mobile e idioma PT-BR.
 - **Docs:** cada alteração relevante deve atualizar documentação técnica e, quando alterar contrato/arquitetura/segurança, este guia **e o espelho no Vault**; registrar critério/evidência em TASK.md. Planos, ADRs e relatórios datados não devem ser apagados silenciosamente.
+- **SemVer obrigatório:** antes de qualquer edição ler `VERSION` e `CHANGELOG.md`. `VERSION` é a fonte oficial única da versão da aplicação. Todo PR que altera código, configuração, CI ou documentação deve registrar suas mudanças em `CHANGELOG.md` (`Não lançado`); release aprovado atualiza ambas as branches por PR de `staging` para `main`, sem salto arbitrário. MAJOR = incompatibilidade (zera MINOR/PATCH); MINOR = funcionalidade compatível (zera PATCH); PATCH = bug, desempenho ou segurança sem mudar regras de negócio. Documentação isolada não força bump de versão. Identificar SHA e evidência de CI/deploy; nunca afirmar teste E2E externo sem realizá-lo.
 
 ## Porta documental obrigatória — antes e depois de cada trabalho (decisão de Rafa, 01/11/2026)
 
