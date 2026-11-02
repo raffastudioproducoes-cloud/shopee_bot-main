@@ -264,7 +264,7 @@ async def shopee_gallery_probe(
     saved = row.get("image")
     fallback = [saved] if _safe_shopee_gallery_url(saved) else []
     item_id = row.get("product_id")
-    if not str(item_id or "").isdigit():
+    if not str(item_id or "").isdigit() or not 0 < int(item_id) < 2**63:
         return {
             "image_urls": fallback, "status": "not_identified",
             "message": "Produto sem itemId numérico; somente foto cadastrada disponível.",
