@@ -25,7 +25,7 @@ def test_gate_fails_closed_and_all_old_agendas_remain_legacy():
     assert new_schedule_dispatch_mode() == "legacy"
     assert can_execute_schedule(source_environment="staging", dispatch_mode="central") is False
     sql, params = publication_scope_sql()
-    assert sql == "schedule.environment = %s"
+    assert sql == "schedule.environment = %s AND schedule.dispatch_mode = 'legacy'"
     assert params == ("production",)
 
 

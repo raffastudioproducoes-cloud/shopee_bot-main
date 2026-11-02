@@ -8,7 +8,10 @@ from shopee_bot.database.central_dispatch import central_dispatch_enabled, publi
 def _execution_scope():
     if central_dispatch_enabled():
         return publication_scope_sql("schedule")
-    return "schedule.environment = %s", (current_environment(),)
+    return (
+        "schedule.environment = %s AND schedule.dispatch_mode = 'legacy'",
+        (current_environment(),),
+    )
 from api.utils.log_sanitizer import sanitize_log_data
 
 

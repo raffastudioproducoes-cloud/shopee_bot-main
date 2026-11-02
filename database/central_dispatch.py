@@ -65,7 +65,10 @@ def publication_scope_sql(alias: str = "schedule") -> tuple[str, tuple[str, ...]
 
     environment = current_environment()
     if not central_dispatch_enabled():
-        return f"{alias}.environment = %s", (environment,)
+        return (
+            f"{alias}.environment = %s AND {alias}.dispatch_mode = 'legacy'",
+            (environment,),
+        )
 
     if environment == publication_executor_environment():
         return (

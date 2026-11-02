@@ -94,5 +94,5 @@ def test_disabled_flag_preserves_original_query_shape(monkeypatch):
     )
     assert publish_jobs.recoverable(600) == []
     assert "schedule.environment = %s" in captured["sql"]
-    assert "dispatch_mode" not in captured["sql"]
+    assert "schedule.dispatch_mode = 'legacy'" in captured["sql"]
     assert captured["args"] == ("production", 100)

@@ -7,7 +7,10 @@ from shopee_bot.database.scheduler_environment import publication_executor_envir
 def _execution_scope(alias, *, legacy_only=False):
     """Legado local permanece isolado; central só na produção com gate ativo."""
     if not central_dispatch_enabled():
-        return f"{alias}.environment = %s", (current_environment(),)
+        return (
+            f"{alias}.environment = %s AND {alias}.dispatch_mode = 'legacy'",
+            (current_environment(),),
+        )
     if legacy_only:
         return (
             f"{alias}.environment = %s AND {alias}.dispatch_mode = 'legacy'",
