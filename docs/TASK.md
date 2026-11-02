@@ -1,10 +1,13 @@
-## 01/11/2026 — Refinamento V3.2: apenas cards com profundidade tridimensional (em homologação)
+## 02/11/2026 — Refinamento V3.2: cards 3D em staging, pendente de aceite estético
 
 - [x] **Escopo de Rafa:** preservar integralmente as cenas/timeline/câmera/identidade da V3.1 e aprimorar somente as fichas de produto e propaganda, evitando aparência plana.
-- [x] **Alteração em branch isolada:** `fix/landing-pilot-3d-cards-v32`; apenas `Sheet`, estilos `ao3-sheet*` e testes de contrato, sem novas dependências.
-- [ ] **CI + Render staging live:** verificar testes do frontend, build e demais jobs antes de marcar.
-- [ ] **QA visual e aprovação:** inspecionar quadros de cartões, transformação física e legibilidade (desktop/mobile), sem assumir aprovação definitiva.
+- [x] **Implementação isolada:** `fix/landing-pilot-3d-cards-v32`, PR [#174](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/174); apenas `Sheet`, estilos `ao3-sheet*` e testes de contrato, sem novas dependências.
+- [x] **Correções de virada/visibilidade:** PRs [#175](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/175), [#176](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/176) e [#177](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/177). Face de divulgação agora é legível após rotação completa; transparência nas superfícies não achata o contêiner 3D.
+- [x] **CI + Render staging live:** frontend (testes e build) e API verdes nas revisões; commit `2f8967d74bd5bff2195e18e494d35a74f995d7d8` ao vivo no staging.
+- [x] **QA visual desktop:** capturas reais dos quadros 3.0s (volume das fichas), 5.6s (virada), 6.1s (verso publicitário visível) e 9.0s (assinatura final preservada).
+- [ ] **QA móvel e aprovação de Rafa:** ainda não testado visualmente em viewport móvel nesta rodada; aguardar aceite estético. A V3.2 continua piloto provisório.
 - [ ] **Promoção à landing principal e main:** não autorizada; manter a prévia em `/presentation/pilot` isolada.
+
 
 
 ## 01/11/2026 — Motion V3 PROCEDURAL / V2 REPROVADA

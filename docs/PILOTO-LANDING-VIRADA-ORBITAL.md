@@ -5,11 +5,12 @@
 ## Ajuste autorizado e isolado
 
 - **Geometria espacial:** cada uma das oito fichas passa a usar um `translateZ` independente, leve flutuação, inclinações `rotateX/rotateY` e ordenação visual por profundidade; as mesmas posições X/Y e janelas de entrada/saída são preservadas.
-- **Virada física:** no intervalo de transformação já existente, o antigo achatamento em `scaleX` é substituído por meia-volta em `rotateY`, com faces opostas em `backface-visibility:hidden`. A progressão de produto → propaganda e os textos continuam idênticos.
-- **Material:** espessura sutil da ficha com pseudo-elemento traseiro, reflexo e sombra próprios, sem WebGL, Three.js, bibliotecas, vídeos, imagens ou áudio adicionais.
+- **Virada física:** no intervalo de transformação já existente, o antigo achatamento em `scaleX` é substituído por meia-volta em `rotateY`, com duas faces em planos opostos, ocultação da frente ao virar e face de anúncio renderizável no verso. A progressão de produto → propaganda e os textos continuam idênticos.
+- **Material:** espessura sutil da ficha com placa central entre faces, reflexo e sombra próprios, sem WebGL, Three.js, bibliotecas, vídeos, imagens ou áudio adicionais.
 - **Restrições:** sem alteração de `drawSpace`, `ProceduralUniverse`, `KineticType`, `DashboardReveal`, `OrbitalSignature`, `chapters`, `DURATION_MS` ou `ao3-camera`. Apenas `Sheet`, CSS `ao3-sheet*`, teste de contrato e documentação.
 - **Referências consultadas:** [Impeccable](https://github.com/pbakaus/impeccable) para profundidade funcional e animação com propósito; [Taste Skill](https://github.com/Leonxlnx/taste-skill) para hierarquia, verificação visual e evitar excesso de efeitos. A URL [Christonit/emil-kowalski-animation-course](https://github.com/Christonit/emil-kowalski-animation-course) contém um README genérico React/Shadcn/Tailwind V4, sem guia específico de animação na raiz; nenhuma técnica foi importada dele.
-- **Estado:** proposta implementada em branch dedicada para staging, pendente de CI, inspeção de quadros no navegador e aceite estético de Rafa. **Produção e landing publicada intocadas.**
+- **Estado em 02/11/2026:** [PR #174](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/174) integrado a **staging**; correções pontuais [#175](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/175), [#176](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/176) e [#177](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/177) após inspeção visual. CI e deploy Render verdes. Verificados quadros 3.0s (profundidade), 5.6s (conversão), 6.1s (verso com anúncio efetivamente visível) e 9.0s (marca intacta). **QA móvel e aceite estético de Rafa pendentes; produção e landing publicada intocadas.**
+- **Cuidado técnico aprendido:** para a virada de 180° com faces de produto/anúncio, a placa de espessura deve ficar entre as faces, não pode aparecer do verso, e o fade deve ser aplicado a cada superfície. Usar `backface-visibility:hidden` na frente e placa, mas permitir renderizar a face publicitária traseira para evitar verso vazio em composição 3D do navegador.
 
 ---
 
