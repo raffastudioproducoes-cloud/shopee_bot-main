@@ -16,7 +16,8 @@
 - `VERSION` é a fonte oficial; baseline `3.0.0`. Em staging registrar mudanças em `CHANGELOG.md [Não lançado]`; SemVer PATCH só para bugs, MINOR para recursos.
 - `staging` é exclusivo do desenvolvedor, mas banco Supabase compartilhado e execução central na produção; não criar cron duplicado.
 - Período máximo da campanha = 30 dias inclusivos, contado em calendário de `America/Sao_Paulo`; não ativar entitlements comerciais nesta entrega.
-- Falhas não interrompem a sequência. Só editar futuras ocorrências não reivindicadas.
+- Falhas não interrompem a sequência. Só editar futuras ocorrências **pendentes, não reivindicadas e com mais de 30 minutos de antecedência**; exatamente T–30 já é bloqueado. Publicadas, running, failed e unknown imutáveis. Confirmado por Rafa em 02/11.
+- Preservar opção de foto principal Shopee **e** upload de fotos/vídeos via PC/celular; galeria extra só de fonte oficial confirmada. Provar com consulta autenticada real antes de marcar F2 concluída.
 - Não publicar externamente sem conta/destino autorizados. Não migrar destrutivamente nem alterar dados/tokens existentes.
 - TikTok Photo e tags/cotas por plano ficam em **backlog rastreável de alta prioridade**; nunca anunciar como disponíveis.
 
@@ -105,7 +106,7 @@
 
 **Files:** Inspect `apis/shopee.py`, `api/shopee_catalog.py`, `api/routers/catalog.py`, `api/routers/products.py`; create migration aditiva para galeria se fonte validada; test `tests/api/test_catalog_search.py`, `tests/api/test_posts_media_drafts.py`.
 
-**Interfaces:** Produces: lista ordenada de URLs/metadados de imagem por produto da conta e compatibilidade de `products.image`. Consumes: catálogo e validação atual.
+**Interfaces:** Produces: lista ordenada de URLs/metadados de imagem por produto da conta e compatibilidade de `products.image`. Consumes: catálogo e validação atual. Checkpoint branch: probe condicional `imageUrls`, seleção e importação com validação de pertencimento ao item; testes mockados não substituem prova autenticada.
 
 - [ ] **Step 1: Fazer verificação oficial da capacidade da API Shopee** (campos de fotos adicionais, licitude, formato e autenticação), registrar evidências/limites no documento.
 - [ ] **Step 2: Escrever teste RED** para múltiplas fotos de um produto sem perder o campo antigo, com ownership e separação de perfil.
@@ -211,9 +212,10 @@
 
 **Files:** Modify `api/routers/campaigns.py`, `api/routers/posts.py`, `frontend/src/components/posts/PostDetailsModal.tsx`, `frontend/src/pages/PostsPage.tsx`; tests `tests/api/test_post_schedule_slots.py`, `tests/api/test_campaigns.py`.
 
-**Interfaces:** Produces: `GET /campaigns/{id}/occurrences`, status simples user/técnico ADMIN, vínculo `campaign_id` na listagem de posts e operações futuras condicionadas a revisão/status.
+**Interfaces:** Produces: `GET /campaigns/{id}/occurrences`, status simples user/técnico ADMIN, vínculo `campaign_id` na listagem de posts e operações futuras condicionadas a revisão/status. Um corte obrigatório em T–30min exatos, no relógio do banco, preserva a próxima ocorrência e permite apenas slots posteriores. Para posts recorrentes, versões/snapshots precisam ser vinculados ao horário original de cada ocorrência, inclusive caso o claim atrase; não alterar globalmente `posts.text` nem mídia referenciada por publicação anterior.
 
-- [ ] **Step 1: Testes RED** de histórico imutável, `last_published_at` baseado no sucesso confirmado, falha que não impede slot seguinte e edição de apenas futuras.
+- [ ] **Step 1: Testes RED** de histórico imutável, `last_published_at` baseado no sucesso confirmado, falha que não impede slot seguinte, corte T–30 exato (30m bloqueado / 31m editável), múltiplas revisões e edição de apenas futuras.
+- [ ] **Step 1.1: Integrar revisão transacional antes de liberar a UI**: snapshot baseline + revisão nova no mesmo lock por post/campanha; data e corte pelo relógio do banco; claim/scheduler escolhe revisão pelo instante original da ocorrência; persistir `revision_id` e snapshot efetivo imutável para auditoria, sem deletar mídia ainda referenciada. A guarda legada `PUT /posts/{id}` permanece 409 até essa etapa ficar segura.
 - [ ] **Step 2: Rodar falhas, implementar e executar suite verde**, sem quebrar detalhes de postagem única.
 - [ ] **Step 3: Atualizar UI com informação sutil e acessível**, documentar e commitar.
 
