@@ -22,7 +22,7 @@
 .ao3-sheet::before{content:"";position:absolute;inset:0;transform:translateZ(0);backface-visibility:hidden;opacity:var(--ao3-sheet-opacity,1);border-radius:12px;background:linear-gradient(150deg,#142c59,#071124 65%,#35235f);border:1px solid #6bbdff55;box-shadow:13px 27px 46px #000b,0 0 18px #208ed633}
 .ao3-sheet-front,.ao3-sheet-back{position:absolute;inset:0;border-radius:11px;overflow:hidden;backface-visibility:hidden;box-shadow:9px 20px 38px rgba(0,0,0,.54),inset 0 1px 0 #fff5;padding:13px 13px 10px}
 .ao3-sheet-front{transform:translateZ(5px);background:linear-gradient(135deg,#f4fdff,#cce7ff 53%,#8cbcf3);border:1px solid rgba(255,255,255,.98);color:#12365b}
-.ao3-sheet-back{transform:rotateY(180deg) translateZ(5px);background:linear-gradient(145deg,#082881,#112768 56%,#310f70);border:1px solid #2fe4ff9e;color:#e3faff;box-shadow:0 0 19px #11caff44,10px 24px 44px #000b}
+.ao3-sheet-back{backface-visibility:visible;transform:rotateY(180deg) translateZ(5px);background:linear-gradient(145deg,#082881,#112768 56%,#310f70);border:1px solid #2fe4ff9e;color:#e3faff;box-shadow:0 0 19px #11caff44,10px 24px 44px #000b}
 .ao3-sheet-front::after,.ao3-sheet-back::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(115deg,#fff7 0%,#ffffff08 25%,transparent 42%,#02081f1f 78%,#0004 100%);box-shadow:inset 2px 2px 0 #fff7,inset -2px -2px 0 #113b7155}
 .ao3-sheet-top{display:flex;align-items:center;gap:5px;font-size:8px;font-weight:900;letter-spacing:.09em;white-space:nowrap}
 .ao3-sheet-top i{background:#23a5e1;width:5px;height:5px;border-radius:50%;box-shadow:0 0 12px #1eaffd}
