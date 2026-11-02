@@ -11,6 +11,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Registro terminal `failed` para agendamento central `date` expirado sem publicação e comando `Agora` idempotente por UUID; CI #41534333686 aprovado em testes mockados, sem ativação externa.
 - Núcleo de despacho central F0 atrás de `ORBITAL_CENTRAL_DISPATCH_ENABLED=false` (migration 068 apenas no Git, escopos SQL, reconciliação opt-in e cancelamento lógico), com CI #41533585972 aprovado; sem deploy, migração executada ou mudança nas cinco agendas legadas do staging.
 - Testes simulados da lacuna F0 no agendamento compartilhado, com contrato central ainda `xfail(strict=True)`; CI #41527390056 aprovado, sem alteração de worker ou dados.
+- Rota privada `/posts/$postId/editar` para edição condicional em página, mantendo `posts.id`, sem novo envio; backend mantém bloqueio 409 para agendados/publicados, e QA visual permanece pendente.
 - Rota privada `/posts/criar` e página dedicada de criação, com `PostComposer` separado do modal, preservando seleção de produto único, redes, IA, rascunhos e composição de mídias.
 - Planejador **puro** de slots de campanha com datas inclusivas até 30 dias, rotação de um produto por horário, índice crescente, fuso Brasília→UTC e rejeição de horas inexistentes/ambíguas.
 - Testes dos contratos de editor em página e de calendário, incluídos no CI, com ciclo RED→GREEN documentado em `docs/POSTS-CAMPANHAS-RESULTADOS-20261102.md`.
