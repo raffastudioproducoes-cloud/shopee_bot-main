@@ -1865,6 +1865,28 @@ async def delete_media_draft(
     return {"msg": "Rascunho de mídia removido"}
 
 
+def _latest_future_revision(user_id: int, post_id: int, profile_id: str | None):
+    response = (
+        scope_owner(
+            supabase.table("post_content_revisions")
+            .select("id,effective_after,snapshot")
+            .eq("post_id", post_id), user_id, profile_id,
+        )
+        .order("id", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not response.data:
+        return None
+    item = response.data[0]
+    snapshot = item.get("snapshot") or {}
+    return {
+        "id": item["id"],
+        "effective_after": item["effective_after"],
+        "texts": snapshot.get("texts") or [],
+    }
+
+
 @router.get("/{post_id}")
 async def get_post(
     post_id: int,
@@ -1879,6 +1901,7 @@ async def get_post(
     return {
         **post,
         "texts": [row["text"] for row in chain],
+        "future_revision": _latest_future_revision(user_id, post_id, profile_id),
         "products": _get_post_products(post_id),
         "medias": _get_post_medias(post_id),
         "scheduled": _is_scheduled(job, post),
