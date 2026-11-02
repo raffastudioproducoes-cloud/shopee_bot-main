@@ -88,17 +88,14 @@ def query(user_id):
 
 
 def insert(user_id, job, open_conn=None):
-    # A migration 068 garante 'legacy' para todos os registros anteriores.
-    # Novos comandos centrais não entram no jobstore do processo de origem.
+    # Sem gate, preservar o INSERT legado e a ordem original dos parâmetros.
+    # A migration 068 atribui dispatch_mode='legacy' pelo DEFAULT do banco.
     mode = new_schedule_dispatch_mode()
-    query = """
-        INSERT INTO schedulers (
-            post_id, user_id, func, trigger, time, day_of_week, days_of_week,
-            start_date, run_date, profile_id, environment, dispatch_mode
-        )
-        VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id
-    """
+    columns = (
+        "post_id, user_id, func, trigger, time, day_of_week, days_of_week, "
+        "start_date, run_date, profile_id, environment"
+    )
+    values = "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s"
     args = (
         job["post_id"],
         user_id,
@@ -111,8 +108,13 @@ def insert(user_id, job, open_conn=None):
         job["run_date"] if "run_date" in job else None,
         job.get("profile_id"),
         current_environment(),
-        mode,
     )
+    if mode == "central":
+        columns += ", dispatch_mode"
+        values += ", %s"
+        args += (mode,)
+
+    query = f"INSERT INTO schedulers ({columns}) VALUES({values}) RETURNING id"
     return execute_db(query, args, open_conn)
 
 
