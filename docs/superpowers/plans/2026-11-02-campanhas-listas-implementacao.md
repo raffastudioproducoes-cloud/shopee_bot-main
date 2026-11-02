@@ -230,6 +230,16 @@
 - [ ] **Step 5: Abrir PR para staging e aguardar CI/deploy; pedir aprovação Rafa.** Somente após aprovação criar PR staging→main e bump correto de `VERSION`/release note.
 - [ ] **Step 6: Manter backlog explícito pós-entrega** para TikTok Photo e tags/quota por plano.
 
+## Builder check — ajustes incorporados antes da implementação
+
+A revisão independente de 2026-11-02 identificou cinco zonas de falha. São ações vinculantes adicionais nas tarefas abaixo, sem ampliar escopo:
+
+- **Task 1/2 (R15):** testar que staging insere/edita/cancela intenção no banco comum e produção a executa uma vez; provas SQL read-only e mocks de claim, auditoria dos dados marcados `environment=staging`, deployment sequencial sem executar duas cópias. A decisão de autoridade está na especificação §8.1.
+- **Task 7/12/14 (R12):** teste de mudança de `revision` que recalcula apenas `pending` não-claimed, preserva snapshots de `running/succeeded/failed/unknown`, respeita novo ordenamento e expõe preview/diff para confirmação.
+- **Task 10/13/14 (R05/R11):** fixtures por publicador/rede para ausência de credencial, mídia rejeitada, 429, 403, sucesso, falha, partial e unknown; testar agregação `postado`/`erro parcial`/`erro`/`sem confirmação` e continuidade da sequência.
+- **Task 5/6 (R06):** subida manual de múltiplas mídias é entregável parcial em branch; captura automática de várias imagens Shopee não é considerada concluída sem fonte autorizada ou alteração explícita de requisito pelo Rafa.
+- **Task 9/11 (R08/R10):** índices internos são 0-based; testes de janela sem slots, meia-noite inválida, data passada, fim não alinhado, horário ambíguo e múltiplas redes. Não ativar campanha sem slots futuros ou com violação de restrições.
+
 ## Regras de sequência e checkpoints
 
 1. Documentação acima é a referência; não começar task posterior sem testes e aceite técnico da anterior quando dependente.
