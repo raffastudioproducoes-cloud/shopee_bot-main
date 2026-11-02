@@ -17,9 +17,12 @@ NETWORK_FUNC_MAP = {
 
 def get_publication_jobs():
     query = """
-        SELECT id
-        FROM schedulers
-        WHERE func = ANY(%s)
+        SELECT s.id
+        FROM schedulers s
+        JOIN posts p ON p.id = s.post_id
+          AND p.user_id = s.user_id
+          AND p.profile_id IS NOT DISTINCT FROM s.profile_id
+        WHERE s.func = ANY(%s)
     """
     return query_db(query, (list(NETWORK_FUNC_MAP.values()),))
 
@@ -39,10 +42,13 @@ def get_by_post_id(user_id, post_id):
 def get_by_id(job_id):
     query = """
         SELECT
-            id, post_id, user_id, profile_id, func, trigger, time, day_of_week, days_of_week,
-            start_date, run_date
-        FROM schedulers
-        WHERE id = %s
+            s.id, s.post_id, s.user_id, s.profile_id, s.func, s.trigger,
+            s.time, s.day_of_week, s.days_of_week, s.start_date, s.run_date
+        FROM schedulers s
+        JOIN posts p ON p.id = s.post_id
+          AND p.user_id = s.user_id
+          AND p.profile_id IS NOT DISTINCT FROM s.profile_id
+        WHERE s.id = %s
     """
     args = (job_id, )
     return query_db(query, args, True)
