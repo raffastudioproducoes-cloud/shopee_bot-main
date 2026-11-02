@@ -186,7 +186,7 @@ def claim(publish_job_id, worker_id, lease_seconds):
             )
         FROM revisions
         WHERE job.id = revisions.id
-        RETURNING job.id, job.claim_token
+        RETURNING job.id, job.claim_token, job.content_snapshot
     """
     return query_db(query, (publish_job_id, *scope_args, worker_id), one=True)
 
