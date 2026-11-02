@@ -268,7 +268,7 @@ def _batch_body():
             {"network": "x", "texts": ["copy"]},
         ],
         "draft_media_ids": [DRAFT_1],
-        "schedule": {"trigger": "date", "run_date": "2030-01-01T10:00:00"},
+        "schedule": {"trigger": "cron", "time": "10:00", "days_of_week": [0]},
     }
 
 
@@ -359,7 +359,7 @@ def test_batch_persists_display_order_in_received_draft_order(fake_db, monkeypat
     body = {
         "compositions": [{"network": "threads", "texts": ["copy"]}],
         "draft_media_ids": [D_ZZZ, D_AAA, D_MMM],
-        "schedule": {"trigger": "date", "run_date": "2030-01-01T10:00:00"},
+        "schedule": {"trigger": "cron", "time": "10:00", "days_of_week": [0]},
     }
 
     response = client.post("/posts/batch", json=body)

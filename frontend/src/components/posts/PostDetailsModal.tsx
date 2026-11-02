@@ -4,27 +4,44 @@ import { postsApi } from "../../api/posts"
 import { NETWORK_RULES } from "../../lib/networkLimits"
 import { formatUtcTimestampBrasilia } from "../../lib/ptBrDateTime"
 import { useProfileStore } from "../../stores/profileStore"
+import { useAuthStore } from "../../stores/authStore"
 import { Modal } from "../ui/Modal"
 import { Badge } from "../ui/Badge"
+import { StatusBadge } from "../ui/StatusBadge"
 import { NetworkLogo } from "./NetworkPicker"
-import { lastPublishedLabel, postKind, scheduleLines } from "./postPresentation"
+import { postKind, scheduleLines } from "./postPresentation"
 
 type Props = { post: Post; groupNetworks: PostNetwork[]; onClose: () => void }
 const sectionStyle = { display: "grid", gap: 8, padding: "14px 0", borderBottom: "1px solid var(--border-hairline)" } as const
 const headingStyle = { margin: 0, color: "var(--text-muted)", font: "var(--text-role-label)", letterSpacing: "var(--ls-label)", textTransform: "uppercase" } as const
+const LAST_RESULT_LABEL: Record<string, string> = {
+  published: "Publicado", failed: "Falhou", running: "Em andamento",
+  unknown: "Sem confirmação", retry_pending: "Nova tentativa pendente",
+  manual_confirmed: "Confirmado manualmente", reported_removed: "Informado como removido",
+}
+const DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
+const SLOT_TONE = {
+  programado: "neutral", "em execução": "info", postado: "positive",
+  erro: "negative", "sem confirmação": "warning",
+} as const
 const valueStyle = { margin: 0, color: "var(--text-body)", whiteSpace: "pre-wrap", overflowWrap: "anywhere" } as const
 
 /** Visualização de publicação existente: sem formulário, edição ou mutação. */
 export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
+  const isAdmin = useAuthStore((state) => state.user?.access === "ADMIN")
   const { data, isFetching, isError } = useQuery({
-    queryKey: ["post-details", activeProfileId, post.id], queryFn: () => postsApi.get(post.id), staleTime: 0,
+    queryKey: ["post-details", activeProfileId, post.id], queryFn: () => postsApi.get(post.id), staleTime: 0, refetchInterval: 30_000,
   })
   const details = data ?? post
   const parts = details.texts?.length ? details.texts : [details.text]
   const networks = groupNetworks.length ? groupNetworks : [details.network ?? "threads"]
   const schedule = scheduleLines(details)
-  const lastAt = lastPublishedLabel(details)
+  const lastPublished = details.last_published_at ? formatUtcTimestampBrasilia(details.last_published_at) : null
+  const lastAttempt = details.last_result?.at ? formatUtcTimestampBrasilia(details.last_result.at) : null
+  const slots = details.schedule_slots ?? []
+  const failedAt = lastAttempt ?? "horário não informado"
+  const postSummary = details.text.trim().slice(0, 65) + (details.text.length > 65 ? "…" : "")
   return (
     <Modal open onClose={onClose} title="Detalhes da publicação" width={760}>
       <div style={{ display: "grid", gap: 0 }}>
@@ -68,17 +85,39 @@ export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
           <p style={valueStyle}>Criado em: {formatUtcTimestampBrasilia(details.created_at)}</p>
           {details.updated_at && <p style={valueStyle}>Última atualização: {formatUtcTimestampBrasilia(details.updated_at)}</p>}
           <p style={valueStyle}>Modalidade: {postKind(details)}</p>
-          {schedule.length ? (
+          {slots.length > 0 ? (
+            <div style={{ display: "grid", gap: 6 }} aria-label="Resultado por dia e horário">
+              {slots.map((slot, index) => (
+                <div key={index} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "6px 12px", padding: "7px 10px", border: "1px solid var(--border-hairline)", borderRadius: "var(--r-sm)" }}>
+                  <span style={{ ...valueStyle, minWidth: 142, fontVariantNumeric: "tabular-nums" }}>
+                    {slot.day_of_week === null ? formatUtcTimestampBrasilia(slot.time) : `${DAYS[slot.day_of_week] ?? "Dia"} · ${slot.time}`}
+                  </span>
+                  <StatusBadge tone={SLOT_TONE[slot.status] ?? "neutral"} style={{ fontSize: 11, padding: "2px 7px", opacity: .85 }}>
+                    {slot.status === "erro" ? "Erro" : slot.status === "postado" ? "Postado" : slot.status === "programado" ? "Programado" : slot.status}
+                  </StatusBadge>
+                  {slot.last_at && <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Última tentativa: {formatUtcTimestampBrasilia(slot.last_at)}</span>}
+                  {isAdmin && slot.error && <p style={{ ...valueStyle, flexBasis: "100%", color: "var(--negative)", fontSize: 12 }}>{slot.error}</p>}
+                </div>
+              ))}
+            </div>
+          ) : schedule.length ? (
             <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
               {schedule.map((line, index) => <li key={index} style={valueStyle}>{line}</li>)}
             </ul>
           ) : <p style={valueStyle}>{postKind(details) === "Imediato" ? "Envio criado para publicação imediata." : "Nenhum horário detalhado retornado pela API."}</p>}
-          <p style={valueStyle}>Última execução: {lastAt ?? "Ainda sem registro de execução."}</p>
+          <p style={valueStyle}>Última postagem: {lastPublished ?? "Nenhuma publicação confirmada."}</p>
+          <p style={{ ...valueStyle, color: "var(--text-muted)" }}>Última execução: {lastAttempt ?? "Ainda sem registro."}</p>
         </section>
         <section style={{ ...sectionStyle, borderBottom: 0 }}>
           <h3 style={headingStyle}>Resultado da última execução</h3>
-          <p style={valueStyle}>Estado: {details.last_result?.status ?? "Pendente"}</p>
-          {details.last_result?.error && <p role="status" style={{ ...valueStyle, color: "var(--text-muted)" }}>{details.last_result.error}</p>}
+          <p style={valueStyle}>Estado: {LAST_RESULT_LABEL[details.last_result?.status ?? ""] ?? "Pendente"}</p>
+          {details.last_result?.status === "failed" && !isAdmin ? (
+            <p role="status" style={{ ...valueStyle, color: "var(--negative)" }}>
+              Falha na publicação de “{postSummary}” em {failedAt}.
+            </p>
+          ) : details.last_result?.error ? (
+            <p role="status" style={{ ...valueStyle, color: "var(--text-muted)" }}>{details.last_result.error}</p>
+          ) : null}
           {details.last_result?.proof_url && <a href={details.last_result.proof_url} target="_blank" rel="noopener noreferrer">Ver publicação confirmada</a>}
         </section>
       </div>

@@ -1,0 +1,16 @@
+/* Escolha de horas sem popup de 12h no desktop. O Android usa o input nativo. */
+.post-time-picker{display:grid;gap:8px;min-width:0;width:100%}
+.post-time-picker-label{color:var(--text-muted);font:var(--text-role-label);text-transform:uppercase;letter-spacing:var(--ls-label)}
+.post-time-picker-label small{font:var(--text-role-caption);text-transform:none;letter-spacing:normal}
+.post-time-picker-desktop{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
+.post-time-picker-desktop label{flex:0 0 80px;min-width:0}
+.post-time-picker-desktop select{width:100%;height:44px;border:1px solid var(--border-hairline);background:var(--surface-inset);color:var(--text-display);border-radius:var(--r-sm);padding:0 12px;font:var(--text-role-body);font-variant-numeric:tabular-nums;cursor:pointer;color-scheme:dark}
+.post-time-picker-desktop select:focus-visible,.post-time-picker-presets button:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.post-time-picker-colon{color:var(--text-muted);font-size:20px}
+.post-time-picker-presets{display:flex;flex-wrap:wrap;gap:4px;flex:1 1 220px}
+.post-time-picker-presets button{padding:8px;border:1px solid var(--border-hairline);border-radius:var(--r-sm);background:transparent;color:var(--text-muted);font:var(--text-role-caption);cursor:pointer}
+.post-time-picker-presets button[aria-pressed="true"]{background:var(--accent-tint);color:var(--accent);border-color:var(--accent)}
+.post-time-picker-presets button:hover{color:var(--text-display)}
+.post-time-picker-touch{display:none}
+.post-time-picker-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(pointer:coarse){.post-time-picker-desktop{display:none}.post-time-picker-touch{display:block;width:100%;min-height:44px;border:1px solid var(--border-hairline);border-radius:var(--r-md);background:var(--surface-inset);color:var(--text-display);font:var(--text-role-body);padding:8px 12px;color-scheme:dark}}

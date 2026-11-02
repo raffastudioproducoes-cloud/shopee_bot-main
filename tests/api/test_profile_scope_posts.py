@@ -80,7 +80,7 @@ def test_create_post_stores_profile_id_and_forwards_it_to_scheduler(make_client,
 
     res = make(profile_cookie("profile-a")).post("/posts", json={
         "texts": ["parte 1", "parte 2"],
-        "schedule": {"trigger": "date", "run_date": "2026-12-01T10:00:00"},
+        "schedule": {"trigger": "cron", "time": "10:00", "days_of_week": [0]},
     })
 
     assert res.status_code == 201
@@ -99,7 +99,7 @@ def test_create_post_without_profile_is_rejected_before_creating_a_job(make_clie
 
     monkeypatch.setattr(posts_module, "create_scheduler_job", fake_create_job)
     res = make(old_token_without_profile_claim).post("/posts", json={
-        "texts": ["x"], "schedule": {"trigger": "date", "run_date": "2026-12-01T10:00:00"},
+        "texts": ["x"], "schedule": {"trigger": "cron", "time": "10:00", "days_of_week": [0]},
     })
     assert res.status_code == 400
     assert [p for p in db.tables["posts"] if p["id"] > 1000] == []
@@ -126,7 +126,7 @@ def product_db(fake_db, monkeypatch):
 def test_update_post_rejects_products_not_owned_and_keeps_post(product_db, profile_cookie):
     c = TestClient(app)
     c.cookies.update(profile_cookie("profile-a"))
-    res = c.put("/posts/1", json={"texts": ["novo"], "product_ids": [10, 11]})
+    res = c.put("/posts/1", json={"texts": ["novo"], "product_ids": [11]})
     assert res.status_code == 400
     assert product_db.tables["posts"][0]["text"] == "do A"
     assert product_db.tables.get("posts_products", []) == []
@@ -155,7 +155,7 @@ def test_create_post_rejects_foreign_product_without_creating(product_db, profil
     c.cookies.update(profile_cookie("profile-a"))
     res = c.post("/posts", json={
         "texts": ["x"], "network": "threads", "product_ids": [11],
-        "schedule": {"trigger": "date", "run_date": "2030-01-01T10:00:00"},
+        "schedule": {"trigger": "cron", "time": "10:00", "days_of_week": [0]},
     })
     assert res.status_code == 400, res.text
     assert len(product_db.tables["posts"]) == 1

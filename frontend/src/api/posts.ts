@@ -29,6 +29,16 @@ export interface PostScheduleEntry {
   start_date?: string | null
 }
 
+export interface PostScheduleSlot {
+  /** 0=segunda ... 6=domingo; null para publicações antigas por data. */
+  day_of_week: number | null
+  time: string
+  status: 'programado' | 'em execução' | 'postado' | 'erro' | 'sem confirmação'
+  last_at: string | null
+  /** Causa técnica retornada somente para ADMIN. */
+  error?: string | null
+}
+
 export interface Post {
   id: number
   text: string
@@ -42,6 +52,8 @@ export interface Post {
   scheduled: boolean
   publish_immediately?: boolean
   schedule_entries?: PostScheduleEntry[]
+  schedule_slots?: PostScheduleSlot[]
+  last_published_at?: string | null
   schedule_trigger?: 'date' | 'cron' | null
   scheduled_for?: string | null
   parts_count?: number

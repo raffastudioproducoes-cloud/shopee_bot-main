@@ -8,7 +8,7 @@ from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
 from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.media_delivery import STORAGE_PREFIX, delivery_url
-from shopee_bot.scheduler.publication_result import succeeded, unknown
+from shopee_bot.scheduler.publication_result import succeeded, unknown, failed
 
 
 MEDIA_FILE_MISSING_MESSAGE = (
@@ -126,8 +126,14 @@ def bot_post(job_id):
             )
             # não continua a thread: partes seguintes seriam replies de
             # um post que nunca saiu (reply_to_id inválido).
-            # A chamada pode ter sido aceita pela rede antes do timeout; nao
-            # classificar como retry seguro quando a confirmacao se perdeu.
+            # Uma rejeição 4xx na CRIAÇÃO do contêiner é definitiva:
+            # nenhuma publicação foi solicitada. Erros no publish (ou após
+            # partes anteriores) continuam incertos para evitar duplicação.
+            if (published_parts == 0 and
+                    isinstance(err, ThreadsAPI.ThreadsApiError) and
+                    err.stage.startswith("Failed to Create") and
+                    400 <= err.status_code < 500):
+                return failed(err)
             return unknown(err)
 
     insert_activities(

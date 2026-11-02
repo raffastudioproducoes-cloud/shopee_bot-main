@@ -1,3 +1,5 @@
+> **02/11/2026 — Correção dos posts em desenvolvimento (staging, ainda não publicada):** seleção de um produto, retirada de agendamento avulso, seletor desktop em 24h, histórico do estado de cada ocorrência, última postagem confirmada e erro simplificado para usuário. Supabase compartilhado impede apagar esquema/legado; erro HTTP 403 do Threads precisa de código Meta e autorização antes de declarar publicação funcionando. Detalhes e QA: [POSTS-AJUSTES-RECORRENCIA-20261102.md](POSTS-AJUSTES-RECORRENCIA-20261102.md). **Não alterar main/produção.**
+
 > **Escopo real de 31/10/2026:** o Guia Mestre distingue o que está implementado, condicional, planejado ou indisponível (ex.: X/Kwai/Shopee Vídeo). Não tratar esta fotografia histórica como prova de publicação externa. **Primeira leitura obrigatória:** [AGENTS.md](../AGENTS.md) e [docs/GUIA-MESTRE-IA.md](GUIA-MESTRE-IA.md).
 
 # PRD — Shopee Auto Vendas

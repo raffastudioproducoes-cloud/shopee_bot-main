@@ -126,7 +126,7 @@ def _batch_client(db, monkeypatch):
 BODY = {
     "compositions": [{"network": "x", "texts": ["copy"]}, {"network": "threads", "texts": ["copy"]}],
     "draft_media_ids": ["11111111-1111-4111-8111-111111111111"],
-    "schedule": {"trigger": "date", "run_date": "2030-01-01T10:00:00"},
+    "schedule": {"trigger": "cron", "time": "10:00", "days_of_week": [0]},
 }
 
 

@@ -1,3 +1,15 @@
+## 02/11/2026 — Posts: produto único, só Agora/Recorrente, horários, status e privacidade — STAGING / EM VALIDAÇÃO
+
+- [x] Código de correção isolado em `fix/posts-recorrencia-20261102`, PR para `staging`; não alterar `main`.
+- [x] UI: rádio para exatamente zero ou um produto, sem selecionar lista em massa; hora desktop 24h e atalhos, Android nativo.
+- [x] API: máximo um `product_id`; novos agendamentos avulsos são rejeitados. `trigger=date` interno necessário para Agora e legados, sem migração por Supabase compartilhado.
+- [x] Detalhes: `schedule_slots` por dia/hora e estado real via `publish_jobs`; `last_published_at` independente da última execução; erro simples USER e diagnóstico ADMIN.
+- [x] Threads: erro 403 agora captura code/subcode da Meta sem URL/token; 4xx confirmado na criação de contêiner classificado failed, publish ambíguo continua unknown.
+- [ ] CI, revisão de desktop e Android, validação da conta Threads e aceitação de Rafa. O 403 real não pode ser considerado resolvido sem código da Meta e autorização/reconexão, quando necessária.
+- [ ] Deploy staging após CI e revisão; produção proibida.
+
+Detalhamento em `docs/POSTS-AJUSTES-RECORRENCIA-20261102.md`.
+
 ## 02/11/2026 — Refinamento V3.2: cards 3D em staging, pendente de aceite estético
 
 - [x] **Escopo de Rafa:** preservar integralmente as cenas/timeline/câmera/identidade da V3.1 e aprimorar somente as fichas de produto e propaganda, evitando aparência plana.

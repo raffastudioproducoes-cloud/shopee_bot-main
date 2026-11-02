@@ -89,7 +89,7 @@ def test_get_post_includes_last_result(auth_client, monkeypatch):
     res = auth_client.get("/posts/7")
     assert res.status_code == 200
     assert res.json()["last_result"]["status"] == "failed"
-    assert "Threads" in res.json()["last_result"]["error"]
+    assert res.json()["last_result"]["error"] == "Falha ao publicar. Confira o horário da execução."
 
 
 def test_publish_message_does_not_claim_success(auth_client, monkeypatch):

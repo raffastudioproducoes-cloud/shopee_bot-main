@@ -284,6 +284,12 @@ class PostCreate(BaseModel):
     # Mesmo UUID em todos os posts de um envio multi-rede (selo "Grupo").
     group_id: uuid.UUID | None = None
 
+    @model_validator(mode="after")
+    def _only_recurring_for_legacy_create(self):
+        if self.schedule.trigger != "cron":
+            raise ValueError("Agendamento avulso indisponível. Use Recorrente ou Agora.")
+        return self
+
     @field_validator("texts")
     @classmethod
     def _texts_not_empty(cls, v):
@@ -329,7 +335,9 @@ class PostBatchCreate(BaseModel):
     @model_validator(mode="after")
     def _check_networks(self):
         if self.publish_immediately and self.schedule.trigger != "date":
-            raise ValueError("publish_immediately requer trigger 'date'")
+            raise ValueError("Publicar agora requer a reserva interna de data")
+        if not self.publish_immediately and self.schedule.trigger != "cron":
+            raise ValueError("Agendamento avulso indisponível. Escolha Recorrente ou Agora.")
         networks = [composition.network for composition in self.compositions]
         if not networks:
             raise ValueError("Escolha ao menos uma rede")
@@ -428,6 +436,8 @@ def _validate_product_ids(user_id: int, product_ids: list[int]) -> None:
     """400 se algum produto não pertence à conta do usuário;
     evita associar produto alheio ao post (IDOR). Chamar ANTES de qualquer escrita."""
     wanted = set(product_ids)
+    if len(product_ids) > 1:
+        raise HTTPException(status_code=422, detail="Selecione no máximo um produto por post")
     if not wanted:
         return
     owned = (
@@ -702,6 +712,131 @@ def _latest_publish_job(user_id: int, post_id: int, profile_id: str | None = Non
     return (result.data or [None])[0]
 
 
+def _post_admin_access(user_id: int) -> bool:
+    """Nunca confia no papel enviado pelo navegador."""
+    try:
+        row = (supabase.table("users").select("access")
+               .eq("id", user_id).maybe_single().execute())
+        return (row.data or {}).get("access") == "ADMIN"
+    except Exception:
+        logger.warning("Não foi possível consultar papel do usuário %s", user_id, exc_info=True)
+        return False
+
+
+def _public_publish_result(result: dict | None, is_admin: bool) -> dict | None:
+    if not result or is_admin:
+        return result
+    # Dados brutos da Meta e textos técnicos ficam restritos ao administrador.
+    return {**result, "error": (
+        "Falha ao publicar. Confira o horário da execução."
+        if result.get("status") == "failed" else
+        result.get("error") if result.get("status") == "unknown" else None
+    )}
+
+
+def _last_successful_post_at(user_id: int, post_id: int, profile_id: str | None) -> str | None:
+    """Última postagem confirmada; nunca usa erro ou tentativa como publicação."""
+    latest: list[str] = []
+    try:
+        jobs = (scope_owner(
+            supabase.table("publish_jobs").select("finished_at,started_at,created_at"),
+            user_id, profile_id
+        ).eq("post_id", post_id).eq("status", "succeeded")
+         .order("finished_at", desc=True).limit(1).execute().data or [])
+        if jobs:
+            latest.append(jobs[0].get("finished_at") or jobs[0].get("started_at") or jobs[0]["created_at"])
+    except Exception:
+        logger.warning("Falha ao consultar a última publicação confirmada de %s", post_id, exc_info=True)
+    try:
+        activities = (scope_owner(
+            supabase.table("activities").select("created_at"), user_id, profile_id
+        ).eq("activity_id", 1).eq("metadata->>post_id", str(post_id))
+         .order("created_at", desc=True).limit(1).execute().data or [])
+        if activities:
+            latest.append(activities[0]["created_at"])
+    except Exception:
+        logger.warning("Falha ao consultar histórico publicado de %s", post_id, exc_info=True)
+    latest.sort(key=lambda value: _utc_instant(value) or datetime.min.replace(tzinfo=timezone.utc))
+    return latest[-1] if latest else None
+
+
+def _schedule_slot_history(
+    user_id: int, post_id: int, profile_id: str | None,
+    entries: list[dict], is_admin: bool,
+) -> list[dict]:
+    """Uma linha por dia/hora configurado com última ocorrência real.
+    A chave cron salva o minuto LOCAL da execução; nunca inferimos sucesso
+    a partir do scheduler ou do horário previsto.
+    """
+    if not entries:
+        return []
+    latest_by_slot: dict[tuple[int | None, str, str], dict] = {}
+    try:
+        jobs = (scope_owner(
+            supabase.table("publish_jobs").select(
+                "scheduler_id,idempotency_key,status,created_at,started_at,finished_at,last_error"
+            ), user_id, profile_id
+        ).eq("post_id", post_id).order("created_at", desc=True)
+         .limit(500).execute().data or [])
+    except Exception:
+        logger.warning("Falha ao obter ocorrências do post %s", post_id, exc_info=True)
+        jobs = []
+
+    for job in jobs:
+        scheduler_id = str(job.get("scheduler_id") or "")
+        key = str(job.get("idempotency_key") or "")
+        day: int | None = None
+        time_value = ""
+        if ":" in key:
+            try:
+                occurrence = datetime.strptime(key.split(":", 1)[1], "%Y-%m-%dT%H:%M")
+                day = occurrence.weekday()
+                time_value = occurrence.strftime("%H:%M")
+            except ValueError:
+                continue
+        else:
+            # Ocorrências date antigas (um único horário sem dia da semana).
+            matching = next((entry for entry in entries if str(entry["id"]) == scheduler_id), None)
+            if not matching or matching.get("trigger") != "date":
+                continue
+            time_value = str(matching.get("run_date") or "")
+        slot_key = (day, time_value, scheduler_id)
+        latest_by_slot.setdefault(slot_key, job)
+
+    states = {
+        "succeeded": "postado", "failed": "erro",
+        "pending": "programado", "running": "em execução",
+        "unknown": "sem confirmação",
+    }
+    slots = []
+    for entry in entries:
+        scheduler_id = str(entry["id"])
+        if entry.get("trigger") == "cron":
+            days = entry.get("days_of_week") or [entry.get("day_of_week")]
+            time_value = str(entry.get("time") or "")[:5]
+            for day in days:
+                if day is None:
+                    continue
+                job = latest_by_slot.get((int(day), time_value, scheduler_id))
+                slots.append({
+                    "day_of_week": int(day), "time": time_value,
+                    "status": states.get(job.get("status"), "sem confirmação") if job else "programado",
+                    "last_at": (job.get("finished_at") or job.get("started_at") or job.get("created_at")) if job else None,
+                    "error": sanitize_log_data(str(job.get("last_error")))[:200]
+                    if is_admin and job and job.get("status") == "failed" and job.get("last_error") else None,
+                })
+        else:
+            job = latest_by_slot.get((None, str(entry.get("run_date") or ""), scheduler_id))
+            slots.append({
+                "day_of_week": None, "time": str(entry.get("run_date") or ""),
+                "status": states.get(job.get("status"), "sem confirmação") if job else "programado",
+                "last_at": (job.get("finished_at") or job.get("started_at") or job.get("created_at")) if job else None,
+                "error": sanitize_log_data(str(job.get("last_error")))[:200]
+                if is_admin and job and job.get("status") == "failed" and job.get("last_error") else None,
+            })
+    return sorted(slots, key=lambda item: (item["day_of_week"] if item["day_of_week"] is not None else 7, item["time"]))
+
+
 def _ensure_post_editable(user_id: int, post_id: int, profile_id: str | None, post: dict) -> None:
     """Proíbe edições que alterariam uma publicação já programada ou enviada."""
     detail = "Este post já foi publicado ou está programado. Não é possível editar seu conteúdo ou suas mídias."
@@ -744,7 +879,7 @@ def _get_last_publish_result(
 
     if activity and (not job or (
         (_utc_instant(activity.get("created_at")) or datetime.min.replace(tzinfo=timezone.utc))
-        >= (_utc_instant(job.get("created_at")) or datetime.min.replace(tzinfo=timezone.utc))
+        >= (_utc_instant(job.get("finished_at") or job.get("started_at") or job.get("created_at")) or datetime.min.replace(tzinfo=timezone.utc))
     )):
         error = (activity.get("metadata") or {}).get("error")
         return {
@@ -1155,6 +1290,7 @@ async def list_posts(
     result = query.execute()
 
     posts: list[dict] = []
+    is_admin = _post_admin_access(user_id) if result.data else False
     for item in result.data:
         schedule_entries = _get_post_schedule_entries(user_id, item["id"])
         job = schedule_entries[0] if schedule_entries else None
@@ -1174,7 +1310,10 @@ async def list_posts(
                 else None
             ),
             "parts_count": len(chain),
-            "last_result": _get_last_publish_result(user_id, item["id"], profile_id),
+            "last_result": _public_publish_result(
+                _get_last_publish_result(user_id, item["id"], profile_id), is_admin
+            ),
+            "last_published_at": _last_successful_post_at(user_id, item["id"], profile_id),
         })
 
     next_cursor = None
@@ -1594,6 +1733,7 @@ async def get_post(
     schedule_entries = _get_post_schedule_entries(user_id, post_id)
     job = schedule_entries[0] if schedule_entries else None
     chain = _get_thread_chain(post_id)
+    is_admin = _post_admin_access(user_id)
     return {
         **post,
         "texts": [row["text"] for row in chain],
@@ -1603,7 +1743,13 @@ async def get_post(
         "schedule_trigger": job.get("trigger") if job else None,
         "schedule_entries": schedule_entries,
         "scheduled_for": job.get("run_date") if job and job.get("trigger") == "date" else None,
-        "last_result": _get_last_publish_result(user_id, post_id, profile_id),
+        "last_result": _public_publish_result(
+            _get_last_publish_result(user_id, post_id, profile_id), is_admin
+        ),
+        "last_published_at": _last_successful_post_at(user_id, post_id, profile_id),
+        "schedule_slots": _schedule_slot_history(
+            user_id, post_id, profile_id, schedule_entries, is_admin
+        ),
     }
 
 
