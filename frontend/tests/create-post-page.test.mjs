@@ -28,6 +28,7 @@ test("Edição privada mantém o ID original e não cria nem dispara outro post"
   ])
   assert.match(routes, /path: "\/posts\/\$postId\/editar"/)
   assert.match(routes, /component: EditPostPage/)
+  assert.match(page, /useParams\(\{ from: "\/panel\/posts\/\$postId\/editar" \}\)/)
   assert.match(page, /postsApi\.get\(id\)/)
   assert.match(page, /postsApi\.update\(id,/)
   assert.doesNotMatch(page, /postsApi\.createBatch|postsApi\.publishNow/)
