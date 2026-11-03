@@ -46,6 +46,7 @@ export interface CampaignDraftItemPayload {
 }
 
 export interface CampaignDraftSaveRequest {
+  name: string
   list_id: number
   items: CampaignDraftItemPayload[]
   schedule: CampaignPreviewRequest | null
@@ -57,9 +58,21 @@ export interface CampaignDraftRecord {
   status: 'draft'
   source_list_id: number | null
   source_list_name: string
+  campaign_name: string
   items: Array<CampaignDraftItemPayload & { source_image?: string | null }>
   schedule: CampaignPreviewRequest | null
   updated_at: string
+}
+
+export interface CampaignMediaRecord {
+  id: string
+  product_id: number
+  slot: number
+  file_name: string
+  media_type: 'IMAGE' | 'VIDEO'
+  size_bytes: number
+  status: 'ready'
+  created_at: string
 }
 
 export const campaignsApi = {
@@ -77,5 +90,16 @@ export const campaignsApi = {
   },
   updateDraft(id: string, data: CampaignDraftSaveRequest & { expected_revision: number }): Promise<CampaignDraftRecord> {
     return api.put<CampaignDraftRecord>(`/campaigns/drafts/${encodeURIComponent(id)}`, data)
+  },
+  listMedia(id: string): Promise<{ data: CampaignMediaRecord[] }> {
+    return api.get<{ data: CampaignMediaRecord[] }>(`/campaigns/drafts/${encodeURIComponent(id)}/media`)
+  },
+  uploadMedia(id: string, productId: number, file: File): Promise<CampaignMediaRecord> {
+    return api.upload<CampaignMediaRecord>(
+      `/campaigns/drafts/${encodeURIComponent(id)}/items/${productId}/media`, file)
+  },
+  deleteMedia(id: string, mediaId: string): Promise<void> {
+    return api.delete<void>(
+      `/campaigns/drafts/${encodeURIComponent(id)}/media/${encodeURIComponent(mediaId)}`)
   },
 }

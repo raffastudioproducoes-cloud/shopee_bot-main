@@ -18,6 +18,7 @@ import "./campaignPlanner.css"
 const weekdays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
 
 interface CampaignDraft {
+  name: string
   listId: number | null
   itemIds: number[]
   startDate: string
@@ -31,7 +32,7 @@ interface CampaignDraft {
 
 function initialDraft(): CampaignDraft {
   return {
-    listId: null, itemIds: [], startDate: "", endDate: "",
+    name: "", listId: null, itemIds: [], startDate: "", endDate: "",
     days: [0, 1, 2, 3, 4], startTime: "09:00", endTime: "18:00",
     interval: "180", itemSnapshots: {},
   }
@@ -112,6 +113,26 @@ export function CampaignPlanner({ credentials }: {
     retry: false,
   })
 
+  const mediaQuery = useQuery({
+    queryKey: ["campaign-draft-media", userId, profileId, savedDraftId],
+    queryFn: () => campaignsApi.listMedia(savedDraftId!),
+    enabled: Boolean(userId && profileId && savedDraftId),
+    retry: false,
+  })
+  const mediaUpload = useMutation({
+    mutationFn: async ({ productId, files }: { productId: number; files: File[] }) => {
+      if (!savedDraftId) throw new Error("Salve a campanha antes de enviar arquivos.")
+      const uploaded = mediaQuery.data?.data.filter((item) => item.product_id === productId).length ?? 0
+      if (uploaded + files.length > 10) throw new Error("Limite de 10 arquivos por produto.")
+      for (const file of files) await campaignsApi.uploadMedia(savedDraftId, productId, file)
+    },
+    onSettled: () => { void mediaQuery.refetch() },
+  })
+  const mediaDelete = useMutation({
+    mutationFn: (id: string) => campaignsApi.deleteMedia(savedDraftId!, id),
+    onSettled: () => { void mediaQuery.refetch() },
+  })
+
   const payload = useMemo<CampaignPreviewRequest | null>(() => {
     if (!draft.listId || draft.itemIds.length === 0 || !draft.startDate || !draft.endDate ||
         draft.days.length === 0 || !draft.startTime || !draft.endTime ||
@@ -130,11 +151,12 @@ export function CampaignPlanner({ credentials }: {
 
 
   const saveInput = useMemo<CampaignDraftSaveRequest | null>(() => {
-    if (!selectedList || !draft.listId || !draft.itemIds.length ||
+    if (!selectedList || !draft.name.trim() || draft.name.trim().length > 120 || !draft.listId || !draft.itemIds.length ||
         draft.itemIds.length !== products.length ||
         new Set(draft.itemIds).size !== products.length ||
         !draft.itemIds.every((id) => products.some((product) => product.id === id))) return null
     return {
+      name: draft.name.trim(),
       list_id: draft.listId,
       items: draft.itemIds.map((id) => ({
         product_id: id,
@@ -147,7 +169,7 @@ export function CampaignPlanner({ credentials }: {
       })),
       schedule: payload,
     }
-  }, [selectedList, products, draft.listId, draft.itemIds, snapshots, payload])
+  }, [selectedList, products, draft.name, draft.listId, draft.itemIds, snapshots, payload])
   const saveSignature = saveInput ? JSON.stringify(saveInput) : ""
   const saveMutation = useMutation({
     mutationFn: async ({ data, id, revision }: {
@@ -190,6 +212,7 @@ export function CampaignPlanner({ credentials }: {
       }])) as Record<number, CampaignItemSnapshot>
       setListOverride(source)
       setDraft({
+        name: saved.campaign_name || saved.source_list_name,
         listId: saved.source_list_id,
         itemIds: saved.items.map((item) => item.product_id),
         itemSnapshots: restored,
@@ -248,7 +271,11 @@ export function CampaignPlanner({ credentials }: {
         <div className="campaign-controls">
           <section className="campaign-section">
             <h3>01. Produtos</h3>
-            <p>Escolha uma lista, ajuste a ordem e prepare textos, links e redes de cada produto.</p>
+            <p>Dê um nome à campanha, escolha a lista, ajuste a ordem e prepare cada produto.</p>
+            <label className="campaign-field-label" htmlFor="campaign-name">Nome da campanha</label>
+            <input id="campaign-name" className="campaign-select" type="text" maxLength={120}
+              value={draft.name} onChange={(event) => update("name", event.target.value)}
+              placeholder="Ex.: Ofertas da semana de novembro" />
             <label className="campaign-field-label" htmlFor="campaign-list">Lista de produtos</label>
             <select
               id="campaign-list"
@@ -358,8 +385,34 @@ export function CampaignPlanner({ credentials }: {
                                 Usar a foto principal da Shopee
                               </label>
                             ) : <p>Este produto não tem foto Shopee registrada.</p>}
-                            <small>Fotos e vídeos do PC/celular continuam disponíveis na publicação única.
-                              O anexo persistente por produto da campanha será integrado antes da ativação.</small>
+                            <div className="campaign-media-upload">
+                              <label className="campaign-field-label" htmlFor={`campaign-media-${id}`}>
+                                Fotos ou vídeos próprios (PC ou celular)
+                              </label>
+                              <input id={`campaign-media-${id}`} className="campaign-upload-input"
+                                type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4"
+                                disabled={!savedDraftId || mediaUpload.isPending || mediaDelete.isPending}
+                                onChange={(event) => {
+                                  const files = Array.from(event.currentTarget.files ?? [])
+                                  event.currentTarget.value = ""
+                                  if (files.length) mediaUpload.mutate({ productId: id, files })
+                                }} />
+                              {!savedDraftId && <small>Salve o rascunho com um nome para anexar arquivos permanentes.</small>}
+                              <small>Até 10 arquivos por produto, 50 MB por arquivo. O envio não publica posts.</small>
+                              {mediaQuery.data?.data.filter((item) => item.product_id === id).map((item) => (
+                                <div className="campaign-media-file" key={item.id}>
+                                  <span>{item.media_type === "VIDEO" ? "Vídeo" : "Foto"} · {item.file_name}</span>
+                                  <button type="button" disabled={mediaDelete.isPending || mediaUpload.isPending}
+                                    onClick={() => mediaDelete.mutate(item.id)}
+                                    aria-label={`Remover ${item.file_name}`}>Remover</button>
+                                </div>
+                              ))}
+                              {mediaUpload.isPending && <small role="status">Enviando arquivos para armazenamento privado…</small>}
+                              {mediaUpload.isError && <p className="campaign-error" role="alert">{mediaUpload.error.message}</p>}
+                              {mediaDelete.isError && <p className="campaign-error" role="alert">{mediaDelete.error.message}</p>}
+                              {mediaQuery.isError && savedDraftId &&
+                                <p className="campaign-error" role="alert">Não foi possível consultar os anexos salvos.</p>}
+                            </div>
                           </div>
                         </div>
                       )}
@@ -397,7 +450,7 @@ export function CampaignPlanner({ credentials }: {
                 <option value="">Selecione um rascunho</option>
                 {(draftsQuery.data?.data ?? []).map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.source_list_name} · {new Date(item.updated_at).toLocaleString("pt-BR")}
+                    {item.campaign_name || item.source_list_name} · {new Date(item.updated_at).toLocaleString("pt-BR")}
                   </option>
                 ))}
               </select>

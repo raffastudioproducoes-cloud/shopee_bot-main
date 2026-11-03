@@ -85,3 +85,26 @@
   .campaign-draft-restore { grid-template-columns:minmax(0,1fr); }
   .campaign-draft-restore button { width:100%; }
 }
+
+/* F3B: anexos permanentes por produto, alinhados aos tokens do site. */
+.campaign-media-upload { display:grid; gap:10px; min-width:0; margin-top:8px; }
+.campaign-media-upload .campaign-field-label { display:block; margin:0; min-height:0; }
+.campaign-media-upload .campaign-upload-input {
+  display:block; box-sizing:border-box; width:100%; max-width:100%; height:auto;
+  padding:12px; border:1px solid var(--border-hairline); border-radius:var(--r-md);
+  background:var(--surface-inset); color:var(--text-body); font:var(--text-role-small);
+  accent-color:var(--accent);
+}
+.campaign-media-file { display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:8px; padding:8px 0; border-bottom:1px solid var(--border-hairline); min-width:0; }
+.campaign-media-file span { min-width:0; flex:1 1 160px; overflow-wrap:anywhere; font:var(--text-role-small); }
+.campaign-media-file button { min-height:44px; border:1px solid var(--border-hairline);
+  background:var(--surface-inset); color:var(--text-body); border-radius:var(--r-sm);
+  padding:0 12px; cursor:pointer; }
+.campaign-media-file button:disabled { cursor:default; opacity:.5; }
+.campaign-upload-input:focus-visible, .campaign-media-file button:focus-visible {
+  outline:2px solid var(--mint-400); outline-offset:2px;
+}
+@media (max-width:520px) {
+  .campaign-media-file button { flex:0 0 auto; }
+}

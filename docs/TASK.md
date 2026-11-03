@@ -1,3 +1,20 @@
+## 03/11/2026 UTC — F3B: nome próprio e anexos persistentes da campanha (branch isolada, SEM merge)
+
+- [x] Pedido de Rafa: cada campanha terá nome personalizado, independente da lista, identificável na recuperação por servidor. Contrato 1–120 caracteres e validação backend/frontend.
+- [x] Editor por produto: anexos de foto/vídeo do PC/celular, até 10 arquivos de 50 MB por produto, sanitização existente, armazenamento privado `post-media`, listagem/remoção por campanha e perfil. Foto principal Shopee continua disponível.
+- [x] Preparada `071_campaign_names_and_media.sql` aditiva e reentrante, com RLS, vínculo de dono/produto, slots únicos. **Não aplicada ao banco compartilhado**; migrador no boot exige autorização antes de qualquer merge `staging`.
+- [x] Testes objetivos de nome, ownership do produto e integridade estática/idempotência da migração; CI da PR será o gate.
+- [ ] CI e revisão da branch/PR; pedir autorização específica para schema 071, aplicar/validar, só depois merge `staging` e conferir Render health. `main` e produção app intocados.
+- [ ] Fases seguintes: ativação atômica, limites de plano/criação e por rede, congelamento T−30 e exceções TikTok, em incrementos separados. **Não há disparo em F3B**.
+- Registro técnico: `docs/CAMPANHA-F3B-NOME-E-MIDIAS-20261103.md`. Histórico Vault a sincronizar ao fechar gate.
+
+## 03/11/2026 UTC — Fechamento F3A e incidente de migração 070
+
+- [x] PR [#207](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/207) mesclada só em `staging`; a migration 070 foi previamente aplicada com autorização.
+- [x] No primeiro deploy, a aplicação reexecutou 070 e encontrou trigger duplicado; corrigido com guarda condicional e PR [#208](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/208), mesclada em `staging`.
+- [x] Render staging depois de #208: deploy LIVE, migrador concluiu, aplicação iniciou, `/health` retornou `{"status":"ok"}`. Documentado no Vault #61. `main` inalterada.
+- Regra permanente: inspecionar migrations e preparar DDL reentrante antes de aplicar ao banco compartilhado; merge para ambiente que inicia migrador apenas após autorização e gate.
+
 ## 03/11/2026 UTC — F3A: rascunho de campanha persistente (PR #207, schema 070 aplicado com autorização)
 
 - [x] Branch `feat/campaign-persisted-drafts-f3a-20261103` isolada de `staging`, com PR [#207](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/207). `main` e scheduler de staging/produção intactos.
@@ -6,8 +23,8 @@
 - [x] Garantir que o planejamento opcional use a mesma lista e ordem de produtos; snapshots antigos não editam a lista-fonte.
 - [x] CI anterior [#41570799397](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41570799397) success (API e frontend); aguardar CI final com a migration ajustada para o gate de merge.
 - [x] Rafa autorizou especificamente migration 070. Aplicada via Supabase `campaign_drafts_070` em 03/11/2026. Inspeção confirmou tabela vazia, RLS ativo, anon/authenticated sem SELECT, service_role com SELECT/INSERT, ownership trigger ativo. Nenhum post/job/agendamento criado.
-- [ ] Com schema validado, mesclar PR #207 apenas em `staging` quando o novo CI estiver verde e conferir Render. `main` intocada; `VERSION=3.0.0` continua até release planejada.
-- [ ] F3B: anexos duráveis por item (foto/vídeo PC/celular, possível seleção de imagem Shopee) com política de expiração e limpeza; staging deve permanecer sem publicar; F4/F5 de ativação, cotas e regra T–30 vêm depois.
+- [x] PR #207 mesclada em `staging`, boot corrigido na PR #208 e Render LIVE/health OK. `main` intocada; `VERSION=3.0.0` continua até release planejada.
+- [x] F3B desenvolvida em branch separada (não implantada): nome próprio e anexos por item (foto/vídeo PC/celular, foto Shopee preservada), com limpeza só de uploads incompletos. F4/F5 de ativação, cotas e regra T–30 vêm depois.
 - **Limite conhecido:** a restauração editável requer lista de origem ainda existente e com os mesmos produtos; snapshots no banco sobrevivem à remoção da lista, mas a UI bloqueia carregamento quando isso poderia causar perda silenciosa.
 - **Segurança:** nenhum segredo, token, item do cliente ou dados de campanha são transcritos no log documental.
 
