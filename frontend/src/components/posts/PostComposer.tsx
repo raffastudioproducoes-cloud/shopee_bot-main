@@ -545,7 +545,9 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
           products={products} lists={lists} listId={productListId}
           onListChange={setProductListId}
           selectedIds={selectedProductIds}
-          onToggle={toggleProduct}
+          onToggle={post?.scheduled
+            ? () => setPickMessage("Nesta revisão futura, o produto original será preservado; altere apenas o texto.")
+            : toggleProduct}
           productsLoading={productPages.isPending} productsError={productPages.isError}
           listsLoading={listPages.isPending} listsError={listPages.isError}
           hasMoreProducts={productPages.hasNextPage} hasMoreLists={listPages.hasNextPage}
@@ -608,7 +610,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
                   <span className="csp-s-0334">
                     {media.file_name}
                   </span>
-                  <button
+                  {!post.scheduled && <button
                     type="button"
                     onClick={() => deleteMediaMutation.mutate(media.id)}
                     disabled={deleteMediaMutation.isPending}
@@ -623,12 +625,16 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
                     }}
                   >
                     Remover
-                  </button>
+                  </button>}
                 </li>
               ))}
             </ul>
           )}
-          <div
+          {post?.scheduled && <p role="status" style={metaTextStyle}>
+            Fotos e vídeos atuais foram preservados. A edição de mídia em agendamentos
+            ainda não está disponível; para novos posts, continuam válidos Shopee e arquivos do dispositivo.
+          </p>}
+          {!post?.scheduled && <div
             className="csp-s-0335"
           >
             {/* Input nativo escondido: o navegador mostraria "Choose File" em inglês. */}
@@ -663,7 +669,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
                 ? "Nenhum arquivo escolhido"
                 : `${pendingFiles.length} ${pendingFiles.length === 1 ? "arquivo" : "arquivos"}`}
             </span>
-          </div>
+          </div>}
           {pickMessage && (
             <p role="status" style={{ ...metaTextStyle, color: "var(--amber-300)", marginTop: 6 }}>
               {pickMessage}
