@@ -44,6 +44,7 @@ from pydantic import BaseModel, Field, model_validator, field_validator
 from .auth import _check_login_rate_limit, get_current_user_id
 from .profiles import get_current_profile_id
 from ..profiles import scope_account, scope_owner
+from ..plan_quotas import reserve_post_plan_quota, release_failed_post_plan_quota
 from ..audit_log import log_action
 from ..database import supabase
 from shopee_bot.database.scheduler_environment import current_environment
@@ -592,6 +593,8 @@ async def _ensure_scheduler_available() -> None:
 
 
 def _block_reason(exc: Exception) -> str:
+    if isinstance(exc, HTTPException):
+        return str(exc.detail)
     if isinstance(exc, InternalApiError):
         return "Não foi possível agendar esta rede agora."
     if isinstance(exc, _DraftUnavailable):
@@ -1443,7 +1446,14 @@ async def create_post(
         ]).execute()
 
     try:
+        reserve_post_plan_quota(
+            user_id, profile_id, head["id"], immediate=False,
+            days=body.schedule.days_of_week, times=body.schedule.times,
+        )
         await _create_schedule_jobs(user_id, head["id"], NETWORK_FUNC_MAP[body.network], body.schedule, profile_id)
+    except HTTPException:
+        _delete_thread_cascade(head["id"])
+        raise
     except InternalApiError:
         _delete_thread_cascade(head["id"])
         raise HTTPException(
@@ -1569,6 +1579,10 @@ async def create_posts_batch(
         head = _create_thread(user_id, plan["texts"], plan["network"], profile_id, group_id, body.publish_immediately)
         fresh: dict[str, dict | None] = {}  # rascunhos consumidos só por este plano
         try:
+            reserve_post_plan_quota(
+                user_id, profile_id, head["id"], immediate=body.publish_immediately,
+                days=body.schedule.days_of_week, times=body.schedule.times,
+            )
             _set_post_products(head["id"], body.product_ids)
             medias = _attach_medias(
                 head["id"], plan["media_draft_ids"], drafts_by_id, materialized, fresh,
@@ -1577,9 +1591,11 @@ async def create_posts_batch(
             # job por último: sem mídia vinculada ele nunca existe
             await _create_schedule_jobs(user_id, head["id"], NETWORK_FUNC_MAP[plan["network"]], body.schedule, profile_id)
         except Exception as exc:
-            if not isinstance(exc, (InternalApiError, _DraftUnavailable)):
+            if not isinstance(exc, (InternalApiError, _DraftUnavailable, HTTPException)):
                 logger.warning("Falha ao montar post da rede %s", plan["network"], exc_info=True)
             _rollback_plan(head["id"], fresh, materialized, user_id, profile_id)
+            if body.publish_immediately:
+                release_failed_post_plan_quota(user_id, profile_id, head["id"])
             blocked.append({
                 **plan,
                 "mode": "blocked",
@@ -2191,6 +2207,10 @@ async def publish_post_now(
                 status_code=409,
                 detail="Publicação já iniciada ou sem confirmação. Verifique o resultado antes de reenviar.",
             )
+    reserve_post_plan_quota(
+        user_id, profile_id, post_id, immediate=True,
+        reuse_existing=bool(post.get("publish_immediately") and job.get("trigger") == "date"),
+    )
     log_action(
         "post_publish_requested",
         f"network={network} post_id={post_id} job_id={job['id']}",
