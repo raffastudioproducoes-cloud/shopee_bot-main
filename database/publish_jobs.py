@@ -123,16 +123,18 @@ def claim(publish_job_id, worker_id, lease_seconds):
                 job.idempotency_key, job.post_id, job.user_id, job.profile_id,
                 schedule.environment AS environment,
                 CASE
+                    -- A chave cron termina em YYYY-MM-DDTHH:MM; split_part por ':'
+                    -- perderia os minutos e faria claim falhar com InvalidDatetimeFormat.
                     -- Usar horario nominal, nao minuto atrasado de execucao.
                     WHEN schedule.trigger = 'cron' AND schedule.time IS NOT NULL
                          AND job.idempotency_key ~
                          ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}$'
                         THEN (
-                            split_part(job.idempotency_key, ':', 2)::timestamp::date
+                            right(job.idempotency_key, 16)::timestamp::date
                             + schedule.time
                             - CASE
                                 WHEN schedule.time >
-                                     split_part(job.idempotency_key, ':', 2)::timestamp::time
+                                     right(job.idempotency_key, 16)::timestamp::time
                                     THEN interval '1 day'
                                 ELSE interval '0 days'
                               END
@@ -141,7 +143,7 @@ def claim(publish_job_id, worker_id, lease_seconds):
                         THEN schedule.run_date AT TIME ZONE 'America/Sao_Paulo'
                     WHEN job.idempotency_key ~
                          ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}$'
-                        THEN split_part(job.idempotency_key, ':', 2)::timestamp
+                        THEN right(job.idempotency_key, 16)::timestamp
                              AT TIME ZONE 'America/Sao_Paulo'
                     ELSE NULL
                 END AS original_slot
