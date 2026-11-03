@@ -13,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from ..database import supabase
 from ..storage_capacity import storage_upload_reservation
 from ..media_sanitizer import JPEG, PNG, WEBP, MediaSanitizerError, detect_media_type, sanitize_media_upload
-from ..profiles import PROFILE_LIMIT, can_create_profile, is_principal
+from ..profiles import is_principal
 from .auth import (
     _check_login_rate_limit,
     _create_token,
@@ -301,28 +301,24 @@ async def delete_acquisition_source(user_id: str = Depends(get_current_user_id))
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_profile(body: ProfileCreate, user_id: str = Depends(get_current_user_id)):
     _check_login_rate_limit(f"profile-create:{user_id}")
-    limit_detail = f"Limite de {PROFILE_LIMIT} perfis por conta atingido."
-    existing = supabase.table("profiles").select("id").eq("user_id", user_id).execute()
-    if not can_create_profile(len(existing.data or [])):
-        raise HTTPException(status_code=400, detail=limit_detail)
+    limit_detail = "Limite de perfis do seu plano atingido."
     try:
-        result = (
-            supabase.table("profiles")
-            .insert({
-                "user_id": user_id,
-                "kind": "secundario",
-                "nome": body.nome.strip(),
-                "email": body.email.strip(),
-                "telefone": body.telefone.strip() if body.telefone else None,
-                "endereco": body.endereco.strip() if body.endereco else None,
-            })
-            .execute()
-        )
+        # A RPC serializa as tentativas por conta e aplica Free=1, Pro=3,
+        # Premium=5 e isenção comercial ADMIN usando somente o papel no DB.
+        # O trigger legado mantém o máximo antigo para a main (DB compartilhado).
+        result = supabase.rpc("insert_profile_with_plan_quota", {
+            "p_user_id": user_id,
+            "p_nome": body.nome.strip(),
+            "p_email": body.email.strip(),
+            "p_telefone": body.telefone.strip() if body.telefone else None,
+            "p_endereco": body.endereco.strip() if body.endereco else None,
+        }).execute()
     except Exception as exc:
-        # O check acima tem race (count-then-insert); o trigger do banco
-        # (migração 037) é a barreira atômica e levanta profile_limit_exceeded.
+        # A RPC e a barreira atômica do banco retornam códigos sem dados privados.
         if "profile_limit_exceeded" in str(exc):
-            raise HTTPException(status_code=400, detail=limit_detail)
+            raise HTTPException(status_code=403, detail=limit_detail) from None
+        if "plan_policy_unavailable" in str(exc):
+            raise HTTPException(status_code=503, detail="Política de planos indisponível.") from None
         logger.exception("Falha ao criar perfil")
         raise HTTPException(status_code=500, detail="Erro interno ao criar perfil.")
     if not result.data:
