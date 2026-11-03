@@ -122,12 +122,28 @@ def claim(publish_job_id, worker_id, lease_seconds):
             SELECT job.id, gen_random_uuid() AS token,
                 job.idempotency_key, job.post_id, job.user_id, job.profile_id,
                 CASE
-                    -- A chave cron registra o minuto da execucao, que pode atrasar.
-                    -- Reconstrua o horario NOMINAL usando schedule.time; T-30
-                    -- nao pode ser deslocado pelo wake-up do Render.
+                    -- Usar horario nominal, nao minuto atrasado de execucao.
                     WHEN schedule.trigger = 'cron' AND schedule.time IS NOT NULL
                          AND job.idempotency_key ~
-                         ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}
+                         ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}$'
+                        THEN (
+                            split_part(job.idempotency_key, ':', 2)::timestamp::date
+                            + schedule.time
+                            - CASE
+                                WHEN schedule.time >
+                                     split_part(job.idempotency_key, ':', 2)::timestamp::time
+                                    THEN interval '1 day'
+                                ELSE interval '0 days'
+                              END
+                        ) AT TIME ZONE 'America/Sao_Paulo'
+                    WHEN schedule.trigger = 'date' AND schedule.run_date IS NOT NULL
+                        THEN schedule.run_date AT TIME ZONE 'America/Sao_Paulo'
+                    WHEN job.idempotency_key ~
+                         ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}$'
+                        THEN split_part(job.idempotency_key, ':', 2)::timestamp
+                             AT TIME ZONE 'America/Sao_Paulo'
+                    ELSE NULL
+                END AS original_slot
             FROM publish_jobs job
             JOIN schedulers schedule ON schedule.id = job.scheduler_id
               AND schedule.post_id = job.post_id
