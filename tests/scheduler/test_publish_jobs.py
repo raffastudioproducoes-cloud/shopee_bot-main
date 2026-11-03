@@ -216,3 +216,15 @@ def test_claim_rejects_mismatched_owner_and_profile(monkeypatch):
     assert "schedule.profile_id is not distinct from job.profile_id" in sql
     assert "post.user_id = job.user_id" in sql
     assert "for update of job skip locked" in sql
+
+
+def test_claim_parses_full_cron_minute_in_occurrence_key(monkeypatch):
+    """A chave termina em HH:MM; split_part por ':' truncava o minuto."""
+    from shopee_bot.database import publish_jobs
+
+    seen = {}
+    monkeypatch.setattr(publish_jobs, "query_db", lambda sql, args, one=False: seen.update(sql=sql) or None)
+
+    assert publish_jobs.claim("queue-1", "worker-1", 300) is None
+    assert seen["sql"].count("right(job.idempotency_key, 16)") == 3
+    assert "split_part(job.idempotency_key" not in seen["sql"]
