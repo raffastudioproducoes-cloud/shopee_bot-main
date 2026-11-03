@@ -111,3 +111,30 @@ def test_db_cutover_rejection_is_propagated_as_conflict(monkeypatch):
         assert response.status_code == 409
     finally:
         app.dependency_overrides.clear()
+
+
+def test_latest_future_revision_is_scoped_to_authenticated_post(monkeypatch):
+    client, database = _client(monkeypatch)
+    inspected = []
+    monkeypatch.setattr(posts, "_get_post", lambda user_id, post_id, profile_id:
+                        inspected.append((user_id, post_id, profile_id)) or {"id": post_id})
+    monkeypatch.setattr(posts, "_latest_future_revision", lambda *_: {
+        "id": 9, "effective_after": "2026-11-02T17:30:00Z", "texts": ["futuro"],
+    })
+    try:
+        response = client.get("/posts/10/future-revisions/latest")
+        assert response.status_code == 200
+        assert response.json()["revision"]["texts"] == ["futuro"]
+        assert inspected == [(42, 10, "profile-a")]
+        database.rpc.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_latest_revision_requires_authentication():
+    app.dependency_overrides.clear()
+    try:
+        response = TestClient(app).get("/posts/10/future-revisions/latest")
+        assert response.status_code == 401
+    finally:
+        app.dependency_overrides.clear()
