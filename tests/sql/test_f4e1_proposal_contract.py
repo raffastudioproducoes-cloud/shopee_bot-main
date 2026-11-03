@@ -12,7 +12,8 @@ class TestF4eProposal(unittest.TestCase):
 
     def test_no_dispatch_writes(self):
         self.assertNotRegex(SQL, r"insert\s+into\s+(?:public\.)?(?:posts|schedulers|publish_jobs)\b")
-        self.assertNotRegex(SQL, r"create\s+trigger\b")
+        self.assertEqual(SQL.count("create trigger"), 1)
+        self.assertIn("create trigger trg_guard_campaign_reservation_f4e", SQL)
         self.assertEqual(SQL.count("check (dispatch_enabled = false)"), 2)
 
     def test_bounded_states_and_lock(self):
@@ -23,7 +24,7 @@ class TestF4eProposal(unittest.TestCase):
         self.assertIn("active_campaigns_per_profile", SQL)
 
     def test_role_boundary(self):
-        self.assertEqual(SQL.count("security invoker"), 2)
+        self.assertEqual(SQL.count("security invoker"), 3)
         self.assertIn("from public, anon, authenticated, service_role", SQL)
         self.assertIn("from public,anon,authenticated,service_role", SQL)
         self.assertNotIn("security definer", SQL)
