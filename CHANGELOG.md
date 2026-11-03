@@ -5,6 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### F4E-2A — preflight parcial, PR draft
+
+**F4E-2A PRE-DEPLOY (PR #231):** preflight autenticado de leitura parcial para rascunho e revisão, política de plano, cronograma e volume por rede. Retorna `preflight_only`, `checks_complete=false`, `reservation_available=false`, `reserved=false`, `activated=false`; não reserva, não chama RPC, não gera jobs/posts e não prova OAuth, retenção física de mídia ou vaga concorrente. Antes de qualquer reserva/execução: proteger mídia e rascunho contra exclusão concorrente, rever writes diretos service_role e validar guardas de dispatch em ambos ambientes. CI, revisão e deploy ainda não confirmados neste registro; `VERSION=3.0.0`.
+
+
 ### 03/11/2026 — Fechamento F4E-1 em staging LIVE (após PR draft)
 
 - [PR #229](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/229) mesclada apenas em staging: squash `24c45b671e416d071c80c1c914eecaf6344db0b9`; [CI #764](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41702740725) SUCCESS com PostgreSQL 16; Render `dep-dbl3aibbc2fs738kfllg` LIVE no SHA; `/health` e `/api/health/ready` = `{"status":"ok"}`.
