@@ -104,136 +104,13 @@ BEGIN
       RAISE EXCEPTION 'campaign_quota_exceeded' USING ERRCODE='P0001';
     END IF;
   END IF;
-  -- O contrato aceita apenas UTC explicito; nao e um payload de publicacao.
+  -- UTC explicito; nao e um payload de publicacao.
   IF EXISTS (SELECT 1 FROM jsonb_array_elements_text(p_occurrences) x
-             WHERE x !~ '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z
-    RAISE EXCEPTION 'media_not_ready' USING ERRCODE='P0001';
-  END IF;
-  SELECT COALESCE(jsonb_agg(to_jsonb(m) ORDER BY m.product_id,m.slot),'[]'::jsonb)
-    INTO v_media FROM public.campaign_draft_media m
-    WHERE m.campaign_id=p_draft_id AND m.user_id=p_user_id AND m.profile_id=p_profile_id;
-  INSERT INTO public.campaign_reservations_f4e
-    (user_id,profile_id,draft_id,request_key,request_payload,draft_snapshot,media_snapshot)
-    VALUES (p_user_id,p_profile_id,p_draft_id,p_request_key,v_payload,v_draft,v_media)
-    RETURNING id INTO v_id;
-  INSERT INTO public.campaign_occurrences_f4e(reservation_id,ordinal,planned_at)
-    SELECT v_id, ord::integer, (value #>> '{}')::timestamptz
-    FROM jsonb_array_elements(p_occurrences) WITH ORDINALITY AS a(value,ord);
-  RETURN v_id;
-END; $$;
-
-CREATE FUNCTION public.release_campaign_f4e(p_user_id uuid,p_profile_id uuid,p_reservation_id uuid)
-RETURNS boolean LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
-BEGIN
-  PERFORM 1 FROM public.users WHERE id=p_user_id FOR UPDATE;
-  IF NOT FOUND OR NOT EXISTS (SELECT 1 FROM public.profiles
-      WHERE id=p_profile_id AND user_id=p_user_id) THEN
-    RAISE EXCEPTION 'account_or_profile_not_owned' USING ERRCODE='P0001';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.campaign_reservations_f4e
-      WHERE id=p_reservation_id AND user_id=p_user_id AND profile_id=p_profile_id) THEN
-    RAISE EXCEPTION 'reservation_not_owned' USING ERRCODE='P0001';
-  END IF;
-  UPDATE public.campaign_occurrences_f4e SET status='cancelled'
-    WHERE reservation_id=p_reservation_id AND status='planned';
-  UPDATE public.campaign_reservations_f4e SET status='released',released_at=now()
-    WHERE id=p_reservation_id AND status='reserved_no_dispatch';
-  RETURN true;
-END; $$;
-REVOKE ALL ON FUNCTION public.reserve_campaign_f4e(uuid,uuid,uuid,integer,text,jsonb)
-  FROM PUBLIC,anon,authenticated,service_role;
-REVOKE ALL ON FUNCTION public.release_campaign_f4e(uuid,uuid,uuid)
-  FROM PUBLIC,anon,authenticated,service_role;
-GRANT EXECUTE ON FUNCTION public.reserve_campaign_f4e(uuid,uuid,uuid,integer,text,jsonb) TO service_role;
-GRANT EXECUTE ON FUNCTION public.release_campaign_f4e(uuid,uuid,uuid) TO service_role;
-COMMIT;
-) THEN
+             WHERE x !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') THEN
     RAISE EXCEPTION 'timestamps_require_utc_z' USING ERRCODE='P0001';
   END IF;
-  IF (v_draft->'schedule'->>'start_date') !~ '^\\d{4}-\\d{2}-\\d{2}
-    RAISE EXCEPTION 'media_not_ready' USING ERRCODE='P0001';
-  END IF;
-  SELECT COALESCE(jsonb_agg(to_jsonb(m) ORDER BY m.product_id,m.slot),'[]'::jsonb)
-    INTO v_media FROM public.campaign_draft_media m
-    WHERE m.campaign_id=p_draft_id AND m.user_id=p_user_id AND m.profile_id=p_profile_id;
-  INSERT INTO public.campaign_reservations_f4e
-    (user_id,profile_id,draft_id,request_key,request_payload,draft_snapshot,media_snapshot)
-    VALUES (p_user_id,p_profile_id,p_draft_id,p_request_key,v_payload,v_draft,v_media)
-    RETURNING id INTO v_id;
-  INSERT INTO public.campaign_occurrences_f4e(reservation_id,ordinal,planned_at)
-    SELECT v_id, ord::integer, (value #>> '{}')::timestamptz
-    FROM jsonb_array_elements(p_occurrences) WITH ORDINALITY AS a(value,ord);
-  RETURN v_id;
-END; $$;
-
-CREATE FUNCTION public.release_campaign_f4e(p_user_id uuid,p_profile_id uuid,p_reservation_id uuid)
-RETURNS boolean LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
-BEGIN
-  PERFORM 1 FROM public.users WHERE id=p_user_id FOR UPDATE;
-  IF NOT FOUND OR NOT EXISTS (SELECT 1 FROM public.profiles
-      WHERE id=p_profile_id AND user_id=p_user_id) THEN
-    RAISE EXCEPTION 'account_or_profile_not_owned' USING ERRCODE='P0001';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.campaign_reservations_f4e
-      WHERE id=p_reservation_id AND user_id=p_user_id AND profile_id=p_profile_id) THEN
-    RAISE EXCEPTION 'reservation_not_owned' USING ERRCODE='P0001';
-  END IF;
-  UPDATE public.campaign_occurrences_f4e SET status='cancelled'
-    WHERE reservation_id=p_reservation_id AND status='planned';
-  UPDATE public.campaign_reservations_f4e SET status='released',released_at=now()
-    WHERE id=p_reservation_id AND status='reserved_no_dispatch';
-  RETURN true;
-END; $$;
-REVOKE ALL ON FUNCTION public.reserve_campaign_f4e(uuid,uuid,uuid,integer,text,jsonb)
-  FROM PUBLIC,anon,authenticated,service_role;
-REVOKE ALL ON FUNCTION public.release_campaign_f4e(uuid,uuid,uuid)
-  FROM PUBLIC,anon,authenticated,service_role;
-GRANT EXECUTE ON FUNCTION public.reserve_campaign_f4e(uuid,uuid,uuid,integer,text,jsonb) TO service_role;
-GRANT EXECUTE ON FUNCTION public.release_campaign_f4e(uuid,uuid,uuid) TO service_role;
-COMMIT;
-
-     OR (v_draft->'schedule'->>'end_date') !~ '^\\d{4}-\\d{2}-\\d{2}
-    RAISE EXCEPTION 'media_not_ready' USING ERRCODE='P0001';
-  END IF;
-  SELECT COALESCE(jsonb_agg(to_jsonb(m) ORDER BY m.product_id,m.slot),'[]'::jsonb)
-    INTO v_media FROM public.campaign_draft_media m
-    WHERE m.campaign_id=p_draft_id AND m.user_id=p_user_id AND m.profile_id=p_profile_id;
-  INSERT INTO public.campaign_reservations_f4e
-    (user_id,profile_id,draft_id,request_key,request_payload,draft_snapshot,media_snapshot)
-    VALUES (p_user_id,p_profile_id,p_draft_id,p_request_key,v_payload,v_draft,v_media)
-    RETURNING id INTO v_id;
-  INSERT INTO public.campaign_occurrences_f4e(reservation_id,ordinal,planned_at)
-    SELECT v_id, ord::integer, (value #>> '{}')::timestamptz
-    FROM jsonb_array_elements(p_occurrences) WITH ORDINALITY AS a(value,ord);
-  RETURN v_id;
-END; $$;
-
-CREATE FUNCTION public.release_campaign_f4e(p_user_id uuid,p_profile_id uuid,p_reservation_id uuid)
-RETURNS boolean LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
-BEGIN
-  PERFORM 1 FROM public.users WHERE id=p_user_id FOR UPDATE;
-  IF NOT FOUND OR NOT EXISTS (SELECT 1 FROM public.profiles
-      WHERE id=p_profile_id AND user_id=p_user_id) THEN
-    RAISE EXCEPTION 'account_or_profile_not_owned' USING ERRCODE='P0001';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.campaign_reservations_f4e
-      WHERE id=p_reservation_id AND user_id=p_user_id AND profile_id=p_profile_id) THEN
-    RAISE EXCEPTION 'reservation_not_owned' USING ERRCODE='P0001';
-  END IF;
-  UPDATE public.campaign_occurrences_f4e SET status='cancelled'
-    WHERE reservation_id=p_reservation_id AND status='planned';
-  UPDATE public.campaign_reservations_f4e SET status='released',released_at=now()
-    WHERE id=p_reservation_id AND status='reserved_no_dispatch';
-  RETURN true;
-END; $$;
-REVOKE ALL ON FUNCTION public.reserve_campaign_f4e(uuid,uuid,uuid,integer,text,jsonb)
-  FROM PUBLIC,anon,authenticated,service_role;
-REVOKE ALL ON FUNCTION public.release_campaign_f4e(uuid,uuid,uuid)
-  FROM PUBLIC,anon,authenticated,service_role;
-GRANT EXECUTE ON FUNCTION public.reserve_campaign_f4e(uuid,uuid,uuid,integer,text,jsonb) TO service_role;
-GRANT EXECUTE ON FUNCTION public.release_campaign_f4e(uuid,uuid,uuid) TO service_role;
-COMMIT;
-
+  IF (v_draft->'schedule'->>'start_date') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+     OR (v_draft->'schedule'->>'end_date') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
      OR v_draft->'schedule'->>'start_date' IS NULL
      OR v_draft->'schedule'->>'end_date' IS NULL THEN
     RAISE EXCEPTION 'invalid_schedule_dates' USING ERRCODE='P0001';
@@ -250,15 +127,14 @@ COMMIT;
         <> (SELECT count(DISTINCT x) FROM jsonb_array_elements_text(p_occurrences) x) THEN
     RAISE EXCEPTION 'invalid_occurrences' USING ERRCODE='P0001';
   END IF;
-  -- Conta slots, nao redes; a validacao de rede por produto continua bloqueante.
+  -- Conta slots, nao redes; validacao de rede por produto continua bloqueante.
   IF v_day_cap IS NOT NULL AND EXISTS (
       SELECT 1 FROM jsonb_array_elements_text(p_occurrences) x
       GROUP BY (x::timestamptz AT TIME ZONE 'America/Sao_Paulo')::date
       HAVING count(*) > v_day_cap) THEN
     RAISE EXCEPTION 'campaign_day_slots_exceeded' USING ERRCODE='P0001';
   END IF;
-  -- Trava linhas de midia existentes; insercoes de filhos dependem da FK
-  -- imediata no draft travado FOR UPDATE. Exige teste de concorrencia.
+  -- O lock de draft bloqueia inserts com FK imediata; trava as midias existentes.
   PERFORM 1 FROM public.campaign_draft_media WHERE campaign_id=p_draft_id FOR UPDATE;
   IF EXISTS (SELECT 1 FROM public.campaign_draft_media
              WHERE campaign_id=p_draft_id AND status <> 'ready') THEN
