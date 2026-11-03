@@ -1,4 +1,4 @@
-"""Guardas preparatórios F4C2; não reserva nem ativa campanhas.
+"""Políticas de campanha e limites, revalidados na ativação e no executor.
 
 Plano/papel vêm da conta; catálogo auditável da migration 072 é lido sem
 cache para respeitar downgrade. Rascunhos nunca consomem vagas ativas.
@@ -128,19 +128,46 @@ def require_automation_access(policy: CampaignPolicy) -> None:
 
 
 def campaign_limits_response(policy: CampaignPolicy, profile_id: str) -> dict:
+    """Failures in commercial entitlement/usage readings fail closed."""
+    from datetime import datetime, timezone
+    paid_through = None
+    eligible = policy.is_admin
+    active_count = None
+    try:
+        account = (supabase.table("profiles").select("user_id")
+                   .eq("id",profile_id).single().execute()).data
+        user = (supabase.table("users")
+                .select("campaign_paid_through,campaign_pending_tier,campaign_tier_effective_at")
+                .eq("id",account["user_id"]).single().execute()).data
+        paid_through = user.get("campaign_paid_through")
+        if paid_through and not policy.is_admin:
+            paid = datetime.fromisoformat(paid_through.replace("Z","+00:00"))
+            eligible = paid > datetime.now(timezone.utc) and policy.campaigns_enabled
+        count = (supabase.table("campaign_reservations_f4e")
+                 .select("id",count="exact",head=True)
+                 .eq("profile_id",profile_id).eq("user_id",account["user_id"])
+                 .eq("status","reserved_no_dispatch")
+                 .in_("lifecycle",["preparing","active","paused"]).execute())
+        active_count = count.count
+    except Exception:
+        eligible = policy.is_admin
+        active_count = None
     return {
         "profile_id": profile_id,
         "plan_tier": policy.tier,
         "is_admin": policy.is_admin,
         "campaigns_enabled": policy.campaigns_enabled,
         "active_campaigns_limit": policy.active_campaigns_limit,
-        "active_campaigns_count": None,
-        "active_campaigns_usage_status": "not_implemented",
+        "active_campaigns_count": active_count,
+        "active_campaigns_usage_status": "available" if active_count is not None else "unavailable",
         "campaign_days": policy.campaign_days,
         "campaign_posts_per_day": policy.campaign_posts_per_day,
         "absolute_campaign_days": 30,
         "automation_entitled": policy.automation_enabled,
-        "automation_available": False,
-        "activation_available": False,
-        "message": "Somente prévias e rascunhos. Ativação e automação ainda indisponíveis.",
+        "automation_available": eligible and policy.automation_enabled,
+        "activation_available": eligible and active_count is not None,
+        "campaign_paid_through": paid_through,
+        "message": ("Ativação permitida, sujeita à revisão de mídia, OAuth e cotas."
+                    if eligible and active_count is not None
+                    else "Ativação exige período pago confirmado e capacidade disponível."),
     }
