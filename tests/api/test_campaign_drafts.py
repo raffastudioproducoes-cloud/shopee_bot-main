@@ -92,7 +92,7 @@ def test_schedule_must_match_saved_list_and_exact_product_order():
     schedule = campaigns.CampaignPreviewRequest(
         list_id=11, item_ids=[12, 13], start_date="2026-11-04",
         end_date="2026-11-06", weekdays=[0, 1, 2, 3, 4],
-        start_time="09:00", end_time="18:00", interval_minutes=180,
+        start_time="09:00", end_time="18:00", posts_per_day=4,
     )
     campaigns.validate_campaign_draft_schedule(schedule, 11, [12, 13])
     with pytest.raises(ValueError, match="lista"):
@@ -217,3 +217,113 @@ def test_campaign_media_upload_is_sanitized_private_scoped_and_never_creates_pos
     assert fake.storage.files[0][1] == b"sanitized"
     assert set(fake.tables) == {"campaign_draft_media"}
     assert "storage_key" not in result
+
+
+
+def test_delete_draft_cleans_private_media_first_and_never_touches_posts(monkeypatch):
+    from uuid import UUID
+
+    draft_id = UUID("11111111-1111-1111-1111-111111111111")
+    files = [{
+        "id": "media-1", "storage_bucket": "post-media",
+        "storage_key": f"campaigns/owner/profile-a/{draft_id}/12/file.png",
+        "status": "ready",
+    }]
+
+    class Query:
+        def __init__(self, db, name):
+            self.db, self.name, self.cols, self.operation = db, name, "*", "select"
+            self.filters = []
+        def select(self, cols): self.cols = cols; return self
+        def eq(self, key, value): self.filters.append((key, value)); return self
+        def limit(self, count): return self
+        def delete(self): self.operation = "delete"; return self
+        def execute(self):
+            if self.operation == "delete":
+                assert self.db.events == [("storage.remove", [files[0]["storage_key"]])]
+                assert ("revision", 3) in self.filters
+                self.db.events.append(("db.delete", self.name))
+                return SimpleNamespace(data=[{"id": str(draft_id)}])
+            if self.name == "campaign_draft_media":
+                return SimpleNamespace(data=([{"id": x["id"]} for x in files]
+                                             if self.cols == "id" else files))
+            raise AssertionError("Tabela não esperada")
+
+    class Storage:
+        def __init__(self, db): self.db = db
+        def from_(self, bucket):
+            assert bucket == "post-media"
+            return self
+        def remove(self, keys): self.db.events.append(("storage.remove", keys))
+
+    class DB:
+        def __init__(self):
+            self.events = []
+            self.storage = Storage(self)
+        def table(self, name):
+            assert name in ("campaign_drafts", "campaign_draft_media")
+            return Query(self, name)
+
+    fake = DB()
+    scopes = []
+    monkeypatch.setattr(campaigns, "supabase", fake)
+    monkeypatch.setattr(campaigns, "_get_owned_campaign", lambda *_: {"status": "draft", "revision": 3})
+    monkeypatch.setattr(campaigns, "scope_owner", lambda query, uid, pid: (
+        scopes.append((uid, pid)) or query))
+    result = asyncio.run(campaigns.delete_campaign_draft(
+        draft_id, expected_revision=3, user_id="owner", profile_id="profile-a"))
+    assert result is None
+    assert fake.events[-1] == ("db.delete", "campaign_drafts")
+    assert scopes == [("owner", "profile-a")] * 3
+
+
+def test_delete_draft_refuses_stale_revision_without_storage_side_effects(monkeypatch):
+    from uuid import UUID
+    monkeypatch.setattr(campaigns, "_get_owned_campaign",
+                        lambda *_: {"status": "draft", "revision": 4})
+    with pytest.raises(HTTPException) as caught:
+        asyncio.run(campaigns.delete_campaign_draft(
+            UUID("11111111-1111-1111-1111-111111111111"),
+            expected_revision=3, user_id="owner", profile_id="profile-a"))
+    assert caught.value.status_code == 409
+
+
+def test_delete_draft_preserves_database_when_storage_cleanup_fails(monkeypatch):
+    from uuid import UUID
+    draft_id = UUID("11111111-1111-1111-1111-111111111111")
+    events = []
+
+    class Query:
+        def select(self, *args): return self
+        def eq(self, *args): return self
+        def limit(self, *args): return self
+        def delete(self):
+            raise AssertionError("Não deve apagar a campanha após erro no Storage")
+        def execute(self):
+            return SimpleNamespace(data=[{
+                "id": "media-1", "storage_bucket": "post-media",
+                "storage_key": f"campaigns/owner/profile-a/{draft_id}/12/file.png",
+                "status": "ready",
+            }])
+
+    class Storage:
+        def from_(self, bucket): return self
+        def remove(self, keys):
+            events.append("attempt")
+            raise RuntimeError("storage offline")
+
+    class DB:
+        storage = Storage()
+        def table(self, name):
+            assert name == "campaign_draft_media"
+            return Query()
+
+    monkeypatch.setattr(campaigns, "supabase", DB())
+    monkeypatch.setattr(campaigns, "_get_owned_campaign",
+                        lambda *_: {"status": "draft", "revision": 1})
+    monkeypatch.setattr(campaigns, "scope_owner", lambda query, *_: query)
+    with pytest.raises(HTTPException) as caught:
+        asyncio.run(campaigns.delete_campaign_draft(
+            draft_id, expected_revision=1, user_id="owner", profile_id="profile-a"))
+    assert caught.value.status_code == 502
+    assert events == ["attempt"]
