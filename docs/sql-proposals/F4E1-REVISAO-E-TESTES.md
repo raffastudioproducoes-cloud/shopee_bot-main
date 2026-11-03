@@ -4,6 +4,14 @@ Esta branch é apenas uma proposta reversível em texto. A aplicação F4E-1 no 
 
 O SQL está em `docs/sql-proposals/`, fora de `database/migrations/*.sql`, que é varrido no boot. Nada cria registros em posts, schedulers ou publish_jobs, nem cria trigger/executor. Reservas só admitem `reserved_no_dispatch` e `released`; ocorrências apenas `planned` e `cancelled`; ambos os controles exigem `dispatch_enabled=false`. A quota é consultada em plan_limits sob lock da conta, com Plus→Pro e bypass comercial de ADMIN, não de ownership. Mesmo payload/chave retorna o mesmo ID, inclusive se já liberado; payload diferente falha. A reserva **não é ativação** nem valida redes, OAuth, conflito de agenda, limitação por dia, horário futuro ou autorização de publicar.
 
+## Atualização de proposta — sem aplicação
+
+A versão candidata exige UTC com sufixo Z, ocorrências futuras dentro da janela do draft no fuso São Paulo, limites de duração da política (teto físico 30 dias), teto de slots por dia e duplicatas rejeitadas. A contagem de slots **não** conta redes e não substitui revalidação de produtos/redes, agenda e autenticação. Uma revisão de draft não pode ter duas reservas simultâneas. Idempotência usa UNIQUE por (user_id, request_key), escopo de conta mais estrito que conta/perfil; chave reutilizada em outro perfil conflita. Chave repetida após liberação retorna o registro liberado, não reativa.
+
+O draft é travado FOR UPDATE e mídias existentes também; inserção de nova mídia pressupõe FK imediata. Isso exige prova concorrente contra o fluxo real, inclusive Storage externo. Limites, ACL e comportamento devem ser confirmados contra esquema real em clone. A proposta continua não idempotente no boot e não é migration pronta para execução.
+
+Foi adicionado job GitHub Actions com PostgreSQL 16 descartável, fixture sintética e psycopg, sem Supabase. Seu resultado deve ser conferido por SHA: criação do job não é evidência de execução ou aprovação. O clone mínimo não reproduz Supabase, RLS, heranças nem migrador integralmente. Testes de concorrência de mídia, política por rede e reexecução do migrador continuam pendentes.
+
 ## BLOQUEIOS antes de qualquer aplicação
 
 1. Auditoria de concorrência da captura draft/mídias: lock da linha do draft não comprova serialização com exclusão/alteração das mídias. Validar contra o código atual e corrigir o protocolo de lock, revisão e transações antes de aplicação; demonstrar snapshot consistente sob inserção, remoção e mudança concorrentes. Metadados capturados **não garantem retenção dos objetos no Storage**.
