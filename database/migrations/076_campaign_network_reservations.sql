@@ -36,7 +36,7 @@ CREATE TABLE public.campaign_network_slots_f4e (
   user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   profile_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   product_id integer NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
-  network text NOT NULL CHECK (network IN ('threads','facebook','instagram','tiktok')),
+  network text NOT NULL CHECK (network IN ('threads','x','facebook','instagram','tiktok')),
   planned_at timestamptz NOT NULL,
   content_text text NOT NULL,
   media_snapshot jsonb NOT NULL DEFAULT '[]'::jsonb
@@ -161,7 +161,7 @@ BEGIN
              WHERE jsonb_typeof(item->'networks') <> 'array'
                 OR jsonb_array_length(item->'networks') = 0
                 OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(item->'networks') n
-                           WHERE n NOT IN ('threads','facebook','instagram','tiktok')))
+                           WHERE n NOT IN ('threads','x','facebook','instagram','tiktok')))
   THEN RAISE EXCEPTION 'invalid_campaign_network' USING ERRCODE='P0001'; END IF;
 
   IF NOT EXISTS (SELECT 1 FROM public.campaign_network_slots_f4e
