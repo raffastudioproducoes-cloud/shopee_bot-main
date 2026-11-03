@@ -8,15 +8,16 @@ def _execution_scope(alias, *, legacy_only=False):
     """Legado local permanece isolado; central só na produção com gate ativo."""
     if not central_dispatch_enabled():
         return (
-            f"{alias}.environment = %s AND {alias}.dispatch_mode = 'legacy'",
+            f"{alias}.environment = %s AND {alias}.dispatch_mode = 'legacy' AND {alias}.publication_origin = 'legacy'",
             (current_environment(),),
         )
     if legacy_only:
         return (
-            f"{alias}.environment = %s AND {alias}.dispatch_mode = 'legacy'",
+            f"{alias}.environment = %s AND {alias}.dispatch_mode = 'legacy' AND {alias}.publication_origin = 'legacy'",
             (current_environment(),),
         )
-    return publication_scope_sql(alias)
+    scope, args = publication_scope_sql(alias)
+    return f"({scope}) AND {alias}.publication_origin = 'legacy'", args
 
 # Rede social do post -> função de publicação chamada pelo scheduler
 # (ver scheduler/__init__.py, que resolve o nome via globals()).
@@ -67,7 +68,8 @@ def get_by_id(job_id):
         SELECT
             s.id, s.post_id, s.user_id, s.profile_id, s.func, s.trigger,
             s.time, s.day_of_week, s.days_of_week, s.start_date, s.run_date,
-            s.environment, s.dispatch_mode, s.dispatch_cancelled_at
+            s.environment, s.dispatch_mode, s.dispatch_cancelled_at,
+            s.publication_origin
         FROM schedulers s
         JOIN posts p ON p.id = s.post_id
           AND p.user_id = s.user_id
@@ -84,7 +86,7 @@ def query(user_id):
             id, post_id, user_id, func, trigger, time, day_of_week, days_of_week,
             start_date, run_date
         FROM schedulers
-        WHERE user_id = %s
+        WHERE user_id = %s AND publication_origin = 'legacy'
     """
     args = (user_id, )
     return query_db(query, args)
@@ -127,6 +129,7 @@ def delete(user_id, scheduler_id, open_conn=None):
     query = """
         DELETE FROM schedulers
         WHERE id = %s AND user_id = %s AND dispatch_mode = 'legacy'
+          AND publication_origin = 'legacy'
         RETURNING id
     """
     args = (scheduler_id, user_id)
@@ -151,6 +154,7 @@ def list_central_dispatch_jobs():
           AND p.user_id = s.user_id
           AND p.profile_id IS NOT DISTINCT FROM s.profile_id
         WHERE s.dispatch_mode = 'central'
+          AND s.publication_origin = 'legacy'
           AND s.dispatch_cancelled_at IS NULL
           AND s.func = ANY(%s)
           AND (
@@ -182,7 +186,8 @@ def cancel_central(user_id, scheduler_id, open_conn=None):
         SET dispatch_cancelled_at = now(),
             dispatch_revision = dispatch_revision + 1
         WHERE id = %s AND user_id = %s AND environment = %s
-          AND dispatch_mode = 'central' AND dispatch_cancelled_at IS NULL
+          AND dispatch_mode = 'central' AND publication_origin = 'legacy'
+          AND dispatch_cancelled_at IS NULL
         RETURNING id
         """,
         (scheduler_id, user_id, current_environment()),
@@ -218,6 +223,7 @@ def expedite_central(job_id):
             END
         WHERE s.id = %s AND s.environment = %s
           AND s.dispatch_mode = 'central'
+          AND s.publication_origin = 'legacy'
           AND s.dispatch_cancelled_at IS NULL
           AND s.trigger = 'date'
         RETURNING id
@@ -260,6 +266,7 @@ def expire_missed_central_dates(grace_seconds=3600):
           AND p.user_id = s.user_id
           AND p.profile_id IS NOT DISTINCT FROM s.profile_id
         WHERE s.dispatch_mode = 'central'
+          AND s.publication_origin = 'legacy'
           AND s.dispatch_cancelled_at IS NULL
           AND s.trigger = 'date'
           AND s.func = ANY(%s)
