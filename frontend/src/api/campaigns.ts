@@ -95,6 +95,7 @@ export interface CampaignProgress {
 
 export interface CampaignReservation {
   id: string
+  name: string
   draft_id: string | null
   lifecycle: CampaignLifecycle
   source_environment: 'staging' | 'production' | null
