@@ -10,6 +10,7 @@ from shopee_bot.database import query_db
 from shopee_bot.database.scheduler_environment import current_environment
 from shopee_bot.scheduler.publication_result import PublicationResult, unknown, failed
 from shopee_bot.clogging import logger
+from shopee_bot.utils.log_sanitizer import sanitize_log_data
 
 _campaign_attempt = ContextVar("campaign_attempt", default=None)
 
@@ -118,7 +119,7 @@ def drain():
                     _call("finish_campaign_publication_f4e", (
                         env,claim["publish_job_id"],claim["claim_token"],
                         status, str(external_id) if external_id else None,
-                        str(error)[:2000] if error else None,
+                        sanitize_log_data(str(error))[:2000] if error else None,
                     ))
                 except Exception:
                     logger.exception("Resultado de campanha não persistido; recuperação manterá estado incerto")
