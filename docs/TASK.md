@@ -3,18 +3,18 @@
 - [x] F4B/F4B2 recuperada da interrupção: migração 072 aplicada e registrada no Supabase em 03/11, políticas Free1/Pro3/Premium5 perfis e cotas de catálogo/listas verificadas, RLS/grants de RPCs corretos; PR [#214](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/214) squash-merge apenas em staging (`83d8373`), CI #711 SUCCESS e Render `dep-dbkp2lu7bikc7397nir0` LIVE. `main`/Render produção preservados. Startup registrou 072 em `public.migrations`.
 - [x] Branch `feature/f4c1-publication-quotas-20261103`: reserva por rede para Agora (janela de 60 minutos) e por dia+horário para cron, com lock transacional por conta, bypass comercial ADMIN e função de compensação apenas antes da execução. Considera agendas existentes para não permitir novos slots acima da cota; produção antiga continua sem trigger comercial global.
 - [ ] Migração `073_post_publication_plan_quotas.sql` está **somente no código da branch, NÃO aplicada** ao Supabase compartilhado. Exige CI/revisão, aprovação expressa para DDL, aplicação controlada e registro em `public.migrations` antes do merge staging e auto-deploy do Render.
-- [ ] Cobertura CI e PR F4C1; QA autenticado sem disparo real, smoke e Render LIVE. F4C2: campanhas ativas e automação, e F4D–F4F em entregas seguintes; `VERSION=3.0.0` sem release.
+- [x] PR [#215](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/215) aberta em DRAFT; primeira CI [#713](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41600584554) falhou em 15 testes legados porque FakeDB não simulava a nova RPC; fixture corrigida sem afrouxar a validação real. CI [#714](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41600926342) **SUCCESS** (API + frontend). Revisão read-only confirmou esquema existente e 072 aplicada, porém 073 ausente.\n- [ ] Aprovação de Rafa para migration 073, validação SQL/RLS em banco, registro `public.migrations`, merge e deploy **somente staging**, smoke/QA sem disparo real. F4C2: campanhas ativas e automação, e F4D–F4F em entregas seguintes; `VERSION=3.0.0` sem release.
 
 ## 03/11/2026 — F4B2: limites de perfis e isolamento por conta (em homologação)
 
 - [x] Rafa confirmou Free = **1 perfil total / 0 secundários**; Pro = **3 totais**; Premium = **5 totais**; ADMIN sem limite comercial. Produtos, Shopee, Gemini/IA compartilhados entre perfis. Listas **permanecem isoladas por perfil** (decisão expressa). Redes/OAuth, posts e históricos isolados por perfil.
-- [ ] PR #214 `feature/f4b-backend-entitlements-20261103`: migração 072 ampliada para três RPCs de quota (produtos, listas, perfis), `POST /profiles` chama RPC por plano; produção antiga conserva teto 3 no trigger global por Supabase compartilhado. CI, migração/aprovação, merge staging e health a verificar. Sem publicação externa.
+- [x] PR #214 mesclada em staging (`83d8373`), migração 072 aplicada no Supabase e registrada em `public.migrations`, CI #711 verde, Render staging LIVE; produção antiga conserva teto 3 no trigger global e `main` não foi alterada. Sem publicação externa.
 - [ ] F4C: enforce envios imediatos, recorrente, campanhas simultâneas e automação. Interface de upgrade e rollout `main` ficam separados.
 
 ## 03/11/2026 — F4B: quotas persistidas no backend (em execução)
 
 - [x] Rafa fixou Premium em 2.000 produtos/conta, 100 listas/perfil, 5 envios imediatos/hora, 5 horários recorrentes/dia; Pro em **2 campanhas simultâneas/perfil**, Premium em **5**; cada rede publicada = 1 postagem. Substitui explicitamente o Pro=0 anterior.
-- [ ] `feature/f4b-backend-entitlements-20261103`: política SQL editável/auditável, source-of-truth por conta, RPC atômica produtos/listas, tratamento HTTP e testes; PR, CI, migração, merge staging e health ainda aguardando fechamento.
+- [x] `feature/f4b-backend-entitlements-20261103`: política SQL editável/auditável, source-of-truth por conta, RPC atômica produtos/listas/perfis, tratamento HTTP e testes; PR #214, CI #711, migration 072 e Render staging verificados.
 - [ ] Próxima subfase F4C: guardas de perfis, recorrente, envio imediato, campanhas ativas, automação e UI. Não executar publicação real. Migração/DB compartilhado exige prova de compatibilidade com main.
 
 ## 03/11/2026 — F4A planos, etiquetas e política configurável (em homologação)
