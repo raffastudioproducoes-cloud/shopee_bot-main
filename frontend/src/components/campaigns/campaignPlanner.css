@@ -75,3 +75,13 @@
   .campaign-edit-button { flex:1 1 auto; }
   .campaign-reorder { margin-left:auto; }
 }
+
+
+/* Persistência F3A: seleção de rascunho adaptável a desktop/tablet/mobile. */
+.campaign-draft-restore { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:12px; min-width:0; }
+.campaign-draft-restore .campaign-select { min-width:0; }
+.campaign-draft-restore button { min-height:44px; }
+@media (max-width:520px) {
+  .campaign-draft-restore { grid-template-columns:minmax(0,1fr); }
+  .campaign-draft-restore button { width:100%; }
+}

@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — F3A: rascunhos de campanha persistidos (PR #207, aguardando merge staging)
+- Nova API de rascunhos `/campaigns/drafts` para salvar, listar, consultar e revisar com controle por usuário/perfil e revisão otimista; preserva snapshots separados de título, texto, link, redes e foto Shopee por item.
+- Página `Criar POST` com ações para salvar e recuperar rascunhos do servidor, mantendo a cópia local como proteção. A operação não cria posts, jobs, reservas de agenda ou publicações.
+- Migration `070_campaign_drafts.sql` aditiva com RLS, integridade de dono/perfil/lista e índice; **aplicada com autorização de Rafa em 03/11/2026** ao Supabase compartilhado sob o nome `campaign_drafts_070`; inspeção confirmou RLS ativo, zero policies para acesso direto, `anon`/`authenticated` sem SELECT, `service_role` com SELECT/INSERT e trigger de ownership. Integração staging condicionada ao CI final.
+- Mídias próprias de campanha (fotos/vídeos enviados pelo usuário) exigem persistência durável separada antes da ativação. A publicação única mantém suas fontes e uploads existentes; não houve alteração nela.
+
+
 ### Added — preparação por produto da campanha (staging, sem ativação)
 - Campanha por lista tem editor em página, por produto, para título, texto principal, texto específico por rede, link de afiliado, redes com credenciais válidas e opção de foto principal Shopee.
 - Snapshots locais independentes por usuário/perfil/lista, sem modificar a lista-fonte; restauração preserva campos apagados, ordem e IDs permitidos. Prévia permanece somente leitura, sem gerar posts/jobs ou publicar.

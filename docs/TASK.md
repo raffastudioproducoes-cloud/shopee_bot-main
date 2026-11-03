@@ -1,3 +1,16 @@
+## 03/11/2026 UTC — F3A: rascunho de campanha persistente (PR #207, schema 070 aplicado com autorização)
+
+- [x] Branch `feat/campaign-persisted-drafts-f3a-20261103` isolada de `staging`, com PR [#207](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/207). `main` e scheduler de staging/produção intactos.
+- [x] TDD: CI RED inicial 4 falhas por contrato ainda ausente; backend de rascunhos implementado com escopos de usuário/perfil, IDs exatos dos itens e versionamento otimista; schema 070 aditivo com RLS e trigger de ownership preparado.
+- [x] Frontend: botão Salvar/Atualizar, lista e Carregar rascunhos por servidor na página `Criar POST`, com cópia local preservada e layout responsivo. Nenhuma ação cria post, job, mídia ou ativação.
+- [x] Garantir que o planejamento opcional use a mesma lista e ordem de produtos; snapshots antigos não editam a lista-fonte.
+- [x] CI anterior [#41570799397](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41570799397) success (API e frontend); aguardar CI final com a migration ajustada para o gate de merge.
+- [x] Rafa autorizou especificamente migration 070. Aplicada via Supabase `campaign_drafts_070` em 03/11/2026. Inspeção confirmou tabela vazia, RLS ativo, anon/authenticated sem SELECT, service_role com SELECT/INSERT, ownership trigger ativo. Nenhum post/job/agendamento criado.
+- [ ] Com schema validado, mesclar PR #207 apenas em `staging` quando o novo CI estiver verde e conferir Render. `main` intocada; `VERSION=3.0.0` continua até release planejada.
+- [ ] F3B: anexos duráveis por item (foto/vídeo PC/celular, possível seleção de imagem Shopee) com política de expiração e limpeza; staging deve permanecer sem publicar; F4/F5 de ativação, cotas e regra T–30 vêm depois.
+- **Limite conhecido:** a restauração editável requer lista de origem ainda existente e com os mesmos produtos; snapshots no banco sobrevivem à remoção da lista, mas a UI bloqueia carregamento quando isso poderia causar perda silenciosa.
+- **Segurança:** nenhum segredo, token, item do cliente ou dados de campanha são transcritos no log documental.
+
 ## 02/11/2026 BRT (03/11 UTC) — F3 incremental: snapshots locais por item de campanha (PR #206)
 
 - [x] Partir de `staging` após PR #205 e manter implementação isolada em `feat/campaign-item-snapshots-local-20261103` (PR #206), sem tocar em `main`, Supabase compartilhado ou publicação real.

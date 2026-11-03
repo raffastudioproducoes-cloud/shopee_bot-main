@@ -58,3 +58,18 @@ test("foto da Shopee e arquivos de PC/celular coexistem no editor", async () => 
   assert.match(create, /postsApi\.uploadDraftMedia/)
 
 })
+
+
+test("campanha salva snapshots no servidor sem acionar posts ou scheduler", async () => {
+  const [planner, api] = await Promise.all([
+    src("components/campaigns/CampaignPlanner.tsx"),
+    src("api/campaigns.ts"),
+  ])
+  assert.match(planner, /Salvar rascunho/)
+  assert.match(planner, /Continuar rascunho salvo/)
+  assert.match(planner, /campaignsApi\.createDraft/)
+  assert.match(planner, /campaignsApi\.updateDraft/)
+  assert.match(planner, /campaignsApi\.getDraft/)
+  assert.match(api, /\x27\/campaigns\/drafts\x27/)
+  assert.doesNotMatch(planner, /postsApi\.create|schedulePost|publishPost/)
+})

@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { useAuthStore } from "../../stores/authStore"
 import { useProfileStore } from "../../stores/profileStore"
 import { listsApi, type Product } from "../../api/lists"
-import { campaignsApi, type CampaignPreviewRequest } from "../../api/campaigns"
+import { campaignsApi, type CampaignPreviewRequest, type CampaignDraftSaveRequest, type CampaignDraftRecord } from "../../api/campaigns"
 import { credentialsApi } from "../../api/credentials"
 import type { PostNetwork } from "../../api/posts"
 import { NETWORK_RULES } from "../../lib/networkLimits"
@@ -56,12 +56,22 @@ export function CampaignPlanner({ credentials }: {
   const profileId = useProfileStore((state) => state.activeProfileId)
   const [draft, setDraft] = useState<CampaignDraft>(initialDraft)
   const [editingProductId, setEditingProductId] = useState<number | null>(null)
+  const [savedDraftId, setSavedDraftId] = useState<string | null>(null)
+  const [savedRevision, setSavedRevision] = useState<number | null>(null)
+  const [remoteSelection, setRemoteSelection] = useState("")
+  const [listOverride, setListOverride] = useState<Awaited<ReturnType<typeof listsApi.get>> | null>(null)
+  const [lastSavedSignature, setLastSavedSignature] = useState<string | null>(null)
   const draftKey = formDraftKey(userId, "campaign-preview", profileId)
 
   useAutosavedDraft<CampaignDraft>(draftKey, draft, (saved) => {
     setDraft(saved && Array.isArray(saved.itemIds) && Array.isArray(saved.days)
       ? { ...initialDraft(), ...saved, itemSnapshots: saved.itemSnapshots ?? {} } : initialDraft())
     setEditingProductId(null)
+    setSavedDraftId(null)
+    setSavedRevision(null)
+    setRemoteSelection("")
+    setListOverride(null)
+    setLastSavedSignature(null)
   })
 
   const { data: listsResponse, isLoading, error: listsError } = useQuery({
@@ -71,6 +81,7 @@ export function CampaignPlanner({ credentials }: {
   })
   const lists = listsResponse?.data ?? []
   const selectedList = lists.find((list) => list.id === draft.listId)
+    ?? (listOverride?.id === draft.listId ? listOverride : undefined)
   const products = selectedList?.products ?? []
   const snapshots = useMemo(
     () => reconcileCampaignSnapshots(products, draft.itemSnapshots),
@@ -94,6 +105,12 @@ export function CampaignPlanner({ credentials }: {
     return states
   }, [credentials])
   const previewMutation = useMutation({ mutationFn: campaignsApi.preview })
+  const draftsQuery = useQuery({
+    queryKey: ["campaign-drafts", userId, profileId],
+    queryFn: campaignsApi.listDrafts,
+    enabled: Boolean(userId && profileId),
+    retry: false,
+  })
 
   const payload = useMemo<CampaignPreviewRequest | null>(() => {
     if (!draft.listId || draft.itemIds.length === 0 || !draft.startDate || !draft.endDate ||
@@ -110,6 +127,86 @@ export function CampaignPlanner({ credentials }: {
       interval_minutes: Number(draft.interval),
     }
   }, [draft])
+
+
+  const saveInput = useMemo<CampaignDraftSaveRequest | null>(() => {
+    if (!selectedList || !draft.listId || !draft.itemIds.length ||
+        draft.itemIds.length !== products.length ||
+        new Set(draft.itemIds).size !== products.length ||
+        !draft.itemIds.every((id) => products.some((product) => product.id === id))) return null
+    return {
+      list_id: draft.listId,
+      items: draft.itemIds.map((id) => ({
+        product_id: id,
+        title: snapshots[id].title,
+        copy: snapshots[id].copy,
+        affiliate_link: snapshots[id].affiliateLink,
+        networks: snapshots[id].networks,
+        network_copies: snapshots[id].networkCopies,
+        use_shopee_image: snapshots[id].useShopeeImage,
+      })),
+      schedule: payload,
+    }
+  }, [selectedList, products, draft.listId, draft.itemIds, snapshots, payload])
+  const saveSignature = saveInput ? JSON.stringify(saveInput) : ""
+  const saveMutation = useMutation({
+    mutationFn: async ({ data, id, revision }: {
+      data: CampaignDraftSaveRequest; id: string | null; revision: number | null; signature: string
+    }) => id && revision !== null
+      ? campaignsApi.updateDraft(id, { ...data, expected_revision: revision })
+      : campaignsApi.createDraft(data),
+    onSuccess: (saved, variables) => {
+      setSavedDraftId(saved.id)
+      setSavedRevision(saved.revision)
+      setRemoteSelection(saved.id)
+      setLastSavedSignature(variables.signature)
+      void draftsQuery.refetch()
+    },
+  })
+  const loadMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const saved = await campaignsApi.getDraft(id)
+      if (saved.status !== "draft" || !saved.source_list_id) {
+        throw new Error("A lista de origem não está mais disponível para edição.")
+      }
+      const source = lists.find((item) => item.id === saved.source_list_id)
+        ?? await listsApi.get(saved.source_list_id)
+      const currentIds = (source.products ?? []).map((product) => product.id)
+      const storedIds = saved.items.map((item) => item.product_id)
+      if (currentIds.length !== storedIds.length || storedIds.some((id) => !currentIds.includes(id))) {
+        throw new Error("A lista mudou desde o salvamento. Não foi carregada para evitar perda de produtos.")
+      }
+      return { saved, source }
+    },
+    onSuccess: ({ saved, source }: { saved: CampaignDraftRecord; source: Awaited<ReturnType<typeof listsApi.get>> }) => {
+      const schedule = saved.schedule
+      const restored = Object.fromEntries(saved.items.map((item) => [item.product_id, {
+        title: item.title,
+        copy: item.copy,
+        affiliateLink: item.affiliate_link,
+        networks: item.networks,
+        networkCopies: item.network_copies,
+        useShopeeImage: item.use_shopee_image,
+      }])) as Record<number, CampaignItemSnapshot>
+      setListOverride(source)
+      setDraft({
+        listId: saved.source_list_id,
+        itemIds: saved.items.map((item) => item.product_id),
+        itemSnapshots: restored,
+        startDate: schedule?.start_date ?? "",
+        endDate: schedule?.end_date ?? "",
+        days: schedule?.weekdays ?? [0, 1, 2, 3, 4],
+        startTime: schedule?.start_time ?? "09:00",
+        endTime: schedule?.end_time ?? "18:00",
+        interval: String(schedule?.interval_minutes ?? 180),
+      })
+      setSavedDraftId(saved.id)
+      setSavedRevision(saved.revision)
+      setRemoteSelection(saved.id)
+      setLastSavedSignature(null)
+      setEditingProductId(null)
+    },
+  })
 
   const previewIsCurrent = Boolean(payload && previewMutation.data &&
     JSON.stringify(previewMutation.variables) === JSON.stringify(payload))
@@ -164,12 +261,18 @@ export function CampaignPlanner({ credentials }: {
                   ...current, listId: id, itemIds: (list?.products ?? []).map((item) => item.id),
                   itemSnapshots: reconcileCampaignSnapshots(list?.products ?? [], {}),
                 }))
+                setSavedDraftId(null)
+                setSavedRevision(null)
+                setLastSavedSignature(null)
+                setListOverride(null)
                 setEditingProductId(null)
 
               }}
               disabled={!profileId || isLoading}
             >
               <option value="">Selecione uma lista</option>
+              {selectedList && !lists.some((item) => item.id === selectedList.id) &&
+                <option value={selectedList.id}>{selectedList.name} (recuperada)</option>}
               {lists.map((list) => <option key={list.id} value={list.id}>{list.name} ({list.product_count})</option>)}
             </select>
             {!profileId && <p className="campaign-status">Selecione um perfil para carregar suas listas.</p>}
@@ -265,6 +368,51 @@ export function CampaignPlanner({ credentials }: {
                 })}
               </ol>
             )}
+          </section>
+
+          <section className="campaign-section" aria-label="Rascunhos persistidos">
+            <h3>Rascunhos da campanha</h3>
+            <p>Salve sua preparação para continuar em outro dispositivo. Salvar não cria posts nem ativa publicações.</p>
+            <div className="campaign-actions">
+              <Button variant="primary" icon="save"
+                disabled={!saveInput || saveMutation.isPending || (Boolean(savedDraftId) && lastSavedSignature === saveSignature)}
+                loading={saveMutation.isPending}
+                onClick={() => saveInput && saveMutation.mutate({
+                  data: saveInput, id: savedDraftId, revision: savedRevision, signature: saveSignature,
+                })}>
+                {savedDraftId ? "Atualizar rascunho" : "Salvar rascunho"}
+              </Button>
+              {lastSavedSignature === saveSignature && savedDraftId &&
+                <p className="campaign-status" role="status">Rascunho salvo no servidor.</p>}
+              {saveMutation.isError &&
+                <p className="campaign-error" role="alert">
+                  {saveMutation.error?.message || "Não foi possível salvar. O rascunho local permanece disponível."}
+                </p>}
+            </div>
+            <label className="campaign-field-label" htmlFor="campaign-saved-draft">Continuar rascunho salvo</label>
+            <div className="campaign-draft-restore">
+              <select id="campaign-saved-draft" className="campaign-select" value={remoteSelection}
+                onChange={(event) => setRemoteSelection(event.target.value)}
+                disabled={draftsQuery.isLoading || loadMutation.isPending}>
+                <option value="">Selecione um rascunho</option>
+                {(draftsQuery.data?.data ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.source_list_name} · {new Date(item.updated_at).toLocaleString("pt-BR")}
+                  </option>
+                ))}
+              </select>
+              <Button variant="secondary" icon="folder-open" disabled={!remoteSelection || loadMutation.isPending}
+                loading={loadMutation.isPending}
+                onClick={() => remoteSelection && loadMutation.mutate(remoteSelection)}>
+                Carregar
+              </Button>
+            </div>
+            {draftsQuery.isError &&
+              <p className="campaign-error" role="alert">Não foi possível consultar os rascunhos salvos.</p>}
+            {loadMutation.isError &&
+              <p className="campaign-error" role="alert">{loadMutation.error?.message || "Falha ao carregar."}</p>}
+            {loadMutation.isSuccess && !loadMutation.isError &&
+              <p className="campaign-status" role="status">Rascunho recuperado. Revise antes de atualizar.</p>}
           </section>
 
           <section className="campaign-section">
