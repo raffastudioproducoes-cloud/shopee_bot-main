@@ -111,11 +111,25 @@ def enqueue(*, scheduler_id, post_id, user_id, profile_id, network, idempotency_
 
 
 def claim(publish_job_id, worker_id, lease_seconds):
-    """Um unico worker pode adquirir item que ainda nao foi iniciado."""
+    """Reserva atomicamente o snapshot da revisão elegível no claim.
+
+    A ocorrência mantém o slot original, mesmo se a execução/retry atrasar.
+    Jobs sem revisão seguem exatamente o conteúdo legado do post.
+    """
     scope, scope_args = _execution_scope()
     query = f"""
         WITH candidate AS (
-            SELECT job.id, gen_random_uuid() AS token
+            SELECT job.id, gen_random_uuid() AS token,
+                job.idempotency_key, job.post_id, job.user_id, job.profile_id,
+                CASE
+                    WHEN job.idempotency_key ~
+                         ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}$'
+                        THEN split_part(job.idempotency_key, ':', 2)::timestamp
+                             AT TIME ZONE 'America/Sao_Paulo'
+                    WHEN schedule.trigger = 'date' AND schedule.run_date IS NOT NULL
+                        THEN schedule.run_date AT TIME ZONE 'America/Sao_Paulo'
+                    ELSE NULL
+                END AS original_slot
             FROM publish_jobs job
             JOIN schedulers schedule ON schedule.id = job.scheduler_id
               AND schedule.post_id = job.post_id
@@ -128,22 +142,56 @@ def claim(publish_job_id, worker_id, lease_seconds):
               AND job.status = 'pending'
               AND ({scope})
             FOR UPDATE OF job SKIP LOCKED
+        ),
+        revisions AS (
+            SELECT candidate.*,
+                original.id AS retry_source_id,
+                original.content_snapshot AS retry_snapshot,
+                original.content_revision_id AS retry_revision_id,
+                future.snapshot AS future_snapshot,
+                future.id AS future_revision_id
+            FROM candidate
+            LEFT JOIN publish_jobs original
+              ON candidate.idempotency_key = 'manual_retry:' || original.id::text
+             AND original.user_id = candidate.user_id
+             AND original.profile_id IS NOT DISTINCT FROM candidate.profile_id
+             AND original.post_id = candidate.post_id
+            LEFT JOIN LATERAL (
+                SELECT revision.id, revision.snapshot
+                FROM post_content_revisions revision
+                WHERE revision.post_id = candidate.post_id
+                  AND revision.user_id = candidate.user_id
+                  AND revision.profile_id = candidate.profile_id
+                  AND candidate.original_slot > revision.effective_after
+                ORDER BY revision.effective_after DESC, revision.id DESC
+                LIMIT 1
+            ) future ON TRUE
         )
         UPDATE publish_jobs AS job
         SET status = 'running',
             attempt = job.attempt + 1,
-            claim_token = candidate.token,
-            preflight_claim_token = candidate.token,
+            claim_token = revisions.token,
+            preflight_claim_token = revisions.token,
             external_started_at = NULL,
             locked_by = %s,
             locked_at = now(),
-            started_at = COALESCE(job.started_at, now())
-        FROM candidate
-        WHERE job.id = candidate.id
-        RETURNING job.id, job.claim_token
+            started_at = COALESCE(job.started_at, now()),
+            scheduled_for = COALESCE(job.scheduled_for, revisions.original_slot),
+            content_revision_id = COALESCE(
+                job.content_revision_id,
+                CASE WHEN revisions.retry_source_id IS NOT NULL
+                     THEN revisions.retry_revision_id ELSE revisions.future_revision_id END
+            ),
+            content_snapshot = COALESCE(
+                job.content_snapshot,
+                CASE WHEN revisions.retry_source_id IS NOT NULL
+                     THEN revisions.retry_snapshot ELSE revisions.future_snapshot END
+            )
+        FROM revisions
+        WHERE job.id = revisions.id
+        RETURNING job.id, job.claim_token, job.content_snapshot
     """
     return query_db(query, (publish_job_id, *scope_args, worker_id), one=True)
-
 
 def finish(publish_job_id, claim_token, status, *, external_id=None, error=None):
     if status not in TERMINAL_STATUSES:
