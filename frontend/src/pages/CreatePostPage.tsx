@@ -141,13 +141,11 @@ export function CreatePostPage() {
   )
 
   return (
-    <div className="create-post-page" style={{ width: "100%", paddingBottom: 32 }}>
-      <div style={{ marginBottom: 22 }}>
+    <div className="create-post-page">
+      <header className="create-post-page-header">
         <h1 className="csp-s-0315">Criar POST</h1>
-        <p style={{ color: "var(--text-muted)" }}>
-          Prepare a publicação, adapte o conteúdo por rede e escolha quando enviar.
-        </p>
-      </div>
+        <p>Prepare a publicação, adapte o conteúdo por rede e escolha quando enviar.</p>
+      </header>
       <PostComposer
         post={null}
         onClose={() => void router.navigate({ to: "/posts" })}
