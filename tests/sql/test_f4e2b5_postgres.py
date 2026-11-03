@@ -56,7 +56,9 @@ class TestCampaignNetworkReservations(unittest.TestCase):
                   id uuid PRIMARY KEY, post_id integer REFERENCES public.posts(id)
                 );
                 CREATE TABLE public.publish_jobs (
-                  id uuid PRIMARY KEY, scheduler_id uuid REFERENCES public.schedulers(id)
+                  id uuid PRIMARY KEY, scheduler_id uuid REFERENCES public.schedulers(id),
+                  status text NOT NULL DEFAULT 'pending',
+                  finished_at timestamptz, last_error text
                 );
                 INSERT INTO public.plan_limits VALUES
                   ('free',0,0,0),('pro',2,15,3),('premium',5,30,15);
