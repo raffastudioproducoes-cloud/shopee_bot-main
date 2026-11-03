@@ -1,4 +1,4 @@
-## 02/11/2026 BRT (03/11 UTC) — Ícones Criar POST, CHANGELOG e governaça de releases
+## 02/11/2026 BRT (03/11 UTC) — Ícones Criar POST, CHANGELOG e governança de releases
 
 - [x] Auditoria do menu: `PanelPage` referencia `square-pen`, não registrado em `Icon.tsx`; ação da campanha referencia `calendar-search`, também ausente. Corrigir registro de ambos sem alterar menu, rotas ou publicação.
 - [x] Recuperar entrada de `[Não lançado]` para PR #204, ausente após merge; incluir correção dos ícones e teste que impede referência a ícones inexistentes.
