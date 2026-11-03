@@ -310,15 +310,13 @@ class TestF4e2b3Postgres(unittest.TestCase):
         key = str(self.schedule) + ":2026-11-03T15:47"
         with self.connect() as con:
             value = con.execute(
-                """SELECT CASE WHEN %s ~ ':[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}
-    unittest.main()
+                """SELECT CASE WHEN %s ~ ':[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$'
 
                          THEN right(%s, 16)::timestamp ELSE NULL END""",
                 (key, key),
             ).fetchone()[0]
             invalid = con.execute(
-                """SELECT CASE WHEN %s ~ ':[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}
-    unittest.main()
+                """SELECT CASE WHEN %s ~ ':[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$'
 
                          THEN right(%s, 16)::timestamp ELSE NULL END""",
                 ("legacy-manual-retry", "legacy-manual-retry"),
