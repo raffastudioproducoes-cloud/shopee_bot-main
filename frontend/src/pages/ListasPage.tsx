@@ -8,6 +8,9 @@ import { router } from "../router"
 import { listsApi, type ProductList, type ProductListsResponse } from "../api/lists"
 import { productsApi, type ProductsResponse } from "../api/products"
 import { formatBRL, formatPriceRange, toNumber } from "../lib/commission"
+import { PlanSummary } from "../components/plans/PlanSummary"
+import { usePlanUsage } from "../hooks/usePlanUsage"
+import { resourceAtLimit } from "../lib/planPresentation"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { PageSkeleton } from "../components/ui/Skeleton"
@@ -28,6 +31,8 @@ export function ListasPage() {
   const { logout, user } = useAuthStore()
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const queryClient = useQueryClient()
+  const planQuery = usePlanUsage()
+  const listsAtLimit = !planQuery.isError && resourceAtLimit(planQuery.data?.resources.lists)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingList, setEditingList] = useState<ProductList | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
@@ -66,6 +71,7 @@ export function ListasPage() {
     onSuccess: () => {
       clearFormDraft(formDraftKey(user?.id, "list-create", activeProfileId))
       queryClient.invalidateQueries({ queryKey: ["lists"] })
+      queryClient.invalidateQueries({ queryKey: ["plan-usage"] })
       setModalOpen(false)
     },
     onError: onAuthError,
@@ -80,6 +86,7 @@ export function ListasPage() {
     onSuccess: (_result, variables) => {
       clearFormDraft(formDraftKey(user?.id, `list-edit:${variables.id}`, activeProfileId))
       queryClient.invalidateQueries({ queryKey: ["lists"] })
+      queryClient.invalidateQueries({ queryKey: ["plan-usage"] })
       setModalOpen(false)
       setEditingList(null)
     },
@@ -93,6 +100,7 @@ export function ListasPage() {
     meta: { toast: { pending: "Removendo lista…", success: "Lista removida", error: "Não foi possível remover a lista" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lists"] })
+      queryClient.invalidateQueries({ queryKey: ["plan-usage"] })
       setDeleteConfirm(null)
     },
     onError: onAuthError,
@@ -104,11 +112,11 @@ export function ListasPage() {
     (name: string, productIds?: number[]) => {
       if (editingList) {
         updateMutation.mutate({ id: editingList.id, name, productIds })
-      } else {
+      } else if (!listsAtLimit) {
         createMutation.mutate({ name, productIds })
       }
     },
-    [editingList, createMutation, updateMutation],
+    [editingList, createMutation, updateMutation, listsAtLimit],
   )
 
   const handleDelete = useCallback(
@@ -153,6 +161,7 @@ export function ListasPage() {
         <Button
           variant="primary"
           icon="plus"
+          disabled={listsAtLimit}
           onClick={() => {
             setEditingList(null)
             setModalOpen(true)
@@ -162,6 +171,7 @@ export function ListasPage() {
         </Button>
       </header>
 
+      <PlanSummary resources={["lists"]} />
       {/* Lists */}
       {lists.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
@@ -169,6 +179,7 @@ export function ListasPage() {
           <Button
             variant="primary"
             style={{ marginTop: 16 }}
+            disabled={listsAtLimit}
             onClick={() => {
               setEditingList(null)
               setModalOpen(true)

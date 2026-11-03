@@ -4,6 +4,7 @@ import { useAuthStore } from "../stores/authStore"
 import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
 import { profilesApi, type Profile, type ProfileInput } from "../api/profiles"
 import { useActivateProfile, useProfiles } from "../hooks/useProfiles"
+import { PlanSummary, UpgradeInfo } from "../components/plans/PlanSummary"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { StatusMessage } from "../components/StatusMessage"
@@ -24,17 +25,20 @@ export function ProfilesPage() {
 
   const { profiles, activeProfile, isLoading: profilesLoading, isError: profilesError, refetch: refetchProfiles } = useProfiles()
   const { data: quota, isLoading: quotaLoading, isError: quotaError, refetch: refetchQuota } = useQuery({
-    queryKey: ["profiles", "quota"],
+    queryKey: ["profiles", "quota", userId],
     queryFn: () => profilesApi.quota(),
   })
   const atLimit = !quota || (quota.limit !== null && quota.used >= quota.limit)
   const quotaMessage = quota?.limit === 1
-    ? "O plano Free não permite perfis adicionais. Faça upgrade para criar mais perfis."
+    ? "O plano Free não permite perfis adicionais. Consulte as opções de plano abaixo; alteração ainda indisponível."
     : quota?.limit != null
-      ? `Limite de ${quota.limit} perfis do plano atingido. Exclua um secundário ou faça upgrade.`
+      ? `Limite de ${quota.limit} perfis do plano atingido. A consulta e a exclusão dos perfis existentes continuam disponíveis.`
       : ""
 
-  const invalidateProfiles = () => queryClient.invalidateQueries({ queryKey: ["profiles"] })
+  const invalidateProfiles = () => {
+    void queryClient.invalidateQueries({ queryKey: ["profiles"] })
+    void queryClient.invalidateQueries({ queryKey: ["plan-usage"] })
+  }
 
   const createProfileMutation = useMutation({
     mutationFn: profilesApi.create,
@@ -112,6 +116,9 @@ export function ProfilesPage() {
           )}
         </div>
       </div>
+
+      <PlanSummary resources={["profiles"]} />
+      {atLimit && quota && <UpgradeInfo feature="Perfis adicionais" />}
 
       {feedback && (
         <StatusMessage kind={feedback.kind} onDismiss={() => setFeedback(null)}>

@@ -160,6 +160,18 @@ class LocationDecision(BaseModel):
     accuracy_m: int | None = None
 
 
+@router.get("/usage")
+async def get_plan_usage(
+    user_id: str = Depends(get_current_user_id),
+    profile_id: str = Depends(get_current_profile_id),
+):
+    """Somente leitura, autenticada e isolada por conta/perfil."""
+    if not profile_id:
+        raise HTTPException(status_code=400, detail="Selecione um perfil válido.")
+    from ..account_usage import account_usage_response
+    return await run_in_threadpool(account_usage_response, user_id, profile_id)
+
+
 @router.get("/location-sharing")
 async def get_location_sharing(user_id: str = Depends(get_current_user_id)):
     result = (

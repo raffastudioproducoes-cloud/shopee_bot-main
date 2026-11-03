@@ -12,6 +12,7 @@ import { LocationPermissionNotice } from '../components/profiles/LocationPermiss
 import { Icon } from '../components/ui/Icon'
 import { AppFooter } from '../components/layout/AppFooter'
 import { PageSkeleton } from '../components/ui/Skeleton'
+import { PlanBadge } from "../components/plans/PlanSummary"
 import { StatusMessage } from '../components/StatusMessage'
 import { clearAdminVisitingSite, isAdminVisitingSite } from '../lib/adminSiteFlag'
 
@@ -169,7 +170,10 @@ export function PanelPage() {
           }
           trailing={
             <>
-              <ActiveProfileChip />
+              <div className="plan-topbar-account">
+                <PlanBadge />
+                <ActiveProfileChip />
+              </div>
               <IconButton icon="log-out" label="Sair" tone="glass" onClick={handleLogout} />
             </>
           }

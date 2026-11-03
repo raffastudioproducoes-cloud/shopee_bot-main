@@ -91,3 +91,17 @@
 - **Operação:** Render staging deploy `dep-dbl2d1k9v7es73datmag` LIVE no SHA do squash. Navegador anônimo confirmou `/health` e `/api/health/ready` = `{"status":"ok"}`. Não houve teste autenticado de UI, carga concorrente real ou publicação em rede social.
 - **Banco:** nenhuma migração nova, DDL, seed ou alteração de dados; `public.migrations` mantém uma entrada para 073 e nenhuma 074 conforme consulta read-only. `campaign_drafts.status='draft'` foi preservado. A guarda de quotas comerciais da campanha ativa 2/5 continua **não exercitável**, pois não existe ativação; implementá-la de forma transacional na F4E antes de criar jobs.
 - **Limites:** `main`/Render produção inalterados; `VERSION=3.0.0`. Não confundir `automation_entitled` com automação funcional; F4D UI de bloqueio/upgrade e F4E ativação permanecem pendentes. Este é fechamento de **guardas preparatórios**, não de campanhas em produção.
+
+## 10. F4D — interface de plano, consumo e acesso
+
+**Preparada em PR a partir de staging 52b054a, sem merge/deploy nesta nota.** O plano exibido vem da conta (`users.plan_tier`, Plus→Pro); Administrador vem de `users.access` verificado no backend, não do espelho de perfil nem do navegador.
+
+`GET /profiles/usage` é autenticado, read-only e valida ownership do perfil. Reutiliza a política F4C2 e lê limites auditados da 072; counts exatos/head de produtos/perfis por conta e listas por perfil. Contagens que falhem/venham ausentes são indisponíveis, nunca zero. Não altera Supabase, tabelas, políticas, consumo ou reservas. Agora/cron têm limite visível, mas consumo null até futura leitura canônica de reservas+legado. Campanhas ativas continuam null, sem ativação.
+
+A UI integra TopBar/cards de perfil e resumos em Produtos/Listas/Perfis/Criar POST. Cadastro novo fica visualmente bloqueado apenas com limite atingido confirmado; consulta/edição de dados existentes/exclusão não são apagadas por downgrade. Backend continua enforcement de todas as operações. Query key segregada por conta/perfil, sem reaproveitar consumo antigo durante troca/carregamento.
+
+Campanha Free bloqueia prévia, criação/atualização de rascunho e upload; consulta/exclusão de rascunhos/anexos preservadas. Pro usa datas até 15 dias inclusivos e seletor até 3/dia, Premium 30/15, ADMIN teto físico 30/15. Cada rede conta uma unidade, a prévia não autoriza publicação, rascunhos não consomem vagas ativas. Frequência legada acima da política exige revisão e nunca é reduzida silenciosamente.
+
+Automação Free/Pro permanece vitrine; Premium/ADMIN vê “Em breve — habilitado pelo plano, funcionalidade ainda indisponível”. Sem toggle operacional ou API fictícia. CTA “Conhecer planos e upgrade” abre informação contextual acessível: contratação/alteração de plano ainda não disponível; nenhuma cobrança/preço/checkout. A skill vender-com-valor orientou transparência e proporcionalidade das mensagens, sem promessas de habilitação externa.
+
+Testes em `frontend/tests/plan-access.test.mjs` e `tests/api/test_account_usage.py`, incluídos na CI. SSR/contratos não substituem inspeção visual desktop/mobile nem sessão autenticada; CI final, PR/SHA, deploy e QA devem ser registrados após evidência. VERSION=3.0.0; não mesclar, publicar, ativar ou promover main sem aprovação própria.

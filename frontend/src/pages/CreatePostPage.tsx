@@ -9,6 +9,7 @@ import { ApiError } from "../lib/api"
 import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
 import { PostComposer, type NetworkResult } from "../components/posts/PostComposer"
 import { CampaignPlanner } from "../components/campaigns/CampaignPlanner"
+import { PlanSummary } from "../components/plans/PlanSummary"
 import { SegmentedToggle } from "../components/ui/SegmentedToggle"
 
 /** Página dedicada de criação. Preserva o fluxo de envio e o rascunho anterior. */
@@ -147,7 +148,7 @@ export function CreatePostPage() {
     <div className="create-post-page">
       <header className="create-post-page-header">
         <h1 className="csp-s-0315">Criar POST</h1>
-        <p>{creationMode === "single" ? "Prepare a publicação, adapte o conteúdo por rede e escolha quando enviar." : "Organize uma campanha por lista e confira o calendário antes de ativar."}</p>
+        <p>{creationMode === "single" ? "Prepare a publicação, adapte o conteúdo por rede e escolha quando enviar." : "Prepare um rascunho e confira o calendário. Ativação ainda indisponível."}</p>
       </header>
       <div style={{ maxWidth: 510, width: "100%", marginBottom: "var(--sp-8)" }}>
         <SegmentedToggle
@@ -156,7 +157,8 @@ export function CreatePostPage() {
           onChange={(mode) => setCreationMode(mode as "single" | "campaign")}
         />
       </div>
-      {creationMode === "campaign" ? <CampaignPlanner credentials={credentials} /> : <PostComposer
+      <PlanSummary resources={["immediate", "recurring"]} />
+      {creationMode === "campaign" ? <CampaignPlanner key={activeProfileId} credentials={credentials} /> : <PostComposer
         post={null}
         onClose={() => void router.navigate({ to: "/posts" })}
         onSave={handleSave}
