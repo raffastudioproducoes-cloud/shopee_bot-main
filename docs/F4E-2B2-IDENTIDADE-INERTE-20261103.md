@@ -1,6 +1,6 @@
 # F4E-2B2 — identidade persistente inerte e decisão de downgrade (03/11/2026)
 
-**Estado:** preparação de contrato em branch de trabalho. Não existe ativação, reserva executável, job de campanha ou autorização para publicação. Staging e produção compartilham o Supabase; a produção continua na branch `main`.
+**Estado:** contrato preparatório integrado somente no `staging` (PR #234, SHA `0483b7a`; correção CI PR #235, SHA `1363024`), Render `dep-dbl4e317lnhs739rukhg` LIVE, CI e smoke de staging aprovados. A proposta SQL continua NÃO APLICADA ao Supabase. Não existe ativação, reserva executável, job de campanha ou autorização para publicação; `main` preservada.
 
 ## Decisão de produto aprovada por Rafa
 
@@ -39,6 +39,6 @@ Quando uma conta cai de Premium (até cinco campanhas ativas por perfil) para Pr
 - Base de trabalho: `staging` no SHA `5e9b34c73c8bd1aac1c9e44a2252de6dc18a2999` (PR #233 F4E-2B1 já integrada).
 - Versão oficial `VERSION=3.0.0`, sem lançamento.
 - **Sem** migração nova aplicada, post publicado, alteração de flag, OAuth, preço, checkout, mudança na `main`, limpeza ou alteração de dados de clientes.
-- CI, PR, merge e deploy da F4E-2B2 só poderão constar como confirmados **após** verificação posterior. Distinguir esta preparação de controle operacional.
+- **Evidências pós-deploy:** CI PR #41713751800 e #41714645658 SUCCESS; esta última executou 15 testes F4E-1 em PostgreSQL descartável e 3 contratos estáticos F4E-2B2. CI staging #41714932997, smoke HTTP #41714932664 e ZAP passivo #41714932408 SUCCESS; smoke autenticado SKIPPED sem credenciais. Render LIVE no SHA `1363024`. O bloqueio F4E permanece isolado, não operacional no dispatcher existente; não há tabela proposta no Supabase (read-only, reservas/ocorrências 0/0).
 
 Referências: [Guia Mestre](GUIA-MESTRE-IA.md), [política F4](PLANOS-F4-POLITICAS-E-FASES-20261103.md), [TASK](TASK.md), [AGENTS](../AGENTS.md) e [Vault TASK](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/TASK.md).

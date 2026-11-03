@@ -5,6 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### F4E-2B2 — fechamento de staging (03/11/2026)
+
+PR #234 (`0483b7a`, CI #41713751800) e correção de CI PR #235 (`1363024`, CI #41714645658) integradas somente no staging. O filtro novo executou 15 testes F4E-1 em PostgreSQL isolado e 3 contratos estáticos F4E-2B2; CI de staging #41714932997, smoke #41714932664 e ZAP passivo #41714932408 aprovados. Render `dep-dbl4e317lnhs739rukhg` LIVE nesse SHA. Supabase: zero reservas/ocorrências, proposta de tabela não aplicada. Homologação autenticada pulada; sem envio real, executor F4E, migration, main ou release. `VERSION=3.0.0`.
+
+
 ### F4E-2B2 — ampliação do gate SQL de CI
 
 O workflow de PostgreSQL descartável passa a descobrir também `test_f4e2b2_*.py` além dos testes F4E-1. A primeira CI #41713751800 aprovou scheduler e API, mas não exercitou o novo contrato estático SQL devido ao filtro antigo; esta correção exige nova CI antes de encerrar a homologação. Sem DDL/SQL aplicado ao Supabase ou alteração de `VERSION=3.0.0`.

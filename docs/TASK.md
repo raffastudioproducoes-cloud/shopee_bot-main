@@ -1,3 +1,11 @@
+## 03/11/2026 — Fechamento F4E-2B2 inerte, staging LIVE
+
+- [x] PR app [#234](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/234) integrada apenas no staging `0483b7a` (CI [#41713751800](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41713751800) SUCCESS). Contrato UUID e bloqueio incondicional, proposta SQL fora das migrations e decisão Premium→Pro aprovada.
+- [x] PR app [#235](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/235) corrigiu filtro SQL, merge `1363024`; [CI #41714645658](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41714645658) SUCCESS, 15 testes PG F4E-1 e 3 estáticos F4E-2B2. [CI staging #41714932997](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41714932997), [smoke HTTP #41714932664](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41714932664) e [ZAP passivo #41714932408](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41714932408) SUCCESS. Smoke com sessão autenticada skipped por não haver credenciais.
+- [x] Render staging `dep-dbl4e317lnhs739rukhg` LIVE em `1363024`. Supabase (consulta agregada somente leitura): 0 reservas, 0 ocorrências; tabela proposta de vínculos ausente. `main` sem promoção; `VERSION=3.0.0`.
+- [ ] F4E-2B2 **operacional** ainda pendente: imutabilidade transacional dos pais, guardas no claim/retry/recovery/pré-envio em main+staging, OAuth/Storage/quota rede/dia, controle de downgrade executável e testes isolados. Aprovações independentes antes de DDL compartilhada, proteção em produção, reserva executável e canário social. Não confundir este fechamento com ativação de campanhas.
+- [x] Gatilho SMTP reconsultado no Vault; sem evidência de domínio próprio registrado e configurado. Nada foi alterado em autenticação/cadastro.
+
 ## 03/11/2026 — F4E-2B2 (preparação; pendente CI, PR e deploy)
 
 - [x] **Decisão de Rafa:** downgrade Premium→Pro pausa **todas** as campanhas até escolha de até 2 por perfil. Histórico e restantes permanecem preservados; sem reativação automática. Nenhuma campanha executável existe hoje.
