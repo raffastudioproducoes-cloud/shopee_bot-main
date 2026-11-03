@@ -42,6 +42,10 @@ def test_claim_freezes_original_slot_and_keeps_manual_retry_snapshot(monkeypatch
     assert "for update of job skip locked" in query
     assert "content_snapshot = coalesce(" in query
     assert "locked_candidate.original_slot > revision.effective_after" in query
+    # O minuto de execução pode atrasar; use o horário NOMINAL do cron.
+    assert "::timestamp::date" in query
+    assert "schedule.time >" in query
+    assert "interval '1 day'" in query
     assert "original.content_snapshot as retry_snapshot" in query
     assert "when candidate.retry_source_id is not null" in query
     assert "original.user_id = locked_candidate.user_id" in query
