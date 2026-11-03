@@ -16,7 +16,7 @@ def request(**changes):
         weekdays=[1],
         start_time=time(9),
         end_time=time(10),
-        interval_minutes=60,
+        posts_per_day=2,
     )
     params.update(changes)
     return campaigns.CampaignPreviewRequest(**params)
@@ -52,3 +52,10 @@ def test_preview_rejects_forged_product_ids(monkeypatch):
     with pytest.raises(campaigns.HTTPException) as error:
         asyncio.run(campaigns.preview_campaign(request(item_ids=[12, 999]), user_id=7, profile_id="p-7"))
     assert error.value.status_code == 422
+
+
+def test_preview_rejects_more_than_fifteen_daily_posts():
+    with pytest.raises(Exception):
+        request(posts_per_day=16)
+    with pytest.raises(Exception):
+        request(posts_per_day=0)
