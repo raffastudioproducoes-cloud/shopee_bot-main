@@ -10,7 +10,7 @@ from fastapi import HTTPException
 
 from api import campaign_policy
 from api.routers import campaigns
-from conftest import FakeDB
+from conftest import FakeDB, _FakeTable
 
 DRAFT = UUID("11111111-1111-1111-1111-111111111111")
 
@@ -57,6 +57,11 @@ def test_preflight_is_explicitly_not_a_reservation(monkeypatch):
         assert name in {"users", "profiles", "plan_limits", "campaign_drafts"}
         return original_table(name)
     monkeypatch.setattr(db, "table", read_only_table)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("preflight não pode escrever ou chamar RPC")
+    for operation in ("insert", "update", "delete", "upsert"):
+        monkeypatch.setattr(_FakeTable, operation, forbidden)
+    monkeypatch.setattr(db, "rpc", forbidden, raising=False)
     result = run()
     assert db.tables == before
     assert set(seen) == {"users", "profiles", "plan_limits", "campaign_drafts"}
