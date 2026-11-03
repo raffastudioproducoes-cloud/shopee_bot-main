@@ -5,6 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### F4E-2B2 — identidade persistente inerte e decisão de downgrade (PRE-DEPLOY)
+
+Rafa aprovou pausa integral ao rebaixar Premium→Pro até escolha explícita de até 2 campanhas por perfil, preservando histórico e as demais pausadas. Corrigido o DTO de dispatch para UUID de agenda e fila, INTEGER de post e rede permitida; recusa incondicional mantida. Proposta SQL de vínculo obrigatório, imutável e somente leitura ao service_role foi adicionada apenas em `docs/sql-proposals/`, fora do boot. Testes de contrato adicionados; CI, PR, staging LIVE e validação PostgreSQL ainda não confirmados. Sem alteração do Supabase compartilhado, executores, flags, jobs, publicação, main ou versão 3.0.0. Detalhes em `docs/F4E-2B2-IDENTIDADE-INERTE-20261103.md`.
+
+
 ### F4E-2B1 — contrato inerte de dispatch (PR #233; PRE-DEPLOY)
 
 Contrato isolado e ainda não integrado ao executor: `CampaignDispatchIdentity` valida somente formato em memória; não comprova vínculo, posse ou imutabilidade persistida. `require_campaign_dispatch_authorization` sempre recusa, independentemente de flags. Não altera fluxo legado, não autoriza campanha e não protege o executor central de produção atual. Sem criação de jobs/posts/reservas, SQL, migrations, configuração ou chamadas externas. Antes de qualquer execução: identidade verificável e protegida entre reserva, ocorrência, job e post; guardas transacionais no claim e imediatamente antes da chamada externa; compatibilidade nos dois ambientes; proteção de mídia e revisão do acesso service_role. CI/revisão/deploy não confirmados neste registro. `VERSION=3.0.0`.
