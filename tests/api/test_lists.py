@@ -352,3 +352,26 @@ class TestListsByIdScopedByActiveProfile:
         res = auth_client.delete("/lists/7")
 
         assert res.status_code == 404
+
+
+def test_list_creation_returns_409_when_profile_quota_reached(
+    auth_client, auth_headers_with_profile, monkeypatch
+):
+    fake_client = MagicMock()
+    fake_client.rpc.return_value.execute.side_effect = Exception("plan_lists_quota_exceeded")
+    monkeypatch.setattr(lists_router, "supabase", fake_client)
+    auth_client.cookies.update(auth_headers_with_profile)
+    res = auth_client.post("/lists", json={"name": "Lista excedente"})
+    assert res.status_code == 409
+    assert "Limite de listas" in res.json()["detail"]
+
+
+def test_list_creation_denies_foreign_profile_from_rpc(
+    auth_client, auth_headers_with_profile, monkeypatch
+):
+    fake_client = MagicMock()
+    fake_client.rpc.return_value.execute.side_effect = Exception("profile_not_owned")
+    monkeypatch.setattr(lists_router, "supabase", fake_client)
+    auth_client.cookies.update(auth_headers_with_profile)
+    res = auth_client.post("/lists", json={"name": "Lista sem dono"})
+    assert res.status_code == 403
