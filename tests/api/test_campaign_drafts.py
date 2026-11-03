@@ -86,3 +86,15 @@ def test_create_draft_rejects_missing_profile_before_any_write(monkeypatch):
         asyncio.run(campaigns.create_campaign_draft(payload(), user_id="owner", profile_id=None))
     assert caught.value.status_code == 400
     assert fake.writes == []
+
+def test_schedule_must_match_saved_list_and_exact_product_order():
+    schedule = campaigns.CampaignPreviewRequest(
+        list_id=11, item_ids=[12, 13], start_date="2026-11-04",
+        end_date="2026-11-06", weekdays=[0, 1, 2, 3, 4],
+        start_time="09:00", end_time="18:00", interval_minutes=180,
+    )
+    campaigns.validate_campaign_draft_schedule(schedule, 11, [12, 13])
+    with pytest.raises(ValueError, match="lista"):
+        campaigns.validate_campaign_draft_schedule(schedule, 77, [12, 13])
+    with pytest.raises(ValueError, match="ordem"):
+        campaigns.validate_campaign_draft_schedule(schedule, 11, [13, 12])
