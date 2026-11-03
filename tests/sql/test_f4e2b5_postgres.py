@@ -188,3 +188,46 @@ class TestCampaignNetworkReservations(unittest.TestCase):
             self.assertFalse(con.execute(
                 "SELECT has_function_privilege('service_role','public.reserve_campaign_f4e(uuid,uuid,uuid,integer,text,jsonb)','EXECUTE')"
             ).fetchone()[0])
+
+    def test_activate_pause_resume_cancel_and_history(self):
+        rid = self.reserve()
+        with self.connect() as con:
+            con.execute("SET LOCAL ROLE service_role")
+            self.assertTrue(con.execute(
+                "SELECT public.activate_campaign_networks_f4e(%s,%s,%s,'staging')",
+                (self.user, self.profile, rid),
+            ).fetchone()[0])
+            self.assertEqual(con.execute(
+                "SELECT lifecycle,dispatch_enabled FROM campaign_reservations_f4e WHERE id=%s",
+                (rid,),
+            ).fetchone(), ("active", True))
+            for action, expected in (("pause", "paused"), ("resume", "active"), ("cancel", "cancelled")):
+                self.assertEqual(con.execute(
+                    "SELECT public.change_campaign_lifecycle_f4e(%s,%s,%s,%s)",
+                    (self.user, self.profile, rid, action),
+                ).fetchone()[0], expected)
+            self.assertEqual(con.execute(
+                "SELECT count(*) FROM campaign_network_slots_f4e WHERE reservation_id=%s AND state='cancelled'",
+                (rid,),
+            ).fetchone()[0], 2)
+            with self.assertRaises(psycopg.Error):
+                with con.transaction():
+                    con.execute(
+                        "SELECT public.change_campaign_lifecycle_f4e(%s,%s,%s,'resume')",
+                        (self.user, self.profile, rid),
+                    )
+
+    def test_expiry_blocks_activation_after_reservation(self):
+        rid = self.reserve()
+        with self.connect() as con:
+            con.execute("UPDATE users SET campaign_paid_through=now()-interval '1 second' WHERE id=%s", (self.user,))
+            con.execute("SET LOCAL ROLE service_role")
+            with self.assertRaises(psycopg.Error):
+                with con.transaction():
+                    con.execute(
+                        "SELECT public.activate_campaign_networks_f4e(%s,%s,%s,'production')",
+                        (self.user, self.profile, rid),
+                    )
+            self.assertEqual(con.execute(
+                "SELECT lifecycle FROM campaign_reservations_f4e WHERE id=%s", (rid,)
+            ).fetchone()[0], "preparing")
