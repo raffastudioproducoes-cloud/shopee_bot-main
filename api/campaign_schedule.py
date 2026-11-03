@@ -27,7 +27,7 @@ def plan_campaign_slots(
     weekdays: Sequence[int],
     start_time: time,
     end_time: time,
-    interval_minutes: int,
+    posts_per_day: int,
     item_ids: Sequence[int],
     timezone: str = "America/Sao_Paulo",
     start_occurrence_index: int = 0,
@@ -35,6 +35,8 @@ def plan_campaign_slots(
     """Gera slots inclusivos, rotacionando um item por horário.
 
     Dias da semana seguem Python: segunda=0 ... domingo=6.
+    Distribui 1 a 15 publicações por dia uniformemente na janela local;
+    uma publicação usa o horário inicial. Isso é prévia, não envio real.
     O máximo absoluto são 30 dias corridos INCLUSIVOS; limites menores
     por plano e intervalos mínimos de cada rede são validados pelo serviço.
     `start_occurrence_index` permite continuar uma sequência sem reiniciá-la
@@ -54,18 +56,21 @@ def plan_campaign_slots(
     if not item_ids:
         raise ValueError("Selecione ao menos um produto da lista.")
     if (
-        type(interval_minutes) is not int
-        or interval_minutes < 1
+        type(posts_per_day) is not int
+        or not 1 <= posts_per_day <= 15
         or type(start_occurrence_index) is not int
         or start_occurrence_index < 0
     ):
-        raise ValueError("Intervalo e índice de sequência devem ser positivos.")
+        raise ValueError("Postagens por dia devem estar entre 1 e 15; índice positivo.")
     if not isinstance(start_time, time) or not isinstance(end_time, time):
         raise ValueError("Informe horários de início e fim válidos.")
     if start_time.tzinfo is not None or end_time.tzinfo is not None:
         raise ValueError("Informe horários locais sem fuso; o fuso é configurado separadamente.")
     if end_time < start_time:
         raise ValueError("A hora final deve ser posterior ou igual à inicial.")
+    window_minutes = (datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time)).total_seconds() / 60
+    if posts_per_day > 1 and window_minutes < posts_per_day - 1:
+        raise ValueError("A janela diária é curta para essa quantidade; amplie o horário ou reduza as postagens por dia.")
     try:
         local_timezone = ZoneInfo(timezone)
     except (ZoneInfoNotFoundError, TypeError, ValueError) as exc:
@@ -74,13 +79,13 @@ def plan_campaign_slots(
     result: list[CampaignSlot] = []
     selected_weekdays = set(weekdays)
     current_day = start_date
-    interval = timedelta(minutes=interval_minutes)
+    daily_offsets = [timedelta(minutes=round(window_minutes * index / (posts_per_day - 1)))
+                     for index in range(posts_per_day)] if posts_per_day > 1 else [timedelta(0)]
 
     while current_day <= end_date:
         if current_day.weekday() in selected_weekdays:
-            current = datetime.combine(current_day, start_time)
-            finish = datetime.combine(current_day, end_time)
-            while current <= finish:
+            for offset in daily_offsets:
+                current = datetime.combine(current_day, start_time) + offset
                 local_at = current.replace(tzinfo=local_timezone, fold=0)
                 utc_at = local_at.astimezone(utc_timezone.utc)
 
@@ -104,7 +109,6 @@ def plan_campaign_slots(
                         utc_at=utc_at,
                     )
                 )
-                current += interval
         current_day += timedelta(days=1)
 
     return result
