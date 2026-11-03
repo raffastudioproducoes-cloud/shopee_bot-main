@@ -63,7 +63,12 @@ def get_by_post_id(user_id, post_id):
 
 
 def get_by_id(job_id):
-    scope, scope_args = _execution_scope("s")
+    from shopee_bot.scheduler import campaign_dispatch
+    if campaign_dispatch.campaign_execution_enabled():
+        scope = "s.environment = %s AND s.publication_origin = 'campaign'"
+        scope_args = (current_environment(),)
+    else:
+        scope, scope_args = _execution_scope("s")
     query = f"""
         SELECT
             s.id, s.post_id, s.user_id, s.profile_id, s.func, s.trigger,
