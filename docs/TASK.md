@@ -1,3 +1,10 @@
+## 03/11/2026 — F4C1: limites de Agora e recorrência (branch isolada, SEM deploy)
+
+- [x] F4B/F4B2 recuperada da interrupção: migração 072 aplicada e registrada no Supabase em 03/11, políticas Free1/Pro3/Premium5 perfis e cotas de catálogo/listas verificadas, RLS/grants de RPCs corretos; PR [#214](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/214) squash-merge apenas em staging (`83d8373`), CI #711 SUCCESS e Render `dep-dbkp2lu7bikc7397nir0` LIVE. `main`/Render produção preservados. Startup registrou 072 em `public.migrations`.
+- [x] Branch `feature/f4c1-publication-quotas-20261103`: reserva por rede para Agora (janela de 60 minutos) e por dia+horário para cron, com lock transacional por conta, bypass comercial ADMIN e função de compensação apenas antes da execução. Considera agendas existentes para não permitir novos slots acima da cota; produção antiga continua sem trigger comercial global.
+- [ ] Migração `073_post_publication_plan_quotas.sql` está **somente no código da branch, NÃO aplicada** ao Supabase compartilhado. Exige CI/revisão, aprovação expressa para DDL, aplicação controlada e registro em `public.migrations` antes do merge staging e auto-deploy do Render.
+- [ ] Cobertura CI e PR F4C1; QA autenticado sem disparo real, smoke e Render LIVE. F4C2: campanhas ativas e automação, e F4D–F4F em entregas seguintes; `VERSION=3.0.0` sem release.
+
 ## 03/11/2026 — F4B2: limites de perfis e isolamento por conta (em homologação)
 
 - [x] Rafa confirmou Free = **1 perfil total / 0 secundários**; Pro = **3 totais**; Premium = **5 totais**; ADMIN sem limite comercial. Produtos, Shopee, Gemini/IA compartilhados entre perfis. Listas **permanecem isoladas por perfil** (decisão expressa). Redes/OAuth, posts e históricos isolados por perfil.
