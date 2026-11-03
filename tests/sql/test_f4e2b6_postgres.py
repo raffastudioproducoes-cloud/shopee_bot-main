@@ -21,6 +21,7 @@ class TestCampaignRuntime(TestCampaignNetworkReservations):
                 CREATE SEQUENCE public.posts_id_seq START 10000;
                 ALTER TABLE public.posts ALTER COLUMN id SET DEFAULT nextval('public.posts_id_seq');
                 ALTER TABLE public.posts ADD COLUMN text text;
+                ALTER TABLE public.posts ADD COLUMN post_id integer;
                 ALTER TABLE public.posts ADD COLUMN profile_id uuid;
                 ALTER TABLE public.posts ADD COLUMN network text DEFAULT 'threads';
                 ALTER TABLE public.posts ADD COLUMN publish_immediately boolean DEFAULT false;
@@ -37,7 +38,6 @@ class TestCampaignRuntime(TestCampaignNetworkReservations):
                 ALTER TABLE public.publish_jobs ADD COLUMN profile_id uuid;
                 ALTER TABLE public.publish_jobs ADD COLUMN network text;
                 ALTER TABLE public.publish_jobs ADD COLUMN idempotency_key text UNIQUE;
-                ALTER TABLE public.publish_jobs ADD COLUMN status text NOT NULL DEFAULT 'pending';
                 ALTER TABLE public.publish_jobs ADD COLUMN attempt integer DEFAULT 0;
                 ALTER TABLE public.publish_jobs ADD COLUMN claim_token uuid;
                 ALTER TABLE public.publish_jobs ADD COLUMN preflight_claim_token uuid;
@@ -45,9 +45,7 @@ class TestCampaignRuntime(TestCampaignNetworkReservations):
                 ALTER TABLE public.publish_jobs ADD COLUMN locked_by text;
                 ALTER TABLE public.publish_jobs ADD COLUMN locked_at timestamptz;
                 ALTER TABLE public.publish_jobs ADD COLUMN started_at timestamptz;
-                ALTER TABLE public.publish_jobs ADD COLUMN finished_at timestamptz;
                 ALTER TABLE public.publish_jobs ADD COLUMN external_id text;
-                ALTER TABLE public.publish_jobs ADD COLUMN last_error text;
                 ALTER TABLE public.publish_jobs ADD COLUMN scheduled_for timestamptz;
             """)
             for migration in (
