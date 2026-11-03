@@ -5,6 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### F4E — isolamento real de origem no banco e nos executores (03/11/2026)
+
+Migração aditiva 075 com origem positiva `legacy/campaign` para schedulers e publish_jobs, padrão legado compatível com main antiga e triggers de imutabilidade/consistência de pais. Tentativa de reivindicar ou iniciar envio de job de campanha é rejeitada **pelo PostgreSQL**, inclusive quando um executor antigo ignorar o filtro. Scheduler de staging passa a exigir origem legada em consultas, claim/recovery, reconciliação, cancelamento e barreira antes da API social. Testes unitários e PostgreSQL 16 descartável adicionados. O despacho de campanhas permanece fechado até implantação compatível nos dois ambientes e conclusão de cota por rede, OAuth, mídia e ativação transacional. Nenhuma publicação real, plano ou pagamento é alterado.
+
+
 ### Correção crítica — cron/recovery de posts em staging (03/11/2026)
 
 O claim de publicação separava chave `UUID:YYYY-MM-DDTHH:MM` por dois-pontos e convertia `YYYY-MM-DDTHH` para timestamp inválido, abortando `publish_queue_recovery` e podendo deixar jobs pendentes. Corrigido uso dos 16 caracteres finais do slot nominal, preservando revisão e janela. O recovery agora também encerra `pending` com mais de uma hora como `failed`, sem envio tardio, preservando `unknown`; regressões cobertas por testes unitários e PostgreSQL descartável; nenhum post `unknown` foi repetido, nenhuma configuração OAuth/Threads, banco compartilhado, `main` ou `VERSION=3.0.0` alterados. Logs reais de staging continham `InvalidDatetimeFormat: 2026-11-03T15`. CI e deploy serão declarados separadamente após confirmação.
