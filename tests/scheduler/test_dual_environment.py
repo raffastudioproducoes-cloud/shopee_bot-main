@@ -80,7 +80,7 @@ def test_recovery_filters_other_environment_before_claim(monkeypatch):
     publish_jobs.claim("pending-1", "worker-1", 600)
 
     assert "schedule.environment = %s" in calls[0][0]
-    assert calls[0][1] == ("staging", 100)
+    assert calls[0][1] == (publish_jobs.RECOVERY_MAX_AGE_SECONDS, "staging", 100)
     assert "schedule.environment = %s" in calls[1][0]
     assert calls[1][1][-1] == "staging"
     assert "schedule.environment = %s" in calls[2][0]
