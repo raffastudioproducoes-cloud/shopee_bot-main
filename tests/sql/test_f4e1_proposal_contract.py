@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 import unittest
 
-SQL = (Path(__file__).resolve().parents[2] / "docs/sql-proposals/074_f4e1_inert_proposal.sql").read_text().lower()
+SQL = (Path(__file__).resolve().parents[2] / "database/migrations/074_f4e1_inert_campaign_reservations.sql").read_text().lower()
 
 
 class TestF4eProposal(unittest.TestCase):
