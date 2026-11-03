@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — F4D: plano da conta, consumo e acesso (PR, sem deploy)
+- Badges canônicos Free/Pro/Premium/Administrador, resumos de uso/limite por conta/perfil e bloqueios contextuais sem preços, cobrança ou checkout.
+- GET autenticado read-only `/profiles/usage` com counts exatos e limites auditados; Agora/cron/ativas sem consumo comprovado permanecem indisponíveis, nunca zero fictício.
+- Campanha usa caps do servidor, mantém leitura/exclusão após downgrade; automação visível como vitrine e indisponível mesmo quando habilitada pelo plano. Contratos frontend SSR/helpers/a11y e API incluídos na CI.
+- Sem SQL/DDL, ativação, jobs, envio externo, mudanças de scheduler, main ou VERSION=3.0.0. CI/QA/deploy final pendentes nesta nota.
+
 ### Status operacional — F4C2 em staging (03/11/2026)
 - PR #217 squash-merge em `staging` SHA `d80f60d289c314064fa6ac728c4b23f898a767c2`, CI #722 verde, Render deploy `dep-dbl2d1k9v7es73datmag` LIVE; `/health` e `/api/health/ready` respondem `{"status":"ok"}`. Sem schema novo, envios reais, UI autenticada testada ou promoção de `main`. F4E reserva de campanhas ativas e F4D interface continuam pendentes.
 

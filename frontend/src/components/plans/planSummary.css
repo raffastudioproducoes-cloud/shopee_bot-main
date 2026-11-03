@@ -1,0 +1,14 @@
+.plan-summary { margin-block: var(--sp-4); color: var(--text-body); min-width: 0; }
+.plan-summary-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); }
+.plan-summary-heading > span:last-child, .plan-summary p { font: var(--text-role-body); color: var(--text-muted); }
+.plan-usage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--sp-4); margin-block: var(--sp-4); }
+.plan-usage-grid > div { min-width: 0; }
+.plan-usage-grid dt { font: var(--text-role-label); color: var(--text-muted); }
+.plan-usage-grid dd { margin: var(--sp-2) 0 0; font: var(--text-role-body); overflow-wrap: anywhere; }
+.plan-summary .plan-limit { color: var(--negative); }
+.plan-info-button { min-height: var(--hit-min); max-width: 100%; padding: var(--sp-2) var(--sp-3); white-space: normal; border: 1px solid var(--border-card); border-radius: var(--r-md); background: var(--surface-card); color: var(--text-body); font: var(--text-role-body); cursor: pointer; }
+.plan-info-button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+.plan-info { margin-top: var(--sp-3); padding: var(--sp-4); border: 1px solid var(--border-card); border-radius: var(--r-md); overflow-wrap: anywhere; }
+.plan-info p { color: var(--text-muted); font: var(--text-role-body); }
+.plan-campaign-lock { margin-block: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--border-card); border-radius: var(--r-md); }
+.plan-campaign-editor { border: 0; padding: 0; margin: 0; min-width: 0; }

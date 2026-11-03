@@ -112,6 +112,7 @@ interface CatalogDetailsModalProps {
   onClose: () => void
   onConfirm: (p: CatalogProduct) => void
   onEdit: (p: CatalogProduct) => void
+  createBlocked: boolean
 }
 
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
@@ -125,7 +126,7 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
   )
 }
 
-function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfirm, onEdit }: CatalogDetailsModalProps) {
+function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfirm, onEdit, createBlocked }: CatalogDetailsModalProps) {
     return (
     <Modal open={product != null} onClose={onClose} title="Detalhes do produto" width={520}>
       {product ? (
@@ -158,7 +159,7 @@ function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfi
           ) : null}
           {error ? <div role="alert" className="csp-s-0057">{error}</div> : null}
           <div className="csp-s-0058">
-            <Button type="button" variant="ghost" onClick={() => onEdit(product)} disabled={added || isAdding}>
+            <Button type="button" variant="ghost" onClick={() => onEdit(product)} disabled={added || isAdding || createBlocked}>
               Editar antes de salvar
             </Button>
             <Button
@@ -166,7 +167,7 @@ function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfi
               variant="primary"
               icon={added ? "check" : "plus"}
               loading={isAdding}
-              disabled={added}
+              disabled={added || createBlocked}
               onClick={() => onConfirm(product)}
             >
               {added ? "Adicionado" : isAdding ? "Adicionando..." : "Adicionar aos meus produtos"}
@@ -179,13 +180,14 @@ function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfi
 }
 
 interface CatalogSearchTabProps {
+  createBlocked?: boolean
   /** Abre o formulario de cadastro manual (em branco). */
   onManualCreate: () => void
   /** Abre o formulario ja preenchido com os dados do catalogo. */
   onPrefill: (product: CatalogProduct) => void
 }
 
-export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTabProps) {
+export function CatalogSearchTab({ onManualCreate, onPrefill, createBlocked = false }: CatalogSearchTabProps) {
   const queryClient = useQueryClient()
   const accountId = useAuthStore((state) => state.user?.id)
   const [keywordInput, setKeywordInput] = useState("")
@@ -243,6 +245,7 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
     onSuccess: (_data, product) => {
       setAddedIds((prev) => new Set(prev).add(product.product_id))
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["plan-usage"] })
       setSelected(null)
     },
   })
@@ -299,7 +302,7 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
         <Button type="submit" variant="primary" icon="search" disabled={searchQuery.isFetching}>
           {searchQuery.isFetching ? "Buscando..." : "Buscar"}
         </Button>
-        <Button type="button" variant="ghost" icon="plus" onClick={onManualCreate}>
+        <Button type="button" variant="ghost" icon="plus" onClick={onManualCreate} disabled={createBlocked}>
           Cadastrar manualmente
         </Button>
       </form>
@@ -370,12 +373,13 @@ export function CatalogSearchTab({ onManualCreate, onPrefill }: CatalogSearchTab
         </>
       )}
       <CatalogDetailsModal
+        createBlocked={createBlocked}
         product={selected}
         added={selected != null && addedIds.has(selected.product_id)}
         isAdding={addMutation.isPending}
         error={addMutation.isError ? (addMutation.error instanceof Error ? addMutation.error.message : "Erro ao adicionar produto.") : null}
         onClose={() => setSelected(null)}
-        onConfirm={(p) => addMutation.mutate(p)}
+        onConfirm={(p) => { if (!createBlocked) addMutation.mutate(p) }}
         onEdit={(p) => {
           setSelected(null)
           onPrefill(p)

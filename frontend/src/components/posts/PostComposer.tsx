@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query"
 import { useState, useEffect, useRef } from "react"
+import { usePlanUsage } from "../../hooks/usePlanUsage"
 import { Eye } from "lucide-react"
 import { useAuthStore } from "../../stores/authStore"
 import { router } from "../../router"
@@ -227,6 +228,9 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     queryFn: () => aiCredentialsApi.list(),
   })
   const hasAiKey = aiStatus ? aiStatus.active !== null : true
+  const planQuery = usePlanUsage()
+  const plan = planQuery.isError ? undefined : planQuery.data
+  const recurringLimit = plan?.resources.recurring.unlimited ? null : plan?.resources.recurring.limit
   const schedulerQuery = useQuery({
     queryKey: ["posts", "scheduler-status"],
     queryFn: postsApi.schedulerStatus,
@@ -461,6 +465,13 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     setAiAdjustmentNotice(null)
   }
 
+  const selectedLimit = when === "now" ? plan?.resources.immediate : plan?.resources.recurring
+  const requestedUnits = when === "now" ? deliverableNetworks.length : deliverableNetworks.length * cronTimes.length
+  const quotaSelectionError = !post && selectedLimit && !selectedLimit.unlimited
+    && selectedLimit.limit !== null && requestedUnits > selectedLimit.limit
+      ? `A seleção usa ${requestedUnits} unidades; o plano permite ${selectedLimit.limit} ${when === "now" ? "por hora" : "horários por dia"}. Cada rede conta uma publicação.`
+      : ""
+
   const canSubmit = post
     ? !loading && !generateMutation.isPending && trimmedTexts.length > 0 &&
       activeNetworks.length === 1 && !issues[activeNetworks[0]]?.some((issue) => issue.level === "error")
@@ -472,7 +483,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
       deliverableNetworks.length > 0 &&
       deliverableNetworks.every((n) => textsFor(n).length > 0) &&
       deliverableNetworks.every((n) => states[n].connected === true) &&
-      !dateError
+      !dateError && !quotaSelectionError
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -801,6 +812,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
               </p>
             )}
 
+            {quotaSelectionError && <p role="status" style={{ ...metaTextStyle, color: "var(--negative)" }}>{quotaSelectionError}</p>}
             {when === "cron" && (
               <div className="csp-s-0343">
                 <div className="csp-s-0344">
@@ -842,7 +854,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
                     {index > 0 && <IconButton icon="trash-2" label={`Remover horário ${index + 1}`} onClick={() => setCronTimes((times) => times.filter((_, i) => i !== index))} />}
                   </div>
                 ))}
-                {cronTimes.length < 5 && <Button type="button" variant="ghost" icon="plus" onClick={() => setCronTimes((times) => [...times, ["09:00", "12:00", "15:00", "18:00", "21:00", "10:00"].find((value) => !times.includes(value)) ?? "00:00"])} style={{ alignSelf: "flex-start" }}>Adicionar horário</Button>}
+                {cronTimes.length < Math.min(5, recurringLimit ?? 5) && <Button type="button" variant="ghost" icon="plus" onClick={() => setCronTimes((times) => [...times, ["09:00", "12:00", "15:00", "18:00", "21:00", "10:00"].find((value) => !times.includes(value)) ?? "00:00"])} style={{ alignSelf: "flex-start" }}>Adicionar horário</Button>}
                 {dateError && (
                   <p role="status" style={{ ...metaTextStyle, color: "var(--negative)" }}>
                     {dateError}

@@ -11,6 +11,9 @@ import { NetworkPicker, PICKER_NETWORKS, type NetworkState } from "../posts/Netw
 import { reconcileCampaignSnapshots, patchCampaignSnapshot, type CampaignItemSnapshot } from "../../lib/campaignSnapshots"
 import { formDraftKey } from "../../lib/formDraftStorage"
 import { useAutosavedDraft } from "../../hooks/useAutosavedDraft"
+import { usePlanUsage } from "../../hooks/usePlanUsage"
+import { campaignUiCaps } from "../../lib/planPresentation"
+import { UpgradeInfo } from "../plans/PlanSummary"
 import { TextInput } from "../ui/TextInput"
 import { Button } from "../ui/Button"
 import "./campaignPlanner.css"
@@ -34,7 +37,7 @@ function initialDraft(): CampaignDraft {
   return {
     name: "", listId: null, itemIds: [], startDate: "", endDate: "",
     days: [0, 1, 2, 3, 4], startTime: "09:00", endTime: "18:00",
-    postsPerDay: "4", itemSnapshots: {},
+    postsPerDay: "1", itemSnapshots: {},
   }
 }
 
@@ -65,6 +68,10 @@ function productName(products: Product[], id: number, snapshots: Record<number, 
 export function CampaignPlanner({ credentials }: {
   credentials?: Awaited<ReturnType<typeof credentialsApi.list>>
 }) {
+  const planQuery = usePlanUsage()
+  const plan = planQuery.isError ? undefined : planQuery.data
+  const canEditCampaign = plan?.campaigns_enabled === true
+  const caps = campaignUiCaps(plan)
   const userId = useAuthStore((state) => state.user?.id)
   const profileId = useProfileStore((state) => state.activeProfileId)
   const [draft, setDraft] = useState<CampaignDraft>(initialDraft)
@@ -147,6 +154,7 @@ export function CampaignPlanner({ credentials }: {
   })
   const mediaUpload = useMutation({
     mutationFn: async ({ productId, files }: { productId: number; files: File[] }) => {
+      if (!canEditCampaign) throw new Error("Campanhas indisponíveis no plano atual.")
       if (!savedDraftId) throw new Error("Salve a campanha antes de enviar arquivos.")
       const uploaded = mediaQuery.data?.data.filter((item) => item.product_id === productId).length ?? 0
       if (uploaded + files.length > 10) throw new Error("Limite de 10 arquivos por produto.")
@@ -160,10 +168,12 @@ export function CampaignPlanner({ credentials }: {
   })
 
   const payload = useMemo<CampaignPreviewRequest | null>(() => {
-    if (!draft.listId || draft.itemIds.length === 0 || !draft.startDate || !draft.endDate ||
+    const inclusiveDays = (Date.parse(draft.endDate) - Date.parse(draft.startDate)) / 86400000 + 1
+    if (!canEditCampaign || !Number.isFinite(inclusiveDays) || inclusiveDays < 1 || inclusiveDays > caps.days ||
+        !draft.listId || draft.itemIds.length === 0 || !draft.startDate || !draft.endDate ||
         draft.days.length === 0 || !draft.startTime || !draft.endTime ||
         !Number.isInteger(Number(draft.postsPerDay)) || Number(draft.postsPerDay) < 1 ||
-        Number(draft.postsPerDay) > 15) return null
+        Number(draft.postsPerDay) > caps.posts) return null
     return {
       list_id: draft.listId,
       item_ids: draft.itemIds,
@@ -174,11 +184,12 @@ export function CampaignPlanner({ credentials }: {
       end_time: draft.endTime,
       posts_per_day: Number(draft.postsPerDay),
     }
-  }, [draft])
+  }, [draft, canEditCampaign, caps.days, caps.posts])
 
 
   const saveInput = useMemo<CampaignDraftSaveRequest | null>(() => {
-    if (!selectedList || !draft.name.trim() || draft.name.trim().length > 120 || !draft.listId || !draft.itemIds.length ||
+    if (!canEditCampaign || ((draft.startDate || draft.endDate) && !payload) ||
+        !selectedList || !draft.name.trim() || draft.name.trim().length > 120 || !draft.listId || !draft.itemIds.length ||
         draft.itemIds.length !== products.length ||
         new Set(draft.itemIds).size !== products.length ||
         !draft.itemIds.every((id) => products.some((product) => product.id === id))) return null
@@ -196,14 +207,17 @@ export function CampaignPlanner({ credentials }: {
       })),
       schedule: payload,
     }
-  }, [selectedList, products, draft.name, draft.listId, draft.itemIds, snapshots, payload])
+  }, [selectedList, products, draft.name, draft.listId, draft.itemIds, snapshots, payload, canEditCampaign])
   const saveSignature = saveInput ? JSON.stringify(saveInput) : ""
   const saveMutation = useMutation({
     mutationFn: async ({ data, id, revision }: {
       data: CampaignDraftSaveRequest; id: string | null; revision: number | null; signature: string
-    }) => id && revision !== null
-      ? campaignsApi.updateDraft(id, { ...data, expected_revision: revision })
-      : campaignsApi.createDraft(data),
+    }) => {
+      if (!canEditCampaign) throw new Error("Campanhas indisponíveis no plano atual.")
+      return id && revision !== null
+        ? campaignsApi.updateDraft(id, { ...data, expected_revision: revision })
+        : campaignsApi.createDraft(data)
+    },
     onSuccess: (saved, variables) => {
       setSavedDraftId(saved.id)
       setSavedRevision(saved.revision)
@@ -311,11 +325,20 @@ export function CampaignPlanner({ credentials }: {
       <div className="campaign-intro">
         <div>
           <h2>Campanha por lista</h2>
-          <p>Organize a sequência de produtos e visualize os horários antes de ativar uma campanha.</p>
+          <p>Prepare rascunhos e consulte o calendário. A ativação ainda não está disponível.</p>
         </div>
         <span className="campaign-readonly-badge">Prévia · sem ativação</span>
       </div>
 
+      <div className="plan-campaign-lock" role="status">
+        {!plan ? "Não foi possível confirmar o plano. Novas prévias e alterações ficam indisponíveis; consulta e exclusão de rascunhos continuam disponíveis."
+          : !canEditCampaign ? "Campanhas não incluídas no plano atual. Disponíveis para preparação nos planos Pro e Premium; ativação ainda indisponível."
+          : `Até ${caps.days} dias inclusivos e ${caps.posts} publicações por dia. Cada rede conta uma publicação.`}
+        {plan && <p>Campanhas ativas: uso indisponível / {plan.is_admin ? "sem cota comercial" : plan.active_campaigns_limit}.
+          Rascunhos não consomem vagas. Ativação ainda indisponível.</p>}
+        {planQuery.isError && <Button variant="secondary" onClick={() => void planQuery.refetch()}>Consultar plano novamente</Button>}
+        <UpgradeInfo feature="Campanhas" />
+      </div>
       <div className="campaign-grid">
         <div className="campaign-controls">
           <section className="campaign-section">
@@ -442,7 +465,7 @@ export function CampaignPlanner({ credentials }: {
                               </label>
                               <input id={`campaign-media-${id}`} className="campaign-upload-input"
                                 type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4"
-                                disabled={!savedDraftId || mediaUpload.isPending || mediaDelete.isPending || deleteDraftMutation.isPending}
+                                disabled={!canEditCampaign || !savedDraftId || mediaUpload.isPending || mediaDelete.isPending || deleteDraftMutation.isPending}
                                 onChange={(event) => {
                                   const files = Array.from(event.currentTarget.files ?? [])
                                   event.currentTarget.value = ""
@@ -479,7 +502,7 @@ export function CampaignPlanner({ credentials }: {
             <p>Salve sua preparação para continuar em outro dispositivo. Salvar não cria posts nem ativa publicações.</p>
             <div className="campaign-actions">
               <Button variant="primary" icon="save"
-                disabled={!saveInput || saveMutation.isPending || (Boolean(savedDraftId) && lastSavedSignature === saveSignature)}
+                disabled={!canEditCampaign || !saveInput || saveMutation.isPending || (Boolean(savedDraftId) && lastSavedSignature === saveSignature)}
                 loading={saveMutation.isPending}
                 onClick={() => saveInput && saveMutation.mutate({
                   data: saveInput, id: savedDraftId, revision: savedRevision, signature: saveSignature,
@@ -550,11 +573,14 @@ export function CampaignPlanner({ credentials }: {
 
           <section className="campaign-section">
             <h3>02. Período e frequência</h3>
-            <p>Até 30 dias corridos, incluindo o primeiro e o último dia. Horário de Brasília.</p>
+            <p>Limite do plano: {caps.days || "indisponível"} dias corridos, incluindo o primeiro e o último dia. Horário de Brasília.</p>
             <div className="campaign-pair">
               <TextInput label="Data inicial" type="date" value={draft.startDate}
                 onChange={(event) => update("startDate", event.target.value)} />
               <TextInput label="Data final" type="date" value={draft.endDate}
+                min={draft.startDate || undefined}
+                max={draft.startDate && caps.days > 0 && Number.isFinite(Date.parse(draft.startDate))
+                  ? new Date(Date.parse(draft.startDate) + (caps.days - 1) * 86400000).toISOString().slice(0, 10) : undefined}
                 onChange={(event) => update("endDate", event.target.value)} />
             </div>
             <span className="campaign-field-label">Dias da semana</span>
@@ -577,9 +603,10 @@ export function CampaignPlanner({ credentials }: {
               <div className="campaign-frequency-field">
                 <label className="campaign-field-label" htmlFor="campaign-posts-per-day">Postagens por dia</label>
                 <select id="campaign-posts-per-day" className="campaign-select"
-                  value={draft.postsPerDay}
+                  value={draft.postsPerDay} disabled={!canEditCampaign}
                   onChange={(event) => { update("postsPerDay", event.target.value); setLegacyScheduleNotice(false) }}>
-                  {Array.from({ length: 15 }, (_, index) => index + 1).map((count) => (
+                  {Number(draft.postsPerDay) > caps.posts && <option value={draft.postsPerDay}>{draft.postsPerDay} — excede o plano atual; revise</option>}
+                  {Array.from({ length: caps.posts }, (_, index) => index + 1).map((count) => (
                     <option key={count} value={count}>{count} {count === 1 ? "postagem" : "postagens"} por dia</option>
                   ))}
                 </select>
@@ -591,9 +618,9 @@ export function CampaignPlanner({ credentials }: {
 
           <div className="campaign-actions">
             <Button variant="primary" icon="calendar-search"
-              disabled={!payload || !selectedList || previewMutation.isPending}
+              disabled={!canEditCampaign || !payload || !selectedList || previewMutation.isPending}
               loading={previewMutation.isPending}
-              onClick={() => payload && previewMutation.mutate(payload)}>
+              onClick={() => canEditCampaign && payload && previewMutation.mutate(payload)}>
               Calcular prévia
             </Button>
             <p>Esta ação somente consulta o planejamento. Não envia nada às redes sociais.</p>
@@ -646,7 +673,7 @@ export function CampaignPlanner({ credentials }: {
           )}
           <div className="campaign-next-step">
             <strong>Ativação será uma etapa separada</strong>
-            <p>Antes do disparo serão necessários limites por plano e rede, revisão até 30 minutos antes e validação anti-spam no servidor.</p>
+            <p>A ativação depende de reserva transacional de vagas, revisão até 30 minutos antes e validação anti-spam no servidor. Salvar ou calcular a prévia não publica.</p>
           </div>
         </aside>
       </div>
