@@ -25,6 +25,7 @@ def get_publication_jobs():
           AND p.profile_id IS NOT DISTINCT FROM s.profile_id
         WHERE s.func = ANY(%s)
           AND s.environment = %s
+          AND s.publication_origin = 'legacy'
     """
     return query_db(query, (list(NETWORK_FUNC_MAP.values()), current_environment()))
 
@@ -36,6 +37,7 @@ def get_by_post_id(user_id, post_id):
             start_date, run_date
         FROM schedulers
         WHERE post_id = %s AND user_id = %s
+          AND publication_origin = 'legacy'
     """
     args = (post_id, user_id)
     return query_db(query, args, True)
@@ -52,6 +54,7 @@ def get_by_id(job_id):
           AND p.user_id = s.user_id
           AND p.profile_id IS NOT DISTINCT FROM s.profile_id
         WHERE s.id = %s AND s.environment = %s
+          AND s.publication_origin = 'legacy'
     """
     args = (job_id, current_environment())
     return query_db(query, args, True)
@@ -63,7 +66,7 @@ def query(user_id):
             id, post_id, user_id, func, trigger, time, day_of_week, days_of_week,
             start_date, run_date
         FROM schedulers
-        WHERE user_id = %s
+        WHERE user_id = %s AND publication_origin = 'legacy'
     """
     args = (user_id, )
     return query_db(query, args)
@@ -98,6 +101,7 @@ def delete(user_id, scheduler_id, open_conn=None):
     query = """
         DELETE FROM schedulers
         WHERE id = %s AND user_id = %s
+          AND publication_origin = 'legacy'
         RETURNING id
     """
     args = (scheduler_id, user_id)
