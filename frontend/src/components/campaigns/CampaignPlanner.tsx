@@ -687,7 +687,7 @@ export function CampaignPlanner({ credentials }: {
                           onClick={() => setHistoryOffset((offset) => Math.max(0,offset-100))}>Anteriores</Button>
                         <Button variant="secondary" disabled={!historyQuery.data?.has_more}
                           onClick={() => setHistoryOffset((offset) => offset+100)}>Próximas</Button>
-                      </div>}
+                      </div>
                     </div>
                   )}
                 </div>
