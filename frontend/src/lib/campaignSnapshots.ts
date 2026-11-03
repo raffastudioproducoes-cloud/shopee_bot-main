@@ -48,7 +48,7 @@ export function reconcileCampaignSnapshots(
     const base = createCampaignSnapshot(product)
     const raw = record(saved[String(product.id)])
     const networks = Array.isArray(raw.networks)
-      ? NETWORKS.filter((network) => raw.networks.includes(network))
+      ? [...new Set(raw.networks)].filter((network): network is PostNetwork => NETWORKS.includes(network as PostNetwork))
       : base.networks
     const copies = record(raw.networkCopies)
     const networkCopies: CampaignItemSnapshot["networkCopies"] = {}
