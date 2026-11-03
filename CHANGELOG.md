@@ -5,10 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — F4B2: perfis conforme plano e isolamento reafirmado (staging)
+- Limites de perfis por conta: Free 1 total, Pro 3, Premium 5; ADMIN sem teto comercial. Nova RPC transacional valida plano/contagem no banco; `/profiles` de staging a utiliza e a versão antiga de produção continua com trigger de teto 3, por compartilharem Supabase.
+- Catálogo, Shopee e chave Gemini/IA seguem compartilhados na conta; listas (decisão confirmada), credenciais sociais, posts, agendas e histórico continuam segregados por perfil. Documentação e testes atualizados sem alterações em publicações reais.
+
 ### Added — F4B: catálogo persistente de quotas e consumo atômico (staging)
 - Matriz Free/Pro/Premium confirmada; Pro suporta **2** campanhas ativas por perfil, Premium **5**, e postagem em cada rede conta individualmente.
 - Migração aditiva 072 introduz plano canônico por conta, tabela auditável de limites e RPCs atômicas de criação de produtos/listas, sem trigger comercial global no Supabase compartilhado.
-- API staging aplica 100/500/2.000 produtos por conta e 20/20/100 listas por perfil com isenção comercial de ADMIN. Postagens imediatas/recorrentes, ativação de campanhas e criação de perfis seguem para a F4C; nenhuma publicação real é disparada por esta alteração.
+- API staging aplica 100/500/2.000 produtos por conta e 20/20/100 listas por perfil com isenção comercial de ADMIN. Postagens imediatas/recorrentes, ativação de campanhas e criação de perfis feita na F4B2; demais controles seguem para F4C; nenhuma publicação real é disparada por esta alteração.
 
 ### Changed — F4A: identificação visual de planos (staging)
 - Matriz Free/Pro/Premium, exceção ADMIN e fases de cotas registradas em `docs/PLANOS-F4-POLITICAS-E-FASES-20261103.md`, sem prometer restrições ainda não aplicadas ao backend.
