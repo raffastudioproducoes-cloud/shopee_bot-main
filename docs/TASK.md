@@ -23,8 +23,8 @@
 - [x] Garantir que o planejamento opcional use a mesma lista e ordem de produtos; snapshots antigos não editam a lista-fonte.
 - [x] CI anterior [#41570799397](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41570799397) success (API e frontend); aguardar CI final com a migration ajustada para o gate de merge.
 - [x] Rafa autorizou especificamente migration 070. Aplicada via Supabase `campaign_drafts_070` em 03/11/2026. Inspeção confirmou tabela vazia, RLS ativo, anon/authenticated sem SELECT, service_role com SELECT/INSERT, ownership trigger ativo. Nenhum post/job/agendamento criado.
-- [ ] Com schema validado, mesclar PR #207 apenas em `staging` quando o novo CI estiver verde e conferir Render. `main` intocada; `VERSION=3.0.0` continua até release planejada.
-- [ ] F3B: anexos duráveis por item (foto/vídeo PC/celular, possível seleção de imagem Shopee) com política de expiração e limpeza; staging deve permanecer sem publicar; F4/F5 de ativação, cotas e regra T–30 vêm depois.
+- [x] PR #207 mesclada em `staging`, boot corrigido na PR #208 e Render LIVE/health OK. `main` intocada; `VERSION=3.0.0` continua até release planejada.
+- [x] F3B desenvolvida em branch separada (não implantada): nome próprio e anexos por item (foto/vídeo PC/celular, foto Shopee preservada), com limpeza só de uploads incompletos. F4/F5 de ativação, cotas e regra T–30 vêm depois.
 - **Limite conhecido:** a restauração editável requer lista de origem ainda existente e com os mesmos produtos; snapshots no banco sobrevivem à remoção da lista, mas a UI bloqueia carregamento quando isso poderia causar perda silenciosa.
 - **Segurança:** nenhum segredo, token, item do cliente ou dados de campanha são transcritos no log documental.
 
