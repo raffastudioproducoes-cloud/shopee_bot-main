@@ -83,7 +83,7 @@ export function CampaignPlanner() {
     JSON.stringify(previewMutation.variables) === JSON.stringify(payload))
   const preview = previewIsCurrent ? previewMutation.data : null
 
-  const update = <K extends keyof CampaignDraft>(field: K, value: CampaignDraft[K]) => {
+  const update = <K extends keyof CampaignDraft,>(field: K, value: CampaignDraft[K]) => {
     setDraft((current) => ({ ...current, [field]: value }))
   }
 
