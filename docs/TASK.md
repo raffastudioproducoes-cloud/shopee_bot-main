@@ -4,8 +4,8 @@
 - [x] API `POST /campaigns/preview` e salvamento de rascunho usam `posts_per_day`; valor fora de 1–15 ou janela curta rejeitados no backend. Rascunhos locais/servidor antigos com `interval_minutes` são convertidos no frontend com teto 15 e aviso para revisar prévia.
 - [x] `DELETE /campaigns/drafts/{id}?expected_revision=...` verifica usuário/perfil/status/revisão, bloqueia mídias em upload, valida prefixo do Storage e remove objetos privados antes do registro; o frontend exige confirmação inline. Não afeta lista-fonte nem posts/jobs.
 - [x] Sem migration Supabase, sem mudança em `main`, produção, publicadores, credenciais, plano ou versão `VERSION=3.0.0`; não ativar campanhas nesta PR.
-- [ ] PR [#211](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/211) em revisão: CI Python e TypeScript/build, merge `staging` somente após verde e deploy/health curto. Registrar SHA, CI, Render e sincronizar Vault no fechamento.
-- [ ] Próximo incremento isolado: ativação de campanhas com quotas por plano/rede, idempotência e proteção de edição T−30; não confundir prévia com publicação.
+- [x] PR [#211](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/211) squash merge exclusivamente `staging` `140ea06d7af804b4c3ad1b2547751334dc972d89`; CI [#41581370451](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41581370451) SUCCESS; Render `dep-dbkmmf7lk1mc73e1o2p0` LIVE, migration 071 já aplicada, startup completo e `/health` = `{"status":"ok"}`. Vault TASK e checkpoint 62 atualizados.
+- [ ] Nova aba de staging exigiu login; não houve revisão visual autenticada F3C nem exclusão real de dados de Rafa. Testes de API/Storage e UI por CI. Próximo incremento isolado: ativação com quotas por plano/rede, idempotência e edição T−30; não confundir prévia com publicação.
 
 ## 03/11/2026 UTC — Fechamento F3B em staging (PR #209, schema 071)
 
