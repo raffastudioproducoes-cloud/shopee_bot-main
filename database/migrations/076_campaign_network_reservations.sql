@@ -208,4 +208,159 @@ REVOKE ALL ON FUNCTION public.reserve_campaign_networks_f4e(uuid,uuid,uuid,integ
   FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.reserve_campaign_networks_f4e(uuid,uuid,uuid,integer,text,jsonb)
   TO service_role;
+
+-- Runtime e terminalidade ficam separados de "status" da reserva historica;
+-- nenhum worker legado tem autorizacao derivada da ausencia de vinculo.
+ALTER TABLE public.campaign_reservations_f4e
+  DROP CONSTRAINT campaign_reservations_f4e_dispatch_enabled_check;
+ALTER TABLE public.campaign_reservations_f4e
+  ADD CONSTRAINT campaign_reservation_dispatch_state
+  CHECK (dispatch_enabled = (lifecycle='active'));
+ALTER TABLE public.campaign_occurrences_f4e
+  DROP CONSTRAINT campaign_occurrences_f4e_dispatch_enabled_check;
+
+ALTER TABLE public.campaign_network_slots_f4e
+  ADD COLUMN source_environment text CHECK (source_environment IN ('production','staging'));
+GRANT UPDATE (source_environment) ON public.campaign_network_slots_f4e TO service_role;
+
+-- Verificacao de ultima milha feita no banco, inclusive quando o worker
+-- tenta alterar o job diretamente. Link ausente nunca e interpretado como legado.
+CREATE OR REPLACE FUNCTION public.guard_publication_origin_f4e()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $
+DECLARE
+  v_parent_origin text;
+BEGIN
+  IF TG_OP='UPDATE' AND NEW.publication_origin IS DISTINCT FROM OLD.publication_origin THEN
+    RAISE EXCEPTION 'publication_origin_immutable' USING ERRCODE='23514';
+  END IF;
+  IF TG_TABLE_NAME='publish_jobs' THEN
+    SELECT s.publication_origin INTO v_parent_origin
+    FROM public.schedulers s WHERE s.id=NEW.scheduler_id FOR KEY SHARE;
+    IF v_parent_origin IS NULL OR NEW.publication_origin IS DISTINCT FROM v_parent_origin THEN
+      RAISE EXCEPTION 'publication_origin_parent_mismatch' USING ERRCODE='23514';
+    END IF;
+    IF NEW.publication_origin='campaign' AND (
+      NEW.status NOT IN ('pending','failed') OR NEW.external_started_at IS NOT NULL
+      OR NEW.claim_token IS NOT NULL OR NEW.preflight_claim_token IS NOT NULL
+    ) AND NOT EXISTS (
+      SELECT 1
+      FROM public.campaign_network_slots_f4e slot
+      JOIN public.campaign_reservations_f4e reservation
+        ON reservation.id=slot.reservation_id
+      JOIN public.campaign_occurrences_f4e occurrence
+        ON occurrence.id=slot.occurrence_id
+       AND occurrence.reservation_id=reservation.id
+      JOIN public.schedulers sched ON sched.id=NEW.scheduler_id
+      JOIN public.users owner ON owner.id=NEW.user_id
+      WHERE slot.publish_job_id=NEW.id
+        AND slot.scheduler_id=NEW.scheduler_id
+        AND slot.post_id=NEW.post_id
+        AND slot.user_id=NEW.user_id AND slot.profile_id=NEW.profile_id
+        AND slot.network=NEW.network
+        AND slot.state='running'
+        AND slot.source_environment=sched.environment
+        AND occurrence.dispatch_enabled=true AND occurrence.status='planned'
+        AND reservation.dispatch_enabled=true AND reservation.lifecycle='active'
+        AND reservation.status='reserved_no_dispatch'
+        AND reservation.user_id=NEW.user_id AND reservation.profile_id=NEW.profile_id
+        AND reservation.source_environment=sched.environment
+        AND sched.publication_origin='campaign'
+        AND sched.dispatch_cancelled_at IS NULL
+        AND sched.post_id=NEW.post_id AND sched.user_id=NEW.user_id
+        AND sched.profile_id=NEW.profile_id
+        AND (owner.access::text='ADMIN' OR (
+          owner.plan_tier IN ('pro','premium','plus')
+          AND owner.campaign_paid_through > now()
+        ))
+    ) THEN
+      RAISE EXCEPTION 'campaign_dispatch_not_authorized' USING ERRCODE='23514';
+    END IF;
+  END IF;
+  RETURN NEW;
+END; $;
+
+CREATE FUNCTION public.activate_campaign_networks_f4e(
+  p_user_id uuid,p_profile_id uuid,p_reservation_id uuid,p_environment text
+) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $
+DECLARE
+  v_owner record; v_reservation record;
+BEGIN
+  IF p_environment NOT IN ('staging','production') THEN
+    RAISE EXCEPTION 'invalid_environment' USING ERRCODE='P0001';
+  END IF;
+  SELECT access::text AS access,plan_tier,campaign_paid_through
+    INTO v_owner FROM public.users WHERE id=p_user_id FOR UPDATE;
+  IF NOT FOUND OR (v_owner.access<>'ADMIN' AND
+     (v_owner.plan_tier NOT IN ('pro','plus','premium')
+      OR v_owner.campaign_paid_through IS NULL OR v_owner.campaign_paid_through<=now()))
+  THEN RAISE EXCEPTION 'paid_period_not_confirmed' USING ERRCODE='P0001'; END IF;
+  SELECT * INTO v_reservation FROM public.campaign_reservations_f4e
+    WHERE id=p_reservation_id AND user_id=p_user_id AND profile_id=p_profile_id
+    FOR UPDATE;
+  IF NOT FOUND OR v_reservation.status <> 'reserved_no_dispatch'
+     OR v_reservation.lifecycle <> 'preparing' THEN
+    RAISE EXCEPTION 'campaign_not_preparing' USING ERRCODE='P0001';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.campaign_network_slots_f4e
+                 WHERE reservation_id=p_reservation_id) THEN
+    RAISE EXCEPTION 'no_campaign_network_slots' USING ERRCODE='P0001';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.campaign_occurrences_f4e
+    WHERE reservation_id=p_reservation_id AND planned_at <= now()+interval '30 minutes')
+  THEN RAISE EXCEPTION 'activation_too_close_to_dispatch' USING ERRCODE='P0001'; END IF;
+  UPDATE public.campaign_reservations_f4e
+  SET lifecycle='active',dispatch_enabled=true,activated_at=now(),
+      media_verified_at=now(),oauth_verified_at=now(),source_environment=p_environment
+  WHERE id=p_reservation_id;
+  UPDATE public.campaign_occurrences_f4e SET dispatch_enabled=true
+  WHERE reservation_id=p_reservation_id AND status='planned';
+  UPDATE public.campaign_network_slots_f4e
+  SET source_environment=p_environment WHERE reservation_id=p_reservation_id;
+  RETURN true;
+END; $;
+
+CREATE FUNCTION public.change_campaign_lifecycle_f4e(
+  p_user_id uuid,p_profile_id uuid,p_reservation_id uuid,p_action text
+) RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $
+DECLARE
+  v_owner record; v_reservation record; v_state text;
+BEGIN
+  IF p_action NOT IN ('pause','resume','cancel') THEN
+    RAISE EXCEPTION 'invalid_action' USING ERRCODE='P0001'; END IF;
+  SELECT access::text AS access,plan_tier,campaign_paid_through
+    INTO v_owner FROM public.users WHERE id=p_user_id FOR UPDATE;
+  SELECT * INTO v_reservation FROM public.campaign_reservations_f4e
+    WHERE id=p_reservation_id AND user_id=p_user_id AND profile_id=p_profile_id
+    FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'campaign_not_owned' USING ERRCODE='P0001'; END IF;
+  IF p_action='pause' AND v_reservation.lifecycle='active' THEN
+    v_state:='paused';
+  ELSIF p_action='cancel' AND v_reservation.lifecycle IN ('preparing','active','paused') THEN
+    v_state:='cancelled';
+  ELSIF p_action='resume' AND v_reservation.lifecycle='paused'
+        AND (v_owner.access='ADMIN' OR
+          (v_owner.plan_tier IN ('pro','plus','premium') AND v_owner.campaign_paid_through>now()))
+  THEN
+    v_state:='active';
+  ELSE RAISE EXCEPTION 'invalid_campaign_transition' USING ERRCODE='P0001'; END IF;
+  UPDATE public.campaign_reservations_f4e
+  SET lifecycle=v_state, dispatch_enabled=(v_state='active'),
+      pause_reason=CASE WHEN v_state='paused' THEN 'manual' ELSE NULL END
+  WHERE id=p_reservation_id;
+  UPDATE public.campaign_occurrences_f4e
+  SET dispatch_enabled=(v_state='active')
+  WHERE reservation_id=p_reservation_id AND status='planned';
+  IF v_state='cancelled' THEN
+    UPDATE public.campaign_network_slots_f4e SET state='cancelled',finished_at=now()
+    WHERE reservation_id=p_reservation_id AND state='planned';
+  END IF;
+  RETURN v_state;
+END; $;
+
+REVOKE ALL ON FUNCTION public.activate_campaign_networks_f4e(uuid,uuid,uuid,text)
+  FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION public.change_campaign_lifecycle_f4e(uuid,uuid,uuid,text)
+  FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.activate_campaign_networks_f4e(uuid,uuid,uuid,text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.change_campaign_lifecycle_f4e(uuid,uuid,uuid,text) TO service_role;
 COMMIT;
