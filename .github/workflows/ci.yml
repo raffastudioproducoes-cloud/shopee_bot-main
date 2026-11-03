@@ -14,6 +14,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  f4e-postgres-proposal:
+    name: F4E proposta (PostgreSQL descartável)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f4e_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f4e_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install 'psycopg[binary]==3.2.9'
+      - name: Contratos estáticos e PostgreSQL isolado
+        env:
+          F4E_DISPOSABLE_DSN: postgresql://postgres:postgres@127.0.0.1:5432/f4e_test
+        run: python -m unittest discover -s tests/sql -p 'test_f4e1_*.py' -v
+
   api:
     name: API Python (lint + testes)
     runs-on: ubuntu-latest
