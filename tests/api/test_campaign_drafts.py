@@ -17,7 +17,7 @@ def item(product_id=12, **changes):
 
 
 def payload(**changes):
-    values = dict(list_id=11, items=[item(12), item(13)],
+    values = dict(name="Ofertas de Novembro", list_id=11, items=[item(12), item(13)],
                   schedule=None)
     values.update(changes)
     return campaigns.CampaignDraftSave(**values)
@@ -74,6 +74,7 @@ def test_create_draft_scopes_account_and_profile_without_creating_posts(monkeypa
     result = asyncio.run(campaigns.create_campaign_draft(payload(), user_id="owner", profile_id="profile-a"))
     assert result["id"] == "draft-1"
     assert fake.table_names == ["campaign_drafts"]
+    assert fake.writes[0]["campaign_name"] == "Ofertas de Novembro"
     assert fake.writes[0]["user_id"] == "owner"
     assert fake.writes[0]["profile_id"] == "profile-a"
     assert [x["product_id"] for x in fake.writes[0]["items"]] == [12, 13]
@@ -111,3 +112,37 @@ def test_migration_070_is_safe_on_second_boot():
     assert "tgname = 'trg_campaign_draft_owner'" in sql
     assert "IF NOT EXISTS (" in sql
     assert "DROP TABLE" not in sql
+
+
+def test_campaign_name_is_required_trimmed_and_independent_from_list():
+    assert payload(name="  Black Friday  ").name == "Black Friday"
+    with pytest.raises(Exception):
+        payload(name="  ")
+    with pytest.raises(Exception):
+        payload(name="x" * 121)
+    updated = campaigns.CampaignDraftUpdate(
+        name="Minha campanha", expected_revision=1, items=[item(12), item(13)])
+    assert updated.name == "Minha campanha"
+
+
+def test_media_never_accepts_product_outside_draft():
+    draft = {"status": "draft", "items": [item(12), item(13)]}
+    campaigns._assert_draft_product(draft, 13)
+    with pytest.raises(HTTPException) as caught:
+        campaigns._assert_draft_product(draft, 999)
+    assert caught.value.status_code == 404
+
+
+def test_migration_071_is_reentrant_and_leaves_existing_posts_untouched():
+    from pathlib import Path
+
+    sql = (Path(__file__).resolve().parents[2] / "database/migrations/071_campaign_names_and_media.sql").read_text()
+    assert "ADD COLUMN IF NOT EXISTS campaign_name" in sql
+    assert "CREATE TABLE IF NOT EXISTS public.campaign_draft_media" in sql
+    assert "CREATE INDEX IF NOT EXISTS idx_campaign_draft_media_owner" in sql
+    assert "tgname = 'trg_campaign_media_owner'" in sql
+    assert "pg_catalog.pg_trigger" in sql
+    assert "ENABLE ROW LEVEL SECURITY" in sql
+    assert "REVOKE ALL PRIVILEGES ON TABLE public.campaign_draft_media FROM anon, authenticated" in sql
+    assert "DROP TABLE" not in sql
+    assert "public.posts " not in sql
