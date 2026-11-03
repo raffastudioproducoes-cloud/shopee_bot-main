@@ -1,4 +1,13 @@
-## 03/11/2026 — F4C2: guardas preparatórios (PR, sem merge/deploy)
+## 03/11/2026 — Fechamento operacional F4C2 em staging (sem ativação de campanhas)
+
+- [x] [PR #217](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/217) integrada **apenas em `staging`** por squash `d80f60d289c314064fa6ac728c4b23f898a767c2` após [CI #722](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41692608479) **SUCCESS**: API 1.157 testes, scheduler 175 aprovados + 1 xfailed, SQL 4, web 27, frontend e build aprovados.
+- [x] Render staging deploy `dep-dbl2d1k9v7es73datmag` **LIVE** no mesmo SHA; verificação por navegador sem login: `/health` e `/api/health/ready` ambos `{"status":"ok"}`. O CI e o health não validam fluxo autenticado nem publicação social real.
+- [x] Enforce de Free sem novas campanhas, Pro 15 dias/3 envios por rede/dia, Premium 30/15, ADMIN bypass comercial, escopo/ownership e downgrade. `GET /campaigns/limits` sinaliza consumo de ativas `null` e disponibilidade de ativação/automação `false`.
+- [ ] Quota de **Pro2/Premium5 campanhas ativas por perfil** será reservada de forma transacional na F4E, antes de existir ativação/qualquer job. Interface de acesso e upgrade é F4D. Nenhum SQL/migration 074 aplicado; produção `main` e `VERSION=3.0.0` preservadas.
+- [ ] QA autenticada da campanha, concorrência real e testes de rede social permanecem pendentes, sem enviar posts só para demonstrar sucesso. Gatilho SMTP revisado: não há evidência de domínio próprio registrado **e configurado** no site.
+- [x] Atualização documental de fechamento registrada neste PR separado, preservando histórico do desenvolvimento anterior.
+
+## 03/11/2026 — F4C2: histórico de preparação pré-merge
 
 - [x] Código preparado com autoridade de conta/política auditada, fail-closed, ownership e limites de prévia/rascunho/upload. Free mantém leitura/exclusão de legado; volume por rede e data local validado quando a agenda está presente.
 - [x] Contratos unitários adicionados; sintaxe Python validada em memória. Runtime local sem FastAPI; CI ainda não confirmada nesta revisão documental.
