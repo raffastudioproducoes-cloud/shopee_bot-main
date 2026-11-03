@@ -226,7 +226,7 @@ GRANT UPDATE (source_environment) ON public.campaign_network_slots_f4e TO servic
 -- Verificacao de ultima milha feita no banco, inclusive quando o worker
 -- tenta alterar o job diretamente. Link ausente nunca e interpretado como legado.
 CREATE OR REPLACE FUNCTION public.guard_publication_origin_f4e()
-RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
 DECLARE
   v_parent_origin text;
 BEGIN
@@ -277,11 +277,11 @@ BEGIN
     END IF;
   END IF;
   RETURN NEW;
-END; $;
+END; $$;
 
 CREATE FUNCTION public.activate_campaign_networks_f4e(
   p_user_id uuid,p_profile_id uuid,p_reservation_id uuid,p_environment text
-) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $
+) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE
   v_owner record; v_reservation record;
 BEGIN
@@ -317,11 +317,11 @@ BEGIN
   UPDATE public.campaign_network_slots_f4e
   SET source_environment=p_environment WHERE reservation_id=p_reservation_id;
   RETURN true;
-END; $;
+END; $$;
 
 CREATE FUNCTION public.change_campaign_lifecycle_f4e(
   p_user_id uuid,p_profile_id uuid,p_reservation_id uuid,p_action text
-) RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $
+) RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE
   v_owner record; v_reservation record; v_state text;
 BEGIN
@@ -355,7 +355,7 @@ BEGIN
     WHERE reservation_id=p_reservation_id AND state='planned';
   END IF;
   RETURN v_state;
-END; $;
+END; $$;
 
 REVOKE ALL ON FUNCTION public.activate_campaign_networks_f4e(uuid,uuid,uuid,text)
   FROM PUBLIC,anon,authenticated,service_role;
