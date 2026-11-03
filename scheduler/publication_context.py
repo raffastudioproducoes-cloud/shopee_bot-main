@@ -8,6 +8,7 @@ esse resultado permanece 'unknown' até conciliação humana/oficial.
 from contextvars import ContextVar
 
 from shopee_bot.database import publish_jobs
+from shopee_bot.database import post_content_snapshot
 
 
 _active_attempt = ContextVar("active_publish_attempt", default=None)
@@ -17,12 +18,16 @@ class PublicationDeferred(BaseException):
     """Controle interno: interromper ANTES da rede, sem engolir em except Exception."""
 
 
-def activate(publish_job_id, claim_token):
-    return _active_attempt.set((publish_job_id, claim_token))
+def activate(publish_job_id, claim_token, content_snapshot=None):
+    attempt_token = _active_attempt.set((publish_job_id, claim_token))
+    snapshot_token = post_content_snapshot.bind(content_snapshot)
+    return attempt_token, snapshot_token
 
 
-def reset(token):
-    _active_attempt.reset(token)
+def reset(tokens):
+    attempt_token, snapshot_token = tokens
+    post_content_snapshot.reset(snapshot_token)
+    _active_attempt.reset(attempt_token)
 
 
 def mark_external_delivery():
