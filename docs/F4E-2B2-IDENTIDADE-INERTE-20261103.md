@@ -15,6 +15,10 @@ A decisão anterior de “pausar imediatamente ao passar de Premium para Pro” 
 3. Oferece `docs/sql-proposals/F4E2B2-INERT-CAMPAIGN-DISPATCH-LINKS.sql` **fora de `database/migrations`**. A proposta cria uma tabela exclusivamente de leitura ao `service_role`, com campos obrigatórios, FKs, unicidade por ocorrência+rede, validação cruzada entre reserva/ocorrência/agenda/post/job e bloqueio de alteração ou ativação. Não há INSERT concedido nem mecanismo de dispatch.
 4. Testes automatizados validam formato real dos IDs, fail-closed em duas origens/flags e restrições estáticas do SQL. Não substituem execução isolada em PostgreSQL ou teste transacional de concorrência.
 
+## Adendo F4E-2B3 — proposta em revisão, não aplicada
+
+A [F4E-2B3](F4E-2B3-PROPOSTA-IDENTIDADE-PAIS-20261103.md) aprimora este mesmo arquivo SQL com chaves/FKs compostas RESTRICT dos pais, locks ordenados e validação de rede do post. Testes PostgreSQL descartável foram preparados e adicionados explicitamente à CI; resultado/PR ainda pendentes neste registro. A proposta não é idempotente para reaplicação e permanece sem INSERT/UPDATE/DELETE ao service_role. Lifecycle não é identidade: status/cancelamento/claims não são congelados. Não há integração no executor, DDL no Supabase nem proteção operacional. O DTO permanece sem autoridade.
+
 ## Lacunas antes de qualquer uso real da identidade
 
 - **Banco:** a proposta não foi executada; exige revisão de locking, validação de FKs/status, concorrência, imutabilidade dos **pais** (reserva/ocorrência/scheduler/post/job), regras para múltiplas redes, retries e histórico sem cascatas destrutivas. Uma FK sozinha não prova identidade estável depois de UPDATE nos pais.

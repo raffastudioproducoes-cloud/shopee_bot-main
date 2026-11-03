@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### F4E-2B3 — ajuste do harness descartável
+
+Na primeira CI #41723907329, os 9 casos SQL novos passaram individualmente, mas a limpeza foi corretamente interrompida por uma asserção errada do tamanho do nome gerado do banco. Validação substituída por regex exata `f4e2b3_[0-9a-f]{32}` antes do DROP; banco somente local do runner, removido também pelo teardown do serviço Docker. Nova CI necessária para aprovar a suíte completa. Nenhuma alteração de SQL/runtime/Supabase. A barreira de DROP usa exceção explícita, inclusive sob Python otimizado; teste de unicidade isola também o mesmo job em outra ocorrência, sem mascarar a constraint por colisão de ocorrência/rede.
+
+### F4E-2B3 — proposta de identidade dos pais, sem executor (03/11/2026)
+
+A proposta SQL F4E2B2, fora do migrador, acrescenta FKs compostas RESTRICT e índices incluindo PK para impedir troca de identidade dos pais vinculados, com locks ordenados na validação inicial e rede do post conferida. Sem novo grant executável: service_role só lê links. Nova suíte PostgreSQL descartável usa migrations reais dos pais e testa concorrência/REPEATABLE READ, ACL, unicidade, rollback, lifecycle e legado não vinculado; descoberta explícita na CI. Matriz de integração e riscos em `docs/F4E-2B3-PROPOSTA-IDENTIDADE-PAIS-20261103.md`. PR/CI ainda em preparação neste registro; nenhum guard ligado ao executor, Supabase/main/flags/postagem/billing alterados. Pedido de downgrade preserva direitos até fim do período pago. `VERSION=3.0.0`.
+
 ### Correção contratual — ciclo pago e e-mails futuros (03/11/2026)
 
 Retificada a regra de downgrade da F4E-2B2: solicitação não restringe plano, campanhas ou quotas antes do vencimento pago. Cancelamento impede renovação futura, preservando acesso quitado; troca/pausa na virada; aviso T−7 e confirmação; upgrade com processamento após pagamento. Requisitos futuros de e-mail transacional/marketing opt-in e ressalva CDC/LGPD registrados. **Somente documentação**, sem checkout/cobrança/SQL/envios/main/alteração de VERSION.
