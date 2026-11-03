@@ -50,7 +50,7 @@ BEGIN
  SELECT s.reservation_id INTO v_res FROM public.campaign_network_slots_f4e s
  JOIN public.publish_jobs j ON j.id=s.publish_job_id
  WHERE j.id=p_job AND j.claim_token=p_token AND j.status='running'
-  AND j.preflight_claim_token=p_token AND j.external_started_at IS NULL
+  AND j.preflight_claim_token=p_token
   AND s.state='running' AND s.source_environment=p_environment;
  IF NOT FOUND THEN RETURN false; END IF;
  SELECT r.*,u.access::text AS user_access,u.plan_tier AS current_tier,
@@ -64,9 +64,9 @@ BEGIN
     (v_state.current_tier NOT IN ('pro','plus','premium')
      OR v_state.paid_through<=now() OR v_state.paid_through IS NULL))
  THEN RETURN false; END IF;
- UPDATE public.publish_jobs SET external_started_at=now()
+ UPDATE public.publish_jobs SET external_started_at=COALESCE(external_started_at,now())
  WHERE id=p_job AND claim_token=p_token AND preflight_claim_token=p_token
-  AND status='running' AND external_started_at IS NULL
+  AND status='running'
   AND publication_origin='campaign';
  RETURN FOUND;
 END; $$;
