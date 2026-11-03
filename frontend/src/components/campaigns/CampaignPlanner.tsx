@@ -84,6 +84,8 @@ export function CampaignPlanner({ credentials }: {
   const [legacyScheduleNotice, setLegacyScheduleNotice] = useState(false)
   const [listOverride, setListOverride] = useState<Awaited<ReturnType<typeof listsApi.get>> | null>(null)
   const [lastSavedSignature, setLastSavedSignature] = useState<string | null>(null)
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
+  const [cancelTargetId, setCancelTargetId] = useState<string | null>(null)
   const draftKey = formDraftKey(userId, "campaign-preview", profileId)
 
   useAutosavedDraft<CampaignDraft>(draftKey, draft, (saved) => {
@@ -144,6 +146,40 @@ export function CampaignPlanner({ credentials }: {
     queryFn: campaignsApi.listDrafts,
     enabled: Boolean(userId && profileId),
     retry: false,
+  })
+
+  const activeQuery = useQuery({
+    queryKey: ["campaign-active", userId, profileId],
+    queryFn: campaignsApi.listActive,
+    enabled: Boolean(userId && profileId),
+    retry: false,
+    refetchInterval: 30_000,
+  })
+  const historyQuery = useQuery({
+    queryKey: ["campaign-history", userId, profileId, selectedCampaignId],
+    queryFn: () => campaignsApi.getHistory(selectedCampaignId!),
+    enabled: Boolean(userId && profileId && selectedCampaignId),
+    refetchInterval: 30_000,
+    retry: false,
+  })
+  const activateMutation = useMutation({
+    mutationFn: ({ id, revision }: { id: string; revision: number }) =>
+      campaignsApi.activateDraft(id, revision),
+    onSuccess: (record) => {
+      setSelectedCampaignId(record.id)
+      void activeQuery.refetch()
+      void planQuery.refetch()
+    },
+  })
+  const lifecycleMutation = useMutation({
+    mutationFn: ({ id, action }: { id: string; action: "pause" | "resume" | "cancel" }) =>
+      campaignsApi.changeState(id, action),
+    onSuccess: () => {
+      setCancelTargetId(null)
+      void activeQuery.refetch()
+      void historyQuery.refetch()
+      void planQuery.refetch()
+    },
   })
 
   const mediaQuery = useQuery({
@@ -325,17 +361,19 @@ export function CampaignPlanner({ credentials }: {
       <div className="campaign-intro">
         <div>
           <h2>Campanha por lista</h2>
-          <p>Prepare rascunhos e consulte o calendário. A ativação ainda não está disponível.</p>
+          <p>Prepare o conteúdo, confirme o período contratado e ative a publicação automática por rede.</p>
         </div>
-        <span className="campaign-readonly-badge">Prévia · sem ativação</span>
+        <span className="campaign-readonly-badge">{plan?.activation_available ? "Ativação disponível" : "Ativação condicionada ao plano"}</span>
       </div>
 
       <div className="plan-campaign-lock" role="status">
         {!plan ? "Não foi possível confirmar o plano. Novas prévias e alterações ficam indisponíveis; consulta e exclusão de rascunhos continuam disponíveis."
-          : !canEditCampaign ? "Campanhas não incluídas no plano atual. Disponíveis para preparação nos planos Pro e Premium; ativação ainda indisponível."
+          : !canEditCampaign ? "Campanhas não incluídas no plano atual. Disponíveis nos planos Pro e Premium."
           : `Até ${caps.days} dias inclusivos e ${caps.posts} publicações por dia. Cada rede conta uma publicação.`}
-        {plan && <p>Campanhas ativas: uso indisponível / {plan.is_admin ? "sem cota comercial" : plan.active_campaigns_limit}.
-          Rascunhos não consomem vagas. Ativação ainda indisponível.</p>}
+        {plan && <p>Vagas reservadas: {plan.active_campaigns_count ?? "indisponível"} / {plan.is_admin ? "sem limite comercial" : plan.active_campaigns_limit}.
+          Rascunhos não consomem vagas. {plan.campaign_paid_through
+            ? "Direitos pagos até " + new Date(plan.campaign_paid_through).toLocaleString("pt-BR") + "."
+            : plan.is_admin ? "Conta administrativa." : "Sem período pago confirmado; ativação bloqueada."}</p>}
         {planQuery.isError && <Button variant="secondary" onClick={() => void planQuery.refetch()}>Consultar plano novamente</Button>}
         <UpgradeInfo feature="Campanhas" />
       </div>
@@ -560,6 +598,100 @@ export function CampaignPlanner({ credentials }: {
                 </div>
               </div>
             )}
+            <div className="campaign-actions">
+              <Button variant="primary" icon="send"
+                disabled={!plan?.activation_available || !savedDraftId || savedRevision === null ||
+                  lastSavedSignature !== saveSignature || !saveInput ||
+                  activateMutation.isPending || mediaUpload.isPending || mediaDelete.isPending}
+                loading={activateMutation.isPending}
+                onClick={() => savedDraftId && savedRevision !== null &&
+                  activateMutation.mutate({ id: savedDraftId, revision: savedRevision })}>
+                Ativar campanha salva
+              </Button>
+              <small>Ativar reserva vagas e prepara posts para os horários escolhidos. A rede só recebe o conteúdo no horário autorizado.</small>
+              {savedDraftId && lastSavedSignature !== saveSignature &&
+                <small role="status">Salve as alterações atuais antes de ativar.</small>}
+              {activateMutation.isError &&
+                <p className="campaign-error" role="alert">{activateMutation.error.message}</p>}
+              {activateMutation.isSuccess &&
+                <p className="campaign-status" role="status">Campanha ativada. Acompanhe os estados abaixo.</p>}
+            </div>
+            <div className="campaign-active-list" aria-label="Acompanhamento de campanhas">
+              <h4>Campanhas e entregas</h4>
+              {activeQuery.isLoading && <p className="campaign-status">Carregando campanhas…</p>}
+              {activeQuery.isError && <p className="campaign-error" role="alert">
+                Não foi possível consultar as campanhas. <button type="button"
+                  onClick={() => void activeQuery.refetch()}>Tentar novamente</button>
+              </p>}
+              {activeQuery.data?.data.length === 0 && <p className="campaign-status">
+                Nenhuma campanha reservada neste perfil.
+              </p>}
+              {(activeQuery.data?.data ?? []).map((record) => (
+                <div className="campaign-product" key={record.id}>
+                  <strong>Campanha {record.id.slice(0, 8)}</strong>
+                  <p className="campaign-status">
+                    Estado: {({preparing:"Preparando",active:"Ativa",paused:"Pausada",
+                      cancelled:"Cancelada",completed:"Concluída"} as const)[record.lifecycle]}
+                    {record.pause_reason === "paid_period_expired" ? " · período pago encerrado" : ""}
+                  </p>
+                  <p className="campaign-status">
+                    {record.progress
+                      ? [record.progress.succeeded + " concluídos",record.progress.planned + " planejados",
+                          record.progress.running + " em execução",record.progress.failed + " falhas",
+                          record.progress.unknown + " incertos",record.progress.cancelled + " cancelados"].join(" · ")
+                      : "Contagem indisponível"}
+                  </p>
+                  <div className="campaign-actions">
+                    <Button variant="secondary" onClick={() => setSelectedCampaignId(
+                      selectedCampaignId === record.id ? null : record.id)}>
+                      {selectedCampaignId === record.id ? "Fechar histórico" : "Ver histórico por rede"}
+                    </Button>
+                    {record.lifecycle === "active" &&
+                      <Button variant="secondary" disabled={lifecycleMutation.isPending}
+                        onClick={() => lifecycleMutation.mutate({ id: record.id, action: "pause" })}>
+                        Pausar
+                      </Button>}
+                    {record.lifecycle === "paused" &&
+                      <Button variant="secondary" disabled={lifecycleMutation.isPending}
+                        onClick={() => lifecycleMutation.mutate({ id: record.id, action: "resume" })}>
+                        Retomar
+                      </Button>}
+                    {["preparing","active","paused"].includes(record.lifecycle) &&
+                      (cancelTargetId === record.id
+                        ? <><Button variant="secondary" onClick={() => setCancelTargetId(null)}>
+                            Voltar
+                          </Button><Button variant="send" disabled={lifecycleMutation.isPending}
+                            onClick={() => lifecycleMutation.mutate({ id: record.id, action: "cancel" })}>
+                            Confirmar cancelamento
+                          </Button></>
+                        : <Button variant="send" onClick={() => setCancelTargetId(record.id)}>
+                            Cancelar campanha
+                          </Button>)}
+                  </div>
+                  {selectedCampaignId === record.id && (
+                    <div className="campaign-slots">
+                      {historyQuery.isLoading && <p>Carregando histórico…</p>}
+                      {historyQuery.isError && <p className="campaign-error">Histórico indisponível.</p>}
+                      <ol>
+                        {(historyQuery.data?.data ?? []).map((slot) => (
+                          <li key={slot.id}>
+                            {slot.network} · produto {slot.product_id} ·
+                            {new Date(slot.planned_at).toLocaleString("pt-BR")} · {slot.state}
+                            {slot.delivery?.last_error && <small> · {slot.delivery.last_error}</small>}
+                          </li>
+                        ))}
+                      </ol>
+                      {historyQuery.data?.has_more && <p className="campaign-status">
+                        Exibindo as primeiras 100 entregas; consulte as demais no histórico paginado.
+                      </p>}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {lifecycleMutation.isError &&
+                <p className="campaign-error" role="alert">{lifecycleMutation.error.message}</p>}
+            </div>
+
             {deleteFeedback && <p className="campaign-status" role="status">{deleteFeedback}</p>}
             {deleteDraftMutation.isError &&
               <p className="campaign-error" role="alert">{deleteDraftMutation.error.message}</p>}
@@ -672,8 +804,8 @@ export function CampaignPlanner({ credentials }: {
             </>
           )}
           <div className="campaign-next-step">
-            <strong>Ativação será uma etapa separada</strong>
-            <p>A ativação depende de reserva transacional de vagas, revisão até 30 minutos antes e validação anti-spam no servidor. Salvar ou calcular a prévia não publica.</p>
+            <strong>Ativação após salvar</strong>
+            <p>Ao ativar, o servidor valida as cotas, retém os arquivos no armazenamento privado e confirma as permissões OAuth. A execução ocorre somente nos horários previstos, com pausa e cancelamento disponíveis.</p>
           </div>
         </aside>
       </div>
