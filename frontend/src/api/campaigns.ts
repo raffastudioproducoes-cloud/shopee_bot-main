@@ -1,6 +1,6 @@
 import { api } from '../lib/api'
 
-/** Rascunho/solicitação de prévia; a rota nunca ativa uma campanha. */
+/** Previsão inerte; somente o endpoint activate materializa a campanha. */
 export interface CampaignPreviewRequest {
   list_id: number
   item_ids: number[]
@@ -81,7 +81,64 @@ export interface CampaignMediaRecord {
   created_at: string
 }
 
+export type CampaignLifecycle = 'preparing' | 'active' | 'paused' | 'cancelled' | 'completed'
+
+export interface CampaignProgress {
+  total: number
+  planned: number
+  running: number
+  succeeded: number
+  failed: number
+  unknown: number
+  cancelled: number
+}
+
+export interface CampaignReservation {
+  id: string
+  draft_id: string | null
+  lifecycle: CampaignLifecycle
+  source_environment: 'staging' | 'production' | null
+  created_at: string
+  activated_at: string | null
+  pause_reason: string | null
+  progress: CampaignProgress | null
+}
+
+export interface CampaignHistoryRow {
+  id: string
+  product_id: number
+  network: string
+  planned_at: string
+  state: 'planned' | 'running' | 'succeeded' | 'failed' | 'unknown' | 'cancelled'
+  finished_at: string | null
+  delivery: {
+    status: string
+    attempt: number
+    external_started_at: string | null
+    finished_at: string | null
+    last_error: string | null
+  } | null
+}
+
 export const campaignsApi = {
+  activateDraft(id: string, expectedRevision: number): Promise<CampaignReservation> {
+    return api.post<CampaignReservation>(
+      `/campaigns/drafts/${encodeURIComponent(id)}/activate`, { expected_revision: expectedRevision })
+  },
+  listActive(): Promise<{ data: CampaignReservation[] }> {
+    return api.get<{ data: CampaignReservation[] }>('/campaigns/active')
+  },
+  getActive(id: string): Promise<CampaignReservation> {
+    return api.get<CampaignReservation>(`/campaigns/active/${encodeURIComponent(id)}`)
+  },
+  getHistory(id: string, offset = 0): Promise<{ data: CampaignHistoryRow[], has_more: boolean }> {
+    return api.get<{ data: CampaignHistoryRow[], has_more: boolean }>(
+      `/campaigns/active/${encodeURIComponent(id)}/history?offset=${offset}`)
+  },
+  changeState(id: string, action: 'pause' | 'resume' | 'cancel'): Promise<CampaignReservation> {
+    return api.post<CampaignReservation>(
+      `/campaigns/active/${encodeURIComponent(id)}/${action}`, {})
+  },
   preview(data: CampaignPreviewRequest): Promise<CampaignPreviewResponse> {
     return api.post<CampaignPreviewResponse>('/campaigns/preview', data)
   },
