@@ -56,7 +56,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-DROP TRIGGER IF EXISTS trg_campaign_draft_owner ON public.campaign_drafts;
 CREATE TRIGGER trg_campaign_draft_owner
 BEFORE INSERT OR UPDATE ON public.campaign_drafts
 FOR EACH ROW EXECUTE FUNCTION public.check_campaign_draft_ownership();
