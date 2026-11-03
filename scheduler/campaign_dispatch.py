@@ -104,6 +104,7 @@ def drain():
         except publication_context.PublicationDeferred:
             # Lost claim or pause before network. Lease recovery decides safe retry.
             logger.warning("Campanha %s interrompida antes do envio", claim["publish_job_id"])
+            status = None
             continue
         except Exception as exc:
             error = type(exc).__name__ + ": " + str(exc)
