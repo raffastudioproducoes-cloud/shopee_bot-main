@@ -1,3 +1,10 @@
+## 03/11/2026 — F4C1 integrada e operacional em staging (evidência pós-merge)
+
+- [x] PR #215 squash-merge apenas em staging SHA `397f0f760570c7aa39a1756f6a9e05deaf205d2f`, CI #717 verde, migration 073 autorizada e aplicada (Supabase `20261103175106`, `public.migrations` id=68), Render `dep-dbl20fss728c739c6kag` LIVE, `/health` e `/api/health/ready` = `{"status":"ok"}`. Sem post externo nem promoção `main`/produção; `VERSION=3.0.0`.
+- [x] Tabelas novas de cota iniciaram vazias, RLS ativo, anon/auth sem acesso, RPCs SECURITY INVOKER só service_role; startup ignorou 073 registrada e iniciou scheduler.
+- [x] Vault documentado na PR #38, squash `20490e3115e04f8f3295c9ed1adef322bfd40e70`.
+- [ ] UI autenticada, concorrência real e publicação externa não testadas. Próxima etapa F4C2 campanhas/automação, depois F4D–F4F.
+
 ## 03/11/2026 — F4C1: limites de Agora e recorrência (branch isolada, SEM deploy)
 
 - [x] F4B/F4B2 recuperada da interrupção: migração 072 aplicada e registrada no Supabase em 03/11, políticas Free1/Pro3/Premium5 perfis e cotas de catálogo/listas verificadas, RLS/grants de RPCs corretos; PR [#214](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/214) squash-merge apenas em staging (`83d8373`), CI #711 SUCCESS e Render `dep-dbkp2lu7bikc7397nir0` LIVE. `main`/Render produção preservados. Startup registrou 072 em `public.migrations`.
