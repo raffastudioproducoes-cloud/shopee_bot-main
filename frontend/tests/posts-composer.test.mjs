@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 const source = (path) => readFile(new URL(`../src/${path}`, import.meta.url), 'utf8')
 
 test('compositor só oferece agora e recorrente, com produto individual', async () => {
-  const page = await source('pages/PostsPage.tsx')
+  const page = await source('components/posts/PostComposer.tsx')
   const picker = await source('components/posts/PostProductPicker.tsx')
   assert.match(page, /value: "now", label: "Agora"/)
   assert.match(page, /value: "cron", label: "Recorrente"/)
@@ -15,7 +15,7 @@ test('compositor só oferece agora e recorrente, com produto individual', async 
 })
 
 test('validação de hora usa dígitos reais e controle 24h', async () => {
-  const page = await source('pages/PostsPage.tsx')
+  const page = await source('components/posts/PostComposer.tsx')
   const picker = await source('components/posts/PostTimePicker.tsx')
   assert.ok(page.includes(String.raw`/^([01]\d|2[0-3]):[0-5]\d$/`),
     'Expressão HH:MM deve usar classe de dígitos, não barras literais')
@@ -26,7 +26,7 @@ test('validação de hora usa dígitos reais e controle 24h', async () => {
 })
 
 test('envio de mídia do computador aparece logo após fotos Shopee, antes da persona', async () => {
-  const page = await source('pages/PostsPage.tsx')
+  const page = await source('components/posts/PostComposer.tsx')
   const shopee = page.indexOf('Usar fotos dos produtos Shopee na publicação')
   const media = page.indexOf('Mídia (imagem/vídeo)')
   const persona = page.indexOf('label="Persona da IA"')
@@ -38,7 +38,7 @@ test('envio de mídia do computador aparece logo após fotos Shopee, antes da pe
 
 test('IA cria descrições por rede e sinaliza ajustes de limites', async () => {
   const limits = await source('lib/networkLimits.ts')
-  const page = await source('pages/PostsPage.tsx')
+  const page = await source('components/posts/PostComposer.tsx')
   const tabs = await source('components/posts/TextVariantTabs.tsx')
   assert.match(limits, /key: network,/)
   assert.match(limits, /networks: \[network\],/)
@@ -56,14 +56,15 @@ test('resumo de mídia explicita exclusão e publicação sem arquivo', async ()
 
 
 test('agendador indisponível bloqueia envio antes de upload e preserva rascunho', async () => {
-  const page = await source('pages/PostsPage.tsx')
+  const page = await source('pages/CreatePostPage.tsx')
+  const composer = await source('components/posts/PostComposer.tsx')
   const client = await source('api/posts.ts')
   assert.match(client, /schedulerStatus\(\)/)
   assert.match(client, /\/posts\/scheduler-status/)
   assert.ok(page.indexOf('await postsApi.schedulerStatus()') < page.indexOf('for (const file of data.files)'))
-  assert.match(page, /schedulerAvailable &&/)
-  assert.match(page, /role="alert"/)
-  assert.match(page, /Seu rascunho permanece salvo|seu rascunho permanece salvo|seu rascunho foi preservado/i)
+  assert.match(composer, /schedulerAvailable &&/)
+  assert.match(composer, /role="alert"/)
+  assert.match(composer, /Seu rascunho permanece salvo|seu rascunho permanece salvo|seu rascunho foi preservado/i)
 })
 
 
@@ -78,7 +79,7 @@ test('IDs visíveis e agrupamento nunca funde posts independentes pelo texto ou 
 })
 
 test('falha após criar post não provoca reenvio automático da criação', async () => {
-  const page = await source('pages/PostsPage.tsx')
+  const page = await source('pages/CreatePostPage.tsx')
   assert.match(page, /Promise\.allSettled\(result\.created\.map/)
   assert.match(page, /postId: created\.post_id/)
   assert.match(page, /Post criado, mas o disparo imediato não foi confirmado/)
