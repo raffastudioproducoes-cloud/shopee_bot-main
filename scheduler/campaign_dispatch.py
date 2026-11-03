@@ -62,6 +62,7 @@ def drain():
     try:
         _call("pause_expired_campaigns_f4e", (env,))
         _call("recover_campaign_publications_f4e", (env,))
+        _call("close_completed_campaigns_f4e", (env,))
     except Exception:
         logger.exception("Não foi possível recuperar campanhas; nenhum envio de campanha nesta rodada")
         return
