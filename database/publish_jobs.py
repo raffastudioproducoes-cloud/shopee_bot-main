@@ -118,7 +118,7 @@ def claim(publish_job_id, worker_id, lease_seconds):
     """
     scope, scope_args = _execution_scope()
     query = f"""
-        WITH candidate AS (
+        WITH locked_candidate AS (
             SELECT job.id, gen_random_uuid() AS token,
                 job.idempotency_key, job.post_id, job.user_id, job.profile_id,
                 CASE
@@ -143,26 +143,26 @@ def claim(publish_job_id, worker_id, lease_seconds):
               AND ({scope})
             FOR UPDATE OF job SKIP LOCKED
         ),
-        revisions AS (
-            SELECT candidate.*,
+        candidate AS (
+            SELECT locked_candidate.*,
                 original.id AS retry_source_id,
                 original.content_snapshot AS retry_snapshot,
                 original.content_revision_id AS retry_revision_id,
                 future.snapshot AS future_snapshot,
                 future.id AS future_revision_id
-            FROM candidate
+            FROM locked_candidate
             LEFT JOIN publish_jobs original
-              ON candidate.idempotency_key = 'manual_retry:' || original.id::text
-             AND original.user_id = candidate.user_id
-             AND original.profile_id IS NOT DISTINCT FROM candidate.profile_id
-             AND original.post_id = candidate.post_id
+              ON locked_candidate.idempotency_key = 'manual_retry:' || original.id::text
+             AND original.user_id = locked_candidate.user_id
+             AND original.profile_id IS NOT DISTINCT FROM locked_candidate.profile_id
+             AND original.post_id = locked_candidate.post_id
             LEFT JOIN LATERAL (
                 SELECT revision.id, revision.snapshot
                 FROM post_content_revisions revision
-                WHERE revision.post_id = candidate.post_id
-                  AND revision.user_id = candidate.user_id
-                  AND revision.profile_id = candidate.profile_id
-                  AND candidate.original_slot > revision.effective_after
+                WHERE revision.post_id = locked_candidate.post_id
+                  AND revision.user_id = locked_candidate.user_id
+                  AND revision.profile_id = locked_candidate.profile_id
+                  AND locked_candidate.original_slot > revision.effective_after
                 ORDER BY revision.effective_after DESC, revision.id DESC
                 LIMIT 1
             ) future ON TRUE
@@ -170,25 +170,25 @@ def claim(publish_job_id, worker_id, lease_seconds):
         UPDATE publish_jobs AS job
         SET status = 'running',
             attempt = job.attempt + 1,
-            claim_token = revisions.token,
-            preflight_claim_token = revisions.token,
+            claim_token = candidate.token,
+            preflight_claim_token = candidate.token,
             external_started_at = NULL,
             locked_by = %s,
             locked_at = now(),
             started_at = COALESCE(job.started_at, now()),
-            scheduled_for = COALESCE(job.scheduled_for, revisions.original_slot),
+            scheduled_for = COALESCE(job.scheduled_for, candidate.original_slot),
             content_revision_id = COALESCE(
                 job.content_revision_id,
-                CASE WHEN revisions.retry_source_id IS NOT NULL
-                     THEN revisions.retry_revision_id ELSE revisions.future_revision_id END
+                CASE WHEN candidate.retry_source_id IS NOT NULL
+                     THEN candidate.retry_revision_id ELSE candidate.future_revision_id END
             ),
             content_snapshot = COALESCE(
                 job.content_snapshot,
-                CASE WHEN revisions.retry_source_id IS NOT NULL
-                     THEN revisions.retry_snapshot ELSE revisions.future_snapshot END
+                CASE WHEN candidate.retry_source_id IS NOT NULL
+                     THEN candidate.retry_snapshot ELSE candidate.future_snapshot END
             )
-        FROM revisions
-        WHERE job.id = revisions.id
+        FROM candidate
+        WHERE job.id = candidate.id
         RETURNING job.id, job.claim_token, job.content_snapshot
     """
     return query_db(query, (publish_job_id, *scope_args, worker_id), one=True)
