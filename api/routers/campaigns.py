@@ -1,7 +1,6 @@
-"""Prévia de campanhas por listas — leitura apenas, sem persistência/ativação.
+"""Prévia e rascunhos inertes de campanhas; nunca ativa disparos.
 
-A API só calcula horários para uma lista do usuário e perfil ativo;
-a futura execução exige políticas de rede, idempotência e congelamento T-30.
+Execução futura exige políticas de rede, idempotência e congelamento T-30.
 """
 from datetime import date, time, datetime, timezone
 
@@ -149,6 +148,24 @@ def validate_campaign_draft_items(items: list, owned_ids: list[int]) -> None:
     validate_campaign_list_items(ids, owned_ids)
 
 
+def validate_campaign_draft_schedule(
+    schedule: CampaignPreviewRequest | None, list_id: int | None, item_ids: list[int],
+) -> None:
+    """A agenda, quando presente, deve descrever o mesmo snapshot e ser válida."""
+    if schedule is None:
+        return
+    if list_id is None or schedule.list_id != list_id:
+        raise ValueError("O planejamento precisa corresponder à lista da campanha.")
+    if schedule.item_ids != item_ids:
+        raise ValueError("O planejamento precisa usar a ordem exata dos produtos preparados.")
+    plan_campaign_slots(
+        start_date=schedule.start_date, end_date=schedule.end_date,
+        weekdays=schedule.weekdays, start_time=schedule.start_time,
+        end_time=schedule.end_time, interval_minutes=schedule.interval_minutes,
+        item_ids=schedule.item_ids, timezone="America/Sao_Paulo",
+    )
+
+
 def _draft_profile(profile_id):
     if not profile_id:
         raise HTTPException(status_code=400, detail="Perfil ativo obrigatório.")
@@ -166,6 +183,7 @@ async def create_campaign_draft(
     products = _get_list_products(source["id"])
     try:
         validate_campaign_draft_items(body.items, [int(p["id"]) for p in products])
+        validate_campaign_draft_schedule(body.schedule, body.list_id, [p.product_id for p in body.items])
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     by_id = {int(p["id"]): p for p in products}
@@ -228,6 +246,7 @@ async def update_campaign_draft(
     old_items = {int(p["product_id"]): p for p in old["items"]}
     try:
         validate_campaign_draft_items(body.items, list(old_items))
+        validate_campaign_draft_schedule(body.schedule, old.get("source_list_id"), [p.product_id for p in body.items])
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     items = []
