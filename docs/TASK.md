@@ -1,3 +1,12 @@
+## 03/11/2026 — F4A planos, etiquetas e política configurável (em homologação)
+
+- [x] Decisão de Rafa organizada em matriz e fases: Free/Pro/Premium, ADMIN sem cotas comerciais, perfil, produtos/listas/posts/recorrente/campanha/automação e acesso comum; ver [contrato F4](PLANOS-F4-POLITICAS-E-FASES-20261103.md).
+- [x] Consulta read-only ao Supabase: `profiles.plan_tier` aceita `free|plus|premium`; `users.access` distingue USER/ADMIN; três perfis no momento da leitura. Teste `RafaelTesteCliente` (USER) mudou apenas perfil principal `free` → `premium`; releitura confirmou. ADMIN `rafastudio` permaneceu `ADMIN` e tag legada `free`.
+- [ ] Branch `feature/plan-tiers-f4a-20261103`: etiqueta visual `Plus` → `Pro` com compatibilidade e badge Administrador quando papel validado; aguarda PR/CI/merge somente staging, sem enforce de cotas nesta fase.
+- [ ] F4B–F4F: tabela de entitlements editável e auditável, migração compatível, guardas de backend por conta/perfil, UI bloqueada com upgrade, ativação idempotente e T−30; detalhes na especificação.
+- [ ] Rafa precisa confirmar tetos Premium (produtos, listas, envio agora, recorrente), cota de campanhas criadas/ativas e unidade de contagem de envios multirrede. Não assumir ilimitado nem habilitar disparo externo.
+- [x] `VERSION=3.0.0`; `main` e produção inalteradas. Gatillho SMTP ainda depende de prova de domínio próprio registrado e configurado.
+
 ## 03/11/2026 — F3C: postagens/dia e botão Excluir rascunho (PR #211)
 
 - [x] Pedido do Rafa: substituir campo `Intervalo (min)` por seletor **1 a 15 postagens/dia**, mantendo datas (máximo absoluto de 30 dias inclusivos), dias da semana e janela horária; distribuição uniforme via `plan_campaign_slots`.

@@ -1,7 +1,7 @@
 import { api } from '../lib/api'
 
 export type ProfileKind = 'principal' | 'secundario'
-export type PlanTier = 'free' | 'plus' | 'premium'
+export type PlanTier = 'free' | 'pro' | 'plus' | 'premium'
 
 export interface Profile {
   id: string
