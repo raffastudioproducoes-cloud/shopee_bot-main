@@ -18,8 +18,9 @@ export interface PlanUsage {
   absolute_campaign_days: number
   campaign_posts_per_day: number | null
   automation_entitled: boolean
-  automation_available: false
-  activation_available: false
+  automation_available: boolean
+  activation_available: boolean
+  campaign_paid_through?: string | null
   resources: Record<PlanResource, ResourceUsage>
 }
 export const planUsageApi = { get: () => api.get<PlanUsage>("/profiles/usage") }
