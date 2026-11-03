@@ -1,3 +1,13 @@
+## 02/11/2026 BRT (03/11 UTC) — F3 incremental: snapshots locais por item de campanha (PR #206)
+
+- [x] Partir de `staging` após PR #205 e manter implementação isolada em `feat/campaign-item-snapshots-local-20261103` (PR #206), sem tocar em `main`, Supabase compartilhado ou publicação real.
+- [x] Reusar a página `Criar POST`, o seletor de redes/estado das credenciais e tokens de CSS existentes; cada item de uma lista tem um snapshot local independente de título, texto, link de afiliado, versões por rede e escolha da foto principal Shopee. Ordenação e prévia read-only preservadas.
+- [x] Persistir apenas **texto/metadados** no rascunho do navegador, com chave por usuário/perfil; proteger restauração contra IDs e redes de outras listas e preservar campos explicitamente apagados. O snapshot não altera a lista-fonte.
+- [x] Contratos RED observados no [CI #41565293561](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41565293561): 3 testes falharam pela ausência inicial do modelo, como esperado. Incluído teste de snapshots no gate de frontend.
+- [x] Contratos dos snapshots **32/32** no [CI #41565732655](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41565732655), mas build TypeScript inicialmente falhou em conversão de `Object.fromEntries` para `Record<PostNetwork, NetworkState>`; tipagem corrigida no commit `133591d`. **CI final e deploy staging devem ser verificados antes do merge e da conclusão.**
+- [ ] UI e upload **persistente** de fotos/vídeos locais por item, edição/IA em lote, schema transacional/RLS, políticas de redes, cotas e ativação permanecem etapas separadas. Foto Shopee e upload PC/celular da publicação única seguem intactos.
+- [ ] Prosseguir com merge da PR #206 somente após gate CI e revisão; **nunca promover `main` sem aceite específico de Rafa**. `VERSION` permanece `3.0.0`; release candidata ainda `3.1.0`.
+
 ## 02/11/2026 BRT (03/11 UTC) — Ícones Criar POST, CHANGELOG e governança de releases
 
 - [x] Auditoria do menu: `PanelPage` referencia `square-pen`, não registrado em `Icon.tsx`; ação da campanha referencia `calendar-search`, também ausente. Corrigir registro de ambos sem alterar menu, rotas ou publicação.
