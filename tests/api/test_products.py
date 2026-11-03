@@ -195,10 +195,10 @@ class TestProductsScopedByAccount:
         query = fake_client.table.return_value
         for method in ("insert", "select", "eq", "limit"):
             getattr(query, method).return_value = query
-        query.execute.side_effect = [
-            MagicMock(data=[]),
-            MagicMock(data=[{"id": 1, "name": "Fone", "product_id": "123456789"}]),
-        ]
+        query.execute.return_value = MagicMock(data=[])
+        fake_client.rpc.return_value.execute.return_value = MagicMock(
+            data=[{"id": 1, "name": "Fone", "product_id": "123456789"}]
+        )
         monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
 
         auth_client.cookies.update(auth_headers_with_profile)
@@ -213,7 +213,10 @@ class TestProductsScopedByAccount:
         )
 
         assert res.status_code == 201
-        assert "profile_id" not in query.insert.call_args[0][0]
+        assert fake_client.rpc.call_args.args[0] == "insert_product_with_plan_quota"
+        payload = fake_client.rpc.call_args.args[1]
+        assert "profile_id" not in payload["p_product"]
+        assert payload["p_user_id"] == 42
 
     def test_profiles_share_products_but_another_account_gets_404(
         self, auth_client, auth_headers_with_profile, fake_query_builder, monkeypatch, profile_cookie
