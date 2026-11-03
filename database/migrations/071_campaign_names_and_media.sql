@@ -9,6 +9,10 @@ ALTER TABLE public.campaign_drafts
 UPDATE public.campaign_drafts
   SET campaign_name = LEFT(COALESCE(NULLIF(BTRIM(source_list_name), ''), 'Campanha sem nome'), 120)
   WHERE campaign_name IS NULL OR BTRIM(campaign_name) = '';
+-- Compatibilidade durante a janela entre migração e deploy: o backend F3A
+-- anterior ainda salva rascunhos sem o novo campo, e não deve falhar.
+ALTER TABLE public.campaign_drafts
+  ALTER COLUMN campaign_name SET DEFAULT 'Campanha sem nome';
 ALTER TABLE public.campaign_drafts
   ALTER COLUMN campaign_name SET NOT NULL;
 DO $campaign_name_constraint$
