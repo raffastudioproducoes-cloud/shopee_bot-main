@@ -46,12 +46,14 @@ def _rpc(name: str, args: dict):
 
 def owned_reservation(reservation_id, user_id, profile_id):
     row = (supabase.table("campaign_reservations_f4e").select(
-        "id,draft_id,request_key,lifecycle,source_environment,activated_at,pause_reason,created_at")
+        "id,draft_id,request_key,lifecycle,source_environment,activated_at,pause_reason,created_at,draft_snapshot")
         .eq("id", str(reservation_id)).eq("user_id", str(user_id))
         .eq("profile_id", str(profile_id)).maybe_single().execute())
     if not row or not row.data:
         raise HTTPException(404, detail="Campanha não encontrada neste perfil.")
-    return row.data
+    record = dict(row.data)
+    record["name"] = (record.pop("draft_snapshot",{}) or {}).get("campaign_name") or "Campanha"
+    return record
 
 
 def reservation_details(reservation_id, user_id, profile_id):
