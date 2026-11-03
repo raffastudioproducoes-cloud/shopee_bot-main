@@ -1,3 +1,10 @@
+## 03/11/2026 — Fechamento verificado F4D staging e limite de segurança F4E
+
+- [x] 03/11/2026 — F4D **integrada apenas em staging**: [PR #219](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/219) squash `9adbd5a455022acecc580c7daba75bd445a8ec22`, [CI #728](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41696637695) SUCCESS (API 1.165; frontend 38 contratos + TypeScript/Vite; scheduler 175 + 1 xfailed; SQL 4; segurança/web 27; externo skipped esperado). Render staging `dep-dbl2obp5efls73f9durg` LIVE no mesmo SHA; browser confirmou `/health` e `/api/health/ready` como `{"status":"ok"}`. UI autenticada desktop/mobile ainda não verificada. Nenhuma migration/SQL/ativação/job/post externo, cobrança ou alteração de `main`/produção. `VERSION=3.0.0`.
+- [x] Fonte da conta e ADMIN server-side, leitura de uso sem contagem fictícia; Free bloqueado em novas campanhas, legado de consulta/exclusão preservado; limites Pro/Premium apresentados. Automação indisponível; upgrade apenas informativo.
+- [x] F4E auditada somente leitura: dispatch central de produção pode reivindicar agendamentos com origem staging se a configuração de dispatch estiver habilitada (flag real Render não verificada); separar F4E-1 inerte/transacional de F4E-2 execução protegida e não inserir campanha em `schedulers`/`publish_jobs` antes de guardas simultâneos nos dois ambientes. Não houve DDL nem autorização de ativação.
+- [ ] Inspeção visual autenticada desktop/mobile e QA de perfil/downgrade; sem postagem real. F4E-1 exige autorização específica para migração aditiva compartilhada; F4E-2 exige autorização separada para executor e risco cross-env.
+
 ## 03/11/2026 — F4D: interface de plano e acesso (PR isolada, sem deploy)
 
 - [x] Preparados badge de conta (alias Plus→Pro), ADMIN por resposta de servidor, resumos de uso/limite e locks contextuais no design system PT-BR.
