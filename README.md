@@ -309,6 +309,21 @@ O login por e-mail e Google, o cadastro com nome de usuário/e-mail/senhas iguai
 
 **Ainda não foi implantado em produção.** Não ativar `SUPABASE_AUTH_ENABLED` antes de migrar com segurança as duas contas legadas, testar recuperação e confirmação reais, avaliar sessões internas e resolver a entrega a e-mails de clientes externos (Supabase SMTP padrão é limitado a membros da equipe). Consulte [docs/SUPABASE-AUTH-MIGRACAO.md](docs/SUPABASE-AUTH-MIGRACAO.md).
 
+## F4D — plano, consumo e acesso (PR #219, sem deploy)
+
+A interface consulta `GET /api/profiles/usage` com conta e perfil autenticados:
+produtos/perfis são contados por conta e listas por perfil, sem depender da paginação.
+Plano e ADMIN vêm do servidor; falhas de política não viram Free e consumo não
+comprovado aparece como indisponível, nunca zero. Campanhas e automação continuam
+sem ativação; o CTA de planos é apenas informativo, sem cobrança ou checkout.
+O frontend preserva consulta e exclusão dos rascunhos legados após downgrade.
+Consulte [o contrato F4D](docs/PLANOS-F4-POLITICAS-E-FASES-20261103.md#10-f4d--interface-de-plano-consumo-e-acesso).
+
+Contratos específicos: `cd frontend && node --test tests/plan-access.test.mjs`
+e `pytest tests/api/test_account_usage.py`. A CI executa esses contratos junto
+ao build TypeScript/Vite e à suíte de API. A revisão visual autenticada em desktop
+e mobile permanece necessária antes da promoção; esta seção não declara deploy.
+
 ## Documentação
 
 | Documento | Conteúdo |

@@ -12,3 +12,9 @@
 .plan-info p { color: var(--text-muted); font: var(--text-role-body); }
 .plan-campaign-lock { margin-block: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--border-card); border-radius: var(--r-md); }
 .plan-campaign-editor { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+.plan-topbar-account { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+@media (max-width: 767px) {
+  .plan-topbar-account { flex-direction: column; align-items: flex-end; gap: var(--sp-1); flex-shrink: 1; }
+  .plan-topbar-account > :first-child { max-width: 100%; font-size: var(--fs-caption); overflow-wrap: anywhere; }
+}

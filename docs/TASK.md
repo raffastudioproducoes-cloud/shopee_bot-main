@@ -4,7 +4,8 @@
 - [x] GET autenticado read-only `/profiles/usage`, counts exatos por escopo, política server-side sem cache, null para consumo não comprovado de Agora/cron/ativas.
 - [x] Free bloqueado para novas mutações/prévia de campanha, preservando consulta/exclusão legada; caps do servidor em datas/frequência. Automação visível, não operacional, CTA informacional sem preço/checkout.
 - [x] Contratos executáveis frontend (helpers, hook escopado, SSR erro/loading, responsive/a11y, downgrade e teaser) e backend (escopo, ADMIN, null/zero, 503, auth e downgrade) preparados no gate CI.
-- [ ] CI completa do HEAD, revisão e visual desktop/mobile/autenticado antes de merge/deploy staging; nenhuma postagem real de teste. Esta nota não declara CI ou deploy aprovados.
+- [x] CI #726 do primeiro HEAD `d3a4339` aprovada (frontend contratos + TypeScript/Vite, API, scheduler e segurança); staging externo corretamente skipped.
+- [ ] CI completa do HEAD final, revisão e visual desktop/mobile/autenticado antes de merge/deploy staging; nenhuma postagem real de teste. Esta nota não declara deploy aprovado.
 - [ ] F4E permanece bloqueada para ativação: reserva transacional, idempotência, T−30 e isolamento de ambientes precisam de entrega própria. Nenhuma migration/SQL, job, scheduler, Supabase, Vault ou main alterados por F4D.
 - [x] VERSION=3.0.0 preservada. Gatilhos condicionais consultados no TASK vivo: sem evidência de domínio próprio registrado e configurado; SMTP permanece condicional. Vault e rollout coordenados pelo agente principal.
 - Contrato: [F4, seção 10](PLANOS-F4-POLITICAS-E-FASES-20261103.md#10-f4d--interface-de-plano-consumo-e-acesso).

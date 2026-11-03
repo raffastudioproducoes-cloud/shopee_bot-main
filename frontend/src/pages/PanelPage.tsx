@@ -170,8 +170,10 @@ export function PanelPage() {
           }
           trailing={
             <>
-              <PlanBadge />
-              <ActiveProfileChip />
+              <div className="plan-topbar-account">
+                <PlanBadge />
+                <ActiveProfileChip />
+              </div>
               <IconButton icon="log-out" label="Sair" tone="glass" onClick={handleLogout} />
             </>
           }

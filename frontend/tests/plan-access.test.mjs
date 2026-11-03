@@ -129,5 +129,8 @@ test("resumo é responsivo e não depende só de cor ou hover", async () => {
   assert.match(css, /repeat\(auto-fit, minmax\(min\(100%, 200px\), 1fr\)\)/)
   assert.match(css, /flex-wrap: wrap/)
   assert.match(css, /focus-visible/)
+  assert.match(css, /\.plan-topbar-account \{ flex-direction: column/)
+  const panel = await readFile(new URL("../src/pages/PanelPage.tsx", import.meta.url), "utf8")
+  assert.match(panel, /className="plan-topbar-account"[\s\S]*?<PlanBadge \/>[\s\S]*?<ActiveProfileChip \/>/)
   assert.match(css, /min-height: var\(--hit-min\)/)
 })
