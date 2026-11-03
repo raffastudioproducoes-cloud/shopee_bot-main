@@ -67,6 +67,7 @@ test("query muda por conta e perfil e não usa placeholder anterior", async () =
   verified = false; mod.usePlanUsage(); assert.equal(options.enabled, false)
   account = undefined; profile = null; mod.usePlanUsage(); assert.equal(options.enabled, false)
   assert.equal(options.placeholderData, undefined)
+  assert.equal(options.gcTime, 0)
   assert.equal(options.refetchOnWindowFocus, "always")
 })
 

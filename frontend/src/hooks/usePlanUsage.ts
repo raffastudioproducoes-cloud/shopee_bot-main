@@ -12,6 +12,8 @@ export function usePlanUsage() {
     queryFn: planUsageApi.get,
     enabled: Boolean(userId && profileId && verified),
     staleTime: 0,
+    // Ao sair/trocar perfil, nenhum consumo anterior permanece em cache.
+    gcTime: 0,
     retry: false,
     refetchOnWindowFocus: "always",
   })
