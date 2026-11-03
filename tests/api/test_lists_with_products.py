@@ -114,6 +114,17 @@ class FakeSupabase:
     def table(self, name):
         return _Query(self, name)
 
+    def rpc(self, name, payload):
+        # A criação foi transferida para a função SQL atômica; reproduz o
+        # INSERT da RPC sem esconder as particularidades do builder REST.
+        assert name == "insert_product_list_with_plan_quota"
+        assert payload["p_user_id"] == USER
+        return _Query(self, "product_lists").insert({
+            "user_id": payload["p_user_id"],
+            "profile_id": payload["p_profile_id"],
+            "name": payload["p_name"],
+        })
+
 
 @pytest.fixture
 def fake(monkeypatch):
