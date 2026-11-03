@@ -51,7 +51,7 @@ def test_f0_current_recovery_and_claim_skip_staging_rows_in_production(monkeypat
         captured.append((sql, args, one))
         assert "schedule.environment = %s" in sql
         if "FROM publish_jobs job" in sql and "ORDER BY job.created_at" in sql:
-            return [{"id": "fila-staging-1", "scheduler_id": STAGING_SCHEDULE["id"]}] if args[0] == "staging" else []
+            return [{"id": "fila-staging-1", "scheduler_id": STAGING_SCHEDULE["id"]}] if args[0] == 3600 and args[1] == "staging" else []
         if "FOR UPDATE OF job SKIP LOCKED" in sql:
             return {"id": "fila-staging-1", "claim_token": "lease-simulado"} if args[1] == "staging" else None
         raise AssertionError("Query inesperada neste teste de regressão")
