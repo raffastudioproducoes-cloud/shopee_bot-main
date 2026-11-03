@@ -146,3 +146,74 @@ def test_migration_071_is_reentrant_and_leaves_existing_posts_untouched():
     assert "REVOKE ALL PRIVILEGES ON TABLE public.campaign_draft_media FROM anon, authenticated" in sql
     assert "DROP TABLE" not in sql
     assert "public.posts " not in sql
+
+
+def test_campaign_media_upload_is_sanitized_private_scoped_and_never_creates_post(monkeypatch):
+    from contextlib import nullcontext
+    from uuid import UUID
+
+    class Query:
+        def __init__(self, db, name):
+            self.db, self.name, self.action, self.payload = db, name, "select", None
+        def select(self, *args): self.action = "select"; return self
+        def eq(self, *args): return self
+        def in_(self, *args): return self
+        def lt(self, *args): return self
+        def limit(self, *args): return self
+        def insert(self, row): self.action, self.payload = "insert", row; return self
+        def update(self, row): self.action, self.payload = "update", row; return self
+        def execute(self):
+            if self.action == "select": return SimpleNamespace(data=[])
+            if self.action == "insert":
+                self.db.record = dict(self.payload)
+                return SimpleNamespace(data=[self.db.record.copy()])
+            self.db.record.update(self.payload)
+            return SimpleNamespace(data=[self.db.record.copy()])
+
+    class Storage:
+        def __init__(self): self.files = []
+        def from_(self, bucket):
+            assert bucket == "post-media"
+            return self
+        def upload(self, key, content, options):
+            assert key.startswith("campaigns/owner/profile-a/")
+            assert options["upsert"] == "false"
+            self.files.append((key, content))
+
+    class DB:
+        def __init__(self):
+            self.tables = []
+            self.storage = Storage()
+            self.record = None
+        def table(self, name):
+            self.tables.append(name)
+            assert name == "campaign_draft_media"
+            return Query(self, name)
+
+    async def read_file(file): return b"raw"
+    async def sanitize_file(file, content):
+        assert content == b"raw"
+        return SimpleNamespace(content=b"sanitized", mime_type="image/png",
+                               extension=".png", media_type="IMAGE", safe_filename="foto.png")
+
+    fake = DB()
+    monkeypatch.setattr(campaigns, "supabase", fake)
+    monkeypatch.setattr(campaigns, "scope_owner", lambda query, uid, pid: query)
+    monkeypatch.setattr(campaigns, "_get_owned_campaign",
+                        lambda draft_id, uid, pid: {"status": "draft", "items": [item(12)]})
+    monkeypatch.setattr(campaigns, "_cleanup_abandoned_campaign_media", lambda *args: None)
+    monkeypatch.setattr(campaigns, "_read_media_content", read_file)
+    monkeypatch.setattr(campaigns, "_sanitize_upload", sanitize_file)
+    monkeypatch.setattr(campaigns, "storage_upload_reservation", lambda length: nullcontext())
+
+    result = asyncio.run(campaigns.upload_campaign_media(
+        UUID("11111111-1111-1111-1111-111111111111"), 12, file=object(),
+        user_id="owner", profile_id="profile-a"))
+    assert result["file_name"] == "foto.png"
+    assert result["status"] == "ready"
+    assert result["product_id"] == 12
+    assert fake.record["user_id"] == "owner"
+    assert fake.record["profile_id"] == "profile-a"
+    assert fake.storage.files[0][1] == b"sanitized"
+    assert set(fake.tables) == {"campaign_draft_media"}
+    assert "storage_key" not in result
