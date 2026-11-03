@@ -236,3 +236,41 @@ class TestProductsScopedByAccount:
 
         app.dependency_overrides[get_current_user_id] = lambda: 99
         assert auth_client.get("/products/1").status_code == 404
+
+
+def test_product_creation_returns_409_when_atomic_plan_quota_reached(
+    auth_client, monkeypatch
+):
+    """O código de falha da RPC vira erro amigável, sem expor SQL."""
+    fake_client = MagicMock()
+    query = fake_client.table.return_value
+    for method in ("select", "eq", "limit"):
+        getattr(query, method).return_value = query
+    query.execute.return_value = MagicMock(data=[])
+    fake_client.rpc.return_value.execute.side_effect = Exception("plan_products_quota_exceeded")
+    monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+    res = auth_client.post("/products", json={
+        "product_id": "987654321", "name": "Limite",
+        "original_link": "https://shopee.example/produto",
+        "commission_link": "https://shopee.example/afiliado",
+    })
+    assert res.status_code == 409
+    assert "Limite de produtos" in res.json()["detail"]
+
+
+def test_product_creation_fails_closed_if_plan_policy_missing(
+    auth_client, monkeypatch
+):
+    fake_client = MagicMock()
+    query = fake_client.table.return_value
+    for method in ("select", "eq", "limit"):
+        getattr(query, method).return_value = query
+    query.execute.return_value = MagicMock(data=[])
+    fake_client.rpc.return_value.execute.side_effect = Exception("plan_policy_unavailable")
+    monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
+    res = auth_client.post("/products", json={
+        "product_id": "987654322", "name": "Falha de política",
+        "original_link": "https://shopee.example/produto",
+        "commission_link": "https://shopee.example/afiliado",
+    })
+    assert res.status_code == 503
