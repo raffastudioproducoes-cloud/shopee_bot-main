@@ -5,10 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
-### Added — F4C1: reservas de cota para publicação por perfil (branch de staging, não implantada)
-- Migração 073 **aplicada ao Supabase compartilhado após autorização expressa, ainda não implantada em staging**: reservas transacionais de envio imediato por rede na janela móvel de 60 minutos e horários recorrentes por dia da semana; lê a política da conta na tabela 072 e considera agendamentos legados sem dupla contagem.
+### Added — F4C1: reservas de cota para publicação por perfil (staging LIVE)
+- Migração 073 **aplicada ao Supabase compartilhado após autorização expressa e implantada em staging**: reservas transacionais de envio imediato por rede na janela móvel de 60 minutos e horários recorrentes por dia da semana; lê a política da conta na tabela 072 e considera agendamentos legados sem dupla contagem.
 - FastAPI reserva antes de criar agenda, trata excesso como bloqueio PT-BR da rede, compensa falha de criação sem liberar envio externo incerto e reaproveita reserva ao despachar um post "Agora". ADMIN ignora cota comercial, mas não ownership/regras de rede.
-- Testes mockados de escopo, limites, falha fechada e batch parcial; fixture de Supabase fake ampliada após a CI #713 detectar 15 regressões de contrato. CI [#714](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41600926342) passou (API + frontend); PR #215 em DRAFT, CI #716 verde. Banco 073 verificado com RLS e RPCs restritas, registrado no histórico do Supabase e em `public.migrations`. Sem postagem externa, merge ou release; staging ainda aguarda implantação. `VERSION=3.0.0`.
+- Testes mockados de escopo, limites, falha fechada e batch parcial; fixture de Supabase fake ampliada após a CI #713 detectar 15 regressões de contrato. CI [#714](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41600926342) passou (API + frontend); PR #215 integrada somente em staging (`397f0f7`), CI #717 verde, Render `dep-dbl20fss728c739c6kag` LIVE; `/health` e `/api/health/ready` OK. Banco 073 verificado com RLS/RPCs restritas e registro único em `public.migrations`. Nenhum post externo ou promoção para `main`; Vault PR #38 integrada. `VERSION=3.0.0`. `VERSION=3.0.0`.
 
 ### Changed — F4B2: perfis conforme plano e isolamento reafirmado (staging)
 - Limites de perfis por conta: Free 1 total, Pro 3, Premium 5; ADMIN sem teto comercial. Nova RPC transacional valida plano/contagem no banco; `/profiles` de staging a utiliza e a versão antiga de produção continua com trigger de teto 3, por compartilharem Supabase.
