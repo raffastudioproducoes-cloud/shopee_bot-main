@@ -1986,7 +1986,7 @@ def create_future_revision(
     media_snapshot = _revision_media_snapshot(user_id, post_id, profile_id)
     _check_network_rules(
         post.get("network") or "threads",
-        body.texts, media_snapshot, len(original_ids), check_required_media=True,
+        body.texts, media_snapshot, len(original_ids),
     )
     payload = {
         "texts": body.texts,
