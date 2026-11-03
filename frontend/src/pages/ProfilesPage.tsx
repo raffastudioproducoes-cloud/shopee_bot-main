@@ -1,9 +1,9 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
 import { profilesApi, type Profile, type ProfileInput } from "../api/profiles"
-import { PROFILE_LIMIT, useActivateProfile, useProfiles } from "../hooks/useProfiles"
+import { useActivateProfile, useProfiles } from "../hooks/useProfiles"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { StatusMessage } from "../components/StatusMessage"
@@ -23,7 +23,16 @@ export function ProfilesPage() {
   const [feedback, setFeedback] = useState<{ kind: "error" | "success"; text: string } | null>(null)
 
   const { profiles, activeProfile, isLoading: profilesLoading, isError: profilesError, refetch: refetchProfiles } = useProfiles()
-  const atLimit = profiles.length >= PROFILE_LIMIT
+  const { data: quota, isLoading: quotaLoading, isError: quotaError, refetch: refetchQuota } = useQuery({
+    queryKey: ["profiles", "quota"],
+    queryFn: () => profilesApi.quota(),
+  })
+  const atLimit = !quota || (quota.limit !== null && quota.used >= quota.limit)
+  const quotaMessage = quota?.limit === 1
+    ? "O plano Free não permite perfis adicionais. Faça upgrade para criar mais perfis."
+    : quota?.limit != null
+      ? `Limite de ${quota.limit} perfis do plano atingido. Exclua um secundário ou faça upgrade.`
+      : ""
 
   const invalidateProfiles = () => queryClient.invalidateQueries({ queryKey: ["profiles"] })
 
@@ -86,8 +95,8 @@ export function ProfilesPage() {
           <Button
             variant="primary"
             icon="plus"
-            disabled={atLimit}
-            title={atLimit ? `Limite de ${PROFILE_LIMIT} perfis atingido` : undefined}
+            disabled={atLimit || quotaLoading || quotaError}
+            title={atLimit && quota ? quotaMessage : quotaError ? "Não foi possível consultar a cota de perfis" : undefined}
             onClick={() => {
               createProfileMutation.reset()
               setProfileModalOpen(true)
@@ -95,10 +104,11 @@ export function ProfilesPage() {
           >
             Novo perfil
           </Button>
-          {atLimit && (
-            <span className="csp-s-0377">
-              Limite de {PROFILE_LIMIT} perfis atingido. Exclua um perfil secundário para criar outro.
-            </span>
+          {atLimit && quota && (
+            <span className="csp-s-0377">{quotaMessage}</span>
+          )}
+          {quotaError && (
+            <Button variant="secondary" onClick={() => refetchQuota()}>Consultar limite novamente</Button>
           )}
         </div>
       </div>
