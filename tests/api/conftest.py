@@ -60,6 +60,23 @@ def _mock_active_scheduler_for_api_contracts(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _mock_post_quota_rpc_for_legacy_api_contracts(monkeypatch):
+    """Suporte à RPC F4C1 nos testes antigos com Supabase simulado.
+
+    Os contratos de posts anteriores testam mídia, redes e agenda, não
+    enforcement de plano. Casos de cota/erro usam testes próprios que
+    substituem esta RPC por respostas controladas (incluindo fail-closed).
+    Não muda o comportamento da aplicação nem desativa cotas em runtime.
+    """
+    from unittest.mock import MagicMock
+    from api import plan_quotas
+
+    client = MagicMock()
+    client.rpc.return_value.execute.return_value.data = 1
+    monkeypatch.setattr(plan_quotas, "supabase", client)
+
+
+@pytest.fixture(autouse=True)
 def _enable_all_networks_in_tests(monkeypatch):
     from api import network_limits
 
