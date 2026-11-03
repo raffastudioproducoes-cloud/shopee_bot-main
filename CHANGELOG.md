@@ -1,3 +1,5 @@
+> **Proposta F4E-1 em PR draft:** SQL inerte para revisão em `docs/sql-proposals/`, fora do migrador de boot, com testes estáticos e bloqueios documentados. Não aplicado nem testado em PostgreSQL; sem ativação, deploy, merge ou mudança em main. `VERSION=3.0.0` preservada.
+
 # Changelog
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
