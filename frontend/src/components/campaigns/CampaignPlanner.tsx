@@ -4,6 +4,11 @@ import { useAuthStore } from "../../stores/authStore"
 import { useProfileStore } from "../../stores/profileStore"
 import { listsApi, type Product } from "../../api/lists"
 import { campaignsApi, type CampaignPreviewRequest } from "../../api/campaigns"
+import { credentialsApi } from "../../api/credentials"
+import type { PostNetwork } from "../../api/posts"
+import { NETWORK_RULES } from "../../lib/networkLimits"
+import { NetworkPicker, PICKER_NETWORKS, type NetworkState } from "../posts/NetworkPicker"
+import { reconcileCampaignSnapshots, patchCampaignSnapshot, type CampaignItemSnapshot } from "../../lib/campaignSnapshots"
 import { formDraftKey } from "../../lib/formDraftStorage"
 import { useAutosavedDraft } from "../../hooks/useAutosavedDraft"
 import { TextInput } from "../ui/TextInput"
@@ -21,13 +26,14 @@ interface CampaignDraft {
   startTime: string
   endTime: string
   interval: string
+  itemSnapshots: Record<number, CampaignItemSnapshot>
 }
 
 function initialDraft(): CampaignDraft {
   return {
     listId: null, itemIds: [], startDate: "", endDate: "",
     days: [0, 1, 2, 3, 4], startTime: "09:00", endTime: "18:00",
-    interval: "180",
+    interval: "180", itemSnapshots: {},
   }
 }
 
@@ -38,19 +44,24 @@ function formatLocal(iso: string): string {
   }).format(new Date(iso))
 }
 
-function productName(products: Product[], id: number): string {
-  return products.find((product) => product.id === id)?.name ?? "Produto " + id
+function productName(products: Product[], id: number, snapshots: Record<number, CampaignItemSnapshot>): string {
+  return snapshots[id]?.title || products.find((product) => product.id === id)?.name || "Produto " + id
 }
 
 /** Edição local e prévia read-only. Não insere posts, jobs nem campanhas. */
-export function CampaignPlanner() {
+export function CampaignPlanner({ credentials }: {
+  credentials?: Awaited<ReturnType<typeof credentialsApi.list>>
+}) {
   const userId = useAuthStore((state) => state.user?.id)
   const profileId = useProfileStore((state) => state.activeProfileId)
   const [draft, setDraft] = useState<CampaignDraft>(initialDraft)
+  const [editingProductId, setEditingProductId] = useState<number | null>(null)
   const draftKey = formDraftKey(userId, "campaign-preview", profileId)
 
   useAutosavedDraft<CampaignDraft>(draftKey, draft, (saved) => {
-    setDraft(saved && Array.isArray(saved.itemIds) && Array.isArray(saved.days) ? saved : initialDraft())
+    setDraft(saved && Array.isArray(saved.itemIds) && Array.isArray(saved.days)
+      ? { ...initialDraft(), ...saved, itemSnapshots: saved.itemSnapshots ?? {} } : initialDraft())
+    setEditingProductId(null)
   })
 
   const { data: listsResponse, isLoading, error: listsError } = useQuery({
@@ -61,6 +72,22 @@ export function CampaignPlanner() {
   const lists = listsResponse?.data ?? []
   const selectedList = lists.find((list) => list.id === draft.listId)
   const products = selectedList?.products ?? []
+  const snapshots = useMemo(
+    () => reconcileCampaignSnapshots(products, draft.itemSnapshots),
+    [products, draft.itemSnapshots],
+  )
+  const networkStates = useMemo(() => Object.fromEntries(
+    PICKER_NETWORKS.map((network) => {
+      const credential = credentials?.[network]
+      const connected = credential?.state === "ok"
+      const connectionReason = credentials === undefined ? "verificando conexão"
+        : connected ? undefined
+        : credential?.state === "disconnected" ? "conecte em Credenciais"
+        : credential?.status_text ?? "teste a conexão em Credenciais"
+      return [network, { connected: credentials === undefined ? undefined : connected,
+        connectionReason, errors: [] }]
+    }),
+  ) as Record<PostNetwork, NetworkState>, [credentials])
   const previewMutation = useMutation({ mutationFn: campaignsApi.preview })
 
   const payload = useMemo<CampaignPreviewRequest | null>(() => {
@@ -87,6 +114,14 @@ export function CampaignPlanner() {
     setDraft((current) => ({ ...current, [field]: value }))
   }
 
+  const updateSnapshot = (id: number, changes: Partial<CampaignItemSnapshot>) => {
+    setDraft((current) => {
+      if (!products.some((product) => product.id === id)) return current
+      const currentSnapshots = reconcileCampaignSnapshots(products, current.itemSnapshots)
+      return { ...current, itemSnapshots: patchCampaignSnapshot(currentSnapshots, id, changes) }
+    })
+  }
+
   const moveProduct = (at: number, direction: -1 | 1) => {
     setDraft((current) => {
       const next = [...current.itemIds]
@@ -111,7 +146,7 @@ export function CampaignPlanner() {
         <div className="campaign-controls">
           <section className="campaign-section">
             <h3>01. Produtos</h3>
-            <p>Escolha uma lista do seu perfil e ajuste a ordem de apresentação.</p>
+            <p>Escolha uma lista, ajuste a ordem e prepare textos, links e redes de cada produto.</p>
             <label className="campaign-field-label" htmlFor="campaign-list">Lista de produtos</label>
             <select
               id="campaign-list"
@@ -122,7 +157,10 @@ export function CampaignPlanner() {
                 const list = lists.find((item) => item.id === id)
                 setDraft((current) => ({
                   ...current, listId: id, itemIds: (list?.products ?? []).map((item) => item.id),
+                  itemSnapshots: reconcileCampaignSnapshots(list?.products ?? [], {}),
                 }))
+                setEditingProductId(null)
+
               }}
               disabled={!profileId || isLoading}
             >
@@ -135,18 +173,91 @@ export function CampaignPlanner() {
             {selectedList && products.length === 0 && <p className="campaign-status">Esta lista não tem produtos. Adicione produtos em Listas.</p>}
             {selectedList && draft.itemIds.length > 0 && (
               <ol className="campaign-products">
-                {draft.itemIds.map((id, index) => (
-                  <li key={id} className="campaign-product">
-                    <span className="campaign-product-index">{index + 1}</span>
-                    <span className="campaign-product-name">{productName(products, id)}</span>
-                    <div className="campaign-reorder">
-                      <button type="button" aria-label={"Subir " + productName(products, id)}
-                        disabled={index === 0} onClick={() => moveProduct(index, -1)}>↑</button>
-                      <button type="button" aria-label={"Descer " + productName(products, id)}
-                        disabled={index === draft.itemIds.length - 1} onClick={() => moveProduct(index, 1)}>↓</button>
-                    </div>
-                  </li>
-                ))}
+                {draft.itemIds.map((id, index) => {
+                  const product = products.find((entry) => entry.id === id)
+                  const snapshot = snapshots[id]
+                  if (!product || !snapshot) return null
+                  const editing = editingProductId === id
+                  const prepared = Boolean(snapshot.copy.trim() && snapshot.networks.length)
+                  return (
+                    <li key={id} className="campaign-product">
+                      <div className="campaign-product-row">
+                        <span className="campaign-product-index">{index + 1}</span>
+                        {product.image && <img className="campaign-product-image" src={product.image}
+                          loading="lazy" alt="" />}
+                        <span className="campaign-product-name">
+                          <strong>{snapshot.title || product.name}</strong>
+                          <small>{prepared ? "Conteúdo preparado neste navegador" : "Preparação pendente"}</small>
+                        </span>
+                        <button type="button" className="campaign-edit-button"
+                          aria-expanded={editing} aria-controls={`campaign-item-editor-${id}`}
+                          onClick={() => setEditingProductId(editing ? null : id)}>
+                          {editing ? "Fechar" : "Preparar"}
+                        </button>
+                        <div className="campaign-reorder">
+                          <button type="button" aria-label={"Subir " + product.name}
+                            disabled={index === 0} onClick={() => moveProduct(index, -1)}>↑</button>
+                          <button type="button" aria-label={"Descer " + product.name}
+                            disabled={index === draft.itemIds.length - 1} onClick={() => moveProduct(index, 1)}>↓</button>
+                        </div>
+                      </div>
+                      {editing && (
+                        <div className="campaign-item-editor" id={`campaign-item-editor-${id}`}>
+                          <p className="campaign-item-hint">
+                            As mudanças ficam apenas no rascunho desta campanha; não alteram a lista nem fazem publicações.
+                          </p>
+                          <label className="campaign-field-label" htmlFor={`campaign-title-${id}`}>Título do produto</label>
+                          <input className="campaign-select" id={`campaign-title-${id}`} maxLength={300}
+                            value={snapshot.title} onChange={(e) => updateSnapshot(id, { title: e.target.value })} />
+                          <label className="campaign-field-label" htmlFor={`campaign-copy-${id}`}>Texto principal</label>
+                          <textarea className="campaign-textarea" id={`campaign-copy-${id}`}
+                            maxLength={10000} rows={4} value={snapshot.copy}
+                            onChange={(e) => updateSnapshot(id, { copy: e.target.value })}
+                            placeholder="Escreva a mensagem para este produto." />
+                          <label className="campaign-field-label" htmlFor={`campaign-link-${id}`}>Link de afiliado</label>
+                          <input className="campaign-select" id={`campaign-link-${id}`} type="url" maxLength={2048}
+                            value={snapshot.affiliateLink} onChange={(e) => updateSnapshot(id, { affiliateLink: e.target.value })}
+                            placeholder="https://..." />
+                          <span className="campaign-field-label">Redes para este produto</span>
+                          <NetworkPicker selected={snapshot.networks} states={networkStates}
+                            onToggle={(network) => updateSnapshot(id, {
+                              networks: snapshot.networks.includes(network)
+                                ? snapshot.networks.filter((entry) => entry !== network)
+                                : [...snapshot.networks, network],
+                            })} />
+                          {snapshot.networks.length > 0 && (
+                            <div className="campaign-network-copy">
+                              {snapshot.networks.map((network) => (
+                                <div key={network}>
+                                  <label className="campaign-field-label" htmlFor={`campaign-network-${id}-${network}`}>
+                                    Texto específico · {NETWORK_RULES[network].label}
+                                  </label>
+                                  <textarea className="campaign-textarea" id={`campaign-network-${id}-${network}`}
+                                    maxLength={10000} rows={3} value={snapshot.networkCopies[network] ?? ""}
+                                    placeholder="Deixe em branco para usar o texto principal."
+                                    onChange={(e) => updateSnapshot(id, {
+                                      networkCopies: { ...snapshot.networkCopies, [network]: e.target.value },
+                                    })} />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="campaign-media-choice">
+                            {product.image ? (
+                              <label>
+                                <input type="checkbox" checked={snapshot.useShopeeImage}
+                                  onChange={(e) => updateSnapshot(id, { useShopeeImage: e.target.checked })} />
+                                Usar a foto principal da Shopee
+                              </label>
+                            ) : <p>Este produto não tem foto Shopee registrada.</p>}
+                            <small>Fotos e vídeos do PC/celular continuam disponíveis na publicação única.
+                              O anexo persistente por produto da campanha será integrado antes da ativação.</small>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
               </ol>
             )}
           </section>
@@ -216,7 +327,7 @@ export function CampaignPlanner() {
               {preview.uncovered_count > 0 && (
                 <p className="campaign-warning">
                   Faltam horários para exibir todos os produtos: {preview.uncovered_item_ids
-                    .map((id) => productName(products, id)).join(", ")}.
+                    .map((id) => productName(products, id, snapshots)).join(", ")}.
                 </p>
               )}
               {preview.slot_count === 0 && (
@@ -226,7 +337,7 @@ export function CampaignPlanner() {
                 {preview.slots.map((slot) => (
                   <li key={slot.sequence}>
                     <span className="campaign-slot-number">{slot.sequence}</span>
-                    <span><strong>{productName(products, slot.product_id)}</strong>
+                    <span><strong>{productName(products, slot.product_id, snapshots)}</strong>
                       <small>{formatLocal(slot.scheduled_local)}</small>
                     </span>
                   </li>
@@ -234,6 +345,7 @@ export function CampaignPlanner() {
               </ol>
               {preview.truncated && <p className="campaign-status">Mostrando os primeiros 60 de {preview.slot_count} horários.</p>}
               <p className="campaign-safety-note">{preview.message}</p>
+              <p className="campaign-safety-note">A prévia calcula horários e rotação; rascunhos dos itens ainda não serão enviados.</p>
             </>
           )}
           <div className="campaign-next-step">
