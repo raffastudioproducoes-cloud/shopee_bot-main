@@ -1,3 +1,13 @@
+## 03/11/2026 — F4E-2B3 proposta inerte e provas isoladas (preparação de PR)
+
+- [x] Revisão estática constatou que o fluxo legado não possui origem de campanha persistente verificável. Nenhuma integração seletiva ao executor foi feita; não interpretar erro/ausência de link como legado autorizado.
+- [x] Proposta existente em docs/sql-proposals aprimorada com identidade composta/FKs RESTRICT e locks ordenados. Não altera status/cancel/lease dos pais nem grants de escrita do service_role. [Escopo e matriz de pontos de proteção](F4E-2B3-PROPOSTA-IDENTIDADE-PAIS-20261103.md).
+- [x] Testes PostgreSQL descartável preparados com migrations reais dos pais, cobertura de ACL/RLS, unicidade, rollback, lifecycle/legado e concorrência/REPEATABLE READ; CI inclui descoberta explícita.
+- [ ] Registrar PR/SHA/CI após execução. Não confundir teste SQL isolado com guard operacional, schema compartilhado aprovado ou staging LIVE. Sem merge/deploy manual.
+- [ ] Antes de ativação: origem obrigatória não removível em todos os writers, main+staging compatíveis, claim/retry/recovery/pré-envio protegidos, mídia/OAuth/quota/T−30/service_role e autorizações distintas para DDL/main/canário.
+- [x] Regra vigente preservada: pedido de downgrade/cancelamento não reduz direito até fim do período pago; mudança efetiva em current_period_end. Sem billing.
+- [x] TASK vivo do Vault consultado: nenhum domínio próprio registrado e configurado comprovado; sem gatilho SMTP. Vault não editado; espelho recomendado na entrega.
+
 ## 03/11/2026 — Retificação do ciclo pago (decisão vigente, implementação futura)
 
 - [x] **Regra aprovada por Rafa e documentada:** downgrade Premium→Pro ou cancelamento para Free **não altera plano, quotas, campanhas ou acesso até o término do período efetivamente pago**; pedido e supressão da renovação futura são imediatos. **Reinterpreta/supera** qualquer nota histórica abaixo que diga “pausar imediatamente ao pedir downgrade”. Pausa/seleção de até 2 campanhas/perfil somente na virada efetiva; ao virar Free, todas pausam; sem exclusão de registros.

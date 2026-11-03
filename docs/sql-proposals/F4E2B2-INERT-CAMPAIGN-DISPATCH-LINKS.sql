@@ -4,9 +4,27 @@
 -- Este contrato prova vínculo no INSERT, mas NÃO autoriza envio: status e
 -- dispatch_enabled são imutavelmente inertes; service_role só pode ler.
 -- O futuro claim, retry, recovery e pré-envio ainda precisam de guarda
--- transacional contra alterações de pais, downgrade, OAuth e cancelamento.
+-- transacional contra downgrade EFETIVO (nunca pedido durante ciclo pago), OAuth e cancelamento.
+-- F4E-2B3: chaves compostas/FKs RESTRICT preservam identidade dos pais mesmo
+-- sob concorrencia/REPEATABLE READ; triggers de consulta isolados nao bastam.
+-- Indices aditivos custam locks/espaco: revisar antes de qualquer DDL real.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
+
+-- Somente identidade, NAO status, cancelamento, lease ou conteudo mutavel.
+-- Todas incluem PK: nao introduzem nova unicidade comercial para legado.
+CREATE UNIQUE INDEX campaign_link_profile_identity_f4e
+  ON public.profiles (id, user_id);
+CREATE UNIQUE INDEX campaign_link_reservation_identity_f4e
+  ON public.campaign_reservations_f4e (id, user_id, profile_id);
+CREATE UNIQUE INDEX campaign_link_occurrence_identity_f4e
+  ON public.campaign_occurrences_f4e (id, reservation_id);
+CREATE UNIQUE INDEX campaign_link_schedule_identity_f4e
+  ON public.schedulers (id, post_id, user_id, profile_id, environment);
+CREATE UNIQUE INDEX campaign_link_post_identity_f4e
+  ON public.posts (id, user_id, profile_id, network);
+CREATE UNIQUE INDEX campaign_link_job_identity_f4e
+  ON public.publish_jobs (id, scheduler_id, post_id, user_id, profile_id, network);
 
 CREATE TABLE public.campaign_dispatch_links_f4e (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -28,7 +46,25 @@ CREATE TABLE public.campaign_dispatch_links_f4e (
   dispatch_enabled boolean NOT NULL DEFAULT false CHECK (dispatch_enabled = false),
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (occurrence_id, network),
-  UNIQUE (publish_job_id)
+  UNIQUE (publish_job_id),
+  FOREIGN KEY (profile_id, user_id)
+    REFERENCES public.profiles (id, user_id)
+    ON UPDATE RESTRICT ON DELETE RESTRICT,
+  FOREIGN KEY (reservation_id, user_id, profile_id)
+    REFERENCES public.campaign_reservations_f4e (id, user_id, profile_id)
+    ON UPDATE RESTRICT ON DELETE RESTRICT,
+  FOREIGN KEY (occurrence_id, reservation_id)
+    REFERENCES public.campaign_occurrences_f4e (id, reservation_id)
+    ON UPDATE RESTRICT ON DELETE RESTRICT,
+  FOREIGN KEY (scheduler_id, post_id, user_id, profile_id, source_environment)
+    REFERENCES public.schedulers (id, post_id, user_id, profile_id, environment)
+    ON UPDATE RESTRICT ON DELETE RESTRICT,
+  FOREIGN KEY (post_id, user_id, profile_id, network)
+    REFERENCES public.posts (id, user_id, profile_id, network)
+    ON UPDATE RESTRICT ON DELETE RESTRICT,
+  FOREIGN KEY (publish_job_id, scheduler_id, post_id, user_id, profile_id, network)
+    REFERENCES public.publish_jobs (id, scheduler_id, post_id, user_id, profile_id, network)
+    ON UPDATE RESTRICT ON DELETE RESTRICT
 );
 CREATE INDEX campaign_dispatch_links_owner_idx
   ON public.campaign_dispatch_links_f4e (user_id, profile_id, reservation_id);
@@ -41,6 +77,15 @@ BEGIN
   IF TG_OP <> 'INSERT' THEN
     RAISE EXCEPTION 'campaign_link_is_immutable' USING ERRCODE = '23514';
   END IF;
+  -- Ordem deterministica entre os pais deste contrato. Locks estabilizam a
+  -- validacao inicial de status; FKs compostas sao a autoridade permanente
+  -- para identidade, incluindo snapshots de transacao antigos.
+  PERFORM 1 FROM public.campaign_occurrences_f4e WHERE id = NEW.occurrence_id FOR UPDATE;
+  PERFORM 1 FROM public.campaign_reservations_f4e WHERE id = NEW.reservation_id FOR UPDATE;
+  PERFORM 1 FROM public.posts WHERE id = NEW.post_id FOR UPDATE;
+  PERFORM 1 FROM public.profiles WHERE id = NEW.profile_id FOR UPDATE;
+  PERFORM 1 FROM public.publish_jobs WHERE id = NEW.publish_job_id FOR UPDATE;
+  PERFORM 1 FROM public.schedulers WHERE id = NEW.scheduler_id FOR UPDATE;
   IF NOT EXISTS (
     SELECT 1
     FROM public.campaign_occurrences_f4e occurrence
@@ -68,6 +113,7 @@ BEGIN
       AND schedule.dispatch_cancelled_at IS NULL
       AND post.user_id = NEW.user_id
       AND post.profile_id = NEW.profile_id
+      AND post.network = NEW.network
       AND job.scheduler_id = NEW.scheduler_id
       AND job.user_id = NEW.user_id
       AND job.profile_id = NEW.profile_id
