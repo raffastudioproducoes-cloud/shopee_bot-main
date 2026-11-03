@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### 03/11/2026 — Fechamento F4E-1 em staging LIVE (após PR draft)
+
+- [PR #229](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/229) mesclada apenas em staging: squash `24c45b671e416d071c80c1c914eecaf6344db0b9`; [CI #764](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41702740725) SUCCESS com PostgreSQL 16; Render `dep-dbl3aibbc2fs738kfllg` LIVE no SHA; `/health` e `/api/health/ready` = `{"status":"ok"}`.
+- Supabase compartilhado com migration `20261103191911` e marcador único `public.migrations` para `074_f4e1_inert_campaign_reservations.sql`; tabelas 0/0, RLS/grants restritivos, sem nova execução, posts, jobs ou campanhas reais. Main/produção sem promoção de código.
+- Rafa confirmou tags, mensagens, criação e separação de perfis em mobile. Planos/checkout, F4E-2, barreiras de dispatch, redes/OAuth/mídia e downgrade continuam pendentes. `VERSION=3.0.0`. Os registros de PR draft abaixo são históricos pré-merge.
+
 ### F4E-1 — DDL inerte aplicada, PR draft
 
 - DDL aplicada ao Supabase compartilhado com autorização de Rafa, registrada no histórico Supabase (`20261103191911`) e em `public.migrations`. Reservas e ocorrências estavam vazias na inspeção; sem executor, jobs F4E, publicações, merge ou deploy de main/produção.
