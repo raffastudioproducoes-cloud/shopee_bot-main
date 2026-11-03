@@ -32,10 +32,10 @@ def _fake_insert_client():
     query = fake_client.table.return_value
     for method in ("insert", "select", "eq", "is_", "limit"):
         getattr(query, method).return_value = query
-    query.execute.side_effect = [
-        MagicMock(data=[]),  # lookup de duplicidade
-        MagicMock(data=[{"id": 1, "name": "Caixinha", "product_id": "23456789012"}]),
-    ]
+    query.execute.return_value = MagicMock(data=[])  # lookup de duplicidade
+    fake_client.rpc.return_value.execute.return_value = MagicMock(
+        data=[{"id": 1, "name": "Caixinha", "product_id": "23456789012"}]
+    )
     return fake_client, query
 
 
@@ -58,7 +58,8 @@ def test_create_accepts_numeric_product_id_from_catalog(auth_client, monkeypatch
     res = auth_client.post("/products", json=CATALOG_PAYLOAD)
 
     assert res.status_code == 201, res.json()
-    inserted = query.insert.call_args[0][0]
+    assert fake_client.rpc.call_args.args[0] == "insert_product_with_plan_quota"
+    inserted = fake_client.rpc.call_args.args[1]["p_product"]
     assert inserted["product_id"] == "23456789012"
     assert inserted["user_id"] == 42
 
@@ -70,7 +71,8 @@ def test_create_rounds_commission_and_prices_to_two_decimals(auth_client, monkey
     res = auth_client.post("/products", json={**CATALOG_PAYLOAD, "commission": 2.9994, "price_min": 49.999})
 
     assert res.status_code == 201
-    inserted = query.insert.call_args[0][0]
+    assert fake_client.rpc.call_args.args[0] == "insert_product_with_plan_quota"
+    inserted = fake_client.rpc.call_args.args[1]["p_product"]
     assert inserted["commission"] == 3.0
     assert inserted["price_min"] == 50.0
 

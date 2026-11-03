@@ -1,3 +1,15 @@
+## 03/11/2026 — F4B2: limites de perfis e isolamento por conta (em homologação)
+
+- [x] Rafa confirmou Free = **1 perfil total / 0 secundários**; Pro = **3 totais**; Premium = **5 totais**; ADMIN sem limite comercial. Produtos, Shopee, Gemini/IA compartilhados entre perfis. Listas **permanecem isoladas por perfil** (decisão expressa). Redes/OAuth, posts e históricos isolados por perfil.
+- [ ] PR #214 `feature/f4b-backend-entitlements-20261103`: migração 072 ampliada para três RPCs de quota (produtos, listas, perfis), `POST /profiles` chama RPC por plano; produção antiga conserva teto 3 no trigger global por Supabase compartilhado. CI, migração/aprovação, merge staging e health a verificar. Sem publicação externa.
+- [ ] F4C: enforce envios imediatos, recorrente, campanhas simultâneas e automação. Interface de upgrade e rollout `main` ficam separados.
+
+## 03/11/2026 — F4B: quotas persistidas no backend (em execução)
+
+- [x] Rafa fixou Premium em 2.000 produtos/conta, 100 listas/perfil, 5 envios imediatos/hora, 5 horários recorrentes/dia; Pro em **2 campanhas simultâneas/perfil**, Premium em **5**; cada rede publicada = 1 postagem. Substitui explicitamente o Pro=0 anterior.
+- [ ] `feature/f4b-backend-entitlements-20261103`: política SQL editável/auditável, source-of-truth por conta, RPC atômica produtos/listas, tratamento HTTP e testes; PR, CI, migração, merge staging e health ainda aguardando fechamento.
+- [ ] Próxima subfase F4C: guardas de perfis, recorrente, envio imediato, campanhas ativas, automação e UI. Não executar publicação real. Migração/DB compartilhado exige prova de compatibilidade com main.
+
 ## 03/11/2026 — F4A planos, etiquetas e política configurável (em homologação)
 
 - [x] Decisão de Rafa organizada em matriz e fases: Free/Pro/Premium, ADMIN sem cotas comerciais, perfil, produtos/listas/posts/recorrente/campanha/automação e acesso comum; ver [contrato F4](PLANOS-F4-POLITICAS-E-FASES-20261103.md).

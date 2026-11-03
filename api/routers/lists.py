@@ -193,8 +193,19 @@ async def create_product_list(
     product_ids = body.product_ids or []
     _validate_owned_products(user_id, product_ids)
 
-    data = {"user_id": user_id, "profile_id": profile_id, "name": body.name}
-    result = supabase.table("product_lists").insert(data).execute()
+    try:
+        # Inserção atômica: 20/100 listas por perfil de acordo com o plano da conta.
+        result = supabase.rpc("insert_product_list_with_plan_quota", {
+            "p_user_id": user_id, "p_profile_id": profile_id, "p_name": body.name,
+        }).execute()
+    except Exception as exc:
+        if "plan_lists_quota_exceeded" in str(exc):
+            raise HTTPException(status_code=409, detail="Limite de listas do plano atingido neste perfil.") from None
+        if "profile_not_owned" in str(exc):
+            raise HTTPException(status_code=403, detail="Perfil não pertence à conta.") from None
+        if "plan_policy_unavailable" in str(exc):
+            raise HTTPException(status_code=503, detail="Política do plano indisponível. Tente novamente.") from None
+        raise HTTPException(status_code=500, detail="Falha ao criar lista") from None
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar lista")
     created = result.data[0]
