@@ -35,7 +35,7 @@ CREATE TABLE public.campaign_network_slots_f4e (
   occurrence_id uuid NOT NULL REFERENCES public.campaign_occurrences_f4e(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   profile_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  product_id integer NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
+  product_id integer NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
   network text NOT NULL CHECK (network IN ('threads','x','facebook','instagram','tiktok')),
   planned_at timestamptz NOT NULL,
   content_text text NOT NULL,
