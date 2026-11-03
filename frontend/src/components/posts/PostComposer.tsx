@@ -40,6 +40,7 @@ import { IconButton } from "../ui/IconButton"
 import { Textarea } from "../ui/Textarea"
 import { Select } from "../ui/Select"
 import { SegmentedToggle } from "../ui/SegmentedToggle"
+import "./postComposerPage.css"
 
 // Ver buildSchedule: run_date de segurança do "Agora" (disparado de fato
 // assim que a mídia termina de subir).
@@ -487,11 +488,17 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     )
   }
 
+  const livePreview = previewOpen ? (
+    <PostLivePreview networks={activeNetworks} textFor={textsFor}
+      files={pendingFiles} productPhotos={importablePhotos} products={selectedProducts}
+      existingMedia={post?.medias} onClose={() => setPreviewOpen(false)} />
+  ) : null
+
   return (
     <section
-      className="post-composer-page"
+      className={post ? "post-composer-page is-edit-mode" : "post-composer-page is-create-mode"}
       aria-label={post ? "Editar post" : "Criar POST"}
-      style={{
+      style={post ? {
         width: "100%",
         maxWidth: previewOpen ? 1200 : 900,
         margin: "0 auto",
@@ -499,26 +506,26 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
         background: "var(--surface-raised, #111827)",
         border: "1px solid var(--border-subtle, #253043)",
         borderRadius: "var(--r-card, 20px)",
-      }}
+      } : undefined}
     >
-      <div className="post-composer-title" style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12,
-        marginBottom: 22,
-      }}>
+      <div className="post-composer-title">
         <h2 style={{ margin: 0, font: "var(--text-role-heading)" }}>
-          {post ? "Editar post" : "Novo post"}
+          {post ? "Editar post" : "Composição do post"}
         </h2>
         <button type="button" className="post-preview-toggle" aria-pressed={previewOpen}
           onClick={() => setPreviewOpen((open) => !open)}><Eye size={16} aria-hidden="true" />
           {previewOpen ? "Ocultar prévia" : "Visualizar"}</button>
       </div>
       <div className={"post-composer-layout" + (previewOpen ? " is-preview-open" : "")}>
+      {!post && livePreview}
       <form className="post-composer-form" onSubmit={handleSubmit}>
-        <div>
+        <div className="post-composer-networks">
           <span className="csp-named-label">{post ? "Rede social" : "Redes sociais * (uma ou mais)"}</span>
           <NetworkPicker selected={activeNetworks} states={states} onToggle={toggleNetwork} readOnly={!!post} />
         </div>
 
+        <div className="post-composer-editor-columns">
+        <div className="post-composer-editor-source">
         <PostProductPicker
           tab={productTab} onTabChange={setProductTab}
           products={products} lists={lists} listId={productListId}
@@ -540,7 +547,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
           <label><input type="checkbox" checked={useShopeeImages}
             onChange={(event) => setUseShopeeImages(event.target.checked)} />
             <span>Usar fotos dos produtos Shopee na publicação</span></label>
-          <p>As fotos cadastradas serão copiadas para o armazenamento privado ao criar o post. Vídeos da Shopee só ficam disponíveis após o envio de um arquivo de vídeo.</p>
+          <p>A integração Shopee disponibiliza a foto principal cadastrada. Para incluir outras imagens ou vídeos, envie arquivos do computador ou celular. As mídias escolhidas são copiadas para armazenamento privado ao criar o post.</p>
           {useShopeeImages && importablePhotos.length === 0 && <p role="status">Nenhum produto selecionado possui foto cadastrada.</p>}
         </div>}
 
@@ -667,7 +674,9 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
             </p>
           )}
         </div>
+        </div>
 
+        <div className="post-composer-editor-content">
         <div className="csp-s-0326">
           <Select
             label="Persona da IA"
@@ -843,6 +852,8 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
             )}
           </div>
         )}
+        </div>
+        </div>
 
         {error && <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{error}</p>}
 
@@ -868,16 +879,14 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
 
         <div className="csp-s-0349">
           <Button type="button" variant="ghost" onClick={onClose}>
-            Cancelar
+            {post ? "Cancelar" : "Voltar aos posts"}
           </Button>
           <Button type="submit" variant="primary" disabled={!canSubmit}>
             {loading ? "Salvando..." : post ? "Salvar" : activeNetworks.length > 1 ? `Criar em ${activeNetworks.length} redes` : "Criar"}
           </Button>
         </div>
       </form>
-      {previewOpen && <PostLivePreview networks={activeNetworks} textFor={textsFor}
-        files={pendingFiles} productPhotos={importablePhotos} products={selectedProducts}
-        existingMedia={post?.medias} onClose={() => setPreviewOpen(false)} />}
+      {post && livePreview}
       </div>
     </section>
   )
