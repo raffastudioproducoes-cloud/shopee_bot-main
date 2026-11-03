@@ -1863,7 +1863,8 @@ def _latest_future_revision(user_id: int, post_id: int, profile_id: str | None):
         scope_owner(
             supabase.table("post_content_revisions")
             .select("id,effective_after,snapshot")
-            .eq("post_id", post_id), user_id, profile_id,
+            .eq("post_id", post_id)
+            .contains("snapshot", {"environment": current_environment()}), user_id, profile_id,
         )
         .order("id", desc=True)
         .limit(1)
