@@ -65,7 +65,7 @@ def test_preflight_is_explicitly_not_a_reservation(monkeypatch):
     result = run()
     assert db.tables == before
     assert set(seen) == {"users", "profiles", "plan_limits", "campaign_drafts"}
-    assert all(re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z", x)
+    assert all(re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", x)
                for x in result["planned_utc"])
     assert result["reservation_available"] is False
     assert result["reserved"] is False
