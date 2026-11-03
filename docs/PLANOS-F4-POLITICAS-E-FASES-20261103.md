@@ -63,7 +63,7 @@
 - **Consumo/compensação:** reserva de um "Agora" ocorre na aceitação do lote antes de montar scheduler; a chamada posterior de disparo do mesmo post reutiliza a reserva. Falha de montagem de post é compensada somente se não existir scheduler/job; `unknown` e timeout externo não são tratados como falha definitiva. Excluir o post não devolve cota imediata dentro da hora, mas remove slots cron futuros.
 - **Status operacional 03/11 (staging):** PR #215 squash-merge apenas em staging SHA `397f0f760570c7aa39a1756f6a9e05deaf205d2f`, CI #717 verde, migration 073 autorizada e aplicada (Supabase `20261103175106`, `public.migrations` id=68), Render `dep-dbl20fss728c739c6kag` LIVE, `/health` e `/api/health/ready` = `{"status":"ok"}`. Sem post externo nem promoção `main`/produção; `VERSION=3.0.0`. Sem QA autenticada ou testes sociais reais; F4C2, F4D–F4F pendentes.
 
-## 8. F4C2 — Guardas preparatórios de campanhas e elegibilidade (SEM merge/deploy)
+## 8. F4C2 — Guardas preparatórios de campanhas e elegibilidade (fotografia pré-merge)
 
 **Escopo parcial, não ativação:** `api/campaign_policy.py` consulta `users.access` e `users.plan_tier` (alias `plus` → `pro`) e os campos existentes em `plan_limits` da 072. Nenhum plano, papel ou teto do navegador autoriza a operação; perfil é conferido por `id + user_id`, inclusive ADMIN, porque service_role ultrapassa RLS. Falha, conta/política ausente ou schema inválido → HTTP 503, sem fallback permissivo. Política é relida em cada tentativa; não há cache que preserve privilégio após downgrade.
 
@@ -84,3 +84,10 @@
 **Limites ADMIN:** isento comercial, mas período absoluto de 30 dias, teto físico atual de 15 slots do planejador, ownership, RLS/grants, Storage/OAuth e políticas das redes continuam. Nenhum post, scheduler ou publish_job é criado por estas rotas.
 
 **Teste/evidência:** contratos novos em `tests/api/test_campaign_policy.py` cobrem Free/Pro/Plus/Premium/ADMIN, limites inclusivos, volume multirrede, política mutável, downgrade, falha fechada, ownership e inexistência de ativação. Contratos F3 de lista/mídia usam policy Premium simulada localmente para isolar o objeto do teste; autorização F4C2 é exercitada com banco fake filtrante, sem bypass de produção. Sintaxe Python checada em memória; execução completa depende da CI (runtime local sem FastAPI). Este texto não afirma CI aprovada, deploy, concorrência real nem teste social externo. `VERSION=3.0.0` preservada; PR contra staging, **não mesclar/deployar sem autorização**.
+
+## 9. Fechamento F4C2 em staging (03/11/2026)
+
+- **Código:** PR [#217](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/217) squash-merge **exclusivamente em `staging`** SHA `d80f60d289c314064fa6ac728c4b23f898a767c2`; [CI #722](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41692608479) **SUCCESS** (API 1.157, scheduler 175+1 xfailed, SQL 4, web 27, frontend/build aprovados). A seção 8 registra a fotografia de preparação em PR antes da integração.
+- **Operação:** Render staging deploy `dep-dbl2d1k9v7es73datmag` LIVE no SHA do squash. Navegador anônimo confirmou `/health` e `/api/health/ready` = `{"status":"ok"}`. Não houve teste autenticado de UI, carga concorrente real ou publicação em rede social.
+- **Banco:** nenhuma migração nova, DDL, seed ou alteração de dados; `public.migrations` mantém uma entrada para 073 e nenhuma 074 conforme consulta read-only. `campaign_drafts.status='draft'` foi preservado. A guarda de quotas comerciais da campanha ativa 2/5 continua **não exercitável**, pois não existe ativação; implementá-la de forma transacional na F4E antes de criar jobs.
+- **Limites:** `main`/Render produção inalterados; `VERSION=3.0.0`. Não confundir `automation_entitled` com automação funcional; F4D UI de bloqueio/upgrade e F4E ativação permanecem pendentes. Este é fechamento de **guardas preparatórios**, não de campanhas em produção.
