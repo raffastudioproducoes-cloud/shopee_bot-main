@@ -15,14 +15,20 @@ Esta fase **não ativa campanhas, cria posts/jobs, altera calendários reais ou 
 7. `DELETE` de campanha ainda não é oferecido; qualquer implementação futura deverá remover objetos do Storage antes do `ON DELETE CASCADE` das referências, para não gerar órfãos. A ativação posterior deve consumir snapshots e mídia sem reaproveitar temporários vencidos.
 
 ## Migração 071 e implantação
-- Arquivo `database/migrations/071_campaign_names_and_media.sql` **aditivo e reentrante**, pois a aplicação também roda seu migrador no boot. Nunca usar DDL que falhe ao executar duas vezes. Índices e triggers são condicionais; o schema compartilhado **ainda não foi alterado por esta fase**.
-- Supabase staging/produção usam banco compartilhado: **não aplicar a migration 071 sem autorização explícita específica**. Não mesclar esta PR em `staging` enquanto a migração não estiver aprovada, porque o deploy pode executá-la automaticamente. Não promover `main` sem aprovação de release.
+- Arquivo `database/migrations/071_campaign_names_and_media.sql` **aditivo e reentrante**, pois a aplicação também roda seu migrador no boot. Nunca usar DDL que falhe ao executar duas vezes. Índices e triggers são condicionais; o schema compartilhado recebeu a 071 com autorização e o migrador do aplicativo a reexecutou sem erro.
+- Supabase staging/produção usam banco compartilhado: Rafa autorizou o escopo necessário; 071 aplicada e verificada sob o nome `campaign_names_media_071`. PR #209 mesclada somente em `staging` após CI verde. Não promover `main` sem aprovação de release.
 - CI API/frontend da PR e verificação pontual após deploy bastam; sem publicações reais nos testes. Toda mudança documentada em `docs/TASK.md`, `CHANGELOG.md` e Vault do projeto.
 - **Limitação de escopo:** seleção de foto Shopee é a principal já autenticada; a API atual não entrega galeria extra validada. O experimento anterior foi encerrado como indisponível na fonte existente. Upload próprio permanece alternativa. Nenhum reenquadramento do fluxo TikTok Photo Direct Post nesta fase.
 
 ## Critérios de aceite
 - [ ] O usuário consegue dar nomes distintos a campanhas baseadas na mesma lista e retomar cada uma em outro dispositivo.
 - [ ] Arquivos de diferentes produtos e perfis ficam segregados, persistem sem TTL temporário e podem ser excluídos.
-- [ ] Integridade de nomes/slots/ownership e migration reentrante validadas pelo CI; frontend compila.
+- [x] Integridade de nomes/slots/ownership e migration reentrante validadas pelo CI; frontend compila.
 - [ ] Após autorização da 071 e merge `staging`, checagem rápida de boot/health e teste controlado de upload/recuperação/exclusão, sem criar posts reais.
-- [ ] Publicação única, Shopee, credenciais, scheduler, produção e cotas inalterados.
+- [x] Publicação única, Shopee, credenciais, scheduler, produção e cotas inalterados.
+
+## Evidências de integração (03/11/2026)
+- CI [#41578367282](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41578367282) SUCCESS; merge staging `5ec24df`.
+- Migration Supabase `campaign_names_media_071` aplicada, RLS true, privilégios `anon/authenticated` ausentes, service_role permitido, trigger único, zero mídias antes do ensaio.
+- Render `dep-dbkm74ks728c738ritc0` LIVE; log da 071 aplicada na segunda execução e `Application startup complete`; `/health` respondeu `{"status":"ok"}`.
+- UI autenticada: campo nome no topo, rascunho recuperado, checkbox foto Shopee preservado e seletor de arquivos disponível. **Nenhum upload real por navegador nem criação de post foi realizado**; esse ensaio segue pendente com mídia descartável e mecanismo de limpeza.
