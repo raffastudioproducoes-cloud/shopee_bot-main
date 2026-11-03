@@ -46,7 +46,7 @@ def test_claim_freezes_original_slot_and_keeps_manual_retry_snapshot(monkeypatch
     assert "when candidate.retry_source_id is not null" in query
     assert "original.user_id = locked_candidate.user_id" in query
     assert "original.profile_id is not distinct from locked_candidate.profile_id" in query
-    assert "scheduled_for = coalesce(job.scheduled_for, revisions.original_slot)" in query
+    assert "scheduled_for = coalesce(job.scheduled_for, candidate.original_slot)" in query
     assert recorded["args"] == ("queue", "production", "worker")
 
 
