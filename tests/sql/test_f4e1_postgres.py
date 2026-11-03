@@ -66,6 +66,7 @@ class TestF4ePostgres(unittest.TestCase):
 
     def test_timestamp_window_and_atomic_failure(self):
         for invalid in ("2030-01-01T00:00:00", "2000-01-01T00:00:00Z",
+                        f"{self.start}T24:00:00Z", f"{self.start}T23:59:60Z",
                         (self.instant + timedelta(days=20)).strftime("%Y-%m-%dT%H:%M:%SZ"),
                         "not-a-date"):
             with self.subTest(invalid=invalid), self.assertRaises(psycopg.Error):
@@ -73,6 +74,19 @@ class TestF4ePostgres(unittest.TestCase):
         with psycopg.connect(DSN) as con:
             self.assertEqual(con.execute("SELECT count(*) FROM public.campaign_reservations_f4e WHERE user_id=%s",
                                          (self.user,)).fetchone()[0], 0)
+
+    def test_duplicate_instants_rejected_by_rpc_and_constraint(self):
+        stamp = self.instant.strftime("%Y-%m-%dT%H:%M:%SZ")
+        with self.assertRaises(psycopg.Error):
+            self.reserve(self.drafts[0], "duplicate-times", [stamp, stamp])
+        rid = self.reserve(self.drafts[0], "valid")
+        with self.assertRaises(psycopg.errors.UniqueViolation):
+            with psycopg.connect(DSN) as con:
+                con.execute("SET LOCAL ROLE service_role")
+                con.execute(
+                    "INSERT INTO public.campaign_occurrences_f4e(reservation_id,ordinal,planned_at) VALUES (%s,2,%s)",
+                    (rid, self.instant),
+                )
 
     def test_quota_concurrency_last_slot(self):
         self.reserve(self.drafts[0], "first")
