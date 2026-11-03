@@ -1,3 +1,11 @@
+## 03/11/2026 — F4E origem positiva e bloqueio persistente (execução)
+
+- [x] Preparada migration 075: origem de publicação imutável em agenda/job, padrão legado positivo, igualdade pai-filho no banco e veto a qualquer claim/início de envio de campanha. Fluxos legacy de scheduler, central e fila passam a filtrar origem de forma explícita.
+- [x] Testes PostgreSQL 16 descartável e de scheduler preparados; CI ampliada para descoberta F4E-2B4.
+- [ ] Gate de CI, aplicação aditiva no Supabase compartilhado e validação dos dois processos. **Não criar campanha executável até os leitores de main e staging serem compatíveis.**
+- [ ] Próximo componente da mesma entrega: reserva por rede/dia, retenção de mídia, OAuth ativo, vínculo transacional, ativação e interface de operação; publicação externa não foi autorizada para testes.
+- [x] Política de ciclo pago preservada, sem downgrade antecipado. SMTP condicional: nenhum domínio próprio configurado comprovado.
+
 ## 03/11/2026 — Incidente real de cron/recovery e estabilização de posts
 
 - [x] Evidência Render staging: scheduler iniciou mas `publish_queue_recovery` falhou em `publish_jobs.claim` com `psycopg.errors.InvalidDatetimeFormat` (`2026-11-03T15`). Causa: `split_part(idempotency_key, ':', 2)` trunca `HH:MM`.
