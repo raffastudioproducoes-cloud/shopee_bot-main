@@ -17,6 +17,10 @@ def _execution_scope():
 
 TERMINAL_STATUSES = frozenset({"succeeded", "failed", "unknown"})
 
+# So recuperar um pending criado quando o evento disparou. Apos 1h,
+# nao disparar publicacao atrasada no restart; APScheduler usa o mesmo limite.
+RECOVERY_MAX_AGE_SECONDS = 3600
+
 
 def recoverable(lease_seconds, limit=100):
     """Somente itens que ainda nao iniciaram chamada externa podem ser retomados."""
@@ -29,11 +33,39 @@ def recoverable(lease_seconds, limit=100):
           AND schedule.user_id = job.user_id
           AND schedule.profile_id IS NOT DISTINCT FROM job.profile_id
         WHERE job.status = 'pending'
+          AND job.external_started_at IS NULL
+          AND job.created_at >= now() - make_interval(secs => %s)
           AND ({scope})
         ORDER BY job.created_at
         LIMIT %s
     """
-    return query_db(query, (*scope_args, limit))
+    return query_db(query, (RECOVERY_MAX_AGE_SECONDS, *scope_args, limit))
+
+
+def expire_stale_pending(grace_seconds=RECOVERY_MAX_AGE_SECONDS):
+    """Fecha apenas fila antiga sem envio externo, sem publicar horas depois.
+
+    Todo pending atual nasce no disparo do scheduler/retry, nao no cadastro
+    futuro da agenda. Nao alterar unknown/running nem reenviar automaticamente.
+    """
+    scope, scope_args = _execution_scope()
+    query = f"""
+        UPDATE publish_jobs AS job
+        SET status = 'failed',
+            last_error = 'Janela de recuperação expirada sem envio externo',
+            finished_at = now()
+        FROM schedulers schedule
+        WHERE job.scheduler_id = schedule.id
+          AND schedule.post_id = job.post_id
+          AND schedule.user_id = job.user_id
+          AND schedule.profile_id IS NOT DISTINCT FROM job.profile_id
+          AND job.status = 'pending'
+          AND job.external_started_at IS NULL
+          AND job.created_at < now() - make_interval(secs => %s)
+          AND ({scope})
+        RETURNING job.id, job.status
+    """
+    return query_db(query, (grace_seconds, *scope_args))
 
 
 MAX_PREFLIGHT_ATTEMPTS = 5
@@ -123,16 +155,18 @@ def claim(publish_job_id, worker_id, lease_seconds):
                 job.idempotency_key, job.post_id, job.user_id, job.profile_id,
                 schedule.environment AS environment,
                 CASE
+                    -- A chave cron termina em YYYY-MM-DDTHH:MM; split_part por ':'
+                    -- perderia os minutos e faria claim falhar com InvalidDatetimeFormat.
                     -- Usar horario nominal, nao minuto atrasado de execucao.
                     WHEN schedule.trigger = 'cron' AND schedule.time IS NOT NULL
                          AND job.idempotency_key ~
                          ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}$'
                         THEN (
-                            split_part(job.idempotency_key, ':', 2)::timestamp::date
+                            right(job.idempotency_key, 16)::timestamp::date
                             + schedule.time
                             - CASE
                                 WHEN schedule.time >
-                                     split_part(job.idempotency_key, ':', 2)::timestamp::time
+                                     right(job.idempotency_key, 16)::timestamp::time
                                     THEN interval '1 day'
                                 ELSE interval '0 days'
                               END
@@ -141,7 +175,7 @@ def claim(publish_job_id, worker_id, lease_seconds):
                         THEN schedule.run_date AT TIME ZONE 'America/Sao_Paulo'
                     WHEN job.idempotency_key ~
                          ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}$'
-                        THEN split_part(job.idempotency_key, ':', 2)::timestamp
+                        THEN right(job.idempotency_key, 16)::timestamp
                              AT TIME ZONE 'America/Sao_Paulo'
                     ELSE NULL
                 END AS original_slot

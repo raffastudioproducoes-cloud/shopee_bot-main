@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Correção crítica — cron/recovery de posts em staging (03/11/2026)
+
+O claim de publicação separava chave `UUID:YYYY-MM-DDTHH:MM` por dois-pontos e convertia `YYYY-MM-DDTHH` para timestamp inválido, abortando `publish_queue_recovery` e podendo deixar jobs pendentes. Corrigido uso dos 16 caracteres finais do slot nominal, preservando revisão e janela. O recovery agora também encerra `pending` com mais de uma hora como `failed`, sem envio tardio, preservando `unknown`; regressões cobertas por testes unitários e PostgreSQL descartável; nenhum post `unknown` foi repetido, nenhuma configuração OAuth/Threads, banco compartilhado, `main` ou `VERSION=3.0.0` alterados. Logs reais de staging continham `InvalidDatetimeFormat: 2026-11-03T15`. CI e deploy serão declarados separadamente após confirmação.
+
 ### F4E-2B4 — origem persistente e rollout seguro (03/11/2026)
 
 Especificação para separar publicações `legacy` e `campaign` por origem positiva, persistente e imutável em agenda/job, vínculo atômico, recusa fail-closed, bloqueio de retry de campanha inerte, compatibilidade main+staging e rollback. A auditoria impede migrar o SQL B3 sem resolver lock de índices, exclusão/LGPD e unicidade de tentativas. Nenhum executor, DDL/Supabase, job, flag, envio, cobrança, e-mail ou `main` alterado. [Plano](docs/superpowers/plans/2026-11-03-f4e2b4-origem-e-rollout-seguro.md); `VERSION=3.0.0`.
