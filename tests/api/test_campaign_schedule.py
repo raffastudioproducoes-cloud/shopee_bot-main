@@ -1,4 +1,4 @@
-"""Contrato do calendário de campanhas: 30 dias, intervalos e rotação.
+"""Contrato do calendário de campanhas: 30 dias, frequência diária e rotação.
 
 Testes puramente locais: não criam jobs, posts ou chamadas externas.
 """
@@ -17,7 +17,7 @@ def plan(**overrides):
         "weekdays": [1, 2],
         "start_time": time(9, 0),
         "end_time": time(18, 0),
-        "interval_minutes": 180,
+        "posts_per_day": 4,
         "item_ids": [101, 102, 103, 104, 105],
     }
     data.update(overrides)
@@ -42,6 +42,7 @@ def test_thirty_days_inclusive_are_allowed_but_thirty_one_rejected():
         weekdays=list(range(7)),
         start_time=time(9),
         end_time=time(9),
+        posts_per_day=1,
     )
     assert len(slots) == 30
     with pytest.raises(ValueError, match="30 dias"):
@@ -51,9 +52,9 @@ def test_thirty_days_inclusive_are_allowed_but_thirty_one_rejected():
         )
 
 
-def test_end_time_is_inclusive_only_when_aligned():
-    slots = plan(end_date=date(2026, 11, 10), end_time=time(10, 30), interval_minutes=60)
-    assert [slot.local_at.strftime("%H:%M") for slot in slots] == ["09:00", "10:00"]
+def test_daily_quantity_is_evenly_spread_including_end_time():
+    slots = plan(end_date=date(2026, 11, 10), end_time=time(10, 30), posts_per_day=2)
+    assert [slot.local_at.strftime("%H:%M") for slot in slots] == ["09:00", "10:30"]
 
 
 def test_empty_weekdays_and_products_are_invalid():
@@ -69,8 +70,8 @@ def test_no_matching_weekdays_returns_no_slots():
 
 @pytest.mark.parametrize("bad", [
     {"end_date": date(2026, 11, 9)},
-    {"interval_minutes": 0},
-    {"interval_minutes": -10},
+    {"posts_per_day": 0},
+    {"posts_per_day": 16},
     {"start_time": time(18), "end_time": time(9)},
     {"weekdays": [7]},
 ])
@@ -95,4 +96,24 @@ def test_nonexistent_historical_brasilia_hour_is_rejected():
             weekdays=[6],
             start_time=time(0),
             end_time=time(0),
+            posts_per_day=1,
         )
+
+
+def test_one_or_fifteen_daily_posts_and_oversized_count():
+    first = plan(end_date=date(2026, 11, 10), posts_per_day=1)
+    assert [s.local_at.strftime("%H:%M") for s in first] == ["09:00"]
+    fifteen = plan(end_date=date(2026, 11, 10), posts_per_day=15)
+    assert len(fifteen) == 15
+    assert fifteen[0].local_at.strftime("%H:%M") == "09:00"
+    assert fifteen[-1].local_at.strftime("%H:%M") == "18:00"
+    assert len({s.local_at for s in fifteen}) == 15
+    with pytest.raises(ValueError, match="1 e 15"):
+        plan(posts_per_day=16)
+
+
+def test_multiple_posts_require_sufficient_daily_window():
+    with pytest.raises(ValueError, match="janela diária"):
+        plan(start_time=time(9), end_time=time(9), posts_per_day=2)
+    with pytest.raises(ValueError, match="janela diária"):
+        plan(start_time=time(9), end_time=time(9, 5), posts_per_day=15)

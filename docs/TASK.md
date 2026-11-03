@@ -1,3 +1,12 @@
+## 03/11/2026 — F3C: postagens/dia e botão Excluir rascunho (PR #211)
+
+- [x] Pedido do Rafa: substituir campo `Intervalo (min)` por seletor **1 a 15 postagens/dia**, mantendo datas (máximo absoluto de 30 dias inclusivos), dias da semana e janela horária; distribuição uniforme via `plan_campaign_slots`.
+- [x] API `POST /campaigns/preview` e salvamento de rascunho usam `posts_per_day`; valor fora de 1–15 ou janela curta rejeitados no backend. Rascunhos locais/servidor antigos com `interval_minutes` são convertidos no frontend com teto 15 e aviso para revisar prévia.
+- [x] `DELETE /campaigns/drafts/{id}?expected_revision=...` verifica usuário/perfil/status/revisão, bloqueia mídias em upload, valida prefixo do Storage e remove objetos privados antes do registro; o frontend exige confirmação inline. Não afeta lista-fonte nem posts/jobs.
+- [x] Sem migration Supabase, sem mudança em `main`, produção, publicadores, credenciais, plano ou versão `VERSION=3.0.0`; não ativar campanhas nesta PR.
+- [ ] PR [#211](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/211) em revisão: CI Python e TypeScript/build, merge `staging` somente após verde e deploy/health curto. Registrar SHA, CI, Render e sincronizar Vault no fechamento.
+- [ ] Próximo incremento isolado: ativação de campanhas com quotas por plano/rede, idempotência e proteção de edição T−30; não confundir prévia com publicação.
+
 ## 03/11/2026 UTC — Fechamento F3B em staging (PR #209, schema 071)
 
 - [x] Migração `campaign_names_media_071` aplicada ao Supabase compartilhado com autorização, com default de nome para compatibilidade com backend antigo, tabela `campaign_draft_media`, RLS/grants restritos, trigger de propriedade e bucket privado. Migrador interno reaplicou SQL reentrante no boot sem falhar.

@@ -78,7 +78,7 @@
 
 
 /* Persistência F3A: seleção de rascunho adaptável a desktop/tablet/mobile. */
-.campaign-draft-restore { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:12px; min-width:0; }
+.campaign-draft-restore { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:end; gap:12px; min-width:0; }
 .campaign-draft-restore .campaign-select { min-width:0; }
 .campaign-draft-restore button { min-height:44px; }
 @media (max-width:520px) {
@@ -108,3 +108,11 @@
 @media (max-width:520px) {
   .campaign-media-file button { flex:0 0 auto; }
 }
+
+/* F3C: confirmação de exclusão integrada na página, sem popup. */
+.campaign-frequency-field { min-width:0; }
+.campaign-frequency-field .campaign-field-label { display:block; margin-bottom:8px; }
+.campaign-delete-confirmation { margin-top:14px; padding:14px 16px; border:1px solid var(--border-send); border-radius:var(--r-md); background:var(--surface-inset); min-width:0; }
+.campaign-delete-confirmation p { margin:0 0 12px; font:var(--text-role-small); line-height:1.6; color:var(--text-body); }
+.campaign-delete-actions { display:flex; flex-wrap:wrap; gap:10px; }
+@media (max-width:520px) { .campaign-delete-actions > button { flex:1 1 100%; } }

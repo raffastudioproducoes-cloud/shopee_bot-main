@@ -6,7 +6,7 @@ from datetime import date, time, datetime, timezone, timedelta
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel, Field, field_validator
 
 from ..campaign_schedule import plan_campaign_slots
@@ -36,7 +36,7 @@ class CampaignPreviewRequest(BaseModel):
     weekdays: list[int] = Field(min_length=1, max_length=7)
     start_time: time
     end_time: time
-    interval_minutes: int = Field(ge=1, le=1440)
+    posts_per_day: int = Field(ge=1, le=15)
 
 
 def validate_campaign_list_items(requested_ids: list[int], owned_list_ids: list[int]) -> None:
@@ -68,12 +68,12 @@ async def preview_campaign(
             weekdays=body.weekdays,
             start_time=body.start_time,
             end_time=body.end_time,
-            interval_minutes=body.interval_minutes,
+            posts_per_day=body.posts_per_day,
             item_ids=body.item_ids,
             timezone="America/Sao_Paulo",
         )
         if len(slots) > 2000:
-            raise ValueError("A prévia excede 2.000 horários. Aumente o intervalo ou reduza os dias.")
+            raise ValueError("A prévia excede 2.000 horários. Reduza a quantidade por dia ou os dias selecionados.")
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -186,7 +186,7 @@ def validate_campaign_draft_schedule(
     plan_campaign_slots(
         start_date=schedule.start_date, end_date=schedule.end_date,
         weekdays=schedule.weekdays, start_time=schedule.start_time,
-        end_time=schedule.end_time, interval_minutes=schedule.interval_minutes,
+        end_time=schedule.end_time, posts_per_day=schedule.posts_per_day,
         item_ids=schedule.item_ids, timezone="America/Sao_Paulo",
     )
 
@@ -291,6 +291,60 @@ async def update_campaign_draft(
     if not result.data:
         raise HTTPException(status_code=409, detail="Rascunho modificado por outra sessão.")
     return result.data[0]
+
+
+@router.delete("/drafts/{draft_id}", status_code=204)
+async def delete_campaign_draft(
+    draft_id: UUID,
+    expected_revision: int = Query(ge=1),
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Exclui apenas rascunho próprio. Apaga mídia privada ANTES da cascata SQL.
+
+    Não toca em listas-fonte, posts nem jobs. Falha fechada se a limpeza do
+    Storage não puder ser confirmada; cliente pode tentar novamente.
+    """
+    profile_id = _draft_profile(profile_id)
+    draft = _get_owned_campaign(draft_id, user_id, profile_id)
+    if draft.get("status") != "draft" or int(draft["revision"]) != expected_revision:
+        raise HTTPException(status_code=409, detail="Rascunho alterado. Recarregue antes de excluir.")
+
+    media = (scope_owner(supabase.table("campaign_draft_media")
+             .select("id, storage_bucket, storage_key, status")
+             .eq("campaign_id", str(draft_id)).limit(1001),
+             user_id, profile_id).execute()).data or []
+    if len(media) > 1000 or any(row["status"] == "uploading" for row in media):
+        raise HTTPException(status_code=409, detail="Há arquivos em processamento. Tente excluir depois.")
+    keys = []
+    for row in media:
+        key = row.get("storage_key")
+        if row.get("storage_bucket") != MEDIA_DRAFT_BUCKET or not isinstance(key, str) or not key.startswith(
+            f"campaigns/{user_id}/{profile_id}/{draft_id}/"
+        ):
+            raise HTTPException(status_code=409, detail="Referência de anexo inválida. Nada foi excluído.")
+        keys.append(key)
+    try:
+        for offset in range(0, len(keys), 100):
+            supabase.storage.from_(MEDIA_DRAFT_BUCKET).remove(keys[offset:offset + 100])
+    except Exception:
+        logger.warning("Falha ao limpar anexos antes da exclusão do rascunho", exc_info=True)
+        raise HTTPException(status_code=502, detail="Falha ao remover arquivos. O rascunho foi preservado.") from None
+
+    # Se algum upload entrou no intervalo de limpeza, não apagar a campanha
+    # nem perder suas referências. Repetir a operação após encerrar o upload.
+    current_media = (scope_owner(supabase.table("campaign_draft_media")
+                     .select("id").eq("campaign_id", str(draft_id)).limit(1001),
+                     user_id, profile_id).execute()).data or []
+    if {row["id"] for row in current_media} != {row["id"] for row in media}:
+        raise HTTPException(status_code=409, detail="Os anexos mudaram. Atualize e tente excluir novamente.")
+
+    removed = (scope_owner(supabase.table("campaign_drafts").delete()
+               .eq("id", str(draft_id)).eq("status", "draft")
+               .eq("revision", expected_revision), user_id, profile_id).execute())
+    if not removed.data:
+        raise HTTPException(status_code=409, detail="Rascunho alterado. Recarregue antes de excluir.")
+    return None
 
 
 # F3B: anexos duráveis por produto, independentes do TTL das publicações únicas.

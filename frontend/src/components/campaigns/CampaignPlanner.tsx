@@ -26,7 +26,7 @@ interface CampaignDraft {
   days: number[]
   startTime: string
   endTime: string
-  interval: string
+  postsPerDay: string
   itemSnapshots: Record<number, CampaignItemSnapshot>
 }
 
@@ -34,8 +34,20 @@ function initialDraft(): CampaignDraft {
   return {
     name: "", listId: null, itemIds: [], startDate: "", endDate: "",
     days: [0, 1, 2, 3, 4], startTime: "09:00", endTime: "18:00",
-    interval: "180", itemSnapshots: {},
+    postsPerDay: "4", itemSnapshots: {},
   }
+}
+
+/** Conversão somente na leitura para rascunhos da versão antiga. */
+function legacyPostsPerDay(start: string, end: string, intervalMinutes: number | undefined): number {
+  if (!intervalMinutes || intervalMinutes < 1) return 4
+  const toMinutes = (value: string) => {
+    const [hours, minutes, seconds = "0"] = value.split(":")
+    return Number(hours) * 60 + Number(minutes) + Number(seconds) / 60
+  }
+  const span = toMinutes(end) - toMinutes(start)
+  if (!Number.isFinite(span) || span < 0) return 4
+  return Math.min(15, Math.max(1, Math.floor(span / intervalMinutes) + 1))
 }
 
 function formatLocal(iso: string): string {
@@ -60,17 +72,31 @@ export function CampaignPlanner({ credentials }: {
   const [savedDraftId, setSavedDraftId] = useState<string | null>(null)
   const [savedRevision, setSavedRevision] = useState<number | null>(null)
   const [remoteSelection, setRemoteSelection] = useState("")
+  const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null)
+  const [deleteFeedback, setDeleteFeedback] = useState("")
+  const [legacyScheduleNotice, setLegacyScheduleNotice] = useState(false)
   const [listOverride, setListOverride] = useState<Awaited<ReturnType<typeof listsApi.get>> | null>(null)
   const [lastSavedSignature, setLastSavedSignature] = useState<string | null>(null)
   const draftKey = formDraftKey(userId, "campaign-preview", profileId)
 
   useAutosavedDraft<CampaignDraft>(draftKey, draft, (saved) => {
-    setDraft(saved && Array.isArray(saved.itemIds) && Array.isArray(saved.days)
-      ? { ...initialDraft(), ...saved, itemSnapshots: saved.itemSnapshots ?? {} } : initialDraft())
+    if (saved && Array.isArray(saved.itemIds) && Array.isArray(saved.days)) {
+      const clean = { ...saved } as CampaignDraft & { interval?: string }
+      if (clean.postsPerDay === undefined) {
+        clean.postsPerDay = String(legacyPostsPerDay(clean.startTime ?? "09:00", clean.endTime ?? "18:00", Number(clean.interval)))
+      }
+      delete clean.interval
+      setDraft({ ...initialDraft(), ...clean, itemSnapshots: saved.itemSnapshots ?? {} })
+    } else {
+      setDraft(initialDraft())
+    }
     setEditingProductId(null)
     setSavedDraftId(null)
     setSavedRevision(null)
     setRemoteSelection("")
+    setDeleteConfirmationId(null)
+    setDeleteFeedback("")
+    setLegacyScheduleNotice(false)
     setListOverride(null)
     setLastSavedSignature(null)
   })
@@ -136,7 +162,8 @@ export function CampaignPlanner({ credentials }: {
   const payload = useMemo<CampaignPreviewRequest | null>(() => {
     if (!draft.listId || draft.itemIds.length === 0 || !draft.startDate || !draft.endDate ||
         draft.days.length === 0 || !draft.startTime || !draft.endTime ||
-        !Number.isInteger(Number(draft.interval)) || Number(draft.interval) < 1) return null
+        !Number.isInteger(Number(draft.postsPerDay)) || Number(draft.postsPerDay) < 1 ||
+        Number(draft.postsPerDay) > 15) return null
     return {
       list_id: draft.listId,
       item_ids: draft.itemIds,
@@ -145,7 +172,7 @@ export function CampaignPlanner({ credentials }: {
       weekdays: [...draft.days].sort(),
       start_time: draft.startTime,
       end_time: draft.endTime,
-      interval_minutes: Number(draft.interval),
+      posts_per_day: Number(draft.postsPerDay),
     }
   }, [draft])
 
@@ -182,6 +209,7 @@ export function CampaignPlanner({ credentials }: {
       setSavedRevision(saved.revision)
       setRemoteSelection(saved.id)
       setLastSavedSignature(variables.signature)
+      setLegacyScheduleNotice(false)
       void draftsQuery.refetch()
     },
   })
@@ -221,13 +249,34 @@ export function CampaignPlanner({ credentials }: {
         days: schedule?.weekdays ?? [0, 1, 2, 3, 4],
         startTime: schedule?.start_time ?? "09:00",
         endTime: schedule?.end_time ?? "18:00",
-        interval: String(schedule?.interval_minutes ?? 180),
+        postsPerDay: String(schedule?.posts_per_day ?? legacyPostsPerDay(
+          schedule?.start_time ?? "09:00", schedule?.end_time ?? "18:00", schedule?.interval_minutes)),
       })
       setSavedDraftId(saved.id)
       setSavedRevision(saved.revision)
       setRemoteSelection(saved.id)
+      setLegacyScheduleNotice(Boolean(schedule?.interval_minutes && !schedule.posts_per_day))
+      setDeleteConfirmationId(null)
+      setDeleteFeedback("")
       setLastSavedSignature(null)
       setEditingProductId(null)
+    },
+  })
+
+  const deleteDraftMutation = useMutation({
+    mutationFn: ({ id, revision }: { id: string; revision: number }) =>
+      campaignsApi.deleteDraft(id, revision),
+    onSuccess: (_, variables) => {
+      if (savedDraftId === variables.id) {
+        // A preparação local permanece para salvar como NOVA campanha.
+        setSavedDraftId(null)
+        setSavedRevision(null)
+        setLastSavedSignature(null)
+      }
+      setRemoteSelection("")
+      setDeleteConfirmationId(null)
+      setDeleteFeedback("Rascunho salvo e seus anexos excluídos. A preparação local foi mantida.")
+      void draftsQuery.refetch()
     },
   })
 
@@ -290,6 +339,8 @@ export function CampaignPlanner({ credentials }: {
                 }))
                 setSavedDraftId(null)
                 setSavedRevision(null)
+                setRemoteSelection("")
+                setDeleteConfirmationId(null)
                 setLastSavedSignature(null)
                 setListOverride(null)
                 setEditingProductId(null)
@@ -391,7 +442,7 @@ export function CampaignPlanner({ credentials }: {
                               </label>
                               <input id={`campaign-media-${id}`} className="campaign-upload-input"
                                 type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4"
-                                disabled={!savedDraftId || mediaUpload.isPending || mediaDelete.isPending}
+                                disabled={!savedDraftId || mediaUpload.isPending || mediaDelete.isPending || deleteDraftMutation.isPending}
                                 onChange={(event) => {
                                   const files = Array.from(event.currentTarget.files ?? [])
                                   event.currentTarget.value = ""
@@ -445,8 +496,12 @@ export function CampaignPlanner({ credentials }: {
             <label className="campaign-field-label" htmlFor="campaign-saved-draft">Continuar rascunho salvo</label>
             <div className="campaign-draft-restore">
               <select id="campaign-saved-draft" className="campaign-select" value={remoteSelection}
-                onChange={(event) => setRemoteSelection(event.target.value)}
-                disabled={draftsQuery.isLoading || loadMutation.isPending}>
+                onChange={(event) => {
+                  setRemoteSelection(event.target.value)
+                  setDeleteConfirmationId(null)
+                  setDeleteFeedback("")
+                }}
+                disabled={draftsQuery.isLoading || loadMutation.isPending || deleteDraftMutation.isPending}>
                 <option value="">Selecione um rascunho</option>
                 {(draftsQuery.data?.data ?? []).map((item) => (
                   <option key={item.id} value={item.id}>
@@ -454,12 +509,37 @@ export function CampaignPlanner({ credentials }: {
                   </option>
                 ))}
               </select>
-              <Button variant="secondary" icon="folder-open" disabled={!remoteSelection || loadMutation.isPending}
+              <Button variant="secondary" icon="folder-open"
+                disabled={!remoteSelection || loadMutation.isPending || deleteDraftMutation.isPending}
                 loading={loadMutation.isPending}
                 onClick={() => remoteSelection && loadMutation.mutate(remoteSelection)}>
                 Carregar
               </Button>
+              <Button variant="send" icon="trash-2"
+                disabled={!remoteSelection || saveMutation.isPending || loadMutation.isPending ||
+                  mediaUpload.isPending || mediaDelete.isPending || deleteDraftMutation.isPending}
+                onClick={() => { setDeleteConfirmationId(remoteSelection); setDeleteFeedback("") }}>
+                Excluir
+              </Button>
             </div>
+            {deleteConfirmationId && deleteConfirmationId === remoteSelection && (
+              <div className="campaign-delete-confirmation" role="group" aria-label="Confirmar exclusão de rascunho">
+                <p>Excluir definitivamente este rascunho salvo e todos os anexos vinculados? Essa ação não afeta a lista de produtos nem posts já publicados.</p>
+                <div className="campaign-delete-actions">
+                  <Button variant="ghost" onClick={() => setDeleteConfirmationId(null)}
+                    disabled={deleteDraftMutation.isPending}>Cancelar</Button>
+                  <Button variant="send" icon="trash-2" loading={deleteDraftMutation.isPending}
+                    disabled={deleteDraftMutation.isPending}
+                    onClick={() => {
+                      const selected = draftsQuery.data?.data.find((item) => item.id === deleteConfirmationId)
+                      if (selected) deleteDraftMutation.mutate({ id: selected.id, revision: selected.revision })
+                    }}>Confirmar exclusão</Button>
+                </div>
+              </div>
+            )}
+            {deleteFeedback && <p className="campaign-status" role="status">{deleteFeedback}</p>}
+            {deleteDraftMutation.isError &&
+              <p className="campaign-error" role="alert">{deleteDraftMutation.error.message}</p>}
             {draftsQuery.isError &&
               <p className="campaign-error" role="alert">Não foi possível consultar os rascunhos salvos.</p>}
             {loadMutation.isError &&
@@ -494,9 +574,19 @@ export function CampaignPlanner({ credentials }: {
                 onChange={(event) => update("startTime", event.target.value)} />
               <TextInput label="Fim" type="time" value={draft.endTime}
                 onChange={(event) => update("endTime", event.target.value)} />
-              <TextInput label="Intervalo (min)" type="number" min={1} max={1440} step={1}
-                value={draft.interval} onChange={(event) => update("interval", event.target.value)} />
+              <div className="campaign-frequency-field">
+                <label className="campaign-field-label" htmlFor="campaign-posts-per-day">Postagens por dia</label>
+                <select id="campaign-posts-per-day" className="campaign-select"
+                  value={draft.postsPerDay}
+                  onChange={(event) => { update("postsPerDay", event.target.value); setLegacyScheduleNotice(false) }}>
+                  {Array.from({ length: 15 }, (_, index) => index + 1).map((count) => (
+                    <option key={count} value={count}>{count} {count === 1 ? "postagem" : "postagens"} por dia</option>
+                  ))}
+                </select>
+              </div>
             </div>
+            <p className="campaign-status">As postagens são distribuídas igualmente entre início e fim, nos dias marcados. A prévia não publica conteúdo.</p>
+            {legacyScheduleNotice && <p className="campaign-warning" role="status">Frequência antiga convertida de minutos para postagens por dia (máximo de 15). Confira a prévia antes de salvar.</p>}
           </section>
 
           <div className="campaign-actions">
