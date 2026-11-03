@@ -65,7 +65,8 @@ class TestF4e2b3Postgres(unittest.TestCase):
     @classmethod
     def drop_disposable_database(cls):
         # Exact generated database only, never schema public or f4e_test.
-        assert re.fullmatch(r"f4e2b3_[0-9a-f]{32}", cls.database)
+        if re.fullmatch(r"f4e2b3_[0-9a-f]{32}", cls.database) is None:
+            raise RuntimeError("Invalid disposable database name; refusing DROP")
         with psycopg.connect(DSN, autocommit=True) as con:
             con.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(cls.database)))
 
@@ -242,6 +243,16 @@ class TestF4e2b3Postgres(unittest.TestCase):
             with self.assertRaises(psycopg.errors.UniqueViolation):
                 with con.transaction():
                     self.insert_link(con)
+            other_occurrence = uuid.uuid4()
+            con.execute(
+                """INSERT INTO public.campaign_occurrences_f4e(id,reservation_id,ordinal,planned_at)
+                   VALUES (%s,%s,2,now()+interval '3 days')""",
+                (other_occurrence, self.reservation),
+            )
+            # Isola UNIQUE(publish_job_id), sem colidir occurrence+network.
+            with self.assertRaises(psycopg.errors.UniqueViolation):
+                with con.transaction():
+                    self.insert_link(con, occurrence_id=other_occurrence)
             post, schedule, job = self.new_dispatch(con)
             with self.assertRaises(psycopg.errors.UniqueViolation):
                 with con.transaction():

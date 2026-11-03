@@ -7,7 +7,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ### F4E-2B3 — ajuste do harness descartável
 
-Na primeira CI #41723907329, os 9 casos SQL novos passaram individualmente, mas a limpeza foi corretamente interrompida por uma asserção errada do tamanho do nome gerado do banco. Validação substituída por regex exata `f4e2b3_[0-9a-f]{32}` antes do DROP; banco somente local do runner, removido também pelo teardown do serviço Docker. Nova CI necessária para aprovar a suíte completa. Nenhuma alteração de SQL/runtime/Supabase.
+Na primeira CI #41723907329, os 9 casos SQL novos passaram individualmente, mas a limpeza foi corretamente interrompida por uma asserção errada do tamanho do nome gerado do banco. Validação substituída por regex exata `f4e2b3_[0-9a-f]{32}` antes do DROP; banco somente local do runner, removido também pelo teardown do serviço Docker. Nova CI necessária para aprovar a suíte completa. Nenhuma alteração de SQL/runtime/Supabase. A barreira de DROP usa exceção explícita, inclusive sob Python otimizado; teste de unicidade isola também o mesmo job em outra ocorrência, sem mascarar a constraint por colisão de ocorrência/rede.
 
 ### F4E-2B3 — proposta de identidade dos pais, sem executor (03/11/2026)
 
