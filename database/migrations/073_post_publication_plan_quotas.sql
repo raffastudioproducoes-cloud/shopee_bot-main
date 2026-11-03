@@ -98,6 +98,11 @@ BEGIN
     IF v_access='ADMIN' THEN RETURN 0; END IF;
 
     IF p_kind='immediate' THEN
+        -- Limpeza oportunista: retém até 24 h para diagnóstico sem crescer
+        -- indefinidamente em perfis ativos; a cota lê apenas a última hora.
+        DELETE FROM public.plan_immediate_dispatches
+        WHERE user_id=p_user_id AND profile_id=p_profile_id
+          AND created_at<now()-interval '24 hours';
         -- A reserva criada no lote não deve ser cobrada de novo quando o
         -- frontend chamar /posts/{id}/publish para o mesmo post.
         IF p_reuse_existing AND EXISTS(
