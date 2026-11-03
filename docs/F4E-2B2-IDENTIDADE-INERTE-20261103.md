@@ -2,15 +2,11 @@
 
 **Estado:** contrato preparatório integrado somente no `staging` (PR #234, SHA `0483b7a`; correção CI PR #235, SHA `1363024`), Render `dep-dbl4e317lnhs739rukhg` LIVE, CI e smoke de staging aprovados. A proposta SQL continua NÃO APLICADA ao Supabase. Não existe ativação, reserva executável, job de campanha ou autorização para publicação; `main` preservada.
 
-## Decisão de produto aprovada por Rafa
+## Decisão de produto — retificada em 03/11/2026
 
-Quando uma conta cai de Premium (até cinco campanhas ativas por perfil) para Pro (até duas), **pausar todas as campanhas ativas do perfil afetado imediatamente** e impedir disparos até que o titular escolha explicitamente **no máximo duas** para continuar. As demais ficam pausadas e preservam configuração, anexos referenciados e histórico, sem remoção. Não escolher duas arbitrariamente por data, prioridade ou desempenho.
+**Regra vigente:** pedido de downgrade Premium→Pro ou cancelamento para Free **não pausa** campanhas nem reduz direitos no momento do pedido. O ciclo quitado permanece íntegro. Somente **no fim da vigência paga** e após a transição efetiva o guard deve pausar as campanhas com segurança: Premium→Pro pausa todas, permitindo escolha explícita de até 2 por perfil após revalidação; →Free pausa todas. Histórico e configuração preservados. Nem pagamento nem executor de campanha existem atualmente; regra futura do checkout e da execução.
 
-- Cada perfil é isolado. Uma escolha não concede privilégios sobre campanhas de outro perfil.
-- A escolha deve ser transacional com revalidação do plano vigente, `users.access`, ownership, cota vigente, mídia física, OAuth, rede, janela e conflitos.
-- Enquanto a escolha estiver pendente, **zero publicações de campanha**. Downgrade a Free pausa todas; upgrade futuro não reativa nada automaticamente.
-- Um envio já iniciado na rede é potencialmente `unknown`: não se promete cancelamento retroativo nem retry cego. Antes do primeiro envio externo o controle precisa ser atômico.
-- A decisão é **política aprovada**, não mecanismo operacional hoje: não há campanhas ativas implementadas.
+A decisão anterior de “pausar imediatamente ao passar de Premium para Pro” agora se refere **exclusivamente ao instante da mudança efetiva do plano, nunca ao pedido agendado**. Caso o cliente exerça arrependimento legal ou haja rescisão/reembolso exigível, não presumir permanência obrigatória até vencimento. Consultar [política de assinaturas, seção 12](PLANOS-F4-POLITICAS-E-FASES-20261103.md#12-transições-de-assinatura-e-comunicação--decisão-corrigida-de-rafa-03112026).
 
 ## O que esta preparação faz
 
