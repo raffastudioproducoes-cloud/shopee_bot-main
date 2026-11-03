@@ -5,6 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — Criar POST em página dedicada (staging, R01/R02 parcial)
+- Menu lateral `Criar POST` e rota privada `/posts/criar`, transferindo compositor do modal para página responsiva; histórico permanece em `/posts`.
+- Preservados criação imediata/recorrente, produto individual, foto principal Shopee, upload local de fotos/vídeos, IA, rascunhos, preview, validações e fluxo de dispatch/erros existente.
+- Nenhuma API, agendamento, banco ou publicação externa modificada. Galeria adicional Shopee e edição de mídia futura permanecem pendentes de fonte oficial/versão segura.
+
 ### Added — edição futura de texto em staging (F1 isolada, sem enviar post)
 - Revisões imutáveis de texto para ocorrências ainda não reivindicadas a mais de 30 minutos, preservando ID do post, agenda, foto Shopee, fotos/vídeos enviados e histórico. Seleção atômica de snapshot pela hora original no claim com suporte a retry seguro; endpoint de leitura separado do detalhe existente.
 - Editor de texto sob demanda nos detalhes de posts agendados; rede, produto, mídia e horários não são alterados. RLS e banco seguem a migração 069 já aplicada e registrada; nenhuma publicação externa de teste.
