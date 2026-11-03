@@ -240,8 +240,8 @@ BEGIN
       RAISE EXCEPTION 'publication_origin_parent_mismatch' USING ERRCODE='23514';
     END IF;
     IF NEW.publication_origin='campaign' AND (
-      NEW.status NOT IN ('pending','failed') OR NEW.external_started_at IS NOT NULL
-      OR NEW.claim_token IS NOT NULL OR NEW.preflight_claim_token IS NOT NULL
+      (NEW.status='running' AND (TG_OP='INSERT' OR OLD.status IS DISTINCT FROM 'running'))
+      OR (NEW.external_started_at IS NOT NULL AND (TG_OP='INSERT' OR NEW.external_started_at IS DISTINCT FROM OLD.external_started_at))
     ) AND NOT EXISTS (
       SELECT 1
       FROM public.campaign_network_slots_f4e slot
