@@ -9,7 +9,7 @@ export interface CampaignPreviewRequest {
   weekdays: number[]
   start_time: string
   end_time: string
-  interval_minutes: number
+  posts_per_day: number
 }
 
 export interface CampaignPreviewSlot {
@@ -52,6 +52,12 @@ export interface CampaignDraftSaveRequest {
   schedule: CampaignPreviewRequest | null
 }
 
+/** Rascunhos legados podem manter intervalo em minutos até o usuário salvá-los novamente. */
+export type SavedCampaignSchedule = Omit<CampaignPreviewRequest, 'posts_per_day'> & {
+  posts_per_day?: number
+  interval_minutes?: number
+}
+
 export interface CampaignDraftRecord {
   id: string
   revision: number
@@ -60,7 +66,7 @@ export interface CampaignDraftRecord {
   source_list_name: string
   campaign_name: string
   items: Array<CampaignDraftItemPayload & { source_image?: string | null }>
-  schedule: CampaignPreviewRequest | null
+  schedule: SavedCampaignSchedule | null
   updated_at: string
 }
 
@@ -90,6 +96,9 @@ export const campaignsApi = {
   },
   updateDraft(id: string, data: CampaignDraftSaveRequest & { expected_revision: number }): Promise<CampaignDraftRecord> {
     return api.put<CampaignDraftRecord>(`/campaigns/drafts/${encodeURIComponent(id)}`, data)
+  },
+  deleteDraft(id: string, expectedRevision: number): Promise<void> {
+    return api.delete<void>(`/campaigns/drafts/${encodeURIComponent(id)}?expected_revision=${expectedRevision}`)
   },
   listMedia(id: string): Promise<{ data: CampaignMediaRecord[] }> {
     return api.get<{ data: CampaignMediaRecord[] }>(`/campaigns/drafts/${encodeURIComponent(id)}/media`)
