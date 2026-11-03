@@ -279,6 +279,50 @@ async def get_campaign_draft(
     return _get_owned_campaign(draft_id, user_id, _draft_profile(profile_id))
 
 
+@router.get("/drafts/{draft_id}/preflight")
+async def preflight_campaign_draft(
+    draft_id: UUID, expected_revision: int = Query(..., ge=1),
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Leitura parcial: não reserva vaga nem valida prontidão para publicar."""
+    profile_id = _draft_profile(profile_id)
+    policy = load_campaign_policy(user_id, profile_id)
+    require_campaign_access(policy)
+    draft = _get_owned_campaign(draft_id, user_id, profile_id)
+    if draft.get("status") != "draft" or draft.get("revision") != expected_revision:
+        raise HTTPException(status_code=409, detail="Rascunho alterado; atualize a revisão.")
+    try:
+        items = [CampaignDraftItem.model_validate(x) for x in draft["items"]]
+        if not items or any(not item.networks for item in items):
+            raise ValueError("Cada produto precisa de ao menos uma rede.")
+        schedule = CampaignPreviewRequest.model_validate(draft["schedule"])
+        validate_campaign_draft_schedule(
+            schedule, draft.get("source_list_id"), [item.product_id for item in items],
+        )
+        validate_campaign_plan_schedule(policy, schedule)
+        validate_campaign_network_volume(policy, schedule, items)
+        slots = plan_campaign_slots(
+            start_date=schedule.start_date, end_date=schedule.end_date,
+            weekdays=schedule.weekdays, start_time=schedule.start_time,
+            end_time=schedule.end_time, posts_per_day=schedule.posts_per_day,
+            item_ids=schedule.item_ids, timezone="America/Sao_Paulo",
+        )
+        if not slots or any(slot.utc_at <= datetime.now(timezone.utc) for slot in slots):
+            raise ValueError("Os horários precisam estar no futuro.")
+    except HTTPException:
+        raise
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="Planejamento de campanha inválido.") from None
+    return {
+        "status": "preflight_only", "reservation_available": False,
+        "reserved": False, "activated": False, "checks_complete": False,
+        "occurrence_count": len(slots),
+        "planned_utc": [slot.utc_at.strftime("%Y-%m-%dT%H:%M:%SZ") for slot in slots],
+        "pending_checks": ["quota_atomica", "retencao_midia", "oauth_redes", "dispatch"],
+    }
+
+
 @router.put("/drafts/{draft_id}")
 async def update_campaign_draft(
     draft_id: UUID, body: CampaignDraftUpdate,
