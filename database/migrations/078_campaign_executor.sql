@@ -168,6 +168,31 @@ BEGIN
  RETURN v_n;
 END; $$;
 
+CREATE FUNCTION public.close_completed_campaigns_f4e(p_environment text)
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE v_res record; v_n integer:=0;
+BEGIN
+ FOR v_res IN SELECT r.id FROM public.campaign_reservations_f4e r
+ WHERE r.source_environment=p_environment AND r.lifecycle IN ('active','paused')
+  AND EXISTS (SELECT 1 FROM public.campaign_network_slots_f4e s WHERE s.reservation_id=r.id)
+  AND NOT EXISTS (SELECT 1 FROM public.campaign_network_slots_f4e s
+   WHERE s.reservation_id=r.id AND s.state IN ('planned','running'))
+ ORDER BY r.id LIMIT 100 FOR UPDATE OF r SKIP LOCKED
+ LOOP
+  UPDATE public.campaign_reservations_f4e SET lifecycle='completed',
+   status='released',released_at=now(),dispatch_enabled=false
+   WHERE id=v_res.id;
+  UPDATE public.campaign_occurrences_f4e SET dispatch_enabled=false
+   WHERE reservation_id=v_res.id;
+  v_n:=v_n+1;
+ END LOOP;
+ RETURN v_n;
+END; $$;
+
+REVOKE ALL ON FUNCTION public.close_completed_campaigns_f4e(text)
+ FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.close_completed_campaigns_f4e(text) TO service_role;
+
 REVOKE ALL ON FUNCTION public.claim_campaign_publication_f4e(text,text) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.mark_campaign_external_f4e(text,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.finish_campaign_publication_f4e(text,uuid,uuid,text,text,text) FROM PUBLIC,anon,authenticated,service_role;
