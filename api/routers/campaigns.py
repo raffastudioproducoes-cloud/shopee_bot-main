@@ -10,6 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel, Field, field_validator
 
 from ..campaign_schedule import plan_campaign_slots
+from ..campaign_policy import (
+    load_campaign_policy, validate_campaign_plan_schedule, require_campaign_access,
+    campaign_limits_response, validate_campaign_network_volume,
+)
 from .auth import get_current_user_id
 from .profiles import get_current_profile_id
 from .lists import _get_list, _get_list_products
@@ -49,6 +53,16 @@ def validate_campaign_list_items(requested_ids: list[int], owned_list_ids: list[
         raise ValueError("A ordem selecionada precisa conter exatamente os produtos da lista, sem repetições.")
 
 
+@router.get("/limits")
+async def get_campaign_limits(
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Elegibilidade comercial, sem afirmar execução ou consumo inexistentes."""
+    profile_id = _draft_profile(profile_id)
+    return campaign_limits_response(load_campaign_policy(user_id, profile_id), profile_id)
+
+
 @router.post("/preview")
 async def preview_campaign(
     body: CampaignPreviewRequest,
@@ -58,6 +72,8 @@ async def preview_campaign(
     """Prévia do planejamento. Não cria, agenda ou publica posts."""
     if not profile_id:
         raise HTTPException(status_code=400, detail="Perfil ativo obrigatório.")
+    policy = load_campaign_policy(user_id, profile_id)
+    validate_campaign_plan_schedule(policy, body)
     product_list = _get_list(user_id, body.list_id, profile_id)
     products = _get_list_products(product_list["id"])
     try:
@@ -97,6 +113,7 @@ async def preview_campaign(
         ],
         "timezone": "America/Sao_Paulo",
         "activated": False,
+        "network_quota_validated": False,
         "message": "Prévia somente. Nenhum post foi criado, agendado ou publicado.",
     }
 
@@ -204,11 +221,14 @@ async def create_campaign_draft(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     profile_id = _draft_profile(profile_id)
+    policy = load_campaign_policy(user_id, profile_id)
+    validate_campaign_plan_schedule(policy, body.schedule)
     source = _get_list(user_id, body.list_id, profile_id)
     products = _get_list_products(source["id"])
     try:
         validate_campaign_draft_items(body.items, [int(p["id"]) for p in products])
         validate_campaign_draft_schedule(body.schedule, body.list_id, [p.product_id for p in body.items])
+        validate_campaign_network_volume(policy, body.schedule, body.items)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     by_id = {int(p["id"]): p for p in products}
@@ -267,12 +287,15 @@ async def update_campaign_draft(
 ):
     profile_id = _draft_profile(profile_id)
     old = _get_owned_campaign(draft_id, user_id, profile_id)
+    policy = load_campaign_policy(user_id, profile_id)
+    validate_campaign_plan_schedule(policy, body.schedule)
     if old.get("status") != "draft" or int(old["revision"]) != body.expected_revision:
         raise HTTPException(status_code=409, detail="Rascunho mudou. Recarregue antes de salvar.")
     old_items = {int(p["product_id"]): p for p in old["items"]}
     try:
         validate_campaign_draft_items(body.items, list(old_items))
         validate_campaign_draft_schedule(body.schedule, old.get("source_list_id"), [p.product_id for p in body.items])
+        validate_campaign_network_volume(policy, body.schedule, body.items)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     items = []
@@ -413,6 +436,7 @@ async def upload_campaign_media(
     profile_id = _draft_profile(profile_id)
     draft = _get_owned_campaign(draft_id, user_id, profile_id)
     _assert_draft_product(draft, product_id)
+    require_campaign_access(load_campaign_policy(user_id, profile_id))
     _cleanup_abandoned_campaign_media(draft_id, user_id, profile_id)
 
     # Sanitizar com a mesma pipeline da publicação única; nada é publicado.

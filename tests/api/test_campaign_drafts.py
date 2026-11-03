@@ -6,6 +6,15 @@ import pytest
 from fastapi import HTTPException
 
 from api.routers import campaigns
+from api.campaign_policy import CampaignPolicy
+
+
+@pytest.fixture(autouse=True)
+def campaign_entitlement_for_legacy_contracts(monkeypatch):
+    """Os contratos F3 isolam lista/mídia; F4C2 testa autorização separadamente."""
+    monkeypatch.setattr(campaigns, "load_campaign_policy",
+                        lambda *_: CampaignPolicy("premium", False, 5, 30, 15, True))
+
 
 
 def item(product_id=12, **changes):

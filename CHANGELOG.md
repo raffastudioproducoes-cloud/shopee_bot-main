@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — F4C2: guardas preparatórios de campanhas (PR, sem merge/deploy)
+- Política server-side de conta/catálogo auditado, sem cache e com falha fechada; acesso Free bloqueado para prévia/criação/edição/upload, preservando consulta e exclusão após downgrade.
+- Pro 15 dias inclusivos/3 publicações diárias, Premium 30/15, contagem de cada rede na rotação por data local dos rascunhos; ADMIN sem teto comercial e com segurança absoluta de 30 dias preservada.
+- Endpoint autenticado `/campaigns/limits` informa limites e elegibilidade sem simular execução ou uso: ativação/automação indisponíveis, consumo ativo null. Guarda de automação exclusivamente Premium/ADMIN para futura integração.
+- Testes de autoridade de plano, alias Plus, limites, ownership, downgrade e falhas; sem ativação, job ou publicação. Quota de campanhas simultaneamente ativas permanece pendência transacional F4E (rascunhos não consomem vagas), **sem migration 074 ou SQL aplicado**, VERSION=3.0.0 e frontend F4D intocados.
+
+
 ### Added — F4C1: reservas de cota para publicação por perfil (staging LIVE)
 - Migração 073 **aplicada ao Supabase compartilhado após autorização expressa e implantada em staging**: reservas transacionais de envio imediato por rede na janela móvel de 60 minutos e horários recorrentes por dia da semana; lê a política da conta na tabela 072 e considera agendamentos legados sem dupla contagem.
 - FastAPI reserva antes de criar agenda, trata excesso como bloqueio PT-BR da rede, compensa falha de criação sem liberar envio externo incerto e reaproveita reserva ao despachar um post "Agora". ADMIN ignora cota comercial, mas não ownership/regras de rede.

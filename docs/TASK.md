@@ -1,3 +1,12 @@
+## 03/11/2026 — F4C2: guardas preparatórios (PR, sem merge/deploy)
+
+- [x] Código preparado com autoridade de conta/política auditada, fail-closed, ownership e limites de prévia/rascunho/upload. Free mantém leitura/exclusão de legado; volume por rede e data local validado quando a agenda está presente.
+- [x] Contratos unitários adicionados; sintaxe Python validada em memória. Runtime local sem FastAPI; CI ainda não confirmada nesta revisão documental.
+- [ ] F4C2 é **parcial**: quota simultânea Pro2/Premium5 persistida na política, mas reserva atômica de campanha ativa depende da F4E. Nenhuma ativação/automação real é oferecida; endpoint de limites retorna consumo ativo null e disponibilidade false.
+- [ ] Aguardar CI/revisão e autorização própria antes de merge/deploy staging. Sem SQL/migration 074, sem dados alterados, sem publicação real e sem main/produção. F4D frontend fora do escopo. VERSION=3.0.0.
+- [x] Gatilho SMTP reavaliado com Vault TASK vivo: nenhum domínio próprio registrado **e configurado** comprovado; manter pendência condicional.
+- Contrato detalhado: [matriz F4, seção 8](PLANOS-F4-POLITICAS-E-FASES-20261103.md).
+
 ## 03/11/2026 — F4C1 integrada e operacional em staging (evidência pós-merge)
 
 - [x] PR #215 squash-merge apenas em staging SHA `397f0f760570c7aa39a1756f6a9e05deaf205d2f`, CI #717 verde, migration 073 autorizada e aplicada (Supabase `20261103175106`, `public.migrations` id=68), Render `dep-dbl20fss728c739c6kag` LIVE, `/health` e `/api/health/ready` = `{"status":"ok"}`. Sem post externo nem promoção `main`/produção; `VERSION=3.0.0`.
