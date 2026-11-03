@@ -7,7 +7,7 @@ SET LOCAL lock_timeout = '10s';
 ALTER TABLE public.campaign_drafts
   ADD COLUMN IF NOT EXISTS campaign_name text;
 UPDATE public.campaign_drafts
-  SET campaign_name = LEFT(BTRIM(source_list_name), 120)
+  SET campaign_name = LEFT(COALESCE(NULLIF(BTRIM(source_list_name), ''), 'Campanha sem nome'), 120)
   WHERE campaign_name IS NULL OR BTRIM(campaign_name) = '';
 ALTER TABLE public.campaign_drafts
   ALTER COLUMN campaign_name SET NOT NULL;
