@@ -18,6 +18,8 @@ def recoverable(lease_seconds, limit=100):
           AND schedule.user_id = job.user_id
           AND schedule.profile_id IS NOT DISTINCT FROM job.profile_id
         WHERE job.status = 'pending'
+          AND job.publication_origin = 'legacy'
+          AND schedule.publication_origin = job.publication_origin
           AND schedule.environment = %s
         ORDER BY job.created_at
         LIMIT %s
@@ -56,6 +58,7 @@ def expire_running(lease_seconds):
             END,
             claim_token = NULL, locked_by = NULL, locked_at = NULL
         WHERE status = 'running'
+          AND publication_origin = 'legacy'
           AND locked_at < now() - make_interval(secs => %s)
           AND EXISTS (
               SELECT 1 FROM schedulers schedule
@@ -64,6 +67,7 @@ def expire_running(lease_seconds):
                 AND schedule.user_id = publish_jobs.user_id
                 AND schedule.profile_id IS NOT DISTINCT FROM publish_jobs.profile_id
                 AND schedule.environment = %s
+                AND schedule.publication_origin = publish_jobs.publication_origin
           )
         RETURNING id, status
     """
@@ -113,6 +117,8 @@ def claim(publish_job_id, worker_id, lease_seconds):
               AND post.profile_id IS NOT DISTINCT FROM job.profile_id
             WHERE job.id = %s
               AND job.status = 'pending'
+              AND job.publication_origin = 'legacy'
+              AND schedule.publication_origin = job.publication_origin
               AND schedule.environment = %s
             FOR UPDATE OF job SKIP LOCKED
         )
@@ -145,6 +151,7 @@ def finish(publish_job_id, claim_token, status, *, external_id=None, error=None)
             locked_by = NULL,
             locked_at = NULL
         WHERE id = %s AND claim_token = %s
+          AND publication_origin = 'legacy'
         RETURNING id, status
     """
     return query_db(
@@ -162,6 +169,7 @@ def mark_external_started(publish_job_id, claim_token):
         SET external_started_at = COALESCE(external_started_at, now())
         WHERE id = %s AND claim_token = %s
           AND preflight_claim_token = %s AND status = 'running'
+          AND publication_origin = 'legacy'
         RETURNING id
         """,
         (publish_job_id, claim_token, claim_token),
@@ -180,6 +188,7 @@ def requeue_if_safe(publish_job_id, claim_token):
         WHERE id = %s AND claim_token = %s
           AND preflight_claim_token = %s AND status = 'running'
           AND external_started_at IS NULL
+          AND publication_origin = 'legacy'
         RETURNING id
         """,
         (publish_job_id, claim_token, claim_token),
