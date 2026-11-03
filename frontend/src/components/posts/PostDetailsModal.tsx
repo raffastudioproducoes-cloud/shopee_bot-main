@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
 import type { Post, PostNetwork } from "../../api/posts"
 import { postsApi } from "../../api/posts"
 import { NETWORK_RULES } from "../../lib/networkLimits"
@@ -10,6 +11,7 @@ import { Badge } from "../ui/Badge"
 import { StatusBadge } from "../ui/StatusBadge"
 import { NetworkLogo } from "./NetworkPicker"
 import { postKind, scheduleLines } from "./postPresentation"
+import { FutureRevisionEditor } from "./FutureRevisionEditor"
 
 type Props = { post: Post; groupNetworks: PostNetwork[]; onClose: () => void }
 const sectionStyle = { display: "grid", gap: 8, padding: "14px 0", borderBottom: "1px solid var(--border-hairline)" } as const
@@ -28,6 +30,7 @@ const valueStyle = { margin: 0, color: "var(--text-body)", whiteSpace: "pre-wrap
 
 /** Visualização de publicação existente: sem formulário, edição ou mutação. */
 export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
+  const [editingFuture, setEditingFuture] = useState(false)
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const isAdmin = useAuthStore((state) => state.user?.access === "ADMIN")
   const { data, isFetching, isError } = useQuery({
@@ -46,7 +49,15 @@ export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
     <Modal open onClose={onClose} title="Detalhes da publicação" width={760}>
       <div style={{ display: "grid", gap: 0 }}>
         <p aria-label={`ID do post: ${details.id}`} style={{ margin: "0 0 6px", color: "var(--text-muted)", font: "var(--text-role-caption)" }}>Post #{details.id}</p>
-        <p style={{ margin: "0 0 8px", color: "var(--text-muted)" }}>Somente leitura — esta publicação não pode ser alterada aqui.</p>
+        <p style={{ margin: "0 0 8px", color: "var(--text-muted)" }}>O histórico e as publicações realizadas são somente leitura.</p>
+        {details.scheduled && !details.publish_immediately && !isError && (
+          <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
+            <button type="button" disabled={isFetching} onClick={() => setEditingFuture((current) => !current)}>
+              {editingFuture ? "Ocultar edição futura" : "Editar textos dos próximos posts"}
+            </button>
+            {editingFuture && <FutureRevisionEditor key={details.id} post={details} onClose={() => setEditingFuture(false)} />}
+          </div>
+        )}
         {isFetching && <p role="status" style={{ margin: 0, color: "var(--text-muted)" }}>Carregando informações atualizadas...</p>}
         {isError && <p role="alert" style={{ margin: 0, color: "var(--negative)" }}>Não foi possível atualizar os detalhes. Exibindo as informações da lista.</p>}
         <section style={sectionStyle}>

@@ -1,6 +1,7 @@
 import pytz
 from datetime import datetime
 from shopee_bot.database import query_db, execute_db
+from shopee_bot.database import post_content_snapshot
 
 
 def count(user_id):
@@ -85,7 +86,9 @@ def get(user_id, post_id, profile_id):
         ORDER BY ph.depth ASC
     """
     args = (post_id, user_id, profile_id, user_id, profile_id)
-    return query_db(query, args)
+    return post_content_snapshot.apply_to_parts(
+        query_db(query, args), post_content_snapshot.get()
+    )
 
 
 def get_for_delete(user_id, post_id):

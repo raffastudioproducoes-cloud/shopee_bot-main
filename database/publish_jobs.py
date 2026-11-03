@@ -111,11 +111,40 @@ def enqueue(*, scheduler_id, post_id, user_id, profile_id, network, idempotency_
 
 
 def claim(publish_job_id, worker_id, lease_seconds):
-    """Um unico worker pode adquirir item que ainda nao foi iniciado."""
+    """Reserva atomicamente o snapshot da revisão elegível no claim.
+
+    A ocorrência mantém o slot original, mesmo se a execução/retry atrasar.
+    Jobs sem revisão seguem exatamente o conteúdo legado do post.
+    """
     scope, scope_args = _execution_scope()
     query = f"""
-        WITH candidate AS (
-            SELECT job.id, gen_random_uuid() AS token
+        WITH locked_candidate AS (
+            SELECT job.id, gen_random_uuid() AS token,
+                job.idempotency_key, job.post_id, job.user_id, job.profile_id,
+                schedule.environment AS environment,
+                CASE
+                    -- Usar horario nominal, nao minuto atrasado de execucao.
+                    WHEN schedule.trigger = 'cron' AND schedule.time IS NOT NULL
+                         AND job.idempotency_key ~
+                         ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}$'
+                        THEN (
+                            split_part(job.idempotency_key, ':', 2)::timestamp::date
+                            + schedule.time
+                            - CASE
+                                WHEN schedule.time >
+                                     split_part(job.idempotency_key, ':', 2)::timestamp::time
+                                    THEN interval '1 day'
+                                ELSE interval '0 days'
+                              END
+                        ) AT TIME ZONE 'America/Sao_Paulo'
+                    WHEN schedule.trigger = 'date' AND schedule.run_date IS NOT NULL
+                        THEN schedule.run_date AT TIME ZONE 'America/Sao_Paulo'
+                    WHEN job.idempotency_key ~
+                         ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}$'
+                        THEN split_part(job.idempotency_key, ':', 2)::timestamp
+                             AT TIME ZONE 'America/Sao_Paulo'
+                    ELSE NULL
+                END AS original_slot
             FROM publish_jobs job
             JOIN schedulers schedule ON schedule.id = job.scheduler_id
               AND schedule.post_id = job.post_id
@@ -128,6 +157,31 @@ def claim(publish_job_id, worker_id, lease_seconds):
               AND job.status = 'pending'
               AND ({scope})
             FOR UPDATE OF job SKIP LOCKED
+        ),
+        candidate AS (
+            SELECT locked_candidate.*,
+                original.id AS retry_source_id,
+                original.content_snapshot AS retry_snapshot,
+                original.content_revision_id AS retry_revision_id,
+                future.snapshot AS future_snapshot,
+                future.id AS future_revision_id
+            FROM locked_candidate
+            LEFT JOIN publish_jobs original
+              ON locked_candidate.idempotency_key = 'manual_retry:' || original.id::text
+             AND original.user_id = locked_candidate.user_id
+             AND original.profile_id IS NOT DISTINCT FROM locked_candidate.profile_id
+             AND original.post_id = locked_candidate.post_id
+            LEFT JOIN LATERAL (
+                SELECT revision.id, revision.snapshot
+                FROM post_content_revisions revision
+                WHERE revision.post_id = locked_candidate.post_id
+                  AND revision.user_id = locked_candidate.user_id
+                  AND revision.profile_id = locked_candidate.profile_id
+                  AND revision.snapshot->>'environment' = locked_candidate.environment
+                  AND locked_candidate.original_slot > revision.effective_after
+                ORDER BY revision.effective_after DESC, revision.id DESC
+                LIMIT 1
+            ) future ON TRUE
         )
         UPDATE publish_jobs AS job
         SET status = 'running',
@@ -137,13 +191,23 @@ def claim(publish_job_id, worker_id, lease_seconds):
             external_started_at = NULL,
             locked_by = %s,
             locked_at = now(),
-            started_at = COALESCE(job.started_at, now())
+            started_at = COALESCE(job.started_at, now()),
+            scheduled_for = COALESCE(job.scheduled_for, candidate.original_slot),
+            content_revision_id = COALESCE(
+                job.content_revision_id,
+                CASE WHEN candidate.retry_source_id IS NOT NULL
+                     THEN candidate.retry_revision_id ELSE candidate.future_revision_id END
+            ),
+            content_snapshot = COALESCE(
+                job.content_snapshot,
+                CASE WHEN candidate.retry_source_id IS NOT NULL
+                     THEN candidate.retry_snapshot ELSE candidate.future_snapshot END
+            )
         FROM candidate
         WHERE job.id = candidate.id
-        RETURNING job.id, job.claim_token
+        RETURNING job.id, job.claim_token, job.content_snapshot
     """
     return query_db(query, (publish_job_id, *scope_args, worker_id), one=True)
-
 
 def finish(publish_job_id, claim_token, status, *, external_id=None, error=None):
     if status not in TERMINAL_STATUSES:

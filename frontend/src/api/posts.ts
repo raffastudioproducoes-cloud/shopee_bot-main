@@ -169,6 +169,23 @@ export interface GenerateCopyOptions {
   existingTexts?: string[]
 }
 
+export interface PostFutureRevision {
+  id: number
+  effective_after: string
+  texts: string[]
+}
+
+export interface PostFutureRevisionResponse {
+  revision: PostFutureRevision | null
+}
+
+export interface PostFutureRevisionSaved {
+  post_id: number
+  revision_id: number
+  effective_after: string
+  msg: string
+}
+
 export interface PostUpdate {
   texts: string[]
   product_ids?: number[]
@@ -224,6 +241,14 @@ export const postsApi = {
 
   async get(id: number): Promise<Post> {
     return api.get<Post>(`/posts/${id}`)
+  },
+
+  async getFutureRevision(id: number): Promise<PostFutureRevisionResponse> {
+    return api.get<PostFutureRevisionResponse>(`/posts/${id}/future-revisions/latest`)
+  },
+
+  async updateFuture(id: number, data: PostUpdate): Promise<PostFutureRevisionSaved> {
+    return api.post<PostFutureRevisionSaved>(`/posts/${id}/future-revisions`, data)
   },
 
   async update(id: number, data: PostUpdate): Promise<Post> {
