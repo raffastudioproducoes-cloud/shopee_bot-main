@@ -2,6 +2,21 @@
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 
+ALTER TABLE public.posts ADD COLUMN publication_origin text NOT NULL DEFAULT 'legacy'
+  CHECK (publication_origin IN ('legacy','campaign'));
+CREATE FUNCTION public.guard_post_origin_f4e()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $
+BEGIN
+ IF NEW.publication_origin IS DISTINCT FROM OLD.publication_origin THEN
+  RAISE EXCEPTION 'post_origin_immutable' USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END; $;
+REVOKE ALL ON FUNCTION public.guard_post_origin_f4e() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER trg_post_origin_immutable
+ BEFORE UPDATE OF publication_origin ON public.posts
+ FOR EACH ROW EXECUTE FUNCTION public.guard_post_origin_f4e();
+
 CREATE TABLE public.campaign_reservation_assets_f4e (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   reservation_id uuid NOT NULL REFERENCES public.campaign_reservations_f4e(id) ON DELETE CASCADE,
@@ -136,13 +151,13 @@ BEGIN
   LOOP
     SELECT i INTO v_item FROM jsonb_array_elements(v_res.draft_snapshot->'items') i
     WHERE (i->>'product_id')::integer=v_slot.product_id;
-    INSERT INTO public.posts(text,user_id,profile_id,network,publish_immediately)
+    INSERT INTO public.posts(text,user_id,profile_id,network,publish_immediately,publication_origin)
     VALUES(
       CASE WHEN position(COALESCE(v_item->>'affiliate_link','') IN v_slot.content_text)>0
         THEN v_slot.content_text
         ELSE concat_ws(E'\n',nullif(v_slot.content_text,''),nullif(v_item->>'affiliate_link',''))
       END,
-      p_user,p_profile,v_slot.network,false
+      p_user,p_profile,v_slot.network,false,'campaign'
     ) RETURNING id INTO v_post;
     INSERT INTO public.posts_products(post_id,product_id,display_order)
       VALUES(v_post,v_slot.product_id,0);
