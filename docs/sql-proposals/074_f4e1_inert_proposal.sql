@@ -47,6 +47,37 @@ GRANT SELECT, INSERT ON public.campaign_reservations_f4e, public.campaign_occurr
 GRANT UPDATE (status, released_at) ON public.campaign_reservations_f4e TO service_role;
 GRANT UPDATE (status) ON public.campaign_occurrences_f4e TO service_role;
 
+-- Invariante local; nao despacha e nao concede acesso adicional.
+CREATE FUNCTION public.guard_campaign_reservation_f4e()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profiles p
+                 WHERE p.id=NEW.profile_id AND p.user_id=NEW.user_id) THEN
+    RAISE EXCEPTION 'profile_not_owned' USING ERRCODE='23514';
+  END IF;
+  IF TG_OP='INSERT' AND (NEW.draft_id IS NULL OR NEW.status <> 'reserved_no_dispatch'
+                         OR NEW.released_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'invalid_initial_reservation' USING ERRCODE='23514';
+  END IF;
+  IF NEW.draft_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.campaign_drafts d
+    WHERE d.id=NEW.draft_id AND d.user_id=NEW.user_id AND d.profile_id=NEW.profile_id
+  ) THEN
+    RAISE EXCEPTION 'draft_not_owned' USING ERRCODE='23514';
+  END IF;
+  IF TG_OP='UPDATE' AND OLD.status='released'
+     AND (NEW.status IS DISTINCT FROM OLD.status
+          OR NEW.released_at IS DISTINCT FROM OLD.released_at) THEN
+    RAISE EXCEPTION 'released_is_terminal' USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END; $$;
+REVOKE ALL ON FUNCTION public.guard_campaign_reservation_f4e()
+  FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER trg_guard_campaign_reservation_f4e
+  BEFORE INSERT OR UPDATE ON public.campaign_reservations_f4e
+  FOR EACH ROW EXECUTE FUNCTION public.guard_campaign_reservation_f4e();
+
 -- RPCs exclusivamente para backend confiavel: service_role nao e identidade final.
 -- Backend deve autenticar e autorizar a conta/perfil antes de invocar.
 CREATE FUNCTION public.reserve_campaign_f4e(
