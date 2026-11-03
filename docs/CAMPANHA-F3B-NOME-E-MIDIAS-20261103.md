@@ -32,3 +32,15 @@ Esta fase **não ativa campanhas, cria posts/jobs, altera calendários reais ou 
 - Migration Supabase `campaign_names_media_071` aplicada, RLS true, privilégios `anon/authenticated` ausentes, service_role permitido, trigger único, zero mídias antes do ensaio.
 - Render `dep-dbkm74ks728c738ritc0` LIVE; log da 071 aplicada na segunda execução e `Application startup complete`; `/health` respondeu `{"status":"ok"}`.
 - UI autenticada: campo nome no topo, rascunho recuperado, checkbox foto Shopee preservado e seletor de arquivos disponível. **Nenhum upload real por navegador nem criação de post foi realizado**; esse ensaio segue pendente com mídia descartável e mecanismo de limpeza.
+
+
+## Adendo posterior — F3C, frequência diária e exclusão de rascunho (03/11/2026)
+
+Esta seção atualiza o contrato **após F3B**; o item anterior “DELETE não oferecido” descreve apenas o estado histórico da F3B.
+
+1. **Frequência:** campo do editor “Postagens por dia”, seletor fechado com valores inteiros 1–15. Mantidas datas, dias semanais, fuso Brasília e horas de início/fim. O backend distribui igualmente a quantidade escolhida por dia ativo, começando na hora inicial, terminando na final quando houver 2 ou mais. Janela insuficiente é rejeitada; 1 postagem usa a hora inicial. Prévia não publica nada.
+2. **Compatibilidade:** o JSON `schedule` aceita agora `posts_per_day` na API de gravação/prévia; `interval_minutes` de rascunhos F3A/F3B e autosave local é traduzido em quantidade/dia na leitura (1–15), com aviso de revisão. Não há nova migration nem perda de rascunho.
+3. **Exclusão:** ação Excluir ao lado de Carregar exige confirmação inline (sem modal) e envia `DELETE /campaigns/drafts/{id}?expected_revision=<revision>`. O servidor aplica escopo de proprietário, perfil, revisão e estado `draft`; recusa arquivos com status `uploading`; valida bucket privado e prefixo; apaga objetos de Storage antes da exclusão SQL. Em falha de Storage, preserva o rascunho e informa erro. Na exclusão carregada, o editor local permanece para eventual novo salvamento, sem ID remoto.
+4. **Fronteira:** jamais apagar lista original, posts já publicados, jobs ou mídias de outra campanha. Nenhuma ativação de campanha, publicação, configuração de rede ou promoção para `main`. A política anti-spam e as cotas por plano/rede serão obrigatórias antes de ativação.
+5. **Teste proporcional:** Python horários/fuso/limites, API ownership/storage-failure, frontend TypeScript/build e verificação breve de staging. Ausência de teste real de exclusão de dados do Rafa é intencional.
+6. **Versionamento:** PR [#211](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/211) dirigida a `staging`; `VERSION` continua `3.0.0` até release aprovado. Evidências finais entram em `docs/TASK.md` e no Vault.
