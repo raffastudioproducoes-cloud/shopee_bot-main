@@ -22,7 +22,7 @@ class TestF4ePostgres(unittest.TestCase):
             con.execute((ROOT / "tests/sql/f4e1_fixture.sql").read_text())
             for name in ("070_campaign_drafts.sql", "071_campaign_names_and_media.sql"):
                 con.execute((ROOT / "database/migrations" / name).read_text())
-            con.execute((ROOT / "docs/sql-proposals/074_f4e1_inert_proposal.sql").read_text())
+            con.execute((ROOT / "database/migrations/074_f4e1_inert_campaign_reservations.sql").read_text())
 
     def setUp(self):
         self.user, self.profile = uuid.uuid4(), uuid.uuid4()
@@ -199,7 +199,7 @@ class TestF4ePostgres(unittest.TestCase):
         with self.assertRaises(psycopg.errors.DuplicateTable):
             with psycopg.connect(DSN, autocommit=True) as con:
                 try:
-                    con.execute((ROOT / "docs/sql-proposals/074_f4e1_inert_proposal.sql").read_text())
+                    con.execute((ROOT / "database/migrations/074_f4e1_inert_campaign_reservations.sql").read_text())
                 finally:
                     con.execute("ROLLBACK")
         with psycopg.connect(DSN) as con:
