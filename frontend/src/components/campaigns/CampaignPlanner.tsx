@@ -271,7 +271,11 @@ export function CampaignPlanner({ credentials }: {
         <div className="campaign-controls">
           <section className="campaign-section">
             <h3>01. Produtos</h3>
-            <p>Escolha uma lista, ajuste a ordem e prepare textos, links e redes de cada produto.</p>
+            <p>Dê um nome à campanha, escolha a lista, ajuste a ordem e prepare cada produto.</p>
+            <label className="campaign-field-label" htmlFor="campaign-name">Nome da campanha</label>
+            <input id="campaign-name" className="campaign-select" type="text" maxLength={120}
+              value={draft.name} onChange={(event) => update("name", event.target.value)}
+              placeholder="Ex.: Ofertas da semana de novembro" />
             <label className="campaign-field-label" htmlFor="campaign-list">Lista de produtos</label>
             <select
               id="campaign-list"
@@ -422,10 +426,6 @@ export function CampaignPlanner({ credentials }: {
           <section className="campaign-section" aria-label="Rascunhos persistidos">
             <h3>Rascunhos da campanha</h3>
             <p>Salve sua preparação para continuar em outro dispositivo. Salvar não cria posts nem ativa publicações.</p>
-            <label className="campaign-field-label" htmlFor="campaign-name">Nome da campanha</label>
-            <input id="campaign-name" className="campaign-select" type="text" maxLength={120}
-              value={draft.name} onChange={(event) => update("name", event.target.value)}
-              placeholder="Ex.: Ofertas da semana de novembro" />
             <div className="campaign-actions">
               <Button variant="primary" icon="save"
                 disabled={!saveInput || saveMutation.isPending || (Boolean(savedDraftId) && lastSavedSignature === saveSignature)}
