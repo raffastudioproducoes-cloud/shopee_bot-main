@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### F4E — implementação integrada de campanhas (em desenvolvimento, 03/11/2026)
+
+Iniciado trabalho em branch única a partir de `staging` protegido pela origem da migration 075. A migration proposta 076 acrescenta slots imutáveis por ocorrência/rede, cota agregada por perfil/dia com lock transacional por conta e período pago confirmado, sem habilitar o executor nem alterar o Supabase compartilhado. Os contratos PostgreSQL isolados e CI foram adicionados; status operacional e resultado de testes serão registrados após verificação. Nenhuma campanha real está ativada por estes commits.
+
 ### F4E — isolamento real de origem no banco e nos executores (03/11/2026)
 
 Migração aditiva 075 com origem positiva `legacy/campaign` para schedulers e publish_jobs, padrão legado compatível com main antiga e triggers de imutabilidade/consistência de pais. Tentativa de reivindicar ou iniciar envio de job de campanha é rejeitada **pelo PostgreSQL**, inclusive quando um executor antigo ignorar o filtro. Scheduler de staging passa a exigir origem legada em consultas, claim/recovery, reconciliação, cancelamento e barreira antes da API social. Testes unitários e PostgreSQL 16 descartável adicionados. O despacho de campanhas permanece fechado até implantação compatível nos dois ambientes e conclusão de cota por rede, OAuth, mídia e ativação transacional. Nenhuma publicação real, plano ou pagamento é alterado.
