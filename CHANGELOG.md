@@ -8,7 +8,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 ### Added — F4C1: reservas de cota para publicação por perfil (branch de staging, não implantada)
 - Migração 073 **preparada, não aplicada**: reservas transacionais de envio imediato por rede na janela móvel de 60 minutos e horários recorrentes por dia da semana; lê a política da conta na tabela 072 e considera agendamentos legados sem dupla contagem.
 - FastAPI reserva antes de criar agenda, trata excesso como bloqueio PT-BR da rede, compensa falha de criação sem liberar envio externo incerto e reaproveita reserva ao despachar um post "Agora". ADMIN ignora cota comercial, mas não ownership/regras de rede.
-- Testes mockados de escopo, limites, falha fechada e batch parcial; não houve teste com banco novo, postagem externa, merge ou release. PR/CI e aprovação da 073 ainda pendentes. `VERSION=3.0.0`.
+- Testes mockados de escopo, limites, falha fechada e batch parcial; fixture de Supabase fake ampliada após a CI #713 detectar 15 regressões de contrato. CI [#714](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41600926342) passou (API + frontend); PR #215 em DRAFT. Sem banco 073 aplicado, postagem externa, merge ou release; aprovação específica da 073 pendente. `VERSION=3.0.0`.
 
 ### Changed — F4B2: perfis conforme plano e isolamento reafirmado (staging)
 - Limites de perfis por conta: Free 1 total, Pro 3, Premium 5; ADMIN sem teto comercial. Nova RPC transacional valida plano/contagem no banco; `/profiles` de staging a utiliza e a versão antiga de produção continua com trigger de teto 3, por compartilharem Supabase.
