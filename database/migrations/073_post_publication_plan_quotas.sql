@@ -81,13 +81,14 @@ BEGIN
     IF p_kind='recurring' AND (
         cardinality(p_days) NOT BETWEEN 1 AND 7
         OR cardinality(p_times) NOT BETWEEN 1 AND 5
-        OR EXISTS(SELECT 1 FROM unnest(p_days) d
-                  WHERE d IS NULL OR d NOT BETWEEN 0 AND 6)
-        OR EXISTS(SELECT 1 FROM unnest(p_times) t WHERE t IS NULL)
-        OR (SELECT count(*) FROM unnest(p_days) d) <>
-           (SELECT count(DISTINCT d) FROM unnest(p_days) d)
-        OR (SELECT count(*) FROM unnest(p_times) t) <>
-           (SELECT count(DISTINCT t) FROM unnest(p_times) t)
+        OR p_days IS NULL OR p_times IS NULL
+        OR EXISTS(SELECT 1 FROM unnest(p_days) AS d(day)
+                  WHERE day IS NULL OR day NOT BETWEEN 0 AND 6)
+        OR EXISTS(SELECT 1 FROM unnest(p_times) AS t(slot_time) WHERE slot_time IS NULL)
+        OR (SELECT count(*) FROM unnest(p_days) AS d(day)) <>
+           (SELECT count(DISTINCT day) FROM unnest(p_days) AS d(day))
+        OR (SELECT count(*) FROM unnest(p_times) AS t(slot_time)) <>
+           (SELECT count(DISTINCT slot_time) FROM unnest(p_times) AS t(slot_time))
     ) THEN
         RAISE EXCEPTION 'invalid_recurring_slots' USING ERRCODE='P0001';
     END IF;
@@ -168,8 +169,9 @@ BEGIN
     END LOOP;
     INSERT INTO public.plan_recurring_slots
         (post_id,user_id,profile_id,weekday,slot_time)
-    SELECT p_post_id,p_user_id,p_profile_id,d,t
-    FROM unnest(p_days) d CROSS JOIN unnest(p_times) t;
+    SELECT p_post_id,p_user_id,p_profile_id,d.weekday,t.slot_time
+    FROM unnest(p_days) AS d(weekday)
+    CROSS JOIN unnest(p_times) AS t(slot_time);
     RETURN v_max;
 END; $$;
 
