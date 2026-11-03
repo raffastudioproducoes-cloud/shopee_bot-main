@@ -72,6 +72,7 @@ class TestCampaignNetworkReservations(unittest.TestCase):
             for name in (
                 "070_campaign_drafts.sql", "071_campaign_names_and_media.sql",
                 "074_f4e1_inert_campaign_reservations.sql",
+                "075_campaign_publication_origin_guards.sql",
                 "076_campaign_network_reservations.sql",
             ):
                 con.execute((ROOT / name).read_text())
