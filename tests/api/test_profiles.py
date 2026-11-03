@@ -366,3 +366,35 @@ def test_profile_tiers_are_enforced_by_database_migration_not_ui():
     assert "p_user_id uuid,p_nome text,p_email text" in sql
     assert "v_access <> 'ADMIN'" in sql
     assert "profile_limit_exceeded" in sql
+
+
+def test_get_profile_quota_reads_server_policy_for_premium(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [
+        MagicMock(data={"access": "USER", "plan_tier": "premium"}),
+        MagicMock(data={"max_profiles_per_account": 5}),
+        MagicMock(data=[{"id": "principal"}, {"id": "segundo"}, {"id": "terceiro"}]),
+    ]
+    response = auth_client.get("/profiles/quota")
+    assert response.status_code == 200
+    assert response.json() == {"tier": "premium", "used": 3, "limit": 5, "unlimited": False}
+
+
+def test_get_profile_quota_admin_ignores_commercial_max(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [
+        MagicMock(data={"access": "ADMIN", "plan_tier": "free"}),
+        MagicMock(data=[{"id": "principal"}]),
+    ]
+    response = auth_client.get("/profiles/quota")
+    assert response.status_code == 200
+    assert response.json() == {"tier": "free", "used": 1, "limit": None, "unlimited": True}
+
+
+def test_get_profile_quota_fails_closed_without_policy(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [
+        MagicMock(data={"access": "USER", "plan_tier": "pro"}),
+        MagicMock(data=None),
+    ]
+    assert auth_client.get("/profiles/quota").status_code == 503
