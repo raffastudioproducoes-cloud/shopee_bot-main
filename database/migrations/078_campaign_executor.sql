@@ -151,6 +151,12 @@ CREATE FUNCTION public.pause_expired_campaigns_f4e(p_environment text)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE v_res record; v_n integer:=0;
 BEGIN
+ -- A pending downgrade never changes entitlements before its paid boundary.
+ UPDATE public.users u SET plan_tier=u.campaign_pending_tier,
+   campaign_pending_tier=NULL,campaign_tier_effective_at=NULL
+ WHERE u.campaign_pending_tier IS NOT NULL
+   AND u.campaign_tier_effective_at<=now()
+   AND (u.campaign_paid_through IS NULL OR u.campaign_paid_through<=now());
  FOR v_res IN SELECT r.id FROM public.campaign_reservations_f4e r
  JOIN public.users u ON u.id=r.user_id
  WHERE r.lifecycle='active' AND r.source_environment=p_environment
