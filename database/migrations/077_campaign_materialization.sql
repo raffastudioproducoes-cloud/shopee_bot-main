@@ -5,13 +5,13 @@ SET LOCAL lock_timeout = '5s';
 ALTER TABLE public.posts ADD COLUMN publication_origin text NOT NULL DEFAULT 'legacy'
   CHECK (publication_origin IN ('legacy','campaign'));
 CREATE FUNCTION public.guard_post_origin_f4e()
-RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
 BEGIN
  IF NEW.publication_origin IS DISTINCT FROM OLD.publication_origin THEN
   RAISE EXCEPTION 'post_origin_immutable' USING ERRCODE='23514';
  END IF;
  RETURN NEW;
-END; $;
+END; $$;
 REVOKE ALL ON FUNCTION public.guard_post_origin_f4e() FROM PUBLIC,anon,authenticated,service_role;
 CREATE TRIGGER trg_post_origin_immutable
  BEFORE UPDATE OF publication_origin ON public.posts
