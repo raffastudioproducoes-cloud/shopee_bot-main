@@ -20,11 +20,13 @@ class TestF4ePostgres(unittest.TestCase):
             raise RuntimeError("Run only with the exact disposable CI service DSN")
         with psycopg.connect(DSN, autocommit=True) as con:
             con.execute((ROOT / "tests/sql/f4e1_fixture.sql").read_text())
+            for name in ("070_campaign_drafts.sql", "071_campaign_names_and_media.sql"):
+                con.execute((ROOT / "database/migrations" / name).read_text())
             con.execute((ROOT / "docs/sql-proposals/074_f4e1_inert_proposal.sql").read_text())
 
     def setUp(self):
         self.user, self.profile = uuid.uuid4(), uuid.uuid4()
-        self.drafts = [uuid.uuid4() for _ in range(4)]
+        self.drafts = [uuid.uuid4() for _ in range(7)]
         self.instant = (datetime.now(timezone.utc) + timedelta(days=2)).replace(microsecond=0)
         local = self.instant - timedelta(hours=3)
         self.start = local.date()
@@ -33,7 +35,7 @@ class TestF4ePostgres(unittest.TestCase):
             con.execute("INSERT INTO public.profiles VALUES (%s,%s)", (self.profile, self.user))
             for draft in self.drafts:
                 con.execute(
-                    "INSERT INTO public.campaign_drafts VALUES (%s,%s,%s,1,'draft','[]',%s::jsonb)",
+                    "INSERT INTO public.campaign_drafts (id,user_id,profile_id,source_list_name,items,schedule) VALUES (%s,%s,%s,'fixture','[{\"product_id\":1}]',%s::jsonb)",
                     (draft, self.user, self.profile, json.dumps({
                         "start_date": str(self.start), "end_date": str(self.start + timedelta(days=14))
                     })),
@@ -117,6 +119,81 @@ class TestF4ePostgres(unittest.TestCase):
             ).fetchone()[0])
         with self.assertRaises(psycopg.Error):
             self.reserve(self.drafts[0], "bad-owner", profile=uuid.uuid4())
+
+    def test_real_migrations_draft_and_media_guards(self):
+        with psycopg.connect(DSN) as con:
+            with self.assertRaises(psycopg.errors.CheckViolation):
+                with con.transaction():
+                    con.execute("INSERT INTO public.campaign_drafts (user_id,profile_id,source_list_name,items) VALUES (%s,%s,'empty','[]')", (self.user, self.profile))
+            con.execute(
+                """INSERT INTO public.campaign_draft_media
+                   (id,campaign_id,user_id,profile_id,product_id,slot,storage_key,file_name,mime_type,media_type,size_bytes,status)
+                   VALUES (%s,%s,%s,%s,1,0,%s,'fixture.jpg','image/jpeg','IMAGE',10,'ready')""",
+                (uuid.uuid4(), self.drafts[0], self.user, self.profile, str(uuid.uuid4())),
+            )
+            with self.assertRaises(psycopg.errors.CheckViolation):
+                with con.transaction():
+                    con.execute(
+                        """INSERT INTO public.campaign_draft_media
+                           (id,campaign_id,user_id,profile_id,product_id,slot,storage_key,file_name,mime_type,media_type,size_bytes,status)
+                           VALUES (%s,%s,%s,%s,999,0,%s,'fixture.jpg','image/jpeg','IMAGE',10,'ready')""",
+                        (uuid.uuid4(), self.drafts[0], self.user, self.profile, str(uuid.uuid4())),
+                    )
+        rid = self.reserve(self.drafts[0], "real-media")
+        with psycopg.connect(DSN) as con:
+            self.assertEqual(len(con.execute("SELECT media_snapshot FROM public.campaign_reservations_f4e WHERE id=%s", (rid,)).fetchone()[0]), 1)
+
+    def test_direct_service_terminal_and_owner_guard(self):
+        other_profile = uuid.uuid4()
+        with psycopg.connect(DSN) as con:
+            con.execute("INSERT INTO public.profiles VALUES (%s,%s)", (other_profile, self.user))
+        with self.assertRaises(psycopg.errors.CheckViolation):
+            with psycopg.connect(DSN) as con:
+                con.execute("SET LOCAL ROLE service_role")
+                con.execute("""INSERT INTO public.campaign_reservations_f4e
+                    (user_id,profile_id,draft_id,request_key,request_payload,draft_snapshot,media_snapshot)
+                    VALUES (%s,%s,%s,'forged','{"revision":1}','{}','[]')""",
+                    (self.user, other_profile, self.drafts[0]))
+        with self.assertRaises(psycopg.Error):
+            self.reserve(self.drafts[0], "wrong-real-profile", profile=other_profile)
+        rid = self.reserve(self.drafts[0], "terminal")
+        with psycopg.connect(DSN) as con:
+            con.execute("SET LOCAL ROLE service_role")
+            con.execute("SELECT public.release_campaign_f4e(%s,%s,%s)", (self.user, self.profile, rid))
+        for expression in ("status='reserved_no_dispatch',released_at=NULL", "released_at=now()+interval '1 day'"):
+            with self.subTest(expression=expression), self.assertRaises(psycopg.errors.CheckViolation):
+                with psycopg.connect(DSN) as con:
+                    con.execute("SET LOCAL ROLE service_role")
+                    con.execute("UPDATE public.campaign_reservations_f4e SET " + expression + " WHERE id=%s", (rid,))
+
+    def test_plus_premium_admin_limits(self):
+        for tier, access, allowed in (("plus","USER",2),("premium","USER",5),("free","ADMIN",6)):
+            with self.subTest(tier=tier, access=access):
+                user, profile = uuid.uuid4(), uuid.uuid4()
+                drafts = [uuid.uuid4() for _ in range(6)]
+                with psycopg.connect(DSN) as con:
+                    con.execute("INSERT INTO public.users VALUES (%s,%s,%s)", (user,access,tier))
+                    con.execute("INSERT INTO public.profiles VALUES (%s,%s)", (profile,user))
+                    for draft in drafts:
+                        con.execute(
+                            """INSERT INTO public.campaign_drafts(id,user_id,profile_id,source_list_name,items,schedule)
+                               VALUES (%s,%s,%s,'fixture','[{"product_id":1}]',%s::jsonb)""",
+                            (draft,user,profile,json.dumps({"start_date":str(self.start),"end_date":str(self.start + timedelta(days=14))})))
+                for i in range(allowed):
+                    self.reserve(drafts[i], "plan-" + str(i), user=user, profile=profile)
+                if allowed < 6:
+                    with self.assertRaises(psycopg.Error):
+                        self.reserve(drafts[allowed], "over-limit", user=user, profile=profile)
+
+    def test_proposal_reapply_fails_closed(self):
+        with self.assertRaises(psycopg.errors.DuplicateTable):
+            with psycopg.connect(DSN, autocommit=True) as con:
+                try:
+                    con.execute((ROOT / "docs/sql-proposals/074_f4e1_inert_proposal.sql").read_text())
+                finally:
+                    con.execute("ROLLBACK")
+        with psycopg.connect(DSN) as con:
+            self.assertIsNotNone(con.execute("SELECT to_regclass('public.campaign_reservations_f4e')").fetchone()[0])
 
     def test_slot_cap_and_free(self):
         values = [(self.instant + timedelta(minutes=i)).strftime("%Y-%m-%dT%H:%M:%SZ")
