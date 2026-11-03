@@ -1,7 +1,7 @@
 ## 03/11/2026 — Incidente real de cron/recovery e estabilização de posts
 
 - [x] Evidência Render staging: scheduler iniciou mas `publish_queue_recovery` falhou em `publish_jobs.claim` com `psycopg.errors.InvalidDatetimeFormat` (`2026-11-03T15`). Causa: `split_part(idempotency_key, ':', 2)` trunca `HH:MM`.
-- [x] Correção no branch de integração: extrair timestamp completo de 16 caracteres em três usos do claim; testes unitário e PostgreSQL descartável. Nenhum retry automático de `unknown`, mudança SQL real ou publicação de teste.
+- [x] Correção no branch de integração: extrair timestamp completo de 16 caracteres no claim e encerrar `pending` criado há mais de 1h como `failed` antes do recovery, sem envio externo; testes unitários e PostgreSQL descartável. Nenhum retry automático de `unknown`, mudança SQL real ou publicação de teste.
 - [ ] Confirmar CI, merge/deploy staging e leitura pós-deploy. `main` utiliza claim anterior, não recebe alteração automática.
 - [ ] Diferença de problemas: logs produção mostram Threads HTTP 403 Meta code 10 (permissão do app), que exige ajuste/validação oficial do provedor, não somente scheduler. Validar sem token em logs e nunca reenviar resultado desconhecido.
 - [ ] Entrega consolidada restante: origem transacional de campanha/guards em main+staging, mídia/OAuth/cota, ativação de campanha e homologação externa autorizada; sem criar novas subfases documentais.
