@@ -5,6 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Correção contratual — ciclo pago e e-mails futuros (03/11/2026)
+
+Retificada a regra de downgrade da F4E-2B2: solicitação não restringe plano, campanhas ou quotas antes do vencimento pago. Cancelamento impede renovação futura, preservando acesso quitado; troca/pausa na virada; aviso T−7 e confirmação; upgrade com processamento após pagamento. Requisitos futuros de e-mail transacional/marketing opt-in e ressalva CDC/LGPD registrados. **Somente documentação**, sem checkout/cobrança/SQL/envios/main/alteração de VERSION.
+
+
 ### F4E-2B2 — fechamento de staging (03/11/2026)
 
 PR #234 (`0483b7a`, CI #41713751800) e correção de CI PR #235 (`1363024`, CI #41714645658) integradas somente no staging. O filtro novo executou 15 testes F4E-1 em PostgreSQL isolado e 3 contratos estáticos F4E-2B2; CI de staging #41714932997, smoke #41714932664 e ZAP passivo #41714932408 aprovados. Render `dep-dbl4e317lnhs739rukhg` LIVE nesse SHA. Supabase: zero reservas/ocorrências, proposta de tabela não aplicada. Homologação autenticada pulada; sem envio real, executor F4E, migration, main ou release. `VERSION=3.0.0`.
