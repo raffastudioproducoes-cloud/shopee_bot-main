@@ -6,6 +6,7 @@ de profile_id de 038 sao projetados porque as credenciais nao sao parte
 deste contrato. Isto nao certifica o schema/deploy compartilhado completo.
 """
 import os
+import re
 from pathlib import Path
 import unittest
 import uuid
@@ -64,7 +65,7 @@ class TestF4e2b3Postgres(unittest.TestCase):
     @classmethod
     def drop_disposable_database(cls):
         # Exact generated database only, never schema public or f4e_test.
-        assert cls.database.startswith("f4e2b3_") and len(cls.database) == 40
+        assert re.fullmatch(r"f4e2b3_[0-9a-f]{32}", cls.database)
         with psycopg.connect(DSN, autocommit=True) as con:
             con.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(cls.database)))
 
