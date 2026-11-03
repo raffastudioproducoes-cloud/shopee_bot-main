@@ -200,7 +200,9 @@ def _execute_publish_item(publish_job_id, job_data):
 
 
 def drain_publish_jobs():
-    """Retoma pendentes; claims vencidos exigem conciliacao antes de reenviar."""
+    """Retoma apenas pendentes recentes; antigos expiram sem envio tardio."""
+    for item in publish_jobs.expire_stale_pending():
+        logger.warning("Fila de publicacao %s expirou sem envio externo", item["id"])
     expired = publish_jobs.expire_running(PUBLISH_JOB_LEASE_SECONDS)
     for item in expired:
         logger.warning(
