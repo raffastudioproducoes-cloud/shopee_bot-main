@@ -44,5 +44,10 @@ def mark_external_delivery():
 
     if is_shutting_down():
         raise PublicationDeferred("Worker encerrando antes do envio externo")
-    if not publish_jobs.mark_external_started(*attempt):
-        raise PublicationDeferred("Claim perdido antes do envio externo")
+    from shopee_bot.scheduler import campaign_dispatch
+    if campaign_dispatch.campaign_execution_enabled():
+        permitted = campaign_dispatch.mark_external_started(*attempt)
+    else:
+        permitted = publish_jobs.mark_external_started(*attempt)
+    if not permitted:
+        raise PublicationDeferred("Claim ou autorização perdido antes do envio externo")
