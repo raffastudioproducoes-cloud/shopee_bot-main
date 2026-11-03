@@ -35,7 +35,8 @@ CREATE TABLE public.campaign_occurrences_f4e (
   planned_at timestamptz NOT NULL,
   status text NOT NULL DEFAULT 'planned' CHECK (status IN ('planned','cancelled')),
   dispatch_enabled boolean NOT NULL DEFAULT false CHECK (dispatch_enabled = false),
-  UNIQUE (reservation_id, ordinal)
+  UNIQUE (reservation_id, ordinal),
+  UNIQUE (reservation_id, planned_at)
 );
 
 ALTER TABLE public.campaign_reservations_f4e ENABLE ROW LEVEL SECURITY;
@@ -106,7 +107,7 @@ BEGIN
   END IF;
   -- UTC explicito; nao e um payload de publicacao.
   IF EXISTS (SELECT 1 FROM jsonb_array_elements_text(p_occurrences) x
-             WHERE x !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$') THEN
+             WHERE x !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$') THEN
     RAISE EXCEPTION 'timestamps_require_utc_z' USING ERRCODE='P0001';
   END IF;
   IF (v_draft->'schedule'->>'start_date') !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
@@ -124,7 +125,7 @@ BEGIN
              WHERE x::timestamptz <= now()
                 OR (x::timestamptz AT TIME ZONE 'America/Sao_Paulo')::date NOT BETWEEN v_start AND v_end)
      OR (SELECT count(*) FROM jsonb_array_elements_text(p_occurrences))
-        <> (SELECT count(DISTINCT x) FROM jsonb_array_elements_text(p_occurrences) x) THEN
+        <> (SELECT count(DISTINCT x::timestamptz) FROM jsonb_array_elements_text(p_occurrences) x) THEN
     RAISE EXCEPTION 'invalid_occurrences' USING ERRCODE='P0001';
   END IF;
   -- Conta slots, nao redes; validacao de rede por produto continua bloqueante.
