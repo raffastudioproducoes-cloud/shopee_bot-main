@@ -543,7 +543,6 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
           <p>As fotos cadastradas serão copiadas para o armazenamento privado ao criar o post. Vídeos da Shopee só ficam disponíveis após o envio de um arquivo de vídeo.</p>
           {useShopeeImages && importablePhotos.length === 0 && <p role="status">Nenhum produto selecionado possui foto cadastrada.</p>}
         </div>}
-        </div>}
 
         <div>
           <span className="csp-named-label">Mídia (imagem/vídeo)</span>
