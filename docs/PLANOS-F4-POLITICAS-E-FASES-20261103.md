@@ -12,11 +12,11 @@
 
 | Recurso | Free | Pro | Premium | ADMIN |
 |---|---|---|---|---|
-| Produtos salvos (catálogo por conta) | 100 | 500 | **A DEFINIR** | Sem cota comercial |
-| Listas (por perfil) | 20 | 20 | **A DEFINIR** | Sem cota comercial |
-| Enviar agora | 1 postagem/h | 3 postagens/h | **A DEFINIR** | Sem cota comercial |
-| Recorrente | Seleção de até 7 dias da semana; 1 postagem/dia | Até 7 dias; até 5 horários de postagem disponíveis por dia | **A DEFINIR** | Sem cota comercial |
-| Campanhas | **Sem acesso** | Até 15 dias; até 3 postagens/dia | Até 30 dias; 1–15 postagens/dia | Sem cota comercial |
+| Produtos salvos (catálogo por conta) | 100 | 500 | **2.000** | Sem cota comercial |
+| Listas (por perfil) | 20 | 20 | **100** | Sem cota comercial |
+| Enviar agora | 1 postagem/h | 3 postagens/h | **5 postagens/h** | Sem cota comercial |
+| Recorrente | Seleção de até 7 dias da semana; 1 postagem/dia | Até 7 dias; até 5 horários de postagem disponíveis por dia | **Até 5 horários/dia** | Sem cota comercial |
+| Campanhas | **Sem acesso** | Até 15 dias; até 3 postagens/dia; **2 campanhas ativas/perfil** | Até 30 dias; 1–15 postagens/dia; **5 campanhas ativas/perfil** | Sem cota comercial |
 | Criar perfil secundário | Bloqueado | Permitido, até 3 perfis no total | Permitido, até 3 perfis no total | Acesso irrestrito por plano; teto estrutural a tratar |
 | Automação | Vitrine bloqueada e chamada para upgrade | Vitrine bloqueada e chamada para upgrade | Permitida | Permitida |
 | Dashboard, Análises, Credenciais, Perfis (visualização), Configurações, Ajuda e FAQ | Disponíveis | Disponíveis | Disponíveis | Disponíveis |
@@ -24,7 +24,8 @@
 - A duração absoluta de qualquer campanha é no máximo **30 dias**, incluídos início e fim. A opção de quantidade diária do compositor já vai de 1 a 15; ao ativar, o backend aplicará também o teto de **3** para Pro.
 - Recurso não incluído no plano permanece visível como **bloqueado**, com explicação e CTA de upgrade. Não ocultar controles de segurança nem induzir usuário a pensar que o pagamento habilita APIs externas sem aprovação.
 - Os limites comerciais devem ser **editáveis pelo administrador futuramente** sem alterar código: tabela de política versionada e auditável, leitura no servidor e invalidação de cache. Não inventar preços, cobrança ou checkout.
-- **Pendentes de decisão:** cotas de produtos, listas, envio imediato e recorrente do Premium; quantidade de campanhas criadas/ativas por período para Pro/Premium; como contabilizar um envio a múltiplas redes; e se o ADMIN pode ultrapassar também o teto físico atual de três perfis. Até decidir, não marcar esses tetos como implementados nem supor “Premium ilimitado”.
+- **Decisão adicional (03/11/2026, substitui Pro=0 anterior):** Pro = **2** campanhas simultaneamente ativas por perfil; Premium = **5**. Cada publicação por rede consome **1 unidade** do limite de postagem (um envio para três redes = três unidades). Cotas diárias de campanha e horários recorrentes são categorias distintas; a contagem dos posts não se confunde com número de jobs/partes de thread.
+- **A confirmar separadamente:** exceção do teto físico de 3 perfis ADMIN e regras de contratação/preço. Sem necessidade de nova confirmação para os tetos comerciais acima.
 - As políticas de uso próprias de Threads, Instagram, Facebook, TikTok etc. impõem limites adicionais. O produto deve ajustar a frequência por rede e evitar spam; a cota do plano nunca autoriza violar a plataforma.
 
 ## 3. Fases de implementação, sem afetar outros módulos
@@ -40,3 +41,10 @@
 - Supabase é compartilhado: nenhuma seed de cliente, postagem real ou migração destrutiva. Fazer mudanças idempotentes e compatíveis com a versão antiga de produção.
 - Preservar upload local/Shopee, Storage privado, RLS, OAuth, limitações de cada rede, isolamento e arquitetura de jobs existentes. Não criar quota de imagens acumuladas por perfil.
 - **Não confundir documentação com enforcement**: cada linha só ganha marca de concluída após código, teste e deploy evidenciados.
+
+## 5. Entrega incremental F4B — política central e quotas atômicas de catálogo/listas (03/11/2026)
+- Migração proposta: `072_plan_limits_and_atomic_catalog_quotas.sql` adiciona `users.plan_tier` (fonte por conta, compatível com `plus`), `plan_limits` editável, auditoria de alteração da política e duas RPCs de inserção atômica. O backfill da conta é executado **somente na primeira criação da coluna**: posteriores downgrades não são revertidos.
+- API staging: criação de produto (catálogo compartilhado) e lista (perfil ativo) passam pelas RPCs; lock transacional na linha de `users` evita contagens concorrentes excedendo o teto. Erros de cota são traduzidos em HTTP 409. API anterior de produção continua com INSERT tradicional: **nenhum trigger global de cota de catálogo/lista**, já que Supabase é compartilhado. ADMIN comprovado pelo campo `users.access` ignora teto comercial nas duas RPCs.
+- Tabelas internas `plan_limits` e `plan_limits_audit` têm RLS habilitada; `anon`/`authenticated` não recebem permissão; RPCs executáveis apenas por `service_role`. Credenciais não saem do backend. Auditoria registra valor anterior e novo, sem alterar preço/checkout.
+- **F4C ainda pendente** após F4B: enforcement de quotas de perfis, envios imediatos por rede/hora, agendas recorrentes, campanhas ativas e automação. O rascunho de campanha não é campanha ativa. Nem DB compartilhado nem produção podem receber trigger global antecipado; definir execução idempotente com reserva transacional ao ativar/agendar.
+- Evidência de PR, CI e implantação será anexada após a entrega; não classificar F4B como homologada antes disso.
