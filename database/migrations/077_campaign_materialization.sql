@@ -17,6 +17,38 @@ CREATE TRIGGER trg_post_origin_immutable
  BEFORE UPDATE OF publication_origin ON public.posts
  FOR EACH ROW EXECUTE FUNCTION public.guard_post_origin_f4e();
 
+-- A campaign post may never be converted into a legacy schedule or edited
+-- through the regular post editor; dedicated campaign controls own its lifecycle.
+CREATE FUNCTION public.guard_campaign_post_changes_f4e()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$$$
+BEGIN
+ IF OLD.publication_origin='campaign' THEN
+  RAISE EXCEPTION 'campaign_post_is_immutable' USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END; $$$$;
+REVOKE ALL ON FUNCTION public.guard_campaign_post_changes_f4e() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER trg_campaign_post_content_immutable
+ BEFORE UPDATE OF text,network,post_id,user_id,profile_id ON public.posts
+ FOR EACH ROW EXECUTE FUNCTION public.guard_campaign_post_changes_f4e();
+
+CREATE FUNCTION public.guard_campaign_scheduler_origin_f4e()
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$$$
+BEGIN
+ IF EXISTS (
+   SELECT 1 FROM public.posts p WHERE p.id=NEW.post_id
+     AND p.publication_origin='campaign'
+ ) AND NEW.publication_origin<>'campaign' THEN
+   RAISE EXCEPTION 'campaign_post_requires_campaign_scheduler'
+     USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END; $$$$;
+REVOKE ALL ON FUNCTION public.guard_campaign_scheduler_origin_f4e() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER trg_campaign_scheduler_origin_f4e
+ BEFORE INSERT OR UPDATE OF post_id,publication_origin ON public.schedulers
+ FOR EACH ROW EXECUTE FUNCTION public.guard_campaign_scheduler_origin_f4e();
+
 CREATE TABLE public.campaign_reservation_assets_f4e (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   reservation_id uuid NOT NULL REFERENCES public.campaign_reservations_f4e(id) ON DELETE CASCADE,
