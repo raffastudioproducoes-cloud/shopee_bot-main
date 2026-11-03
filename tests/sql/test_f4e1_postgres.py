@@ -166,6 +166,16 @@ class TestF4ePostgres(unittest.TestCase):
                     con.execute("SET LOCAL ROLE service_role")
                     con.execute("UPDATE public.campaign_reservations_f4e SET " + expression + " WHERE id=%s", (rid,))
 
+    def test_draft_and_profile_cascades(self):
+        rid = self.reserve(self.drafts[0], "cascade-draft")
+        with psycopg.connect(DSN) as con:
+            con.execute("DELETE FROM public.campaign_drafts WHERE id=%s", (self.drafts[0],))
+            self.assertIsNone(con.execute("SELECT draft_id FROM public.campaign_reservations_f4e WHERE id=%s", (rid,)).fetchone()[0])
+        rid2 = self.reserve(self.drafts[1], "cascade-profile")
+        with psycopg.connect(DSN) as con:
+            con.execute("DELETE FROM public.profiles WHERE id=%s", (self.profile,))
+            self.assertIsNone(con.execute("SELECT id FROM public.campaign_reservations_f4e WHERE id=%s", (rid2,)).fetchone())
+
     def test_plus_premium_admin_limits(self):
         for tier, access, allowed in (("plus","USER",2),("premium","USER",5),("free","ADMIN",6)):
             with self.subTest(tier=tier, access=access):
