@@ -17,8 +17,9 @@ def _client(monkeypatch, *, scheduled=True, immediate=False):
         "id": 10, "user_id": 42, "profile_id": "profile-a",
         "post_id": None, "publish_immediately": immediate, "network": "threads",
     })
-    monkeypatch.setattr(posts, "_get_post_schedule_entries",
-                        lambda *_: [{"trigger": "cron", "id": "agenda"}] if scheduled else [])
+    monkeypatch.setattr(posts, "current_environment", lambda: "staging")
+    monkeypatch.setattr(posts, "_has_revision_schedule_in_environment",
+                        lambda *_: scheduled)
     monkeypatch.setattr(posts, "_get_post_products", lambda *_: [{"id": 99}])
     monkeypatch.setattr(posts, "_revision_media_snapshot", lambda *_: [
         {"id": 22, "file_path": "storage://post-media/post.jpg", "size": 100,
@@ -59,6 +60,7 @@ def test_future_edit_creates_new_snapshot_without_updating_legacy_posts(monkeypa
         assert parameters["p_user_id"] == "42"
         assert parameters["p_profile_id"] == "profile-a"
         assert parameters["p_snapshot"]["texts"] == ["texto novo"]
+        assert parameters["p_snapshot"]["environment"] == "staging"
         assert parameters["p_snapshot"]["medias"][0]["id"] == 22
         database.table.assert_not_called()
     finally:
@@ -136,5 +138,23 @@ def test_latest_revision_requires_authentication():
     try:
         response = TestClient(app).get("/posts/10/future-revisions/latest")
         assert response.status_code == 401
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_edit_rejected_if_only_other_environment_has_schedule(monkeypatch):
+    client, database = _client(monkeypatch)
+    inspected = []
+    def outside_environment(user_id, post_id, profile_id, environment):
+        inspected.append((user_id, post_id, profile_id, environment))
+        return False
+    monkeypatch.setattr(posts, "_has_revision_schedule_in_environment", outside_environment)
+    try:
+        response = client.post("/posts/10/future-revisions", json={
+            "texts": ["texto"], "product_ids": [99],
+        })
+        assert response.status_code == 409
+        assert inspected == [(42, 10, "profile-a", "staging")]
+        database.rpc.assert_not_called()
     finally:
         app.dependency_overrides.clear()
