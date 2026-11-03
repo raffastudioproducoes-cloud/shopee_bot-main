@@ -1,6 +1,6 @@
 -- F3A: rascunhos de campanha inertes. Não cria posts, schedulers ou jobs.
 -- Banco compartilhado staging/produção: aplicar SOMENTE após aprovação
--- específica e revisão de migrations existentes. Esta migration não roda no deploy.
+-- específica e revisão de migrations existentes. O migrador interno também\n-- executa arquivos pendentes durante o boot; manter DDL idempotente.
 BEGIN;
 SET LOCAL lock_timeout = '10s';
 
@@ -56,9 +56,22 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-CREATE TRIGGER trg_campaign_draft_owner
-BEFORE INSERT OR UPDATE ON public.campaign_drafts
-FOR EACH ROW EXECUTE FUNCTION public.check_campaign_draft_ownership();
+-- A aplicação também executa migrations no boot; o Supabase já pode ter
+-- recebido esta DDL pelo MCP. Instalar o trigger só se ainda não existe.
+DO $campaign_trigger$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_trigger
+    WHERE tgrelid = 'public.campaign_drafts'::regclass
+      AND tgname = 'trg_campaign_draft_owner'
+      AND NOT tgisinternal
+  ) THEN
+    CREATE TRIGGER trg_campaign_draft_owner
+    BEFORE INSERT OR UPDATE ON public.campaign_drafts
+    FOR EACH ROW EXECUTE FUNCTION public.check_campaign_draft_ownership();
+  END IF;
+END
+$campaign_trigger$;
 
 ALTER TABLE public.campaign_drafts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE public.campaign_drafts FROM anon, authenticated;

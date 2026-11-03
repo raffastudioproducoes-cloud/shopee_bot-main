@@ -98,3 +98,16 @@ def test_schedule_must_match_saved_list_and_exact_product_order():
         campaigns.validate_campaign_draft_schedule(schedule, 77, [12, 13])
     with pytest.raises(ValueError, match="ordem"):
         campaigns.validate_campaign_draft_schedule(schedule, 11, [13, 12])
+
+
+def test_migration_070_is_safe_on_second_boot():
+    """O migrador da aplicação executa SQL pendente no startup, inclusive após MCP."""
+    from pathlib import Path
+
+    sql = (Path(__file__).resolve().parents[2] / "database/migrations/070_campaign_drafts.sql").read_text()
+    assert "CREATE TABLE IF NOT EXISTS public.campaign_drafts" in sql
+    assert "CREATE INDEX IF NOT EXISTS idx_campaign_drafts_owner_updated" in sql
+    assert "pg_catalog.pg_trigger" in sql
+    assert "tgname = 'trg_campaign_draft_owner'" in sql
+    assert "IF NOT EXISTS (" in sql
+    assert "DROP TABLE" not in sql
