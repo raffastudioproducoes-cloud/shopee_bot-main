@@ -1,3 +1,13 @@
+## 03/11/2026 UTC — Fechamento F3B em staging (PR #209, schema 071)
+
+- [x] Migração `campaign_names_media_071` aplicada ao Supabase compartilhado com autorização, com default de nome para compatibilidade com backend antigo, tabela `campaign_draft_media`, RLS/grants restritos, trigger de propriedade e bucket privado. Migrador interno reaplicou SQL reentrante no boot sem falhar.
+- [x] CI [#41578367282](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41578367282) SUCCESS; PR #209 squash merge exclusivamente `staging` `5ec24df`. `main`, produção e `VERSION=3.0.0` não promovidos.
+- [x] Render staging `dep-dbkm74ks728c738ritc0` LIVE no SHA correto; logs migration 071 aplicada / Application startup complete; navegador `/health` = `{"status":"ok"}`.
+- [x] UI autenticada em `/posts/criar`: nome no topo, recuperação de rascunho existente pelo nome, opção de foto Shopee e seletor de anexos por produto. Nenhum post/job real disparado.
+- [ ] Upload/remover mídia REAL end-to-end exige teste de arquivo controlado; CI já validou upload sanitizado/isolamento e frontend. Não criar artefatos de teste no perfil de Rafa sem limpeza planejada.
+- [x] Registro operacional consolidado no Vault [checkpoint 62](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/62-F3B-Nome-Campanha-Midia-Duravel-2026-11-03.md).
+- [ ] Etapa seguinte: ativação transacional de campanhas, cotas por plano/rede, proteção T−30 e política anti-spam; fora desta entrega.
+
 ## 03/11/2026 UTC — F3B: nome próprio e anexos persistentes da campanha (branch isolada, SEM merge)
 
 - [x] Pedido de Rafa: cada campanha terá nome personalizado, independente da lista, identificável na recuperação por servidor. Contrato 1–120 caracteres e validação backend/frontend.
