@@ -1,3 +1,12 @@
+## 02/11/2026 BRT (03/11 UTC) — Ícones Criar POST, CHANGELOG e governaça de releases
+
+- [x] Auditoria do menu: `PanelPage` referencia `square-pen`, não registrado em `Icon.tsx`; ação da campanha referencia `calendar-search`, também ausente. Corrigir registro de ambos sem alterar menu, rotas ou publicação.
+- [x] Recuperar entrada de `[Não lançado]` para PR #204, ausente após merge; incluir correção dos ícones e teste que impede referência a ícones inexistentes.
+- [x] `VERSION=3.0.0` lido em `frontend/vite.config.ts`, é fonte real de versão exibida no site; manter enquanto não houver release formal e aprovado. **Candidato 3.1.0** (MINOR compatível), não confirmado como release.
+- [x] Verificado em `AGENTS.md`/`RULES.md`: branch isolada → PR staging → CI → Render live → aceite → PR staging→main → CI/deploy/health. Última comparação antes desta correção: `main` e `staging` divergem (13 commits à frente em staging, 8 na main e alterações em vários módulos). **Não mesclar lote inteiro em produção sem revisão e autorização de Rafa.**
+- [ ] Após CI e Render da correção do ícone, preparar inventário da promoção, classificar o lote e solicitar aprovação explícita da release. Só então incrementar `VERSION` nas branches por PR, fechar `CHANGELOG` e publicar com health.
+- [ ] Validar em staging o novo ícone visível no rail; preservar página de campanha e seus endpoints somente leitura.
+
 ## 02/11/2026 — Regularização de SemVer: Auto Orbital 3.0.0
 
 - **Decisão expressa de Rafa:** oficializar `3.0.0` em `staging` e `main`, mantendo `VERSION` como única fonte da versão da aplicação e `CHANGELOG.md` obrigatório em toda alteração/PR.
