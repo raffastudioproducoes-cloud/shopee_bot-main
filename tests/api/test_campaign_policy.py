@@ -310,3 +310,22 @@ def test_premium_catalog_flag_can_disable_automation(monkeypatch):
     with pytest.raises(HTTPException):
         campaign_policy.require_automation_access(
             campaign_policy.load_campaign_policy("owner", "profile-a"))
+
+
+def test_daily_network_volume_follows_product_rotation_not_global_sum(monkeypatch):
+    setup_db(monkeypatch, database("pro"))
+    policy = campaign_policy.load_campaign_policy("owner", "profile-a")
+    plan = schedule(3, 2)
+    plan.item_ids = [12, 13, 14]
+    prepared = [
+        campaigns.CampaignDraftItem(**{**item(), "product_id": 12, "networks": ["threads", "facebook"]}),
+        campaigns.CampaignDraftItem(**{**item(), "product_id": 13}),
+        campaigns.CampaignDraftItem(**{**item(), "product_id": 14}),
+    ]
+    # Dias locais: A+B=3, C+A=3, B+C=2. Total 8 não viola limite diário 3.
+    campaign_policy.validate_campaign_network_volume(policy, plan, prepared)
+    prepared[2].networks = ["threads", "facebook"]
+    # Segundo dia passa a C+A=4; não diluir o excesso em média de três dias.
+    with pytest.raises(HTTPException) as caught:
+        campaign_policy.validate_campaign_network_volume(policy, plan, prepared)
+    assert caught.value.status_code == 403
