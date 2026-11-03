@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### F4E-2B4 — origem persistente e rollout seguro (03/11/2026)
+
+Especificação para separar publicações `legacy` e `campaign` por origem positiva, persistente e imutável em agenda/job, vínculo atômico, recusa fail-closed, bloqueio de retry de campanha inerte, compatibilidade main+staging e rollback. A auditoria impede migrar o SQL B3 sem resolver lock de índices, exclusão/LGPD e unicidade de tentativas. Nenhum executor, DDL/Supabase, job, flag, envio, cobrança, e-mail ou `main` alterado. [Plano](docs/superpowers/plans/2026-11-03-f4e2b4-origem-e-rollout-seguro.md); `VERSION=3.0.0`.
+
 ### F4E-2B3 — ajuste do harness descartável
 
 Na primeira CI #41723907329, os 9 casos SQL novos passaram individualmente, mas a limpeza foi corretamente interrompida por uma asserção errada do tamanho do nome gerado do banco. Validação substituída por regex exata `f4e2b3_[0-9a-f]{32}` antes do DROP; banco somente local do runner, removido também pelo teardown do serviço Docker. Nova CI necessária para aprovar a suíte completa. Nenhuma alteração de SQL/runtime/Supabase. A barreira de DROP usa exceção explícita, inclusive sob Python otimizado; teste de unicidade isola também o mesmo job em outra ocorrência, sem mascarar a constraint por colisão de ocorrência/rede.
