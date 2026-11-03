@@ -5,6 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Segurança compatível F4E para main (03/11/2026)
+
+Filtros positivos de origem legada no executor antigo de produção, incluindo claim, retry/recovery e pré-envio. Depende da migration aditiva 075 ser aplicada primeiro; nenhum novo envio, campanha ativa ou upgrade de plano. Testes unitários de compatibilidade incluídos.
+
+
 > Toda alteração integrada em `staging` deve ser registrada aqui por PR. `VERSION` é a fonte oficial da versão; nenhuma mudança passa para `main` sem classificação SemVer, changelog e validação. A próxima versão só é decidida na promoção aprovada.
 
 ## [3.0.0] - 2026-11-02

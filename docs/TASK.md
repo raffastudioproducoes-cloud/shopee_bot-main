@@ -1,3 +1,9 @@
+## 03/11/2026 — Gate de produção: origem F4E
+
+- [x] Preparados filtros positivos de origem `legacy` para leitores e filas main, compatíveis com schema novo e sem ativação de campanhas.
+- [ ] **Ordem obrigatória:** CI de staging e PostgreSQL isolado → aplicar migration 075 no banco compartilhado → staging LIVE + smoke → CI de main → main LIVE + smoke. Até lá, nenhum produtor de campanha pode gerar jobs.
+- [x] Downgrade preserva ciclo pago. Sem evidência de domínio próprio configurado para gatilho SMTP.
+
 ## 02/11/2026 — Regularização de SemVer: Auto Orbital 3.0.0
 
 - **Decisão expressa de Rafa:** oficializar `3.0.0` em `staging` e `main`, mantendo `VERSION` como única fonte da versão da aplicação e `CHANGELOG.md` obrigatório em toda alteração/PR.
