@@ -41,11 +41,11 @@ def test_claim_freezes_original_slot_and_keeps_manual_retry_snapshot(monkeypatch
     assert "job.status = 'pending'" in query
     assert "for update of job skip locked" in query
     assert "content_snapshot = coalesce(" in query
-    assert "candidate.original_slot > revision.effective_after" in query
+    assert "locked_candidate.original_slot > revision.effective_after" in query
     assert "original.content_snapshot as retry_snapshot" in query
-    assert "when revisions.retry_source_id is not null" in query
-    assert "original.user_id = candidate.user_id" in query
-    assert "original.profile_id is not distinct from candidate.profile_id" in query
+    assert "when candidate.retry_source_id is not null" in query
+    assert "original.user_id = locked_candidate.user_id" in query
+    assert "original.profile_id is not distinct from locked_candidate.profile_id" in query
     assert "scheduled_for = coalesce(job.scheduled_for, revisions.original_slot)" in query
     assert recorded["args"] == ("queue", "production", "worker")
 
