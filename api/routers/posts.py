@@ -46,6 +46,7 @@ from .profiles import get_current_profile_id
 from ..profiles import scope_account, scope_owner
 from ..audit_log import log_action
 from ..database import supabase
+from shopee_bot.database.scheduler_environment import current_environment
 from ..storage_capacity import storage_upload_reservation
 from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail, is_network_disabled
@@ -1919,6 +1920,22 @@ def _revision_media_snapshot(user_id: int, post_id: int, profile_id: str) -> lis
     return [found[media_id] for media_id in ids]
 
 
+def _has_revision_schedule_in_environment(
+    user_id: int, post_id: int, profile_id: str, environment: str,
+) -> bool:
+    """Nunca criar revisão de staging para uma agenda apenas da produção."""
+    result = (
+        scope_owner(
+            supabase.table("schedulers").select("id").eq("post_id", post_id)
+            .eq("environment", environment).is_("dispatch_cancelled_at", "null"),
+            user_id, profile_id,
+        )
+        .limit(1)
+        .execute()
+    )
+    return bool(result.data)
+
+
 @router.post("/{post_id}/future-revisions", status_code=status.HTTP_201_CREATED)
 def create_future_revision(
     post_id: int,
@@ -1935,8 +1952,9 @@ def create_future_revision(
     post = _get_post(user_id, post_id, profile_id)
     if post.get("post_id") is not None or post.get("publish_immediately"):
         raise HTTPException(status_code=409, detail="Este post não admite edição futura")
-    if not _get_post_schedule_entries(user_id, post_id):
-        raise HTTPException(status_code=409, detail="Post sem agenda futura")
+    environment = current_environment()
+    if not _has_revision_schedule_in_environment(user_id, post_id, profile_id, environment):
+        raise HTTPException(status_code=409, detail="Post sem agenda elegível neste ambiente")
 
     original_ids = [product["id"] for product in _get_post_products(post_id)]
     if body.product_ids != original_ids:
@@ -1953,6 +1971,7 @@ def create_future_revision(
         "texts": body.texts,
         "product_ids": original_ids,
         "medias": media_snapshot,
+        "environment": environment,
     }
     try:
         result = supabase.rpc("create_future_post_revision", {
