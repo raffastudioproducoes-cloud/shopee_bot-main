@@ -85,6 +85,7 @@ export function CampaignPlanner({ credentials }: {
   const [listOverride, setListOverride] = useState<Awaited<ReturnType<typeof listsApi.get>> | null>(null)
   const [lastSavedSignature, setLastSavedSignature] = useState<string | null>(null)
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
+  const [historyOffset, setHistoryOffset] = useState(0)
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null)
   const draftKey = formDraftKey(userId, "campaign-preview", profileId)
 
@@ -156,8 +157,8 @@ export function CampaignPlanner({ credentials }: {
     refetchInterval: 30_000,
   })
   const historyQuery = useQuery({
-    queryKey: ["campaign-history", userId, profileId, selectedCampaignId],
-    queryFn: () => campaignsApi.getHistory(selectedCampaignId!),
+    queryKey: ["campaign-history", userId, profileId, selectedCampaignId, historyOffset],
+    queryFn: () => campaignsApi.getHistory(selectedCampaignId!,historyOffset),
     enabled: Boolean(userId && profileId && selectedCampaignId),
     refetchInterval: 30_000,
     retry: false,
@@ -628,7 +629,7 @@ export function CampaignPlanner({ credentials }: {
               </p>}
               {(activeQuery.data?.data ?? []).map((record) => (
                 <div className="campaign-product" key={record.id}>
-                  <strong>Campanha {record.id.slice(0, 8)}</strong>
+                  <strong>{record.name}</strong>
                   <p className="campaign-status">
                     Estado: {({preparing:"Preparando",active:"Ativa",paused:"Pausada",
                       cancelled:"Cancelada",completed:"Concluída"} as const)[record.lifecycle]}
@@ -642,8 +643,8 @@ export function CampaignPlanner({ credentials }: {
                       : "Contagem indisponível"}
                   </p>
                   <div className="campaign-actions">
-                    <Button variant="secondary" onClick={() => setSelectedCampaignId(
-                      selectedCampaignId === record.id ? null : record.id)}>
+                    <Button variant="secondary" onClick={() => { setHistoryOffset(0); setSelectedCampaignId(
+                      selectedCampaignId === record.id ? null : record.id) }}>
                       {selectedCampaignId === record.id ? "Fechar histórico" : "Ver histórico por rede"}
                     </Button>
                     {record.lifecycle === "active" &&
@@ -681,9 +682,12 @@ export function CampaignPlanner({ credentials }: {
                           </li>
                         ))}
                       </ol>
-                      {historyQuery.data?.has_more && <p className="campaign-status">
-                        Exibindo as primeiras 100 entregas; consulte as demais no histórico paginado.
-                      </p>}
+                      <div className="campaign-actions">
+                        <Button variant="secondary" disabled={historyOffset === 0}
+                          onClick={() => setHistoryOffset((offset) => Math.max(0,offset-100))}>Anteriores</Button>
+                        <Button variant="secondary" disabled={!historyQuery.data?.has_more}
+                          onClick={() => setHistoryOffset((offset) => offset+100)}>Próximas</Button>
+                      </div>}
                     </div>
                   )}
                 </div>
