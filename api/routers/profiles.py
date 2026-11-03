@@ -112,6 +112,38 @@ async def list_profiles(user_id: str = Depends(get_current_user_id)):
 
 
 
+@router.get("/quota")
+async def get_profile_quota(user_id: str = Depends(get_current_user_id)):
+    """Consulta apenas o entitlement canônico da conta, nunca o tier do browser."""
+    try:
+        account = (supabase.table("users").select("access,plan_tier")
+                   .eq("id", user_id).maybe_single().execute())
+        if not account or not account.data:
+            raise HTTPException(status_code=404, detail="Conta não encontrada.")
+        tier = "pro" if account.data["plan_tier"] == "plus" else account.data["plan_tier"]
+        is_admin = account.data["access"] == "ADMIN"
+        limit = None
+        if not is_admin:
+            policy = (supabase.table("plan_limits")
+                      .select("max_profiles_per_account").eq("tier", tier)
+                      .maybe_single().execute())
+            if not policy or not policy.data:
+                raise HTTPException(status_code=503, detail="Política de planos indisponível.")
+            limit = policy.data["max_profiles_per_account"]
+        rows = supabase.table("profiles").select("id").eq("user_id", user_id).execute()
+        return {
+            "tier": tier, "used": len(rows.data or []),
+            "limit": limit, "unlimited": is_admin,
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Falha ao consultar a cota de perfis")
+        raise HTTPException(status_code=503, detail="Não foi possível consultar o limite de perfis.")
+
+
+
+
 # Independent, revocable regional preference. Never inferred from profile addresses or IPs.
 ALLOWED_REGIONS = frozenset(("BR-RJ","BR-SP","BR-MG","BR-BA","BR-OTHER","PT","US","GB","DE","JP","AU","OTHER"))
 
