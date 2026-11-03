@@ -1,3 +1,11 @@
+## 03/11/2026 — Retificação do ciclo pago (decisão vigente, implementação futura)
+
+- [x] **Regra aprovada por Rafa e documentada:** downgrade Premium→Pro ou cancelamento para Free **não altera plano, quotas, campanhas ou acesso até o término do período efetivamente pago**; pedido e supressão da renovação futura são imediatos. **Reinterpreta/supera** qualquer nota histórica abaixo que diga “pausar imediatamente ao pedir downgrade”. Pausa/seleção de até 2 campanhas/perfil somente na virada efetiva; ao virar Free, todas pausam; sem exclusão de registros.
+- [x] **Avisos especificados:** confirmar o pedido imediatamente, avisar sete dias antes do vencimento, mostrar plano atual/futuro, preço/data e confirmar efetivação. Upgrade/compra após pagamento confirmado com alerta de possível demora de horas.
+- [ ] **Fase de assinatura/checkout (não iniciar dentro da F4E):** definir precificação/pró-rata, modelo de vigência, pagamento, webhooks verificados, idempotência, cobrança/reembolso, direitos de arrependimento, transformação transacional com F4E e testes; implementação **inexistente hoje**, sem cobrar/suspender clientes.
+- [ ] **Fila futura de e-mails:** verificação existente (homologar), boas-vindas, exclusão solicitada/confirmada, reset e confirmação de senha, compra/vencimento/renovação/upgrade/downgrade/cancelamento; transacionais sem opt-out de marketing. Promoções/descontos somente opt-in desmarcado, preferências e descadastro em cada mensagem, LGPD, templates PT-BR, entregabilidade e revisão jurídica. SMTP padrão Supabase continua restrito a testes autorizados; sem domínio/SMTP público comprovado.
+- [ ] **F4E-2B próxima:** prosseguir com proteção de identidade/claim/retry/pré-envio, mídia/OAuth/quota, sem DDL no Supabase compartilhado, promoção de main ou posts reais sem autorizações específicas.
+
 ## 03/11/2026 — Fechamento F4E-2B2 inerte, staging LIVE
 
 - [x] PR app [#234](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/234) integrada apenas no staging `0483b7a` (CI [#41713751800](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41713751800) SUCCESS). Contrato UUID e bloqueio incondicional, proposta SQL fora das migrations e decisão Premium→Pro aprovada.
