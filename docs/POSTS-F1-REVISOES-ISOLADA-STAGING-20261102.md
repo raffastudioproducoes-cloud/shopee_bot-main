@@ -16,6 +16,7 @@ Implementação estritamente dedicada à revisão de **texto** dos próximos env
 - `create_future_post_revision` valida post/agenda em transação e serializa revisões; `publish_jobs.claim` guarda a versão no mesmo UPDATE que assume o job.
 - Para crons, o `claim` reconstrói o horário **nominal** do slot a partir do dia da chave e do `schedulers.time`, inclusive virada de meia-noite; não usa o minuto de execução atrasada para decidir o corte. A chave de idempotência e o disparo permanecem inalterados.
 - Projeção por `ContextVar` apenas na execução do job, preservando dados permanentes e isolamento entre tentativas.
+- Cada snapshot registra `environment` (`staging` ou `production`), a API exige agenda ativa do próprio ambiente e o claim só seleciona revisões do mesmo ambiente. Isso usa o JSONB já existente na 069, sem migração nova nem interação entre as filas de staging/produção.
 - Editor de textos fica no modal de detalhes, sob demanda; sem novo caminho de criação ou alteração de `PostsPage`.
 
 ## Homologação exigida antes de publicação externa e antes de produção
