@@ -1,4 +1,4 @@
-# Auto Orbital — F1/R12: revisões de posts agendados (03/11/2026)
+# Auto Orbital — F1/R12: revisões de posts agendados (02/11/2026, horário de Brasília; 03/11 UTC)
 
 **Estado:** infraestrutura SQL aplicada no Supabase compartilhado; código na branch `feat/campanhas-listas-20261102`, PR #198 DRAFT, **ainda não implantado** em staging/main. Nenhuma publicação externa executada neste trabalho.
 
@@ -18,7 +18,7 @@
 5. `publication_context` + `post_content_snapshot` + `database/posts.py`: aplicam a projeção do texto e das mídias apenas no contexto da tentativa reivindicada, sem mutar o post-base; sem snapshot, o caminho legado permanece igual.
 6. Editor de post: usa endpoint novo somente para agendados, exibe a última revisão futura e informa que mídia/produto de agendamentos permanecem inalterados. A criação continua com foto principal Shopee, extras se a API fornecer e uploads PC/celular.
 
-## Auditoria Supabase — 03/11/2026
+## Auditoria Supabase — 02/11/2026 (BRT)
 
 - Antes da migração: `public.migrations` registrada até 068; `post_content_revisions` não existia; `publish_jobs.content_snapshot` não existia.
 - Aplicada SQL da 069 pelo conector Supabase. `public.migrations` recebeu **`069_post_content_revisions.sql`** na mesma operação, evitando reaplicação automática no boot.
