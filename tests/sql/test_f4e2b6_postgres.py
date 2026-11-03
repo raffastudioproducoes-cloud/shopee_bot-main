@@ -51,7 +51,6 @@ class TestCampaignRuntime(TestCampaignNetworkReservations):
                 ALTER TABLE public.publish_jobs ADD COLUMN scheduled_for timestamptz;
             """)
             for migration in (
-                '075_campaign_publication_origin_guards.sql',
                 '077_campaign_materialization.sql',
                 '078_campaign_executor.sql',
             ):
