@@ -1,5 +1,7 @@
 """F4E-2A: preflight de leitura; reserva e despacho indisponíveis."""
 import asyncio
+import copy
+import re
 from datetime import date, timedelta
 from uuid import UUID
 
@@ -28,7 +30,7 @@ def setup_db(monkeypatch, tier="pro", profile="profile-a", networks=None, revisi
             "id": str(DRAFT), "user_id": "owner", "profile_id": profile,
             "status": "draft", "revision": revision, "source_list_id": 11,
             "items": [{"product_id": 12, "title": "Oferta", "copy": "",
-                       "networks": networks or ["threads"]}],
+                       "networks": networks if networks is not None else ["threads"]}],
             "schedule": {"list_id": 11, "item_ids": [12],
                          "start_date": start.isoformat(), "end_date": start.isoformat(),
                          "weekdays": [start.weekday()], "start_time": "09:00",
@@ -46,8 +48,20 @@ def run(revision=1, profile="profile-a"):
 
 
 def test_preflight_is_explicitly_not_a_reservation(monkeypatch):
-    setup_db(monkeypatch)
+    db = setup_db(monkeypatch)
+    before = copy.deepcopy(db.tables)
+    seen = []
+    original_table = db.table
+    def read_only_table(name):
+        seen.append(name)
+        assert name in {"users", "profiles", "plan_limits", "campaign_drafts"}
+        return original_table(name)
+    monkeypatch.setattr(db, "table", read_only_table)
     result = run()
+    assert db.tables == before
+    assert set(seen) == {"users", "profiles", "plan_limits", "campaign_drafts"}
+    assert all(re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z", x)
+               for x in result["planned_utc"])
     assert result["reservation_available"] is False
     assert result["reserved"] is False
     assert result["activated"] is False
@@ -78,3 +92,18 @@ def test_networks_count_toward_daily_limit(monkeypatch):
     with pytest.raises(HTTPException) as denied:
         run()
     assert denied.value.status_code == 403
+
+
+def test_empty_networks_and_past_schedule_are_rejected(monkeypatch):
+    setup_db(monkeypatch, networks=[])
+    with pytest.raises(HTTPException) as empty:
+        run()
+    assert empty.value.status_code == 422
+    db = setup_db(monkeypatch)
+    yesterday = date.today() - timedelta(days=1)
+    schedule = db.tables["campaign_drafts"][0]["schedule"]
+    schedule.update(start_date=yesterday.isoformat(), end_date=yesterday.isoformat(),
+                    weekdays=[yesterday.weekday()])
+    with pytest.raises(HTTPException) as past:
+        run()
+    assert past.value.status_code == 422
