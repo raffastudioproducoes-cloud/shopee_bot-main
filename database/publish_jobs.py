@@ -121,6 +121,7 @@ def claim(publish_job_id, worker_id, lease_seconds):
         WITH locked_candidate AS (
             SELECT job.id, gen_random_uuid() AS token,
                 job.idempotency_key, job.post_id, job.user_id, job.profile_id,
+                schedule.environment AS environment,
                 CASE
                     -- Usar horario nominal, nao minuto atrasado de execucao.
                     WHEN schedule.trigger = 'cron' AND schedule.time IS NOT NULL
@@ -176,6 +177,7 @@ def claim(publish_job_id, worker_id, lease_seconds):
                 WHERE revision.post_id = locked_candidate.post_id
                   AND revision.user_id = locked_candidate.user_id
                   AND revision.profile_id = locked_candidate.profile_id
+                  AND revision.snapshot->>'environment' = locked_candidate.environment
                   AND locked_candidate.original_slot > revision.effective_after
                 ORDER BY revision.effective_after DESC, revision.id DESC
                 LIMIT 1
