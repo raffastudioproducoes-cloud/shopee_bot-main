@@ -5,6 +5,7 @@ from .supabase_auth import router as supabase_auth_router
 from .catalog import router as catalog_router
 from .products import router as products_router
 from .lists import router as lists_router
+from .campaigns import router as campaigns_router
 from .posts import router as posts_router
 from .credentials import router as credentials_router
 from .users import router as users_router
@@ -21,6 +22,7 @@ __all__ = [
     "catalog_router",
     "products_router",
     "lists_router",
+    "campaigns_router",
     "posts_router",
     "credentials_router",
     "users_router",

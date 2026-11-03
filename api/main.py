@@ -32,6 +32,7 @@ from .routers import (
     catalog_router,
     products_router,
     lists_router,
+    campaigns_router,
     posts_router,
     credentials_router,
     users_router,
@@ -77,6 +78,7 @@ app.include_router(admin_router)
 app.include_router(catalog_router)
 app.include_router(products_router)
 app.include_router(lists_router)
+app.include_router(campaigns_router)
 app.include_router(posts_router)
 app.include_router(credentials_router)
 app.include_router(users_router)
