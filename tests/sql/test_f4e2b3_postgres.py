@@ -300,5 +300,32 @@ class TestF4e2b3Postgres(unittest.TestCase):
             ).fetchone())
 
 
+    def test_cron_claim_timestamp_is_complete_in_real_postgres(self):
+        """Regressao do InvalidDatetimeFormat: slot HH:MM nao pode perder minutos."""
+        from datetime import datetime
+
+        source = (ROOT / "database/publish_jobs.py").read_text(encoding="utf-8")
+        self.assertEqual(source.count("right(job.idempotency_key, 16)"), 3)
+        self.assertNotIn("split_part(job.idempotency_key, ':', 2)", source)
+        key = str(self.schedule) + ":2026-11-03T15:47"
+        with self.connect() as con:
+            value = con.execute(
+                """SELECT CASE WHEN %s ~ ':[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}
+    unittest.main()
+
+                         THEN right(%s, 16)::timestamp ELSE NULL END""",
+                (key, key),
+            ).fetchone()[0]
+            invalid = con.execute(
+                """SELECT CASE WHEN %s ~ ':[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}
+    unittest.main()
+
+                         THEN right(%s, 16)::timestamp ELSE NULL END""",
+                ("legacy-manual-retry", "legacy-manual-retry"),
+            ).fetchone()[0]
+        self.assertEqual(value, datetime(2026, 11, 3, 15, 47))
+        self.assertIsNone(invalid)
+
+
 if __name__ == "__main__":
     unittest.main()
