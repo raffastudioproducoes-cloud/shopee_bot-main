@@ -15,7 +15,7 @@ CREATE TABLE public.campaign_reservation_assets_f4e (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(reservation_id,source_id),
   CHECK (length(source_id) BETWEEN 1 AND 150),
-  CHECK (cardinality(networks) BETWEEN 1 AND 5),
+  CHECK (cardinality(networks) BETWEEN 0 AND 5),
   CHECK (networks <@ ARRAY['threads','x','facebook','instagram','tiktok']::text[])
 );
 CREATE INDEX campaign_reservation_assets_by_product_f4e
@@ -49,7 +49,7 @@ BEGIN
     OR p_key NOT LIKE ('campaign-locked/'||p_user::text||'/'||p_profile::text||'/'||p_reservation::text||'/%')
     OR p_size < 1 OR p_size > 52428800
     OR p_type NOT IN ('IMAGE','VIDEO')
-    OR p_networks IS NULL OR cardinality(p_networks)=0
+    OR p_networks IS NULL
   THEN RAISE EXCEPTION 'invalid_campaign_asset' USING ERRCODE='P0001'; END IF;
   IF NOT EXISTS (
     SELECT 1 FROM jsonb_array_elements(v_res.draft_snapshot->'items') i
