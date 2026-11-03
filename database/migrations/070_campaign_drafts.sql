@@ -1,6 +1,6 @@
 -- F3A: rascunhos de campanha inertes. Não cria posts, schedulers ou jobs.
 -- Banco compartilhado staging/produção: aplicar SOMENTE após aprovação
--- específica e revisão de migrations existentes. Esta migration não roda no deploy.
+-- específica e revisão de migrations existentes. O migrador interno também\n-- executa arquivos pendentes durante o boot; manter DDL idempotente.
 BEGIN;
 SET LOCAL lock_timeout = '10s';
 
