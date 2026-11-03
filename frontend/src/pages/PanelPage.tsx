@@ -20,6 +20,7 @@ const navItems: SideRailItem[] = [
   { value: '/products', label: 'Produtos', icon: 'briefcase' },
   { value: '/lists', label: 'Listas', icon: 'sliders-horizontal' },
   { value: '/posts', label: 'Posts', icon: 'file-text' },
+  { value: '/posts/criar', label: 'Criar POST', icon: 'square-pen' },
   { value: '/automacao-posts', label: 'Automação', icon: 'workflow' },
   { value: '/analytics', label: 'Análises', icon: 'chart-no-axes-combined' },
   { value: '/credentials', label: 'Credenciais', icon: 'key-round' },
