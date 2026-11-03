@@ -353,6 +353,14 @@ BEGIN
   IF v_state='cancelled' THEN
     UPDATE public.campaign_network_slots_f4e SET state='cancelled',finished_at=now()
     WHERE reservation_id=p_reservation_id AND state='planned';
+    UPDATE public.publish_jobs j SET status='failed',finished_at=now(),
+      last_error='Campanha cancelada antes do disparo'
+    FROM public.campaign_network_slots_f4e s
+    WHERE s.publish_job_id=j.id AND s.reservation_id=p_reservation_id
+      AND s.state='cancelled' AND j.status='pending'
+      AND j.publication_origin='campaign';
+    UPDATE public.campaign_reservations_f4e SET status='released',released_at=now()
+    WHERE id=p_reservation_id;
   END IF;
   RETURN v_state;
 END; $$;
