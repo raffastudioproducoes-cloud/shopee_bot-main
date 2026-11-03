@@ -44,3 +44,10 @@ Esta seção atualiza o contrato **após F3B**; o item anterior “DELETE não o
 4. **Fronteira:** jamais apagar lista original, posts já publicados, jobs ou mídias de outra campanha. Nenhuma ativação de campanha, publicação, configuração de rede ou promoção para `main`. A política anti-spam e as cotas por plano/rede serão obrigatórias antes de ativação.
 5. **Teste proporcional:** Python horários/fuso/limites, API ownership/storage-failure, frontend TypeScript/build e verificação breve de staging. Ausência de teste real de exclusão de dados do Rafa é intencional.
 6. **Versionamento:** PR [#211](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/211) dirigida a `staging`; `VERSION` continua `3.0.0` até release aprovado. Evidências finais entram em `docs/TASK.md` e no Vault.
+
+
+### Fechamento F3C após o merge
+- [PR #211](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/211), CI [#41581370451](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41581370451) SUCCESS; merge `staging` `140ea06d7af804b4c3ad1b2547751334dc972d89`.
+- Render `dep-dbkmmf7lk1mc73e1o2p0` LIVE, logs mostram migração 071 já aplicada e inicialização completa; `/health` retornou `{"status":"ok"}` em leitura real. Sem nova migration.
+- Não foram excluídos rascunhos reais nem publicados posts; nova aba exigiu login, então UI autenticada F3C continua pendente de conferência pelo proprietário. Testes Python e build frontend passaram.
+- Vault [checkpoint 62](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/62-F3B-Nome-Campanha-Midia-Duravel-2026-11-03.md) e [TASK](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/TASK.md) sincronizados. `main` e versão `3.0.0` permanecem intactas.
