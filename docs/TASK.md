@@ -1,3 +1,12 @@
+## 03/11/2026 — F4E-2B4: gate de origem durável e compatibilidade (contrato, sem executor)
+
+- [x] Auditoria: `environment`/`dispatch_mode` não comprovam origem; `main` antiga ainda consome filas sem discriminante de campanha. `staging` e `main` compartilham banco; não criar nem espelhar agendamentos F4E.
+- [x] Plano único com invariantes e rollout: [F4E-2B4](superpowers/plans/2026-11-03-f4e2b4-origem-e-rollout-seguro.md). Origem persistida positiva em agenda/job, criação atômica com vínculo, guardas em todos os caminhos, retries de campanha inertes bloqueados, controle de `unknown`, compatibilidade e rollback.
+- [x] Encontrados três impedimentos na proposta B3 antes da migração: índices convencionais em `BEGIN` podem bloquear writes; FK `RESTRICT` altera exclusão de conta/LGPD; retry manual cria UUID incompatível com a unicidade ocorrência/rede. SQL continua **somente proposta**, fora do boot.
+- [ ] Testes PostgreSQL descartável e DDL revisada, proteção simultânea de leitores em staging/main e lifecycle/retention. **Não habilitar produtores F4E antes de ambos os executores compatíveis e verificados.** Aprovações distintas para DDL compartilhada, promoção de main, ativação e canário externo.
+- [x] Direitos de assinatura preservados até o fim do período pago; downgrade efetivo, checkout e e-mails continuam backlog. Nenhuma mudança em SQL, filas, flags, contas, `main`, SMTP ou postagem; `VERSION=3.0.0`.
+- [x] Rechecagem documental: gatilho SMTP depende de domínio próprio registrado **e configurado**, ainda sem evidência positiva no Vault; sem ação.
+
 ## 03/11/2026 — F4E-2B3 proposta inerte e provas isoladas (preparação de PR)
 
 - [x] Revisão estática constatou que o fluxo legado não possui origem de campanha persistente verificável. Nenhuma integração seletiva ao executor foi feita; não interpretar erro/ausência de link como legado autorizado.
