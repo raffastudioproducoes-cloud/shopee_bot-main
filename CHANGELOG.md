@@ -5,9 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
-### F4E — implementação integrada de campanhas (em desenvolvimento, 03/11/2026)
+### F4E — implementação integrada de campanhas (PR #243, 03/11/2026)
 
-Iniciado trabalho em branch única a partir de `staging` protegido pela origem da migration 075. A migration proposta 076 acrescenta slots imutáveis por ocorrência/rede, cota agregada por perfil/dia com lock transacional por conta e período pago confirmado, sem habilitar o executor nem alterar o Supabase compartilhado. Os contratos PostgreSQL isolados e CI foram adicionados; status operacional e resultado de testes serão registrados após verificação. Nenhuma campanha real está ativada por estes commits.
+Implementação em branch de trabalho, ainda **sem merge, deploy, DDL compartilhado ou publicação externa**. A proposta combina as migrations 076–078: cotas de campanha por perfil/dia contabilizadas por rede sob lock de conta; sessão comercial com vigência paga e downgrade pendente aplicado apenas após o término; slots por rede com identidade imutável; mídia retida em prefixo privado por reserva e manifesta no banco; atestados OAuth recentes; materialização atômica de posts, associações de mídia/produto, schedules e publish_jobs com `publication_origin='campaign'` nos três pais. A fila de campanha é separada do legado e revalida OAuth, ambiente, posse, vigência e estado no banco inclusive na última barreira antes da chamada externa; pausa/cancelamento, recuperação de preparação, término desconhecido sem repetição e encerramento com liberação de cota compõem o ciclo. A API e o planejador expõem ativação explícita, limite real do plano, pausa/retomada/cancelamento e progresso/histórico paginado. A CI inclui PostgreSQL 16 descartável e a verificação comum de API/frontend. Não há checkout ou permissão Meta Threads emitidos por essa entrega; o erro 403/código 10 do Threads segue externo. Deploy de staging e homologação integrada são gates separados de merge/main.
+
 
 ### F4E — isolamento real de origem no banco e nos executores (03/11/2026)
 
