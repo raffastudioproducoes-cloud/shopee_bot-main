@@ -156,7 +156,7 @@ export function CreatePostPage() {
           onChange={(mode) => setCreationMode(mode as "single" | "campaign")}
         />
       </div>
-      {creationMode === "campaign" ? <CampaignPlanner /> : <PostComposer
+      {creationMode === "campaign" ? <CampaignPlanner credentials={credentials} /> : <PostComposer
         post={null}
         onClose={() => void router.navigate({ to: "/posts" })}
         onSave={handleSave}
