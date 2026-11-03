@@ -1,3 +1,9 @@
+## 03/11/2026 — F4B: quotas persistidas no backend (em execução)
+
+- [x] Rafa fixou Premium em 2.000 produtos/conta, 100 listas/perfil, 5 envios imediatos/hora, 5 horários recorrentes/dia; Pro em **2 campanhas simultâneas/perfil**, Premium em **5**; cada rede publicada = 1 postagem. Substitui explicitamente o Pro=0 anterior.
+- [ ] `feature/f4b-backend-entitlements-20261103`: política SQL editável/auditável, source-of-truth por conta, RPC atômica produtos/listas, tratamento HTTP e testes; PR, CI, migração, merge staging e health ainda aguardando fechamento.
+- [ ] Próxima subfase F4C: guardas de perfis, recorrente, envio imediato, campanhas ativas, automação e UI. Não executar publicação real. Migração/DB compartilhado exige prova de compatibilidade com main.
+
 ## 03/11/2026 — F4A planos, etiquetas e política configurável (em homologação)
 
 - [x] Decisão de Rafa organizada em matriz e fases: Free/Pro/Premium, ADMIN sem cotas comerciais, perfil, produtos/listas/posts/recorrente/campanha/automação e acesso comum; ver [contrato F4](PLANOS-F4-POLITICAS-E-FASES-20261103.md).
