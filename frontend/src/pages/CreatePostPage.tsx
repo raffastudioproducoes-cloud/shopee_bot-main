@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { useProfileStore } from "../stores/profileStore"
 import { router } from "../router"
@@ -8,10 +8,13 @@ import { credentialsApi } from "../api/credentials"
 import { ApiError } from "../lib/api"
 import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
 import { PostComposer, type NetworkResult } from "../components/posts/PostComposer"
+import { CampaignPlanner } from "../components/campaigns/CampaignPlanner"
+import { SegmentedToggle } from "../components/ui/SegmentedToggle"
 
 /** Página dedicada de criação. Preserva o fluxo de envio e o rascunho anterior. */
 export function CreatePostPage() {
   const { logout } = useAuthStore()
+  const [creationMode, setCreationMode] = useState<"single" | "campaign">("single")
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const queryClient = useQueryClient()
 
@@ -144,9 +147,16 @@ export function CreatePostPage() {
     <div className="create-post-page">
       <header className="create-post-page-header">
         <h1 className="csp-s-0315">Criar POST</h1>
-        <p>Prepare a publicação, adapte o conteúdo por rede e escolha quando enviar.</p>
+        <p>{creationMode === "single" ? "Prepare a publicação, adapte o conteúdo por rede e escolha quando enviar." : "Organize uma campanha por lista e confira o calendário antes de ativar."}</p>
       </header>
-      <PostComposer
+      <div style={{ maxWidth: 510, width: "100%", marginBottom: "var(--sp-8)" }}>
+        <SegmentedToggle
+          options={[{ value: "single", label: "Publicação única" }, { value: "campaign", label: "Campanha por lista" }]}
+          value={creationMode}
+          onChange={(mode) => setCreationMode(mode as "single" | "campaign")}
+        />
+      </div>
+      {creationMode === "campaign" ? <CampaignPlanner /> : <PostComposer
         post={null}
         onClose={() => void router.navigate({ to: "/posts" })}
         onSave={handleSave}
@@ -155,7 +165,7 @@ export function CreatePostPage() {
         results={createMutation.data}
         credentials={credentials}
         onClear={() => createMutation.reset()}
-      />
+      />}
     </div>
   )
 }
