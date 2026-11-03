@@ -139,6 +139,10 @@ ALTER TABLE public.plan_limits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plan_limits_audit ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.plan_limits, public.plan_limits_audit FROM anon,authenticated;
 REVOKE ALL ON SEQUENCE public.plan_limits_audit_id_seq FROM anon,authenticated;
+-- Política editável por endpoint interno ADMIN, não por cliente direto.
+GRANT SELECT,UPDATE ON public.plan_limits TO service_role;
+GRANT SELECT,INSERT ON public.plan_limits_audit TO service_role;
+GRANT USAGE,SELECT ON SEQUENCE public.plan_limits_audit_id_seq TO service_role;
 REVOKE ALL ON FUNCTION public.audit_plan_limits_changes() FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.insert_product_with_plan_quota(uuid,jsonb) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.insert_product_list_with_plan_quota(uuid,uuid,text) FROM PUBLIC,anon,authenticated;
