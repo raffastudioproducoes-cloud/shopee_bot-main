@@ -3,8 +3,10 @@
 Execução futura exige políticas de rede, idempotência e congelamento T-30.
 """
 from datetime import date, time, datetime, timezone
+import logging
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field, field_validator
 
 from ..campaign_schedule import plan_campaign_slots
@@ -12,6 +14,8 @@ from .auth import get_current_user_id
 from .profiles import get_current_profile_id
 from .lists import _get_list, _get_list_products
 from ..database import supabase
+from ..storage_capacity import storage_upload_reservation
+from .posts import _read_media_content, _sanitize_upload, MEDIA_DRAFT_BUCKET
 from ..profiles import scope_owner
 from urllib.parse import urlsplit
 from typing import Literal
@@ -19,6 +23,9 @@ from uuid import UUID
 
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
+logger = logging.getLogger(__name__)
+MAX_CAMPAIGN_MEDIA_PER_PRODUCT = 10
+
 
 
 class CampaignPreviewRequest(BaseModel):
@@ -132,12 +139,30 @@ class CampaignDraftItem(BaseModel):
 
 
 class CampaignDraftSave(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    @field_validator("name")
+    @classmethod
+    def nonempty_name(cls, value):
+        name = value.strip()
+        if not name:
+            raise ValueError("Dê um nome para a campanha.")
+        return name
+
     list_id: int = Field(gt=0)
     items: list[CampaignDraftItem] = Field(min_length=1, max_length=100)
     schedule: CampaignPreviewRequest | None = None
 
 
 class CampaignDraftUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    @field_validator("name")
+    @classmethod
+    def nonempty_name(cls, value):
+        name = value.strip()
+        if not name:
+            raise ValueError("Dê um nome para a campanha.")
+        return name
+
     expected_revision: int = Field(ge=1)
     items: list[CampaignDraftItem] = Field(min_length=1, max_length=100)
     schedule: CampaignPreviewRequest | None = None
@@ -196,6 +221,7 @@ async def create_campaign_draft(
     result = supabase.table("campaign_drafts").insert({
         "user_id": user_id, "profile_id": profile_id,
         "source_list_id": body.list_id, "source_list_name": source["name"],
+        "campaign_name": body.name,
         "items": items,
         "schedule": body.schedule.model_dump(mode="json") if body.schedule else None,
     }).execute()
@@ -255,7 +281,7 @@ async def update_campaign_draft(
         saved["source_image"] = old_items[item.product_id].get("source_image")
         saved["use_shopee_image"] = bool(saved["source_image"]) and item.use_shopee_image
         items.append(saved)
-    update = {"items": items,
+    update = {"items": items, "campaign_name": body.name,
               "schedule": body.schedule.model_dump(mode="json") if body.schedule else None,
               "revision": body.expected_revision + 1,
               "updated_at": datetime.now(timezone.utc).isoformat()}
@@ -265,3 +291,143 @@ async def update_campaign_draft(
     if not result.data:
         raise HTTPException(status_code=409, detail="Rascunho modificado por outra sessão.")
     return result.data[0]
+
+
+# F3B: anexos duráveis por produto, independentes do TTL das publicações únicas.
+# Não materializa posts, não mexe no scheduler e não oferece URL pública.
+def _campaign_media_response(row: dict) -> dict:
+    return {key: row.get(key) for key in
+            ("id", "product_id", "slot", "file_name", "media_type",
+             "size_bytes", "status", "created_at")}
+
+
+def _ready_campaign_media(draft_id: UUID, user_id: int, profile_id: str):
+    return (scope_owner(supabase.table("campaign_draft_media")
+             .select("id, product_id, slot, file_name, media_type, size_bytes, status, created_at")
+             .eq("campaign_id", str(draft_id)).eq("status", "ready"),
+             user_id, profile_id)
+            .order("product_id").order("slot").execute()).data or []
+
+
+def _assert_draft_product(draft: dict, product_id: int) -> None:
+    if draft.get("status") != "draft" or not any(
+        int(item["product_id"]) == product_id for item in draft["items"]
+    ):
+        raise HTTPException(status_code=404, detail="Produto indisponível neste rascunho.")
+
+
+@router.get("/drafts/{draft_id}/media")
+async def list_campaign_media(
+    draft_id: UUID,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    profile_id = _draft_profile(profile_id)
+    _get_owned_campaign(draft_id, user_id, profile_id)
+    return {"data": [_campaign_media_response(row) for row in
+                     _ready_campaign_media(draft_id, user_id, profile_id)]}
+
+
+@router.post("/drafts/{draft_id}/items/{product_id}/media", status_code=201)
+async def upload_campaign_media(
+    draft_id: UUID, product_id: int, file: UploadFile = File(...),
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    profile_id = _draft_profile(profile_id)
+    draft = _get_owned_campaign(draft_id, user_id, profile_id)
+    _assert_draft_product(draft, product_id)
+
+    # Sanitizar com a mesma pipeline da publicação única; nada é publicado.
+    raw = await _read_media_content(file)
+    media = await _sanitize_upload(file, raw)
+    existing = (scope_owner(supabase.table("campaign_draft_media")
+                 .select("slot").eq("campaign_id", str(draft_id))
+                 .eq("product_id", product_id), user_id, profile_id).execute()).data or []
+    used = {int(row["slot"]) for row in existing}
+    slot = next((number for number in range(MAX_CAMPAIGN_MEDIA_PER_PRODUCT)
+                 if number not in used), None)
+    if slot is None:
+        raise HTTPException(status_code=422, detail="Máximo de 10 arquivos por produto.")
+
+    media_id = str(uuid.uuid4())
+    key = f"campaigns/{user_id}/{profile_id}/{draft_id}/{product_id}/{media_id}{media.extension}"
+    record = {
+        "id": media_id, "campaign_id": str(draft_id), "product_id": product_id,
+        "user_id": user_id, "profile_id": profile_id, "slot": slot,
+        "storage_bucket": MEDIA_DRAFT_BUCKET, "storage_key": key,
+        "file_name": media.safe_filename, "mime_type": media.mime_type,
+        "media_type": media.media_type, "size_bytes": len(media.content),
+        "status": "uploading",
+    }
+    try:
+        inserted = supabase.table("campaign_draft_media").insert(record).execute()
+        if not inserted.data:
+            raise HTTPException(status_code=409, detail="Não foi possível reservar um espaço. Tente novamente.")
+    except HTTPException:
+        raise
+    except Exception:
+        logger.info("Slot de mídia concorrente ou indisponível", exc_info=True)
+        raise HTTPException(status_code=409, detail="O arquivo não pôde ser reservado. Atualize e tente novamente.")
+
+    uploaded = False
+    try:
+        with storage_upload_reservation(len(media.content)):
+            supabase.storage.from_(MEDIA_DRAFT_BUCKET).upload(
+                key, media.content, {"content-type": media.mime_type, "upsert": "false"})
+            uploaded = True
+        saved = (scope_owner(supabase.table("campaign_draft_media")
+                 .update({"status": "ready"}).eq("id", media_id)
+                 .eq("status", "uploading"), user_id, profile_id).execute())
+        if not saved.data:
+            raise RuntimeError("O banco não confirmou a mídia.")
+        return _campaign_media_response(saved.data[0])
+    except Exception:
+        logger.warning("Falha ao persistir anexo da campanha", exc_info=True)
+        cleaned = not uploaded
+        if uploaded:
+            try:
+                supabase.storage.from_(MEDIA_DRAFT_BUCKET).remove([key])
+                cleaned = True
+            except Exception:
+                logger.warning("Falha no rollback do anexo; registro será recuperável", exc_info=True)
+        if cleaned:
+            (scope_owner(supabase.table("campaign_draft_media").delete().eq("id", media_id)
+                         .eq("status", "uploading"), user_id, profile_id).execute())
+        else:
+            (scope_owner(supabase.table("campaign_draft_media").update({"status": "delete_failed"})
+                         .eq("id", media_id), user_id, profile_id).execute())
+        raise HTTPException(status_code=502, detail="Falha ao armazenar o arquivo. Tente novamente.") from None
+
+
+@router.delete("/drafts/{draft_id}/media/{media_id}", status_code=204)
+async def delete_campaign_media(
+    draft_id: UUID, media_id: UUID,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    profile_id = _draft_profile(profile_id)
+    draft = _get_owned_campaign(draft_id, user_id, profile_id)
+    if draft.get("status") != "draft":
+        raise HTTPException(status_code=409, detail="Campanha não editável.")
+    result = (scope_owner(supabase.table("campaign_draft_media").select(
+        "id, storage_bucket, storage_key, status").eq("campaign_id", str(draft_id))
+        .eq("id", str(media_id)).eq("status", "ready"),
+        user_id, profile_id).maybe_single().execute())
+    if not result or not result.data:
+        raise HTTPException(status_code=404, detail="Anexo não encontrado.")
+    stored = result.data
+    key = stored["storage_key"]
+    if stored["storage_bucket"] != MEDIA_DRAFT_BUCKET or not key.startswith(
+        f"campaigns/{user_id}/{profile_id}/{draft_id}/"
+    ):
+        raise HTTPException(status_code=409, detail="Referência de mídia inválida.")
+    try:
+        supabase.storage.from_(MEDIA_DRAFT_BUCKET).remove([key])
+    except Exception:
+        logger.warning("Falha ao apagar anexo da campanha", exc_info=True)
+        raise HTTPException(status_code=502, detail="Não foi possível excluir o arquivo agora.") from None
+    (scope_owner(supabase.table("campaign_draft_media").delete()
+                 .eq("campaign_id", str(draft_id)).eq("id", str(media_id))
+                 .eq("status", "ready"), user_id, profile_id).execute())
+    return None
