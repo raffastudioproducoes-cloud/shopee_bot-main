@@ -8,9 +8,11 @@ from api.utils.log_sanitizer import sanitize_log_data
 
 def _execution_scope():
     if central_dispatch_enabled():
-        return publication_scope_sql("schedule")
+        scope, args = publication_scope_sql("schedule")
+        return f"({scope}) AND schedule.publication_origin = 'legacy'", args
     return (
-        "schedule.environment = %s AND schedule.dispatch_mode = 'legacy'",
+        "schedule.environment = %s AND schedule.dispatch_mode = 'legacy' "
+        "AND schedule.publication_origin = 'legacy'",
         (current_environment(),),
     )
 
@@ -33,6 +35,7 @@ def recoverable(lease_seconds, limit=100):
           AND schedule.user_id = job.user_id
           AND schedule.profile_id IS NOT DISTINCT FROM job.profile_id
         WHERE job.status = 'pending'
+          AND job.publication_origin = 'legacy'
           AND job.external_started_at IS NULL
           AND job.created_at >= now() - make_interval(secs => %s)
           AND ({scope})
@@ -60,6 +63,7 @@ def expire_stale_pending(grace_seconds=RECOVERY_MAX_AGE_SECONDS):
           AND schedule.user_id = job.user_id
           AND schedule.profile_id IS NOT DISTINCT FROM job.profile_id
           AND job.status = 'pending'
+          AND job.publication_origin = 'legacy'
           AND job.external_started_at IS NULL
           AND job.created_at < now() - make_interval(secs => %s)
           AND ({scope})
@@ -100,6 +104,7 @@ def expire_running(lease_seconds):
             END,
             claim_token = NULL, locked_by = NULL, locked_at = NULL
         WHERE status = 'running'
+          AND publication_origin = 'legacy'
           AND locked_at < now() - make_interval(secs => %s)
           AND EXISTS (
               SELECT 1 FROM schedulers schedule
@@ -189,6 +194,8 @@ def claim(publish_job_id, worker_id, lease_seconds):
               AND post.profile_id IS NOT DISTINCT FROM job.profile_id
             WHERE job.id = %s
               AND job.status = 'pending'
+              AND job.publication_origin = 'legacy'
+              AND schedule.publication_origin = job.publication_origin
               AND ({scope})
             FOR UPDATE OF job SKIP LOCKED
         ),
@@ -256,6 +263,7 @@ def finish(publish_job_id, claim_token, status, *, external_id=None, error=None)
             locked_by = NULL,
             locked_at = NULL
         WHERE id = %s AND claim_token = %s
+          AND publication_origin = 'legacy'
         RETURNING id, status
     """
     return query_db(
@@ -273,6 +281,7 @@ def mark_external_started(publish_job_id, claim_token):
         SET external_started_at = COALESCE(external_started_at, now())
         WHERE id = %s AND claim_token = %s
           AND preflight_claim_token = %s AND status = 'running'
+          AND publication_origin = 'legacy'
         RETURNING id
         """,
         (publish_job_id, claim_token, claim_token),
@@ -291,6 +300,7 @@ def requeue_if_safe(publish_job_id, claim_token):
         WHERE id = %s AND claim_token = %s
           AND preflight_claim_token = %s AND status = 'running'
           AND external_started_at IS NULL
+          AND publication_origin = 'legacy'
         RETURNING id
         """,
         (publish_job_id, claim_token, claim_token),
