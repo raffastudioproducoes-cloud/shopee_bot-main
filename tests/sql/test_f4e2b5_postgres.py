@@ -89,7 +89,7 @@ class TestCampaignNetworkReservations(unittest.TestCase):
 
     def setUp(self):
         self.user, self.profile = uuid.uuid4(), uuid.uuid4()
-        self.instant = (datetime.now(timezone.utc) + timedelta(days=2)).replace(microsecond=0)
+        self.instant = (datetime.now(timezone.utc) + timedelta(days=2)).replace(hour=12, minute=0, second=0, microsecond=0)
         local_day = (self.instant - timedelta(hours=3)).date()
         self.start = local_day
         self.drafts = [uuid.uuid4() for _ in range(3)]
