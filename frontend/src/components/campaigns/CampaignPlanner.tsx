@@ -76,18 +76,23 @@ export function CampaignPlanner({ credentials }: {
     () => reconcileCampaignSnapshots(products, draft.itemSnapshots),
     [products, draft.itemSnapshots],
   )
-  const networkStates = useMemo(() => Object.fromEntries(
-    PICKER_NETWORKS.map((network) => {
+  const networkStates = useMemo(() => {
+    const states = {} as Record<PostNetwork, NetworkState>
+    for (const network of PICKER_NETWORKS) {
       const credential = credentials?.[network]
       const connected = credential?.state === "ok"
       const connectionReason = credentials === undefined ? "verificando conexão"
         : connected ? undefined
         : credential?.state === "disconnected" ? "conecte em Credenciais"
         : credential?.status_text ?? "teste a conexão em Credenciais"
-      return [network, { connected: credentials === undefined ? undefined : connected,
-        connectionReason, errors: [] }]
-    }),
-  ) as Record<PostNetwork, NetworkState>, [credentials])
+      states[network] = {
+        connected: credentials === undefined ? undefined : connected,
+        connectionReason,
+        errors: [],
+      }
+    }
+    return states
+  }, [credentials])
   const previewMutation = useMutation({ mutationFn: campaignsApi.preview })
 
   const payload = useMemo<CampaignPreviewRequest | null>(() => {
