@@ -24,7 +24,7 @@ INSERT INTO public.plan_limits
 VALUES
   ('free',100,20,1,1,0,0,0,1,false),
   ('pro',500,20,3,5,2,15,3,3,false),
-  ('premium',2000,100,5,5,5,30,15,3,true)
+  ('premium',2000,100,5,5,5,30,15,5,true)
 ON CONFLICT (tier) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS public.plan_limits_audit (
@@ -148,4 +148,60 @@ REVOKE ALL ON FUNCTION public.insert_product_with_plan_quota(uuid,jsonb) FROM PU
 REVOKE ALL ON FUNCTION public.insert_product_list_with_plan_quota(uuid,uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.insert_product_with_plan_quota(uuid,jsonb) TO service_role;
 GRANT EXECUTE ON FUNCTION public.insert_product_list_with_plan_quota(uuid,uuid,text) TO service_role;
+
+-- F4B2: perfis Free 1 / Pro 3 / Premium 5 / ADMIN ilimitado.
+-- O trigger legado continua impondo 3 para INSERT direto da main.
+-- Somente a RPC de staging, com service_role e flag LOCAL, usa a nova
+-- contagem por plano (mesmo advisory lock do trigger 037).
+CREATE OR REPLACE FUNCTION public.enforce_profile_limit()
+RETURNS trigger LANGUAGE plpgsql
+SET search_path=public,pg_temp AS $$
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext(NEW.user_id::text));
+  IF current_user='service_role'
+     AND current_setting('app.profile_quota_rpc',true)='on' THEN
+    RETURN NEW;
+  END IF;
+  IF (SELECT count(*) FROM public.profiles WHERE user_id=NEW.user_id) >= 3 THEN
+    RAISE EXCEPTION 'profile_limit_exceeded' USING ERRCODE='P0001';
+  END IF;
+  RETURN NEW;
+END; $$;
+
+CREATE OR REPLACE FUNCTION public.insert_profile_with_plan_quota(
+  p_user_id uuid,p_nome text,p_email text,
+  p_telefone text DEFAULT NULL,p_endereco text DEFAULT NULL
+) RETURNS SETOF public.profiles
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp AS $$
+DECLARE
+  v_access text;
+  v_tier text;
+  v_max integer;
+BEGIN
+  SELECT access::text,CASE WHEN plan_tier='plus' THEN 'pro' ELSE plan_tier END
+    INTO v_access,v_tier FROM public.users WHERE id=p_user_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'account_not_found' USING ERRCODE='P0001'; END IF;
+  -- Sincroniza com a trava de inserção direta do trigger legado.
+  PERFORM pg_advisory_xact_lock(hashtext(p_user_id::text));
+  IF v_access <> 'ADMIN' THEN
+    SELECT max_profiles_per_account INTO v_max
+      FROM public.plan_limits WHERE tier=v_tier;
+    IF v_max IS NULL THEN RAISE EXCEPTION 'plan_policy_unavailable' USING ERRCODE='P0001'; END IF;
+    IF (SELECT count(*) FROM public.profiles WHERE user_id=p_user_id) >= v_max THEN
+      RAISE EXCEPTION 'profile_limit_exceeded' USING ERRCODE='P0001';
+    END IF;
+  END IF;
+  PERFORM set_config('app.profile_quota_rpc','on',true);
+  RETURN QUERY INSERT INTO public.profiles
+    (user_id,kind,nome,email,telefone,endereco,plan_tier)
+  VALUES (p_user_id,'secundario',p_nome,p_email,p_telefone,p_endereco,
+          CASE WHEN v_tier='pro' THEN 'plus' ELSE v_tier END)
+  RETURNING *;
+END; $$;
+
+REVOKE ALL ON FUNCTION public.insert_profile_with_plan_quota(uuid,text,text,text,text)
+  FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.insert_profile_with_plan_quota(uuid,text,text,text,text)
+  TO service_role;
+
 COMMIT;
