@@ -25,6 +25,8 @@ class TestCampaignRuntime(TestCampaignNetworkReservations):
                 ALTER TABLE public.posts ADD COLUMN profile_id uuid;
                 ALTER TABLE public.posts ADD COLUMN network text DEFAULT 'threads';
                 ALTER TABLE public.posts ADD COLUMN publish_immediately boolean DEFAULT false;
+                ALTER TABLE public.schedulers ALTER COLUMN id SET DEFAULT gen_random_uuid();
+                ALTER TABLE public.publish_jobs ALTER COLUMN id SET DEFAULT gen_random_uuid();
                 ALTER TABLE public.schedulers ADD COLUMN func text;
                 ALTER TABLE public.schedulers ADD COLUMN trigger text;
                 ALTER TABLE public.schedulers ADD COLUMN run_date timestamp;
