@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### F4E-1 — DDL inerte aplicada, PR draft
+
+- DDL aplicada ao Supabase compartilhado com autorização de Rafa, registrada no histórico Supabase (`20261103191911`) e em `public.migrations`. Reservas e ocorrências estavam vazias na inspeção; sem executor, jobs F4E, publicações, merge ou deploy de main/produção.
+- [CI #755](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41701678290) passou para o SHA anterior; [CI #761](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41702528589) está em andamento no momento deste registro. A CI do novo SHA deve ser consultada separadamente.
+- Rafa confirmou tags, mensagens e perfil em mobile; QA visual desktop completo não comprovado. Escolha de plano e F4E-2 permanecem pendentes; VERSION segue `3.0.0`.
+
 ### Fechamento verificado F4D em staging — 03/11/2026
 - 03/11/2026 — F4D **integrada apenas em staging**: [PR #219](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/219) squash `9adbd5a455022acecc580c7daba75bd445a8ec22`, [CI #728](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41696637695) SUCCESS (API 1.165; frontend 38 contratos + TypeScript/Vite; scheduler 175 + 1 xfailed; SQL 4; segurança/web 27; externo skipped esperado). Render staging `dep-dbl2obp5efls73f9durg` LIVE no mesmo SHA; browser confirmou `/health` e `/api/health/ready` como `{"status":"ok"}`. UI autenticada desktop/mobile ainda não verificada. Nenhuma migration/SQL/ativação/job/post externo, cobrança ou alteração de `main`/produção. `VERSION=3.0.0`.
 - F4E auditada somente leitura: dispatch central de produção pode reivindicar agendamentos com origem staging se a configuração de dispatch estiver habilitada (flag real Render não verificada); separar F4E-1 inerte/transacional de F4E-2 execução protegida e não inserir campanha em `schedulers`/`publish_jobs` antes de guardas simultâneos nos dois ambientes. Não houve DDL nem autorização de ativação.
