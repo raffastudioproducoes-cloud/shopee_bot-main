@@ -2,7 +2,7 @@
 
 Execução futura exige políticas de rede, idempotência e congelamento T-30.
 """
-from datetime import date, time, datetime, timezone
+from datetime import date, time, datetime, timezone, timedelta
 import logging
 import uuid
 
@@ -328,6 +328,28 @@ async def list_campaign_media(
                      _ready_campaign_media(draft_id, user_id, profile_id)]}
 
 
+def _cleanup_abandoned_campaign_media(draft_id: UUID, user_id: int, profile_id: str) -> None:
+    """Na próxima inclusão, recolhe somente uploads incompletos >2h; NUNCA 'ready'."""
+    stale_at = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    rows = (scope_owner(supabase.table("campaign_draft_media")
+            .select("id, storage_bucket, storage_key").eq("campaign_id", str(draft_id))
+            .in_("status", ["uploading", "delete_failed"])
+            .lt("created_at", stale_at).limit(20), user_id, profile_id).execute()).data or []
+    for row in rows:
+        try:
+            if row["storage_bucket"] != MEDIA_DRAFT_BUCKET or not row["storage_key"].startswith(
+                f"campaigns/{user_id}/{profile_id}/{draft_id}/"
+            ):
+                logger.warning("Prefixo inesperado em mídia de campanha abandonada")
+                continue
+            supabase.storage.from_(MEDIA_DRAFT_BUCKET).remove([row["storage_key"]])
+            (scope_owner(supabase.table("campaign_draft_media").delete()
+                         .eq("id", row["id"]).in_("status", ["uploading", "delete_failed"]),
+                         user_id, profile_id).execute())
+        except Exception:
+            logger.warning("Não foi possível recolher upload de campanha abandonado", exc_info=True)
+
+
 @router.post("/drafts/{draft_id}/items/{product_id}/media", status_code=201)
 async def upload_campaign_media(
     draft_id: UUID, product_id: int, file: UploadFile = File(...),
@@ -337,6 +359,7 @@ async def upload_campaign_media(
     profile_id = _draft_profile(profile_id)
     draft = _get_owned_campaign(draft_id, user_id, profile_id)
     _assert_draft_product(draft, product_id)
+    _cleanup_abandoned_campaign_media(draft_id, user_id, profile_id)
 
     # Sanitizar com a mesma pipeline da publicação única; nada é publicado.
     raw = await _read_media_content(file)
