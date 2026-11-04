@@ -1,5 +1,7 @@
 # AGENTS.md — Auto Orbital / ShopeeAutoVendas
 
+> **04/11/2026 — GATE DE RELEASE:** a promoção de código para `main` sem bump SemVer foi corrigida na preparação da release `3.2.0`. PRs para `main` passam por CI obrigatório (`.github/workflows/release-semver.yml`), que confere `VERSION`, incremento MAJOR/MINOR/PATCH e entrada datada no `CHANGELOG`; documentação isolada pode ficar sem bump. Esta nota não altera jobs, Supabase, flags nem serviços. Evidências de deploy da versão devem ser registradas após o rollout.
+
 > **Obrigatório para toda IA, assistente ou agente que leia, analise ou edite este repositório.** Ler integralmente [docs/GUIA-MESTRE-IA.md](docs/GUIA-MESTRE-IA.md) ANTES de propor mudança. Esse documento reúne objetivo de negócio, stack, módulos, fluxos por API/rede, regras de publicação, Storage, RLS, segurança, fontes de consulta, limites e onde fica o Vault. Não pesquisar tudo do zero nem presumir que documentação histórica reflita produção.
 
 ## Ordem de entrada

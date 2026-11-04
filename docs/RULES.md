@@ -29,6 +29,8 @@ ambiente de homologação e todo trabalho acontece em `feature/*`. Nunca commita
 disso a prática era push direto em `master` sem PR — confirmado no vault,
 `27-Migracao-App-Unico-OAuth.md` — e alguns merges de PR existem no histórico, `#5`, `#4`.)
 
+**Gate automático (release 3.2.0):** além da classificação humana, cada PR de código/configuração/CI direcionada a `main` roda `.github/workflows/release-semver.yml`. Bloqueia merge sem incremento SemVer válido em `VERSION` e seção datada correspondente no `CHANGELOG`; PR somente documental não obriga bump. Não chamar a versão de implantada antes de Render LIVE e logs.
+
 Versionamento SemVer: `VERSION` é a **fonte oficial única** para a versão da aplicação; antes de qualquer alteração, ler `VERSION` e `CHANGELOG.md`. Todo PR deve registrar código, configuração, CI ou documentação em `CHANGELOG.md` sob `[Não lançado]` (sem criar uma versão nova por commit). A versão só é formalizada após homologação em `staging` e promoção aprovada para `main`, mantendo os dois arquivos alinhados nas branches. **MAJOR**: mudança incompatível — incrementa X, zera Y/Z; **MINOR**: funcionalidade compatível — incrementa Y, zera Z; **PATCH**: correção, desempenho ou segurança sem mudar regra de negócio — incrementa Z. Documentação isolada não força bump. O sistema multi-perfil foi tratado como MAJOR (2.0.0); a remoção de agendamento avulso e da seleção múltipla de produtos caracteriza o marco 3.0.0. Após publicar uma versão, criar uma tag Git `vX.Y.Z` na `main` se o fluxo de releases estiver disponível, sem tag duplicada por ambiente.
 
 Proteção de branch: **GitHub Pro está ativo (confirmado pelo Rafa, 2026-10-05).** A proteção

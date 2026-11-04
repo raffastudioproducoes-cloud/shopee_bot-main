@@ -5,6 +5,25 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.2.0] - 2026-11-04
+
+### Added
+- **Dashboard da conta:** contagens de produtos, postagens-raiz, listas e agendamentos somadas por `user_id` em todos os perfis da mesma conta; histórico dos perfis arquivados permanece representado. Painéis de até cinco postagens/atividades recentes; atalhos de produto, post e lista preservam o perfil ativo nas ações.
+- **Exclusão segura de perfil:** arquivamento lógico transacional de perfil secundário, sem destruir posts, histórico `succeeded/failed/unknown`, atividades e mídia histórica. Agendamentos, recorrências e campanhas ainda em fila podem ter o despacho cancelado/removido conforme estado; perfil principal protegido.
+- **Exclusão integral da conta:** fluxo retomável de banco, Supabase Storage API e Supabase Auth Admin API, com confirmação de identidade, validação de propriedade e finalização exclusivamente depois das etapas externas. Migrações SQL 080–086 no Supabase único compartilhado entre produção/staging; sem criar ambiente novo.
+- **Prevenção de regressão SemVer:** workflow `release-semver.yml` barra PR de código/configuração/CI para `main` quando `VERSION` não é incrementado por MAJOR/MINOR/PATCH válido ou falta entrada datada correspondente no `CHANGELOG`. Documentação isolada não força bump.
+
+### Segurança e compatibilidade
+- Triggers 085/086 bloqueiam `DELETE` físico legado de perfil/conta e autorizam cascatas somente pela rotina finalizadora transacional; FK 084 impede novos `request_logs` órfãos sem apagar os 1.299 registros legados de origem não auditada.
+- Funções e tabelas internas restringidas a `service_role`; contas só podem ser excluídas mediante ação explícita autorizada. As flags `PROFILE_ARCHIVAL_ENABLED` e `ACCOUNT_ERASURE_ENABLED` continuam **desligadas por padrão**; a ativação destrutiva em produção não foi autorizada sem homologação Storage/Auth completa.
+
+### Evidências da base técnica promovida
+- Staging: PRs #265–#268; CI #949 aprovado; Render `dep-dblp18mq1p3s738pakkg` LIVE em `7941338`. Promoção para `main`: PR #269, CI #951 aprovado, commit `5b7b040`, Render `dep-dblpjblg1s2s73c32i60` LIVE, scheduler iniciado e API inicializada.
+- Supabase compartilhado: migrações 080–086 aplicadas, testes transacionais sintéticos com `ROLLBACK`, sem excluir usuários/perfis reais; dois crons mantidos (`*/12` uptime e `*/2` wake). Nenhuma publicação externa nova, pagamento ou envio automático comprovado nesta release.
+- Esta versão **3.2.0** formaliza funcionalidades que já chegaram à produção antes do bump por falha de processo; a promoção do `VERSION` e a confirmação dos deploys 3.2.0 devem ser registradas na entrega desta correção.
+
+> As notas abaixo foram escritas durante a preparação em staging e permanecem como histórico; declarações antigas de "PR em preparação", "main intacta" e "3.1.2 mantida" descrevem momentos anteriores à promoção acima.
+
 ### Operação de staging — migração 084 idempotente
 - No primeiro deploy do PR #266, o migrador próprio do Flask tentou reaplicar a FK 084 já existente no Supabase (históricos de migração distintos), causando falha de boot de worker apesar do estado Render `LIVE`. Após verificar FK/índice, registrado `084_request_logs_erasure_fk_not_valid.sql` em `public.migrations` sem alterar dados. Redeploy do mesmo commit `5600ab0` ficou `LIVE`, com 080–084 ignoradas como já aplicadas e scheduler inicializado. Hotfix #267 torna a DDL 084 idempotente para impedir nova colisão. Main e crons intactos; VERSION mantida.
 
