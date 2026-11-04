@@ -122,14 +122,17 @@ def _validate_backup_item(model: type[BaseModel], item: Any, label: str) -> Base
 
 
 def _delete_user_row(user_id: str | int):
-    """Exclui a linha em `users`. Compartilhado pelo DELETE admin e pela
-    autoexclusão — não duplica a query de delete entre os dois endpoints.
+    """Bloqueio de segurança: exclusão total exige Storage + Auth + DB.
 
-    Cascata cuida das tabelas relacionadas (credenciais, produtos, listas,
-    posts etc. — todas com FK `user_id` `ON DELETE CASCADE`, ver
-    `database/migrations/`), então não há limpeza manual extra a fazer aqui.
+    O antigo DELETE em public.users acionava apenas cascatas de FK, deixando
+    arquivos no Storage, identidade auth.users, request_logs e audit_events.
+    Não voltar a excluir parcialmente: implementar operação idempotente de
+    apagamento integral antes de liberar este fluxo.
     """
-    return supabase.table("users").delete().eq("id", user_id).execute()
+    raise HTTPException(
+        status_code=503,
+        detail="Exclusão integral da conta em preparação. Nenhum dado foi removido.",
+    )
 
 
 def _collect_backup_data(user_id: str, profile_id: str | None = None) -> dict[str, Any]:
