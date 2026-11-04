@@ -205,6 +205,39 @@ class TestCampaignNetworkReservations(unittest.TestCase):
                 (self.instant+timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
             ])
 
+    def test_paid_downgrade_requires_cancelling_excess_before_resuming(self):
+        with self.connect() as con:
+            con.execute("UPDATE users SET plan_tier='premium' WHERE id=%s",(self.user,))
+        reservations = [self.reserve(draft_index=i,key=f"downgrade-{i}") for i in range(3)]
+        with self.connect() as con:
+            con.execute("SET LOCAL ROLE service_role")
+            for rid in reservations:
+                con.execute(
+                    "SELECT public.activate_campaign_networks_f4e(%s,%s,%s,'staging')",
+                    (self.user,self.profile,rid),
+                )
+                con.execute(
+                    "SELECT public.change_campaign_lifecycle_f4e(%s,%s,%s,'pause')",
+                    (self.user,self.profile,rid),
+                )
+            con.execute("RESET ROLE")
+            con.execute("UPDATE users SET plan_tier='pro' WHERE id=%s",(self.user,))
+            con.execute("SET LOCAL ROLE service_role")
+            with self.assertRaises(psycopg.Error):
+                with con.transaction():
+                    con.execute(
+                        "SELECT public.change_campaign_lifecycle_f4e(%s,%s,%s,'resume')",
+                        (self.user,self.profile,reservations[0]),
+                    )
+            self.assertEqual(con.execute(
+                "SELECT public.change_campaign_lifecycle_f4e(%s,%s,%s,'cancel')",
+                (self.user,self.profile,reservations[2]),
+            ).fetchone()[0],"cancelled")
+            self.assertEqual(con.execute(
+                "SELECT public.change_campaign_lifecycle_f4e(%s,%s,%s,'resume')",
+                (self.user,self.profile,reservations[0]),
+            ).fetchone()[0],"active")
+
     def test_public_roles_cannot_reserve_or_read(self):
         with self.connect() as con:
             for role in ("anon","authenticated"):
