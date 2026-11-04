@@ -129,6 +129,13 @@ def test_media_from_other_account_is_invisible(fake_db, monkeypatch):
     assert not db.storage.removals
 
 
+def test_media_rejects_product_not_owned_by_account(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    response = client.get("/products/777/media")
+    assert response.status_code == 404
+    assert not db.storage.uploads
+
+
 def test_upload_rejects_non_media(fake_db, monkeypatch):
     client, db = _client(fake_db, monkeypatch)
     res = client.post("/products/7/media", files={"file": ("shell.txt", b"not image", "text/plain")})
