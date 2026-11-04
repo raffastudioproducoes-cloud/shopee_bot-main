@@ -198,7 +198,7 @@ class TestDeleteUserProtectsMasterAdmin:
         assert res.status_code == 403
         query.delete.assert_not_called()
 
-    def test_deleting_other_user_still_works(self, auth_client, monkeypatch):
+    def test_deleting_other_user_fails_closed_until_full_erasure(self, auth_client, monkeypatch):
         query = _mock_supabase(
             monkeypatch,
             [
@@ -210,8 +210,8 @@ class TestDeleteUserProtectsMasterAdmin:
 
         res = auth_client.delete("/admin/users/2")
 
-        assert res.status_code == 200
-        query.delete.assert_called_once()
+        assert res.status_code == 503
+        query.delete.assert_not_called()
 
 
 class TestSelfDeleteAccount:
@@ -237,16 +237,13 @@ class TestSelfDeleteAccount:
         assert res.status_code == 403
         query.delete.assert_not_called()
 
-    def test_correct_password_deletes_account_clears_cookie_and_audits(
+    def test_correct_password_cannot_partially_delete_account(
         self, auth_client, monkeypatch
     ):
         hashed = _pwd_context.hash("senha_correta")
         query = _mock_supabase(
             monkeypatch,
-            [
-                {"username": "usuario_comum", "access": "USER", "password": hashed},
-                [{"id": "42"}],
-            ],
+            [{"username": "usuario_comum", "access": "USER", "password": hashed}],
         )
         spy = MagicMock()
         monkeypatch.setattr(users_router, "record_audit_event", spy)
@@ -255,16 +252,10 @@ class TestSelfDeleteAccount:
             "DELETE", "/users/me", json={"current_password": "senha_correta"}
         )
 
-        assert res.status_code == 200
-        query.delete.assert_called_once()
-        set_cookie = res.headers.get("set-cookie", "")
-        assert "access_token=" in set_cookie
-        assert 'Max-Age=0' in set_cookie or "1970" in set_cookie
-
-        spy.assert_called_once()
-        assert spy.call_args.kwargs["action"] == "user_self_deleted"
-        assert spy.call_args.kwargs["entity"] == "user"
-        assert spy.call_args.kwargs["user_id"] is None
+        assert res.status_code == 503
+        assert "Nenhum dado foi removido" in res.json()["detail"]
+        query.delete.assert_not_called()
+        spy.assert_not_called()
 
     def test_master_admin_cannot_self_delete(self, auth_client, monkeypatch):
         hashed = _pwd_context.hash("senha_correta")
@@ -279,40 +270,6 @@ class TestSelfDeleteAccount:
 
         assert res.status_code == 403
         query.delete.assert_not_called()
-
-    def test_deleted_user_can_no_longer_log_in(self, monkeypatch):
-        """Depois de excluído, o usuário deixa de existir na base — login
-        subsequente com as mesmas credenciais falha (usuário não encontrado)."""
-        hashed = _pwd_context.hash("senha_correta")
-
-        app.dependency_overrides.clear()
-        app.dependency_overrides[get_current_user_id] = lambda: 42
-        client = TestClient(app)
-
-        _mock_supabase(
-            monkeypatch,
-            [
-                {"username": "usuario_comum", "access": "USER", "password": hashed},
-                [{"id": "42"}],
-            ],
-        )
-        res = client.request("DELETE", "/users/me", json={"current_password": "senha_correta"})
-        assert res.status_code == 200
-
-        # Login pós-exclusão: mocka o supabase pra devolver "não encontrado"
-        # (é o que a base real faria — a linha já foi apagada acima).
-        app.dependency_overrides.clear()
-        fake_client = MagicMock()
-        fake_client.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
-            data=[]
-        )
-        monkeypatch.setattr(auth_module, "get_supabase", lambda: fake_client)
-
-        login_res = client.post(
-            "/auth/login",
-            data={"username": "usuario_comum", "password": "senha_correta"},
-        )
-        assert login_res.status_code == 401
 
 
 def _query_mock(execute_return) -> MagicMock:
