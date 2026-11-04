@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Segurança e retenção de perfis — preparação em PR draft (não implantada)
+- Rafa autorizou arquivamento de perfis secundários em vez de exclusão física, retenção dos resultados finais de publicações e campanhas, e cancelamento/remoção de trabalho ainda pendente; exclusão da conta exige expurgo completo de seus dados, arquivos e identidade Auth vinculada.
+- Implementação preparatória, com gate `PROFILE_ARCHIVAL_ENABLED=false` por padrão: o DELETE físico de perfil deixa de ser fallback e falha fechado até a migração/rollout ser aprovada. Consultas de perfis ativos e cotas reconhecem `archived_at` somente quando o gate estiver habilitado; a proposta SQL permanece fora do migrador, não aplicada ao Supabase.
+- Barreiras de execução legada passam a recusar agendas com `dispatch_cancelled_at` no lookup/claim/início externo. Não se apagam schedulers com publicações concluídas: FK `publish_jobs.scheduler_id NOT NULL ON DELETE CASCADE` apagaria histórico.
+- **Ainda não é entrega completa:** não ativar o gate, executar archive RPC nem promover ao staging/main sem integração e testes PostgreSQL descartáveis das filas F4E, mídias, identidade Auth, expurgo da conta e concorrência de chamadas externas. Nenhum usuário real foi excluído; `VERSION=3.1.2` mantida.
+
+
 ### Fixed — dashboard da conta (staging PR #265, pendente de homologação)
 - Dashboard passa a agregar produtos, posts-raiz, listas e agendamentos por `user_id` autenticado, abrangendo todos os perfis da conta e registros históricos com `profile_id NULL`, sem alterar as telas operacionais isoladas por perfil. Painéis de postagens/atividades recentes leem até cinco registros reais e distinguem ausência de dados de falha parcial.
 - Ações rápidas direcionam à criação de produto, post e lista sem contornar autorização/limites do plano; cache da visão geral segregado por conta, com revalidação.
