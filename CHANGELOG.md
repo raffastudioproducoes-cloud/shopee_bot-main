@@ -10,6 +10,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Configurações — planos e limites (staging):** seção `/settings#planos` compara cotas Free, Pro e Premium e concentra as informações de disponibilidade e limites; contratação e mudança de plano continuam indisponíveis.
 
 ### Changed
+- **Produtos — campo de busca único (staging):** removido o input duplicado à direita do título; a busca contextual dos produtos cadastrados passa a usar exclusivamente o campo existente na TopBar, compartilhando o estado e preservando o debounce. Busca dos Posts continua independente, e a Dashboard permanece sem busca. Correção visual/UX compatível (PATCH) incorporada ao candidato MINOR `3.3.0` em homologação; sem alteração antecipada de `VERSION`.
 - **Produtos — cota compacta (staging):** remove o cartão amplo com etiqueta de plano repetida e avisos. Mantém somente consumo/limite de produtos da conta e ação "Melhorar plano" para Free/Pro; Premium e Administrador exibem apenas a cota. O cartão de avatar/nome e etiqueta no topo não foi alterado.
 - **SemVer pendente:** a busca por contexto constitui funcionalidade compatível nova, classificada **MINOR**. Candidato ao próximo `3.3.0` (absorvendo os ajustes PATCH ainda não lançados); `VERSION` permanece `3.2.0` na staging, conforme `docs/RULES.md`, até homologação e promoção explicitamente aprovada para `main`.
 
