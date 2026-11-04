@@ -77,6 +77,7 @@ DECLARE
   v_now timestamptz := now();
   v_schedules integer := 0;
   v_queued integer := 0;
+  v_campaign_queued integer := 0;
   v_campaigns integer := 0;
 BEGIN
   IF p_user_id IS NULL OR p_profile_id IS NULL THEN
@@ -127,6 +128,21 @@ BEGIN
     v_campaigns := v_campaigns + 1;
   END LOOP;
 
+  -- O cancelamento F4E canônico converte pending em failed, mas isso NÃO
+  -- é falha de publicação: nunca houve tentativa. Remover só este marcador
+  -- exato, sem external_started_at; slots cancelados permanecem e sua FK
+  -- publish_job_id usa ON DELETE SET NULL. Manter failed real e unknown.
+  DELETE FROM public.publish_jobs j
+  USING public.campaign_network_slots_f4e s
+  WHERE s.publish_job_id=j.id AND s.user_id=p_user_id
+    AND s.profile_id=p_profile_id
+    AND s.state='cancelled'
+    AND j.user_id=p_user_id AND j.profile_id=p_profile_id
+    AND j.publication_origin='campaign' AND j.status='failed'
+    AND j.last_error='Campanha cancelada antes do disparo'
+    AND j.external_started_at IS NULL;
+  GET DIAGNOSTICS v_campaign_queued = ROW_COUNT;
+
   -- Pendências legacy nunca entregues podem sair da fila. Não apagar
   -- running/unknown/succeeded/failed: resultado histórico/conciliável.
   DELETE FROM public.publish_jobs
@@ -139,6 +155,7 @@ BEGIN
     'status','archived',
     'schedules_cancelled',v_schedules,
     'pending_legacy_removed',v_queued,
+    'pending_campaign_removed',v_campaign_queued,
     'campaigns_cancelled',v_campaigns);
 END; $fn$;
 
