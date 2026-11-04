@@ -334,6 +334,7 @@ CREATE FUNCTION public.change_campaign_lifecycle_f4e(
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE
   v_owner record; v_reservation record; v_state text;
+  v_limit integer; v_daily_limit integer;
 BEGIN
   IF p_action NOT IN ('pause','resume','cancel') THEN
     RAISE EXCEPTION 'invalid_action' USING ERRCODE='P0001'; END IF;
@@ -353,6 +354,30 @@ BEGIN
   THEN
     v_state:='active';
   ELSE RAISE EXCEPTION 'invalid_campaign_transition' USING ERRCODE='P0001'; END IF;
+  IF p_action='resume' AND v_owner.access<>'ADMIN' THEN
+    SELECT active_campaigns_per_profile,campaign_posts_per_day
+      INTO v_limit,v_daily_limit FROM public.plan_limits
+      WHERE tier=CASE WHEN v_owner.plan_tier='plus' THEN 'pro' ELSE v_owner.plan_tier END;
+    IF v_limit IS NULL OR v_daily_limit IS NULL OR v_limit<1 OR v_daily_limit<1
+      OR (SELECT count(*) FROM public.campaign_reservations_f4e
+          WHERE user_id=p_user_id AND profile_id=p_profile_id
+            AND status='reserved_no_dispatch'
+            AND lifecycle IN ('active','paused'))>v_limit
+      OR EXISTS (
+        SELECT 1 FROM public.campaign_network_slots_f4e s
+        JOIN public.campaign_reservations_f4e r ON r.id=s.reservation_id
+        WHERE s.user_id=p_user_id AND s.profile_id=p_profile_id
+          AND ((r.status='reserved_no_dispatch' AND s.state<>'cancelled')
+            OR s.state IN ('running','succeeded','failed','unknown'))
+        GROUP BY (s.planned_at AT TIME ZONE 'America/Sao_Paulo')::date
+        HAVING count(*)>v_daily_limit
+      ) OR EXISTS (
+        SELECT 1 FROM public.campaign_network_slots_f4e s
+        WHERE s.reservation_id=p_reservation_id
+          AND s.state='planned' AND s.planned_at>=v_owner.campaign_paid_through
+      )
+    THEN RAISE EXCEPTION 'campaign_resume_exceeds_plan' USING ERRCODE='P0001'; END IF;
+  END IF;
   UPDATE public.campaign_reservations_f4e
   SET lifecycle=v_state, dispatch_enabled=(v_state='active'),
       pause_reason=CASE WHEN v_state='paused' THEN 'manual' ELSE NULL END
