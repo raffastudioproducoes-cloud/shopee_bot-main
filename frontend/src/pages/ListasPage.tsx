@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
+import { useSearch } from "@tanstack/react-router"
 import { useAuthStore } from "../stores/authStore"
 import { useProfileStore } from "../stores/profileStore"
 import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
@@ -28,6 +29,7 @@ function estimatedListValue(list: ProductList): string {
 }
 
 export function ListasPage() {
+  const { action } = useSearch({ strict: false })
   const { logout, user } = useAuthStore()
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const queryClient = useQueryClient()
@@ -37,6 +39,15 @@ export function ListasPage() {
   const [editingList, setEditingList] = useState<ProductList | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [view, setView] = useViewMode("lists-view")
+
+  useEffect(() => {
+    if (action !== "create" || planQuery.isPending || planQuery.isError || !planQuery.data) return
+    if (!listsAtLimit) {
+      setEditingList(null)
+      setModalOpen(true)
+    }
+    void router.navigate({ to: "/lists", search: {}, replace: true })
+  }, [action, planQuery.isPending, planQuery.isError, planQuery.data, listsAtLimit])
 
   const { data: listsData, isLoading } = useQuery<ProductListsResponse>({
     queryKey: ["lists"],
@@ -430,3 +441,4 @@ function DeleteModal({ onClose, onConfirm, loading }: DeleteModalProps) {
     </Modal>
   )
 }
+
