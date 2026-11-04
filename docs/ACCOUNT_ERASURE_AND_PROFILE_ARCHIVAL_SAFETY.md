@@ -25,14 +25,14 @@ A branch implementa a coordenação do **fluxo durável, idempotente e retomáve
 2. Em transação com lock da conta, gravar estado `deletion_pending` e registro de progresso durável; bloquear login, escrita, upload, novos dispatches/claims e trocar perfil. Cancelar pendentes de todos os perfis, sem reenviar `unknown`. Terminar ou reconciliar operações externas já iniciadas.
 3. Inventariar **somente objetos comprovadamente pertencentes à conta** (dois buckets, referências de todas as tabelas, caminhos por usuário/perfil inclusive perfil arquivado). Não apagar mídia de outro titular. Executar remoção via Storage API, em lotes e com verificação/retry; reconciliar uploads em voo. Persistir o progresso sem informações sensíveis desnecessárias.
 4. Excluir identidade vinculada pelo **Auth Admin API** com chave de serviço no backend, nunca no browser. Ausência de identidade já removida deve ser etapa idempotente. Validar revogação das sessões da API.
-5. Em transação de DB, excluir explicitamente `request_logs`, `audit_events` vinculados por `user_id`, `profile_id`, `entity_id`/IDs de recursos e `post_content_revisions` sem FK de usuário; remover `public.users` para cascatas; checar zero órfãos. A `campaign_progress_f4e` é uma **view**, nunca receber DELETE (correção 082). Finalizar/limpar registro de progresso somente depois de sucesso verificável.
+5. Em transação de DB, excluir explicitamente `request_logs`, `audit_events` vinculados por `user_id`, `profile_id`, `entity_id`/IDs de recursos e `post_content_revisions` sem FK de usuário; também remove `request_logs` identificados somente pelo username da conta (083); remover `public.users` para cascatas; checar zero órfãos. A `campaign_progress_f4e` é uma **view**, nunca receber DELETE (correção 082). Finalizar/limpar registro de progresso somente depois de sucesso verificável.
 6. Se qualquer etapa falhar, **não responder sucesso** e manter estado recuperável para continuação segura; nenhum DELETE simples de `public.users` é permitido. Logs de diagnóstico sanitizados. Sem disparar publicação no retry.
 
 A escolha de um registro transacional intermediário é necessária porque operações em PostgreSQL, Storage API e Supabase Auth **não pertencem à mesma transação**. Um `DELETE` com cascata não atende a essa exigência.
 
 ## Gates obrigatórios
 
-- [x] Rafa autorizou migrações aditivas no Supabase compartilhado, sem novo ambiente. Migrações 080/081/082 aplicadas e permissões SQL conferidas.
+- [x] Rafa autorizou migrações aditivas no Supabase compartilhado, sem novo ambiente. Migrações 080/081/082/083 aplicadas e permissões SQL conferidas.
 - [x] Testes SQL transacionais com conta sintética e `ROLLBACK`: arquivamento, impossibilidade de arquivar principal, idempotência e expurgo DB/audit/request_logs. Contagens originais intactas e zero registros de teste residuais.
 - [ ] Testes completos de duas contas, Free/Pro/Premium, histórico F4E/unknown, concorrência `claim/preflight` e mídia real.
 - [x] Orquestrador de apagamento Storage API → Auth Admin API → finalizador DB com estado retomável e endpoint admin de recuperação, ainda somente na branch.
@@ -43,7 +43,7 @@ A escolha de um registro transacional intermediário é necessária porque opera
 
 ## Evidência e rollout
 
-- Banco compartilhado: migrações 080/081/082 aplicadas; verificação confirmou 4 perfis, 3 agendas, 3 publish_jobs e 5 objetos Storage antes e depois; zero contas sintéticas e zero tarefas de apagamento pendentes. Um teste SQL de finalização encontrou uma view não deletável e foi corrigido em 082 antes da execução sintética bem-sucedida.
+- Banco compartilhado: migrações 080/081/082/083 aplicadas; verificação confirmou 4 perfis, 3 agendas, 3 publish_jobs e 5 objetos Storage antes e depois; zero contas sintéticas e zero tarefas de apagamento pendentes. Um teste SQL de finalização encontrou uma view não deletável e foi corrigido em 082 antes da execução sintética bem-sucedida.
 - Nenhum cron, pg_net, worker, agendamento ou serviço foi desligado ou alterado. Nenhum dado real foi excluído.
 - Branch `feat/profile-archive-history-20261104` / PR #266 draft. `PROFILE_ARCHIVAL_ENABLED=false` e `ACCOUNT_ERASURE_ENABLED=false` por padrão no código; ativação **não autorizada no main**.
 - Staging primeiro, CI e smoke test; main apenas após aceite explícito. O código antigo em produção ainda não filtra `archived_at`; não começar exclusões reais de perfil/conta enquanto os dois ambientes não forem compatíveis.
