@@ -11,6 +11,8 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - GET `/profiles` (SELECT de perfis) repete uma única vez falhas transitórias de transporte HTTP/2/PostgREST usando o helper de autenticação já validado. Execução fora do event loop; duas falhas retornam HTTP 503 sanitizado, não 500. Sem retry de escrita, mudanças de schema ou reenvio de publicações. Testes de recuperação, isolamento por usuário e falha segura.
 - Formalizada política permanente de alta disponibilidade: um Supabase compartilhado, `staging` para desenvolvimento, `main` para clientes, deploy sem pausa intencional, aviso prévio mínimo de 24h para manutenção com interrupção, classificação SemVer antes de iniciar. Infraestrutura Render Free atual pode hibernar e não assegura 24/7; upgrade exige aprovação do proprietário.
 
+- **Evidência de release:** staging PR #253, CI #893 SUCCESS, Render `dep-dblbruk9v7es73cuqgsg` LIVE com scheduler iniciado e health 200; promoção main PR #254, CI #895 SUCCESS, merge `39c0dff6614c2d1a7770d3dfc3c42954028cd97c`, Render `dep-dblbtug473hc73b13in0` LIVE, scheduler iniciado, health HTTP 200. Nenhuma manutenção com parada, mudanças de banco ou publicações externas por este patch. O risco de hibernação Render Free permanece.
+
 ## [3.1.0] - 2026-11-04
 
 ### F4E — Campanhas integradas (release autorizado)
