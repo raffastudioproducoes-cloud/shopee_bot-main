@@ -3,6 +3,8 @@
 A política/ownership é verificada em cada leitura. Contagens exatas são
 independentes de paginação; ausência/falha nunca é transformada em zero.
 """
+import os
+
 from fastapi import HTTPException
 
 from .database import supabase
@@ -22,6 +24,8 @@ def _count(table, user_id, profile_id=None):
         query = supabase.table(table).select("id", count="exact", head=True).eq("user_id", user_id)
         if profile_id is not None:
             query = query.eq("profile_id", profile_id)
+        if table == "profiles" and os.getenv("PROFILE_ARCHIVAL_ENABLED", "false").lower() == "true":
+            query = query.is_("archived_at", "null")
         result = query.execute()
         count = getattr(result, "count", None)
         return count if type(count) is int and count >= 0 else None
