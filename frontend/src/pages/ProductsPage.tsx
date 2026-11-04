@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
+import { useSearch } from "@tanstack/react-router"
 import { useAuthStore } from "../stores/authStore"
 import { formDraftKey, clearFormDraft, saveFormDraft } from "../lib/formDraftStorage"
 import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
@@ -55,6 +56,7 @@ function toFormNumber(value: number | string | null | undefined): string {
 const formNumber = (value: string) => (value ? round2(Number(value)) : null)
 
 export function ProductsPage() {
+  const { action } = useSearch({ strict: false })
   const { isAuthenticated, logout, user } = useAuthStore()
   const queryClient = useQueryClient()
   const planQuery = usePlanUsage()
@@ -237,6 +239,14 @@ export function ProductsPage() {
     setForm(emptyForm)
     setModalOpen(true)
   }, [productsAtLimit])
+
+  useEffect(() => {
+    if (action !== "create" || planQuery.isPending || planQuery.isError || !planQuery.data) return
+    // Reuse the existing quota-aware form and its saved draft. Consume the
+    // intent so closing the dialog or refreshing does not reopen it.
+    if (!productsAtLimit) openCreateModal()
+    void router.navigate({ to: "/products", search: {}, replace: true })
+  }, [action, planQuery.isPending, planQuery.isError, planQuery.data, productsAtLimit, openCreateModal])
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -512,3 +522,4 @@ export function ProductsPage() {
     </div>
   )
 }
+
