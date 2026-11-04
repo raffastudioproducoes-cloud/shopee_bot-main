@@ -8,10 +8,13 @@ Flask: web/routes/users.py before_request).
 import hashlib
 import hmac
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from starlette.concurrency import run_in_threadpool
+from supabase import create_client
 from pydantic import BaseModel, Field, ValidationError
 
 from .auth import (
@@ -28,6 +31,7 @@ from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..config import settings
 from ..database import supabase
+from ..account_erasure import erase_account, account_erasure_enabled
 from ..profiles import scope_account, scope_owner
 from ..utils.log_sanitizer import sanitize_log_data
 
@@ -43,6 +47,7 @@ _MAX_BACKUP_POSTS = 500
 _MAX_BACKUP_TEXTS_PER_POST = 50
 
 router = APIRouter(prefix="/users", tags=["users"])
+logger = logging.getLogger("uvicorn.error")
 
 
 class UserCreate(BaseModel):
@@ -121,18 +126,54 @@ def _validate_backup_item(model: type[BaseModel], item: Any, label: str) -> Base
         )
 
 
-def _delete_user_row(user_id: str | int):
-    """Bloqueio de segurança: exclusão total exige Storage + Auth + DB.
+def _delete_user_row(user_id: str | int) -> dict:
+    """Orquestra Storage/Auth/DB; nunca cai no DELETE parcial legado."""
+    if not account_erasure_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="Exclusão integral da conta em preparação. Nenhum dado foi removido.",
+        )
+    try:
+        return erase_account(str(user_id))
+    except Exception as exc:
+        # A fase inicial pode já ter bloqueado a conta. Operação é retomável
+        # por admin; não revelar dados internos, tokens ou nomes de arquivos.
+        logger.warning("Apagamento integral interrompido (%s)", type(exc).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail="Exclusão não concluída. A conta ficou protegida; solicite a retomada ao suporte.",
+        ) from None
 
-    O antigo DELETE em public.users acionava apenas cascatas de FK, deixando
-    arquivos no Storage, identidade auth.users, request_logs e audit_events.
-    Não voltar a excluir parcialmente: implementar operação idempotente de
-    apagamento integral antes de liberar este fluxo.
-    """
-    raise HTTPException(
-        status_code=503,
-        detail="Exclusão integral da conta em preparação. Nenhum dado foi removido.",
-    )
+
+def _verify_self_delete_password(account: dict, password: str) -> None:
+    """Conta Auth exige prova de senha no próprio Auth, não hash legado."""
+    linked_id = account.get("supabase_auth_user_id")
+    if linked_id:
+        if not (settings.supabase_url and settings.supabase_auth_publishable_key and account.get("email")):
+            raise HTTPException(status_code=503, detail="Verificação de identidade indisponível.")
+        try:
+            # Cliente efêmero com chave publicável: NÃO autenticar na sessão
+            # global de service_role do backend.
+            verifier = create_client(settings.supabase_url, settings.supabase_auth_publishable_key)
+            result = verifier.auth.sign_in_with_password({
+                "email": account["email"], "password": password,
+            })
+            verified_id = getattr(getattr(result, "user", None), "id", None)
+        except Exception as exc:
+            code = getattr(exc, "status_code", getattr(exc, "status", None))
+            if str(code) in {"400", "401", "403", "422"}:
+                raise HTTPException(status_code=403, detail="Senha atual incorreta") from None
+            logger.warning("Confirmação Auth indisponível (%s)", type(exc).__name__)
+            raise HTTPException(status_code=503, detail="Verificação de identidade indisponível.") from None
+        if str(verified_id) != str(linked_id):
+            raise HTTPException(status_code=403, detail="Senha atual incorreta")
+    else:
+        try:
+            valid = pwd_context.verify(password, account.get("password") or "")
+        except (ValueError, TypeError):
+            valid = False
+        if not valid:
+            raise HTTPException(status_code=403, detail="Senha atual incorreta")
 
 
 def _collect_backup_data(user_id: str, profile_id: str | None = None) -> dict[str, Any]:
@@ -285,31 +326,21 @@ async def delete_own_account(
     _check_login_rate_limit(f"selfdelete:{user_id}")
 
     current = (
-        supabase.table("users").select("username, access, password").eq("id", user_id)
+        supabase.table("users").select("username, access, password, email, supabase_auth_user_id").eq("id", user_id)
         .single().execute()
     )
     if not current.data:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
-    if not pwd_context.verify(body.current_password, current.data.get("password", "")):
-        raise HTTPException(status_code=403, detail="Senha atual incorreta")
-
     if current.data.get("username", "").lower() == "rafastudio":
         raise HTTPException(status_code=403, detail="Esta conta não pode ser removida")
 
-    _delete_user_row(user_id)
-
-    record_audit_event(
-        entity="user",
-        entity_id=str(user_id),
-        user_id=None,  # A conta já foi removida; a FK não pode apontar para ela.
-        action="user_self_deleted",
-        # Sem username aqui: dado pessoal não precisa sobreviver ao
-        # "direito ao esquecimento" que este próprio evento representa
-        # (entity_id já carrega o id, suficiente pra rastrear a exclusão).
-        old_value={"id": str(user_id), "access": current.data.get("access")},
-        new_value=None,
-    )
+    # Checar proteção e gate antes de qualquer side effect. Em caso de Auth
+    # vinculado, a senha atual é validada no Auth, não em hash desatualizado.
+    await run_in_threadpool(_verify_self_delete_password, current.data, body.current_password)
+    if not account_erasure_enabled():
+        raise HTTPException(status_code=503, detail="Exclusão integral da conta em preparação. Nenhum dado foi removido.")
+    await run_in_threadpool(_delete_user_row, user_id)
 
     # Mesmo mecanismo do /auth/logout — sem isso a sessão continuaria
     # "válida" (JWT ainda não expirado) para uma conta que não existe mais.
@@ -492,18 +523,12 @@ async def delete_user(user_id: str, _admin_id: str = Depends(_require_admin)):
     if current.data and current.data.get("username", "").lower() == "rafastudio":
         raise HTTPException(status_code=403, detail="Esta conta não pode ser removida")
 
-    result = _delete_user_row(user_id)
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
-
-    record_audit_event(
-        entity="user",
-        entity_id=str(user_id),
-        user_id=str(_admin_id),
-        action="user_deleted",
-        # Idem autoexclusão acima: sem username, id já está em entity_id.
-        old_value={"id": str(user_id), "access": current.data.get("access")},
-        new_value=None,
-    )
+    await run_in_threadpool(_delete_user_row, user_id)
 
     return {"msg": "Usuário removido"}
+
+
+async def resume_erasure(user_id: str, _admin_id: str = Depends(_require_admin)):
+    """Retomada manual por admin; não adiciona cron e não repete publicação."""
+    await run_in_threadpool(_delete_user_row, user_id)
+    return {"msg": "Exclusão integral concluída"}
