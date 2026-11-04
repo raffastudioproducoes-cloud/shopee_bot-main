@@ -2,7 +2,8 @@
 
 - [x] Após PATCH 3.1.1, staging apresentou um incidente isolado em `GET /profiles/location-sharing` às 02:19 BRT: conexão HTTP/2 PostgREST encerrou leitura com `httpcore.ReadError: [Errno 11]`. Diagnóstico do traceback aponta SELECT direto sem retry; produção não apresentou erro de aplicação na janela revisada.
 - [x] Implementado PATCH compatível 3.1.2 para GETs de localização/consentimento, GPS, região e origem de aquisição, sempre com escopo de usuário; repetição única somente em erro de transporte e nunca em escrita. Duas falhas controladas geram 503, não 500.
-- [ ] Registrar evidências da CI, staging LIVE, main LIVE, scheduler ativo, readiness e SHAs após a promoção. Não desligar serviços; gate de postagem externa, teste final do proprietário e gateway financeiro continuam adiados.
+- [x] **Release homologado e promovido:** Staging PR #257, CI #901 SUCCESS, merge `4a4b638acbe7ca526f9e80843ced7208fa7ded64`, Render `dep-dblc4hvavr4c73cmm6d0` LIVE, scheduler iniciado, readiness 200. Promoção main PR #258, CI #903 SUCCESS, merge `70025853c2fce6ec82165649a6881a4e3ecd0c38`, Render `dep-dblc6b7b9u1s73b9uch0` LIVE, scheduler iniciado, readiness HTTP 200; Supabase `ACTIVE_HEALTHY`, ambos Render `not_suspended`, versões 3.1.2 em ambas e compare main...staging sem diferenças de arquivos. Worker antigo recebeu SIGTERM **após drain** e serviço permaneceu LIVE. Nenhum banco, post, pagamento, retry de escrita ou pausa programada.
+- [ ] Permanecem exclusivamente os três gates F4E diferidos por Rafa: teste manual final, gateway de pagamento real, comprovação em cada rede social. A infraestrutura Free não assegura 24/7 (upgrade exige aprovação).
 
 ## 04/11/2026 — Política permanente de disponibilidade + incidente de transporte /profiles
 
