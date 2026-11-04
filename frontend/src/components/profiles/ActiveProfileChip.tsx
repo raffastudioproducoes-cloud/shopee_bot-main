@@ -14,17 +14,18 @@ export function ActiveProfileChip() {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 8,
-        minHeight: 44,
-        padding: "0 12px 0 4px",
-        borderRadius: 999,
+        gap: 9,
+        minHeight: 52,
+        padding: "0 16px 0 5px",
+        borderRadius: 22,
         background: "rgba(255,255,255,.14)",
+        boxShadow: "0 9px 18px rgba(0,0,0,.24)",
         color: "var(--text-body)",
         textDecoration: "none",
         font: "var(--fw-medium) var(--fs-body)/1 var(--font-sans)",
       }}
     >
-      <Avatar name={activeProfile.nome} src={activeProfile.avatar_url} size={36} />
+      <Avatar name={activeProfile.nome} src={activeProfile.avatar_url} size={40} />
       <span className="csp-s-0072">
         {activeProfile.nome}
       </span>
