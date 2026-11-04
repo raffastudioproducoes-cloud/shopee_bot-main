@@ -66,8 +66,20 @@ BEGIN
  THEN RETURN false; END IF;
  UPDATE public.publish_jobs SET external_started_at=COALESCE(external_started_at,now())
  WHERE id=p_job AND claim_token=p_token AND preflight_claim_token=p_token
-  AND status='running'
-  AND publication_origin='campaign';
+  AND status='running' AND publication_origin='campaign'
+  AND EXISTS (
+    SELECT 1 FROM public.campaign_network_slots_f4e s
+    JOIN public.campaign_reservations_f4e r ON r.id=s.reservation_id
+    JOIN public.users u ON u.id=r.user_id
+    WHERE s.publish_job_id=p_job AND s.state='running'
+      AND s.source_environment=p_environment
+      AND r.lifecycle='active' AND r.dispatch_enabled
+      AND r.status='reserved_no_dispatch'
+      AND r.source_environment=p_environment
+      AND (u.access::text='ADMIN' OR
+        (u.plan_tier IN ('pro','plus','premium')
+         AND u.campaign_paid_through>now()))
+  );
  RETURN FOUND;
 END; $$;
 
