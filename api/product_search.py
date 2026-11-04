@@ -99,12 +99,11 @@ def expand_product_search(raw: str) -> list[str]:
 
 
 def product_search_filter(raw: str) -> str | None:
-    """Filtro OR PostgREST só em nome e categoria, sem cláusulas injetáveis."""
+    """Filtro OR PostgREST no campo name existente do schema legado."""
     terms = expand_product_search(raw)
     if not terms:
         return None
     clauses = []
     for term in terms:
         clauses.append(f"name.ilike.%{term}%")
-        clauses.append(f"category.ilike.%{term}%")
     return ",".join(clauses)
