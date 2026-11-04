@@ -15,7 +15,7 @@ import { PageSkeleton } from "../components/ui/Skeleton"
 import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
-import { SearchField } from "../components/ui/SearchField"
+import { useProductsSearchStore } from "../stores/productsSearchStore"
 import { SegmentedToggle } from "../components/ui/SegmentedToggle"
 import { ViewSwitcher, useViewMode, viewContainerStyle } from "../components/ui/ViewSwitcher"
 import { TimelineListCard } from "../components/ui/TimelineListCard"
@@ -62,7 +62,8 @@ export function ProductsPage() {
   const planQuery = usePlanUsage()
   const productsAtLimit = !planQuery.isError && resourceAtLimit(planQuery.data?.resources.products)
   const [activeTab, setActiveTab] = useState<ProductsTab>("mine")
-  const [search, setSearch] = useState("")
+  const search = useProductsSearchStore((state) => state.query)
+  const setSearch = useProductsSearchStore((state) => state.setQuery)
   const [debouncedSearch, setDebouncedSearch] = useState("")
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 280)
@@ -292,16 +293,6 @@ export function ProductsPage() {
             ) : null}
           </div>
         </div>
-        {activeTab === "mine" ? (
-          <div className="csp-s-0356">
-            <SearchField
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por produto, sinônimo ou ambiente..."
-              width={240}
-            />
-          </div>
-        ) : null}
       </header>
 
       <ProductQuotaBar
