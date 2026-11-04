@@ -156,6 +156,7 @@ export function PanelPage() {
 
       <div className="app-col">
         <TopBar
+          showSearch={location.pathname !== '/app'}
           query={location.pathname === "/posts" ? postsSearch : ""}
           onQuery={location.pathname === "/posts" ? (event) => setPostsSearch(event.target.value) : undefined}
           leading={
@@ -186,8 +187,8 @@ export function PanelPage() {
           trailing={
             <>
               <div className="plan-topbar-account">
-                <PlanBadge />
                 <ActiveProfileChip />
+                <span className="plan-topbar-tag"><PlanBadge /></span>
               </div>
               <IconButton icon="log-out" label="Sair" tone="glass" onClick={handleLogout} />
             </>

@@ -11,6 +11,8 @@ export interface TopBarProps {
   /** Avatar image path. */
   avatarSrc?: string
   searchWidth?: number
+  /** Permite ocultar a busca em páginas que não possuem pesquisa própria. */
+  showSearch?: boolean
   onBell?: () => void
   /** Red dot on the bell. Ignored when `bell` overrides the default button. */
   unread?: boolean
@@ -31,6 +33,7 @@ export function TopBar({
   onQuery,
   avatarSrc,
   searchWidth = 220,
+  showSearch = true,
   onBell,
   unread = true,
   leading,
@@ -51,7 +54,7 @@ export function TopBar({
       }}
     >
       {leading}
-      <SearchField value={query} onChange={onQuery} width={searchWidth} className="app-topbar-search" />
+      {showSearch && <SearchField value={query} onChange={onQuery} width={searchWidth} className="app-topbar-search" />}
       <span className="csp-s-0161" />
       {trailing}
       {bell ?? <IconButton icon="bell" label="Notificações" tone="glass" badge={unread} onClick={onBell} />}
