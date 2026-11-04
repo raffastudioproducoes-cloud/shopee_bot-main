@@ -4,6 +4,8 @@ O dashboard agrega todos os perfis da conta, inclusive histórico com
 profile_id NULL. Os endpoints operacionais continuam isolados por perfil.
 """
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from starlette.concurrency import run_in_threadpool
 
@@ -58,6 +60,14 @@ def _recent_rows(table: str, fields: str, user_id: str, *, roots: bool = False) 
     return result.data
 
 
+def _created_at_utc(value: str | None) -> str | None:
+    """Postgres grava UTC sem offset nestas colunas; não usar fuso do browser."""
+    if value is None:
+        return None
+    parsed = datetime.fromisoformat(value)
+    return parsed.isoformat() + "Z" if parsed.tzinfo is None else value
+
+
 def _load_stats(user_id: str) -> dict:
     counts = {
         "products_count": _count("products", user_id),
@@ -65,21 +75,31 @@ def _load_stats(user_id: str) -> dict:
         "lists_count": _count("product_lists", user_id),
         "scheduled_posts": _count("schedulers", user_id),
     }
-    posts = _recent_rows("posts", "id,text,network,created_at", user_id, roots=True)
-    activities = _recent_rows("activities", "id,activity_id,created_at", user_id)
-    return {
-        **counts,
-        "recent_posts": [{
+    # Cada painel recente pode ficar indisponível sem esconder os contadores
+    # confirmados ou o outro painel. None nunca significa histórico vazio.
+    try:
+        posts = _recent_rows("posts", "id,text,network,created_at", user_id, roots=True)
+        recent_posts = [{
             "id": row["id"],
             "text_preview": " ".join((row.get("text") or "").split())[:TEXT_PREVIEW_LIMIT],
             "network": row.get("network") or "",
-            "created_at": row.get("created_at"),
-        } for row in posts],
-        "recent_activities": [{
+            "created_at": _created_at_utc(row.get("created_at")),
+        } for row in posts]
+    except Exception:
+        recent_posts = None
+    try:
+        activities = _recent_rows("activities", "id,activity_id,created_at", user_id)
+        recent_activities = [{
             "id": row["id"],
             "label": ACTIVITY_LABELS.get(row.get("activity_id"), "Atividade registrada"),
-            "created_at": row.get("created_at"),
-        } for row in activities],
+            "created_at": _created_at_utc(row.get("created_at")),
+        } for row in activities]
+    except Exception:
+        recent_activities = None
+    return {
+        **counts,
+        "recent_posts": recent_posts,
+        "recent_activities": recent_activities,
     }
 
 
@@ -88,7 +108,7 @@ async def get_stats(user_id: str = Depends(get_current_user_id)):
     """Resumo autenticado por user_id, sem depender do perfil ativo.
 
     Não carrega metadata de atividades, mídia, credenciais ou dados de perfil.
-    Falha de uma fonte invalida o resumo: nunca apresentar vazio/zero fictício.
+    Falha de contagem retorna 503; falha recente retorna null só naquele painel.
     Não altera posts, agendas, jobs ou o banco compartilhado.
     """
     try:
