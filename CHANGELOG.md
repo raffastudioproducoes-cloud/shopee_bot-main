@@ -6,7 +6,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 ## [Não lançado]
 
 ### Changed
-- **Dashboard e identificação no topo (staging):** busca do cabeçalho oculta apenas em `/app`, preservando a busca das demais páginas; cartão de avatar/nome com cantos arredondados em primeiro plano e etiqueta dinâmica de plano encaixada por trás à direita, com ajuste responsivo para celular. Mudança visual compatível, classificada como PATCH (próxima versão 3.2.1 somente após homologação e aprovação da promoção).
+- **Dashboard e identificação no topo (staging):** busca do cabeçalho oculta apenas em `/app`, preservando a busca das demais páginas; cartão de avatar/nome opaco e arredondado em primeiro plano, com etiqueta dinâmica do plano atrás, mais baixa, compartilhando a mesma base e sem sobreposição de texto, com ajuste responsivo para celular. Mudança visual compatível, classificada como PATCH (próxima versão 3.2.1 somente após homologação e aprovação da promoção).
 
 ## [3.2.0] - 2026-11-04
 

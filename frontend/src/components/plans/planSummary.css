@@ -13,18 +13,18 @@
 .plan-campaign-lock { margin-block: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--border-card); border-radius: var(--r-md); }
 .plan-campaign-editor { border: 0; padding: 0; margin: 0; min-width: 0; }
 
-/* Perfil em primeiro plano; plano como aba elevada, encaixada por trás à direita.
-   A etiqueta continua dinâmica (Free/Pro/Premium/Administrador) e o avatar é real. */
+/* Referência: aba escura em primeiro plano, mais alta; etiqueta colorida
+   encaixada POR TRÁS e na mesma linha de base, sem invadir foto ou nome. */
 .app-topbar .plan-topbar-account {
   display: inline-flex;
   position: relative;
   isolation: isolate;
-  align-items: center;
+  align-items: flex-end;
   flex-direction: row;
   gap: 0;
   min-width: 0;
   flex-shrink: 0;
-  padding-top: 10px;
+  padding-top: 0;
   white-space: nowrap;
 }
 .plan-topbar-account .active-profile-chip {
@@ -41,57 +41,64 @@
 .plan-topbar-account .plan-topbar-tag {
   position: relative;
   z-index: 1;
-  align-self: flex-start;
+  align-self: flex-end;
   flex-shrink: 0;
-  margin: -8px 0 0 -21px;
+  margin: 0 0 0 -19px;
   pointer-events: none;
 }
 .plan-topbar-account .plan-topbar-tag > span {
-  min-height: 40px;
-  padding: 7px 17px 7px 33px !important;
-  border-radius: 18px 20px 18px 18px !important;
+  min-height: 35px;
+  padding: 6px 17px 6px 31px !important;
+  border-radius: 17px 21px 17px 10px !important;
   align-items: center;
   box-shadow: 0 4px 13px rgba(0,0,0,.23);
 }
 
 @media (max-width: 767px) {
-  /* No telefone a aba fica acima e à direita, ainda atrás do cartão cinza.
-     Os controles laterais mantêm espaço e o nome pode usar reticências. */
+  /* Mesma silhueta, em dimensões compactas. O texto do perfil tem
+     prioridade sobre o encaixe; caso falte espaço, trunca sem sobrepor. */
   .app-topbar .plan-topbar-account {
-    display: block;
+    display: inline-flex;
     position: relative;
+    align-items: flex-end;
     flex: 0 1 auto;
-    width: min(43vw, 164px);
-    height: 72px;
+    width: min(56vw, 216px);
+    min-width: 0;
+    height: 49px;
     padding-top: 0;
   }
   .app-topbar .plan-topbar-account .active-profile-chip {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    max-width: 100% !important;
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 140px !important;
     min-height: 47px !important;
     gap: 6px !important;
     padding: 0 9px 0 4px !important;
-    border-radius: 19px !important;
+    border-radius: 18px !important;
     font-size: 12px !important;
     overflow: hidden;
+  }
+  .app-topbar .plan-topbar-account .active-profile-chip .csp-s-0072 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .app-topbar .plan-topbar-account .active-profile-chip :is(img, [role="img"]) {
     width: 34px !important;
     height: 34px !important;
   }
   .app-topbar .plan-topbar-account .plan-topbar-tag {
-    position: absolute;
-    top: 0;
-    right: 0;
-    margin: 0;
+    position: relative;
+    z-index: 1;
+    align-self: flex-end;
+    flex: 0 0 auto;
+    margin: 0 0 0 -17px;
   }
   .app-topbar .plan-topbar-account .plan-topbar-tag > span {
-    min-height: 34px;
-    padding: 6px 11px !important;
-    border-radius: 17px 18px 17px 17px !important;
-    font-size: 12px !important;
+    min-height: 31px;
+    padding: 5px 10px 5px 23px !important;
+    border-radius: 14px 18px 14px 8px !important;
+    font-size: 11px !important;
   }
 }
