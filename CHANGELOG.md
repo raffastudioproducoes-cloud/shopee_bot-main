@@ -5,6 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — dashboard da conta (staging PR #265, pendente de homologação)
+- Dashboard passa a agregar produtos, posts-raiz, listas e agendamentos por `user_id` autenticado, abrangendo todos os perfis da conta e registros históricos com `profile_id NULL`, sem alterar as telas operacionais isoladas por perfil. Painéis de postagens/atividades recentes leem até cinco registros reais e distinguem ausência de dados de falha parcial.
+- Ações rápidas direcionam à criação de produto, post e lista sem contornar autorização/limites do plano; cache da visão geral segregado por conta, com revalidação.
+- **Limite conhecido:** exclusão física de perfil ainda provoca CASCADE em dados F4E de campanhas; retenção integral após exclusão demanda projeto de arquivamento/soft delete compatível com o Supabase compartilhado. Nenhuma exclusão, DDL, migration, cron, scheduler ou produção nesta correção. `VERSION=3.1.2` mantida até eventual release autorizada.
+
 ### Operations / Documentation
 - Ajuste explícito de Rafa no Supabase `pg_cron`: `auto-orbital-uptime-sample-v1` de 5 para **12 minutos** (`*/12 * * * *`), `auto-orbital-wake-v1` de publicações mantido intacto em **2 minutos**, `auto-orbital-admin-capacity-v1` desagendado/excluído do registro cron. Verificação confirmou exatamente dois jobs ativos e comandos originais idênticos; nenhuma função/tabela/serviço/campanha modificada. Configuração operacional + documentação; `VERSION=3.1.2` sem bump.
 
