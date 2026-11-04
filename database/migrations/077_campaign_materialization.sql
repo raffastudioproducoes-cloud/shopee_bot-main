@@ -79,7 +79,7 @@ CREATE TABLE public.campaign_oauth_checks_f4e (
 );
 ALTER TABLE public.campaign_oauth_checks_f4e ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.campaign_oauth_checks_f4e FROM PUBLIC,anon,authenticated,service_role;
-GRANT SELECT,INSERT ON public.campaign_oauth_checks_f4e TO service_role;
+GRANT SELECT,INSERT,UPDATE ON public.campaign_oauth_checks_f4e TO service_role;
 
 -- Backend can only attest media already copied into an owner-specific prefix.
 CREATE FUNCTION public.record_campaign_asset_f4e(
