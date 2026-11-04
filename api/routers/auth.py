@@ -266,7 +266,12 @@ def _get_user_from_supabase(username: str):
     response = _retry_readonly_auth_query(
         lambda: supabase.table("users").select("*").eq("username", username).execute()
     )
-    return response.data[0] if response.data else None
+    user = response.data[0] if response.data else None
+    # A exclusão integral pode atravessar Storage/Auth/DB; bloquear sessões e
+    # novos pedidos durante esse intervalo. O backend admin ainda pode retomar.
+    if user and user.get("account_deletion_started_at"):
+        return None
+    return user
 
 
 def _check_login_rate_limit(
