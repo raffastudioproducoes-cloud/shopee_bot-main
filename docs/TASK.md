@@ -1,3 +1,9 @@
+## 04/11/2026 — PATCH 3.1.2: continuidade dos GETs de preferências
+
+- [x] Após PATCH 3.1.1, staging apresentou um incidente isolado em `GET /profiles/location-sharing` às 02:19 BRT: conexão HTTP/2 PostgREST encerrou leitura com `httpcore.ReadError: [Errno 11]`. Diagnóstico do traceback aponta SELECT direto sem retry; produção não apresentou erro de aplicação na janela revisada.
+- [x] Implementado PATCH compatível 3.1.2 para GETs de localização/consentimento, GPS, região e origem de aquisição, sempre com escopo de usuário; repetição única somente em erro de transporte e nunca em escrita. Duas falhas controladas geram 503, não 500.
+- [ ] Registrar evidências da CI, staging LIVE, main LIVE, scheduler ativo, readiness e SHAs após a promoção. Não desligar serviços; gate de postagem externa, teste final do proprietário e gateway financeiro continuam adiados.
+
 ## 04/11/2026 — Política permanente de disponibilidade + incidente de transporte /profiles
 
 - [x] Rafa estabeleceu: um só Supabase para ambos ambientes por prazo indeterminado; `staging` desenvolve/testa e `main` atende clientes. Nunca pausar intencionalmente banco, APIs, backend, cron, scheduler, filas nem serviços em produção. Schema aditivo/backward-compatible; release por PR staging→main e saúde validada sem interrupção. Manutenção com parada só após decisão, comunicação aos usuários pelo menos 24h antes e aviso de retorno.
