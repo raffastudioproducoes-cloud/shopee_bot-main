@@ -14,7 +14,6 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
 from .auth import get_current_user_id
-from .products import _get
 from ..database import supabase
 from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload
 from ..profiles import scope_account
@@ -29,8 +28,16 @@ MAX_UPLOAD = 50 * 1024 * 1024
 LIMITS = {"IMAGE": 5, "VIDEO": 2}
 
 
+def _require_owned_product(user_id: str, product_id: int) -> None:
+    product = scope_account(
+        supabase.table("products").select("id").eq("id", product_id), user_id,
+    ).maybe_single().execute()
+    if not product or not product.data:
+        raise HTTPException(status_code=404, detail="Produto não encontrado nesta conta.")
+
+
 def _owned_asset(user_id: str, product_id: int, asset_id: str) -> dict[str, Any]:
-    _get(user_id, product_id)
+    _require_owned_product(user_id, product_id)
     result = scope_account(
         supabase.table("product_media").select("*").eq("id", asset_id).eq("product_id", product_id),
         user_id,
@@ -62,7 +69,7 @@ def _signed_asset(row: dict[str, Any]) -> dict[str, Any]:
 
 @router.get("/{product_id}/media")
 async def list_product_media(product_id: int, user_id: str = Depends(get_current_user_id)):
-    _get(user_id, product_id)
+    _require_owned_product(user_id, product_id)
     result = scope_account(
         supabase.table("product_media").select("*").eq("product_id", product_id).eq("status", "ready"),
         user_id,
@@ -77,7 +84,7 @@ async def upload_product_media(
     user_id: str = Depends(get_current_user_id),
 ):
     """Até cinco imagens e dois vídeos por produto; valida magia e reprocessa mídia."""
-    _get(user_id, product_id)
+    _require_owned_product(user_id, product_id)
     content = bytearray()
     while chunk := await file.read(1024 * 1024):
         content.extend(chunk)
