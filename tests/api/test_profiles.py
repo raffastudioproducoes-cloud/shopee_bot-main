@@ -481,3 +481,73 @@ def test_get_profile_quota_fails_closed_without_policy(auth_client, monkeypatch)
         MagicMock(data=None),
     ]
     assert auth_client.get("/profiles/quota").status_code == 503
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "row", "expected"),
+    [
+        (
+            "/profiles/location-sharing",
+            {"choice": "declined", "latitude": None, "longitude": None, "collected_at": None},
+            {"choice": "declined", "latitude": None, "longitude": None, "collected_at": None},
+        ),
+        ("/profiles/gps-preference", {"gps_consented_at": "2026-11-03T00:00:00Z"}, {"enabled": True}),
+        ("/profiles/region-preference", {"region": "BR-RJ"}, {"region": "BR-RJ", "consented": True}),
+        (
+            "/profiles/acquisition-source",
+            {"source": "direct"},
+            {"source": "direct", "declared": True},
+        ),
+    ],
+)
+def test_profile_preference_get_recovers_http2_transport_error(
+    auth_client, monkeypatch, endpoint, row, expected
+):
+    """Somente SELECTs são repetidos uma vez, preservando a identidade da conta."""
+    import httpx
+
+    query = _mock_supabase(monkeypatch, [])
+    query.limit.return_value = query
+    query.execute.side_effect = [
+        httpx.ReadError("transient HTTP/2 reset"),
+        MagicMock(data=[row]),
+    ]
+
+    response = auth_client.get(endpoint)
+
+    assert response.status_code == 200
+    assert response.json() == expected
+    assert query.execute.call_count == 2
+    if endpoint.endswith("gps-preference"):
+        query.eq.assert_called_with("id", USER_ID)
+    else:
+        query.eq.assert_called_with("user_id", USER_ID)
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/profiles/location-sharing",
+        "/profiles/gps-preference",
+        "/profiles/region-preference",
+        "/profiles/acquisition-source",
+    ],
+)
+def test_profile_preference_get_transport_failure_is_controlled_503(
+    auth_client, monkeypatch, endpoint
+):
+    """Dois erros no transporte retornam 503 sem vazamento nem falsear consentimento."""
+    import httpx
+
+    query = _mock_supabase(monkeypatch, [])
+    query.limit.return_value = query
+    query.execute.side_effect = [
+        httpx.ReadError("private endpoint unavailable"),
+        httpx.RemoteProtocolError("HTTP/2 GOAWAY"),
+    ]
+
+    response = auth_client.get(endpoint)
+
+    assert response.status_code == 503
+    assert "private endpoint unavailable" not in response.text
+    assert query.execute.call_count == 2
