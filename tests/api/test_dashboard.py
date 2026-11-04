@@ -27,9 +27,10 @@ def auth_client(client):
 class ReadOnlyDB:
     """Aplica filtros, projeção, ordem e limite; não oferece escrita."""
 
-    def __init__(self, tables=None, failure=None, missing_count=False, missing_data=False):
+    def __init__(self, tables=None, failure=None, missing_count=False, missing_data=False, recent_failure=None):
         self.tables = tables or {}
         self.failure = failure
+        self.recent_failure = recent_failure
         self.missing_count = missing_count
         self.missing_data = missing_data
         self.queries = []
@@ -68,7 +69,7 @@ class ReadOnlyQuery:
         return self
 
     def execute(self):
-        if self.db.failure == self.name:
+        if self.db.failure == self.name or (self.count is None and self.db.recent_failure == self.name):
             raise RuntimeError("diagnóstico privado não deve chegar ao cliente")
         rows = [
             row for row in self.db.tables.get(self.name, [])
@@ -176,7 +177,7 @@ def test_empty_account_is_confirmed_empty(auth_client, monkeypatch):
     }
 
 
-@pytest.mark.parametrize("table", ["products", "posts", "product_lists", "schedulers", "activities"])
+@pytest.mark.parametrize("table", ["products", "posts", "product_lists", "schedulers"])
 def test_query_failure_is_explicit_and_sanitized(auth_client, monkeypatch, table):
     _install(monkeypatch, failure=table)
     response = auth_client.get("/dashboard/stats")
@@ -184,7 +185,55 @@ def test_query_failure_is_explicit_and_sanitized(auth_client, monkeypatch, table
     assert response.json() == {"detail": "Não foi possível carregar a visão geral da conta."}
 
 
-@pytest.mark.parametrize("missing", ["missing_count", "missing_data"])
-def test_missing_result_is_not_presented_as_empty(auth_client, monkeypatch, missing):
-    _install(monkeypatch, **{missing: True})
+def test_missing_count_is_not_presented_as_zero(auth_client, monkeypatch):
+    _install(monkeypatch, missing_count=True)
     assert auth_client.get("/dashboard/stats").status_code == 503
+
+
+def test_missing_recent_data_is_explicitly_unavailable(auth_client, monkeypatch):
+    _install(monkeypatch, missing_data=True)
+    response = auth_client.get("/dashboard/stats")
+    assert response.status_code == 200
+    assert response.json()["products_count"] == 0
+    assert response.json()["recent_posts"] is None
+    assert response.json()["recent_activities"] is None
+
+
+@pytest.mark.parametrize("table,panel,other", [
+    ("posts", "recent_posts", "recent_activities"),
+    ("activities", "recent_activities", "recent_posts"),
+])
+def test_recent_failure_preserves_cards_and_other_panel(auth_client, monkeypatch, table, panel, other):
+    _install(monkeypatch, recent_failure=table)
+    response = auth_client.get("/dashboard/stats")
+    assert response.status_code == 200
+    result = response.json()
+    assert all(result[key] == 0 for key in (
+        "products_count", "posts_count", "lists_count", "scheduled_posts",
+    ))
+    assert result[panel] is None
+    assert result[other] == []
+    assert "diagnóstico" not in response.text
+
+
+@pytest.mark.parametrize("stored,expected", [
+    ("2026-11-04T12:30:00", "2026-11-04T12:30:00Z"),
+    ("2026-11-04T12:30:00.123456", "2026-11-04T12:30:00.123456Z"),
+    ("2026-11-04 12:30:00", "2026-11-04T12:30:00Z"),
+    ("2026-11-04T12:30:00Z", "2026-11-04T12:30:00Z"),
+    ("2026-11-04T12:30:00+00:00", "2026-11-04T12:30:00+00:00"),
+    ("2026-11-04T09:30:00-03:00", "2026-11-04T09:30:00-03:00"),
+    (None, None),
+])
+def test_recent_timestamps_have_explicit_utc_without_rewriting_offsets(
+    auth_client, monkeypatch, stored, expected,
+):
+    row = {
+        "id": 1, "user_id": "account-a", "post_id": None, "activity_id": 1,
+        "text": "Oferta", "network": "threads", "created_at": stored,
+    }
+    _install(monkeypatch, tables={"posts": [row], "activities": [row]})
+    response = auth_client.get("/dashboard/stats")
+    assert response.status_code == 200
+    assert response.json()["recent_posts"][0]["created_at"] == expected
+    assert response.json()["recent_activities"][0]["created_at"] == expected
