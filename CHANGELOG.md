@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Recuperação do scheduler de homologação e correção de perfil HTTP/2 (04/11/2026)
+
+- Reativação autorizada por Rafa: `SCHEDULER_ENABLED=true` apenas no Render `shopee-bot-staging`, deploy `dep-dblakvjm8hqs738nl8h0` LIVE no SHA `e09c9aa`. Logs confirmaram `Scheduler started`; job `publish_queue_recovery` voltou a avançar. `main`/produção permaneceram inalterados.
+- As cinco recorrências legadas do staging podem realizar envios reais em seus horários; nenhum `unknown` é reenviado automaticamente. Snapshot após reativação: 12 jobs legados `unknown`, zero campanhas ativas e zero jobs de campanha pendentes/em execução.
+- Correção adicional em homologação: resolução de `profile_id` passa a repetir **uma vez** apenas SELECTs com falha `httpx.TransportError`, reaproveitando o helper da autenticação; persistindo a falha, devolve 503 sem perder isolamento ou converter a falha em logout/401. Regressões para token do titular, fallback principal e dois erros consecutivos.
+- A implementação F4E do PR #243 e o reparo de sessão do PR #244 estão no staging; o teste de envio de campanha à rede e a promoção controlada para `main` permanecem pendentes. Não confundir deploy LIVE com postagem externa confirmada. `VERSION=3.0.0` até release aprovada.
+
+
 ### Homologação integrada F4E em staging — sessão resiliente (04/11/2026)
 
 - Homologada no navegador com conta ADMIN autenticada a criação de rascunho, ativação controlada, reserva de 1 slot por rede/dia, retenção de 1 mídia, atestado OAuth, materialização de 1 post/job com origem `campaign`, pausa e retomada; evidência na reserva `7805b3a1-a4a5-4d2f-8a82-8fce3389728d` de origem `staging`. Sem postagem externa de teste.

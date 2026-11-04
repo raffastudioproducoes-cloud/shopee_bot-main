@@ -21,6 +21,7 @@ from .auth import (
     _get_user_from_supabase,
     _password_version,
     _revoke_session,
+    _retry_readonly_auth_query,
     get_current_user_id,
 )
 
@@ -53,23 +54,27 @@ def _resolve_profile_id(profile_id: str | None, user_id: str) -> str | None:
     """Confirma que o perfil do token pertence ao usuário (perfil excluído
     ou de outra conta não vale). Se não pertencer, cai no perfil principal
     do usuário; sem principal, None (sem filtro por perfil)."""
-    owned = profile_id and (
-        supabase.table("profiles")
-        .select("id")
-        .eq("id", profile_id)
-        .eq("user_id", user_id)
-        .maybe_single()
-        .execute()
+    owned = profile_id and _retry_readonly_auth_query(
+        lambda: (
+            supabase.table("profiles")
+            .select("id")
+            .eq("id", profile_id)
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
     )
     if owned and owned.data:
         return profile_id
-    principal = (
-        supabase.table("profiles")
-        .select("id")
-        .eq("user_id", user_id)
-        .eq("kind", "principal")
-        .maybe_single()
-        .execute()
+    principal = _retry_readonly_auth_query(
+        lambda: (
+            supabase.table("profiles")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("kind", "principal")
+            .maybe_single()
+            .execute()
+        )
     )
     return principal.data["id"] if principal and principal.data else None
 

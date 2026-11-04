@@ -1,3 +1,14 @@
+## 04/11/2026 — F4E integrada, scheduler reativado e homologação final
+
+- [x] F4E integrada no staging pelo [PR #243](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/243), SHA `f66eb9c`: cotas transacionais por rede/dia, retenção de mídia em Storage privado, OAuth, materialização atômica de posts/agenda/fila por origem, executor separado, pausa/retomada/cancelamento/histórico, interface PT-BR e direitos até o fim do período pago. Migrations 075–079 aplicadas e registradas no Supabase compartilhado.
+- [x] Correção de sessões HTTP/2 e interface do PR #244, SHA `e09c9aa`, implantada no staging.
+- [x] Rafa autorizou expressamente reativar o agendador de homologação inclusive com possíveis postagens reais. `SCHEDULER_ENABLED=true` aplicado ao Render staging; deploy `dep-dblakvjm8hqs738nl8h0` LIVE, log `Scheduler started`, cron de recuperação avançando de minuto em minuto. Produção `main` manteve seu scheduler ativo e não recebeu configuração nova.
+- [x] Snapshot SQL read-only após reativação: 5 agendas legacy no staging, 12 ocorrências legacy `unknown` preservadas sem repetição, zero campanhas ativas e zero jobs campaign pendentes/em execução. A reserva de teste homologada no PR #244 está cancelada/liberada; nenhum reenvio automático.
+- [ ] **Correção complementar em PR desta rodada:** resolver desconexões HTTP/2 transitórias de SELECT do perfil ativo com retry único e fail-closed 503; validar CI, staging LIVE e smoke autenticado antes de marcar concluído.
+- [ ] **E2E de campanha:** confirmar em destino real autorizado uma entrega agendada (ou falha externa com diagnóstico de etapa), mídia e resultado por rede, sem promover `unknown` a sucesso nem gerar reenvio automático; registrar execução, horário, rede e ID externo apenas quando confirmado.
+- [ ] **Produção:** revisão integral `staging → main`, CI, compatibilidade do scheduler de origem, release SemVer aprovada, deploy e smoke. Checkout/cobrança/entitlement pago real seguem etapa separada; não presumir período pago de cliente.
+- [x] Gatilho SMTP rechecado: não há evidência verificável de domínio próprio registrado e configurado; manter padrão restrito, sem contratação ou alteração.
+
 ## 03/11/2026 — F4E origem positiva e bloqueio persistente (execução)
 
 - [x] Preparada migration 075: origem de publicação imutável em agenda/job, padrão legado positivo, igualdade pai-filho no banco e veto a qualquer claim/início de envio de campanha. Fluxos legacy de scheduler, central e fila passam a filtrar origem de forma explícita.
