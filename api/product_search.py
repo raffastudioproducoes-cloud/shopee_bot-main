@@ -89,7 +89,7 @@ def expand_product_search(raw: str) -> list[str]:
     seen = set()
     for term in (original, *(term for group in groups for term in group)):
         safe_term = _safe_text(term)
-        normalized = _fold(safe_term)
+        normalized = safe_term.casefold()
         if safe_term and normalized not in seen:
             seen.add(normalized)
             out.append(safe_term)
