@@ -1,3 +1,12 @@
+## 04/11/2026 — RETIFICAÇÃO PRIORITÁRIA: Supabase Cron já sustenta o despertar de publicações
+
+- [x] **Auditoria read-only do Supabase compartilhado:** extensão `pg_cron` v1.6.4 e `pg_net` v0.20.4 presentes; três crons ativos: `auto-orbital-wake-v1` a cada 2min (720/720 `succeeded`/24h), `auto-orbital-uptime-sample-v1` a cada 5min (288/288) e `auto-orbital-admin-capacity-v1` diário (1/1). Snapshot de 04/11/2026, não promessa futura.
+- [x] Confirmado `app_internal.wake_dispatch_if_needed()`: consulta `apscheduler_jobs`/`schedulers` e `publish_jobs`; apenas com trabalho próximo/pendente chama `net.http_post` usando URL e segredo guardados no Supabase Vault para acordar o backend Render. Nenhum job, segredo, banco, serviço ou fila foi modificado.
+- [x] **Decisão de Rafa:** não haverá migração de infraestrutura por essa razão. Corrigida recomendação anterior de upgrade always-on para postagem; a hibernação genérica do Render **não invalida** o wake on-demand via Supabase. Atualizar AGENTS, RULES, ARCHITECTURE, Guia e Vault; consultar dados e logs atuais *antes* de qualquer hipótese/recomendação futura.
+- [x] `cron.job_run_details.succeeded` prova apenas SQL, não resposta HTTP, confirmação do APScheduler, status dos `publish_jobs` nem ID externo da rede. A comprovação E2E de postagens continua uma das três pendências autorizadas da campanha, ao lado do teste manual final e gateway de pagamento.
+- [x] **SemVer antes da edição:** `VERSION=3.1.2`; correção exclusiva de documentação e governança, **sem bump**, sem mudança de configuração/cron, sem deploy de código.
+- [ ] Nenhum upgrade/migração/contratação está autorizado ou planejado. Não tratar isto como nova tarefa técnica pendente.
+
 ## 04/11/2026 — PATCH 3.1.2: continuidade dos GETs de preferências
 
 - [x] Após PATCH 3.1.1, staging apresentou um incidente isolado em `GET /profiles/location-sharing` às 02:19 BRT: conexão HTTP/2 PostgREST encerrou leitura com `httpcore.ReadError: [Errno 11]`. Diagnóstico do traceback aponta SELECT direto sem retry; produção não apresentou erro de aplicação na janela revisada.
