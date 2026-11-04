@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Primeira campanha F4E externa ativada, aguardando envio (04/11/2026)
+
+- Após autorização explícita e confirmação específica de Rafa, campanha ADMIN `Homologação de publicação real — 04/11/2026` ativada em **staging** com um produto Air Fryer, uma rede Threads, 1 vaga/ocorrência em 04/11/2026 às 01:45 BRT. O backend exigiu corretamente antecedência mínima de 30 minutos e a janela foi ajustada.
+- Reserva `6dfbab2d-cc9f-42fb-9dec-840067017573`: `lifecycle=active`, `dispatch_enabled=true`, `media_verified=true`, `oauth_verified=true`, um asset privado, uma verificação OAuth, um slot; `posts`, `schedulers` e `publish_jobs` materializados com origem positiva `campaign` e agendamento idêntico. Job `pending`, progresso 1 planejado / 0 enviados às 01:10 BRT.
+- Agendada checagem automática para 01:55 BRT. Não marcar como entrega externa comprovada antes de ID/resultado remoto e conferência no histórico; `main`/produção ainda não recebeu F4E.
+
 ### Homologação pós-CI — PR #245 LIVE e próxima entrega real (04/11/2026)
 
 - [PR #245](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/245) integrado em staging no commit `4a4e0ab` após CI #877 SUCCESS (API Python, frontend e PostgreSQL descartável). Deploy `dep-dblaq067bikc73affoh0` LIVE; logs `Scheduler started` e `Resumed scheduler job processing`, endpoint `/api/health/ready` retornou `status=ok`, sessão ADMIN e UI de posts/campanhas carregaram.
