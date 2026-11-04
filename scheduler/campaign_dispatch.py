@@ -10,7 +10,7 @@ from shopee_bot.database import query_db
 from shopee_bot.database.scheduler_environment import current_environment
 from shopee_bot.scheduler.publication_result import PublicationResult, unknown, failed
 from shopee_bot.clogging import logger
-from shopee_bot.utils.log_sanitizer import sanitize_log_data
+from api.utils.log_sanitizer import sanitize_log_data
 
 _campaign_attempt = ContextVar("campaign_attempt", default=None)
 
