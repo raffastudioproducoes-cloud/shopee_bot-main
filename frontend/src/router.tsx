@@ -23,6 +23,7 @@ import { PageSkeleton, type PageSkeletonVariant } from "./components/ui/Skeleton
 import { OrbitalLoader } from "./components/ui/OrbitalLoader"
 import { AdminLayout } from "./pages/AdminLayout"
 import { isAdminVisitingSite } from "./lib/adminSiteFlag"
+import { creationSearch } from "./lib/creationIntent"
 
 const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"))
 const UsersPage = lazy(() => import("./pages/UsersPage"))
@@ -167,12 +168,14 @@ const dashboardRoute = createRoute({
 const productsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/products",
+  validateSearch: creationSearch,
   component: ProductsPage,
 })
 
 const listsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/lists",
+  validateSearch: creationSearch,
   component: ListasPage,
 })
 
@@ -289,3 +292,4 @@ declare module "@tanstack/react-router" {
     router: typeof router
   }
 }
+
