@@ -50,7 +50,7 @@ export default function DashboardPage() {
         <StatCard name="Produtos Cadastrados" icon="briefcase" price={count(stats.products_count)} showSparkline={false} />
         <StatCard name="Postagens Criadas" icon="file-text" price={count(stats.posts_count)} showSparkline={false} />
         <StatCard name="Listas de Produtos" icon="sliders-horizontal" price={count(stats.lists_count)} showSparkline={false} />
-        <StatCard name="Agendados" icon="circle-dot" price={count(stats.scheduled_posts)} showSparkline={false} />
+        <StatCard name="Agendamentos" icon="circle-dot" price={count(stats.scheduled_posts)} showSparkline={false} />
       </div>
 
       <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>
