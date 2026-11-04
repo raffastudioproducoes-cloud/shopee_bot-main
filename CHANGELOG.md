@@ -5,6 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.1.2] - 2026-11-04
+
+### Fixed
+- Robustez das consultas GET somente-leitura de consentimento/localização, GPS, preferência regional e origem de aquisição em `/profiles/*`: reconexão/transporte HTTP/2 do Supabase/PostgREST recebe uma única nova tentativa via helper já utilizado em autenticação, fora do event loop; falha persistente devolve HTTP 503 genérico em vez de erro 500. O incidente observado em staging foi `GET /profiles/location-sharing` às 02:19 BRT. Sem retry de PUT/DELETE, sem mutação de banco e sem alterar dados de consentimento. Oito testes de regressão cobrem recuperação e falha segura.
+
 ## [3.1.1] - 2026-11-04
 
 ### Fixed
