@@ -5,6 +5,7 @@ CRUD de perfis (multi-profile) e troca de perfil ativo (`/profiles/{id}/activate
 """
 
 import logging
+import os
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel
@@ -36,6 +37,16 @@ AVATAR_BUCKET = "avatars"
 MAX_AVATAR_BYTES = 5 * 1024 * 1024  # 5MB, avatar não precisa do teto de 50MB de posts.py
 
 
+def _archive_enabled() -> bool:
+    """Nunca efetuar DELETE físico se a migração/rollout ainda não foi ativada."""
+    return os.getenv("PROFILE_ARCHIVAL_ENABLED", "false").lower() == "true"
+
+
+def _active_profile_query(query):
+    # Somente após o rollout aditivo; antigas versões não conhecem archived_at.
+    return query.is_("archived_at", "null") if _archive_enabled() else query
+
+
 class ProfileCreate(BaseModel):
     nome: str
     email: str
@@ -55,26 +66,22 @@ def _resolve_profile_id(profile_id: str | None, user_id: str) -> str | None:
     ou de outra conta não vale). Se não pertencer, cai no perfil principal
     do usuário; sem principal, None (sem filtro por perfil)."""
     owned = profile_id and _retry_readonly_auth_query(
-        lambda: (
+        lambda: _active_profile_query(
             supabase.table("profiles")
             .select("id")
             .eq("id", profile_id)
             .eq("user_id", user_id)
-            .maybe_single()
-            .execute()
-        )
+        ).maybe_single().execute()
     )
     if owned and owned.data:
         return profile_id
     principal = _retry_readonly_auth_query(
-        lambda: (
+        lambda: _active_profile_query(
             supabase.table("profiles")
             .select("id")
             .eq("user_id", user_id)
             .eq("kind", "principal")
-            .maybe_single()
-            .execute()
-        )
+        ).maybe_single().execute()
     )
     return principal.data["id"] if principal and principal.data else None
 
@@ -97,14 +104,12 @@ def get_current_profile_id(
 def _get_own_profile_or_404(profile_id: str, user_id: str) -> dict:
     """Busca um perfil do usuário autenticado, dando 404 se não existir ou
     pertencer a outra conta -- usado por update/delete/activate."""
-    existing = (
+    existing = _active_profile_query(
         supabase.table("profiles")
         .select("*")
         .eq("id", profile_id)
         .eq("user_id", user_id)
-        .maybe_single()
-        .execute()
-    )
+    ).maybe_single().execute()
     if not existing or not existing.data:
         raise HTTPException(status_code=404, detail="Perfil não encontrado")
     return existing.data
@@ -116,7 +121,9 @@ async def list_profiles(user_id: str = Depends(get_current_user_id)):
     # Executar o cliente síncrono fora do event loop; nunca repetir escritas.
     result = await run_in_threadpool(
         _retry_readonly_auth_query,
-        lambda: supabase.table("profiles").select("*").eq("user_id", user_id).execute(),
+        lambda: _active_profile_query(
+            supabase.table("profiles").select("*").eq("user_id", user_id)
+        ).execute(),
     )
     return result.data
 
@@ -140,7 +147,9 @@ async def get_profile_quota(user_id: str = Depends(get_current_user_id)):
             if not policy or not policy.data:
                 raise HTTPException(status_code=503, detail="Política de planos indisponível.")
             limit = policy.data["max_profiles_per_account"]
-        rows = supabase.table("profiles").select("id").eq("user_id", user_id).execute()
+        rows = _active_profile_query(
+            supabase.table("profiles").select("id").eq("user_id", user_id)
+        ).execute()
         return {
             "tier": tier, "used": len(rows.data or []),
             "limit": limit, "unlimited": is_admin,
@@ -417,8 +426,25 @@ async def delete_profile(profile_id: str, user_id: str = Depends(get_current_use
     existing = _get_own_profile_or_404(profile_id, user_id)
     if is_principal(existing):
         raise HTTPException(status_code=400, detail="O perfil principal não pode ser excluído")
-    supabase.table("profiles").delete().eq("id", profile_id).eq("user_id", user_id).execute()
-    return {"status": "deleted"}
+    if not _archive_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="Exclusão segura em preparação. Nenhum perfil foi removido.",
+        )
+    try:
+        result = await run_in_threadpool(
+            lambda: supabase.rpc("archive_profile_with_history", {
+                "p_user_id": user_id, "p_profile_id": profile_id,
+            }).execute()
+        )
+    except Exception:
+        logger.exception("Falha na operação transacional de arquivamento de perfil")
+        raise HTTPException(
+            status_code=503, detail="Não foi possível arquivar o perfil com segurança."
+        ) from None
+    if not result.data:
+        raise HTTPException(status_code=503, detail="Arquivamento não confirmado pelo banco.")
+    return {"status": "archived"}
 
 
 @router.post("/{profile_id}/activate")

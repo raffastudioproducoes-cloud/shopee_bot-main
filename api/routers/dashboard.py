@@ -5,6 +5,7 @@ profile_id NULL. Os endpoints operacionais continuam isolados por perfil.
 """
 
 from datetime import datetime
+import os
 
 from fastapi import APIRouter, Depends, HTTPException
 from starlette.concurrency import run_in_threadpool
@@ -69,11 +70,18 @@ def _created_at_utc(value: str | None) -> str | None:
 
 
 def _load_stats(user_id: str) -> dict:
+    # Depois do rollout de arquivamento, só agendas que ainda têm intenção
+    # de despacho contam como agendadas; registros de jobs concluídos são
+    # preservados independentemente da contagem operacional.
+    active_dispatch = os.getenv("PROFILE_ARCHIVAL_ENABLED", "false").lower() == "true"
     counts = {
         "products_count": _count("products", user_id),
         "posts_count": _count("posts", user_id, post_id="null"),
         "lists_count": _count("product_lists", user_id),
-        "scheduled_posts": _count("schedulers", user_id),
+        "scheduled_posts": _count(
+            "schedulers", user_id,
+            **({"dispatch_cancelled_at": "null"} if active_dispatch else {}),
+        ),
     }
     # Cada painel recente pode ficar indisponível sem esconder os contadores
     # confirmados ou o outro painel. None nunca significa histórico vazio.

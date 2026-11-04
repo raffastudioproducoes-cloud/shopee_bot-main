@@ -237,3 +237,24 @@ def test_recent_timestamps_have_explicit_utc_without_rewriting_offsets(
     assert response.status_code == 200
     assert response.json()["recent_posts"][0]["created_at"] == expected
     assert response.json()["recent_activities"][0]["created_at"] == expected
+
+
+def test_archived_dispatch_is_not_counted_but_other_history_remains(auth_client, monkeypatch):
+    monkeypatch.setenv("PROFILE_ARCHIVAL_ENABLED", "true")
+    own = [
+        {"id": 1, "user_id": "account-a", "dispatch_cancelled_at": None,
+         "post_id": None, "text": "Concluído", "network": "threads",
+         "activity_id": 1, "created_at": "2026-11-04T12:00:00Z"},
+        {"id": 2, "user_id": "account-a", "dispatch_cancelled_at": "2026-11-04T12:00:00Z",
+         "post_id": None, "text": "Arquivado", "network": "threads",
+         "activity_id": 2, "created_at": "2026-11-04T13:00:00Z"},
+    ]
+    _install(monkeypatch, tables={
+        "schedulers": own, "posts": own, "activities": own,
+        "products": own, "product_lists": own,
+    })
+    data = auth_client.get("/dashboard/stats").json()
+    assert data["scheduled_posts"] == 1
+    assert data["posts_count"] == 2
+    assert len(data["recent_posts"]) == 2
+    assert len(data["recent_activities"]) == 2
