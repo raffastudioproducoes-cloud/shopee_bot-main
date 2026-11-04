@@ -576,3 +576,82 @@ async def delete_campaign_media(
                  .eq("campaign_id", str(draft_id)).eq("id", str(media_id))
                  .eq("status", "ready"), user_id, profile_id).execute())
     return None
+
+
+# F4E: explicit activation is separate from draft saving and previews.
+class CampaignActivationRequest(BaseModel):
+    expected_revision: int = Field(ge=1)
+
+
+@router.post("/drafts/{draft_id}/activate", status_code=201)
+async def activate_campaign_draft(
+    draft_id: UUID, body: CampaignActivationRequest,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    from ..campaign_activation import activate
+    return await activate(draft_id,body.expected_revision,user_id,_draft_profile(profile_id))
+
+
+@router.get("/active")
+async def list_active_campaigns(
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    from ..campaign_activation import reservation_details
+    profile_id = _draft_profile(profile_id)
+    rows = (scope_owner(
+        supabase.table("campaign_reservations_f4e").select("id")
+        .order("created_at",desc=True).limit(50),user_id,profile_id).execute()).data or []
+    return {"data": [reservation_details(r["id"],user_id,profile_id) for r in rows]}
+
+
+@router.get("/active/{reservation_id}")
+async def get_active_campaign(
+    reservation_id: UUID,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    from ..campaign_activation import reservation_details
+    return reservation_details(reservation_id,user_id,_draft_profile(profile_id))
+
+
+@router.get("/active/{reservation_id}/history")
+async def get_campaign_history(
+    reservation_id: UUID,
+    limit: int = Query(100,ge=1,le=200),
+    offset: int = Query(0,ge=0,le=5000),
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    from ..campaign_activation import owned_reservation
+    profile_id = _draft_profile(profile_id)
+    owned_reservation(reservation_id,user_id,profile_id)
+    slots = (scope_owner(supabase.table("campaign_network_slots_f4e")
+        .select("id,product_id,network,planned_at,state,post_id,scheduler_id,publish_job_id,finished_at")
+        .eq("reservation_id",str(reservation_id))
+        .order("planned_at").range(offset,offset+limit-1),user_id,profile_id).execute()).data or []
+    jobs = [str(s["publish_job_id"]) for s in slots if s.get("publish_job_id")]
+    job_rows = (supabase.table("publish_jobs").select(
+        "id,status,attempt,scheduled_for,external_started_at,finished_at,last_error")
+        .eq("user_id",str(user_id)).eq("profile_id",profile_id)
+        .eq("publication_origin","campaign").in_("id",jobs).execute()).data if jobs else []
+    by_id = {str(j["id"]):j for j in job_rows or []}
+    return {"data":[{**slot,"delivery":by_id.get(str(slot.get("publish_job_id")))}
+                    for slot in slots],"has_more":len(slots)==limit}
+
+
+@router.post("/active/{reservation_id}/{action}")
+async def change_campaign_state(
+    reservation_id: UUID,action: Literal["pause","resume","cancel"],
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    from ..campaign_activation import _rpc,owned_reservation,reservation_details
+    profile_id = _draft_profile(profile_id)
+    owned_reservation(reservation_id,user_id,profile_id)
+    _rpc("change_campaign_lifecycle_f4e",{
+        "p_user_id":str(user_id),"p_profile_id":profile_id,
+        "p_reservation_id":str(reservation_id),"p_action":action,
+    })
+    return reservation_details(reservation_id,user_id,profile_id)

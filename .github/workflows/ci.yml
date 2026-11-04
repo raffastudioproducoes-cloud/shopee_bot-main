@@ -46,6 +46,7 @@ jobs:
           python -m unittest discover -s tests/sql -p 'test_f4e2b2_*.py' -v
           python -m unittest discover -s tests/sql -p 'test_f4e2b3_*.py' -v
           python -m unittest discover -s tests/sql -p 'test_f4e2b4_*.py' -v
+          python -m unittest discover -s tests/sql -p 'test_f4e2b*.py' -v
 
   api:
     name: API Python (lint + testes)

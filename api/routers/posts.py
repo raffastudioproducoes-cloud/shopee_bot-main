@@ -917,8 +917,16 @@ def _schedule_slot_history(
     return sorted(slots, key=lambda item: (item["day_of_week"] if item["day_of_week"] is not None else 7, item["time"]))
 
 
+
+def _require_legacy_post_origin(post: dict) -> None:
+    """Campanhas são controladas somente pela máquina de estados de campanha."""
+    if post.get("publication_origin", "legacy") == "campaign":
+        raise HTTPException(status_code=409, detail="Esta publicação pertence a uma campanha. Use os controles da campanha.")
+
+
 def _ensure_post_editable(user_id: int, post_id: int, profile_id: str | None, post: dict) -> None:
     """Proíbe edições que alterariam uma publicação já programada ou enviada."""
+    _require_legacy_post_origin(post)
     detail = "Este post já foi publicado ou está programado. Não é possível editar seu conteúdo ou suas mídias."
     if post.get("publish_immediately") or _get_post_schedule_entries(user_id, post_id):
         raise HTTPException(status_code=409, detail=detail)
@@ -1047,6 +1055,7 @@ def reconcile_post(
     nem assume validação automática pela Meta.
     """
     post = _get_post(user_id, post_id, profile_id)
+    _require_legacy_post_origin(post)
     if post.get("network") != "threads":
         raise HTTPException(status_code=422, detail="Conciliação manual disponível apenas para Threads")
     if body.confirmed is not True:
@@ -1145,6 +1154,7 @@ def retry_unknown_post(
     """
     profile_id = _require_profile_id(profile_id)
     post = _get_post(user_id, post_id, profile_id)
+    _require_legacy_post_origin(post)
     if (post.get("network") or "threads") != "threads":
         raise HTTPException(status_code=422, detail="Reenvio manual disponível apenas para Threads")
     if body.confirmed_not_published is not True or body.accepts_duplicate_risk is not True:
@@ -1967,6 +1977,7 @@ def create_future_revision(
     """
     profile_id = _require_profile_id(profile_id)
     post = _get_post(user_id, post_id, profile_id)
+    _require_legacy_post_origin(post)
     if post.get("post_id") is not None or post.get("publish_immediately"):
         raise HTTPException(status_code=409, detail="Este post não admite edição futura")
     environment = current_environment()
@@ -2188,7 +2199,8 @@ async def publish_post_now(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Força a publicação imediata de um post já agendado."""
-    post = _get_post(user_id, post_id, profile_id)  # ownership check
+    post = _get_post(user_id, post_id, profile_id)
+    _require_legacy_post_origin(post)  # ownership check
     _check_network_rules(
         post.get("network") or "threads",
         [row.get("text") or "" for row in _get_thread_chain(post_id)],
@@ -2240,7 +2252,8 @@ async def delete_post(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    _get_post(user_id, post_id, profile_id)  # ownership check
+    post = _get_post(user_id, post_id, profile_id)  # ownership check
+    _require_legacy_post_origin(post)
 
     jobs = supabase.table("schedulers").select("id").eq("post_id", post_id).execute().data or []
     for job in jobs:

@@ -31,6 +31,7 @@ from shopee_bot.scheduler.bot_post_x import bot_post_x
 from shopee_bot.scheduler.update_products import update_products
 from shopee_bot.scheduler.publication_result import PublicationResult, unknown
 from shopee_bot.scheduler import publication_context
+from shopee_bot.scheduler import campaign_dispatch
 
 load_dotenv()
 HOST = os.environ.get("SHOPEE_PG_HOST")
@@ -494,6 +495,17 @@ def init():
             replace_existing=True,
             max_instances=1,
         )
+
+    # Separate campaign-origin queue. Never enters the legacy APScheduler jobstore.
+    _scheduler.add_job(
+        campaign_dispatch.drain,
+        trigger="interval",
+        seconds=30,
+        jobstore="on_demand",
+        id="campaign_dispatch_drain",
+        replace_existing=True,
+        max_instances=1,
+    )
 
     _scheduler.add_job(
         drain_publish_jobs,

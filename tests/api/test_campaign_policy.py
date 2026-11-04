@@ -1,4 +1,4 @@
-"""F4C2: política server-side, limites e downgrade sem ativação."""
+"""Contratos de política server-side, cotas e autenticação na ativação."""
 import asyncio
 from datetime import date, time, timedelta
 from types import SimpleNamespace
@@ -164,7 +164,7 @@ def test_limits_endpoint_is_read_only_scoped_and_honest(monkeypatch):
     setup_db(monkeypatch, db)
     result = asyncio.run(campaigns.get_campaign_limits(user_id="owner", profile_id="profile-a"))
     assert result["active_campaigns_limit"] == 5
-    assert result["active_campaigns_count"] is None
+    assert result["active_campaigns_count"] == 0
     assert result["activation_available"] is False
     assert result["automation_entitled"] is True
     assert result["automation_available"] is False
@@ -247,13 +247,16 @@ def test_downgraded_free_can_read_and_delete_legacy_draft(monkeypatch):
     assert db.tables["campaign_drafts"] == []
 
 
-def test_limits_auth_dependencies_and_no_activation_route():
+def test_limits_and_activation_routes_require_authenticated_profile():
     from api.routers.auth import get_current_user_id
     from api.routers.profiles import get_current_profile_id
     route = next(r for r in campaigns.router.routes if r.path == "/campaigns/limits")
     assert {d.call for d in route.dependant.dependencies} == {
         get_current_user_id, get_current_profile_id}
-    assert not any("activat" in route.path for route in campaigns.router.routes)
+    activation = next(r for r in campaigns.router.routes
+                      if r.path == "/campaigns/drafts/{draft_id}/activate")
+    assert {d.call for d in activation.dependant.dependencies} == {
+        get_current_user_id, get_current_profile_id}
 
 
 @pytest.mark.parametrize("tier,slots,networks", [
@@ -300,7 +303,7 @@ def test_drafts_do_not_consume_active_campaign_slots(monkeypatch):
             user_id="owner", profile_id="profile-a"))
     assert len(db.tables["campaign_drafts"]) == 4
     result = asyncio.run(campaigns.get_campaign_limits(user_id="owner", profile_id="profile-a"))
-    assert result["active_campaigns_count"] is None
+    assert result["active_campaigns_count"] == 0
 
 
 def test_premium_catalog_flag_can_disable_automation(monkeypatch):

@@ -16,6 +16,7 @@ from conftest import FakeDB
 def database(tier="pro", access="USER"):
     return FakeDB({
         "users": [dict(id="owner", access=access, plan_tier=tier)],
+        "campaign_reservations_f4e": [],
         "profiles": [dict(id="a", user_id="owner"), dict(id="b", user_id="owner"),
                      dict(id="foreign", user_id="other")],
         "plan_limits": [dict(tier="pro", products_per_account=500, lists_per_profile=20,
@@ -52,7 +53,7 @@ def test_usage_is_scoped_exact_read_only_and_not_active_campaigns(monkeypatch, t
     for resource in ("immediate", "recurring"):
         assert result["resources"][resource]["used"] is None
         assert result["resources"][resource]["usage_status"] == "unavailable"
-    assert result["active_campaigns_count"] is None
+    assert result["active_campaigns_count"] == 0
     assert result["activation_available"] is False
     assert result["automation_available"] is False
     assert db.tables == before
