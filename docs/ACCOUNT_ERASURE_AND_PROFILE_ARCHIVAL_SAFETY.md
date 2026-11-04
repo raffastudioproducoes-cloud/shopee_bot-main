@@ -32,7 +32,7 @@ A escolha de um registro transacional intermediário é necessária porque opera
 
 ## Gates obrigatórios
 
-- [x] Rafa autorizou migrações aditivas no Supabase compartilhado, sem novo ambiente. Migrações 080/081/082/083 aplicadas e permissões SQL conferidas.
+- [x] Rafa autorizou migrações aditivas no Supabase compartilhado, sem novo ambiente. Migrações 080/081/082/083/084 aplicadas e permissões SQL conferidas.
 - [x] Testes SQL transacionais com conta sintética e `ROLLBACK`: arquivamento, impossibilidade de arquivar principal, idempotência e expurgo DB/audit/request_logs. Contagens originais intactas e zero registros de teste residuais.
 - [ ] Testes completos de duas contas, Free/Pro/Premium, histórico F4E/unknown, concorrência `claim/preflight` e mídia real.
 - [x] Orquestrador de apagamento Storage API → Auth Admin API → finalizador DB com estado retomável e endpoint admin de recuperação, ainda somente na branch.
@@ -43,7 +43,11 @@ A escolha de um registro transacional intermediário é necessária porque opera
 
 ## Evidência e rollout
 
-- Banco compartilhado: migrações 080/081/082/083 aplicadas; verificação confirmou 4 perfis, 3 agendas, 3 publish_jobs e 5 objetos Storage antes e depois; zero contas sintéticas e zero tarefas de apagamento pendentes. Um teste SQL de finalização encontrou uma view não deletável e foi corrigido em 082 antes da execução sintética bem-sucedida.
+- Banco compartilhado: migrações 080/081/082/083/084 aplicadas; verificação confirmou 4 perfis, 3 agendas, 3 publish_jobs e 5 objetos Storage antes e depois; zero contas sintéticas e zero tarefas de apagamento pendentes. Um teste SQL de finalização encontrou uma view não deletável e foi corrigido em 082 antes da execução sintética bem-sucedida.
 - Nenhum cron, pg_net, worker, agendamento ou serviço foi desligado ou alterado. Nenhum dado real foi excluído.
 - Branch `feat/profile-archive-history-20261104` / PR #266 draft. `PROFILE_ARCHIVAL_ENABLED=false` e `ACCOUNT_ERASURE_ENABLED=false` por padrão no código; ativação **não autorizada no main**.
 - Staging primeiro, CI e smoke test; main apenas após aceite explícito. O código antigo em produção ainda não filtra `archived_at`; não começar exclusões reais de perfil/conta enquanto os dois ambientes não forem compatíveis.
+
+### Adendo — integridade dos logs (084)
+
+A tabela `request_logs` continha 1.299 linhas antigas cujo `user_id` já não existe em `public.users`. A FK `request_logs_user_id_erasure_fk` foi criada como `NOT VALID` (novas inserções ficam protegidas; nenhum histórico antigo é apagado), com índice `idx_request_logs_user_id_fk`. Teste `BEGIN/ROLLBACK` confirmou `ON DELETE CASCADE` e rejeição de novos logs órfãos. O middleware evita a gravação da própria requisição de exclusão depois do expurgo. Limpeza de logs antigos sem proprietário exige auditoria separada; não foi realizada.
