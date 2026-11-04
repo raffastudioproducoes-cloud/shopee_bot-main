@@ -6,6 +6,8 @@ CRUD completo de produtos da Shopee com Supabase.
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from api.product_search import product_search_filter
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Any
 
@@ -121,7 +123,7 @@ def find_product_in_account(db: Any, user_id: Any, product_id: Any) -> dict[str,
 @router.get("")
 async def list_products(
     user_id: int = Depends(get_current_user_id),
-    search: str | None = Query(None, description="Busca por nome"),
+    search: str | None = Query(None, max_length=120, description="Busca por nome, categoria e termos relacionados"),
     category: str | None = Query(None, description="Filtrar por categoria"),
     min_price: float | None = Query(None, description="Preço mínimo"),
     max_price: float | None = Query(None, description="Preço máximo"),
@@ -133,8 +135,12 @@ async def list_products(
     """Lista produtos compartilhados da conta com paginação por offset."""
     query = scope_account(supabase.table("products").select("*"), user_id)
 
-    if search:
-        query = query.ilike("name", f"%{search}%")
+    if search is not None:
+        filters = product_search_filter(search)
+        if not filters:
+            # Consulta vazia após saneamento: não remover o filtro por acidente.
+            return {"data": [], "total": 0, "page": page, "page_size": page_size}
+        query = query.or_(filters)
     if category:
         query = query.ilike("category", category)
     if min_price is not None:
