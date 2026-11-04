@@ -5,6 +5,9 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Operations / Documentation
+- Ajuste explícito de Rafa no Supabase `pg_cron`: `auto-orbital-uptime-sample-v1` de 5 para **12 minutos** (`*/12 * * * *`), `auto-orbital-wake-v1` de publicações mantido intacto em **2 minutos**, `auto-orbital-admin-capacity-v1` desagendado/excluído do registro cron. Verificação confirmou exatamente dois jobs ativos e comandos originais idênticos; nenhuma função/tabela/serviço/campanha modificada. Configuração operacional + documentação; `VERSION=3.1.2` sem bump.
+
 ### Documentation
 - Retificação baseada em SQL read-only do Supabase: `pg_cron` de publicações já opera com `auto-orbital-wake-v1` a cada dois minutos, função `app_internal.wake_dispatch_if_needed`, `pg_net` e segredos em Vault para wake do Render sob trabalho pendente. Proposta anterior de upgrade Render para sustentar agendamentos foi incorreta e não está autorizada. Obrigatório verificar documentação, código implantado, cron, filas e logs antes de recomendar infraestrutura; distinguir cron SQL, despertar HTTP e envio externo confirmado. Somente docs, sem bump de `VERSION=3.1.2` nem alterações de serviço.
 
