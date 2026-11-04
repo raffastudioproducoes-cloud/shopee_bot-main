@@ -14,9 +14,11 @@ Ver: docs/CHECKLIST_MIGRACAO.md — seção "Auth (futuro)".
 import hashlib
 import logging
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from passlib.context import CryptContext
@@ -37,6 +39,25 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _DB_UNAVAILABLE_DETAIL = (
     "Serviço de banco de dados indisponível. Verifique a configuração do servidor."
 )
+
+
+def _retry_readonly_auth_query(query: Callable[[], object]) -> object:
+    """Reexecuta uma única vez consultas de autenticação que são somente SELECT.
+
+    A conexão HTTP/2 compartilhada com PostgREST pode ser encerrada entre
+    requisições. Não repetir inserts, revogações ou outros efeitos colaterais;
+    se ambos os SELECTs falharem, negar autenticação com 503 (nunca 401/200).
+    """
+    try:
+        return query()
+    except httpx.TransportError:
+        logger.warning("Falha de transporte na consulta read-only de autenticação; uma repetição")
+        time.sleep(0.05)
+        try:
+            return query()
+        except httpx.TransportError as exc:
+            raise HTTPException(status_code=503, detail=_DB_UNAVAILABLE_DETAIL) from exc
+
 
 # Armazenamento Redis/Valkey compartilhado em producao; memoria somente
 # como fallback explicito para desenvolvimento/testes sem URI configurada.
@@ -167,8 +188,8 @@ def _get_authenticated_user(token: str) -> dict:
         db = get_supabase()
     except RuntimeError:
         raise HTTPException(status_code=503, detail=_DB_UNAVAILABLE_DETAIL)
-    revoked = (
-        db.table("revoked_sessions")
+    revoked = _retry_readonly_auth_query(
+        lambda: db.table("revoked_sessions")
         .select("jti").eq("jti", session_id).maybe_single().execute()
     )
     if revoked and isinstance(revoked.data, dict) and revoked.data.get("jti") == session_id:
@@ -242,7 +263,9 @@ def _get_user_from_supabase(username: str):
         supabase = get_supabase()
     except RuntimeError:
         raise HTTPException(status_code=503, detail=_DB_UNAVAILABLE_DETAIL)
-    response = supabase.table("users").select("*").eq("username", username).execute()
+    response = _retry_readonly_auth_query(
+        lambda: supabase.table("users").select("*").eq("username", username).execute()
+    )
     return response.data[0] if response.data else None
 
 
