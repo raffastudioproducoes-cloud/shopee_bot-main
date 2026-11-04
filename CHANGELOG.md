@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Operação de staging — migração 084 idempotente
+- No primeiro deploy do PR #266, o migrador próprio do Flask tentou reaplicar a FK 084 já existente no Supabase (históricos de migração distintos), causando falha de boot de worker apesar do estado Render `LIVE`. Após verificar FK/índice, registrado `084_request_logs_erasure_fk_not_valid.sql` em `public.migrations` sem alterar dados. Redeploy do mesmo commit `5600ab0` ficou `LIVE`, com 080–084 ignoradas como já aplicadas e scheduler inicializado. Hotfix #267 torna a DDL 084 idempotente para impedir nova colisão. Main e crons intactos; VERSION mantida.
+
+
 ### Segurança e retenção de perfis — PR #266 em preparação (schema aplicado, flags OFF)
 - Por decisão de Rafa, exclusão de perfil secundário passa a ser arquivamento lógico: conta e histórico de publicações `succeeded/failed/unknown` são preservados; agendamentos/recorrências/campanhas ainda pendentes podem ser cancelados/removidos sem reenvio. Perfil principal só desaparece com a conta.
 - Supabase único e compartilhado entre staging/main: migrações `080_profile_archive_history_expand`, `081_account_erasure_atomic_flow`, `082_account_erasure_view_cleanup_fix`, `083_account_erasure_username_logs` e `084_request_logs_erasure_fk_not_valid` **aplicadas em 04/11/2026 por autorização do Rafa**. DDL aditiva, sem exclusão de dados existentes; RPCs exclusivas `service_role` com `anon/authenticated` negadas.

@@ -8,9 +8,18 @@ CREATE INDEX IF NOT EXISTS idx_request_logs_user_id_fk
   ON public.request_logs(user_id)
   WHERE user_id IS NOT NULL;
 
-ALTER TABLE public.request_logs
-  ADD CONSTRAINT request_logs_user_id_erasure_fk
-  FOREIGN KEY (user_id) REFERENCES public.users(id)
-  ON DELETE CASCADE NOT VALID;
+DO $guard$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='request_logs_user_id_erasure_fk'
+      AND conrelid='public.request_logs'::regclass
+  ) THEN
+    ALTER TABLE public.request_logs
+      ADD CONSTRAINT request_logs_user_id_erasure_fk
+      FOREIGN KEY (user_id) REFERENCES public.users(id)
+      ON DELETE CASCADE NOT VALID;
+  END IF;
+END $guard$;
 
 COMMIT;
