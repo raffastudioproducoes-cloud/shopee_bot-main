@@ -251,7 +251,7 @@ def test_avatar_upload_rejects_file_over_max_size(auth_client, monkeypatch):
     fake_client.storage.from_.return_value.upload.assert_not_called()
 
 
-def test_profile_resolution_retries_owned_read_only_after_http2_disconnect(monkeypatch):
+def test_profile_resolution_retries_owned_read_only_after_http2_disconnect(monkeypatch, real_profile_resolution):
     """A queda HTTP/2 não invalida a sessão nem remove seu perfil."""
     import httpx
     from api.routers.profiles import _resolve_profile_id
@@ -266,7 +266,7 @@ def test_profile_resolution_retries_owned_read_only_after_http2_disconnect(monke
     assert query.execute.call_count == 2
 
 
-def test_profile_resolution_retries_principal_fallback_after_http2_disconnect(monkeypatch):
+def test_profile_resolution_retries_principal_fallback_after_http2_disconnect(monkeypatch, real_profile_resolution):
     """Somente leitura do fallback é repetida; continua escopada ao titular."""
     import httpx
     from api.routers.profiles import _resolve_profile_id
@@ -282,7 +282,7 @@ def test_profile_resolution_retries_principal_fallback_after_http2_disconnect(mo
     assert query.execute.call_count == 3
 
 
-def test_profile_resolution_fails_closed_after_two_http2_disconnects(monkeypatch):
+def test_profile_resolution_fails_closed_after_two_http2_disconnects(monkeypatch, real_profile_resolution):
     """Duas falhas transitórias retornam 503, nunca perfil sem dono/401."""
     import httpx
     from api.routers.profiles import _resolve_profile_id
