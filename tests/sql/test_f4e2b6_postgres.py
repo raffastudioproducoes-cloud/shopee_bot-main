@@ -64,6 +64,27 @@ class TestCampaignRuntime(TestCampaignNetworkReservations):
                   'public.activate_campaign_networks_f4e(uuid,uuid,uuid,text)','EXECUTE')
             """).fetchone()[0])
 
+    def test_oauth_recheck_upsert_as_service_role(self):
+        rid = self.reserve(draft_index=1)
+        with self.connect() as con:
+            con.execute("SET LOCAL ROLE service_role")
+            # API rechecks OAuth before materialization; same PK must be upsertable.
+            for _ in range(2):
+                con.execute("""
+                    INSERT INTO public.campaign_oauth_checks_f4e
+                      (reservation_id,network,verified_at)
+                    VALUES (%s,'threads',now())
+                    ON CONFLICT (reservation_id,network) DO UPDATE SET
+                      reservation_id=EXCLUDED.reservation_id,
+                      network=EXCLUDED.network,
+                      verified_at=EXCLUDED.verified_at
+                """, (rid,))
+            con.execute("RESET ROLE")
+            self.assertEqual(con.execute(
+                "SELECT count(*) FROM public.campaign_oauth_checks_f4e WHERE reservation_id=%s",
+                (rid,),
+            ).fetchone()[0], 1)
+
     def materialize(self):
         rid = self.reserve(draft_index=1)
         with self.connect() as con:
