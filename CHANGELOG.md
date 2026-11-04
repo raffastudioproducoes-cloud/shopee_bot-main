@@ -5,6 +5,24 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Operação de staging — migração 084 idempotente
+- No primeiro deploy do PR #266, o migrador próprio do Flask tentou reaplicar a FK 084 já existente no Supabase (históricos de migração distintos), causando falha de boot de worker apesar do estado Render `LIVE`. Após verificar FK/índice, registrado `084_request_logs_erasure_fk_not_valid.sql` em `public.migrations` sem alterar dados. Redeploy do mesmo commit `5600ab0` ficou `LIVE`, com 080–084 ignoradas como já aplicadas e scheduler inicializado. Hotfix #267 torna a DDL 084 idempotente para impedir nova colisão. Main e crons intactos; VERSION mantida.
+
+
+### Segurança e retenção de perfis — PR #266 em preparação (schema aplicado, flags OFF)
+- Por decisão de Rafa, exclusão de perfil secundário passa a ser arquivamento lógico: conta e histórico de publicações `succeeded/failed/unknown` são preservados; agendamentos/recorrências/campanhas ainda pendentes podem ser cancelados/removidos sem reenvio. Perfil principal só desaparece com a conta.
+- Supabase único e compartilhado entre staging/main: migrações `080_profile_archive_history_expand`, `081_account_erasure_atomic_flow`, `082_account_erasure_view_cleanup_fix`, `083_account_erasure_username_logs` e `084_request_logs_erasure_fk_not_valid` **aplicadas em 04/11/2026 por autorização do Rafa**. DDL aditiva, sem exclusão de dados existentes; RPCs exclusivas `service_role` com `anon/authenticated` negadas.
+- Conferência após DDL: 4 perfis, 3 agendas, 3 jobs e 5 objetos Storage intactos; nenhum usuário/profil real arquivado/excluído. Testes SQL com dados sintéticos e `ROLLBACK` validaram arquivamento, proteção do principal, idempotência e finalização de conta com remoção de audit/request logs; zero registros de teste residuais.
+- Backend na branch: `PROFILE_ARCHIVAL_ENABLED=false` e `ACCOUNT_ERASURE_ENABLED=false` por padrão; proteção de claims/dispatch, cotas e dashboard, e orquestração idempotente de exclusão integral em DB/Storage/Auth com recuperação manual administrativa e senha Auth atual para identidades vinculadas. Código não implantado até revisão/CI/staging.
+- Proteção adicional 084: FK `request_logs.user_id → users.id ON DELETE CASCADE NOT VALID`, com índice. Teste transacional comprovou cascata e bloqueio de novos logs com usuário inexistente. Permanecem 1.299 logs **legados órfãos** anteriores à FK, preservados (não removidos sem auditoria de origem).
+- Middleware evita regravar log identificável após exclusão concluída; teste de regressão incluído.
+- Pendências antes de ativar: CI definitivo e testes de integração/corrida em staging com Storage/Auth e F4E, compatibilidade do main legado, validação da preservação do histórico; main só após aceite do Rafa. **Nenhum pg_cron, pg_net, scheduler ou serviço alterado/desligado**; `VERSION=3.1.2` mantida.
+
+### Fixed — dashboard da conta (staging PR #265, pendente de homologação)
+- Dashboard passa a agregar produtos, posts-raiz, listas e agendamentos por `user_id` autenticado, abrangendo todos os perfis da conta e registros históricos com `profile_id NULL`, sem alterar as telas operacionais isoladas por perfil. Painéis de postagens/atividades recentes leem até cinco registros reais e distinguem ausência de dados de falha parcial.
+- Ações rápidas direcionam à criação de produto, post e lista sem contornar autorização/limites do plano; cache da visão geral segregado por conta, com revalidação.
+- **Limite conhecido:** exclusão física de perfil ainda provoca CASCADE em dados F4E de campanhas; retenção integral após exclusão demanda projeto de arquivamento/soft delete compatível com o Supabase compartilhado. Nenhuma exclusão, DDL, migration, cron, scheduler ou produção nesta correção. `VERSION=3.1.2` mantida até eventual release autorizada.
+
 ### Operations / Documentation
 - Ajuste explícito de Rafa no Supabase `pg_cron`: `auto-orbital-uptime-sample-v1` de 5 para **12 minutos** (`*/12 * * * *`), `auto-orbital-wake-v1` de publicações mantido intacto em **2 minutos**, `auto-orbital-admin-capacity-v1` desagendado/excluído do registro cron. Verificação confirmou exatamente dois jobs ativos e comandos originais idênticos; nenhuma função/tabela/serviço/campanha modificada. Configuração operacional + documentação; `VERSION=3.1.2` sem bump.
 

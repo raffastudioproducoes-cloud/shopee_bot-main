@@ -79,7 +79,7 @@ def get_by_id(job_id):
         JOIN posts p ON p.id = s.post_id
           AND p.user_id = s.user_id
           AND p.profile_id IS NOT DISTINCT FROM s.profile_id
-        WHERE s.id = %s AND ({scope})
+        WHERE s.id = %s AND s.dispatch_cancelled_at IS NULL AND ({scope})
     """
     args = (job_id, *scope_args)
     return query_db(query, args, True)

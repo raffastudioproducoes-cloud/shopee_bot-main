@@ -54,7 +54,7 @@ def _mock_supabase(monkeypatch, execute_return):
     de `.execute()`."""
     fake_client = MagicMock()
     query = fake_client.table.return_value
-    for method in ("select", "eq", "maybe_single", "update", "delete", "insert"):
+    for method in ("select", "eq", "is_", "maybe_single", "update", "delete", "insert"):
         getattr(query, method).return_value = query
     query.execute.return_value = MagicMock(data=execute_return)
     fake_client.rpc.return_value = query
@@ -84,13 +84,42 @@ def test_delete_principal_profile_is_blocked(auth_client, monkeypatch):
     assert response.status_code == 400
 
 
-def test_delete_secondary_profile_succeeds(auth_client, monkeypatch):
-    _mock_supabase(
+def test_delete_secondary_profile_is_fail_closed_until_archive_rollout(auth_client, monkeypatch):
+    query = _mock_supabase(
         monkeypatch, {"id": "p-2", "user_id": USER_ID, "kind": "secundario"}
     )
+    monkeypatch.delenv("PROFILE_ARCHIVAL_ENABLED", raising=False)
+    response = auth_client.delete("/profiles/p-2")
+    assert response.status_code == 503
+    assert "Nenhum perfil" in response.json()["detail"]
+    query.delete.assert_not_called()
+    query._fake_client.rpc.assert_not_called()
+
+
+def test_delete_secondary_profile_archives_via_transactional_rpc(auth_client, monkeypatch):
+    query = _mock_supabase(
+        monkeypatch, {"id": "p-2", "user_id": USER_ID, "kind": "secundario"}
+    )
+    monkeypatch.setenv("PROFILE_ARCHIVAL_ENABLED", "true")
     response = auth_client.delete("/profiles/p-2")
     assert response.status_code == 200
-    assert response.json() == {"status": "deleted"}
+    assert response.json() == {"status": "archived"}
+    query._fake_client.rpc.assert_called_once_with("archive_profile_with_history", {
+        "p_user_id": USER_ID, "p_profile_id": "p-2",
+    })
+    query.delete.assert_not_called()
+
+
+def test_archive_rpc_failure_preserves_profile_and_returns_503(auth_client, monkeypatch):
+    query = _mock_supabase(
+        monkeypatch, {"id": "p-2", "user_id": USER_ID, "kind": "secundario"}
+    )
+    monkeypatch.setenv("PROFILE_ARCHIVAL_ENABLED", "true")
+    query.execute.side_effect = [MagicMock(data={"id": "p-2", "kind": "secundario"}),
+                                 Exception("transient failure")]
+    response = auth_client.delete("/profiles/p-2")
+    assert response.status_code == 503
+    query.delete.assert_not_called()
 
 
 def test_create_profile_requires_auth(client):

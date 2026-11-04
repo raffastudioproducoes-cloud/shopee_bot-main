@@ -43,9 +43,18 @@ def _client(cookie):
     return c
 
 
-def test_dashboard_counts_shared_products_and_active_profile_resources(env, profile_cookie):
-    stats = _client(profile_cookie("profile-b")).get("/dashboard/stats").json()
-    assert stats == {"products_count": 3, "posts_count": 0, "lists_count": 1, "scheduled_posts": 1}
+def test_dashboard_counts_whole_account_regardless_of_active_profile(env, profile_cookie):
+    expected_counts = {
+        "products_count": 3,
+        "posts_count": 1,
+        "lists_count": 1,
+        "scheduled_posts": 1,
+    }
+    for active_profile in ("profile-a", "profile-b"):
+        stats = _client(profile_cookie(active_profile)).get("/dashboard/stats").json()
+        assert {key: stats[key] for key in expected_counts} == expected_counts
+        assert [item["id"] for item in stats["recent_posts"]] == [1]
+        assert {item["id"] for item in stats["recent_activities"]} == {1, 2}
 
 
 def test_dashboard_without_profile_counts_whole_account(env, old_token_without_profile_claim):
