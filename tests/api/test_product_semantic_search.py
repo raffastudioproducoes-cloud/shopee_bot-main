@@ -65,7 +65,7 @@ def test_busca_sempre_preserva_filtro_da_conta(auth_client, monkeypatch):
     expression = query.or_.call_args.args[0]
     assert "name.ilike.%lençol%" in expression
     assert "name.ilike.%colcha%" in expression
-    assert "category.ilike.%quarto%" in expression
+    assert "category.ilike." not in expression
 
 
 def test_busca_sem_termos_seguros_retorna_vazio_sem_listar_tudo(auth_client, monkeypatch):

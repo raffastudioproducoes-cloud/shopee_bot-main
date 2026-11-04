@@ -6,7 +6,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 ## [Não lançado]
 
 ### Added
-- **Produtos — busca por contexto (staging):** a busca dos produtos cadastrados reconhece equivalências práticas (ex.: "lavadora de carro" → lava-jato/WAP/VAP; "quarto" → cama, lençol, colcha e itens relacionados), procurando nome e categoria com saneamento de filtros, limitação de expansão e isolamento da conta. Debounce no campo de busca; a Pesquisa Avançada da Shopee permanece independente.
+- **Produtos — busca por contexto (staging):** a busca dos produtos cadastrados reconhece equivalências práticas (ex.: "lavadora de carro" → lava-jato/WAP/VAP; "quarto" → cama, lençol, colcha e itens relacionados), procurando o nome dos produtos com saneamento de filtros e compatibilidade com o schema legado, limitação de expansão e isolamento da conta. Debounce no campo de busca; a Pesquisa Avançada da Shopee permanece independente.
 - **Configurações — planos e limites (staging):** seção `/settings#planos` compara cotas Free, Pro e Premium e concentra as informações de disponibilidade e limites; contratação e mudança de plano continuam indisponíveis.
 
 ### Changed

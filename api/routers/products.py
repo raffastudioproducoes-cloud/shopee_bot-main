@@ -123,7 +123,7 @@ def find_product_in_account(db: Any, user_id: Any, product_id: Any) -> dict[str,
 @router.get("")
 async def list_products(
     user_id: int = Depends(get_current_user_id),
-    search: str | None = Query(None, max_length=120, description="Busca por nome, categoria e termos relacionados"),
+    search: str | None = Query(None, max_length=120, description="Busca por nome e termos relacionados"),
     category: str | None = Query(None, description="Filtrar por categoria"),
     min_price: float | None = Query(None, description="Preço mínimo"),
     max_price: float | None = Query(None, description="Preço máximo"),
