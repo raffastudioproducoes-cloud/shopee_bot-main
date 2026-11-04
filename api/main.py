@@ -31,6 +31,7 @@ from .routers import (
     supabase_auth_router,
     catalog_router,
     products_router,
+    product_media_router,
     lists_router,
     campaigns_router,
     posts_router,
@@ -76,6 +77,7 @@ app.include_router(admin_router)
 # product_id:int antes de tentar a rota literal (mesmo cuidado de ordem de
 # registro documentado em credentials.py pra rotas literais vs "/{network}").
 app.include_router(catalog_router)
+app.include_router(product_media_router)
 app.include_router(products_router)
 app.include_router(lists_router)
 app.include_router(campaigns_router)

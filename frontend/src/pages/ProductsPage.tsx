@@ -5,7 +5,9 @@ import { useAuthStore } from "../stores/authStore"
 import { formDraftKey, clearFormDraft, saveFormDraft } from "../lib/formDraftStorage"
 import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
-import { productsApi, type Product } from "../api/products"
+import { productsApi, type Product, type ProductCreate, type ProductUpdate } from "../api/products"
+import { ProductMediaManager } from "../components/products/ProductMediaManager"
+import { NETWORK_RULES, textLength } from "../lib/networkLimits"
 import { ProductQuotaBar } from "../components/plans/ProductQuotaBar"
 import { usePlanUsage } from "../hooks/usePlanUsage"
 import { resourceAtLimit } from "../lib/planPresentation"
@@ -34,6 +36,7 @@ const TABS_OPTIONS = [
 
 const emptyForm = {
   name: "",
+  description: "",
   product_id: "",
   original_link: "",
   commission_link: "",
@@ -79,6 +82,7 @@ export function ProductsPage() {
   const [form, setForm] = useState(emptyForm)
   const [formBase, setFormBase] = useState(emptyForm)
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [copyError, setCopyError] = useState("")
   const activeDraftKey = modalOpen
     ? formDraftKey(user?.id, editingId ? `product-edit:${editingId}` : "product-create", null, false)
     : null
@@ -86,6 +90,7 @@ export function ProductsPage() {
     const base = saved && typeof saved === "object" ? saved : formBase
     setForm({
       name: typeof base.name === "string" ? base.name : "",
+      description: typeof base.description === "string" ? base.description : "",
       product_id: typeof base.product_id === "string" ? base.product_id : "",
       original_link: typeof base.original_link === "string" ? base.original_link : "",
       commission_link: typeof base.commission_link === "string" ? base.commission_link : "",
@@ -115,7 +120,7 @@ export function ProductsPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (body: Omit<Product, 'id' | 'user_id' | 'created_at' | 'updated_at'>) =>
+    mutationFn: (body: ProductCreate) =>
       productsApi.create({
         ...body,
         original_link: body.original_link ?? '',
@@ -133,7 +138,7 @@ export function ProductsPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: Partial<Product> }) =>
+    mutationFn: ({ id, body }: { id: number; body: ProductUpdate }) =>
       productsApi.update(id, body),
     meta: { toast: { pending: "Salvando alterações…", success: "Produto atualizado", error: "Não foi possível salvar" } },
     onSuccess: (_result, variables) => {
@@ -177,19 +182,18 @@ export function ProductsPage() {
 
   const handleUpdate = useCallback(() => {
     if (!editingId) return
-    updateMutation.mutate({
-      id: editingId,
-      body: {
-        name: form.name,
-        product_id: form.product_id,
-        original_link: form.original_link,
-        commission_link: form.commission_link,
-        commission: formNumber(form.commission),
-        image: form.image || null,
-        price_min: formNumber(form.price_min),
-        price_max: formNumber(form.price_max),
-      },
-    })
+    const description = form.description.trim()
+    const weighted = textLength(NETWORK_RULES.x, description)
+    if (weighted > 280) {
+      setCopyError("A descrição ultrapassa 280 caracteres ponderados.")
+      return
+    }
+    if (/https?:\/\/|www\.|(?:^|\s)(?:s\.shopee|shopee\.com|bit\.ly|t\.co)/i.test(description)) {
+      setCopyError("A descrição não deve conter links; a URL de comissão fica separada.")
+      return
+    }
+    setCopyError("")
+    updateMutation.mutate({ id: editingId, body: { name: form.name.trim(), description: description || null } })
   }, [form, editingId, updateMutation])
 
   const handleDelete = useCallback(() => {
@@ -198,8 +202,10 @@ export function ProductsPage() {
 
   const handleEdit = useCallback((product: Product) => {
     setEditingId(product.id)
+    setCopyError("")
     const nextForm = {
       name: product.name || "",
+      description: product.description || "",
       product_id: product.product_id || "",
       original_link: product.original_link || "",
       commission_link: product.commission_link || "",
@@ -218,6 +224,7 @@ export function ProductsPage() {
     setEditingId(null)
     const nextForm = {
       name: p.name,
+      description: "",
       product_id: p.product_id,
       original_link: p.original_link || "",
       commission_link: p.commission_link || "",
@@ -235,12 +242,14 @@ export function ProductsPage() {
   const handleCancel = useCallback(() => {
     setModalOpen(false)
     setEditingId(null)
+    setCopyError("")
     setForm(emptyForm)
   }, [])
 
   const openCreateModal = useCallback(() => {
     if (productsAtLimit) return
     setEditingId(null)
+    setCopyError("")
     setFormBase(emptyForm)
     setForm(emptyForm)
     setModalOpen(true)
@@ -404,7 +413,7 @@ export function ProductsPage() {
       )}
 
       {/* Modal de criação/edição */}
-      <Modal open={modalOpen} onClose={handleCancel} title={editingId ? "Editar produto" : "Novo produto"} width={560}>
+      <Modal open={modalOpen} onClose={handleCancel} title={editingId ? "Personalizar produto" : "Novo produto"} width={editingId ? 660 : 560}>
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -412,6 +421,42 @@ export function ProductsPage() {
           }}
           className="csp-s-0366"
         >
+          {editingId ? (
+            <>
+              <TextInput
+                label="Nome do produto *"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                required
+              />
+              <label htmlFor="product-custom-copy" style={{ display: "block", marginTop: 16, marginBottom: 6, color: "var(--text-secondary)", fontWeight: 600 }}>
+                Descrição curta para redes sociais (sem links)
+              </label>
+              <textarea
+                id="product-custom-copy"
+                value={form.description}
+                onChange={(e) => { setForm((f) => ({ ...f, description: e.target.value })); setCopyError("") }}
+                placeholder="Descreva o produto em poucas palavras, sem inserir o link de compra."
+                rows={3}
+                maxLength={280}
+                style={{ boxSizing: "border-box", width: "100%", minHeight: 100, padding: 12, borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface, #0d1420)", color: "var(--text-primary)", font: "inherit", resize: "vertical" }}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 4, fontSize: 12, color: textLength(NETWORK_RULES.x, form.description) > 280 ? "var(--color-error, #fb7185)" : "var(--text-muted)" }}>
+                <span>Texto salvo separadamente dos links comerciais.</span>
+                <span>{textLength(NETWORK_RULES.x, form.description)} / 280</span>
+              </div>
+              {copyError && <p role="alert" style={{ color: "#fb7185", fontSize: 13, marginTop: 6 }}>{copyError}</p>}
+              <div style={{ marginTop: 18, padding: 12, border: "1px solid var(--border)", borderRadius: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Imagem original da Shopee (preservada)</div>
+                {form.image ? (
+                  <a href={form.image} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-secondary)", fontSize: 12, overflowWrap: "anywhere" }}>{form.image}</a>
+                ) : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Este produto não possui imagem original.</span>}
+                <p style={{ margin: "8px 0 0", color: "var(--text-muted)", fontSize: 12 }}>ID, links, preços e comissão são protegidos e não podem ser editados.</p>
+              </div>
+              <ProductMediaManager productId={editingId} />
+            </>
+          ) : (
+            <>
           <div className="mobile-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <TextInput
               label="Nome *"
@@ -494,12 +539,15 @@ export function ProductsPage() {
             Ganho estimado por venda: <strong className="csp-s-0368">{formatEarnings(form.price_min, form.price_max, form.commission)}</strong>
           </p>
 
+            </>
+          )}
+
           <p style={{ color: "var(--text-muted)", font: "var(--text-role-caption)" }}>Rascunho salvo neste navegador até você salvar o produto.</p>
           <div className="csp-s-0369">
             <Button type="button" variant="ghost" onClick={handleCancel}>
               Cancelar
             </Button>
-            <Button type="submit" variant="primary" disabled={!editingId && productsAtLimit} loading={createMutation.isPending || updateMutation.isPending}>
+            <Button type="submit" variant="primary" disabled={(!editingId && productsAtLimit) || (Boolean(editingId) && (!form.name.trim() || textLength(NETWORK_RULES.x, form.description) > 280))} loading={createMutation.isPending || updateMutation.isPending}>
               {createMutation.isPending || updateMutation.isPending ? "Salvando..." : editingId ? "Salvar" : "Criar"}
             </Button>
           </div>
