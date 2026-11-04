@@ -16,6 +16,7 @@ from conftest import FakeDB
 def database(tier="pro", access="USER"):
     return FakeDB({
         "users": [dict(id="owner", access=access, plan_tier=tier)],
+        "campaign_reservations_f4e": [],
         "profiles": [dict(id="a", user_id="owner"), dict(id="b", user_id="owner"),
                      dict(id="foreign", user_id="other")],
         "plan_limits": [dict(tier="pro", products_per_account=500, lists_per_profile=20,
