@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added
+- **Produtos — busca por contexto (staging):** a busca dos produtos cadastrados reconhece equivalências práticas (ex.: "lavadora de carro" → lava-jato/WAP/VAP; "quarto" → cama, lençol, colcha e itens relacionados), procurando nome e categoria com saneamento de filtros, limitação de expansão e isolamento da conta. Debounce no campo de busca; a Pesquisa Avançada da Shopee permanece independente.
+- **Configurações — planos e limites (staging):** seção `/settings#planos` compara cotas Free, Pro e Premium e concentra as informações de disponibilidade e limites; contratação e mudança de plano continuam indisponíveis.
+
+### Changed
+- **Produtos — cota compacta (staging):** remove o cartão amplo com etiqueta de plano repetida e avisos. Mantém somente consumo/limite de produtos da conta e ação "Melhorar plano" para Free/Pro; Premium e Administrador exibem apenas a cota. O cartão de avatar/nome e etiqueta no topo não foi alterado.
+- **SemVer pendente:** a busca por contexto constitui funcionalidade compatível nova, classificada **MINOR**. Candidato ao próximo `3.3.0` (absorvendo os ajustes PATCH ainda não lançados); `VERSION` permanece `3.2.0` na staging, conforme `docs/RULES.md`, até homologação e promoção explicitamente aprovada para `main`.
+
 ### Changed
 - **Dashboard e identificação no topo (staging):** busca do cabeçalho oculta apenas em `/app`, preservando a busca das demais páginas; cartão de avatar/nome opaco e arredondado em primeiro plano, ampliado para a proporção da referência (70 px de altura, foto de 48 px); segundo cartão da etiqueta dinâmica do plano atrás e parcialmente exposto por baixo do primeiro, alinhado em largura e eixo vertical, sem sobrepor o nome, com ajuste responsivo para celular. Mudança visual compatível, classificada como PATCH (próxima versão 3.2.1 somente após homologação e aprovação da promoção).
 
