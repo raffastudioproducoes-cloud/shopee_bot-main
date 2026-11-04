@@ -677,7 +677,10 @@ export function CampaignPlanner({ credentials }: {
                         {(historyQuery.data?.data ?? []).map((slot) => (
                           <li key={slot.id}>
                             {slot.network} · produto {slot.product_id} ·
-                            {new Date(slot.planned_at).toLocaleString("pt-BR")} · {slot.state}
+                            {new Date(slot.planned_at).toLocaleString("pt-BR")} · {({
+                              planned:"Planejado",running:"Em execução",succeeded:"Publicado",
+                              failed:"Falhou",unknown:"Resultado incerto",cancelled:"Cancelado",
+                            } as const)[slot.state]}
                             {slot.delivery?.last_error && <small> · {slot.delivery.last_error}</small>}
                           </li>
                         ))}
