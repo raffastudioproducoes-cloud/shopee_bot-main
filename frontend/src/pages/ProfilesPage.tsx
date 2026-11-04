@@ -65,7 +65,7 @@ export function ProfilesPage() {
     onSuccess: () => {
       invalidateProfiles()
       setDeletingProfile(null)
-      setFeedback({ kind: "success", text: "Perfil excluído." })
+      setFeedback({ kind: "success", text: "Perfil removido da conta ativa. Histórico final preservado." })
     },
   })
 
@@ -195,7 +195,7 @@ export function ProfilesPage() {
           onConfirm={() => deleteProfileMutation.mutate(deletingProfile.id)}
           onClose={() => setDeletingProfile(null)}
         >
-          Excluir o perfil <strong>{deletingProfile.nome}</strong>? Esta ação não pode ser desfeita.
+          Remover o perfil <strong>{deletingProfile.nome}</strong>? Agendamentos e campanhas pendentes serão cancelados. Publicações já concluídas, falhas e resultados que exigem conciliação continuam no histórico da conta. Esta ação não pode ser desfeita.
         </ConfirmModal>
       )}
 
