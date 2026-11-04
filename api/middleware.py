@@ -116,6 +116,21 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             raise
         finally:
             duration_ms = int((time.monotonic() - start) * 1000)
+            # Se o DELETE integral terminou, não recriar dados pessoais no
+            # request_logs depois de a transação final ter feito o expurgo.
+            # Também não persistir o UUID do alvo no path de DELETE admin.
+            path = request.url.path
+            erasure_completed = status_code == 200 and (
+                (request.method == "DELETE" and path == "/users/me")
+                or (request.method == "DELETE" and re.fullmatch(
+                    r"/admin/users/[0-9a-fA-F-]{36}", path
+                ))
+                or (request.method == "POST" and re.fullmatch(
+                    r"/admin/users/[0-9a-fA-F-]{36}/erasure/retry", path
+                ))
+            )
+            if erasure_completed:
+                return
             self._save(
                 request, user_id, username, status_code, duration_ms, error, redirect_to,
                 profile_id,
