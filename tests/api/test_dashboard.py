@@ -14,8 +14,7 @@ from api.routers.profiles import get_current_profile_id
 @pytest.fixture
 def client():
     app.dependency_overrides.clear()
-    with TestClient(app) as test_client:
-        yield test_client
+    yield TestClient(app)
     app.dependency_overrides.clear()
 
 
