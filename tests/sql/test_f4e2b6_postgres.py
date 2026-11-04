@@ -53,6 +53,7 @@ class TestCampaignRuntime(TestCampaignNetworkReservations):
             for migration in (
                 '077_campaign_materialization.sql',
                 '078_campaign_executor.sql',
+                '079_campaign_foreign_key_indexes.sql',
             ):
                 con.execute((ROOT / migration).read_text())
 
@@ -63,6 +64,22 @@ class TestCampaignRuntime(TestCampaignNetworkReservations):
                 SELECT has_function_privilege('service_role',
                   'public.activate_campaign_networks_f4e(uuid,uuid,uuid,text)','EXECUTE')
             """).fetchone()[0])
+
+    def test_new_foreign_keys_have_covering_indexes(self):
+        expected = {
+            "campaign_network_slots_product_fk_f4e_idx",
+            "campaign_network_slots_profile_fk_f4e_idx",
+            "campaign_reservation_assets_product_fk_f4e_idx",
+            "campaign_reservation_assets_profile_fk_f4e_idx",
+            "campaign_reservation_assets_user_fk_f4e_idx",
+        }
+        with self.connect() as con:
+            present = {row[0] for row in con.execute("""
+                SELECT indexname FROM pg_indexes
+                WHERE schemaname='public'
+                  AND tablename IN ('campaign_network_slots_f4e','campaign_reservation_assets_f4e')
+            """).fetchall()}
+            self.assertTrue(expected.issubset(present))
 
     def test_oauth_recheck_upsert_as_service_role(self):
         rid = self.reserve(draft_index=1)
