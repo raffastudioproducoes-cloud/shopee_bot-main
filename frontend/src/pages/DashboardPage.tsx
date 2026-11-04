@@ -1,91 +1,95 @@
-import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { api } from '../lib/api'
+import { useDashboard } from '../hooks/useDashboard'
 import { StatCard } from '../components/ui/StatCard'
 import { Panel, PanelHeader } from '../components/ui/Panel'
 import { Button } from '../components/ui/Button'
 import { Skeleton, SkeletonCard, SkeletonRegion } from '../components/ui/Skeleton'
 
-interface DashboardStats {
-  products_count: number
-  posts_count: number
-  lists_count: number
-  scheduled_posts: number
+function count(value: number | undefined) {
+  return typeof value === 'number' && Number.isFinite(value) ? String(value) : '—'
 }
 
-async function fetchStats(): Promise<DashboardStats> {
-  return api.get<DashboardStats>('/dashboard/stats')
+function RecordedAt({ value }: { value: string | null }) {
+  if (!value || Number.isNaN(Date.parse(value))) return <span>Data indisponível</span>
+  return <time dateTime={value}>{new Date(value).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} (Brasília)</time>
 }
+
+const networks: Record<string, string> = { threads: 'Threads', facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', x: 'X' }
+const listStyle = { margin: 0, padding: '0 16px 16px', listStyle: 'none' } as const
+const itemStyle = { padding: '12px 0', borderTop: '1px solid var(--border-hairline)', overflowWrap: 'anywhere' } as const
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const { data: stats, isLoading, error } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: fetchStats,
-  })
+  const { data: stats, isPending, error, refetch } = useDashboard()
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <SkeletonRegion><div className="csp-s-0231">
         <div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="220px" height={16} /></div>
-        <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--gap-grid)' }}>{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</div>
-        <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>{[1,2].map(i => <SkeletonCard key={i} />)}</div>
+        <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 'var(--gap-grid)' }}>{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</div>
+        <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>{[1,2,3].map(i => <SkeletonCard key={i} />)}</div>
       </div></SkeletonRegion>
     )
   }
 
-  if (error) {
-    return (
-      <div className="csp-s-0232">
-        Erro ao carregar estatísticas
-      </div>
-    )
+  if (error || !stats) {
+    return <div role="alert" className="csp-s-0232">
+      <p>Não foi possível carregar a visão geral da conta.</p>
+      <Button variant="secondary" onClick={() => void refetch()}>Tentar novamente</Button>
+    </div>
   }
 
   return (
     <div className="csp-s-0233">
       <div>
         <h1 className="csp-s-0234">Dashboard</h1>
-        <p className="csp-s-0235">Visão geral da sua conta</p>
+        <p className="csp-s-0235">Visão geral da sua conta · todos os perfis</p>
       </div>
 
-      <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--gap-grid)' }}>
-        <StatCard name="Produtos Cadastrados" icon="briefcase" price={String(stats?.products_count ?? 0)} showSparkline={false} />
-        <StatCard name="Postagens Criadas" icon="file-text" price={String(stats?.posts_count ?? 0)} showSparkline={false} />
-        <StatCard name="Listas de Produtos" icon="sliders-horizontal" price={String(stats?.lists_count ?? 0)} showSparkline={false} />
-        <StatCard name="Agendados" icon="circle-dot" price={String(stats?.scheduled_posts ?? 0)} showSparkline={false} />
+      <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 'var(--gap-grid)' }}>
+        <StatCard name="Produtos Cadastrados" icon="briefcase" price={count(stats.products_count)} showSparkline={false} />
+        <StatCard name="Postagens Criadas" icon="file-text" price={count(stats.posts_count)} showSparkline={false} />
+        <StatCard name="Listas de Produtos" icon="sliders-horizontal" price={count(stats.lists_count)} showSparkline={false} />
+        <StatCard name="Agendados" icon="circle-dot" price={count(stats.scheduled_posts)} showSparkline={false} />
       </div>
 
       <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>
         <Panel surface="glass">
           <PanelHeader title="Postagens recentes" />
-          <div className="csp-s-0236">
-            Nenhuma postagem ainda.
-          </div>
+          {!Array.isArray(stats.recent_posts) ? <p className="csp-s-0236">Resumo de postagens indisponível.</p> : stats.recent_posts.length === 0 ? <p className="csp-s-0236">Nenhuma postagem ainda.</p> : (
+            <ul aria-label="Postagens recentes de todos os perfis" style={listStyle}>
+              {stats.recent_posts.map((post) => <li key={post.id} style={itemStyle}>
+                <p><strong>#{post.id} · {networks[post.network] ?? post.network}</strong></p>
+                <p style={{ whiteSpace: 'pre-wrap' }}>{post.text_preview || 'Publicação sem texto.'}</p>
+                <small><RecordedAt value={post.created_at} /></small>
+              </li>)}
+            </ul>
+          )}
         </Panel>
 
         <Panel surface="dark">
           <PanelHeader title="Atividade recente" />
-          <div className="csp-s-0237">
-            Nenhuma atividade registrada ainda.
-          </div>
+          {!Array.isArray(stats.recent_activities) ? <p className="csp-s-0237">Resumo de atividades indisponível.</p> : stats.recent_activities.length === 0 ? <p className="csp-s-0237">Nenhuma atividade registrada ainda.</p> : (
+            <ul aria-label="Atividades recentes da conta" style={listStyle}>
+              {stats.recent_activities.map((activity) => <li key={activity.id} style={itemStyle}>
+                <p>{activity.label}</p>
+                <small><RecordedAt value={activity.created_at} /></small>
+              </li>)}
+            </ul>
+          )}
         </Panel>
 
         <Panel surface="dark">
           <PanelHeader title="Ações Rápidas" />
+          <p style={{ padding: '0 16px 12px', margin: 0 }}>Posts e listas são criados no perfil ativo.</p>
           <div className="dashboard-quick-actions" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 16px 16px' }}>
-            <Button variant="secondary" icon="briefcase" fullWidth onClick={() => navigate({ to: '/products' })}>
-              Adicionar Produto
-            </Button>
-            <Button variant="secondary" icon="file-text" fullWidth onClick={() => navigate({ to: '/posts' })}>
-              Criar Post
-            </Button>
-            <Button variant="secondary" icon="sliders-horizontal" fullWidth onClick={() => navigate({ to: '/lists' })}>
-              Nova Lista
-            </Button>
+            <Button variant="secondary" icon="briefcase" fullWidth onClick={() => navigate({ to: '/products', search: { action: 'create' } })}>Adicionar Produto</Button>
+            <Button variant="secondary" icon="file-text" fullWidth onClick={() => navigate({ to: '/posts/criar' })}>Criar Post</Button>
+            <Button variant="secondary" icon="sliders-horizontal" fullWidth onClick={() => navigate({ to: '/lists', search: { action: 'create' } })}>Nova Lista</Button>
           </div>
         </Panel>
       </div>
     </div>
   )
 }
+
