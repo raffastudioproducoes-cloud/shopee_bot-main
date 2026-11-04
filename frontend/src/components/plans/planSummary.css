@@ -13,25 +13,26 @@
 .plan-campaign-lock { margin-block: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--border-card); border-radius: var(--r-md); }
 .plan-campaign-editor { border: 0; padding: 0; margin: 0; min-width: 0; }
 
-/* Referência: aba escura em primeiro plano, mais alta; etiqueta colorida
-   encaixada POR TRÁS e na mesma linha de base, sem invadir foto ou nome. */
+/* Dois cartões realmente empilhados no eixo VERTICAL:
+   cartão do perfil totalmente à frente; cartão do plano atrás e
+   parcialmente visível ABAIXO, no mesmo eixo e mesma largura.
+   O texto do plano permanece na parte exposta do cartão traseiro. */
 .app-topbar .plan-topbar-account {
   display: inline-flex;
   position: relative;
   isolation: isolate;
-  align-items: flex-end;
-  flex-direction: row;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0;
   min-width: 0;
   flex-shrink: 0;
-  padding-top: 0;
+  padding-bottom: 30px;
   white-space: nowrap;
 }
 .plan-topbar-account .active-profile-chip {
   position: relative;
   z-index: 2;
   min-width: 0;
-  flex-shrink: 1;
   white-space: nowrap;
 }
 .plan-topbar-account .active-profile-chip:focus-visible {
@@ -39,44 +40,47 @@
   outline-offset: 3px;
 }
 .plan-topbar-account .plan-topbar-tag {
-  position: relative;
+  position: absolute;
   z-index: 1;
-  align-self: flex-end;
-  flex-shrink: 0;
-  margin: 0 0 0 -19px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
   pointer-events: none;
 }
 .plan-topbar-account .plan-topbar-tag > span {
-  min-height: 44px;
-  padding: 10px 20px 10px 35px !important;
-  border-radius: 22px 24px 24px 10px !important;
-  font-size: 16px !important;
-  align-items: center;
-  box-shadow: 0 4px 13px rgba(0,0,0,.23);
+  box-sizing: border-box;
+  display: flex !important;
+  width: 100%;
+  min-height: 62px;
+  padding: 32px 12px 8px !important;
+  border-radius: 26px !important;
+  justify-content: center;
+  align-items: flex-end;
+  font-size: 14px !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,.2);
 }
 
 @media (max-width: 767px) {
-  /* Mesma silhueta, em dimensões compactas. O texto do perfil tem
-     prioridade sobre o encaixe; caso falte espaço, trunca sem sobrepor. */
+  /* O mesmo encaixe vertical em dimensões compactas para o cabeçalho móvel. */
   .app-topbar .plan-topbar-account {
     display: inline-flex;
     position: relative;
-    align-items: flex-end;
     flex: 0 1 auto;
-    width: min(56vw, 216px);
+    width: min(43vw, 164px);
     min-width: 0;
-    height: 49px;
-    padding-top: 0;
+    height: auto;
+    padding-bottom: 23px;
   }
   .app-topbar .plan-topbar-account .active-profile-chip {
     position: relative;
-    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100% !important;
     min-width: 0;
-    max-width: 140px !important;
     min-height: 47px !important;
     gap: 6px !important;
     padding: 0 9px 0 4px !important;
-    border-radius: 18px !important;
+    border-radius: 19px !important;
     font-size: 12px !important;
     overflow: hidden;
   }
@@ -90,16 +94,19 @@
     height: 34px !important;
   }
   .app-topbar .plan-topbar-account .plan-topbar-tag {
-    position: relative;
-    z-index: 1;
-    align-self: flex-end;
-    flex: 0 0 auto;
-    margin: 0 0 0 -17px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
   }
   .app-topbar .plan-topbar-account .plan-topbar-tag > span {
-    min-height: 31px;
-    padding: 5px 10px 5px 23px !important;
-    border-radius: 14px 18px 14px 8px !important;
+    width: 100%;
+    min-height: 50px;
+    padding: 27px 6px 5px !important;
+    border-radius: 19px !important;
+    justify-content: center;
+    align-items: flex-end;
     font-size: 11px !important;
   }
 }
