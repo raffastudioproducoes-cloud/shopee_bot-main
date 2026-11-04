@@ -1,3 +1,10 @@
+## 04/11/2026 — Campanha real F4E ATIVA e rastreada; execução externa às 01:45 BRT
+
+- [x] Autorização específica de Rafa para um post real Threads e ativação executada no ADMIN staging. Campanha `Homologação de publicação real — 04/11/2026`, produto Air Fryer, 1 rede, 1 slot às **01:45 BRT** de 04/11; antecipação de 30 minutos aplicada após validação recusada em 01:10. Painel: `Ativa`, `1 planejados`, zero concluídos/falhas/incertos.
+- [x] Leitura direta do banco: reserva `6dfbab2d-cc9f-42fb-9dec-840067017573` ativa, `dispatch_enabled=true`, media e OAuth verificados, 1 asset privado e 1 OAuth check, 1 slot; post+agenda+job presentes com `publication_origin='campaign'`, job `pending`, horários iguais em BRT. Nenhum envio externo comprovado até a observação.
+- [x] Monitoramento pontual agendado para **01:55 BRT** de 04/11, com inspeção read-only de logs/job/ID remoto e aviso ao Rafa. Sem retry automático, sem duplicação e sem tocar `unknown` legado.
+- [ ] Após o disparo: registrar confirmação remota (ou erro exato/estado incerto), cronologia, rede, post/job e atualizar documentação. Só então fechar o gate E2E, e **não** presumir que todas as redes estão homologadas por um único Threads.
+- [ ] Produção `main` e checkout/entitlement pago real permanecem gates distintos, sem promoção ou alteração comercial. `VERSION=3.0.0`.
 ## 04/11/2026 — Fechamento CI/LIVE da correção, envio real ainda não autorizado na UI
 
 - [x] [PR app #245](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/245) corrigido e merged somente em `staging`, SHA `4a4e0ab`. CI #877 SUCCESS (API com 1.177 testes, frontend, PostgreSQL isolado; staging externo do PR skipped); Render `dep-dblaq067bikc73affoh0` **LIVE**.
