@@ -251,6 +251,41 @@ def test_avatar_upload_rejects_file_over_max_size(auth_client, monkeypatch):
     fake_client.storage.from_.return_value.upload.assert_not_called()
 
 
+def test_list_profiles_recovers_one_http2_read_error(auth_client, monkeypatch):
+    """Uma desconexão transiente não pode derrubar a lista de perfis."""
+    import httpx
+
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [
+        httpx.ReadError("connection temporarily unavailable"),
+        MagicMock(data=[{"id": "p-main", "user_id": USER_ID}]),
+    ]
+
+    response = auth_client.get("/profiles")
+
+    assert response.status_code == 200
+    assert response.json() == [{"id": "p-main", "user_id": USER_ID}]
+    query.eq.assert_called_with("user_id", USER_ID)
+    assert query.execute.call_count == 2
+
+
+def test_list_profiles_two_transport_failures_return_503_not_500(auth_client, monkeypatch):
+    """Falha persistente nega a leitura com 503 sanitizado; não inventa lista."""
+    import httpx
+
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [
+        httpx.ReadError("connection temporarily unavailable"),
+        httpx.RemoteProtocolError("GOAWAY"),
+    ]
+
+    response = auth_client.get("/profiles")
+
+    assert response.status_code == 503
+    assert "Resource temporarily unavailable" not in response.text
+    assert query.execute.call_count == 2
+
+
 def test_profile_resolution_retries_owned_read_only_after_http2_disconnect(monkeypatch, real_profile_resolution):
     """A queda HTTP/2 não invalida a sessão nem remove seu perfil."""
     import httpx
