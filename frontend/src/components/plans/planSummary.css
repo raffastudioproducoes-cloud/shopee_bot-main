@@ -47,9 +47,10 @@
   pointer-events: none;
 }
 .plan-topbar-account .plan-topbar-tag > span {
-  min-height: 35px;
-  padding: 6px 17px 6px 31px !important;
-  border-radius: 17px 21px 17px 10px !important;
+  min-height: 44px;
+  padding: 10px 20px 10px 35px !important;
+  border-radius: 22px 24px 24px 10px !important;
+  font-size: 16px !important;
   align-items: center;
   box-shadow: 0 4px 13px rgba(0,0,0,.23);
 }
