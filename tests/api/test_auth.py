@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -717,3 +718,79 @@ class TestMeProfileId:
         calls = self._setup(client, monkeypatch, {}, "p-main")
         assert client.get("/auth/me").json()["profile_id"] == "p-main"
         assert calls == [(None, 2)]
+
+
+class TestAuthReadTransportRecovery:
+    """GOAWAY/ReadError não podem invalidar sessão nem ignorar revogação."""
+
+    @staticmethod
+    def _db_with_query(side_effect):
+        db = MagicMock()
+        query = db.table.return_value
+        query.select.return_value = query
+        query.eq.return_value = query
+        query.maybe_single.return_value = query
+        query.execute.side_effect = side_effect
+        return db, query
+
+    def test_user_lookup_retries_transport_error_once(self, monkeypatch):
+        db, query = self._db_with_query([
+            httpx.RemoteProtocolError("HTTP/2 GOAWAY"),
+            MagicMock(data=[{"id": "u1", "username": "rafa"}]),
+        ])
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: db)
+        monkeypatch.setattr(auth_module.time, "sleep", lambda _: None)
+
+        assert auth_module._get_user_from_supabase("rafa")["id"] == "u1"
+        assert query.execute.call_count == 2
+        assert [call.args[0] for call in db.table.call_args_list] == ["users", "users"]
+
+    def test_revocation_lookup_retries_transport_error_once(self, monkeypatch):
+        db, query = self._db_with_query([
+            httpx.RemoteProtocolError("HTTP/2 GOAWAY"),
+            MagicMock(data=None),
+        ])
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: db)
+        monkeypatch.setattr(auth_module, "_get_user_from_supabase", lambda username: {
+            "id": "u1", "username": username, "password": "hash",
+        })
+        monkeypatch.setattr(auth_module.time, "sleep", lambda _: None)
+        token = auth_module._create_token({"sub": "rafa", "id": "u1"})
+
+        assert auth_module._get_authenticated_user(token)["id"] == "u1"
+        assert query.execute.call_count == 2
+
+    def test_retry_still_enforces_revocation(self, monkeypatch):
+        db, query = self._db_with_query([
+            httpx.RemoteProtocolError("HTTP/2 GOAWAY"),
+            MagicMock(data={"jti": "revoked"}),
+        ])
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: db)
+        monkeypatch.setattr(auth_module, "_get_user_from_supabase", lambda username: {
+            "id": "u1", "username": username, "password": "hash",
+        })
+        monkeypatch.setattr(auth_module.time, "sleep", lambda _: None)
+        token = auth_module._create_token({"sub": "rafa", "id": "u1"})
+        session_id = auth_module._decode_token(token)["jti"]
+        query.execute.side_effect = [
+            httpx.RemoteProtocolError("HTTP/2 GOAWAY"),
+            MagicMock(data={"jti": session_id}),
+        ]
+
+        with pytest.raises(auth_module.HTTPException) as error:
+            auth_module._get_authenticated_user(token)
+        assert error.value.status_code == 401
+        assert query.execute.call_count == 2
+
+    def test_two_transport_failures_fail_closed_with_503(self, monkeypatch):
+        db, query = self._db_with_query([
+            httpx.ReadError("offline"),
+            httpx.ReadError("still offline"),
+        ])
+        monkeypatch.setattr(auth_module, "get_supabase", lambda: db)
+        monkeypatch.setattr(auth_module.time, "sleep", lambda _: None)
+
+        with pytest.raises(auth_module.HTTPException) as error:
+            auth_module._get_user_from_supabase("rafa")
+        assert error.value.status_code == 503
+        assert query.execute.call_count == 2
