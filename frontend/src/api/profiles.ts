@@ -1,7 +1,7 @@
 import { api } from '../lib/api'
 
 export type ProfileKind = 'principal' | 'secundario'
-export type PlanTier = 'free' | 'plus' | 'premium'
+export type PlanTier = 'free' | 'pro' | 'plus' | 'premium'
 
 export interface Profile {
   id: string
@@ -22,7 +22,15 @@ export interface ProfileInput {
   endereco?: string
 }
 
+export interface ProfileQuota {
+  tier: 'free' | 'pro' | 'premium'
+  used: number
+  limit: number | null
+  unlimited: boolean
+}
+
 export const profilesApi = {
+  quota: () => api.get<ProfileQuota>('/profiles/quota'),
   list: () => api.get<Profile[]>('/profiles'),
   create: (data: ProfileInput) => api.post<Profile>('/profiles', data),
   update: (id: string, data: ProfileInput) => api.put<Profile>(`/profiles/${id}`, data),

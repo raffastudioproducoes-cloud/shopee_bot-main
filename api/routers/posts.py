@@ -44,8 +44,10 @@ from pydantic import BaseModel, Field, model_validator, field_validator
 from .auth import _check_login_rate_limit, get_current_user_id
 from .profiles import get_current_profile_id
 from ..profiles import scope_account, scope_owner
+from ..plan_quotas import reserve_post_plan_quota, release_failed_post_plan_quota
 from ..audit_log import log_action
 from ..database import supabase
+from shopee_bot.database.scheduler_environment import current_environment
 from ..storage_capacity import storage_upload_reservation
 from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail, is_network_disabled
@@ -591,6 +593,8 @@ async def _ensure_scheduler_available() -> None:
 
 
 def _block_reason(exc: Exception) -> str:
+    if isinstance(exc, HTTPException):
+        return str(exc.detail)
     if isinstance(exc, InternalApiError):
         return "Não foi possível agendar esta rede agora."
     if isinstance(exc, _DraftUnavailable):
@@ -913,8 +917,16 @@ def _schedule_slot_history(
     return sorted(slots, key=lambda item: (item["day_of_week"] if item["day_of_week"] is not None else 7, item["time"]))
 
 
+
+def _require_legacy_post_origin(post: dict) -> None:
+    """Campanhas são controladas somente pela máquina de estados de campanha."""
+    if post.get("publication_origin", "legacy") == "campaign":
+        raise HTTPException(status_code=409, detail="Esta publicação pertence a uma campanha. Use os controles da campanha.")
+
+
 def _ensure_post_editable(user_id: int, post_id: int, profile_id: str | None, post: dict) -> None:
     """Proíbe edições que alterariam uma publicação já programada ou enviada."""
+    _require_legacy_post_origin(post)
     detail = "Este post já foi publicado ou está programado. Não é possível editar seu conteúdo ou suas mídias."
     if post.get("publish_immediately") or _get_post_schedule_entries(user_id, post_id):
         raise HTTPException(status_code=409, detail=detail)
@@ -1043,6 +1055,7 @@ def reconcile_post(
     nem assume validação automática pela Meta.
     """
     post = _get_post(user_id, post_id, profile_id)
+    _require_legacy_post_origin(post)
     if post.get("network") != "threads":
         raise HTTPException(status_code=422, detail="Conciliação manual disponível apenas para Threads")
     if body.confirmed is not True:
@@ -1141,6 +1154,7 @@ def retry_unknown_post(
     """
     profile_id = _require_profile_id(profile_id)
     post = _get_post(user_id, post_id, profile_id)
+    _require_legacy_post_origin(post)
     if (post.get("network") or "threads") != "threads":
         raise HTTPException(status_code=422, detail="Reenvio manual disponível apenas para Threads")
     if body.confirmed_not_published is not True or body.accepts_duplicate_risk is not True:
@@ -1442,7 +1456,14 @@ async def create_post(
         ]).execute()
 
     try:
+        reserve_post_plan_quota(
+            user_id, profile_id, head["id"], immediate=False,
+            days=body.schedule.days_of_week, times=body.schedule.times,
+        )
         await _create_schedule_jobs(user_id, head["id"], NETWORK_FUNC_MAP[body.network], body.schedule, profile_id)
+    except HTTPException:
+        _delete_thread_cascade(head["id"])
+        raise
     except InternalApiError:
         _delete_thread_cascade(head["id"])
         raise HTTPException(
@@ -1568,6 +1589,10 @@ async def create_posts_batch(
         head = _create_thread(user_id, plan["texts"], plan["network"], profile_id, group_id, body.publish_immediately)
         fresh: dict[str, dict | None] = {}  # rascunhos consumidos só por este plano
         try:
+            reserve_post_plan_quota(
+                user_id, profile_id, head["id"], immediate=body.publish_immediately,
+                days=body.schedule.days_of_week, times=body.schedule.times,
+            )
             _set_post_products(head["id"], body.product_ids)
             medias = _attach_medias(
                 head["id"], plan["media_draft_ids"], drafts_by_id, materialized, fresh,
@@ -1576,9 +1601,11 @@ async def create_posts_batch(
             # job por último: sem mídia vinculada ele nunca existe
             await _create_schedule_jobs(user_id, head["id"], NETWORK_FUNC_MAP[plan["network"]], body.schedule, profile_id)
         except Exception as exc:
-            if not isinstance(exc, (InternalApiError, _DraftUnavailable)):
+            if not isinstance(exc, (InternalApiError, _DraftUnavailable, HTTPException)):
                 logger.warning("Falha ao montar post da rede %s", plan["network"], exc_info=True)
             _rollback_plan(head["id"], fresh, materialized, user_id, profile_id)
+            if body.publish_immediately:
+                release_failed_post_plan_quota(user_id, profile_id, head["id"])
             blocked.append({
                 **plan,
                 "mode": "blocked",
@@ -1857,6 +1884,165 @@ async def get_post(
     }
 
 
+def _latest_future_revision(user_id: int, post_id: int, profile_id: str | None):
+    response = (
+        scope_owner(
+            supabase.table("post_content_revisions")
+            .select("id,effective_after,snapshot")
+            .eq("post_id", post_id)
+            .contains("snapshot", {"environment": current_environment()}), user_id, profile_id,
+        )
+        .order("id", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not response.data:
+        return None
+    item = response.data[0]
+    snapshot = item.get("snapshot") or {}
+    return {
+        "id": item["id"],
+        "effective_after": item["effective_after"],
+        "texts": snapshot.get("texts") or [],
+    }
+
+
+class PostFutureRevision(BaseModel):
+    texts: list[str]
+    product_ids: list[int] = []
+
+    @field_validator("texts")
+    @classmethod
+    def _check_future_texts(cls, value: list[str]) -> list[str]:
+        if not value or len(value) > MAX_THREAD_PARTS or any(
+            not isinstance(item, str) or not item.strip() for item in value
+        ):
+            raise ValueError("Informe textos válidos para a revisão futura")
+        return value
+
+
+def _revision_media_snapshot(user_id: int, post_id: int, profile_id: str) -> list[dict]:
+    """Mantém as mídias originais no Storage, sem sobrescrever/vazar objetos."""
+    links = (
+        supabase.table("posts_medias")
+        .select("media_id,display_order")
+        .eq("post_id", post_id)
+        .order("display_order")
+        .execute()
+    )
+    ids = [item["media_id"] for item in (links.data or [])]
+    if not ids:
+        return []
+    rows = (
+        scope_owner(
+            supabase.table("medias").select("id,file_name,file_path,size,type"),
+            user_id, profile_id,
+        )
+        .in_("id", ids)
+        .execute()
+    )
+    found = {row["id"]: row for row in (rows.data or [])}
+    if len(found) != len(set(ids)):
+        raise HTTPException(status_code=409, detail="Mídia do post indisponível para revisão")
+    return [found[media_id] for media_id in ids]
+
+
+def _has_revision_schedule_in_environment(
+    user_id: int, post_id: int, profile_id: str, environment: str,
+) -> bool:
+    """Nunca criar revisão de staging para uma agenda apenas da produção."""
+    result = (
+        scope_owner(
+            supabase.table("schedulers").select("id").eq("post_id", post_id)
+            .eq("environment", environment).is_("dispatch_cancelled_at", "null"),
+            user_id, profile_id,
+        )
+        .limit(1)
+        .execute()
+    )
+    return bool(result.data)
+
+
+@router.post("/{post_id}/future-revisions", status_code=status.HTTP_201_CREATED)
+def create_future_revision(
+    post_id: int,
+    body: PostFutureRevision,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Cria revisão imutável. Somente slots pendentes > T+30 a recebem.
+
+    O RPC transacional usa o relógio do banco e conserva posts e mídias originais.
+    A edição de novos arquivos ocorrerá na etapa de mídia, com vínculo durável.
+    """
+    profile_id = _require_profile_id(profile_id)
+    post = _get_post(user_id, post_id, profile_id)
+    _require_legacy_post_origin(post)
+    if post.get("post_id") is not None or post.get("publish_immediately"):
+        raise HTTPException(status_code=409, detail="Este post não admite edição futura")
+    environment = current_environment()
+    if not _has_revision_schedule_in_environment(user_id, post_id, profile_id, environment):
+        raise HTTPException(status_code=409, detail="Post sem agenda elegível neste ambiente")
+
+    original_ids = [product["id"] for product in _get_post_products(post_id)]
+    if body.product_ids != original_ids:
+        raise HTTPException(
+            status_code=422,
+            detail="Troca de produto não está disponível nesta revisão. O produto atual foi preservado.",
+        )
+    media_snapshot = _revision_media_snapshot(user_id, post_id, profile_id)
+    _check_network_rules(
+        post.get("network") or "threads",
+        body.texts, media_snapshot, len(original_ids),
+    )
+    payload = {
+        "texts": body.texts,
+        "product_ids": original_ids,
+        "medias": media_snapshot,
+        "environment": environment,
+    }
+    try:
+        result = supabase.rpc("create_future_post_revision", {
+            "p_post_id": post_id,
+            "p_user_id": str(user_id),
+            "p_profile_id": str(profile_id),
+            "p_snapshot": payload,
+        }).execute()
+    except Exception as exc:
+        error = str(exc)
+        if "POST_NOT_EDITABLE" in error or "NO_EDITABLE_FUTURE_SLOTS" in error:
+            raise HTTPException(
+                status_code=409,
+                detail="Nenhuma ocorrência futura pode ser editada. O limite é 30 minutos antes de cada publicação.",
+            ) from None
+        logger.error("Falha de revisão futura: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=503, detail="Não foi possível salvar a revisão agora. Tente novamente."
+        ) from None
+
+    row = (result.data or [{}])[0] if isinstance(result.data, list) else (result.data or {})
+    if not row.get("revision_id") or not row.get("cutover_at"):
+        raise HTTPException(status_code=503, detail="A revisão não foi confirmada pelo banco")
+    return {
+        "post_id": post_id,
+        "revision_id": row["revision_id"],
+        "effective_after": row["cutover_at"],
+        "msg": "Edição salva apenas para publicações futuras elegíveis.",
+    }
+
+
+@router.get("/{post_id}/future-revisions/latest")
+def get_latest_future_revision(
+    post_id: int,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Lê somente a revisão futura deste post, sem afetar GET /posts/{id}."""
+    profile_id = _require_profile_id(profile_id)
+    _get_post(user_id, post_id, profile_id)
+    return {"revision": _latest_future_revision(user_id, post_id, profile_id)}
+
+
 @router.put("/{post_id}")
 async def update_post(
     post_id: int,
@@ -2013,7 +2199,8 @@ async def publish_post_now(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     """Força a publicação imediata de um post já agendado."""
-    post = _get_post(user_id, post_id, profile_id)  # ownership check
+    post = _get_post(user_id, post_id, profile_id)
+    _require_legacy_post_origin(post)  # ownership check
     _check_network_rules(
         post.get("network") or "threads",
         [row.get("text") or "" for row in _get_thread_chain(post_id)],
@@ -2032,6 +2219,10 @@ async def publish_post_now(
                 status_code=409,
                 detail="Publicação já iniciada ou sem confirmação. Verifique o resultado antes de reenviar.",
             )
+    reserve_post_plan_quota(
+        user_id, profile_id, post_id, immediate=True,
+        reuse_existing=bool(post.get("publish_immediately") and job.get("trigger") == "date"),
+    )
     log_action(
         "post_publish_requested",
         f"network={network} post_id={post_id} job_id={job['id']}",
@@ -2061,7 +2252,8 @@ async def delete_post(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    _get_post(user_id, post_id, profile_id)  # ownership check
+    post = _get_post(user_id, post_id, profile_id)  # ownership check
+    _require_legacy_post_origin(post)
 
     jobs = supabase.table("schedulers").select("id").eq("post_id", post_id).execute().data or []
     for job in jobs:

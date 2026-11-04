@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   Maximize2,
   FileText,
+  SquarePen,
   Workflow,
   KeyRound,
   Users,
@@ -33,6 +34,7 @@ import {
   Image,
   Hash,
   Calendar,
+  CalendarSearch,
   DollarSign,
   Percent,
   Package,
@@ -81,6 +83,8 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   "sliders-horizontal": SlidersHorizontal,
   "maximize-2": Maximize2,
   "file-text": FileText,
+  // Novo item Criar POST: faltava mapear o nome usado no SideRail.
+  "square-pen": SquarePen,
   workflow: Workflow,
   "key-round": KeyRound,
   users: Users,
@@ -118,6 +122,7 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   // parte do mapa original.
   hash: Hash,
   calendar: Calendar,
+  "calendar-search": CalendarSearch,
   "dollar-sign": DollarSign,
   percent: Percent,
   package: Package,

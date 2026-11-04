@@ -121,6 +121,7 @@ def test_drain_publish_jobs_retries_only_recoverable_queue_items(monkeypatch):
         "recoverable",
         lambda _lease: [{"id": "queue-1", "scheduler_id": "schedule-1"}],
     )
+    monkeypatch.setattr(queue, "expire_stale_pending", lambda: calls.append(("stale_pending",)) or [])
     monkeypatch.setattr(queue, "expire_running", lambda lease: calls.append(("expired", lease)) or [])
     monkeypatch.setattr(
         scheduler.schedulers,
@@ -135,7 +136,7 @@ def test_drain_publish_jobs_retries_only_recoverable_queue_items(monkeypatch):
 
     scheduler.drain_publish_jobs()
 
-    assert calls == [("expired", scheduler.PUBLISH_JOB_LEASE_SECONDS), ("queue-1", "bot_post")]
+    assert calls == [("stale_pending",), ("expired", scheduler.PUBLISH_JOB_LEASE_SECONDS), ("queue-1", "bot_post")]
 
 
 def test_finish_redacts_token_from_provider_error(monkeypatch):
@@ -216,3 +217,36 @@ def test_claim_rejects_mismatched_owner_and_profile(monkeypatch):
     assert "schedule.profile_id is not distinct from job.profile_id" in sql
     assert "post.user_id = job.user_id" in sql
     assert "for update of job skip locked" in sql
+
+
+def test_claim_parses_full_cron_minute_in_occurrence_key(monkeypatch):
+    """A chave termina em HH:MM; split_part por ':' truncava o minuto."""
+    from shopee_bot.database import publish_jobs
+
+    seen = {}
+    monkeypatch.setattr(publish_jobs, "query_db", lambda sql, args, one=False: seen.update(sql=sql) or None)
+
+    assert publish_jobs.claim("queue-1", "worker-1", 300) is None
+    assert seen["sql"].count("right(job.idempotency_key, 16)") == 3
+    assert "split_part(job.idempotency_key" not in seen["sql"]
+
+
+def test_recovery_skips_old_pending_and_expiry_never_replays_unknown(monkeypatch):
+    from shopee_bot.database import publish_jobs
+
+    seen = []
+    monkeypatch.setattr(publish_jobs, "query_db", lambda query, args, **_kw: seen.append((query, args)) or [])
+
+    assert publish_jobs.recoverable(300) == []
+    assert publish_jobs.expire_stale_pending() == []
+    recovery, expiry = seen
+    assert "job.status = 'pending'" in recovery[0]
+    assert "job.created_at >= now() - make_interval(secs => %s)" in recovery[0]
+    assert "job.external_started_at IS NULL" in recovery[0]
+    assert recovery[1][0] == 3600
+    assert "job.status = 'pending'" in expiry[0]
+    assert "job.created_at < now() - make_interval(secs => %s)" in expiry[0]
+    assert "job.external_started_at IS NULL" in expiry[0]
+    assert "SET status = 'failed'" in expiry[0]
+    assert "unknown" not in expiry[0].lower()
+    assert expiry[1][0] == 3600

@@ -15,6 +15,7 @@ products.py, e manter os dois num arquivo só passaria de 250 linhas.
 
 import logging
 import time
+from urllib.parse import urlparse
 
 from cryptography.fernet import InvalidToken
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -216,6 +217,91 @@ async def catalog_search(
         raise HTTPException(status_code=_error_status(exc), detail=_error_detail(exc))
 
     return {"data": [_map_catalog_node(node) for node in nodes]}
+
+
+def _safe_shopee_gallery_url(value: object) -> bool:
+    """As mesmas origens permitidas na importação privada do compositor."""
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = urlparse(value)
+        host = (parsed.hostname or "").lower()
+        return (
+            parsed.scheme == "https"
+            and (host in {"cf.shopee.com.br", "down-br.img.susercontent.com",
+                          "img.susercontent.com"}
+                 or host.endswith(".img.susercontent.com"))
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.port in (None, 443)
+        )
+    except (ValueError, TypeError):
+        return False
+
+
+@router.get("/{product_id}/shopee-gallery-probe")
+async def shopee_gallery_probe(
+    product_id: int,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Consulta sob demanda imagens do produto pela API oficial de afiliados.
+
+    Não grava no banco, não importa mídia nem muda a seleção existente.
+    Falha de probe não bloqueia upload local nem a imagem Shopee cadastrada.
+    """
+    _check_search_rate_limit(user_id)
+    product = (
+        scope_account(
+            supabase.table("products")
+            .select("id,product_id,image").eq("id", product_id),
+            user_id,
+        ).maybe_single().execute()
+    )
+    row = product.data if product else None
+    if not row:
+        raise HTTPException(status_code=404, detail="Produto não encontrado nesta conta.")
+
+    saved = row.get("image")
+    fallback = [saved] if _safe_shopee_gallery_url(saved) else []
+    item_id = row.get("product_id")
+    if not str(item_id or "").isdigit() or not 0 < int(item_id) < 2**63:
+        return {
+            "image_urls": fallback, "status": "not_identified",
+            "message": "Produto sem itemId numérico; somente foto cadastrada disponível.",
+        }
+    credential = _get_shopee_credential(user_id)
+    if credential is None:
+        return {
+            "image_urls": fallback, "status": "not_connected",
+            "message": "Conecte sua API Shopee para verificar outras fotos. O upload local continua disponível.",
+        }
+    try:
+        result = await shopee_catalog.probe_product_gallery(
+            *credential, item_id=int(item_id),
+        )
+    except shopee_catalog.ShopeeCatalogError as exc:
+        logger.info("Probe galeria Shopee sem resultado (%s)", type(exc).__name__)
+        return {
+            "image_urls": fallback, "status": "unavailable",
+            "message": "Não foi possível confirmar outras fotos na API agora. Você pode usar a imagem cadastrada ou enviar arquivos.",
+        }
+    urls = []
+    for value in [*result["image_urls"], *fallback]:
+        if _safe_shopee_gallery_url(value) and value not in urls:
+            urls.append(value)
+        if len(urls) >= 10:
+            break
+    status = "multiple" if len(urls) > 1 else result["status"]
+    return {
+        "image_urls": urls,
+        "status": status,
+        "field_tested": result["field_tested"],
+        "message": (
+            f"A API retornou {len(urls)} URLs de fotos para este produto; ainda é necessário validar cada arquivo antes de usar."
+            if len(urls) > 1
+            else "Nesta consulta a API não confirmou fotos adicionais. A imagem principal e os uploads locais continuam disponíveis."
+        ),
+    }
 
 
 @router.get("/catalog-categories")

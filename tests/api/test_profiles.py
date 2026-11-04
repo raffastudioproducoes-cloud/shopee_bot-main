@@ -1,4 +1,4 @@
-"""Testes do router de perfis (FastAPI) -- limite de 3, perfil principal
+"""Testes do router de perfis (FastAPI) -- cotas por plano via RPC, perfil principal
 protegido contra exclusao, e ativacao de perfil (troca de cookie).
 
 Duas diferencas em relacao ao brief original (task-5-brief.md), ambas
@@ -57,6 +57,8 @@ def _mock_supabase(monkeypatch, execute_return):
     for method in ("select", "eq", "maybe_single", "update", "delete", "insert"):
         getattr(query, method).return_value = query
     query.execute.return_value = MagicMock(data=execute_return)
+    fake_client.rpc.return_value = query
+    query._fake_client = fake_client
     monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
     from contextlib import nullcontext
     from api.routers import profiles as profiles_module
@@ -64,20 +66,13 @@ def _mock_supabase(monkeypatch, execute_return):
     return query
 
 
-def test_create_profile_blocked_when_limit_of_three_reached(auth_client, monkeypatch):
-    _mock_supabase(
-        monkeypatch,
-        [
-            {"id": "p-1", "kind": "principal"},
-            {"id": "p-2", "kind": "secundario"},
-            {"id": "p-3", "kind": "secundario"},
-        ],
-    )
+def test_create_profile_maps_plan_cap_rejection_to_403(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = Exception("profile_limit_exceeded")
     response = auth_client.post(
-        "/profiles",
-        json={"nome": "Loja 4", "email": "loja4@example.com"},
+        "/profiles", json={"nome": "Loja adicional", "email": "loja4@example.com"}
     )
-    assert response.status_code == 400
+    assert response.status_code == 403
     assert "limite" in response.json()["detail"].lower()
 
 
@@ -256,6 +251,54 @@ def test_avatar_upload_rejects_file_over_max_size(auth_client, monkeypatch):
     fake_client.storage.from_.return_value.upload.assert_not_called()
 
 
+def test_profile_resolution_retries_owned_read_only_after_http2_disconnect(monkeypatch, real_profile_resolution):
+    """A queda HTTP/2 não invalida a sessão nem remove seu perfil."""
+    import httpx
+    from api.routers.profiles import _resolve_profile_id
+
+    query = _mock_supabase(monkeypatch, {"id": "p-2"})
+    query.execute.side_effect = [
+        httpx.RemoteProtocolError("GOAWAY"),
+        MagicMock(data={"id": "p-2"}),
+    ]
+
+    assert _resolve_profile_id("p-2", USER_ID) == "p-2"
+    assert query.execute.call_count == 2
+
+
+def test_profile_resolution_retries_principal_fallback_after_http2_disconnect(monkeypatch, real_profile_resolution):
+    """Somente leitura do fallback é repetida; continua escopada ao titular."""
+    import httpx
+    from api.routers.profiles import _resolve_profile_id
+
+    query = _mock_supabase(monkeypatch, None)
+    query.execute.side_effect = [
+        MagicMock(data=None),
+        httpx.RemoteProtocolError("GOAWAY"),
+        MagicMock(data={"id": "p-main"}),
+    ]
+
+    assert _resolve_profile_id("p-invalido", USER_ID) == "p-main"
+    assert query.execute.call_count == 3
+
+
+def test_profile_resolution_fails_closed_after_two_http2_disconnects(monkeypatch, real_profile_resolution):
+    """Duas falhas transitórias retornam 503, nunca perfil sem dono/401."""
+    import httpx
+    from api.routers.profiles import _resolve_profile_id
+
+    query = _mock_supabase(monkeypatch, None)
+    query.execute.side_effect = [
+        httpx.RemoteProtocolError("GOAWAY"),
+        httpx.RemoteProtocolError("GOAWAY"),
+    ]
+
+    with pytest.raises(HTTPException) as error:
+        _resolve_profile_id("p-2", USER_ID)
+    assert error.value.status_code == 503
+    assert query.execute.call_count == 2
+
+
 class TestCurrentProfileIdValidation:
     """O `profile_id` do token só vale se pertencer ao usuário; senão cai
     no perfil principal."""
@@ -299,22 +342,18 @@ def _create_payload():
     return {"nome": "Novo", "email": "novo@example.com"}
 
 
-def test_create_profile_maps_db_trigger_limit_error_to_400(auth_client, monkeypatch):
-    """Race (TOCTOU): o count do app passou, mas o trigger do banco recusou
-    o insert -- vira 400 amigavel, nao 500."""
+def test_create_profile_maps_db_trigger_limit_error_to_403(auth_client, monkeypatch):
+    """Limite negado atomicamente pelo banco: API retorna 403 amigável."""
     query = _mock_supabase(monkeypatch, [])
-    query.execute.side_effect = [
-        MagicMock(data=[]),
-        Exception("profile_limit_exceeded"),
-    ]
+    query.execute.side_effect = Exception("profile_limit_exceeded")
     response = auth_client.post("/profiles", json=_create_payload())
-    assert response.status_code == 400
+    assert response.status_code == 403
     assert "Limite" in response.json()["detail"]
 
 
 def test_create_profile_unexpected_db_error_returns_generic_500(auth_client, monkeypatch):
     query = _mock_supabase(monkeypatch, [])
-    query.execute.side_effect = [MagicMock(data=[]), Exception("conn string secreta")]
+    query.execute.side_effect = Exception("conn string secreta")
     response = auth_client.post("/profiles", json=_create_payload())
     assert response.status_code == 500
     assert "secreta" not in response.text
@@ -341,3 +380,69 @@ def test_activate_recomputes_pwv_from_current_hash_for_legacy_token(auth_client,
     assert response.status_code == 200
     new_token = response.headers["set-cookie"].split("access_token=")[1].split(";")[0]
     assert _decode_token(new_token)["pwv"] == _password_version("hash-atual")
+
+
+def test_create_profile_uses_atomic_rpc_and_never_trusts_tier_from_browser(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [{"id": "new-profile"}])
+    response = auth_client.post("/profiles", json={
+        "nome": "Loja quatro", "email": "loja4@example.com",
+        "plan_tier": "premium", "access": "ADMIN",
+    })
+    assert response.status_code == 201
+    call = query._fake_client.rpc.call_args
+    assert call.args[0] == "insert_profile_with_plan_quota"
+    assert call.args[1]["p_user_id"] == USER_ID
+    assert "plan_tier" not in call.args[1]
+    assert "access" not in call.args[1]
+
+
+def test_create_profile_rejects_policy_unavailable(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = Exception("plan_policy_unavailable")
+    response = auth_client.post("/profiles", json=_create_payload())
+    assert response.status_code == 503
+    assert "Política" in response.json()["detail"]
+
+
+def test_profile_tiers_are_enforced_by_database_migration_not_ui():
+    from pathlib import Path
+    sql = (Path(__file__).resolve().parents[2] /
+           "database/migrations/072_plan_limits_and_atomic_catalog_quotas.sql").read_text()
+    assert "('free',100,20,1,1,0,0,0,1,false)" in sql
+    assert "('pro',500,20,3,5,2,15,3,3,false)" in sql
+    assert "('premium',2000,100,5,5,5,30,15,5,true)" in sql
+    assert "p_user_id uuid,p_nome text,p_email text" in sql
+    assert "v_access <> 'ADMIN'" in sql
+    assert "profile_limit_exceeded" in sql
+
+
+def test_get_profile_quota_reads_server_policy_for_premium(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [
+        MagicMock(data={"access": "USER", "plan_tier": "premium"}),
+        MagicMock(data={"max_profiles_per_account": 5}),
+        MagicMock(data=[{"id": "principal"}, {"id": "segundo"}, {"id": "terceiro"}]),
+    ]
+    response = auth_client.get("/profiles/quota")
+    assert response.status_code == 200
+    assert response.json() == {"tier": "premium", "used": 3, "limit": 5, "unlimited": False}
+
+
+def test_get_profile_quota_admin_ignores_commercial_max(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [
+        MagicMock(data={"access": "ADMIN", "plan_tier": "free"}),
+        MagicMock(data=[{"id": "principal"}]),
+    ]
+    response = auth_client.get("/profiles/quota")
+    assert response.status_code == 200
+    assert response.json() == {"tier": "free", "used": 1, "limit": None, "unlimited": True}
+
+
+def test_get_profile_quota_fails_closed_without_policy(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [])
+    query.execute.side_effect = [
+        MagicMock(data={"access": "USER", "plan_tier": "pro"}),
+        MagicMock(data=None),
+    ]
+    assert auth_client.get("/profiles/quota").status_code == 503

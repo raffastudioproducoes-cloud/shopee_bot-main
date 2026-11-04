@@ -10,6 +10,7 @@ import { PanelPage } from "./pages/PanelPage"
 import { ProductsPage } from "./pages/ProductsPage"
 import { ListasPage } from "./pages/ListasPage"
 import { PostsPage } from "./pages/PostsPage"
+import { CreatePostPage } from "./pages/CreatePostPage"
 import { PostsAutomationPage } from "./pages/PostsAutomationPage"
 import { CredentialsPage } from "./pages/CredentialsPage"
 import { ProfilesPage } from "./pages/ProfilesPage"
@@ -35,9 +36,14 @@ async function requireAdmin() {
 
   try {
     user = await authApi.me()
-  } catch {
-    useAuthStore.getState().logout()
-    throw redirect({ to: "/login" })
+  } catch (error) {
+    // Falha transitória não é expiração da sessão: mantenha o estado
+    // e deixe o roteador mostrar erro recuperável sem revelar a área admin.
+    if (error instanceof ApiError && error.status === 401) {
+      useAuthStore.getState().logout()
+      throw redirect({ to: "/login" })
+    }
+    throw error
   }
 
   const authStore = useAuthStore.getState()
@@ -176,6 +182,12 @@ const postsRoute = createRoute({
   component: PostsPage,
 })
 
+const createPostRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: "/posts/criar",
+  component: CreatePostPage,
+})
+
 const postsAutomationRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/automacao-posts",
@@ -260,6 +272,7 @@ const routeTree = rootRoute.addChildren([
     productsRoute,
     listsRoute,
     postsRoute,
+    createPostRoute,
     postsAutomationRoute,
     analyticsRoute,
     credentialsRoute,

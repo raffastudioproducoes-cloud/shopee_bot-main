@@ -1,0 +1,53 @@
+# Auto Orbital — F3B: nome da campanha e mídias duráveis por produto (03/11/2026)
+
+## Requisito e fronteira
+Cada campanha tem um **nome próprio**, independente do nome da lista-fonte. O editor de campanha na página `/posts/criar` permite selecionar a foto principal da Shopee e anexar fotos/vídeos enviados pelo usuário em PC ou celular **para cada produto**. O formulário permanece página, nunca modal.
+
+Esta fase **não ativa campanhas, cria posts/jobs, altera calendários reais ou dispara redes**. O fluxo de **Publicação única** e suas fontes, uploads, automações e credenciais não foi modificado. `main`, produção e `VERSION=3.0.0` permanecem fora da entrega.
+
+## Contrato
+1. Campo obrigatório **Nome da campanha**, 1–120 caracteres após retirar espaços nas pontas. O nome é salvo em `campaign_drafts.campaign_name`, retornado na API e usado ao selecionar um rascunho. Legados recebem o nome da lista anterior na migração.
+2. Mantidos snapshot por produto: título, copy, link afiliado, redes, versões por rede, ordem e foto Shopee. Alterar campanha não muda listas-fonte.
+3. Anexo durável exige primeiro **Salvar rascunho**. Cada produto comporta até 10 anexos. Formatos suportados pela pipeline existente: imagens JPEG/PNG/WEBP/GIF e vídeo MP4, no máximo 50 MB por arquivo; sanitização/reconstrução no backend. A interface lista nome e tipo e permite remover.
+4. Referências em tabela `campaign_draft_media` separada de `temporary_media_uploads`. Bucket privado **post-media**, prefixo exclusivo `campaigns/{user}/{profile}/{campaign}/{product}/{uuid}...`. Sem URL pública ou chave bruta em resposta.
+5. Autenticação de usuário e perfil em todas as operações; validação do produto pertencente ao snapshot; índice de ownership, RLS sem direitos `anon/authenticated`, trigger que valida vínculo campanha/produto, `service_role` somente no servidor. A quantidade máxima de mídias é garantida por slots únicos 0–9 no banco, inclusive concorrência.
+6. Upload interrompido fica em `uploading`; falha de rollback em `delete_failed`. Em próximo upload da mesma campanha, recuperação limitada de objetos incompletos com mais de 2 h. Mídias `ready` **não expiram em 24 h** e nunca entram nessa limpeza. Remoção explícita tenta apagar Storage antes do registro.
+7. `DELETE` de campanha ainda não é oferecido; qualquer implementação futura deverá remover objetos do Storage antes do `ON DELETE CASCADE` das referências, para não gerar órfãos. A ativação posterior deve consumir snapshots e mídia sem reaproveitar temporários vencidos.
+
+## Migração 071 e implantação
+- Arquivo `database/migrations/071_campaign_names_and_media.sql` **aditivo e reentrante**, pois a aplicação também roda seu migrador no boot. Nunca usar DDL que falhe ao executar duas vezes. Índices e triggers são condicionais; o schema compartilhado recebeu a 071 com autorização e o migrador do aplicativo a reexecutou sem erro.
+- Supabase staging/produção usam banco compartilhado: Rafa autorizou o escopo necessário; 071 aplicada e verificada sob o nome `campaign_names_media_071`. PR #209 mesclada somente em `staging` após CI verde. Não promover `main` sem aprovação de release.
+- CI API/frontend da PR e verificação pontual após deploy bastam; sem publicações reais nos testes. Toda mudança documentada em `docs/TASK.md`, `CHANGELOG.md` e Vault do projeto.
+- **Limitação de escopo:** seleção de foto Shopee é a principal já autenticada; a API atual não entrega galeria extra validada. O experimento anterior foi encerrado como indisponível na fonte existente. Upload próprio permanece alternativa. Nenhum reenquadramento do fluxo TikTok Photo Direct Post nesta fase.
+
+## Critérios de aceite
+- [ ] O usuário consegue dar nomes distintos a campanhas baseadas na mesma lista e retomar cada uma em outro dispositivo.
+- [ ] Arquivos de diferentes produtos e perfis ficam segregados, persistem sem TTL temporário e podem ser excluídos.
+- [x] Integridade de nomes/slots/ownership e migration reentrante validadas pelo CI; frontend compila.
+- [ ] Após autorização da 071 e merge `staging`, checagem rápida de boot/health e teste controlado de upload/recuperação/exclusão, sem criar posts reais.
+- [x] Publicação única, Shopee, credenciais, scheduler, produção e cotas inalterados.
+
+## Evidências de integração (03/11/2026)
+- CI [#41578367282](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41578367282) SUCCESS; merge staging `5ec24df`.
+- Migration Supabase `campaign_names_media_071` aplicada, RLS true, privilégios `anon/authenticated` ausentes, service_role permitido, trigger único, zero mídias antes do ensaio.
+- Render `dep-dbkm74ks728c738ritc0` LIVE; log da 071 aplicada na segunda execução e `Application startup complete`; `/health` respondeu `{"status":"ok"}`.
+- UI autenticada: campo nome no topo, rascunho recuperado, checkbox foto Shopee preservado e seletor de arquivos disponível. **Nenhum upload real por navegador nem criação de post foi realizado**; esse ensaio segue pendente com mídia descartável e mecanismo de limpeza.
+
+
+## Adendo posterior — F3C, frequência diária e exclusão de rascunho (03/11/2026)
+
+Esta seção atualiza o contrato **após F3B**; o item anterior “DELETE não oferecido” descreve apenas o estado histórico da F3B.
+
+1. **Frequência:** campo do editor “Postagens por dia”, seletor fechado com valores inteiros 1–15. Mantidas datas, dias semanais, fuso Brasília e horas de início/fim. O backend distribui igualmente a quantidade escolhida por dia ativo, começando na hora inicial, terminando na final quando houver 2 ou mais. Janela insuficiente é rejeitada; 1 postagem usa a hora inicial. Prévia não publica nada.
+2. **Compatibilidade:** o JSON `schedule` aceita agora `posts_per_day` na API de gravação/prévia; `interval_minutes` de rascunhos F3A/F3B e autosave local é traduzido em quantidade/dia na leitura (1–15), com aviso de revisão. Não há nova migration nem perda de rascunho.
+3. **Exclusão:** ação Excluir ao lado de Carregar exige confirmação inline (sem modal) e envia `DELETE /campaigns/drafts/{id}?expected_revision=<revision>`. O servidor aplica escopo de proprietário, perfil, revisão e estado `draft`; recusa arquivos com status `uploading`; valida bucket privado e prefixo; apaga objetos de Storage antes da exclusão SQL. Em falha de Storage, preserva o rascunho e informa erro. Na exclusão carregada, o editor local permanece para eventual novo salvamento, sem ID remoto.
+4. **Fronteira:** jamais apagar lista original, posts já publicados, jobs ou mídias de outra campanha. Nenhuma ativação de campanha, publicação, configuração de rede ou promoção para `main`. A política anti-spam e as cotas por plano/rede serão obrigatórias antes de ativação.
+5. **Teste proporcional:** Python horários/fuso/limites, API ownership/storage-failure, frontend TypeScript/build e verificação breve de staging. Ausência de teste real de exclusão de dados do Rafa é intencional.
+6. **Versionamento:** PR [#211](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/211) dirigida a `staging`; `VERSION` continua `3.0.0` até release aprovado. Evidências finais entram em `docs/TASK.md` e no Vault.
+
+
+### Fechamento F3C após o merge
+- [PR #211](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/211), CI [#41581370451](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41581370451) SUCCESS; merge `staging` `140ea06d7af804b4c3ad1b2547751334dc972d89`.
+- Render `dep-dbkmmf7lk1mc73e1o2p0` LIVE, logs mostram migração 071 já aplicada e inicialização completa; `/health` retornou `{"status":"ok"}` em leitura real. Sem nova migration.
+- Não foram excluídos rascunhos reais nem publicados posts; nova aba exigiu login, então UI autenticada F3C continua pendente de conferência pelo proprietário. Testes Python e build frontend passaram.
+- Vault [checkpoint 62](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/62-F3B-Nome-Campanha-Midia-Duravel-2026-11-03.md) e [TASK](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/TASK.md) sincronizados. `main` e versão `3.0.0` permanecem intactas.

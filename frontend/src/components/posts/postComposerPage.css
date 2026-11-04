@@ -1,0 +1,179 @@
+/* Criar POST — página integrada ao app shell. Não altera o editor de revisão. */
+.create-post-page {
+  width: 100%;
+  min-width: 0;
+  padding-bottom: var(--sp-9);
+}
+.create-post-page-header {
+  margin: 0 0 var(--sp-8);
+}
+.create-post-page-header h1 {
+  margin: 0;
+}
+.create-post-page-header p {
+  margin: var(--sp-2) 0 0;
+  color: var(--text-muted);
+  font: var(--text-role-body);
+  line-height: 1.5;
+}
+
+.post-composer-title {
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+.post-composer-page.is-create-mode {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.post-composer-page.is-create-mode .post-composer-title {
+  margin-bottom: var(--sp-8);
+  padding-bottom: var(--sp-6);
+  border-bottom: 1px solid var(--border-hairline);
+}
+.post-composer-page.is-create-mode .post-composer-form {
+  gap: var(--sp-8);
+}
+.post-composer-editor-columns {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.post-composer-editor-source,
+.post-composer-editor-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.post-composer-page.is-create-mode .post-composer-editor-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(20px, 2.4vw, 34px);
+  align-items: start;
+}
+.post-composer-page.is-create-mode .post-composer-editor-source {
+  border-right: 1px solid var(--border-hairline);
+  padding-right: clamp(20px, 2.4vw, 34px);
+}
+.post-composer-page.is-create-mode .post-composer-editor-content {
+  padding-left: 0;
+}
+.post-composer-page.is-create-mode .post-composer-layout {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-6);
+  min-width: 0;
+}
+.post-composer-page.is-create-mode .post-composer-layout.is-preview-open {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: var(--sp-8);
+}
+.post-composer-page.is-create-mode .post-composer-layout.is-preview-open .post-composer-form {
+  grid-column: 1;
+  grid-row: 1;
+}
+.post-composer-page.is-create-mode .post-composer-layout.is-preview-open .post-live-preview {
+  grid-column: 2;
+  grid-row: 1;
+  top: var(--sp-5);
+}
+.post-composer-page.is-create-mode .post-composer-layout.is-preview-open .post-composer-editor-columns {
+  grid-template-columns: minmax(0, 1fr);
+}
+.post-composer-page.is-create-mode .post-composer-layout.is-preview-open .post-composer-editor-source {
+  border-right: none;
+  border-bottom: 1px solid var(--border-hairline);
+  padding-right: 0;
+  padding-bottom: var(--sp-7);
+}
+.post-composer-page.is-create-mode .post-composer-form > .csp-s-0349 {
+  border-top: 1px solid var(--border-hairline);
+  padding-top: var(--sp-7);
+}
+.post-composer-page.is-create-mode .post-composer-networks {
+  min-width: 0;
+}
+.post-composer-page.is-create-mode .post-composer-form input,
+.post-composer-page.is-create-mode .post-composer-form textarea,
+.post-composer-page.is-create-mode .post-composer-form select {
+  max-width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .post-composer-page.is-create-mode .post-composer-editor-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-7);
+  }
+  .post-composer-page.is-create-mode .post-composer-editor-source {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-hairline);
+    padding-right: 0;
+    padding-bottom: var(--sp-7);
+  }
+}
+@media (max-width: 1000px) {
+  /* A prévia vira uma região da página, sem backdrop, posição fixa ou popup. */
+  .post-composer-page.is-create-mode .post-composer-layout.is-preview-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .post-composer-page.is-create-mode .post-composer-layout.is-preview-open::before {
+    content: none;
+    display: none;
+  }
+  .post-composer-page.is-create-mode .post-composer-layout.is-preview-open .post-live-preview,
+  .post-composer-page.is-create-mode .post-composer-layout.is-preview-open .post-composer-form {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .post-composer-page.is-create-mode .post-live-preview {
+    position: static;
+    inset: auto;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    border: 1px solid var(--border-card);
+    border-radius: var(--r-lg);
+    box-shadow: none;
+  }
+}
+@media (max-width: 600px) {
+  .create-post-page { padding-bottom: var(--sp-7); }
+  .create-post-page-header { margin-bottom: var(--sp-6); }
+  .post-composer-page.is-create-mode .post-composer-title {
+    gap: var(--sp-3);
+    align-items: center;
+    margin-bottom: var(--sp-6);
+    padding-bottom: var(--sp-5);
+  }
+  .post-composer-page.is-create-mode .post-composer-title h2 {
+    font-size: clamp(17px, 4.6vw, 21px);
+  }
+  .post-composer-page.is-create-mode .post-composer-editor-columns,
+  .post-composer-page.is-create-mode .post-composer-form { gap: var(--sp-6); }
+  .post-composer-page.is-create-mode .post-composer-layout.is-preview-open .post-live-preview {
+    border-radius: var(--r-md);
+  }
+  .post-composer-page.is-create-mode .post-composer-form > .csp-s-0349 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-3);
+  }
+  .post-composer-page.is-create-mode .post-composer-form > .csp-s-0349 button {
+    min-width: 0;
+    min-height: var(--hit-min);
+    white-space: normal;
+    line-height: 1.25;
+  }
+}
+@media (max-width: 380px) {
+  .post-composer-page.is-create-mode .post-composer-form > .csp-s-0349 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

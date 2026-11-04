@@ -14,6 +14,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  f4e-postgres-proposal:
+    name: F4E proposta (PostgreSQL descartável)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: f4e_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d f4e_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install 'psycopg[binary]==3.2.9'
+      - name: Contratos estáticos e PostgreSQL isolado
+        env:
+          F4E_DISPOSABLE_DSN: postgresql://postgres:postgres@127.0.0.1:5432/f4e_test
+        run: |
+          python -m unittest discover -s tests/sql -p 'test_f4e1_*.py' -v
+          python -m unittest discover -s tests/sql -p 'test_f4e2b2_*.py' -v
+          python -m unittest discover -s tests/sql -p 'test_f4e2b3_*.py' -v
+          python -m unittest discover -s tests/sql -p 'test_f4e2b4_*.py' -v
+          python -m unittest discover -s tests/sql -p 'test_f4e2b*.py' -v
+
   api:
     name: API Python (lint + testes)
     runs-on: ubuntu-latest
@@ -97,7 +131,7 @@ jobs:
       - run: npm ci
 
       - name: Contratos de rotas, login e piloto visual da landing
-        run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs tests/posts-composer.test.mjs tests/form-drafts.test.mjs
+        run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs tests/posts-composer.test.mjs tests/form-drafts.test.mjs tests/campaign-snapshots.test.mjs tests/plan-access.test.mjs
 
       - name: Build (tsc && vite build)
         run: npm run build

@@ -13,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from ..database import supabase
 from ..storage_capacity import storage_upload_reservation
 from ..media_sanitizer import JPEG, PNG, WEBP, MediaSanitizerError, detect_media_type, sanitize_media_upload
-from ..profiles import PROFILE_LIMIT, can_create_profile, is_principal
+from ..profiles import is_principal
 from .auth import (
     _check_login_rate_limit,
     _create_token,
@@ -21,6 +21,7 @@ from .auth import (
     _get_user_from_supabase,
     _password_version,
     _revoke_session,
+    _retry_readonly_auth_query,
     get_current_user_id,
 )
 
@@ -53,23 +54,27 @@ def _resolve_profile_id(profile_id: str | None, user_id: str) -> str | None:
     """Confirma que o perfil do token pertence ao usuário (perfil excluído
     ou de outra conta não vale). Se não pertencer, cai no perfil principal
     do usuário; sem principal, None (sem filtro por perfil)."""
-    owned = profile_id and (
-        supabase.table("profiles")
-        .select("id")
-        .eq("id", profile_id)
-        .eq("user_id", user_id)
-        .maybe_single()
-        .execute()
+    owned = profile_id and _retry_readonly_auth_query(
+        lambda: (
+            supabase.table("profiles")
+            .select("id")
+            .eq("id", profile_id)
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
     )
     if owned and owned.data:
         return profile_id
-    principal = (
-        supabase.table("profiles")
-        .select("id")
-        .eq("user_id", user_id)
-        .eq("kind", "principal")
-        .maybe_single()
-        .execute()
+    principal = _retry_readonly_auth_query(
+        lambda: (
+            supabase.table("profiles")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("kind", "principal")
+            .maybe_single()
+            .execute()
+        )
     )
     return principal.data["id"] if principal and principal.data else None
 
@@ -112,6 +117,38 @@ async def list_profiles(user_id: str = Depends(get_current_user_id)):
 
 
 
+@router.get("/quota")
+async def get_profile_quota(user_id: str = Depends(get_current_user_id)):
+    """Consulta apenas o entitlement canônico da conta, nunca o tier do browser."""
+    try:
+        account = (supabase.table("users").select("access,plan_tier")
+                   .eq("id", user_id).maybe_single().execute())
+        if not account or not account.data:
+            raise HTTPException(status_code=404, detail="Conta não encontrada.")
+        tier = "pro" if account.data["plan_tier"] == "plus" else account.data["plan_tier"]
+        is_admin = account.data["access"] == "ADMIN"
+        limit = None
+        if not is_admin:
+            policy = (supabase.table("plan_limits")
+                      .select("max_profiles_per_account").eq("tier", tier)
+                      .maybe_single().execute())
+            if not policy or not policy.data:
+                raise HTTPException(status_code=503, detail="Política de planos indisponível.")
+            limit = policy.data["max_profiles_per_account"]
+        rows = supabase.table("profiles").select("id").eq("user_id", user_id).execute()
+        return {
+            "tier": tier, "used": len(rows.data or []),
+            "limit": limit, "unlimited": is_admin,
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Falha ao consultar a cota de perfis")
+        raise HTTPException(status_code=503, detail="Não foi possível consultar o limite de perfis.")
+
+
+
+
 # Independent, revocable regional preference. Never inferred from profile addresses or IPs.
 ALLOWED_REGIONS = frozenset(("BR-RJ","BR-SP","BR-MG","BR-BA","BR-OTHER","PT","US","GB","DE","JP","AU","OTHER"))
 
@@ -126,6 +163,18 @@ class LocationDecision(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     accuracy_m: int | None = None
+
+
+@router.get("/usage")
+async def get_plan_usage(
+    user_id: str = Depends(get_current_user_id),
+    profile_id: str = Depends(get_current_profile_id),
+):
+    """Somente leitura, autenticada e isolada por conta/perfil."""
+    if not profile_id:
+        raise HTTPException(status_code=400, detail="Selecione um perfil válido.")
+    from ..account_usage import account_usage_response
+    return await run_in_threadpool(account_usage_response, user_id, profile_id)
 
 
 @router.get("/location-sharing")
@@ -301,28 +350,24 @@ async def delete_acquisition_source(user_id: str = Depends(get_current_user_id))
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_profile(body: ProfileCreate, user_id: str = Depends(get_current_user_id)):
     _check_login_rate_limit(f"profile-create:{user_id}")
-    limit_detail = f"Limite de {PROFILE_LIMIT} perfis por conta atingido."
-    existing = supabase.table("profiles").select("id").eq("user_id", user_id).execute()
-    if not can_create_profile(len(existing.data or [])):
-        raise HTTPException(status_code=400, detail=limit_detail)
+    limit_detail = "Limite de perfis do seu plano atingido."
     try:
-        result = (
-            supabase.table("profiles")
-            .insert({
-                "user_id": user_id,
-                "kind": "secundario",
-                "nome": body.nome.strip(),
-                "email": body.email.strip(),
-                "telefone": body.telefone.strip() if body.telefone else None,
-                "endereco": body.endereco.strip() if body.endereco else None,
-            })
-            .execute()
-        )
+        # A RPC serializa as tentativas por conta e aplica Free=1, Pro=3,
+        # Premium=5 e isenção comercial ADMIN usando somente o papel no DB.
+        # O trigger legado mantém o máximo antigo para a main (DB compartilhado).
+        result = supabase.rpc("insert_profile_with_plan_quota", {
+            "p_user_id": user_id,
+            "p_nome": body.nome.strip(),
+            "p_email": body.email.strip(),
+            "p_telefone": body.telefone.strip() if body.telefone else None,
+            "p_endereco": body.endereco.strip() if body.endereco else None,
+        }).execute()
     except Exception as exc:
-        # O check acima tem race (count-then-insert); o trigger do banco
-        # (migração 037) é a barreira atômica e levanta profile_limit_exceeded.
+        # A RPC e a barreira atômica do banco retornam códigos sem dados privados.
         if "profile_limit_exceeded" in str(exc):
-            raise HTTPException(status_code=400, detail=limit_detail)
+            raise HTTPException(status_code=403, detail=limit_detail) from None
+        if "plan_policy_unavailable" in str(exc):
+            raise HTTPException(status_code=503, detail="Política de planos indisponível.") from None
         logger.exception("Falha ao criar perfil")
         raise HTTPException(status_code=500, detail="Erro interno ao criar perfil.")
     if not result.data:

@@ -2,15 +2,32 @@
 
 from shopee_bot.database import query_db
 from shopee_bot.database.scheduler_environment import current_environment
+from shopee_bot.database.central_dispatch import central_dispatch_enabled, publication_scope_sql
 from api.utils.log_sanitizer import sanitize_log_data
+
+
+def _execution_scope():
+    if central_dispatch_enabled():
+        scope, args = publication_scope_sql("schedule")
+        return f"({scope}) AND schedule.publication_origin = 'legacy'", args
+    return (
+        "schedule.environment = %s AND schedule.dispatch_mode = 'legacy' "
+        "AND schedule.publication_origin = 'legacy'",
+        (current_environment(),),
+    )
 
 
 TERMINAL_STATUSES = frozenset({"succeeded", "failed", "unknown"})
 
+# So recuperar um pending criado quando o evento disparou. Apos 1h,
+# nao disparar publicacao atrasada no restart; APScheduler usa o mesmo limite.
+RECOVERY_MAX_AGE_SECONDS = 3600
+
 
 def recoverable(lease_seconds, limit=100):
     """Somente itens que ainda nao iniciaram chamada externa podem ser retomados."""
-    query = """
+    scope, scope_args = _execution_scope()
+    query = f"""
         SELECT job.id, job.scheduler_id
         FROM publish_jobs job
         JOIN schedulers schedule ON schedule.id = job.scheduler_id
@@ -19,12 +36,40 @@ def recoverable(lease_seconds, limit=100):
           AND schedule.profile_id IS NOT DISTINCT FROM job.profile_id
         WHERE job.status = 'pending'
           AND job.publication_origin = 'legacy'
-          AND schedule.publication_origin = job.publication_origin
-          AND schedule.environment = %s
+          AND job.external_started_at IS NULL
+          AND job.created_at >= now() - make_interval(secs => %s)
+          AND ({scope})
         ORDER BY job.created_at
         LIMIT %s
     """
-    return query_db(query, (current_environment(), limit))
+    return query_db(query, (RECOVERY_MAX_AGE_SECONDS, *scope_args, limit))
+
+
+def expire_stale_pending(grace_seconds=RECOVERY_MAX_AGE_SECONDS):
+    """Fecha apenas fila antiga sem envio externo, sem publicar horas depois.
+
+    Todo pending atual nasce no disparo do scheduler/retry, nao no cadastro
+    futuro da agenda. Nao alterar unknown/running nem reenviar automaticamente.
+    """
+    scope, scope_args = _execution_scope()
+    query = f"""
+        UPDATE publish_jobs AS job
+        SET status = 'failed',
+            last_error = 'Janela de recuperação expirada sem envio externo',
+            finished_at = now()
+        FROM schedulers schedule
+        WHERE job.scheduler_id = schedule.id
+          AND schedule.post_id = job.post_id
+          AND schedule.user_id = job.user_id
+          AND schedule.profile_id IS NOT DISTINCT FROM job.profile_id
+          AND job.status = 'pending'
+          AND job.publication_origin = 'legacy'
+          AND job.external_started_at IS NULL
+          AND job.created_at < now() - make_interval(secs => %s)
+          AND ({scope})
+        RETURNING job.id, job.status
+    """
+    return query_db(query, (grace_seconds, *scope_args))
 
 
 MAX_PREFLIGHT_ATTEMPTS = 5
@@ -32,7 +77,8 @@ MAX_PREFLIGHT_ATTEMPTS = 5
 
 def expire_running(lease_seconds):
     """Retoma apenas envios sem chamada externa; preserva incerteza apos a API."""
-    query = """
+    scope, scope_args = _execution_scope()
+    query = f"""
         UPDATE publish_jobs
         SET status = CASE
                 WHEN external_started_at IS NOT NULL
@@ -66,14 +112,13 @@ def expire_running(lease_seconds):
                 AND schedule.post_id = publish_jobs.post_id
                 AND schedule.user_id = publish_jobs.user_id
                 AND schedule.profile_id IS NOT DISTINCT FROM publish_jobs.profile_id
-                AND schedule.environment = %s
-                AND schedule.publication_origin = publish_jobs.publication_origin
+                AND ({scope})
           )
         RETURNING id, status
     """
     return query_db(query, (
         MAX_PREFLIGHT_ATTEMPTS, MAX_PREFLIGHT_ATTEMPTS,
-        MAX_PREFLIGHT_ATTEMPTS, lease_seconds, current_environment(),
+        MAX_PREFLIGHT_ATTEMPTS, lease_seconds, *scope_args,
     ))
 
 
@@ -103,10 +148,42 @@ def enqueue(*, scheduler_id, post_id, user_id, profile_id, network, idempotency_
 
 
 def claim(publish_job_id, worker_id, lease_seconds):
-    """Um unico worker pode adquirir item que ainda nao foi iniciado."""
-    query = """
-        WITH candidate AS (
-            SELECT job.id, gen_random_uuid() AS token
+    """Reserva atomicamente o snapshot da revisão elegível no claim.
+
+    A ocorrência mantém o slot original, mesmo se a execução/retry atrasar.
+    Jobs sem revisão seguem exatamente o conteúdo legado do post.
+    """
+    scope, scope_args = _execution_scope()
+    query = f"""
+        WITH locked_candidate AS (
+            SELECT job.id, gen_random_uuid() AS token,
+                job.idempotency_key, job.post_id, job.user_id, job.profile_id,
+                schedule.environment AS environment,
+                CASE
+                    -- A chave cron termina em YYYY-MM-DDTHH:MM; split_part por ':'
+                    -- perderia os minutos e faria claim falhar com InvalidDatetimeFormat.
+                    -- Usar horario nominal, nao minuto atrasado de execucao.
+                    WHEN schedule.trigger = 'cron' AND schedule.time IS NOT NULL
+                         AND job.idempotency_key ~
+                         ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}$'
+                        THEN (
+                            right(job.idempotency_key, 16)::timestamp::date
+                            + schedule.time
+                            - CASE
+                                WHEN schedule.time >
+                                     right(job.idempotency_key, 16)::timestamp::time
+                                    THEN interval '1 day'
+                                ELSE interval '0 days'
+                              END
+                        ) AT TIME ZONE 'America/Sao_Paulo'
+                    WHEN schedule.trigger = 'date' AND schedule.run_date IS NOT NULL
+                        THEN schedule.run_date AT TIME ZONE 'America/Sao_Paulo'
+                    WHEN job.idempotency_key ~
+                         ':[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T[0-9]{{2}}:[0-9]{{2}}$'
+                        THEN right(job.idempotency_key, 16)::timestamp
+                             AT TIME ZONE 'America/Sao_Paulo'
+                    ELSE NULL
+                END AS original_slot
             FROM publish_jobs job
             JOIN schedulers schedule ON schedule.id = job.scheduler_id
               AND schedule.post_id = job.post_id
@@ -119,8 +196,33 @@ def claim(publish_job_id, worker_id, lease_seconds):
               AND job.status = 'pending'
               AND job.publication_origin = 'legacy'
               AND schedule.publication_origin = job.publication_origin
-              AND schedule.environment = %s
+              AND ({scope})
             FOR UPDATE OF job SKIP LOCKED
+        ),
+        candidate AS (
+            SELECT locked_candidate.*,
+                original.id AS retry_source_id,
+                original.content_snapshot AS retry_snapshot,
+                original.content_revision_id AS retry_revision_id,
+                future.snapshot AS future_snapshot,
+                future.id AS future_revision_id
+            FROM locked_candidate
+            LEFT JOIN publish_jobs original
+              ON locked_candidate.idempotency_key = 'manual_retry:' || original.id::text
+             AND original.user_id = locked_candidate.user_id
+             AND original.profile_id IS NOT DISTINCT FROM locked_candidate.profile_id
+             AND original.post_id = locked_candidate.post_id
+            LEFT JOIN LATERAL (
+                SELECT revision.id, revision.snapshot
+                FROM post_content_revisions revision
+                WHERE revision.post_id = locked_candidate.post_id
+                  AND revision.user_id = locked_candidate.user_id
+                  AND revision.profile_id = locked_candidate.profile_id
+                  AND revision.snapshot->>'environment' = locked_candidate.environment
+                  AND locked_candidate.original_slot > revision.effective_after
+                ORDER BY revision.effective_after DESC, revision.id DESC
+                LIMIT 1
+            ) future ON TRUE
         )
         UPDATE publish_jobs AS job
         SET status = 'running',
@@ -130,13 +232,23 @@ def claim(publish_job_id, worker_id, lease_seconds):
             external_started_at = NULL,
             locked_by = %s,
             locked_at = now(),
-            started_at = COALESCE(job.started_at, now())
+            started_at = COALESCE(job.started_at, now()),
+            scheduled_for = COALESCE(job.scheduled_for, candidate.original_slot),
+            content_revision_id = COALESCE(
+                job.content_revision_id,
+                CASE WHEN candidate.retry_source_id IS NOT NULL
+                     THEN candidate.retry_revision_id ELSE candidate.future_revision_id END
+            ),
+            content_snapshot = COALESCE(
+                job.content_snapshot,
+                CASE WHEN candidate.retry_source_id IS NOT NULL
+                     THEN candidate.retry_snapshot ELSE candidate.future_snapshot END
+            )
         FROM candidate
         WHERE job.id = candidate.id
-        RETURNING job.id, job.claim_token
+        RETURNING job.id, job.claim_token, job.content_snapshot
     """
-    return query_db(query, (publish_job_id, current_environment(), worker_id), one=True)
-
+    return query_db(query, (publish_job_id, *scope_args, worker_id), one=True)
 
 def finish(publish_job_id, claim_token, status, *, external_id=None, error=None):
     if status not in TERMINAL_STATUSES:

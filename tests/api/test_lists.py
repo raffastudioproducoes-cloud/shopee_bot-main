@@ -259,14 +259,17 @@ class TestListsScopedByActiveProfile:
         )
         fake_client = MagicMock()
         fake_client.table.side_effect = lambda name: product_lists_query
+        fake_client.rpc.return_value.execute.return_value = MagicMock(
+            data=[{"id": 1, "name": "Nova", "updated_at": None}]
+        )
         monkeypatch.setattr(lists_router, "supabase", fake_client)
 
         auth_client.cookies.update(auth_headers_with_profile)
         res = auth_client.post("/lists", json={"name": "Nova"})
 
         assert res.status_code == 200
-        inserted = product_lists_query.insert.call_args[0][0]
-        assert inserted["profile_id"] == "profile-a"
+        assert fake_client.rpc.call_args.args[0] == "insert_product_list_with_plan_quota"
+        assert fake_client.rpc.call_args.args[1]["p_profile_id"] == "profile-a"
 
     def test_create_product_list_without_active_profile_is_rejected(
         self, auth_client, monkeypatch
@@ -349,3 +352,26 @@ class TestListsByIdScopedByActiveProfile:
         res = auth_client.delete("/lists/7")
 
         assert res.status_code == 404
+
+
+def test_list_creation_returns_409_when_profile_quota_reached(
+    auth_client, auth_headers_with_profile, monkeypatch
+):
+    fake_client = MagicMock()
+    fake_client.rpc.return_value.execute.side_effect = Exception("plan_lists_quota_exceeded")
+    monkeypatch.setattr(lists_router, "supabase", fake_client)
+    auth_client.cookies.update(auth_headers_with_profile)
+    res = auth_client.post("/lists", json={"name": "Lista excedente"})
+    assert res.status_code == 409
+    assert "Limite de listas" in res.json()["detail"]
+
+
+def test_list_creation_denies_foreign_profile_from_rpc(
+    auth_client, auth_headers_with_profile, monkeypatch
+):
+    fake_client = MagicMock()
+    fake_client.rpc.return_value.execute.side_effect = Exception("profile_not_owned")
+    monkeypatch.setattr(lists_router, "supabase", fake_client)
+    auth_client.cookies.update(auth_headers_with_profile)
+    res = auth_client.post("/lists", json={"name": "Lista sem dono"})
+    assert res.status_code == 403

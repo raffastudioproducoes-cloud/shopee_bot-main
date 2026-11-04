@@ -5,9 +5,224 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
-### Segurança compatível F4E para main (03/11/2026)
+## [3.1.0] - 2026-11-04
 
-Filtros positivos de origem legada no executor antigo de produção, incluindo claim, retry/recovery e pré-envio. Depende da migration aditiva 075 ser aplicada primeiro; nenhum novo envio, campanha ativa ou upgrade de plano. Testes unitários de compatibilidade incluídos.
+### F4E — Campanhas integradas (release autorizado)
+
+- Implementação técnica de ponta a ponta integrada e validada em staging: reserva transacional por perfil/rede/dia; proteção e cópia privada de mídia; verificação OAuth; materialização atômica de posts/schedulers/jobs com `publication_origin='campaign'`; executor com origem/autorização/isolamento de ambientes, pausa/retomada/cancelamento/recuperação/histórico; interface PT-BR e guardas de plano/período pago.
+- Correções do fluxo legado, isolamento `apscheduler_jobs`/`apscheduler_jobs_staging`, leituras de sessão/perfil resilientes a desconexão HTTP/2 e comportamento fail-closed sem retry de jobs `unknown`.
+- Autorização expressa de Rafa em 04/11 para promoção integral `staging → main` pelo [PR #248](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/248); staging SHA `2ae7a395` LIVE com CI #881 SUCCESS. A versão é MINOR compatível sobre 3.0.0.
+- **Três pendências mantidas fora do aceite técnico por decisão do proprietário:** teste manual final; gateway de pagamento/cobrança real; comprovação de entregas nas redes sociais. Não confundir código em produção com postagem externa comprovada nem com plano quitado.
+
+### Primeira campanha F4E externa ativada, aguardando envio (04/11/2026)
+
+- Após autorização explícita e confirmação específica de Rafa, campanha ADMIN `Homologação de publicação real — 04/11/2026` ativada em **staging** com um produto Air Fryer, uma rede Threads, 1 vaga/ocorrência em 04/11/2026 às 01:45 BRT. O backend exigiu corretamente antecedência mínima de 30 minutos e a janela foi ajustada.
+- Reserva `6dfbab2d-cc9f-42fb-9dec-840067017573`: `lifecycle=active`, `dispatch_enabled=true`, `media_verified=true`, `oauth_verified=true`, um asset privado, uma verificação OAuth, um slot; `posts`, `schedulers` e `publish_jobs` materializados com origem positiva `campaign` e agendamento idêntico. Job `pending`, progresso 1 planejado / 0 enviados às 01:10 BRT.
+- Agendada checagem automática para 01:55 BRT. Não marcar como entrega externa comprovada antes de ID/resultado remoto e conferência no histórico; `main`/produção ainda não recebeu F4E.
+
+### Homologação pós-CI — PR #245 LIVE e próxima entrega real (04/11/2026)
+
+- [PR #245](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/245) integrado em staging no commit `4a4e0ab` após CI #877 SUCCESS (API Python, frontend e PostgreSQL descartável). Deploy `dep-dblaq067bikc73affoh0` LIVE; logs `Scheduler started` e `Resumed scheduler job processing`, endpoint `/api/health/ready` retornou `status=ok`, sessão ADMIN e UI de posts/campanhas carregaram.
+- Preparado no ADMIN um rascunho separado `Homologação de publicação real — 04/11/2026`: um produto Air Fryer, uma rede (Threads), uma ocorrência prevista para 04/11 às 01:10 de Brasília. **Rascunho salvo, ainda não ativado e nenhum envio efetuado**; confirmação específica do disparo externo pendente.
+- Uma execução legada Threads em 04/11 00:31 UTC falhou na parte 2/5 com HTTP 403 Meta code 10; há postagens Threads anteriores confirmadas. Diagnóstico de rede/etapa necessário, sem deduzir revogação OAuth. `unknown` permanece sem retry automático.
+
+### Recuperação do scheduler de homologação e correção de perfil HTTP/2 (04/11/2026)
+
+- Reativação autorizada por Rafa: `SCHEDULER_ENABLED=true` apenas no Render `shopee-bot-staging`, deploy `dep-dblakvjm8hqs738nl8h0` LIVE no SHA `e09c9aa`. Logs confirmaram `Scheduler started`; job `publish_queue_recovery` voltou a avançar. `main`/produção permaneceram inalterados.
+- As cinco recorrências legadas do staging podem realizar envios reais em seus horários; nenhum `unknown` é reenviado automaticamente. Snapshot após reativação: 12 jobs legados `unknown`, zero campanhas ativas e zero jobs de campanha pendentes/em execução.
+- Correção adicional em homologação: resolução de `profile_id` passa a repetir **uma vez** apenas SELECTs com falha `httpx.TransportError`, reaproveitando o helper da autenticação; persistindo a falha, devolve 503 sem perder isolamento ou converter a falha em logout/401. Regressões para token do titular, fallback principal e dois erros consecutivos.
+- A implementação F4E do PR #243 e o reparo de sessão do PR #244 estão no staging; o teste de envio de campanha à rede e a promoção controlada para `main` permanecem pendentes. Não confundir deploy LIVE com postagem externa confirmada. `VERSION=3.0.0` até release aprovada.
+
+
+### Homologação integrada F4E em staging — sessão resiliente (04/11/2026)
+
+- Homologada no navegador com conta ADMIN autenticada a criação de rascunho, ativação controlada, reserva de 1 slot por rede/dia, retenção de 1 mídia, atestado OAuth, materialização de 1 post/job com origem `campaign`, pausa e retomada; evidência na reserva `7805b3a1-a4a5-4d2f-8a82-8fce3389728d` de origem `staging`. Sem postagem externa de teste.
+- `SCHEDULER_ENABLED=false` aplicado somente ao serviço de staging, com deploy `dep-dbl9aa0n74is739edteg` live; scheduler de produção intocado e jobs antigos preservados. A reserva de teste foi colocada em pausa após validação.
+- Identificado em logs de staging HTTP 500 durante `GET /campaigns/active`: fechamento remoto HTTP/2 (`httpx.RemoteProtocolError`) na consulta de `revoked_sessions` do autenticador. Leituras de identificação de usuário e revogação agora repetem **uma vez** somente erros de transporte, com query reconstruída; se o banco continuar indisponível, retornam 503 sem liberar acesso. Quatro regressões cobrem retry, 401 de sessão revogada e falha fechada após duas tentativas.
+- Corrigido o logout indevido quando `/auth/me` responde com 5xx, 429 ou erro de rede: a sessão só é descartada em HTTP 401, com aviso e nova tentativa; a verificação do papel ADMIN segue bloqueando acesso em falha transitória. Corrigida também a indicação de ativação indisponível no compositor, que contradizia o fluxo operacional.
+- O comportamento de publicação real Threads/Meta não foi re-testado nesta homologação: um 403 isolado não prova ausência de autorização no perfil. Validar eventual falha pela chamada/etapa/credencial específicas e logs sem expor tokens.
+- Alterações limitadas à branch staging; `main` e `VERSION=3.0.0` preservados até promoção formal.
+
+### F4E — implementação integrada de campanhas (PR #243, 03/11/2026)
+
+Implementação em branch de trabalho, **CI #41746477821 aprovada** (API, PostgreSQL 16 isolado e frontend); **migrations 076–079 aplicadas no Supabase compartilhado e registradas no migrador do app**, com cinco índices de FK corrigidos após auditoria de desempenho, com zero slots/posts criados; **sem merge/deploy de staging ou publicação externa** até este registro. A proposta combina as migrations 076–078: cotas de campanha por perfil/dia contabilizadas por rede sob lock de conta; sessão comercial com vigência paga e downgrade pendente aplicado apenas após o término; slots por rede com identidade imutável; mídia retida em prefixo privado por reserva e manifesta no banco; atestados OAuth recentes; materialização atômica de posts, associações de mídia/produto, schedules e publish_jobs com `publication_origin='campaign'` nos três pais. A fila de campanha é separada do legado e revalida OAuth, ambiente, posse, vigência e estado no banco inclusive na última barreira antes da chamada externa; pausa/cancelamento, recuperação de preparação, término desconhecido sem repetição e encerramento com liberação de cota compõem o ciclo. A API e o planejador expõem ativação explícita, limite real do plano, pausa/retomada/cancelamento e progresso/histórico paginado. A CI inclui PostgreSQL 16 descartável e a verificação comum de API/frontend. Não há checkout ou permissão Meta Threads emitidos por essa entrega; o erro 403/código 10 do Threads segue externo. Deploy de staging e homologação integrada são gates separados de merge/main.
+
+
+### F4E — isolamento real de origem no banco e nos executores (03/11/2026)
+
+Migração aditiva 075 com origem positiva `legacy/campaign` para schedulers e publish_jobs, padrão legado compatível com main antiga e triggers de imutabilidade/consistência de pais. Tentativa de reivindicar ou iniciar envio de job de campanha é rejeitada **pelo PostgreSQL**, inclusive quando um executor antigo ignorar o filtro. Scheduler de staging passa a exigir origem legada em consultas, claim/recovery, reconciliação, cancelamento e barreira antes da API social. Testes unitários e PostgreSQL 16 descartável adicionados. O despacho de campanhas permanece fechado até implantação compatível nos dois ambientes e conclusão de cota por rede, OAuth, mídia e ativação transacional. Nenhuma publicação real, plano ou pagamento é alterado.
+
+
+### Correção crítica — cron/recovery de posts em staging (03/11/2026)
+
+O claim de publicação separava chave `UUID:YYYY-MM-DDTHH:MM` por dois-pontos e convertia `YYYY-MM-DDTHH` para timestamp inválido, abortando `publish_queue_recovery` e podendo deixar jobs pendentes. Corrigido uso dos 16 caracteres finais do slot nominal, preservando revisão e janela. O recovery agora também encerra `pending` com mais de uma hora como `failed`, sem envio tardio, preservando `unknown`; regressões cobertas por testes unitários e PostgreSQL descartável; nenhum post `unknown` foi repetido, nenhuma configuração OAuth/Threads, banco compartilhado, `main` ou `VERSION=3.0.0` alterados. Logs reais de staging continham `InvalidDatetimeFormat: 2026-11-03T15`. CI e deploy serão declarados separadamente após confirmação.
+
+### F4E-2B4 — origem persistente e rollout seguro (03/11/2026)
+
+Especificação para separar publicações `legacy` e `campaign` por origem positiva, persistente e imutável em agenda/job, vínculo atômico, recusa fail-closed, bloqueio de retry de campanha inerte, compatibilidade main+staging e rollback. A auditoria impede migrar o SQL B3 sem resolver lock de índices, exclusão/LGPD e unicidade de tentativas. Nenhum executor, DDL/Supabase, job, flag, envio, cobrança, e-mail ou `main` alterado. [Plano](docs/superpowers/plans/2026-11-03-f4e2b4-origem-e-rollout-seguro.md); `VERSION=3.0.0`.
+
+### F4E-2B3 — ajuste do harness descartável
+
+Na primeira CI #41723907329, os 9 casos SQL novos passaram individualmente, mas a limpeza foi corretamente interrompida por uma asserção errada do tamanho do nome gerado do banco. Validação substituída por regex exata `f4e2b3_[0-9a-f]{32}` antes do DROP; banco somente local do runner, removido também pelo teardown do serviço Docker. Nova CI necessária para aprovar a suíte completa. Nenhuma alteração de SQL/runtime/Supabase. A barreira de DROP usa exceção explícita, inclusive sob Python otimizado; teste de unicidade isola também o mesmo job em outra ocorrência, sem mascarar a constraint por colisão de ocorrência/rede.
+
+### F4E-2B3 — proposta de identidade dos pais, sem executor (03/11/2026)
+
+A proposta SQL F4E2B2, fora do migrador, acrescenta FKs compostas RESTRICT e índices incluindo PK para impedir troca de identidade dos pais vinculados, com locks ordenados na validação inicial e rede do post conferida. Sem novo grant executável: service_role só lê links. Nova suíte PostgreSQL descartável usa migrations reais dos pais e testa concorrência/REPEATABLE READ, ACL, unicidade, rollback, lifecycle e legado não vinculado; descoberta explícita na CI. Matriz de integração e riscos em `docs/F4E-2B3-PROPOSTA-IDENTIDADE-PAIS-20261103.md`. PR/CI ainda em preparação neste registro; nenhum guard ligado ao executor, Supabase/main/flags/postagem/billing alterados. Pedido de downgrade preserva direitos até fim do período pago. `VERSION=3.0.0`.
+
+### Correção contratual — ciclo pago e e-mails futuros (03/11/2026)
+
+Retificada a regra de downgrade da F4E-2B2: solicitação não restringe plano, campanhas ou quotas antes do vencimento pago. Cancelamento impede renovação futura, preservando acesso quitado; troca/pausa na virada; aviso T−7 e confirmação; upgrade com processamento após pagamento. Requisitos futuros de e-mail transacional/marketing opt-in e ressalva CDC/LGPD registrados. **Somente documentação**, sem checkout/cobrança/SQL/envios/main/alteração de VERSION.
+
+
+### F4E-2B2 — fechamento de staging (03/11/2026)
+
+PR #234 (`0483b7a`, CI #41713751800) e correção de CI PR #235 (`1363024`, CI #41714645658) integradas somente no staging. O filtro novo executou 15 testes F4E-1 em PostgreSQL isolado e 3 contratos estáticos F4E-2B2; CI de staging #41714932997, smoke #41714932664 e ZAP passivo #41714932408 aprovados. Render `dep-dbl4e317lnhs739rukhg` LIVE nesse SHA. Supabase: zero reservas/ocorrências, proposta de tabela não aplicada. Homologação autenticada pulada; sem envio real, executor F4E, migration, main ou release. `VERSION=3.0.0`.
+
+
+### F4E-2B2 — ampliação do gate SQL de CI
+
+O workflow de PostgreSQL descartável passa a descobrir também `test_f4e2b2_*.py` além dos testes F4E-1. A primeira CI #41713751800 aprovou scheduler e API, mas não exercitou o novo contrato estático SQL devido ao filtro antigo; esta correção exige nova CI antes de encerrar a homologação. Sem DDL/SQL aplicado ao Supabase ou alteração de `VERSION=3.0.0`.
+
+
+### F4E-2B2 — identidade persistente inerte e decisão de downgrade (PRE-DEPLOY)
+
+Rafa aprovou pausa integral ao rebaixar Premium→Pro até escolha explícita de até 2 campanhas por perfil, preservando histórico e as demais pausadas. Corrigido o DTO de dispatch para UUID de agenda e fila, INTEGER de post e rede permitida; recusa incondicional mantida. Proposta SQL de vínculo obrigatório, imutável e somente leitura ao service_role foi adicionada apenas em `docs/sql-proposals/`, fora do boot. Testes de contrato adicionados; CI, PR, staging LIVE e validação PostgreSQL ainda não confirmados. Sem alteração do Supabase compartilhado, executores, flags, jobs, publicação, main ou versão 3.0.0. Detalhes em `docs/F4E-2B2-IDENTIDADE-INERTE-20261103.md`.
+
+
+### F4E-2B1 — contrato inerte de dispatch (PR #233; PRE-DEPLOY)
+
+Contrato isolado e ainda não integrado ao executor: `CampaignDispatchIdentity` valida somente formato em memória; não comprova vínculo, posse ou imutabilidade persistida. `require_campaign_dispatch_authorization` sempre recusa, independentemente de flags. Não altera fluxo legado, não autoriza campanha e não protege o executor central de produção atual. Sem criação de jobs/posts/reservas, SQL, migrations, configuração ou chamadas externas. Antes de qualquer execução: identidade verificável e protegida entre reserva, ocorrência, job e post; guardas transacionais no claim e imediatamente antes da chamada externa; compatibilidade nos dois ambientes; proteção de mídia e revisão do acesso service_role. CI/revisão/deploy não confirmados neste registro. `VERSION=3.0.0`.
+
+
+### F4E-2A — fechamento pós-deploy em staging
+
+**F4E-2A STAGING LIVE (03/11/2026, substitui nota histórica PRE-DEPLOY):** [PR #231](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/231) integrada somente em `staging` no squash `8e0c6b44f84d4fedb9951ef589369127ecaab407`; [CI #773 SUCCESS](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41707521280) (API 1.170, scheduler 175 + 1 xfailed, SQL 4, segurança/web 27, build frontend e PostgreSQL 16 isolado). Render `dep-dbl3ov15efls73bmmpd0` LIVE no mesmo SHA. Navegador após deploy: `GET /api/health/ready` = `{"status":"ok"}`; `GET /api/campaigns/drafts/11111111-1111-1111-1111-111111111111/preflight?expected_revision=1` sem sessão = `{"detail":"Não autenticado"}`. Supabase compartilhado: `campaign_reservations_f4e` = 0, `campaign_occurrences_f4e` = 0 após deploy. Preflight permanece exclusivamente leitura e parcial (`reservation_available=false`, `reserved=false`, `activated=false`, `checks_complete=false`), sem jobs, reservas, mídias, redes, migração nova nem postagem. `main` não foi alterada. Próximo gate F4E-2B: proteger caminho central/legado de execução e pré-envio com vínculo imutável fail-closed e flags OFF, mais mídia persistente, cota transacional por rede e conta, `service_role`, OAuth, congelamento T−30 e downgrade. Autorização separada obrigatória para qualquer promoção a `main`, reserva ou teste externo. [Vault PR #43](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/43) documenta os riscos.
+
+
+### F4E-2A — preflight parcial, PR draft
+
+**F4E-2A PRE-DEPLOY (PR #231):** preflight autenticado de leitura parcial para rascunho e revisão, política de plano, cronograma e volume por rede. Retorna `preflight_only`, `checks_complete=false`, `reservation_available=false`, `reserved=false`, `activated=false`; não reserva, não chama RPC, não gera jobs/posts e não prova OAuth, retenção física de mídia ou vaga concorrente. Antes de qualquer reserva/execução: proteger mídia e rascunho contra exclusão concorrente, rever writes diretos service_role e validar guardas de dispatch em ambos ambientes. CI, revisão e deploy ainda não confirmados neste registro; `VERSION=3.0.0`.
+
+
+### 03/11/2026 — Fechamento F4E-1 em staging LIVE (após PR draft)
+
+- [PR #229](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/229) mesclada apenas em staging: squash `24c45b671e416d071c80c1c914eecaf6344db0b9`; [CI #764](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41702740725) SUCCESS com PostgreSQL 16; Render `dep-dbl3aibbc2fs738kfllg` LIVE no SHA; `/health` e `/api/health/ready` = `{"status":"ok"}`.
+- Supabase compartilhado com migration `20261103191911` e marcador único `public.migrations` para `074_f4e1_inert_campaign_reservations.sql`; tabelas 0/0, RLS/grants restritivos, sem nova execução, posts, jobs ou campanhas reais. Main/produção sem promoção de código.
+- Rafa confirmou tags, mensagens, criação e separação de perfis em mobile. Planos/checkout, F4E-2, barreiras de dispatch, redes/OAuth/mídia e downgrade continuam pendentes. `VERSION=3.0.0`. Os registros de PR draft abaixo são históricos pré-merge.
+
+### F4E-1 — DDL inerte aplicada, PR draft
+
+- DDL aplicada ao Supabase compartilhado com autorização de Rafa, registrada no histórico Supabase (`20261103191911`) e em `public.migrations`. Reservas e ocorrências estavam vazias na inspeção; sem executor, jobs F4E, publicações, merge ou deploy de main/produção.
+- [CI #755](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41701678290) passou para o SHA anterior; [CI #761](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41702528589) está em andamento no momento deste registro. A CI do novo SHA deve ser consultada separadamente.
+- Rafa confirmou tags, mensagens e perfil em mobile; QA visual desktop completo não comprovado. Escolha de plano e F4E-2 permanecem pendentes; VERSION segue `3.0.0`.
+
+### Fechamento verificado F4D em staging — 03/11/2026
+- 03/11/2026 — F4D **integrada apenas em staging**: [PR #219](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/219) squash `9adbd5a455022acecc580c7daba75bd445a8ec22`, [CI #728](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41696637695) SUCCESS (API 1.165; frontend 38 contratos + TypeScript/Vite; scheduler 175 + 1 xfailed; SQL 4; segurança/web 27; externo skipped esperado). Render staging `dep-dbl2obp5efls73f9durg` LIVE no mesmo SHA; browser confirmou `/health` e `/api/health/ready` como `{"status":"ok"}`. UI autenticada desktop/mobile ainda não verificada. Nenhuma migration/SQL/ativação/job/post externo, cobrança ou alteração de `main`/produção. `VERSION=3.0.0`.
+- F4E auditada somente leitura: dispatch central de produção pode reivindicar agendamentos com origem staging se a configuração de dispatch estiver habilitada (flag real Render não verificada); separar F4E-1 inerte/transacional de F4E-2 execução protegida e não inserir campanha em `schedulers`/`publish_jobs` antes de guardas simultâneos nos dois ambientes. Não houve DDL nem autorização de ativação.
+
+
+### Added — F4D: plano da conta, consumo e acesso (PR, sem deploy)
+- Badges canônicos Free/Pro/Premium/Administrador, resumos de uso/limite por conta/perfil e bloqueios contextuais sem preços, cobrança ou checkout.
+- GET autenticado read-only `/profiles/usage` com counts exatos e limites auditados; Agora/cron/ativas sem consumo comprovado permanecem indisponíveis, nunca zero fictício.
+- Campanha usa caps do servidor, mantém leitura/exclusão após downgrade; automação visível como vitrine e indisponível mesmo quando habilitada pelo plano. Contratos frontend SSR/helpers/a11y e API incluídos na CI.
+- Sem SQL/DDL, ativação, jobs, envio externo, mudanças de scheduler, main ou VERSION=3.0.0. CI/QA/deploy final pendentes nesta nota.
+
+### Status operacional — F4C2 em staging (03/11/2026)
+- PR #217 squash-merge em `staging` SHA `d80f60d289c314064fa6ac728c4b23f898a767c2`, CI #722 verde, Render deploy `dep-dbl2d1k9v7es73datmag` LIVE; `/health` e `/api/health/ready` respondem `{"status":"ok"}`. Sem schema novo, envios reais, UI autenticada testada ou promoção de `main`. F4E reserva de campanhas ativas e F4D interface continuam pendentes.
+
+
+### Added — F4C2: guardas preparatórios de campanhas (PR, sem merge/deploy)
+- Política server-side de conta/catálogo auditado, sem cache e com falha fechada; acesso Free bloqueado para prévia/criação/edição/upload, preservando consulta e exclusão após downgrade.
+- Pro 15 dias inclusivos/3 publicações diárias, Premium 30/15, contagem de cada rede na rotação por data local dos rascunhos; ADMIN sem teto comercial e com segurança absoluta de 30 dias preservada.
+- Endpoint autenticado `/campaigns/limits` informa limites e elegibilidade sem simular execução ou uso: ativação/automação indisponíveis, consumo ativo null. Guarda de automação exclusivamente Premium/ADMIN para futura integração.
+- Testes de autoridade de plano, alias Plus, limites, ownership, downgrade e falhas; sem ativação, job ou publicação. Quota de campanhas simultaneamente ativas permanece pendência transacional F4E (rascunhos não consomem vagas), **sem migration 074 ou SQL aplicado**, VERSION=3.0.0 e frontend F4D intocados.
+
+
+### Added — F4C1: reservas de cota para publicação por perfil (staging LIVE)
+- Migração 073 **aplicada ao Supabase compartilhado após autorização expressa e implantada em staging**: reservas transacionais de envio imediato por rede na janela móvel de 60 minutos e horários recorrentes por dia da semana; lê a política da conta na tabela 072 e considera agendamentos legados sem dupla contagem.
+- FastAPI reserva antes de criar agenda, trata excesso como bloqueio PT-BR da rede, compensa falha de criação sem liberar envio externo incerto e reaproveita reserva ao despachar um post "Agora". ADMIN ignora cota comercial, mas não ownership/regras de rede.
+- Testes mockados de escopo, limites, falha fechada e batch parcial; fixture de Supabase fake ampliada após a CI #713 detectar 15 regressões de contrato. CI [#714](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41600926342) passou (API + frontend); PR #215 integrada somente em staging (`397f0f7`), CI #717 verde, Render `dep-dbl20fss728c739c6kag` LIVE; `/health` e `/api/health/ready` OK. Banco 073 verificado com RLS/RPCs restritas e registro único em `public.migrations`. Nenhum post externo ou promoção para `main`; Vault PR #38 integrada. `VERSION=3.0.0`. `VERSION=3.0.0`.
+
+### Changed — F4B2: perfis conforme plano e isolamento reafirmado (staging)
+- Limites de perfis por conta: Free 1 total, Pro 3, Premium 5; ADMIN sem teto comercial. Nova RPC transacional valida plano/contagem no banco; `/profiles` de staging a utiliza e a versão antiga de produção continua com trigger de teto 3, por compartilharem Supabase.
+- Catálogo, Shopee e chave Gemini/IA seguem compartilhados na conta; listas (decisão confirmada), credenciais sociais, posts, agendas e histórico continuam segregados por perfil. Documentação e testes atualizados sem alterações em publicações reais.
+
+### Added — F4B: catálogo persistente de quotas e consumo atômico (staging)
+- Matriz Free/Pro/Premium confirmada; Pro suporta **2** campanhas ativas por perfil, Premium **5**, e postagem em cada rede conta individualmente.
+- Migração aditiva 072 introduz plano canônico por conta, tabela auditável de limites e RPCs atômicas de criação de produtos/listas, sem trigger comercial global no Supabase compartilhado.
+- API staging aplica 100/500/2.000 produtos por conta e 20/20/100 listas por perfil com isenção comercial de ADMIN. Postagens imediatas/recorrentes, ativação de campanhas e criação de perfis feita na F4B2; demais controles seguem para F4C; nenhuma publicação real é disparada por esta alteração.
+
+### Changed — F4A: identificação visual de planos (staging)
+- Matriz Free/Pro/Premium, exceção ADMIN e fases de cotas registradas em `docs/PLANOS-F4-POLITICAS-E-FASES-20261103.md`, sem prometer restrições ainda não aplicadas ao backend.
+- Cards de perfis passam a tratar `plus` legado como rótulo `Pro`, aceitam `pro` futuro e exibem `Administrador` se papel de ADMIN já estiver confirmado pela sessão. Migração, faturamento e regras de postagem continuam intocados neste incremento.
+- Conta de teste `RafaelTesteCliente` recebeu etiqueta `premium` no perfil principal via operação controlada no Supabase, confirmada por releitura; conta ADMIN não sofreu alteração de banco.
+
+
+### Added — F3C: postagens por dia e exclusão de rascunhos (PR #211, integrada em staging)
+- Campanha por lista agora usa seletor de **1 a 15 postagens por dia**, com horários uniformemente distribuídos entre início e fim dos dias selecionados. Uma postagem usa o início da janela; janela pequena para múltiplas postagens é rejeitada.
+- Rascunhos históricos com `interval_minutes` são convertidos ao carregar para `posts_per_day` (respeitando teto de 15 e exigindo revisão da prévia); nenhuma migração SQL necessária, pois o campo `schedule` é JSONB.
+- Botão **Excluir** na lista de rascunhos, com confirmação inline na página; endpoint próprio protegido por usuário, perfil e revisão. Arquivos privados de campanha são removidos **antes** da exclusão da linha; falhas bloqueiam a operação, sem tocar em produtos, posts ou jobs.
+- CI [#41581370451](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41581370451) verde, merge `140ea06`, Render `dep-dbkmmf7lk1mc73e1o2p0` LIVE e `/health` OK. Testes focados em planejamento, limites e exclusão segura; `main` e produção preservados. **Não habilita disparo/ativação nem altera planos por plataforma.**
+
+
+### Added — F3B: nome da campanha e mídias persistentes por produto (PR #209, staging)
+- Cada campanha recebe um nome próprio de até 120 caracteres, independentemente da lista usada; nomes distintos aparecem na recuperação de rascunhos.
+- Preparação por produto permite anexar imagens/vídeos de PC/celular ao rascunho salvo, com até 10 arquivos de 50 MB, seleção da imagem principal Shopee preservada. Referências em tabela independente dos temporários que expiram em 24h.
+- Bucket `post-media` permanece privado, com prefixo específico, sanitização de mídia existente, escopo usuário/perfil/produto, RLS/trigger e opção de excluir anexos. Migração `campaign_names_media_071` **aplicada com autorização** ao Supabase compartilhado em 03/11/2026, com RLS, grants e ownership verificados; PR #209 mesclada por squash somente em `staging` (`5ec24df`). Nenhuma ativação, post/job ou disparo.
+- Layout do editor permanece integrado à página e responsivo. Regras técnicas em `docs/CAMPANHA-F3B-NOME-E-MIDIAS-20261103.md`.
+
+- CI [#41578367282](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41578367282) aprovada; Render staging `dep-dbkm74ks728c738ritc0` LIVE, migration 071 reexecutada sem erro no boot, `/health` OK; nome e controles de anexos conferidos na UI autenticada. Nenhum arquivo de teste persistente nem publicação criada. `main` e versão `3.0.0` permanecem intocados.
+
+### Fixed — F3A: reinício seguro após aplicação da 070
+- PRs [#207](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/207) e [#208](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/208) mescladas em `staging`. O migrador reexecutava a 070 no boot e falhava no trigger já existente após a aplicação manual; guarda idempotente corrigiu e o deploy terminou LIVE com `/health` OK. Incidente documentado no Vault #61; `main` inalterada.
+
+
+### Added — F3A: rascunhos de campanha persistidos (PR #207, mesclada staging)
+- Nova API de rascunhos `/campaigns/drafts` para salvar, listar, consultar e revisar com controle por usuário/perfil e revisão otimista; preserva snapshots separados de título, texto, link, redes e foto Shopee por item.
+- Página `Criar POST` com ações para salvar e recuperar rascunhos do servidor, mantendo a cópia local como proteção. A operação não cria posts, jobs, reservas de agenda ou publicações.
+- Migration `070_campaign_drafts.sql` aditiva com RLS, integridade de dono/perfil/lista e índice; **aplicada com autorização de Rafa em 03/11/2026** ao Supabase compartilhado sob o nome `campaign_drafts_070`; inspeção confirmou RLS ativo, zero policies para acesso direto, `anon`/`authenticated` sem SELECT, `service_role` com SELECT/INSERT e trigger de ownership. Integração validada em staging após correção de inicialização na PR #208.
+- Mídias próprias de campanha (fotos/vídeos enviados pelo usuário) exigem persistência durável separada antes da ativação. A publicação única mantém suas fontes e uploads existentes; não houve alteração nela.
+
+
+### Added — preparação por produto da campanha (staging, sem ativação)
+- Campanha por lista tem editor em página, por produto, para título, texto principal, texto específico por rede, link de afiliado, redes com credenciais válidas e opção de foto principal Shopee.
+- Snapshots locais independentes por usuário/perfil/lista, sem modificar a lista-fonte; restauração preserva campos apagados, ordem e IDs permitidos. Prévia permanece somente leitura, sem gerar posts/jobs ou publicar.
+- Contratos executáveis dos snapshots integrados ao gate frontend. Upload persistente de fotos/vídeos por item, IA em lote, persistência transacional e ativação serão entregas posteriores; publicação única e seus uploads estão intactos.
+
+### Fixed — ícones de navegação e prévia (staging)
+- Corrigido o menu **Criar POST**: o ícone Lucide `square-pen` já era solicitado pelo SideRail, mas não constava do registro central de `Icon`, resultando em espaço vazio. Corrigido também `calendar-search` no botão de prévia da campanha.
+- Contrato automático de ícones da navegação e ação de prévia impede novas referências silenciosamente sem renderização. Sem alteração de rotas, permissões, dados ou publicação.
+
+### Added — campanha por lista: prévia segura (PR #204, staging)
+- Novo modo **Campanha por lista** na página `/posts/criar`, mantendo **Publicação única** e suas mídias/agenda anteriores sem regressão.
+- Seleção de lista do perfil, ordenação local, até 30 dias inclusivos, dias/horários/intervalo, revezamento de um produto por horário e prévia de cobertura no fuso de Brasília.
+- `POST /campaigns/preview` autenticado e somente leitura, com escopo de lista/produto e resposta sem ativação; rascunho local segregado. Não cria posts, jobs ou publicações. Registro: `docs/CAMPANHA-POR-LISTA-PREVIA-20261103.md`.
+
+> **SemVer:** `VERSION=3.0.0` permanece a última versão publicada. Funcionalidades novas compatíveis de `[Não lançado]` são candidatas a **3.1.0** na próxima promoção **expressamente aprovada** de staging para main. Este registro não é uma release; não antecipar bump nem integrar `main` sem revisar o lote e obter aceite.
+
+
+### Changed — página Criar POST sem aparência de modal (staging) e decisão R06
+- Formulário de `/posts/criar` integrado ao layout do site: sem cartão central, com regiões de produto/mídia e texto/agendamento, duas colunas em desktop e fluxo fluido em tablet/celular. Prévia da criação passa a ser conteúdo da página, sem overlay em telas pequenas.
+- Experimento de galeria extra Shopee **encerrado como indisponível na integração atual**: 3 sondagens autenticadas `productOfferV2` rejeitaram `imageUrls` e o link original real consultado exigiu login de comprador. Preservados imagem principal da Shopee e uploads locais de foto/vídeo.
+- Sem alteração de APIs, worker, cron, tabelas, credenciais, publicação externa ou produção. Registro técnico: `docs/CRIAR-POST-LAYOUT-GALERIA-SHOPEE-20261103.md`.
+
+### Added — Criar POST em página dedicada (staging, R01/R02 parcial)
+- Menu lateral `Criar POST` e rota privada `/posts/criar`, transferindo compositor do modal para página responsiva; histórico permanece em `/posts`.
+- Preservados criação imediata/recorrente, produto individual, foto principal Shopee, upload local de fotos/vídeos, IA, rascunhos, preview, validações e fluxo de dispatch/erros existente.
+- Nenhuma API, agendamento, banco ou publicação externa modificada. Galeria adicional Shopee e edição de mídia futura permanecem pendentes de fonte oficial/versão segura.
+
+### Added — edição futura de texto em staging (F1 isolada, sem enviar post)
+- Revisões imutáveis de texto para ocorrências ainda não reivindicadas a mais de 30 minutos, preservando ID do post, agenda, foto Shopee, fotos/vídeos enviados e histórico. Seleção atômica de snapshot pela hora original no claim com suporte a retry seguro; endpoint de leitura separado do detalhe existente.
+- Editor de texto sob demanda nos detalhes de posts agendados; rede, produto, mídia e horários não são alterados. RLS e banco seguem a migração 069 já aplicada e registrada; nenhuma publicação externa de teste.
+
+
+### Added — teste isolado da galeria Shopee (somente staging; sem postagem)
+- Endpoint autenticado e de leitura `GET /api/products/{id}/shopee-gallery-probe`, com `productOfferV2(itemId)`, teste condicional do campo `imageUrls`, fallback para `imageUrl`, filtragem de CDNs Shopee e escopo por conta. Usa apenas credenciais Shopee já cadastradas no backend; não modifica credenciais, agendamentos, uploads ou posts. Disponibilidade real de fotos adicionais depende de consulta autenticada em staging, sem assumir campo suportado.
+- Testes mockados de erro de schema, rate limit, foto única, múltiplas fotos, segurança de URL e autenticação. Sem migração SQL e sem alteração de UI nesta PR.
+
+### Added — piloto F0 no staging (gate desligado)
+- Preparação aditiva da migração 068 e de escopos idempotentes para despacho central de agendas novas; antigas agendas de staging permanecem `legacy`. Reconciliador central só funciona com `ORBITAL_CENTRAL_DISPATCH_ENABLED=true` **em etapa futura**. Nesta implantação: flag desligada, nenhum job transferido, nenhum post de teste, sem mudança em main.
+- Testes de criação/claim/rollback/espelhamento/cancelamento/`Agora` e expiração; detalhamento em [F0 — piloto no staging](docs/F0-CENTRAL-DISPATCH-STAGING-PILOT-20261102.md).
 
 
 > Toda alteração integrada em `staging` deve ser registrada aqui por PR. `VERSION` é a fonte oficial da versão; nenhuma mudança passa para `main` sem classificação SemVer, changelog e validação. A próxima versão só é decidida na promoção aprovada.

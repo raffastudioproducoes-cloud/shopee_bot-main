@@ -5,6 +5,9 @@ import { formDraftKey, clearFormDraft, saveFormDraft } from "../lib/formDraftSto
 import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
 import { productsApi, type Product } from "../api/products"
+import { PlanSummary } from "../components/plans/PlanSummary"
+import { usePlanUsage } from "../hooks/usePlanUsage"
+import { resourceAtLimit } from "../lib/planPresentation"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { PageSkeleton } from "../components/ui/Skeleton"
@@ -54,6 +57,8 @@ const formNumber = (value: string) => (value ? round2(Number(value)) : null)
 export function ProductsPage() {
   const { isAuthenticated, logout, user } = useAuthStore()
   const queryClient = useQueryClient()
+  const planQuery = usePlanUsage()
+  const productsAtLimit = !planQuery.isError && resourceAtLimit(planQuery.data?.resources.products)
   const [activeTab, setActiveTab] = useState<ProductsTab>("mine")
   const [search, setSearch] = useState("")
   useAutosavedDraft(formDraftKey(user?.id, "products-filters", null, false), { activeTab, search }, (saved) => {
@@ -112,6 +117,7 @@ export function ProductsPage() {
     onSuccess: () => {
       clearFormDraft(formDraftKey(user?.id, "product-create", null, false))
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["plan-usage"] })
       setModalOpen(false)
       setForm(emptyForm)
     },
@@ -125,6 +131,7 @@ export function ProductsPage() {
     onSuccess: (_result, variables) => {
       clearFormDraft(formDraftKey(user?.id, `product-edit:${variables.id}`, null, false))
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["plan-usage"] })
       setEditingId(null)
       setModalOpen(false)
       setForm(emptyForm)
@@ -137,6 +144,7 @@ export function ProductsPage() {
     meta: { toast: { pending: "Removendo produto…", success: "Produto removido", error: "Não foi possível remover" } },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] })
+      queryClient.invalidateQueries({ queryKey: ["plan-usage"] })
       setDeleteId(null)
     },
     onError: onAuthError,
@@ -145,6 +153,7 @@ export function ProductsPage() {
   // ── Handlers ───────────────────────────────────────────────────────────────────
 
   const handleCreate = useCallback(() => {
+      if (productsAtLimit) return
       createMutation.mutate({
         name: form.name,
         product_id: form.product_id,
@@ -156,7 +165,7 @@ export function ProductsPage() {
         price_max: formNumber(form.price_max),
         category: null,
       })
-    }, [form, createMutation])
+    }, [form, createMutation, productsAtLimit])
 
   const handleUpdate = useCallback(() => {
     if (!editingId) return
@@ -197,6 +206,7 @@ export function ProductsPage() {
   }, [])
 
   const handlePrefill = useCallback((p: CatalogProduct) => {
+    if (productsAtLimit) return
     setEditingId(null)
     const nextForm = {
       name: p.name,
@@ -212,7 +222,7 @@ export function ProductsPage() {
     setForm(nextForm)
     saveFormDraft(formDraftKey(user?.id, "product-create", null, false), nextForm)
     setModalOpen(true)
-  }, [user?.id])
+  }, [user?.id, productsAtLimit])
 
   const handleCancel = useCallback(() => {
     setModalOpen(false)
@@ -221,11 +231,12 @@ export function ProductsPage() {
   }, [])
 
   const openCreateModal = useCallback(() => {
+    if (productsAtLimit) return
     setEditingId(null)
     setFormBase(emptyForm)
     setForm(emptyForm)
     setModalOpen(true)
-  }, [])
+  }, [productsAtLimit])
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -278,8 +289,9 @@ export function ProductsPage() {
         ) : null}
       </header>
 
+      <PlanSummary resources={["products"]} />
       {activeTab === "catalog" ? (
-        <CatalogSearchTab onManualCreate={openCreateModal} onPrefill={handlePrefill} />
+        <CatalogSearchTab createBlocked={productsAtLimit} onManualCreate={openCreateModal} onPrefill={handlePrefill} />
       ) : (
         <>
       {/* Error */}
@@ -476,7 +488,7 @@ export function ProductsPage() {
             <Button type="button" variant="ghost" onClick={handleCancel}>
               Cancelar
             </Button>
-            <Button type="submit" variant="primary" loading={createMutation.isPending || updateMutation.isPending}>
+            <Button type="submit" variant="primary" disabled={!editingId && productsAtLimit} loading={createMutation.isPending || updateMutation.isPending}>
               {createMutation.isPending || updateMutation.isPending ? "Salvando..." : editingId ? "Salvar" : "Criar"}
             </Button>
           </div>

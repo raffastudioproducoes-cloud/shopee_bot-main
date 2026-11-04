@@ -182,8 +182,16 @@ async def create_product(
     if find_product_in_account(supabase, user_id, body.product_id):
         raise duplicate
     try:
-        result = supabase.table("products").insert(data).execute()
+        # RPC atômica: bloqueio da linha da conta + contagem + INSERT na mesma transação.
+        # Sem trigger global: a versão anterior em produção permanece compatível.
+        result = supabase.rpc("insert_product_with_plan_quota", {
+            "p_user_id": user_id, "p_product": data,
+        }).execute()
     except Exception as exc:  # corrida: o índice único (041) é a barreira final
+        if "plan_products_quota_exceeded" in str(exc):
+            raise HTTPException(status_code=409, detail="Limite de produtos salvos do plano atingido.") from None
+        if "plan_policy_unavailable" in str(exc):
+            raise HTTPException(status_code=503, detail="Política do plano indisponível. Tente novamente.") from None
         if "23505" in str(exc) or "duplicate key" in str(exc).lower():
             raise duplicate from exc
         logger.error("Falha ao criar produto (%s)", type(exc).__name__)

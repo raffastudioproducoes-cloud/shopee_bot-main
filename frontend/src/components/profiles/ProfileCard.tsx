@@ -1,4 +1,5 @@
 import { useRef } from "react"
+import { PlanBadge } from "../plans/PlanSummary"
 import type { Profile } from "../../api/profiles"
 import { Panel } from "../ui/Panel"
 import { Badge } from "../ui/Badge"
@@ -6,12 +7,6 @@ import { Button } from "../ui/Button"
 import { IconButton } from "../ui/IconButton"
 import { Avatar } from "./Avatar"
 
-const planTierLabel: Record<Profile["plan_tier"], string> = { free: "Free", plus: "Plus", premium: "Premium" }
-const planTierTone: Record<Profile["plan_tier"], "neutral" | "outline" | "mint"> = {
-  free: "neutral",
-  plus: "outline",
-  premium: "mint",
-}
 const kindLabel: Record<Profile["kind"], string> = { principal: "Principal", secundario: "Secundário" }
 
 interface ProfileCardProps {
@@ -73,7 +68,7 @@ export function ProfileCard({ profile, active, activating, onActivate, onEdit, o
       </div>
       <div className="csp-s-0095">{profile.email}</div>
       <div className="csp-s-0096">
-        <Badge tone={planTierTone[profile.plan_tier]}>{planTierLabel[profile.plan_tier]}</Badge>
+        <PlanBadge />
         <Badge tone={isPrincipal ? "mint" : "neutral"}>{kindLabel[profile.kind]}</Badge>
       </div>
 
