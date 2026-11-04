@@ -131,9 +131,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             )
             if not erasure_completed:
                 self._save(
-                request, user_id, username, status_code, duration_ms, error, redirect_to,
-                profile_id,
-            )
+                    request, user_id, username, status_code, duration_ms, error,
+                    redirect_to, profile_id,
+                )
 
     def _save(
         self, request, user_id, username, status_code, duration_ms, error, redirect_to,
