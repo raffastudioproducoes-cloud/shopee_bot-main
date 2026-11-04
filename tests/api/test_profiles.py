@@ -251,6 +251,54 @@ def test_avatar_upload_rejects_file_over_max_size(auth_client, monkeypatch):
     fake_client.storage.from_.return_value.upload.assert_not_called()
 
 
+def test_profile_resolution_retries_owned_read_only_after_http2_disconnect(monkeypatch):
+    """A queda HTTP/2 não invalida a sessão nem remove seu perfil."""
+    import httpx
+    from api.routers.profiles import _resolve_profile_id
+
+    query = _mock_supabase(monkeypatch, {"id": "p-2"})
+    query.execute.side_effect = [
+        httpx.RemoteProtocolError("GOAWAY"),
+        MagicMock(data={"id": "p-2"}),
+    ]
+
+    assert _resolve_profile_id("p-2", USER_ID) == "p-2"
+    assert query.execute.call_count == 2
+
+
+def test_profile_resolution_retries_principal_fallback_after_http2_disconnect(monkeypatch):
+    """Somente leitura do fallback é repetida; continua escopada ao titular."""
+    import httpx
+    from api.routers.profiles import _resolve_profile_id
+
+    query = _mock_supabase(monkeypatch, None)
+    query.execute.side_effect = [
+        MagicMock(data=None),
+        httpx.RemoteProtocolError("GOAWAY"),
+        MagicMock(data={"id": "p-main"}),
+    ]
+
+    assert _resolve_profile_id("p-invalido", USER_ID) == "p-main"
+    assert query.execute.call_count == 3
+
+
+def test_profile_resolution_fails_closed_after_two_http2_disconnects(monkeypatch):
+    """Duas falhas transitórias retornam 503, nunca perfil sem dono/401."""
+    import httpx
+    from api.routers.profiles import _resolve_profile_id
+
+    query = _mock_supabase(monkeypatch, None)
+    query.execute.side_effect = [
+        httpx.RemoteProtocolError("GOAWAY"),
+        httpx.RemoteProtocolError("GOAWAY"),
+    ]
+
+    with pytest.raises(HTTPException) as error:
+        _resolve_profile_id("p-2", USER_ID)
+    assert error.value.status_code == 503
+    assert query.execute.call_count == 2
+
+
 class TestCurrentProfileIdValidation:
     """O `profile_id` do token só vale se pertencer ao usuário; senão cai
     no perfil principal."""
