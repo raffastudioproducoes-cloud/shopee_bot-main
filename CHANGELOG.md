@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Homologação pós-CI — PR #245 LIVE e próxima entrega real (04/11/2026)
+
+- [PR #245](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/245) integrado em staging no commit `4a4e0ab` após CI #877 SUCCESS (API Python, frontend e PostgreSQL descartável). Deploy `dep-dblaq067bikc73affoh0` LIVE; logs `Scheduler started` e `Resumed scheduler job processing`, endpoint `/api/health/ready` retornou `status=ok`, sessão ADMIN e UI de posts/campanhas carregaram.
+- Preparado no ADMIN um rascunho separado `Homologação de publicação real — 04/11/2026`: um produto Air Fryer, uma rede (Threads), uma ocorrência prevista para 04/11 às 01:10 de Brasília. **Rascunho salvo, ainda não ativado e nenhum envio efetuado**; confirmação específica do disparo externo pendente.
+- Uma execução legada Threads em 04/11 00:31 UTC falhou na parte 2/5 com HTTP 403 Meta code 10; há postagens Threads anteriores confirmadas. Diagnóstico de rede/etapa necessário, sem deduzir revogação OAuth. `unknown` permanece sem retry automático.
+
 ### Recuperação do scheduler de homologação e correção de perfil HTTP/2 (04/11/2026)
 
 - Reativação autorizada por Rafa: `SCHEDULER_ENABLED=true` apenas no Render `shopee-bot-staging`, deploy `dep-dblakvjm8hqs738nl8h0` LIVE no SHA `e09c9aa`. Logs confirmaram `Scheduler started`; job `publish_queue_recovery` voltou a avançar. `main`/produção permaneceram inalterados.
