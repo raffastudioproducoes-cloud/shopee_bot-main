@@ -34,9 +34,13 @@ A escolha de um registro transacional intermediário é necessária porque opera
 
 A versão ainda publicada em `main` usa `DELETE` físico de `profiles` e `users`. Por isso, a migração 085 instala triggers transacionais que **bloqueiam deletes legados** (falham sem perda de histórico). O perfil deve ser arquivado via RPC; a conta somente é removida após uma tarefa de apagamento integral com Storage e Auth concluídos. Na exclusão integral verificada, o trigger de `users` autoriza na mesma transação apenas as cascatas dos perfis daquele titular. Essas proteções continuam necessárias enquanto `main` não recebe a implementação compatível, pois ambas as branches usam o mesmo Supabase. Exclusões em `main` podem apresentar erro temporário até a homologação, mas não apagam histórico.
 
+### Fechamento da condição de corrida — migração 086
+
+A migração 086 exige também `app.account_erasure_finalize_user` transacional, configurado **somente dentro** de `finalize_account_erasure` após conferir a conclusão das etapas externas e a ausência de mídia remanescente. O antigo `DELETE users` de main é bloqueado mesmo entre a marcação de Storage/Auth completos e a limpeza de logs da RPC; as cascatas legítimas continuam autorizadas pela 085. No Supabase único, aplicada em 04/11/2026 e testada com usuário/perfil sintéticos em `BEGIN; ...; ROLLBACK`, sem exclusão de dados reais.
+
 ## Gates obrigatórios
 
-- [x] Rafa autorizou migrações aditivas no Supabase compartilhado, sem novo ambiente. Migrações 080/081/082/083/084 aplicadas; 085 adicionada para bloquear exclusões legadas e exigir validação transacional.
+- [x] Rafa autorizou migrações aditivas no Supabase compartilhado, sem novo ambiente. Migrações 080/081/082/083/084 aplicadas; 085/086 aplicadas para bloquear exclusões legadas e exigir finalizador transacional.
 - [x] Testes SQL transacionais com conta sintética e `ROLLBACK`: arquivamento, impossibilidade de arquivar principal, idempotência e expurgo DB/audit/request_logs. Contagens originais intactas e zero registros de teste residuais.
 - [ ] Testes completos de duas contas, Free/Pro/Premium, histórico F4E/unknown, concorrência `claim/preflight` e mídia real.
 - [x] Orquestrador de apagamento Storage API → Auth Admin API → finalizador DB com estado retomável e endpoint admin de recuperação, ainda somente na branch.
@@ -49,7 +53,7 @@ A versão ainda publicada em `main` usa `DELETE` físico de `profiles` e `users`
 
 - Banco compartilhado: migrações 080/081/082/083/084 aplicadas; verificação confirmou 4 perfis, 3 agendas, 3 publish_jobs e 5 objetos Storage antes e depois; zero contas sintéticas e zero tarefas de apagamento pendentes. Um teste SQL de finalização encontrou uma view não deletável e foi corrigido em 082 antes da execução sintética bem-sucedida.
 - Nenhum cron, pg_net, worker, agendamento ou serviço foi desligado ou alterado. Nenhum dado real foi excluído.
-- Branch `feat/profile-archive-history-20261104` / PR #266 integrada apenas ao staging; PR #267 reforça migrações 084/085 e compatibilidade do banco. `PROFILE_ARCHIVAL_ENABLED=false` e `ACCOUNT_ERASURE_ENABLED=false` por padrão no código; ativação **não autorizada no main**.
+- Branch `feat/profile-archive-history-20261104` / PR #266 integrada apenas ao staging; PR #267 reforçou migrações 084/085; PR #268 exige RPC finalizadora (086) para completar a proteção. `PROFILE_ARCHIVAL_ENABLED=false` e `ACCOUNT_ERASURE_ENABLED=false` por padrão no código; ativação **não autorizada no main**.
 - Staging primeiro, CI e smoke test; main apenas após aceite explícito. O código antigo em produção ainda não filtra `archived_at`; não começar exclusões reais de perfil/conta enquanto os dois ambientes não forem compatíveis.
 
 ### Adendo — integridade dos logs (084)
