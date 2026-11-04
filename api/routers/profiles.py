@@ -112,7 +112,12 @@ def _get_own_profile_or_404(profile_id: str, user_id: str) -> dict:
 
 @router.get("")
 async def list_profiles(user_id: str = Depends(get_current_user_id)):
-    result = supabase.table("profiles").select("*").eq("user_id", user_id).execute()
+    # Consulta idempotente: reconexões HTTP/2 do PostgREST não devem virar 500.
+    # Executar o cliente síncrono fora do event loop; nunca repetir escritas.
+    result = await run_in_threadpool(
+        _retry_readonly_auth_query,
+        lambda: supabase.table("profiles").select("*").eq("user_id", user_id).execute(),
+    )
     return result.data
 
 
