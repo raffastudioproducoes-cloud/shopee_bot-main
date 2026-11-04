@@ -24,6 +24,7 @@ def test_self_delete_enabled_invokes_full_eraser_and_clears_session(auth_client,
               "email": None, "supabase_auth_user_id": None}
     )
     monkeypatch.setattr(users_router, "supabase", db)
+    monkeypatch.setattr(users_router, "_check_login_rate_limit", lambda *args, **kwargs: None)
     monkeypatch.setattr(users_router, "account_erasure_enabled", lambda: True)
     check = MagicMock()
     eraser = MagicMock(return_value={"status": "deleted"})
