@@ -1,3 +1,13 @@
+## 04/11/2026 — Configuração final autorizada: SOMENTE DOIS CRONS no Supabase
+
+- [x] Confirmados **três** registros antes de alterar: `auto-orbital-wake-v1` (ID 1; a cada 2 minutos; `app_internal.wake_dispatch_if_needed`), `auto-orbital-admin-capacity-v1` (ID 2; diário), e `auto-orbital-uptime-sample-v1` (ID 3; a cada 5 minutos; `public.admin_uptime_tick` faz `net.http_get` e registra amostras do site).
+- [x] Ajustado **somente o schedule** do uptime para `*/12 * * * *` por `cron.alter_job(3, schedule => '*/12 * * * *')`, preservando mesmo job ID, função, comando e status ativo.
+- [x] Cron de publicação **absolutamente inalterado**: `auto-orbital-wake-v1`, ID 1, `*/2 * * * *`, função `app_internal.wake_dispatch_if_needed()`. Considera trabalho do pipeline existente `apscheduler_jobs`/`schedulers` e `publish_jobs`; recorrências e campanhas entram por esse fluxo, e modalidades futuras devem reutilizá-lo para serem detectadas.
+- [x] Removido exclusivamente o cron excedente `auto-orbital-admin-capacity-v1` (ID 2), com retorno `cron.unschedule(...) = true`. Nenhuma tabela, função ou histórico administrativo foi apagado.
+- [x] **Verificação read-only após a mudança:** `cron.job` contém **exatamente IDs 1 e 3**, ativos, com frequências de 2 e 12 minutos. Impressões MD5 dos comandos preservadas do pré-ajuste: wake `69dc41bf033809b24a37f2c61cd9d863` e uptime `0e3efcf89a2a559860620c8d353b115a`.
+- [x] **Escopo encerrado:** nenhuma alteração de backend, cron de publicação, função, OAuth, postagem, serviço Render ou Supabase além das duas operações pedidas; documentação atualizada. `VERSION=3.1.2` mantida por não haver mudança de código da aplicação.
+- [x] As contagens de execuções nas anotações abaixo são **históricas e anteriores** a esta configuração final; não representam mais três cron jobs ativos.
+
 ## 04/11/2026 — RETIFICAÇÃO PRIORITÁRIA: Supabase Cron já sustenta o despertar de publicações
 
 - [x] **Auditoria read-only do Supabase compartilhado:** extensão `pg_cron` v1.6.4 e `pg_net` v0.20.4 presentes; três crons ativos: `auto-orbital-wake-v1` a cada 2min (720/720 `succeeded`/24h), `auto-orbital-uptime-sample-v1` a cada 5min (288/288) e `auto-orbital-admin-capacity-v1` diário (1/1). Snapshot de 04/11/2026, não promessa futura.
