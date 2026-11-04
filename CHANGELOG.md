@@ -10,6 +10,8 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 ### Fixed
 - Robustez das consultas GET somente-leitura de consentimento/localização, GPS, preferência regional e origem de aquisição em `/profiles/*`: reconexão/transporte HTTP/2 do Supabase/PostgREST recebe uma única nova tentativa via helper já utilizado em autenticação, fora do event loop; falha persistente devolve HTTP 503 genérico em vez de erro 500. O incidente observado em staging foi `GET /profiles/location-sharing` às 02:19 BRT. Sem retry de PUT/DELETE, sem mutação de banco e sem alterar dados de consentimento. Oito testes de regressão cobrem recuperação e falha segura.
 
+- **Evidência de promoção:** Staging PR #257, CI #901 SUCCESS, merge `4a4b638acbe7ca526f9e80843ced7208fa7ded64`, Render `dep-dblc4hvavr4c73cmm6d0` LIVE, scheduler iniciado, readiness 200. Promoção main PR #258, CI #903 SUCCESS, merge `70025853c2fce6ec82165649a6881a4e3ecd0c38`, Render `dep-dblc6b7b9u1s73b9uch0` LIVE, scheduler iniciado, readiness HTTP 200; Supabase `ACTIVE_HEALTHY`, ambos Render `not_suspended`, versões 3.1.2 em ambas e compare main...staging sem diferenças de arquivos. Worker antigo recebeu SIGTERM **após drain** e serviço permaneceu LIVE. Nenhum banco, post, pagamento, retry de escrita ou pausa programada.
+
 ## [3.1.1] - 2026-11-04
 
 ### Fixed
