@@ -52,7 +52,7 @@ def test_usage_is_scoped_exact_read_only_and_not_active_campaigns(monkeypatch, t
     for resource in ("immediate", "recurring"):
         assert result["resources"][resource]["used"] is None
         assert result["resources"][resource]["usage_status"] == "unavailable"
-    assert result["active_campaigns_count"] is None
+    assert result["active_campaigns_count"] == 0
     assert result["activation_available"] is False
     assert result["automation_available"] is False
     assert db.tables == before
