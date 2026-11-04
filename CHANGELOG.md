@@ -14,6 +14,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Autorização expressa de Rafa em 04/11 para promoção integral `staging → main` pelo [PR #248](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/248); staging SHA `2ae7a395` LIVE com CI #881 SUCCESS. A versão é MINOR compatível sobre 3.0.0.
 - **Três pendências mantidas fora do aceite técnico por decisão do proprietário:** teste manual final; gateway de pagamento/cobrança real; comprovação de entregas nas redes sociais. Não confundir código em produção com postagem externa comprovada nem com plano quitado.
 
+### Fechamento da implementação e promoção para main (04/11/2026)
+
+- Merge de reconciliação dos 9 commits exclusivos de `main` em `staging` pelo PR #250 (CI #885 SUCCESS), preservando guards `legacy`/`campaign`, escopo de ambiente e histórico dos dois branches.
+- Promoção normal `staging → main` pelo PR #248, merge SHA `5e9cae5137efb6fa8faa1bb765d7a7e1eef6a266`, CI #887 SUCCESS em API, frontend, PostgreSQL isolado e smoke HTTP staging.
+- Render staging `dep-dblba7nlk1mc73eolrlg` LIVE com scheduler iniciado; Render produção `dep-dblbb3o473hc73b0gqkg` LIVE com `Scheduler initializing in production`/`Scheduler started`; `/api/health/ready` público respondeu HTTP 200 `status=ok`.
+- **Encerramento apenas da implementação técnica da F4E.** Mantidos como pendências de aceite do proprietário: teste manual final, gateway de pagamento/checkout efetivamente quitado e comprovação externa de cada publicação. Nenhum envio nem cobrança executados como parte da promoção.
+
 ### Primeira campanha F4E externa ativada, aguardando envio (04/11/2026)
 
 - Após autorização explícita e confirmação específica de Rafa, campanha ADMIN `Homologação de publicação real — 04/11/2026` ativada em **staging** com um produto Air Fryer, uma rede Threads, 1 vaga/ocorrência em 04/11/2026 às 01:45 BRT. O backend exigiu corretamente antecedência mínima de 30 minutos e a janela foi ajustada.
