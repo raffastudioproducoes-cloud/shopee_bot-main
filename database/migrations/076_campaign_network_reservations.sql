@@ -149,6 +149,13 @@ BEGIN
     WHERE u.id=p_user_id AND u.campaign_paid_through > now()
   ) THEN RAISE EXCEPTION 'paid_period_not_confirmed' USING ERRCODE='P0001'; END IF;
 
+  -- Never reserve dispatch instants after the confirmed paid entitlement.
+  IF v_access <> 'ADMIN' AND EXISTS (
+    SELECT 1 FROM jsonb_array_elements_text(p_occurrences) x
+    JOIN public.users u ON u.id=p_user_id
+    WHERE x::timestamptz >= u.campaign_paid_through
+  ) THEN RAISE EXCEPTION 'campaign_outside_paid_period' USING ERRCODE='P0001'; END IF;
+
   -- A RPC antiga valida janela, ownership, idempotencia, limites de
   -- campanhas e faz snapshot de midias e ocorrencias no MESMO commit.
   v_reservation := public.reserve_campaign_f4e(
@@ -197,7 +204,10 @@ BEGIN
     SELECT 1 FROM public.campaign_network_slots_f4e s
     JOIN public.campaign_reservations_f4e r ON r.id=s.reservation_id
     WHERE s.user_id=p_user_id AND s.profile_id=p_profile_id
-      AND r.status='reserved_no_dispatch' AND s.state <> 'cancelled'
+      AND (
+        (r.status='reserved_no_dispatch' AND s.state <> 'cancelled')
+        OR s.state IN ('running','succeeded','failed','unknown')
+      )
     GROUP BY (s.planned_at AT TIME ZONE 'America/Sao_Paulo')::date
     HAVING count(*) > v_daily_limit
   ) THEN RAISE EXCEPTION 'campaign_network_day_quota_exceeded' USING ERRCODE='P0001'; END IF;
