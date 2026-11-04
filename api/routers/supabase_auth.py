@@ -67,6 +67,8 @@ def _local_user(auth_id: str):
 
 
 def _issue_session(response: Response, user: dict):
+    if user.get("account_deletion_started_at"):
+        raise HTTPException(403, "Esta conta está em processo de exclusão.")
     profile = (get_supabase().table("profiles").select("id")
                .eq("user_id", user["id"]).eq("kind", "principal")
                .maybe_single().execute())
@@ -389,7 +391,9 @@ async def google_callback(request: Request):
         logger.warning("Callback Google rejeitado", exc_info=False)
         return response_fail
     existing = _local_user(str(google_user.id))
-    if existing:
+    if existing and existing.get("account_deletion_started_at"):
+        dest = RedirectResponse("/login?account_unavailable=1", status_code=303)
+    elif existing:
         dest = RedirectResponse("/", status_code=303)
         _issue_session(dest, existing)
     else:
