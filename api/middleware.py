@@ -129,9 +129,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     r"/admin/users/[0-9a-fA-F-]{36}/erasure/retry", path
                 ))
             )
-            if erasure_completed:
-                return
-            self._save(
+            if not erasure_completed:
+                self._save(
                 request, user_id, username, status_code, duration_ms, error, redirect_to,
                 profile_id,
             )
