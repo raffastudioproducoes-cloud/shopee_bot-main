@@ -1,4 +1,6 @@
-# Exclusão de perfil e apagamento integral da conta — contrato de segurança (rascunho)
+# Exclusão de perfil e apagamento integral da conta — contrato de segurança
+
+> **ESTADO ATUAL (04/11/2026):** migrações 080–086 aplicadas no Supabase compartilhado; código da dashboard/arquivamento/exclusão integrado em `main` na PR #269 e `staging` nas #265–268. Flags destrutivas OFF por padrão, sem homologação real Storage/Auth e sem conta real excluída. A release 3.2.0 está regularizando o versionamento. **Registro histórico anterior:**
 
 > **ESQUEMA APLICADO, FUNCIONALIDADE NÃO ATIVADA.** O Supabase continua **único e compartilhado** entre staging/main, como autorizado pelo Rafa. Migrações 080 (arquivamento), 081 (coordenação do expurgo) e 082 (correção de view) registradas no banco em 04/11/2026. A API já está integrada ao staging na PR #266, com `PROFILE_ARCHIVAL_ENABLED=false` e `ACCOUNT_ERASURE_ENABLED=false` por padrão. Não foi excluído nenhum perfil, usuário, arquivo ou histórico real.
 

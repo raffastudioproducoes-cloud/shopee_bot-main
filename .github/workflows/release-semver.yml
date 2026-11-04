@@ -1,0 +1,29 @@
+name: SemVer de release
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-version:
+    name: VERSION e CHANGELOG obrigatórios
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Testes do gate SemVer
+        run: python -m unittest discover -s tests/ci -p 'test_release_semver.py' -v
+      - name: Validar PR para main
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch origin "$BASE_REF" --depth=1
+          python scripts/check_release_semver.py --base-ref "origin/$BASE_REF"
