@@ -211,11 +211,28 @@ class TestCampaignNetworkReservations(unittest.TestCase):
         reservations = [self.reserve(draft_index=i,key=f"downgrade-{i}") for i in range(3)]
         with self.connect() as con:
             con.execute("SET LOCAL ROLE service_role")
+            direct_activation = con.execute(
+                "SELECT has_function_privilege('service_role',"
+                "'public.activate_campaign_networks_f4e(uuid,uuid,uuid,text)','EXECUTE')"
+            ).fetchone()[0]
             for rid in reservations:
-                con.execute(
-                    "SELECT public.activate_campaign_networks_f4e(%s,%s,%s,'staging')",
-                    (self.user,self.profile,rid),
-                )
+                if direct_activation:
+                    con.execute(
+                        "SELECT public.activate_campaign_networks_f4e(%s,%s,%s,'staging')",
+                        (self.user,self.profile,rid),
+                    )
+                else:
+                    con.execute("RESET ROLE")
+                    con.execute("""
+                        INSERT INTO campaign_oauth_checks_f4e(reservation_id,network)
+                        SELECT DISTINCT reservation_id,network FROM campaign_network_slots_f4e
+                        WHERE reservation_id=%s
+                    """,(rid,))
+                    con.execute("SET LOCAL ROLE service_role")
+                    con.execute(
+                        "SELECT public.materialize_campaign_f4e(%s,%s,%s,'staging')",
+                        (self.user,self.profile,rid),
+                    )
                 con.execute(
                     "SELECT public.change_campaign_lifecycle_f4e(%s,%s,%s,'pause')",
                     (self.user,self.profile,rid),
