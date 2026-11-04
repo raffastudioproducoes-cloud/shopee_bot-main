@@ -1,3 +1,11 @@
+## 04/11/2026 — Fechamento CI/LIVE da correção, envio real ainda não autorizado na UI
+
+- [x] [PR app #245](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/245) corrigido e merged somente em `staging`, SHA `4a4e0ab`. CI #877 SUCCESS (API com 1.177 testes, frontend, PostgreSQL isolado; staging externo do PR skipped); Render `dep-dblaq067bikc73affoh0` **LIVE**.
+- [x] Smoke após deploy: `/api/health/ready` respondeu `status=ok`, logs `Scheduler started` e `Resumed scheduler job processing`, navegação ADMIN `/posts` e `/posts/criar` autenticada. Não houve promoção de `main` nem mudança do scheduler de produção.
+- [x] Rascunho para prova de entrega real criado e salvo sem ativar: `Homologação de publicação real — 04/11/2026`, Air Fryer, Threads, 1 slot em 04/11 às 01:10 BRT; prévia mostrou exatamente uma ocorrência. A ativação no navegador exige confirmação específica antes do clique que possa enviar conteúdo público. Se o horário expirar, recalcular antes de ativar.
+- [ ] Confirmar ativação de campanha externa real, aguardar resultado do cron em rede e correlacionar `campaign` → `post` → `scheduler` → `publish_job` → ID remoto; se falhar, diagnosticar etapa, nunca repetir cegamente `unknown`.
+- [ ] Histórico legado: Threads parte 2/5 em 04/11 00:31 UTC retornou 403 Meta code 10; postagens antigas da mesma conta já foram confirmadas. Não classificar causa como autorização da conta sem reprodução e análise do payload/escopos.
+- [ ] Gate release: manter F4E em staging enquanto sem E2E externo e cobrança confirmada. Produção requer revisão e aprovação de promoção staging→main, CI, deploy e smoke, versão SemVer coerente.
 ## 04/11/2026 — F4E integrada, scheduler reativado e homologação final
 
 - [x] F4E integrada no staging pelo [PR #243](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/243), SHA `f66eb9c`: cotas transacionais por rede/dia, retenção de mídia em Storage privado, OAuth, materialização atômica de posts/agenda/fila por origem, executor separado, pausa/retomada/cancelamento/histórico, interface PT-BR e direitos até o fim do período pago. Migrations 075–079 aplicadas e registradas no Supabase compartilhado.
