@@ -1,10 +1,20 @@
 -- Produto: cópia curta e galeria privada permanente.
 -- Aditiva e compatível com main; Supabase único para staging e produção.
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS description text;
-ALTER TABLE public.products
-  ADD CONSTRAINT products_description_short_no_url
-  CHECK (description IS NULL OR (char_length(description) <= 280
-    AND description !~* '(https?://|www[.]|shopee[.]com|s[.]shopee)')) NOT VALID;
+DO $migration$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.products'::regclass
+      AND conname = 'products_description_short_no_url'
+  ) THEN
+    ALTER TABLE public.products
+      ADD CONSTRAINT products_description_short_no_url
+      CHECK (description IS NULL OR (char_length(description) <= 280
+        AND description !~* '(https?://|www[.]|shopee[.]com|s[.]shopee)')) NOT VALID;
+  END IF;
+END;
+$migration$;
 
 CREATE TABLE IF NOT EXISTS public.product_media (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
