@@ -179,6 +179,32 @@ class TestCampaignNetworkReservations(unittest.TestCase):
             con.execute("UPDATE users SET access='ADMIN' WHERE id=%s", (self.user,))
         self.assertIsInstance(self.reserve(), uuid.UUID)
 
+    def test_all_slots_must_be_inside_confirmed_paid_period(self):
+        with self.connect() as con:
+            con.execute(
+                "UPDATE users SET campaign_paid_through=%s WHERE id=%s",
+                (self.instant - timedelta(hours=1),self.user),
+            )
+        with self.assertRaises(psycopg.Error):
+            self.reserve()
+
+    def test_completed_attempt_still_consumes_daily_network_quota(self):
+        rid = self.reserve()
+        with self.connect() as con:
+            con.execute(
+                "UPDATE campaign_network_slots_f4e SET state='succeeded',finished_at=now() WHERE reservation_id=%s",
+                (rid,),
+            )
+            con.execute(
+                "UPDATE campaign_reservations_f4e SET lifecycle='completed',status='released',released_at=now() WHERE id=%s",
+                (rid,),
+            )
+        with self.assertRaises(psycopg.Error):
+            self.reserve(draft_index=0,values=[
+                (self.instant+timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                (self.instant+timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            ])
+
     def test_public_roles_cannot_reserve_or_read(self):
         with self.connect() as con:
             for role in ("anon","authenticated"):
