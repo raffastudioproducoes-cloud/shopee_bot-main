@@ -1,3 +1,11 @@
+## 04/11/2026 — F4E implementação encerrada em staging; promoção 3.1.0 autorizada
+
+- [x] F4E integral no código do staging: transações de cota por rede/dia, retenção privada de mídia, autorização OAuth, origem positiva `campaign` persistida, posts+agenda+jobs vinculados, executor com pausa/cancelamento/recovery/histórico, UI e guardas de planos/vigência. SQL 075–079 presente, CI #881 aprovado, Render staging LIVE.
+- [x] Rafa autorizou a promoção para `main` e a separação do aceite técnico do teste externo. [PR de release #248](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/248) aberto; versão MINOR `3.1.0` preparada. `main` deve preservar os hotfixes próprios do scheduler e as filas de ambiente. A promoção só passa a concluída após CI, merge e Render LIVE.
+- [ ] **Único gate 1 adiado — teste manual final pelo Rafa**, incluindo sessão/fluxos de campanha e recorrência; não declarar executado.
+- [ ] **Único gate 2 adiado — gateway de pagamento:** checkout, webhooks verificados, transação idempotente, confirmação de período quitado e aplicação de entitlement real. Não ativar plano pago por presunção nem cobrar sem decisão de provedor.
+- [ ] **Único gate 3 adiado — comprovação nas redes:** confirmar postagem externa, ID remoto e resultado por rede, incluindo a campanha Threads programada, diagnosticar falha de etapa sem culpar OAuth por padrão. Nunca reenviar `unknown` automaticamente.
+- [x] SMTP customizado sem gatilho: ausência de prova de domínio próprio registrado/configurado; manter padrão restrito.
 ## 04/11/2026 — Campanha real F4E ATIVA e rastreada; execução externa às 01:45 BRT
 
 - [x] Autorização específica de Rafa para um post real Threads e ativação executada no ADMIN staging. Campanha `Homologação de publicação real — 04/11/2026`, produto Air Fryer, 1 rede, 1 slot às **01:45 BRT** de 04/11; antecipação de 30 minutos aplicada após validação recusada em 01:10. Painel: `Ativa`, `1 planejados`, zero concluídos/falhas/incertos.
