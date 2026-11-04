@@ -36,6 +36,7 @@ def recoverable(lease_seconds, limit=100):
           AND schedule.profile_id IS NOT DISTINCT FROM job.profile_id
         WHERE job.status = 'pending'
           AND job.publication_origin = 'legacy'
+          AND schedule.dispatch_cancelled_at IS NULL
           AND job.external_started_at IS NULL
           AND job.created_at >= now() - make_interval(secs => %s)
           AND ({scope})
@@ -196,6 +197,7 @@ def claim(publish_job_id, worker_id, lease_seconds):
               AND job.status = 'pending'
               AND job.publication_origin = 'legacy'
               AND schedule.publication_origin = job.publication_origin
+              AND schedule.dispatch_cancelled_at IS NULL
               AND ({scope})
             FOR UPDATE OF job SKIP LOCKED
         ),
@@ -282,6 +284,13 @@ def mark_external_started(publish_job_id, claim_token):
         WHERE id = %s AND claim_token = %s
           AND preflight_claim_token = %s AND status = 'running'
           AND publication_origin = 'legacy'
+          AND EXISTS (
+              SELECT 1 FROM schedulers schedule
+              WHERE schedule.id = publish_jobs.scheduler_id
+                AND schedule.dispatch_cancelled_at IS NULL
+                AND schedule.user_id = publish_jobs.user_id
+                AND schedule.profile_id IS NOT DISTINCT FROM publish_jobs.profile_id
+          )
         RETURNING id
         """,
         (publish_job_id, claim_token, claim_token),
