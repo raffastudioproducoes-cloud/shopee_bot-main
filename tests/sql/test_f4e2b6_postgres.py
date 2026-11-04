@@ -94,6 +94,7 @@ class TestCampaignRuntime(TestCampaignNetworkReservations):
                 "SELECT public.materialize_campaign_f4e(%s,%s,%s,'staging')",
                 (self.user,self.profile,rid),
             ).fetchone()[0],1)
+            con.execute("RESET ROLE")
             self.assertEqual(con.execute(
                 "SELECT count(*) FROM posts WHERE user_id=%s",(self.user,),
             ).fetchone()[0],1)
@@ -121,6 +122,11 @@ class TestCampaignRuntime(TestCampaignNetworkReservations):
                 "SELECT public.change_campaign_lifecycle_f4e(%s,%s,%s,'pause')",
                 (self.user,self.profile,rid),
             ).fetchone()[0],"paused")
+            con.execute("RESET ROLE")
+            self.assertEqual(con.execute(
+                "SELECT lifecycle FROM campaign_reservations_f4e WHERE id=%s",(rid,)
+            ).fetchone()[0],"paused")
+            con.execute("SET LOCAL ROLE service_role")
             self.assertFalse(con.execute(
                 "SELECT public.mark_campaign_external_f4e('staging',%s,%s)",
                 (claim["publish_job_id"],claim["claim_token"]),
@@ -153,7 +159,9 @@ class TestCampaignRuntime(TestCampaignNetworkReservations):
             self.assertEqual(con.execute(
                 "SELECT public.recover_campaign_publications_f4e('staging')"
             ).fetchone()[0],1)
+            con.execute("RESET ROLE")
             self.assertEqual(con.execute(
                 "SELECT status FROM publish_jobs WHERE id=%s",(first["publish_job_id"],)
             ).fetchone()[0],"unknown")
+            con.execute("SET LOCAL ROLE service_role")
             self.assertIsNone(con.execute("SELECT public.claim_campaign_publication_f4e('staging','worker-b')").fetchone()[0])
