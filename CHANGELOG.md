@@ -5,6 +5,15 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.1.0] - 2026-11-04
+
+### F4E — Campanhas integradas (release autorizado)
+
+- Implementação técnica de ponta a ponta integrada e validada em staging: reserva transacional por perfil/rede/dia; proteção e cópia privada de mídia; verificação OAuth; materialização atômica de posts/schedulers/jobs com `publication_origin='campaign'`; executor com origem/autorização/isolamento de ambientes, pausa/retomada/cancelamento/recuperação/histórico; interface PT-BR e guardas de plano/período pago.
+- Correções do fluxo legado, isolamento `apscheduler_jobs`/`apscheduler_jobs_staging`, leituras de sessão/perfil resilientes a desconexão HTTP/2 e comportamento fail-closed sem retry de jobs `unknown`.
+- Autorização expressa de Rafa em 04/11 para promoção integral `staging → main` pelo [PR #248](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/248); staging SHA `2ae7a395` LIVE com CI #881 SUCCESS. A versão é MINOR compatível sobre 3.0.0.
+- **Três pendências mantidas fora do aceite técnico por decisão do proprietário:** teste manual final; gateway de pagamento/cobrança real; comprovação de entregas nas redes sociais. Não confundir código em produção com postagem externa comprovada nem com plano quitado.
+
 ### Primeira campanha F4E externa ativada, aguardando envio (04/11/2026)
 
 - Após autorização explícita e confirmação específica de Rafa, campanha ADMIN `Homologação de publicação real — 04/11/2026` ativada em **staging** com um produto Air Fryer, uma rede Threads, 1 vaga/ocorrência em 04/11/2026 às 01:45 BRT. O backend exigiu corretamente antecedência mínima de 30 minutos e a janela foi ajustada.
