@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Outlet } from '@tanstack/react-router'
 import { useAuthStore } from '../stores/authStore'
 import { usePostsSearchStore } from '../stores/postsSearchStore'
 import { authApi } from '../api/auth'
+import { ApiError } from '../lib/api'
 import { SideRail, type SideRailItem } from '../components/ui/SideRail'
 import { TopBar } from '../components/ui/TopBar'
 import { IconButton } from '../components/ui/IconButton'
@@ -42,6 +43,8 @@ export function PanelPage() {
   const { user, login, logout, setUser, isAuthenticated, isRoleVerified, setRoleVerified } = useAuthStore()
   const [menuOpen, setMenuOpen] = useState(false)
   const [logoutError, setLogoutError] = useState(false)
+  const [authCheckError, setAuthCheckError] = useState(false)
+  const [authRetry, setAuthRetry] = useState(0)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
 
   // Gaveta mobile: fecha com ESC (devolvendo foco ao hambúrguer) e ao trocar de rota.
@@ -70,6 +73,7 @@ export function PanelPage() {
     void authApi.me()
       .then((userData) => {
         if (!active) return
+        setAuthCheckError(false)
 
         // Também evita manter o perfil de outra conta quando o cookie mudou.
         if (!isAuthenticated || user?.id !== userData.id) {
@@ -83,21 +87,32 @@ export function PanelPage() {
           navigate({ to: '/admin/overview' })
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!active) return
-        if (isAuthenticated) logout()
-        navigate({ to: '/login' })
+        // Somente um 401 confirmado pelo backend invalida a sessão.
+        // Erros de rede, 5xx e timeouts preservam cookie e estado local.
+        if (error instanceof ApiError && error.status === 401) {
+          if (isAuthenticated) logout()
+          navigate({ to: '/login' })
+          return
+        }
+        setAuthCheckError(true)
       })
 
     return () => { active = false }
-  }, [isAuthenticated, user?.id, login, navigate, logout, setRoleVerified, setUser, location.pathname])
+  }, [isAuthenticated, user?.id, login, navigate, logout, setRoleVerified, setUser, location.pathname, authRetry])
 
-  if (!isAuthenticated) {
-    return null
-  }
+  const authRetryMessage = authCheckError ? (
+    <StatusMessage kind="error">
+      Não foi possível confirmar a sessão agora. Seus dados foram preservados.{' '}
+      <button type="button" onClick={() => { setAuthCheckError(false); setAuthRetry((retry) => retry + 1) }}>
+        Tentar novamente
+      </button>
+    </StatusMessage>
+  ) : null
 
-  if (!isRoleVerified) {
-    return <PageSkeleton variant="detail" />
+  if (!isAuthenticated || !isRoleVerified) {
+    return authRetryMessage ?? <PageSkeleton variant="detail" />
   }
 
   const items = user?.access === 'ADMIN' ? [...navItems, ...adminNavItems] : navItems
@@ -180,6 +195,7 @@ export function PanelPage() {
           bell={<NotificationsBell />}
         />
 
+        {authRetryMessage}
         {logoutError && <StatusMessage kind="error" onDismiss={() => setLogoutError(false)}>Não foi possível encerrar a sessão. Tente novamente.</StatusMessage>}
         <main className="csp-s-0313">
           <Outlet />

@@ -36,9 +36,14 @@ async function requireAdmin() {
 
   try {
     user = await authApi.me()
-  } catch {
-    useAuthStore.getState().logout()
-    throw redirect({ to: "/login" })
+  } catch (error) {
+    // Falha transitória não é expiração da sessão: mantenha o estado
+    // e deixe o roteador mostrar erro recuperável sem revelar a área admin.
+    if (error instanceof ApiError && error.status === 401) {
+      useAuthStore.getState().logout()
+      throw redirect({ to: "/login" })
+    }
+    throw error
   }
 
   const authStore = useAuthStore.getState()

@@ -21,10 +21,19 @@ async function onAdminForbidden() {
     const store = useAuthStore.getState()
     store.setRoleVerified(false)
     const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' })
-    const me = res.ok ? await res.json() : null
-    if (me) store.setUser(me)
-    if (!me || me.access !== 'ADMIN') {
-      if (!me) store.logout()
+    if (res.status === 401) {
+      store.logout()
+      window.location.assign('/login')
+      return
+    }
+    if (!res.ok) {
+      // Uma indisponibilidade 5xx/429 não prova revogação do cookie.
+      store.setRoleVerified(true)
+      return
+    }
+    const me = await res.json()
+    store.setUser(me)
+    if (me.access !== 'ADMIN') {
       window.location.assign('/')
     } else {
       store.setRoleVerified(true)

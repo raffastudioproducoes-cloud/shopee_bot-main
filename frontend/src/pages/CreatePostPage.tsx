@@ -148,7 +148,7 @@ export function CreatePostPage() {
     <div className="create-post-page">
       <header className="create-post-page-header">
         <h1 className="csp-s-0315">Criar POST</h1>
-        <p>{creationMode === "single" ? "Prepare a publicação, adapte o conteúdo por rede e escolha quando enviar." : "Prepare um rascunho e confira o calendário. Ativação ainda indisponível."}</p>
+        <p>{creationMode === "single" ? "Prepare a publicação, adapte o conteúdo por rede e escolha quando enviar." : "Prepare o rascunho, confira os horários e ative a campanha conforme o plano."}</p>
       </header>
       <div style={{ maxWidth: 510, width: "100%", marginBottom: "var(--sp-8)" }}>
         <SegmentedToggle
