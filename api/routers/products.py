@@ -4,16 +4,18 @@ CRUD completo de produtos da Shopee com Supabase.
 """
 
 import logging
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.product_search import product_search_filter
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Any
 
 from .auth import get_current_user_id
 from ..audit_trail import record_audit_event
 from ..database import supabase
+from ..network_limits import NETWORK_RULES, text_length
 from ..profiles import scope_account
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -52,22 +54,30 @@ class ProductCreate(_ProductFields):
 
 
 
-class ProductUpdate(_ProductFields):
-    product_id: str | None = None
-    name: str | None = None
-    original_link: str | None = None
-    commission_link: str | None = None
-    commission: float | None = None
-    image: str | None = None
-    price_min: float | None = None
-    price_max: float | None = None
+class ProductUpdate(BaseModel):
+    """Campos que o usuário pode personalizar sem afetar a comissão."""
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    @model_validator(mode="after")
-    def _keep_required_links_when_updating(self):
-        for field in ("original_link", "commission_link"):
-            if field in self.model_fields_set and not getattr(self, field):
-                raise ValueError(f"{field} não pode ficar vazio")
-        return self
+    name: str | None = Field(default=None, min_length=1, max_length=240)
+    description: str | None = Field(default=None, max_length=280)
+
+    @field_validator("name")
+    @classmethod
+    def _require_name(cls, value: str | None) -> str:
+        if not value:
+            raise ValueError("O nome não pode ficar vazio.")
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def _short_copy_without_links(cls, value: str | None) -> str | None:
+        if not value:
+            return None
+        if re.search(r"(?i)(?:https?://|www\.|(?:^|\s)(?:s\.shopee|shopee\.com|bit\.ly|t\.co)[^\s]*)", value):
+            raise ValueError("A descrição não pode conter links; o link de comissão é separado.")
+        if text_length(NETWORK_RULES["x"], value) > 280:
+            raise ValueError("A descrição ultrapassa 280 caracteres ponderados (limite da rede mais curta).")
+        return value
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
@@ -222,31 +232,17 @@ async def update_product(
     body: ProductUpdate,
     user_id: int = Depends(get_current_user_id),
 ):
-    """Atualiza um produto existente."""
-    before = _get(user_id, product_id)  # ownership check
-
-    update_data: dict[str, Any] = {}
-    for key, value in body.model_dump(exclude_unset=True).items():
-        update_data[key] = value
-
-    update_query = scope_account(supabase.table("products").update(update_data).eq("id", product_id), user_id)
-    result = update_query.single().execute()
+    """Somente nome e copy curta; preços, links, imagem Shopee e IDs são imutáveis."""
+    _get(user_id, product_id)  # verificação da conta antes do UPDATE
+    update_data = body.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nenhuma alteração enviada.")
+    result = scope_account(
+        supabase.table("products").update(update_data).eq("id", product_id), user_id
+    ).single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
-    after = _normalize_numeric_fields(result.data)
-
-    price_fields = ("price_min", "price_max")
-    if any(before.get(field) != after.get(field) for field in price_fields):
-        record_audit_event(
-            entity="product",
-            entity_id=str(product_id),
-            user_id=str(user_id),
-            action="product_price_changed",
-            old_value={field: before.get(field) for field in price_fields},
-            new_value={field: after.get(field) for field in price_fields},
-        )
-
-    return after
+    return _normalize_numeric_fields(result.data)
 
 
 @router.delete("/{product_id}")
@@ -256,6 +252,10 @@ async def delete_product(
 ):
     """Remove um produto."""
     before = _get(user_id, product_id)  # ownership check
+
+    # Arquivos do produto não podem ficar órfãos no Storage após exclusão.
+    from .product_media import remove_product_media_files
+    remove_product_media_files(user_id, product_id)
 
     delete_query = scope_account(supabase.table("products").delete().eq("id", product_id), user_id)
     result = delete_query.execute()
