@@ -6,7 +6,7 @@ import { formDraftKey, clearFormDraft, saveFormDraft } from "../lib/formDraftSto
 import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
 import { productsApi, type Product } from "../api/products"
-import { PlanSummary } from "../components/plans/PlanSummary"
+import { ProductQuotaBar } from "../components/plans/ProductQuotaBar"
 import { usePlanUsage } from "../hooks/usePlanUsage"
 import { resourceAtLimit } from "../lib/planPresentation"
 import { Panel } from "../components/ui/Panel"
@@ -63,6 +63,11 @@ export function ProductsPage() {
   const productsAtLimit = !planQuery.isError && resourceAtLimit(planQuery.data?.resources.products)
   const [activeTab, setActiveTab] = useState<ProductsTab>("mine")
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 280)
+    return () => window.clearTimeout(timer)
+  }, [search])
   useAutosavedDraft(formDraftKey(user?.id, "products-filters", null, false), { activeTab, search }, (saved) => {
     setActiveTab(saved?.activeTab === "catalog" ? "catalog" : "mine")
     setSearch(typeof saved?.search === "string" ? saved.search : "")
@@ -93,8 +98,8 @@ export function ProductsPage() {
   // ── Query ──────────────────────────────────────────────────────────────────────
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["products", search],
-    queryFn: () => productsApi.list({ search: search || undefined }),
+    queryKey: ["products", debouncedSearch],
+    queryFn: () => productsApi.list({ search: debouncedSearch || undefined, page_size: 200 }),
   })
 
   const products = data?.data ?? []
@@ -292,14 +297,19 @@ export function ProductsPage() {
             <SearchField
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar produtos..."
+              placeholder="Buscar por produto, sinônimo ou ambiente..."
               width={240}
             />
           </div>
         ) : null}
       </header>
 
-      <PlanSummary resources={["products"]} />
+      <ProductQuotaBar
+        plan={planQuery.data}
+        loading={planQuery.isPending}
+        error={planQuery.isError}
+        onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })}
+      />
       {activeTab === "catalog" ? (
         <CatalogSearchTab createBlocked={productsAtLimit} onManualCreate={openCreateModal} onPrefill={handlePrefill} />
       ) : (
