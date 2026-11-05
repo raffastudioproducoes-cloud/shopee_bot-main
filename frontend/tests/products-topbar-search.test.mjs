@@ -13,13 +13,18 @@ test("Produtos não cria um segundo campo de busca no cabeçalho", async () => {
   assert.match(source, /productsApi\.list\(\{ search: debouncedSearch/)
 })
 
-test("TopBar usa o mesmo estado de Produtos e preserva busca em Posts", async () => {
+test("TopBar usa escopo único para Produtos, Posts e Listas", async () => {
   const source = await file("pages/PanelPage.tsx")
-  assert.match(source, /location\.pathname === "\/products" \? productsSearch/)
-  assert.match(source, /setProductsSearch\(event\.target\.value\)/)
-  assert.match(source, /location\.pathname === "\/posts" \? postsSearch/)
-  assert.match(source, /setPostsSearch\(event\.target\.value\)/)
-  assert.match(source, /showSearch=\{location\.pathname !== '\/app'\}/)
+  const search = await file("lib/pageSearch.ts")
+  assert.match(source, /searchPageForRoute\(location\.pathname, activeProductsTab\)/)
+  assert.match(source, /searchPage === 'products' \? productsSearch/)
+  assert.match(source, /searchPage === 'posts' \? postsSearch/)
+  assert.match(source, /searchPage === 'lists' \? listsSearch/)
+  assert.match(source, /setProductsSearch\(query\)/)
+  assert.match(source, /setPostsSearch\(query\)/)
+  assert.match(source, /setListsSearch\(query\)/)
+  assert.match(source, /showSearch=\{searchPage !== null\}/)
+  assert.match(search, /pathname === "\/products"/)
 })
 
 test("Barra superior é única e mantém campo controlado", async () => {
