@@ -137,7 +137,7 @@ jobs:
         run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs tests/posts-composer.test.mjs tests/form-drafts.test.mjs tests/campaign-snapshots.test.mjs tests/plan-access.test.mjs
 
       - name: Ordenação de Listas e buscas contextuais (Node 20)
-        run: node --test tests/lists-sort.test.mjs tests/scoped-page-search.test.mjs tests/products-topbar-tab.test.mjs tests/products-topbar-search.test.mjs
+        run: node --test tests/posts-history-pagination.test.mjs tests/lists-sort.test.mjs tests/scoped-page-search.test.mjs tests/products-topbar-tab.test.mjs tests/products-topbar-search.test.mjs
 
       - name: Build (tsc && vite build)
         run: npm run build
