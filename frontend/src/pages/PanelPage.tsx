@@ -43,6 +43,7 @@ export function PanelPage() {
   const setPostsSearch = usePostsSearchStore((state) => state.setQuery)
   const productsSearch = useProductsSearchStore((state) => state.query)
   const setProductsSearch = useProductsSearchStore((state) => state.setQuery)
+  const activeProductsTab = useProductsSearchStore((state) => state.activeTab)
   const { user, login, logout, setUser, isAuthenticated, isRoleVerified, setRoleVerified } = useAuthStore()
   const [menuOpen, setMenuOpen] = useState(false)
   const [logoutError, setLogoutError] = useState(false)
@@ -159,7 +160,7 @@ export function PanelPage() {
 
       <div className="app-col">
         <TopBar
-          showSearch={location.pathname !== '/app'}
+          showSearch={location.pathname !== '/app' && (location.pathname !== '/products' || activeProductsTab === 'mine')}
           query={location.pathname === "/posts" ? postsSearch : location.pathname === "/products" ? productsSearch : ""}
           onQuery={location.pathname === "/posts"
             ? (event) => setPostsSearch(event.target.value)
