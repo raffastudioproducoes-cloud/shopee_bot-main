@@ -46,4 +46,19 @@ Data: 04/11/2026 · Escopo: staging · Candidato SemVer: MINOR 3.3.0 (não publi
 - A descrição vem da API de listagem de produtos, não do rascunho local nem do resultado gerado pela IA antes de **Salvar**. Estados explícitos de ausência de descrição, galeria vazia, carregamento e falha de rede. A imagem original Shopee continua como miniatura do card e não conta nas mídias extras.
 - Sem nova API, storage, migration, cron, mudança de cálculo/valores comerciais ou impacto no fluxo de publicações. Compatível com card desktop/mobile e reutiliza design system/Modal/ícones existentes.
 - Teste local antes do commit: `node --test frontend/tests/products-saved-preview.test.mjs` (3 cenários). A validação visual na staging é feita após o Render LIVE.
-\n## Limpeza de duplicidades no card (05/11/2026, somente staging)\n\n- Card expandido mantém os indicadores superiores (ID Shopee, preço, comissão, ganho estimado e data de cadastro) e o nome no cabeçalho.\n- A timeline inferior deixa de repetir Produto, Preço, Comissão e Cadastro: exibe **somente Links** com URL original e URL de afiliado já existentes.\n- O bloco de personalização salva continua abaixo dos links, com descrição persistida e galeria privada sob demanda; editar e excluir não mudam.\n- Ajuste visual compatível PATCH, sem alteração de backend, schema, API ou regras comerciais; incorporado à candidata MINOR 3.3.0, sem bump antecipado de VERSION.\n
+
+## Limpeza de duplicidades no card (05/11/2026, somente staging)
+
+- Card expandido mantém os indicadores superiores (ID Shopee, preço, comissão, ganho estimado e data de cadastro) e o nome no cabeçalho.
+- A timeline inferior deixa de repetir Produto, Preço, Comissão e Cadastro: exibe **somente Links** com URL original e URL de afiliado já existentes.
+- O bloco de personalização salva continua abaixo dos links, com descrição persistida e galeria privada sob demanda; editar e excluir não mudam.
+- Ajuste visual compatível PATCH, sem alteração de backend, schema, API ou regras comerciais; incorporado à candidata MINOR 3.3.0, sem bump antecipado de VERSION.
+
+## Carrossel e nova ordem do card expandido (05/11/2026, somente staging)
+
+- Preservar sem alterações o cabeçalho com miniatura original da Shopee, título, ID, categoria e ações.
+- Corpo expandido na sequência obrigatória: **carrossel de mídias adicionais salvas** → **descrição curta persistida** → **URLs Shopee e afiliado** → **cinco indicadores comerciais** (ID, preço, comissão, ganho/venda e data de cadastro).
+- Carrossel com botões anterior/próximo, navegação de uma mídia por clique, limites desabilitados, contador de posição e até três miniaturas visíveis, ajustando-se para duas ou uma em card estreito. Imagens e vídeos MP4 seguem disponíveis para visualização ampliada via modal/player; usar as URLs assinadas existentes, sem novos uploads.
+- O componente genérico `TimelineListCard` mantém indicadores acima por padrão. Somente Produtos ativa `expandedHeader` e `statsPlacement="bottom"`; nenhuma alteração visual nas telas de Listas/Usuários.
+- API, banco, upload, permissões, Storage, cálculo de comissão, cron, publicações e cabeçalho do produto não mudam. Ajuste visual **PATCH** absorvido na candidata MINOR 3.3.0; `VERSION=3.2.0` até aprovação de release.
+- Teste ANTES do commit: `node --test frontend/tests/products-saved-preview.test.mjs` (5/5 PASS). Conferir deploy e estado visual autenticado após Render LIVE.
