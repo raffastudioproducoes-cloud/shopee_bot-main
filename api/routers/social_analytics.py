@@ -276,6 +276,12 @@ def post_performance(
         state = next(iter(states)) if len(states) == 1 else "not_collected"
         item = index.get(job["id"])
         preview = previews.get(job.get("post_id"), "")
+        if not preview:
+            # Legado: o registro de texto pode ter sido removido após o envio.
+            # Identificador parcial do post permite distingui-lo sem inventar copy.
+            external = job.get("external_id")
+            preview = (f"Publicação · ID final {external[-8:]}" if external
+                       else "Publicação histórica sem conteúdo preservado")
         posts.append({
             "job_id": job["id"], "network": job["network"],
             "profile_id": job["profile_id"], "finished_at": job["finished_at"],
