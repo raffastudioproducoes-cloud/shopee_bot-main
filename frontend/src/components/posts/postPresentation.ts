@@ -1,6 +1,7 @@
 import type { Post, PostScheduleEntry } from "../../api/posts"
 import { formatUtcTimestampBrasilia, isoToBr } from "../../lib/ptBrDateTime"
 import { NETWORK_RULES } from "../../lib/networkLimits"
+import { matchesScopedSearch } from "../../lib/pageSearch"
 
 export const WEEKDAY_NAMES = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
 
@@ -92,6 +93,5 @@ export function postSearchText(post: Post): string {
 }
 
 export function matchesPost(post: Post, query: string): boolean {
-  const normalized = query.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR")
-  return !normalized || postSearchText(post).includes(normalized)
+  return matchesScopedSearch([postSearchText(post)], query)
 }
