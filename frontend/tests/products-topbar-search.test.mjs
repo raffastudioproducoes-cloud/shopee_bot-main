@@ -43,3 +43,10 @@ test("Etiqueta de plano só existe depois do carregamento de perfil e plano vál
   assert.match(source, /if \(!activeProfile \|\| query\.isError \|\| !query\.data\) return null/)
   assert.match(source, /if \(label === "Plano indisponível"\) return null/)
 })
+
+
+test("Produtos não mostra botão fantasma à direita durante o carregamento", async () => {
+  const source = await file("pages/ProductsPage.tsx")
+  assert.match(source, /<PageSkeleton variant="table"[^>]*toolbar/)
+  assert.doesNotMatch(source, /<PageSkeleton[^>]*\baction\b/)
+})
