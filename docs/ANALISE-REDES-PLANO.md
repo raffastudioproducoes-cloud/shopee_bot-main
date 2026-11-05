@@ -1,6 +1,6 @@
 # Analise de redes: contrato e fases
 
-## Seletor de perfil para análises (proposta de patch, 05/11/2026)
+## Seletor de perfil para análises (staging LIVE, 05/11/2026)
 
 A página `/analytics` passa a oferecer **Perfil** acima de Período e Rede, com **Todos os perfis** como visão inicial e opções individuais dos perfis da conta. O seletor é apenas de leitura: não ativa nem altera o perfil operacional. Os filtros de período/rede, cartões, gráficos, tabela e a identidade visual permanecem como estavam.
 
@@ -9,7 +9,7 @@ A página `/analytics` passa a oferecer **Perfil** acima de Período e Rede, com
 - Na visão geral, as métricas oficiais das plataformas não são somadas sem deduplicação de fonte. Atualização manual e testes de insights ficam disponíveis apenas para um perfil específico. Não há migrations, alterações de cron ou de serviços de agendamento.
 - Os filtros e caches de consulta diferenciam usuário, perfil, período e rede, evitando exibir dados de uma seleção anterior.
 
-**Estado:** implementação local candidata à próxima PR de staging, ainda não homologada/deployada; a atualização no Vault será consolidada quando houver evidência da integração.
+**Estado:** PR #298 mesclada em `staging` (SHA `d588eb1cf77335ed9a8f8d0ac91c5b7f9c528d98`), deploy Render `dep-dbm27ne8bjmc739fcfag` confirmado `live` em 05/11/2026; registro integrado ao Vault. Não homologada funcionalmente: pytest/tsc pendentes e CI #41981263248 falhou antes dos steps (duas tentativas).
 
 ## Painéis de visualização (31/10/2026)
 
