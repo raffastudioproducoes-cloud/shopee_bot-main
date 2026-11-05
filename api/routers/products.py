@@ -237,12 +237,16 @@ async def update_product(
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="Nenhuma alteração enviada.")
+    # UPDATE devolve uma lista de registros; o builder de filtros do PostgREST
+    # não expõe .single() (somente o builder de SELECT). Preservar a restrição
+    # por id + conta antes de interpretar a resposta.
     result = scope_account(
         supabase.table("products").update(update_data).eq("id", product_id), user_id
-    ).single().execute()
-    if not result.data:
+    ).execute()
+    rows = result.data or []
+    if not rows:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
-    return _normalize_numeric_fields(result.data)
+    return _normalize_numeric_fields(rows[0])
 
 
 @router.delete("/{product_id}")
