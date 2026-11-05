@@ -278,3 +278,215 @@ def test_analytics_timeline_does_not_expose_database_errors(monkeypatch):
         assert 'internal database connection' not in result.text
     finally:
         app.dependency_overrides.clear()
+
+
+def test_analytics_all_profiles_counts_account_history_without_reading_credentials(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    filters = []
+
+    def account_jobs_query(name):
+        assert name == 'publish_jobs'
+        query = MagicMock()
+        query.select.return_value = query
+        query.eq.side_effect = lambda k, v: (filters.append((k, v)), query)[1]
+        query.gte.return_value = query
+        query.limit.return_value = query
+        query.execute.return_value = MagicMock(count=2)
+        return query
+
+    fake = MagicMock()
+    fake.table.side_effect = account_jobs_query
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    monkeypatch.setattr(social_analytics, '_read_refresh', lambda *args: 1 / 0)
+
+    async def forbidden(*args, **kwargs):
+        raise AssertionError('all não dispara OAuth/coleta em massa')
+
+    monkeypatch.setattr(social_analytics, 'refresh_account', forbidden)
+    try:
+        result = TestClient(app).get('/analytics/summary?profile_id=all&days=7&network=threads')
+        assert result.status_code == 200
+        body = result.json()
+        assert body['networks'] == [{
+            'network': 'threads', 'succeeded': 2, 'failed': 2, 'unknown': 2,
+            'views': None, 'likes': None, 'comments': None, 'reposts': None,
+            'clicks': None, 'insights_status': 'unsupported',
+        }]
+        assert ('user_id', 'user-a') in filters
+        assert all(name != 'profile_id' for name, _ in filters)
+        assert fake.table.call_count == 3
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_selected_profile_requires_ownership_without_activating_it(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    selected = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    seen = []
+
+    def table(name):
+        query = MagicMock()
+        query.select.return_value = query
+        query.eq.side_effect = lambda k, v: (seen.append((name, k, v)), query)[1]
+        query.maybe_single.return_value = query
+        query.execute.return_value = MagicMock(data={'id': selected} if name == 'profiles' else None, count=1)
+        query.gte.return_value = query
+        query.limit.return_value = query
+        return query
+
+    fake = MagicMock()
+    fake.table.side_effect = table
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    monkeypatch.setattr(social_analytics, '_read_refresh', lambda *args: None)
+
+    async def skip_background(*args, **kwargs):
+        return {'state': 'recent'}
+
+    monkeypatch.setattr(social_analytics, 'refresh_account', skip_background)
+    try:
+        result = TestClient(app).get(f'/analytics/summary?days=7&network=threads&profile_id={selected}')
+        assert result.status_code == 200
+        assert ('profiles', 'user_id', 'user-a') in seen
+        assert ('profiles', 'id', selected) in seen
+        assert ('publish_jobs', 'user_id', 'user-a') in seen
+        assert ('publish_jobs', 'profile_id', selected) in seen
+        assert ('publish_jobs', 'profile_id', 'active-id') not in seen
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_foreign_or_invalid_profile_is_rejected_before_jobs(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    fake = MagicMock()
+    owned_query = MagicMock()
+    owned_query.select.return_value = owned_query
+    owned_query.eq.return_value = owned_query
+    owned_query.maybe_single.return_value = owned_query
+    owned_query.execute.return_value = MagicMock(data=None)
+    fake.table.return_value = owned_query
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    try:
+        client = TestClient(app)
+        assert client.get('/analytics/summary?profile_id=not-a-uuid').status_code == 422
+        assert client.get('/analytics/summary?profile_id=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb').status_code == 404
+        assert client.get('/analytics/timeline?profile_id=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb').status_code == 404
+        assert client.post('/analytics/refresh?profile_id=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb').status_code == 404
+        assert all(call.args[0] == 'profiles' for call in fake.table.call_args_list)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_all_timeline_includes_archived_and_unassigned_without_duplicates(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    first = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    archived = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+    filters = []
+    sorts = []
+    rpc_calls = []
+
+    def query_for(name):
+        query = MagicMock()
+        query.select.return_value = query
+        query.eq.side_effect = lambda k, v: (filters.append((name, k, v)), query)[1]
+        query.is_.side_effect = lambda k, v: (filters.append((name, k, v)), query)[1]
+        query.in_.return_value = query
+        query.gte.return_value = query
+        query.order.side_effect = lambda field: (sorts.append(field), query)[1]
+        query.range.return_value = query
+        if name == 'profiles':
+            query.execute.return_value = MagicMock(data=[{'id': first}, {'id': archived}])
+        else:
+            query.execute.return_value = MagicMock(data=[{
+                'id': 9, 'network': 'threads', 'status': 'succeeded',
+                'finished_at': '2026-11-05T14:00:00+00:00',
+            }])
+        return query
+
+    fake = MagicMock()
+    fake.table.side_effect = query_for
+
+    def rpc(name, args):
+        rpc_calls.append((name, args))
+        result = MagicMock()
+        result.execute.return_value = MagicMock(data=[{
+            'day': '2026-11-05', 'network': 'threads', 'status': 'succeeded', 'total': 2,
+        }])
+        return result
+
+    fake.rpc.side_effect = rpc
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    try:
+        result = TestClient(app).get('/analytics/timeline?profile_id=all&days=30&network=threads')
+        assert result.status_code == 200
+        assert result.json()['points'] == [{
+            'day': '2026-11-05', 'network': 'threads', 'status': 'succeeded', 'total': 5,
+        }]
+        assert len(rpc_calls) == 2
+        assert {args['p_profile_id'] for _, args in rpc_calls} == {first, archived}
+        assert all(args['p_user_id'] == 'user-a' for _, args in rpc_calls)
+        assert ('profiles', 'user_id', 'user-a') in filters
+        assert ('publish_jobs', 'user_id', 'user-a') in filters
+        assert ('publish_jobs', 'profile_id', 'null') in filters
+        assert sorts[-2:] == ['finished_at', 'id']
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_missing_count_is_not_reported_as_zero(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    query = MagicMock()
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.gte.return_value = query
+    query.limit.return_value = query
+    query.execute.return_value = MagicMock(count=None)
+    fake = MagicMock()
+    fake.table.return_value = query
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    monkeypatch.setattr(social_analytics, '_read_refresh', lambda *args: None)
+    try:
+        result = TestClient(app).get('/analytics/summary?profile_id=all&network=threads')
+        assert result.status_code == 503
+        assert 'temporariamente indisponível' in result.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_refresh_explicit_owned_profile_without_mass_refresh(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    selected = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    query = MagicMock()
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.maybe_single.return_value = query
+    query.execute.return_value = MagicMock(data={'id': selected})
+    fake = MagicMock()
+    fake.table.return_value = query
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    called = []
+
+    async def fake_refresh(user_id, profile_id, *, manual=False):
+        called.append((user_id, profile_id, manual))
+        return {'state': 'updated'}
+
+    monkeypatch.setattr(social_analytics, 'refresh_account', fake_refresh)
+    try:
+        client = TestClient(app)
+        assert client.post('/analytics/refresh?profile_id=all').status_code == 400
+        result = client.post(f'/analytics/refresh?profile_id={selected}')
+        assert result.status_code == 200
+        assert called == [('user-a', selected, True)]
+    finally:
+        app.dependency_overrides.clear()
