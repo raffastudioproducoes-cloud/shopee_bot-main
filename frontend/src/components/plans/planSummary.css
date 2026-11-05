@@ -35,6 +35,17 @@
   min-width: 0;
   white-space: nowrap;
 }
+/* O carregamento ocupa exatamente a área frontal, sem colapsar a largura. */
+.plan-topbar-account .active-profile-chip--loading {
+  box-sizing: border-box;
+  width: 206px;
+  cursor: default;
+}
+.plan-topbar-account .active-profile-loading-name {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .plan-topbar-account .active-profile-chip:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 3px;
@@ -83,6 +94,15 @@
     border-radius: 19px !important;
     font-size: 12px !important;
     overflow: hidden;
+  }
+  .app-topbar .plan-topbar-account .active-profile-chip--loading .active-profile-loading-avatar {
+    width: 34px !important;
+    height: 34px !important;
+    flex: 0 0 34px;
+  }
+  .app-topbar .plan-topbar-account .active-profile-chip--loading .active-profile-loading-name {
+    width: auto !important;
+    max-width: calc(100% - 40px);
   }
   .app-topbar .plan-topbar-account .active-profile-chip .csp-s-0072 {
     min-width: 0;

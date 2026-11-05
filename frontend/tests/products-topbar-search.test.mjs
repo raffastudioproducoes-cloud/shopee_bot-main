@@ -26,3 +26,20 @@ test("Barra superior é única e mantém campo controlado", async () => {
   const source = await file("components/ui/TopBar.tsx")
   assert.match(source, /<SearchField value=\{query\} onChange=\{onQuery\}/)
 })
+
+test("Cartão de perfil reserva a geometria no carregamento", async () => {
+  const chip = await file("components/profiles/ActiveProfileChip.tsx")
+  const css = await file("components/plans/planSummary.css")
+  assert.match(chip, /active-profile-chip--loading/)
+  assert.match(chip, /if \(!isPending\) return null/)
+  assert.match(chip, /style=\{chipStyle\}/)
+  assert.match(css, /\.plan-topbar-account \.active-profile-chip--loading \{/)
+  assert.match(css, /width: 206px/)
+  assert.match(css, /active-profile-loading-avatar[\s\S]*?width: 34px !important/)
+})
+
+test("Etiqueta de plano só existe depois do carregamento de perfil e plano válidos", async () => {
+  const source = await file("components/plans/PlanSummary.tsx")
+  assert.match(source, /if \(!activeProfile \|\| query\.isError \|\| !query\.data\) return null/)
+  assert.match(source, /if \(label === "Plano indisponível"\) return null/)
+})
