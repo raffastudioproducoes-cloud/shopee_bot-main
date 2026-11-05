@@ -392,7 +392,8 @@ export function ProductsPage() {
                 { icon: "dollar-sign", label: "Ganho/venda", value: formatEarnings(product.price_min, product.price_max, product.commission) },
                 { icon: "calendar", label: "Cadastrado", value: new Date(product.created_at).toLocaleDateString("pt-BR") },
               ]}
-              expandedFooter={<ProductSavedPersonalization productId={product.id} description={product.description} />}
+              expandedHeader={<ProductSavedPersonalization productId={product.id} description={product.description} />}
+              statsPlacement="bottom"
               sections={[
                 {
                   label: "Links",
