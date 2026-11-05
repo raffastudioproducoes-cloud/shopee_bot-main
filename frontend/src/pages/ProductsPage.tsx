@@ -7,6 +7,9 @@ import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
 import { productsApi, type Product, type ProductCreate, type ProductUpdate } from "../api/products"
 import { ProductMediaManager } from "../components/products/ProductMediaManager"
+import { AiCopyControls } from "../components/posts/AiCopyControls"
+import { postsApi } from "../api/posts"
+import { aiCredentialsApi } from "../api/credentials"
 import { NETWORK_RULES, textLength } from "../lib/networkLimits"
 import { ProductQuotaBar } from "../components/plans/ProductQuotaBar"
 import { usePlanUsage } from "../hooks/usePlanUsage"
@@ -83,6 +86,7 @@ export function ProductsPage() {
   const [formBase, setFormBase] = useState(emptyForm)
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [copyError, setCopyError] = useState("")
+  const [aiPersona, setAiPersona] = useState("casual")
   const activeDraftKey = modalOpen
     ? formDraftKey(user?.id, editingId ? `product-edit:${editingId}` : "product-create", null, false)
     : null
@@ -110,6 +114,12 @@ export function ProductsPage() {
 
   const products = data?.data ?? []
 
+  const { data: aiStatus, isPending: aiStatusLoading, isError: aiStatusError } = useQuery({
+    queryKey: ["credentials", "ai"],
+    queryFn: () => aiCredentialsApi.list(),
+    enabled: modalOpen && editingId !== null,
+  })
+
   // ── Mutations ──────────────────────────────────────────────────────────────────
 
   const onAuthError = (err: Error) => {
@@ -118,6 +128,18 @@ export function ProductsPage() {
       router.navigate({ to: "/login" })
     }
   }
+
+  const generateDescriptionMutation = useMutation({
+    mutationFn: (productId: number) => postsApi.generateCopy(productId, aiPersona, [], {
+      descriptionOnly: true, provider: "gemini",
+    }),
+    onSuccess: (result, productId) => {
+      if (editingId !== productId) return
+      setCopyError("")
+      setForm((current) => ({ ...current, description: result.text }))
+    },
+    onError: onAuthError,
+  })
 
   const createMutation = useMutation({
     mutationFn: (body: ProductCreate) =>
@@ -203,6 +225,7 @@ export function ProductsPage() {
   const handleEdit = useCallback((product: Product) => {
     setEditingId(product.id)
     setCopyError("")
+    generateDescriptionMutation.reset()
     const nextForm = {
       name: product.name || "",
       description: product.description || "",
@@ -243,6 +266,7 @@ export function ProductsPage() {
     setModalOpen(false)
     setEditingId(null)
     setCopyError("")
+    generateDescriptionMutation.reset()
     setForm(emptyForm)
   }, [])
 
@@ -432,6 +456,28 @@ export function ProductsPage() {
               <label htmlFor="product-custom-copy" style={{ display: "block", marginTop: 16, marginBottom: 6, color: "var(--text-secondary)", fontWeight: 600 }}>
                 Descrição curta para redes sociais (sem links)
               </label>
+              <div style={{ display: "flex", alignItems: "end", flexWrap: "wrap", gap: 10, margin: "0 0 12px" }}>
+                {aiStatusError ? (
+                  <p role="alert" style={{ fontSize: 13, color: "var(--negative)" }}>Não foi possível consultar a chave Gemini. Tente novamente.</p>
+                ) : aiStatusLoading ? (
+                  <p role="status" style={{ fontSize: 13, color: "var(--text-muted)" }}>Verificando sua chave Gemini…</p>
+                ) : (
+                  <AiCopyControls
+                    persona={aiPersona}
+                    onPersonaChange={setAiPersona}
+                    hasAiKey={aiStatus?.providers.gemini?.connected === true}
+                    missingKeyLabel="Cadastre sua chave Gemini em Credenciais"
+                    isPending={generateDescriptionMutation.isPending}
+                    disabled={!editingId}
+                    onGenerate={() => { if (editingId) generateDescriptionMutation.mutate(editingId) }}
+                  />
+                )}
+              </div>
+              {generateDescriptionMutation.isError && (
+                <p role="alert" style={{ color: "var(--negative)", fontSize: 13, marginBottom: 8 }}>
+                  {generateDescriptionMutation.error.message}
+                </p>
+              )}
               <textarea
                 id="product-custom-copy"
                 value={form.description}
