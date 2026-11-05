@@ -1,7 +1,24 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
-import { contextualSearchTerms, matchesScopedSearch, normalizeSearchText, searchPageForRoute } from "../src/lib/pageSearch.ts"
+
+// Node 20 (CI) ainda não importa TypeScript diretamente. No Node 22+/24,
+// aproveitamos o suporte nativo; no Node 20, transpila com o TypeScript do projeto.
+const searchModule = await (async () => {
+  try {
+    return await import("../src/lib/pageSearch.ts")
+  } catch (error) {
+    if (error?.code !== "ERR_UNKNOWN_FILE_EXTENSION") throw error
+    const ts = await import("typescript")
+    const source = readFileSync(new URL("../src/lib/pageSearch.ts", import.meta.url), "utf8")
+    const { outputText } = ts.transpileModule(source, {
+      compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext },
+    })
+    return await import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`)
+  }
+})()
+
+const { contextualSearchTerms, matchesScopedSearch, normalizeSearchText, searchPageForRoute } = searchModule
 
 const read = (path) => readFileSync(new URL("../src/" + path, import.meta.url), "utf8")
 
