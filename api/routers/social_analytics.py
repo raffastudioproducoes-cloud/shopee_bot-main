@@ -4,13 +4,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
 
-import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
-from apis.meta_version import GRAPH_URL, GRAPH_VERSION
 from ..analytics_refresh import TABLE as REFRESH_TABLE, refresh_account
-from ..crypto import decrypt
 from ..database import supabase
+from ..post_insights import (current_network_connections, distinct_published_jobs,
+                             indexed_insights, published_jobs, summarize_post_metrics)
 from ..profiles import scope_account, scope_owner
 from .auth import get_current_user_id
 from .credentials import _check_test_rate_limit, _require_admin
@@ -22,37 +21,6 @@ Network = Literal["threads", "facebook", "instagram", "tiktok", "x"]
 NETWORKS: tuple[Network, ...] = ("threads", "facebook", "instagram", "tiktok", "x")
 STATUSES = ("succeeded", "failed", "unknown")
 _TIMELINE_PAGE_SIZE = 500
-_INSIGHT_PROBES = {
-    "threads": ("threads_credentials", "t_user_id", "access_token", "views", None),
-    "instagram": ("instagram_credentials", "ig_user_id", "user_access_token", "reach", "day"),
-    "facebook": ("facebook_credentials", "page_id", "page_access_token", "page_media_view", "day"),
-}
-
-
-def _facebook_daily_views(metrics: list) -> list[dict] | None:
-    """Only return validated daily counts and UTC period ends, never raw Graph payloads."""
-    counts: dict[str, int] = {}
-    for metric in metrics:
-        if not isinstance(metric, dict) or metric.get("name") != "page_media_view":
-            return None
-        values = metric.get("values")
-        if not isinstance(values, list):
-            return None
-        for entry in values:
-            if not isinstance(entry, dict):
-                return None
-            value, end_time = entry.get("value"), entry.get("end_time")
-            if isinstance(value, bool) or not isinstance(value, int) or value < 0 or not isinstance(end_time, str):
-                return None
-            try:
-                end = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
-            except ValueError:
-                return None
-            if end.tzinfo is None:
-                return None
-            period_end = end.astimezone(timezone.utc).date().isoformat()
-            counts[period_end] = value
-    return [{"period_end": day, "value": counts[day]} for day in sorted(counts)]
 
 
 def _analytics_profile(user_id, requested: str | None, active: str | None) -> tuple[str | None, bool]:
@@ -143,83 +111,27 @@ async def probe_insights(
     user_id: int = Depends(_require_admin),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Read one account/page metric using this profile's existing OAuth token."""
-    if network not in _INSIGHT_PROBES:
-        raise HTTPException(status_code=404, detail="Rede sem sonda de insights")
+    """Admin: valida cache de publicação individual, sem consultar contas ou Páginas."""
+    if network not in NETWORKS:
+        raise HTTPException(status_code=404, detail="Rede não reconhecida")
     if days not in (7, 30, 90):
         raise HTTPException(status_code=422, detail="Período inválido")
     profile_id, all_profiles = _analytics_profile(user_id, selected_profile_id, profile_id)
     if all_profiles or not profile_id:
         raise HTTPException(status_code=400, detail="Selecione um perfil")
     _check_test_rate_limit(user_id)
-    table, id_column, token_column, metric, period = _INSIGHT_PROBES[network]
-    row = scope_owner(
-        supabase.table(table).select(f"{id_column},{token_column}"), user_id, profile_id
-    ).maybe_single().execute()
-    data = row.data if row else None
-    if not data or not data.get(id_column) or not data.get(token_column):
-        return {"network": network, "state": "not_connected"}
-
-    host = "https://graph.threads.net/v1.0" if network == "threads" else f"{GRAPH_URL}/{GRAPH_VERSION}"
-    endpoint = "threads_insights" if network == "threads" else "insights"
-    params = {"metric": metric}
-    if period:
-        params["period"] = period
-    if network == "facebook":
-        # Explicit interval instead of the Graph API's default last two periods.
-        # The returned metric periods are UTC boundaries and may cover fewer days.
-        today = datetime.now(timezone.utc).date()
-        params["since"] = (today - timedelta(days=days - 1)).isoformat()
-        params["until"] = (today + timedelta(days=1)).isoformat()
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            response = await client.get(
-                f"{host}/{data[id_column]}/{endpoint}",
-                params=params,
-                headers={"Authorization": f"Bearer {decrypt(data[token_column])}"},
-            )
-    except httpx.RequestError:
-        return {"network": network, "state": "network_error"}
-    if response.status_code != 200:
-        try:
-            body = response.json()
-            error = body.get("error", {}) if isinstance(body, dict) else {}
-        except ValueError:
-            error = {}
-        return {
-            "network": network,
-            "state": "api_error",
-            "http_status": response.status_code,
-            "error_code": error.get("code") if isinstance(error, dict) else None,
-            "error_subcode": error.get("error_subcode") if isinstance(error, dict) else None,
-        }
-    try:
-        body = response.json()
-    except ValueError:
-        return {"network": network, "state": "invalid_response"}
-    if not isinstance(body, dict) or not isinstance(body.get("data"), list):
-        return {"network": network, "state": "invalid_response"}
-    values = body["data"]
-    if network == "facebook":
-        daily_values = _facebook_daily_views(values)
-        if daily_values is None:
-            return {"network": network, "state": "invalid_response"}
-        return {
-            "network": network,
-            "state": "ok" if daily_values else "no_data",
-            "metric": metric,
-            "result_count": len(values),
-            "days_requested": days,
-            "days_returned": len(daily_values),
-            "total_views": sum(v["value"] for v in daily_values) if daily_values else None,
-            "daily_values": daily_values,
-        }
-    return {
-        "network": network,
-        "state": "ok" if values else "no_data",
-        "metric": metric,
-        "result_count": len(values),
-    }
+    jobs = distinct_published_jobs(published_jobs(user_id, profile_id, days, network))
+    if not jobs:
+        return {"network": network, "state": "no_posts", "post_count": 0}
+    selected = next((job for job in jobs if job.get("external_id")), None)
+    if not selected:
+        return {"network": network, "state": "missing_external_id", "post_count": len(jobs)}
+    index = indexed_insights(user_id, [selected])
+    item = index.get(selected["id"])
+    if not item or item.get("external_id") != selected["external_id"]:
+        return {"network": network, "state": "not_collected", "post_count": len(jobs)}
+    return {"network": network, "state": item["state"], "post_count": len(jobs),
+            "metric": "views", "total_views": item.get("views") if item["state"] == "ok" else None}
 
 
 @router.post("/refresh")
@@ -237,31 +149,10 @@ async def refresh_information(
 def _read_refresh(user_id, profile_id):
     response = scope_owner(
         supabase.table(REFRESH_TABLE).select(
-            "last_attempt_at,last_completed_at,provider_states,facebook_daily_values,metrics_collected_at"
+            "last_attempt_at,last_completed_at,provider_states,metrics_collected_at"
         ), user_id, profile_id
     ).maybe_single().execute()
     return response.data if response else None
-
-
-def _facebook_views_for_period(refresh, days):
-    if not refresh or (refresh.get("provider_states") or {}).get("facebook") != "ok":
-        return None
-    values = refresh.get("facebook_daily_values")
-    if not isinstance(values, list) or not values:
-        return None
-    start_day = (datetime.now(timezone.utc).date() - timedelta(days=days - 1)).isoformat()
-    total = 0
-    has_value = False
-    for item in values:
-        if not isinstance(item, dict):
-            return None
-        day, value = item.get("period_end"), item.get("value")
-        if not isinstance(day, str) or not isinstance(value, int) or isinstance(value, bool) or value < 0:
-            return None
-        if day >= start_day:
-            total += value
-            has_value = True
-    return total if has_value else None
 
 
 def _count_jobs(user_id: int, profile_id: str | None, network: Network, status: str, since: str) -> int:
@@ -291,37 +182,114 @@ def summary(
     profile_id, all_profiles = _analytics_profile(user_id, selected_profile_id, profile_id)
     if not all_profiles and not profile_id:
         return {"days": days, "networks": []}
-    # A leitura permanece rápida. Uma tarefa após a resposta registra o perfil
-    # e consulta provedores somente se o claim diário estiver vencido.
-    if not all_profiles:
-        background_tasks.add_task(refresh_account, user_id, profile_id)
-    # Page views may originate from the same Facebook Page linked to several profiles.
-    # Do not add official insights without source-level deduplication.
     refresh = _read_refresh(user_id, profile_id) if not all_profiles else None
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    try:
+        jobs = distinct_published_jobs(published_jobs(user_id, profile_id, days, network))
+        index = indexed_insights(user_id, jobs)
+        connections = current_network_connections(user_id, profile_id)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Insights de publicações temporariamente indisponíveis")
+    # Em Todos, consultar somente perfis com posts no período. Claim por perfil
+    # impede duplicação com a rotina diária; lote evita tempestade de OAuth.
+    targets = sorted({job["profile_id"] for job in jobs if job.get("profile_id")})[:12] if all_profiles else [profile_id]
+    for selected in targets:
+        background_tasks.add_task(refresh_account, user_id, selected)
     rows = []
     for name in (network,) if network else NETWORKS:
         counts = {status: _count_jobs(user_id, profile_id, name, status, since) for status in STATUSES}
+        subset = [job for job in jobs if job["network"] == name]
+        metrics, collected, eligible, states = summarize_post_metrics(subset, index)
+        if name in ("x", "tiktok"):
+            status = "unsupported"
+        elif not connections.get(name, False):
+            status = "not_connected"
+        elif name != "threads":
+            status = "unsupported"
+        elif not subset:
+            status = "no_posts"
+        elif not eligible:
+            status = "missing_external_id"
+        elif collected == eligible:
+            status = "ok"
+        elif collected:
+            status = "partial"
+        elif len(states) == 1:
+            status = next(iter(states))
+        else:
+            status = "not_collected"
+        if name != "threads":
+            # Não existe coletor individual homologado nessas redes ainda.
+            metrics = {field: None for field in metrics}
         rows.append({
             "network": name,
             **counts,
-            "views": _facebook_views_for_period(refresh, days) if name == "facebook" else None,
-            "likes": None,
-            "comments": None,
-            "reposts": None,
-            "clicks": None,
-            "insights_status": "unsupported" if all_profiles else (
-                (refresh.get("provider_states") or {}).get(name, "not_collected")
-                if refresh else "not_collected"
-            ),
+            **metrics,
+            "insights_status": status,
+            "posts_with_insights": collected,
+            "posts_with_external_id": eligible,
         })
     return {
         "days": days, "networks": rows,
         "last_attempt_at": refresh.get("last_attempt_at") if refresh else None,
         "last_completed_at": refresh.get("last_completed_at") if refresh else None,
-        "provider_states": refresh.get("provider_states") if refresh else {},
+        "provider_states": {row["network"]: row["insights_status"] for row in rows},
         "auto_refresh_hours": 24,
+        "metrics_scope": "confirmed_publications_only",
+        "metrics_window": "lifetime_of_posts_published_in_selected_period",
     }
+
+
+@router.get("/posts")
+def post_performance(
+    days: int = Query(30),
+    network: Network | None = None,
+    selected_profile_id: str | None = Query(None, alias="profile_id"),
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Ranking de posts confirmados; jamais mistura insights gerais de contas."""
+    if days not in (7, 30, 90):
+        raise HTTPException(status_code=422, detail="Período inválido")
+    profile_id, all_profiles = _analytics_profile(user_id, selected_profile_id, profile_id)
+    if not all_profiles and not profile_id:
+        return {"days": days, "posts": []}
+    try:
+        jobs = distinct_published_jobs(published_jobs(user_id, profile_id, days, network))
+        index = indexed_insights(user_id, jobs)
+        # Carrega texto apenas após validar a titularidade de todos os jobs.
+        post_ids = list({job["post_id"] for job in jobs if job.get("post_id") is not None})
+        previews = {}
+        for offset in range(0, len(post_ids), _TIMELINE_PAGE_SIZE):
+            response = scope_owner(
+                supabase.table("posts").select("post_id,id,text"), user_id, profile_id
+            ).in_("post_id", post_ids[offset:offset + _TIMELINE_PAGE_SIZE]).order("id").execute() if profile_id else scope_account(
+                supabase.table("posts").select("post_id,id,text"), user_id
+            ).in_("post_id", post_ids[offset:offset + _TIMELINE_PAGE_SIZE]).order("id").execute()
+            for item in response.data or []:
+                previews.setdefault(item["post_id"], item.get("text") or "")
+    except Exception:
+        raise HTTPException(status_code=503, detail="Desempenho por publicação temporariamente indisponível")
+    posts = []
+    for job in jobs:
+        metrics, collected, _, states = summarize_post_metrics([job], index)
+        state = next(iter(states)) if len(states) == 1 else "not_collected"
+        item = index.get(job["id"])
+        preview = previews.get(job.get("post_id"), "")
+        posts.append({
+            "job_id": job["id"], "network": job["network"],
+            "profile_id": job["profile_id"], "finished_at": job["finished_at"],
+            "preview": preview[:160], "state": state if collected or states else (
+                "not_collected" if job.get("external_id") else "missing_external_id"
+            ),
+            **metrics,
+            "last_completed_at": item.get("last_completed_at") if collected and item else None,
+        })
+    posts.sort(key=lambda item: (item["views"] is None, -(item["views"] or 0),
+                                 item["finished_at"] or ""))
+    return {"days": days, "posts": posts[:150], "total_posts": len(posts),
+            "truncated": len(posts) > 150,
+            "metrics_window": "lifetime_of_posts_published_in_selected_period"}
 
 
 @router.get("/timeline")

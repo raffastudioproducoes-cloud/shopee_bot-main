@@ -21,10 +21,13 @@ test('a consulta troca somente o escopo visual e mantém cache isolado', () => {
   assert.match(page, /formDraftKey\(userId, 'analytics-filters', profileId\)/)
 })
 
-test('insights permanecem individuais, sem consulta em massa em Todos', () => {
+test('atualização manual é individual e ranking por post segue a seleção', () => {
   assert.match(page, /disabled=\{refreshing \|\| selectedProfile === 'all'\}/)
   assert.match(page, /disabled=\{probing !== null \|\| selectedProfile === 'all'\}/)
   assert.match(page, /\/analytics\/refresh\?profile_id=/)
   assert.match(page, /\/analytics\/probe\/\$\{name\}\?profile_id=/)
-  assert.match(page, /Insights oficiais e atualização de redes/)
+  assert.match(page, /queryKey: \['analytics-posts', userId, selectedProfile, days, network\]/)
+  assert.match(page, /Desempenho por publicação/)
+  assert.doesNotMatch(page, /page_media_view|Visualizações da Página do Facebook/)
+  assert.match(page, /Nunca usamos visualizações gerais do perfil ou da Página/)
 })

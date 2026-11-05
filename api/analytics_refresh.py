@@ -1,133 +1,17 @@
-"""Coleta diária e manual de insights, com claim compartilhado no PostgreSQL.
+"""Atualiza exclusivamente insights de posts enviados pelo Auto Orbital.
 
-Métricas de jobs são calculadas ao ler /analytics/summary. Este módulo só
-armazena leituras de provedores, sem tokens, corpos de erro ou dados de posts.
+O claim e o agendamento existentes são reutilizados. Nunca consulta insights
+gerais de conta, perfil ou Página e invalida snapshots legados dessa origem.
 """
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-import httpx
-
-from apis.meta_version import GRAPH_URL, GRAPH_VERSION
-from .crypto import decrypt
 from .database import supabase
-from .profiles import scope_owner
+from .post_insights import collect_profile_posts
 
 logger = logging.getLogger(__name__)
 TABLE = "analytics_daily_refreshes"
-PROBES = {
-    "threads": ("threads_credentials", "t_user_id", "access_token", "views", None),
-    "facebook": ("facebook_credentials", "page_id", "page_access_token", "page_media_view", "day"),
-    "instagram": ("instagram_credentials", "ig_user_id", "user_access_token", "reach", "day"),
-}
-
-
-def _safe_nonnegative_int(value):
-    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
-
-
-def _facebook_daily_values(metrics):
-    """Somente contagens diárias explicitamente validadas, sem somar dias faltantes."""
-    counts = {}
-    if not isinstance(metrics, list):
-        return None
-    for metric in metrics:
-        if not isinstance(metric, dict) or metric.get("name") != "page_media_view":
-            return None
-        values = metric.get("values")
-        if not isinstance(values, list):
-            return None
-        for item in values:
-            if not isinstance(item, dict):
-                return None
-            value = _safe_nonnegative_int(item.get("value"))
-            end_time = item.get("end_time")
-            if value is None or not isinstance(end_time, str):
-                return None
-            try:
-                end = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
-            except ValueError:
-                return None
-            if end.tzinfo is None:
-                return None
-            counts[end.astimezone(timezone.utc).date().isoformat()] = value
-    return [{"period_end": day, "value": counts[day]} for day in sorted(counts)]
-
-
-def _threads_views(metrics):
-    """Não somar pontos de uma série nem presumir que result_count são views."""
-    if not isinstance(metrics, list) or len(metrics) != 1:
-        return None
-    metric = metrics[0]
-    if not isinstance(metric, dict) or metric.get("name") != "views":
-        return None
-    total = metric.get("total_value")
-    if isinstance(total, dict):
-        return _safe_nonnegative_int(total.get("value"))
-    values = metric.get("values")
-    if isinstance(values, list) and len(values) == 1 and isinstance(values[0], dict):
-        return _safe_nonnegative_int(values[0].get("value"))
-    return None
-
-
-def _credential(user_id, profile_id, network):
-    table, id_col, token_col, _, _ = PROBES[network]
-    row = scope_owner(
-        supabase.table(table).select(f"{id_col},{token_col}"),
-        user_id, profile_id,
-    ).maybe_single().execute()
-    data = row.data if row else None
-    if not data or not data.get(id_col) or not data.get(token_col):
-        return None
-    return data[id_col], data[token_col]
-
-
-async def _fetch_network(user_id, profile_id, network):
-    try:
-        credential = await asyncio.to_thread(_credential, user_id, profile_id, network)
-        if credential is None:
-            return {"state": "not_connected"}
-        identifier, ciphertext = credential
-        _, _, _, metric, period = PROBES[network]
-        params = {"metric": metric}
-        if period:
-            params["period"] = period
-        if network == "facebook":
-            today = datetime.now(timezone.utc).date()
-            params["since"] = (today - timedelta(days=89)).isoformat()
-            params["until"] = (today + timedelta(days=1)).isoformat()
-        host = "https://graph.threads.net/v1.0" if network == "threads" else f"{GRAPH_URL}/{GRAPH_VERSION}"
-        endpoint = "threads_insights" if network == "threads" else "insights"
-        async with httpx.AsyncClient(timeout=15) as client:
-            response = await client.get(
-                f"{host}/{identifier}/{endpoint}",
-                params=params,
-                headers={"Authorization": f"Bearer {decrypt(ciphertext)}"},
-            )
-        if response.status_code != 200:
-            return {"state": "api_error"}
-        body = response.json()
-        if not isinstance(body, dict) or not isinstance(body.get("data"), list):
-            return {"state": "invalid_response"}
-        metrics = body["data"]
-        if network == "facebook":
-            daily = _facebook_daily_values(metrics)
-            if daily is None:
-                return {"state": "invalid_response"}
-            return {"state": "ok" if daily else "no_data", "daily": daily}
-        if network == "threads":
-            views = _threads_views(metrics)
-            return {"state": "ok" if views is not None else "no_data", "views": views}
-        # Instagram devolve reach, não visualizações; preservar a distinção.
-        return {"state": "ok" if metrics else "no_data"}
-    except httpx.RequestError:
-        return {"state": "network_error"}
-    except (ValueError, TypeError, KeyError):
-        return {"state": "invalid_response"}
-    except Exception:
-        logger.exception("Falha interna sanitizada ao consultar insights (%s)", network)
-        return {"state": "unavailable"}
 
 
 def _claim(user_id, profile_id, manual):
@@ -140,28 +24,26 @@ def _claim(user_id, profile_id, manual):
 
 
 async def refresh_account(user_id, profile_id, *, manual=False):
-    """Retorna estado seguro. Nunca realiza nova coleta sem adquirir o claim."""
     if not profile_id:
         return {"state": "no_profile"}
     token = await asyncio.to_thread(_claim, user_id, profile_id, manual)
     if not token:
         return {"state": "recent"}
-    network_results = await asyncio.gather(
-        *(_fetch_network(user_id, profile_id, name) for name in PROBES)
-    )
-    results = dict(zip(PROBES, network_results))
-    states = {name: value["state"] for name, value in results.items()}
+    try:
+        states = await collect_profile_posts(user_id, profile_id)
+    except Exception:
+        logger.exception("Falha sanitizada na coleta por publicação")
+        states = {"threads": "unavailable", "facebook": "not_connected",
+                  "instagram": "not_connected", "tiktok": "unsupported", "x": "unsupported"}
     now = datetime.now(timezone.utc).isoformat()
-    facebook = results["facebook"]
-    threads = results["threads"]
-    # Snapshot atômico por claim: um worker atrasado não reescreve outro.
     payload = {
         "last_completed_at": now,
         "locked_until": None,
         "claim_token": None,
         "provider_states": states,
-        "facebook_daily_values": facebook.get("daily") if facebook["state"] == "ok" else [],
-        "threads_views": threads.get("views") if threads["state"] == "ok" else None,
+        # Nunca oferecer snapshots antigos de métricas de conta ou Página.
+        "facebook_daily_values": [],
+        "threads_views": None,
         "metrics_collected_at": now if "ok" in states.values() else None,
     }
     await asyncio.to_thread(
@@ -181,11 +63,11 @@ def _due_profiles(limit=12):
 
 
 def refresh_due_analytics():
-    """Chamado pelo APScheduler; reprocessa atrasados após cold starts do Render."""
+    """Executado pelo APScheduler já instalado, sem novo cron no Supabase."""
     try:
         rows = _due_profiles()
     except Exception:
-        logger.exception("Não foi possível listar insights diários vencidos")
+        logger.exception("Não foi possível listar insights vencidos")
         return
     for row in rows:
         try:

@@ -1,5 +1,19 @@
 # Analise de redes: contrato e fases
 
+## Correção de origem dos insights por POST (05/11/2026 — staging)
+
+**Regra canônica exigida por Rafa:** a página só exibe métricas de publicações que o Auto Orbital confirmou em `publish_jobs.status=succeeded` e registrou com `external_id`. **Nunca** consultar nem somar `/{threads_user_id}/threads_insights`, métricas gerais de Páginas Facebook ou insights agregados de perfis Instagram. As 14 visualizações gerais do Threads e as 3 do Facebook vistas nas capturas não são evidência de visualizações dos posts feitos pelo Auto Orbital; portanto não entram nas análises.
+
+- Fonte da única coleta individual implementada: Threads `GET https://graph.threads.net/v1.0/{media_id}/insights?metric=views,likes,replies,reposts,quotes`, com token do próprio perfil e ID externo gravado no job confirmado. Sem ID, sem fonte; valor inexistente é `null`/traço e zero é exibido **apenas** se explicitamente retornado. A API pode negar escopo `threads_manage_insights`; registrar `permission_required` e não inventar valor.
+- Migração **088** (aditiva, compatível com o Supabase compartilhado): `publication_insights`, chave por UUID do job, vínculo com usuário/perfil/rede/ID externo, métricas opcionais, estado e horários. RLS + grants somente `service_role`. Nenhuma credencial ou resposta bruta é gravada. Dedupe por `(network,external_id)` ao somar.
+- `GET /api/analytics/summary` conserva contadores de sucesso/falha/incerteza e gráficos, mas as colunas sociais usam exclusivamente cache validado por `publish_job_id`, `network` e `external_id`. `GET /api/analytics/posts` retorna o ranking por post próprio, com resumo e métricas. `profile_id=all` soma posts da conta; seleção individual valida titularidade. O diagnóstico ADMIN `/analytics/probe` lê cache individual, nunca perfil social.
+- Período 7/30/90 dias filtra a **data de envio dos posts**; o contador de cada post é **lifetime** até a consulta oficial mais recente. Sem snapshots históricos não podemos afirmar "visualizações ocorridas nos últimos 30 dias". Sequências Threads com IDs incompletos são sinalizadas `multipart_unmapped`, sem atribuir o último item à sequência inteira.
+- Facebook e Instagram **não estão conectados** no estado observado; X está bloqueado para cadastro; TikTok/X continuam sem consulta de insights no produto. Um futuro Facebook/Instagram conectado precisa de OAuth/escopo e teste de insights **por mídia**, jamais métricas gerais.
+- Atualização diária e manual reutilizam `claim_analytics_refresh` e APScheduler já existente: 24h/5 minutos, sem cron/pg_net/worker novo. Snapshots legados `facebook_daily_values` e `threads_views` são ignorados no resumo e invalidados na próxima coleta, sem limpeza histórica em massa.
+- Segurança: `scope_account`/`scope_owner`, IDs e status confirmados, token decifrado somente no servidor, sem logs de token/respostas. QA inclui parser, agregador, dedupe, ID inválido e endpoint estritamente de mídia. **Homologação externa efetiva depende de resposta do token real; 14 views gerais não comprovam funcionamento**.
+
+Os itens históricos abaixo descrevem implementações anteriores e ficam supersedidos por esta regra quando mencionarem métricas agregadas de Facebook/Threads.
+
 ## Seletor de perfil para análises (staging LIVE, 05/11/2026)
 
 A página `/analytics` passa a oferecer **Perfil** acima de Período e Rede, com **Todos os perfis** como visão inicial e opções individuais dos perfis da conta. O seletor é apenas de leitura: não ativa nem altera o perfil operacional. Os filtros de período/rede, cartões, gráficos, tabela e a identidade visual permanecem como estavam.

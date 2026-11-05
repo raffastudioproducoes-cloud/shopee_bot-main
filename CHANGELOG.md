@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — Analytics por publicação (staging, 05/11/2026)
+
+- Impedida a coleta de visualizações gerais de perfil Threads, Páginas Facebook e alcance de conta Instagram para a tela de Análises. As métricas só são agregadas de jobs `succeeded` com ID externo, usando fonte oficial **individual da publicação** e deduplicando `(network,external_id)`; o histórico e os KPIs de envios permanecem preservados.
+- Introduzidos cache SQL aditivo `publication_insights` (migration 088), coleta individual Threads e ranking `/analytics/posts` com prévia e métricas lifetime por post. Indisponíveis ficam `—`; Facebook/Instagram desconectados e X/TikTok sem fonte validada não recebem números inventados. O filtro de dias seleciona quando o post foi publicado, não o período exato das visualizações.
+- Mantidos `VERSION=3.2.0`, main, Supabase crons, pg_net e rotinas de publicação. QA e links do PR/deploy serão registrados após homologação.
+
 ### Added
 - **Análises — seletor por perfil (staging LIVE, 05/11/2026):** opção “Todos os perfis” (contagens agregadas da conta, histórico arquivado/legado) e escolha individual sem alterar perfil ativo; preservados período/rede, KPIs, gráficos e detalhamento. API valida pertencimento e compatibilidade, evita dupla contagem de insights oficiais; refresh/probe individuais. PR #298, squash SHA `d588eb1`, Render `dep-dbm27ne8bjmc739fcfag` live. Testes locais de contrato 3/3 e sintaxe Python aprovados; CI GitHub #41981263248 falhou antes de iniciar steps, pendentes pytest/tsc e homologação autenticada. Sem banco/cron/main/produção; MINOR candidata `3.3.0`, `VERSION=3.2.0`.
 - **Criar POST — cotas e fluxo linear da campanha (staging, 05/11/2026):** publicação única e campanha exibem barra compacta de limites no lugar dos painéis de plano. CTA para planos só em Free/Pro; oculto em Premium/ADMIN. Configuração da campanha agora precede prévia, salvamento, ativação e acompanhamento/homologação (etapas 01–06). Preservadas ações de rascunhos, mídia, publicação e histórico, com atalho para salvar antes de anexar. Testes unitários locais 5/5; sem alteração de APIs, banco ou cron. MINOR candidata 3.3.0, `VERSION=3.2.0` em staging.
