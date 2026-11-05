@@ -1,5 +1,16 @@
 # Analise de redes: contrato e fases
 
+## Seletor de perfil para análises (proposta de patch, 05/11/2026)
+
+A página `/analytics` passa a oferecer **Perfil** acima de Período e Rede, com **Todos os perfis** como visão inicial e opções individuais dos perfis da conta. O seletor é apenas de leitura: não ativa nem altera o perfil operacional. Os filtros de período/rede, cartões, gráficos, tabela e a identidade visual permanecem como estavam.
+
+- A seleção é enviada como `profile_id=all` ou UUID aos endpoints `GET /analytics/summary` e `GET /analytics/timeline`. Sem o parâmetro, clientes anteriores continuam usando o perfil ativo.
+- O backend valida a propriedade do UUID (`profiles.user_id`) e aplica `publish_jobs.user_id` a todas as contagens. A visão geral inclui perfis arquivados e registros legados sem `profile_id`; a série usa o RPC existente por perfil e soma somente os registros legados de perfil nulo, sem contar duas vezes.
+- Na visão geral, as métricas oficiais das plataformas não são somadas sem deduplicação de fonte. Atualização manual e testes de insights ficam disponíveis apenas para um perfil específico. Não há migrations, alterações de cron ou de serviços de agendamento.
+- Os filtros e caches de consulta diferenciam usuário, perfil, período e rede, evitando exibir dados de uma seleção anterior.
+
+**Estado:** implementação local candidata à próxima PR de staging, ainda não homologada/deployada; a atualização no Vault será consolidada quando houver evidência da integração.
+
 ## Painéis de visualização (31/10/2026)
 
 O frontend React apresenta a **mesma tabela detalhada de redes** após quatro cartões de KPI e quatro painéis no design system Auto Orbital (paleta Graphite / cyan / orbit blue / índigo / violeta, superfícies `Panel`), também responsivos:

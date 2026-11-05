@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { formDraftKey } from '../lib/formDraftStorage'
 import { useAutosavedDraft } from '../hooks/useAutosavedDraft'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import { useProfileStore } from '../stores/profileStore'
+import { profilesApi } from '../api/profiles'
 import { Select } from '../components/ui/Select'
 import { PageSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
@@ -55,6 +56,7 @@ const names: Record<Network, string> = {
 export default function AnalyticsPage() {
   const [days, setDays] = useState('30')
   const [network, setNetwork] = useState('all')
+  const [selectedProfile, setSelectedProfile] = useState('all')
   const [probe, setProbe] = useState<ScopedProbe | null>(null)
   const [probing, setProbing] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -63,27 +65,50 @@ export default function AnalyticsPage() {
   const userId = useAuthStore((state) => state.user?.id)
   const isAdmin = useAuthStore((state) => state.user?.access === 'ADMIN')
   const profileId = useProfileStore((state) => state.activeProfileId)
-  useAutosavedDraft(formDraftKey(userId, 'analytics-filters', profileId), { days, network }, (saved) => {
+  const { data: profiles, isError: profilesError } = useQuery({
+    queryKey: ['analytics-profiles', userId],
+    queryFn: profilesApi.list,
+    enabled: Boolean(userId),
+  })
+  // Keep the existing saved period/network filters per operational profile.
+  // The viewing selector never calls setActiveProfileId or /profiles/.../activate.
+  useAutosavedDraft(formDraftKey(userId, 'analytics-filters', profileId), {
+    days, network, selectedProfile,
+  }, (saved) => {
     setDays(typeof saved?.days === 'string' ? saved.days : '30')
     setNetwork(typeof saved?.network === 'string' ? saved.network : 'all')
+    setSelectedProfile(typeof saved?.selectedProfile === 'string' ? saved.selectedProfile : 'all')
   })
+  useEffect(() => {
+    // A removed/archived profile cannot stay selected after the list is reloaded.
+    if (selectedProfile !== 'all' && (profilesError || (
+      profiles && !profiles.some((item) => item.id === selectedProfile)
+    ))) {
+      setSelectedProfile('all')
+    }
+  }, [profiles, profilesError, selectedProfile])
   // Do not display another account's or another period's previous result.
-  const profileScope = `${userId ?? ''}:${profileId ?? ''}`
+  const profileScope = `${userId ?? ''}:${selectedProfile}`
   const scopeKey = `${profileScope}:${days}`
-  const visibleProbe = isAdmin && probe?.scopeKey === scopeKey ? probe : null
+  const visibleProbe = isAdmin && selectedProfile !== 'all' && probe?.scopeKey === scopeKey ? probe : null
   const facebookViews = visibleProbe?.network === 'facebook' && visibleProbe.state === 'ok'
     ? visibleProbe.total_views ?? null : null
+  const selectedProfileQuery = `&profile_id=${encodeURIComponent(selectedProfile)}`
+  const canQuerySelection = selectedProfile === 'all'
+    || Boolean(profiles?.some((item) => item.id === selectedProfile))
+  const waitingForProfileList = selectedProfile !== 'all' && !profiles && !profilesError
   const { data, isLoading, error } = useQuery({
-    queryKey: ['analytics-summary', userId, profileId, days, network],
-    queryFn: () => api.get<Summary>(`/analytics/summary?days=${days}${network === 'all' ? '' : `&network=${network}`}`),
+    queryKey: ['analytics-summary', userId, selectedProfile, days, network],
+    queryFn: () => api.get<Summary>(`/analytics/summary?days=${days}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`),
+    enabled: Boolean(userId) && canQuerySelection,
     refetchInterval: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
   })
 
   const { data: timeline, isLoading: timelineLoading, isError: timelineError } = useQuery({
-    queryKey: ['analytics-timeline', userId, profileId, days, network],
-    queryFn: () => api.get<AnalyticsTimeline>(`/analytics/timeline?days=${days}${network === 'all' ? '' : `&network=${network}`}`),
-    enabled: Boolean(profileId),
+    queryKey: ['analytics-timeline', userId, selectedProfile, days, network],
+    queryFn: () => api.get<AnalyticsTimeline>(`/analytics/timeline?days=${days}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`),
+    enabled: Boolean(userId) && canQuerySelection,
     retry: 1,
     refetchInterval: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -92,14 +117,16 @@ export default function AnalyticsPage() {
   const rows = data?.networks ?? []
 
   async function refreshAll() {
-    if (!profileId || refreshing) return
+    if (selectedProfile === 'all' || refreshing) return
     setRefreshing(true)
     setRefreshMessage(null)
     try {
-      const result = await api.post<RefreshResult>('/analytics/refresh', {})
+      const result = await api.post<RefreshResult>(
+        `/analytics/refresh?profile_id=${encodeURIComponent(selectedProfile)}`, {}
+      )
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['analytics-summary', userId, profileId] }),
-        queryClient.invalidateQueries({ queryKey: ['analytics-timeline', userId, profileId] }),
+        queryClient.invalidateQueries({ queryKey: ['analytics-summary', userId, selectedProfile] }),
+        queryClient.invalidateQueries({ queryKey: ['analytics-timeline', userId, selectedProfile] }),
       ])
       setRefreshMessage({
         scope: profileScope,
@@ -117,11 +144,12 @@ export default function AnalyticsPage() {
   }
 
   async function testInsights(name: 'threads' | 'facebook' | 'instagram') {
+    if (selectedProfile === 'all') return
     setProbing(name)
     setProbe(null)
     try {
       const result = await api.post<ProbeResult>(
-        `/analytics/probe/${name}${name === 'facebook' ? `?days=${days}` : ''}`, {}
+        `/analytics/probe/${name}?profile_id=${encodeURIComponent(selectedProfile)}${name === 'facebook' ? `&days=${days}` : ''}`, {}
       )
       setProbe({ ...result, scopeKey })
     } catch {
@@ -135,10 +163,19 @@ export default function AnalyticsPage() {
     <div className="csp-s-0168">
       <header>
         <h1 className="csp-s-0169">Análise de redes</h1>
-        <p className="csp-s-0170">Resultados das publicações do perfil ativo</p>
+        <p className="csp-s-0170">{selectedProfile === 'all'
+          ? 'Resultados das publicações de todos os perfis da conta'
+          : 'Resultados das publicações do perfil selecionado'}</p>
       </header>
 
       <div className="analytics-filters" style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        <Select label="Perfil" value={selectedProfile} onChange={(event) => setSelectedProfile(event.target.value)}
+          width={220} options={[
+            { value: 'all', label: 'Todos os perfis' },
+            ...(profiles ?? []).map((item) => ({
+              value: item.id, label: `${item.nome || 'Perfil'}${item.kind === 'principal' ? ' (principal)' : ''}`,
+            })),
+          ]} />
         <Select label="Período" value={days} onChange={(event) => setDays(event.target.value)} width={160} options={[
           { value: '7', label: '7 dias' }, { value: '30', label: '30 dias' }, { value: '90', label: '90 dias' },
         ]} />
@@ -146,12 +183,19 @@ export default function AnalyticsPage() {
           { value: 'all', label: 'Todas' }, ...Object.entries(names).map(([value, label]) => ({ value, label })),
         ]} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'flex-end' }}>
-          <Button variant="secondary" size="sm" loading={refreshing} disabled={refreshing || !profileId} onClick={refreshAll}>
+          <Button variant="secondary" size="sm" loading={refreshing} disabled={refreshing || selectedProfile === 'all'} onClick={refreshAll}>
             Atualizar informações
           </Button>
           <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Automático a cada 24 horas</span>
         </div>
       </div>
+      {profilesError && <p role="alert" style={{ color: 'var(--negative)', margin: '12px 0 0' }}>
+        Não foi possível listar os perfis. A visão geral continua disponível.
+      </p>}
+      {selectedProfile === 'all' && <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '12px 0 0' }}>
+        Os totais incluem o histórico dos perfis arquivados. Insights oficiais e atualização de redes
+        são individuais: selecione um perfil para consultá-los sem duplicar métricas.
+      </p>}
 
       {refreshMessage?.scope === profileScope && <p role="status" style={{ color: 'var(--text-muted)', margin: '12px 0 0' }}>
         {refreshMessage.message}
@@ -160,7 +204,7 @@ export default function AnalyticsPage() {
         Última consulta às redes: {new Date(data.last_completed_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })} (Brasília).
       </p>}
 
-      {isLoading ? <PageSkeleton variant="table" heading={false} /> : error ? (
+      {isLoading || waitingForProfileList ? <PageSkeleton variant="table" heading={false} /> : error ? (
         <p role="alert" className="csp-s-0171">Não foi possível carregar as análises.</p>
       ) : (
         <>
@@ -168,7 +212,9 @@ export default function AnalyticsPage() {
             timelineLoading={timelineLoading} timelineError={timelineError} />
           <div className="analytics-table-heading">
             <h2>Detalhamento por rede</h2>
-            <p>Dados oficiais disponíveis e contagens operacionais do perfil ativo</p>
+            <p>{selectedProfile === 'all'
+              ? 'Contagens operacionais de todos os perfis da conta'
+              : 'Dados oficiais disponíveis e contagens operacionais do perfil selecionado'}</p>
           </div>
           <div className="analytics-desktop-table" style={{ overflowX: 'auto' }}>
             <table className="csp-s-0172">
@@ -215,11 +261,15 @@ export default function AnalyticsPage() {
             ))}
           </section>
           <p className="csp-s-0176">
-            Envios vêm da fila do Auto Orbital em tempo real. As visualizações do Facebook são da Página conectada, somando somente os dias fornecidos pela Meta na última coleta; não são visualizações individuais dos posts. A coleta de insights ocorre automaticamente após 24 horas quando o serviço está ativo, e na próxima visita após períodos de suspensão do Render Free. O botão permite solicitar outra leitura após 5 minutos. Traço significa indisponível, não zero; curtidas, comentários, reposts e cliques só aparecerão quando houver fonte oficial validada. Redes diferentes não representam pessoas únicas.
+            Envios vêm da fila do Auto Orbital em tempo real. {selectedProfile === 'all'
+              ? 'Na visão geral, visualizações e outros insights oficiais não são somados entre perfis, porque páginas conectadas podem coincidir; por isso aparecem como indisponíveis.'
+              : 'As visualizações do Facebook são da Página conectada, somando somente os dias fornecidos pela Meta na última coleta; não são visualizações individuais dos posts.'}{' '}
+            A coleta de insights ocorre automaticamente após 24 horas quando o serviço está ativo, e na próxima visita após períodos de suspensão do Render Free. O botão permite solicitar outra leitura após 5 minutos quando um perfil está selecionado. Traço significa indisponível, não zero; curtidas, comentários, reposts e cliques só aparecerão quando houver fonte oficial validada. Redes diferentes não representam pessoas únicas.
           </p>
           {isAdmin && <div className="analytics-probe-actions" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
             {(['threads', 'facebook', 'instagram'] as const).map((name) => (
-              <Button key={name} variant="secondary" size="sm" loading={probing === name} disabled={probing !== null} onClick={() => testInsights(name)}>
+              <Button key={name} variant="secondary" size="sm" loading={probing === name}
+                disabled={probing !== null || selectedProfile === 'all'} onClick={() => testInsights(name)}>
                 Testar dados de {names[name]}
               </Button>
             ))}
