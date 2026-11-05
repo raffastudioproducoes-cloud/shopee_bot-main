@@ -192,3 +192,9 @@ Campanha limita seletor/datas por política; frequência legada acima da nova co
 - Upload permanente continua exigindo rascunho salvo; o editor contém link `#campaign-finalization` para salvar antes de anexar. Não se alteraram APIs, regras de limites, Supabase, Storage, scheduler, cron ou produção.
 - Testes locais: `node --test frontend/tests/create-post-flow.test.mjs` — 5/5; build/staging e QA visual devem ser registrados após rollout.
 - SemVer: funcionalidade/organização compatível MINOR acumulada para 3.3.0; `VERSION` mantido em 3.2.0 durante staging.
+
+## 05/11/2026 — Etiqueta de plano: entrada a partir do cartão de perfil (staging)
+
+- Na TopBar, `frontend/src/components/plans/planSummary.css` mantém `active-profile-chip` em `z-index: 2` e a etiqueta em `z-index: 1`; a animação `plan-topbar-tag-reveal` atua apenas no Badge interno quando o plano passa a existir, partindo de trás do perfil e deslizando até a posição final em 680 ms.
+- A faixa verde exposta foi discretamente reduzida de 30 para 24 px no desktop e de 23 para 19 px no mobile, sem alterar avatar, nome, notificações ou ações. Distâncias iniciais específicas por breakpoint e `prefers-reduced-motion: reduce` desativam o movimento quando solicitado.
+- Nenhuma leitura nova de dados, contrato, feature flag, permissão, autenticação, API, cron ou recurso compartilhado. Testes locais: `node --test frontend/tests/topbar-plan-tag-motion.test.mjs` (3/3). A versão oficial continua `3.2.0`; alteração PATCH compatível absorvida na candidata MINOR `3.3.0`.

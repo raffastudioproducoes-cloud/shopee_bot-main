@@ -26,7 +26,8 @@
   gap: 0;
   min-width: 0;
   flex-shrink: 0;
-  padding-bottom: 30px;
+  /* Reserva somente a faixa que fica visível abaixo do cartão frontal. */
+  padding-bottom: 24px;
   white-space: nowrap;
 }
 .plan-topbar-account .active-profile-chip {
@@ -70,6 +71,15 @@
   align-items: flex-end;
   font-size: 14px !important;
   box-shadow: 0 6px 16px rgba(0,0,0,.2);
+  /* O badge só monta quando o plano chega: desliza naquele momento,
+     de trás do perfil (z-index 2), sem animar o placeholder vazio. */
+  --plan-tag-entry-offset: -24px;
+  animation: plan-topbar-tag-reveal 680ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+@keyframes plan-topbar-tag-reveal {
+  from { transform: translateY(var(--plan-tag-entry-offset)); }
+  to { transform: translateY(0); }
 }
 
 @media (max-width: 767px) {
@@ -81,7 +91,7 @@
     width: min(43vw, 164px);
     min-width: 0;
     height: auto;
-    padding-bottom: 23px;
+    padding-bottom: 19px;
   }
   .app-topbar .plan-topbar-account .active-profile-chip {
     position: relative;
@@ -128,5 +138,11 @@
     justify-content: center;
     align-items: flex-end;
     font-size: 11px !important;
+    --plan-tag-entry-offset: -19px;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-topbar-account .plan-topbar-tag > span { animation: none; }
+}
+
