@@ -251,7 +251,6 @@ export function ListasPage() {
                 { icon: "dollar-sign", label: "Valor (mín.)", value: estimatedListValue(list) },
               ]}
               sections={[
-                { label: "Lista", content: list.name },
                 {
                   label: "Produtos",
                   category: `${list.product_count ?? 0} ${list.product_count === 1 ? "item" : "itens"}`,
@@ -273,16 +272,6 @@ export function ListasPage() {
                     ) : (
                       "Nenhum produto nesta lista."
                     ),
-                },
-                {
-                  label: "Criada em",
-                  category: "Data",
-                  content: new Date(list.created_at).toLocaleString("pt-BR"),
-                },
-                {
-                  label: "Atualizada em",
-                  category: "Data",
-                  content: list.updated_at ? new Date(list.updated_at).toLocaleString("pt-BR") : "Nunca atualizada",
                 },
               ]}
             />
