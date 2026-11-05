@@ -2,10 +2,13 @@
 
 Usa apenas fakes já existentes; não cria ambiente Supabase de teste.
 """
+import asyncio
 from io import BytesIO
+from types import SimpleNamespace
 from contextlib import nullcontext
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from PIL import Image
 from pydantic import ValidationError
@@ -214,3 +217,55 @@ def test_product_description_endpoint_uses_existing_gemini_and_does_not_write(fa
         "product_id": 999, "description_only": True, "provider": "gemini",
     })
     assert missing.status_code == 404
+
+
+def test_update_product_accepts_update_builder_without_single(monkeypatch):
+    """Regressão do 500: SyncFilterRequestBuilder após UPDATE não tem .single()."""
+    saved = {
+        "id": 7, "user_id": 42, "name": "Antes", "description": None,
+        "commission": 33, "image": "https://cf.shopee.com.br/img",
+    }
+    observed = {}
+
+    class UpdateQuery:
+        def __init__(self, fields):
+            self.fields = fields
+            self.filters = {}
+
+        def eq(self, key, value):
+            self.filters[key] = value
+            return self
+
+        def execute(self):
+            observed["filters"] = dict(self.filters)
+            if any(saved.get(key) != value for key, value in self.filters.items()):
+                return SimpleNamespace(data=[])
+            saved.update(self.fields)
+            return SimpleNamespace(data=[dict(saved)])
+
+    class FakeTable:
+        def update(self, fields):
+            return UpdateQuery(fields)
+
+    class FakeDB:
+        def table(self, name):
+            assert name == "products"
+            return FakeTable()
+
+    monkeypatch.setattr(products_module, "_get", lambda user_id, product_id: dict(saved))
+    monkeypatch.setattr(products_module, "supabase", FakeDB())
+    monkeypatch.setattr(products_module, "scope_account", lambda q, uid: q.eq("user_id", uid))
+
+    body = ProductUpdate(name="Depois", description="Descrição curta, sem link.")
+    updated = asyncio.run(products_module.update_product(7, body, user_id=42))
+    assert updated["name"] == "Depois"
+    assert updated["description"] == "Descrição curta, sem link."
+    assert saved["commission"] == 33
+    assert saved["image"] == "https://cf.shopee.com.br/img"
+    assert observed["filters"] == {"id": 7, "user_id": 42}
+
+    # O UPDATE não pode alcançar outra conta, mesmo se a checagem inicial falhar.
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(products_module.update_product(7, ProductUpdate(name="Intruso"), user_id=99))
+    assert error.value.status_code == 404
+    assert saved["name"] == "Depois"
