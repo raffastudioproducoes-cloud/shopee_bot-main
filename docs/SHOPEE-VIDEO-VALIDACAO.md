@@ -1,6 +1,6 @@
 # Validação Shopee Open Platform e integração Shopee Vídeo
 
-Estado em 31/10/2026: **cliente técnico em preparação, não conectado à interface nem habilitado em produção.**
+> **Atualização de 05/11/2026 (proposta em staging, gate CI pendente):** a página Credenciais passa a ter um card *informativo* “Shopee Vídeo”, com estado “Aguardando aprovação” e botão de conexão desabilitado. Nenhum OAuth, credencial, upload ou publicador foi ativado; a separação de Shopee Afiliados permanece. A alteração visual ainda não foi promovida a staging/prod nem homologada no Render.\n\nEstado em 31/10/2026: **cliente técnico em preparação, não conectado à interface nem habilitado em produção.**
 
 ## Mensagem de reprovação recebida
 

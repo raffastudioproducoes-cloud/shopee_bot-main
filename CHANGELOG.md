@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Credenciais (staging, 05/11/2026)
+
+- Cards de `/credentials` exibidos em ordem alfabética PT-BR: Facebook, Instagram, Inteligência Artificial, Kwai, Shopee, Shopee Vídeo, Threads, TikTok e X (Twitter), preservando estado, teste, OAuth, formulários, responsividade e recolhimento.
+- Adicionado card recolhível **Shopee Vídeo** com aviso de aprovação oficial pendente e ação de conexão desabilitada. Nenhuma credencial Affiliate é reutilizada, nenhuma nova API/OAuth ou publicação foi habilitada. UI informativa, sem alteração do backend, Supabase, cron ou flags. Testes Node específicos de ordem e bloqueio adicionados; CI GitHub indisponível por limite de compute, portanto staging não será mesclada sem gate/decisão aplicável.
+
+
 ### Fixed — Analytics por publicação (staging, 05/11/2026)
 
 - Impedida a coleta de visualizações gerais de perfil Threads, Páginas Facebook e alcance de conta Instagram para a tela de Análises. As métricas só são agregadas de jobs `succeeded` com ID externo, usando fonte oficial **individual da publicação** e deduplicando `(network,external_id)`; o histórico e os KPIs de envios permanecem preservados.
