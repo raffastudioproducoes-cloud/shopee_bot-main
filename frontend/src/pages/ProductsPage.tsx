@@ -7,6 +7,7 @@ import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
 import { productsApi, type Product, type ProductCreate, type ProductUpdate } from "../api/products"
 import { ProductMediaManager } from "../components/products/ProductMediaManager"
+import { ProductSavedPersonalization } from "../components/products/ProductSavedPersonalization"
 import { AiCopyControls } from "../components/posts/AiCopyControls"
 import { postsApi } from "../api/posts"
 import { aiCredentialsApi } from "../api/credentials"
@@ -391,6 +392,7 @@ export function ProductsPage() {
                 { icon: "dollar-sign", label: "Ganho/venda", value: formatEarnings(product.price_min, product.price_max, product.commission) },
                 { icon: "calendar", label: "Cadastrado", value: new Date(product.created_at).toLocaleDateString("pt-BR") },
               ]}
+              expandedFooter={<ProductSavedPersonalization productId={product.id} description={product.description} />}
               sections={[
                 { label: "Produto", category: product.category || undefined, content: product.name },
                 { label: "Preço", category: "Faixa", content: formatPriceRange(product) },

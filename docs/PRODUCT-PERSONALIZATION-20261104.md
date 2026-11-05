@@ -37,3 +37,12 @@ Data: 04/11/2026 · Escopo: staging · Candidato SemVer: MINOR 3.3.0 (não publi
 - **Causa e correção:** consulta pós-UPDATE usava um método válido em leituras SELECT, mas não no builder de atualização da biblioteca. Removido .single(); a resposta do .execute() é lista, com tratamento de zero linhas como 404 e normalização da primeira linha. O filtro id + user_id permanece aplicado em ambas as etapas e o payload permitido continua apenas name/description.
 - **Escopo de dados:** a coluna products.description já existe no Supabase único; sem necessidade de migração, alteração de política, Storage, cron ou outros serviços. Arquivos enviados antes do erro não devem ser reenviados cegamente.
 - **Gate:** teste com builder fake sem .single() reproduziu a falha antiga e validou o código corrigido, inclusive isolamento de conta, integridade comercial e rejeição de payload vazio. Conclusão de deploy/QA real e referência de commit devem ser registradas no TASK vivo do Vault.
+
+## Prévia no card expandido de Produtos (05/11/2026, somente staging)
+
+- Ao expandir um produto em **Meus Produtos**, o card mantém as estatísticas comerciais originais e passa a exibir em largura total o bloco **Personalização salva**, somente leitura: descrição curta persistida no produto e galeria de imagens/vídeos adicionais.
+- O bloco é montado apenas quando o card está expandido. A consulta autenticada existente `GET /products/{id}/media` é feita sob demanda, por produto/conta, reutilizando cache `["product-media", id]` e invalidação já realizada no editor após upload/remoção. Não há busca em massa de mídias de todos os produtos.
+- Imagens adicionais aparecem em miniaturas que abrem um modal de visualização ampliada; vídeos MP4 abrem o mesmo modal com player e controles. Não há ações de edição/remoção nesse bloco: alterações continuam exclusivas do botão **Editar**.
+- A descrição vem da API de listagem de produtos, não do rascunho local nem do resultado gerado pela IA antes de **Salvar**. Estados explícitos de ausência de descrição, galeria vazia, carregamento e falha de rede. A imagem original Shopee continua como miniatura do card e não conta nas mídias extras.
+- Sem nova API, storage, migration, cron, mudança de cálculo/valores comerciais ou impacto no fluxo de publicações. Compatível com card desktop/mobile e reutiliza design system/Modal/ícones existentes.
+- Teste local antes do commit: `node --test frontend/tests/products-saved-preview.test.mjs` (3 cenários). A validação visual na staging é feita após o Render LIVE.
