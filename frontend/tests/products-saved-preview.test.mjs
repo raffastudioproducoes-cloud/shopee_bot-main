@@ -21,9 +21,9 @@ test("a prévia usa a descrição persistida e mídia autenticada do produto", (
 })
 
 test("mídia só é buscada quando o card é expandido e existe estado de erro/vazio", () => {
-  assert.match(source.card, /expandedFooter\?: ReactNode/)
-  assert.match(source.card, /\{open \? \([\s\S]*\{expandedFooter \? \(/)
-  assert.match(source.page, /expandedFooter=\{<ProductSavedPersonalization/)
+  assert.match(source.card, /expandedHeader\?: ReactNode/)
+  assert.match(source.card, /\{open \? \([\s\S]*\{expandedHeader \? \(/)
+  assert.match(source.page, /expandedHeader=\{<ProductSavedPersonalization/)
   assert.match(source.preview, /mediaQuery\.isPending/)
   assert.match(source.preview, /mediaQuery\.isError/)
   assert.match(source.preview, /mediaQuery\.isSuccess && items\.length === 0/)
@@ -41,6 +41,21 @@ test("imagens e vídeos permitem visualização ampliada sem edição", () => {
   assert.match(source.preview, /whiteSpace: "pre-wrap"/)
 })
 
+test("carrossel navega mídias com setas e mostra no máximo três itens por vez", () => {
+  assert.match(source.preview, /useState\(3\)/)
+  assert.match(source.preview, /items\.slice\(safeStart, safeStart \+ visibleCount\)/)
+  assert.match(source.preview, /width < 270 \? 1 : width < 410 \? 2 : 3/)
+  assert.match(source.preview, /aria-label="Mídia anterior"/)
+  assert.match(source.preview, /aria-label="Próxima mídia"/)
+  assert.match(source.preview, /disabled=\{safeStart === 0\}/)
+  assert.match(source.preview, /disabled=\{safeStart >= lastStart\}/)
+  assert.match(source.preview, /setCarouselStart\(Math\.min\(lastStart, safeStart \+ 1\)\)/)
+  assert.match(source.preview, /ResizeObserver/)
+  const mediaPosition = source.preview.indexOf("Imagens e vídeos adicionais")
+  const descriptionPosition = source.preview.indexOf("Descrição para redes sociais")
+  assert.ok(mediaPosition >= 0 && mediaPosition < descriptionPosition, "a descrição fica depois do carrossel")
+})
+
 test("card mantém os cinco indicadores e exibe somente links na timeline", () => {
   const statsStart = source.page.indexOf('stats={[')
   const sectionsStart = source.page.indexOf('sections={[', statsStart)
@@ -55,5 +70,10 @@ test("card mantém os cinco indicadores e exibe somente links na timeline", () =
   assert.deepEqual([...sections.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]), ["Links"])
   assert.match(sections, /product\.original_link/)
   assert.match(sections, /product\.commission_link/)
-  assert.match(source.page, /expandedFooter=\{<ProductSavedPersonalization/)
+  assert.match(source.page, /expandedHeader=\{<ProductSavedPersonalization/)
+  assert.match(source.page, /statsPlacement="bottom"/)
+  const headerAt = source.card.indexOf('{expandedHeader ? (')
+  const linksAt = source.card.indexOf('{sections.length > 0 ?')
+  const bottomStatsAt = source.card.indexOf('{statsPlacement === "bottom" && statsContent ?')
+  assert.ok(headerAt >= 0 && headerAt < linksAt && linksAt < bottomStatsAt, "ordem: mídias/descrição, links, indicadores")
 })
