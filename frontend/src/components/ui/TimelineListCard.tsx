@@ -39,6 +39,8 @@ export interface TimelineListCardProps {
   sections: TimelineSection[]
   /** Botões de ação (editar/remover), ficam entre o badge e o chevron. */
   actions?: ReactNode
+  /** Bloco em largura total, montado somente com o card expandido. */
+  expandedFooter?: ReactNode
   defaultOpen?: boolean
   style?: CSSProperties
 }
@@ -51,6 +53,7 @@ export function TimelineListCard({
   stats,
   sections,
   actions,
+  expandedFooter,
   defaultOpen = false,
   style,
 }: TimelineListCardProps) {
@@ -164,6 +167,11 @@ export function TimelineListCard({
               </div>
             ))}
           </div>
+          {expandedFooter ? (
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              {expandedFooter}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </Panel>
