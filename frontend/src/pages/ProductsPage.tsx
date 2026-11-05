@@ -394,13 +394,6 @@ export function ProductsPage() {
               ]}
               expandedFooter={<ProductSavedPersonalization productId={product.id} description={product.description} />}
               sections={[
-                { label: "Produto", category: product.category || undefined, content: product.name },
-                { label: "Preço", category: "Faixa", content: formatPriceRange(product) },
-                {
-                  label: "Comissão",
-                  category: "Taxa e ganho",
-                  content: `${formatRate(product.commission)} · ganho estimado ${formatEarnings(product.price_min, product.price_max, product.commission)} por venda`,
-                },
                 {
                   label: "Links",
                   category: "Afiliado",
@@ -417,16 +410,6 @@ export function ProductsPage() {
                         </a>
                       ) : null}
                       {!product.original_link && !product.commission_link ? "—" : null}
-                    </div>
-                  ),
-                },
-                {
-                  label: "Cadastro",
-                  category: "Datas",
-                  content: (
-                    <div className="csp-s-0364">
-                      <span>Criado em {new Date(product.created_at).toLocaleString("pt-BR")}</span>
-                      {product.updated_at ? <span className="csp-s-0365">Atualizado em {new Date(product.updated_at).toLocaleString("pt-BR")}</span> : null}
                     </div>
                   ),
                 },
