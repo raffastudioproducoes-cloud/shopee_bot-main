@@ -11,6 +11,7 @@
 - Facebook e Instagram **não estão conectados** no estado observado; X está bloqueado para cadastro; TikTok/X continuam sem consulta de insights no produto. Um futuro Facebook/Instagram conectado precisa de OAuth/escopo e teste de insights **por mídia**, jamais métricas gerais.
 - Atualização diária e manual reutilizam `claim_analytics_refresh` e APScheduler já existente: 24h/5 minutos, sem cron/pg_net/worker novo. Snapshots legados `facebook_daily_values` e `threads_views` são ignorados no resumo e invalidados na próxima coleta, sem limpeza histórica em massa.
 - Segurança: `scope_account`/`scope_owner`, IDs e status confirmados, token decifrado somente no servidor, sem logs de token/respostas. QA inclui parser, agregador, dedupe, ID inválido e endpoint estritamente de mídia. **Homologação externa efetiva depende de resposta do token real; 14 views gerais não comprovam funcionamento**.
+- Legado observado: o único `publish_job` Threads com ID externo não possui mais `posts` vinculados nem `content_snapshot`/revisão para reconstruir o texto. O ranking exibe o sufixo do ID externo em vez de inventar uma descrição. Para novos envios, manter texto ou snapshot de origem conforme retenção aprovada para permitir comparação sem depender de posts apagados.
 
 Os itens históricos abaixo descrevem implementações anteriores e ficam supersedidos por esta regra quando mencionarem métricas agregadas de Facebook/Threads.
 
