@@ -5,6 +5,16 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.3.0] - 2026-11-05
+
+### Release 3.3.0 — promoção autorizada em 05/11/2026
+
+- Release **MINOR retrocompatível** autorizada por Rafa, consolidando o conteúdo homologado em `staging` após a 3.2.0. A rastreabilidade detalhada de cada item permanece nas seções abaixo e em [docs/RELEASE-3.3.0-20261105.md](docs/RELEASE-3.3.0-20261105.md).
+- Inclui: análises somente por post do Auto Orbital (não por perfil externo), seletor todos/um perfil, histórico de Posts paginado, busca contextual e classificação de Listas, personalização e mídia de Produtos, IA de descrição, barras de cotas, comparação de planos e ajuste do criador/campanhas e da etiqueta visual.
+- Migrations aditivas 087 e 088 já observadas no banco compartilhado; fluxo de agendamento, `pg_net`, dois `pg_cron` e restrições de integração não são modificados pela versão. Integrações Facebook/Instagram desconectadas, X bloqueado e métricas externas indisponíveis não são tratadas como zero.
+- **Porta operacional:** a versão de código em `main` e o deploy Render de produção só podem ser declarados após PR de promoção, verificações de CI/saúde e registro de SHA exatos. CI do staging sofreu falha de infraestrutura antes dos steps; não declarar suíte Python integral aprovada sem execução.
+
+
 ### Fixed — Analytics por publicação (staging, 05/11/2026)
 
 - Impedida a coleta de visualizações gerais de perfil Threads, Páginas Facebook e alcance de conta Instagram para a tela de Análises. As métricas só são agregadas de jobs `succeeded` com ID externo, usando fonte oficial **individual da publicação** e deduplicando `(network,external_id)`; o histórico e os KPIs de envios permanecem preservados.
