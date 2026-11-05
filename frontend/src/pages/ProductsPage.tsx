@@ -291,7 +291,7 @@ export function ProductsPage() {
 
   if (isLoading) {
     return (
-      <PageSkeleton variant="table" titleWidth="180px" subtitleWidth="260px" action toolbar />
+      <PageSkeleton variant="table" titleWidth="180px" subtitleWidth="260px" toolbar />
     )
   }
 
