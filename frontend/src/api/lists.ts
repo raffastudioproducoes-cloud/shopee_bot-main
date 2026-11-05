@@ -36,7 +36,16 @@ export interface ProductListsResponse {
   next_cursor: string | null
 }
 
+export interface ListUsageResponse {
+  /** Campanhas ativadas por ID de lista (histórico da conta/perfil). */
+  counts: Record<string, number>
+}
+
 export const listsApi = {
+  async usage(): Promise<ListUsageResponse> {
+    return api.get<ListUsageResponse>('/lists/usage')
+  },
+
   async list(params?: { cursor?: string; limit?: number }): Promise<ProductListsResponse> {
     const searchParams = new URLSearchParams()
     if (params?.cursor) searchParams.append('cursor', params.cursor)
