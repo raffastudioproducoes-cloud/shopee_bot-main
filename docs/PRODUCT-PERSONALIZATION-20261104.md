@@ -29,3 +29,11 @@ Data: 04/11/2026 · Escopo: staging · Candidato SemVer: MINOR 3.3.0 (não publi
 3. Compilar frontend e validar modal desktop/mobile, nome/copy, URL original imutável, upload/preview/remoção e criação de produto intacta.
 4. Commit, push e deploy na **staging**; validar Render LIVE/readiness e logs. **Não publicar main sem aprovação posterior**.
 5. Registrar evidências em Vault e manter CHANGELOG [Não lançado] até promoção. `VERSION=3.2.0` por enquanto.
+
+
+## Correção operacional do salvamento (05/11/2026, somente staging)
+
+- **Incidente:** o PUT /products/34 retornou HTTP 500 às 00:45:07 UTC (21:45:07 BRT em 04/11). O log do Render identificou AttributeError: 'SyncFilterRequestBuilder' object has no attribute 'single' em api/routers/products.py:242. O upload da imagem já havia sido persistido separadamente e não causou a falha.
+- **Causa e correção:** consulta pós-UPDATE usava um método válido em leituras SELECT, mas não no builder de atualização da biblioteca. Removido .single(); a resposta do .execute() é lista, com tratamento de zero linhas como 404 e normalização da primeira linha. O filtro id + user_id permanece aplicado em ambas as etapas e o payload permitido continua apenas name/description.
+- **Escopo de dados:** a coluna products.description já existe no Supabase único; sem necessidade de migração, alteração de política, Storage, cron ou outros serviços. Arquivos enviados antes do erro não devem ser reenviados cegamente.
+- **Gate:** teste com builder fake sem .single() reproduziu a falha antiga e validou o código corrigido, inclusive isolamento de conta, integridade comercial e rejeição de payload vazio. Conclusão de deploy/QA real e referência de commit devem ser registradas no TASK vivo do Vault.
