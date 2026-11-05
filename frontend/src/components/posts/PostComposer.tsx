@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from "react"
 import { usePlanUsage } from "../../hooks/usePlanUsage"
 import { Eye } from "lucide-react"
 import { useAuthStore } from "../../stores/authStore"
-import { router } from "../../router"
 import { postsApi, type Post, type PostSchedule, type PostNetwork } from "../../api/posts"
 import { credentialsApi, aiCredentialsApi } from "../../api/credentials"
 import {

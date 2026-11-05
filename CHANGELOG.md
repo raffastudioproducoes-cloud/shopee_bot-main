@@ -11,6 +11,9 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Produtos — busca por contexto (staging):** a busca dos produtos cadastrados reconhece equivalências práticas (ex.: "lavadora de carro" → lava-jato/WAP/VAP; "quarto" → cama, lençol, colcha e itens relacionados), procurando o nome dos produtos com saneamento de filtros e compatibilidade com o schema legado, limitação de expansão e isolamento da conta. Debounce no campo de busca; a Pesquisa Avançada da Shopee permanece independente.
 - **Configurações — planos e limites (staging):** seção `/settings#planos` compara cotas Free, Pro e Premium e concentra as informações de disponibilidade e limites; contratação e mudança de plano continuam indisponíveis.
 
+### Fixed
+- **Compilação do editor Gemini (staging):** import da navegação não utilizado removido do compositor após compartilhar o controle de IA; correção de build sem mudança de comportamento.
+
 ### Changed
 - **Produtos — campo de busca único (staging):** removido o input duplicado à direita do título; a busca contextual dos produtos cadastrados passa a usar exclusivamente o campo existente na TopBar, compartilhando o estado e preservando o debounce. Busca dos Posts continua independente, e a Dashboard permanece sem busca. Correção visual/UX compatível (PATCH) incorporada ao candidato MINOR `3.3.0` em homologação; sem alteração antecipada de `VERSION`.
 - **Produtos — cota compacta (staging):** remove o cartão amplo com etiqueta de plano repetida e avisos. Mantém somente consumo/limite de produtos da conta e ação "Melhorar plano" para Free/Pro; Premium e Administrador exibem apenas a cota. O cartão de avatar/nome e etiqueta no topo não foi alterado.
