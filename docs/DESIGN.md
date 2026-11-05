@@ -183,3 +183,12 @@ Reusa Badge/Panel/Button/Skeleton e tokens existentes. Badge da conta na TopBar 
 CTA “Conhecer planos e upgrade” expande informação local com aria-expanded/aria-controls, sem rota fictícia ou cobrança. Contratação/alteração ainda indisponível. Grade fluida, texto quebrável, foco visível, alvo mínimo e mensagens textuais (não somente cor/hover). Vitrine de automação permanece visível em Free/Pro. ADMIN não bloqueia telas comuns e mantém segurança/regras externas.
 
 Campanha limita seletor/datas por política; frequência legada acima da nova cota não é truncada silenciosamente e não pode salvar agenda inválida como null. Leitura/exclusão de rascunhos/anexos existentes permanecem; somente novas mutações de campanha são bloqueadas. Automatizados SSR/contratos cobrem estados; inspeção visual real desktop/mobile com sessão fica pendente até deploy autorizado.
+
+## 05/11/2026 — Criar POST: cotas compactas e campanha em ordem (staging, candidata 3.3.0)
+
+- Em `/posts/criar`, o banner `PlanSummary` foi substituído por `ResourceQuotaBar`: na publicação única mostra cotas conhecidas de envio imediato/recorrente; na campanha mostra vagas ativas, duração e frequência do plano. O formatador `lib/quotaBarPresentation.ts` mantém contagens desconhecidas como desconhecidas (sem inventar zero). O botão `Melhorar plano` leva a `/settings#planos` somente nos planos Free/Pro (inclui legado Plus); não é mostrado no Premium nem para ADMIN. A rota de planos informa que não há checkout.
+- O painel duplicado `plan-campaign-lock` foi removido. Quando o plano não habilita edição ou não pode ser consultado, aviso de bloqueio/retentativa permanece textual; as autorizações finais são verificadas pela API, sem liberação automática pela UI.
+- `CampaignPlanner` agora segue ordem visual e acessível 01 Produtos → 02 Período/frequência → 03 Prévia do calendário → 04 Rascunhos → 05 Ativação → 06 Campanhas/entregas. Seção final de largura limitada, após a prévia, preserva salvar/carregar/excluir rascunhos, ativar, pausar/cancelar, histórico por rede, resultados e homologação.
+- Upload permanente continua exigindo rascunho salvo; o editor contém link `#campaign-finalization` para salvar antes de anexar. Não se alteraram APIs, regras de limites, Supabase, Storage, scheduler, cron ou produção.
+- Testes locais: `node --test frontend/tests/create-post-flow.test.mjs` — 5/5; build/staging e QA visual devem ser registrados após rollout.
+- SemVer: funcionalidade/organização compatível MINOR acumulada para 3.3.0; `VERSION` mantido em 3.2.0 durante staging.
