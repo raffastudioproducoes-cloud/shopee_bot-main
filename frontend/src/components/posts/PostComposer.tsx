@@ -39,20 +39,13 @@ import { PostTimePicker } from "./PostTimePicker"
 import { Button } from "../ui/Button"
 import { IconButton } from "../ui/IconButton"
 import { Textarea } from "../ui/Textarea"
-import { Select } from "../ui/Select"
+import { AiCopyControls } from "./AiCopyControls"
 import { SegmentedToggle } from "../ui/SegmentedToggle"
 import "./postComposerPage.css"
 
 // Ver buildSchedule: run_date de segurança do "Agora" (disparado de fato
 // assim que a mídia termina de subir).
 const NOW_SAFETY_DELAY_MS = 5 * 60 * 1000
-
-const PERSONAS = [
-  { value: "casual", label: "Casual" },
-  { value: "profissional", label: "Profissional" },
-  { value: "divertido", label: "Divertido" },
-  { value: "persuasivo", label: "Persuasivo" },
-]
 
 const WEEKDAYS = [
   { value: 0, label: "Segunda" },
@@ -689,35 +682,16 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
 
         <div className="post-composer-editor-content">
         <div className="csp-s-0326">
-          <Select
-            label="Persona da IA"
-            value={persona}
-            onChange={(e) => setPersona(e.target.value)}
-            options={PERSONAS}
-            width={200}
+          <AiCopyControls
+            persona={persona}
+            onPersonaChange={setPersona}
+            hasAiKey={hasAiKey}
+            isPending={generateMutation.isPending}
+            disabled={selectedProductIds.length === 0 || activeNetworks.length === 0}
+            onGenerate={() => generateMutation.mutate({
+              productId: selectedProductIds[0], partCount: texts.length, mode: "full",
+            })}
           />
-          {hasAiKey ? (
-            <Button
-              type="button"
-              variant="secondary"
-              icon={generateMutation.isPending ? "loader-2" : "sparkles"}
-              disabled={selectedProductIds.length === 0 || activeNetworks.length === 0 || generateMutation.isPending}
-              onClick={() => generateMutation.mutate({
-                productId: selectedProductIds[0], partCount: texts.length, mode: "full",
-              })}
-            >
-              {generateMutation.isPending ? "Gerando..." : "Gerar texto com IA"}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="secondary"
-              icon="sparkles"
-              onClick={() => router.navigate({ to: "/credentials" })}
-            >
-              Cadastre sua chave de IA em Credenciais
-            </Button>
-          )}
         </div>
         {generateMutation.isError && (
           <p style={{ ...metaTextStyle, color: "var(--negative)" }}>{generateMutation.error.message}</p>

@@ -148,3 +148,69 @@ def test_media_route_requires_login():
     client = TestClient(app)
     assert client.get("/products/7/media").status_code == 401
     assert client.post("/products/7/media", files={"file": ("a.jpg", _jpeg(), "image/jpeg")}).status_code == 401
+
+
+def test_short_description_reuses_persona_without_commercial_links():
+    from api.text_variants import generate_short_product_description
+    from api.network_limits import NETWORK_RULES, text_length
+
+    seen = []
+    def complete(prompt, max_tokens):
+        seen.append((prompt, max_tokens))
+        return "Descrição: A Lavadora portátil é prática para a rotina. https://s.shopee.com.br/exemplo"
+
+    text = generate_short_product_description({"name": "Lavadora portátil", "commission_link": "https://secret.invalid"}, "casual", complete)
+    assert text == "A Lavadora portátil é prática para a rotina."
+    assert "https" not in text
+    assert "secret.invalid" not in seen[0][0]
+    assert "Lavadora portátil" in seen[0][0]
+    assert text_length(NETWORK_RULES["x"], text) <= 280
+
+
+def test_short_description_limits_weighted_emoji_without_cutting_unicode():
+    from api.text_variants import generate_short_product_description
+    from api.network_limits import NETWORK_RULES, text_length
+
+    text = generate_short_product_description(
+        {"name": "Produto"},
+        "divertido",
+        lambda prompt, max_tokens: "Ótimo produto! " + "😀" * 200,
+    )
+    assert text_length(NETWORK_RULES["x"], text) <= 280
+
+
+def test_short_description_generation_payload_isolated_from_post_variants():
+    from api.routers.posts import GenerateCopyBody
+    parsed = GenerateCopyBody.model_validate({
+        "product_id": 7, "persona": "profissional", "description_only": True, "provider": "gemini",
+    })
+    assert parsed.description_only is True
+    with pytest.raises(ValidationError):
+        GenerateCopyBody.model_validate({
+            "product_id": 7, "description_only": True, "networks": ["threads"],
+        })
+
+
+def test_product_description_endpoint_uses_existing_gemini_and_does_not_write(fake_db, monkeypatch):
+    from api.routers import posts as posts_module
+    from api.routers import credentials as credentials_module
+    from apis import llm
+
+    client, db = _client(fake_db, monkeypatch)
+    monkeypatch.setattr(posts_module, "supabase", db)
+    monkeypatch.setattr(posts_module, "_check_login_rate_limit", lambda *args, **kwargs: None)
+    monkeypatch.setattr(credentials_module, "resolve_ai_key", lambda *args: ("gemini", "fixture-only", "gemini-test"))
+    monkeypatch.setattr(llm, "complete", lambda provider, key, model, prompt, max_tokens: "Uma peça prática para o dia a dia.")
+    response = client.post("/posts/generate-copy", json={
+        "product_id": 7, "persona": "casual", "description_only": True, "provider": "gemini",
+    })
+    assert response.status_code == 200, response.text
+    assert response.json()["text"] == "Uma peça prática para o dia a dia."
+    assert response.json()["parts"] == ["Uma peça prática para o dia a dia."]
+    assert response.json()["variants"] == []
+    assert db.tables["products"][0]["name"] == "Produto"
+
+    missing = client.post("/posts/generate-copy", json={
+        "product_id": 999, "description_only": True, "provider": "gemini",
+    })
+    assert missing.status_code == 404

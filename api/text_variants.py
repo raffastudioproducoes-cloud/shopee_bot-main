@@ -251,6 +251,62 @@ def generate_variants(product: dict, persona: str, networks: list[str], complete
         for v in variants
     ]
 
+# A personalização de produtos reaproveita a mesma IA/persona do compositor,
+# mas não pode incluir links ou alterar os dados comerciais do produto.
+_PRODUCT_DESCRIPTION_URL_RE = re.compile(
+    r"(?i)(?:https?://|www\.|(?:s\.)?shopee\.(?:com\.br|com)|bit\.ly|t\.co)\S*"
+)
+
+
+def generate_short_product_description(product: dict, persona: str, complete) -> str:
+    """Copy de produto sem URL, limitada ao teto ponderado de 280 do X.
+
+    Reutiliza o gerador do post e os tons do provedor; nunca persiste dados
+    nem altera comissão/links. A pessoa revisa o texto antes de salvar.
+    """
+    from apis.llm import LLMError, PERSONA_TONES
+    from .network_limits import text_length
+
+    name = str(product.get("name") or "").strip()
+    if not name:
+        raise LLMError("bad_response", "Produto sem nome para descrever.")
+    tone = PERSONA_TONES.get(persona, PERSONA_TONES["casual"])
+    prompt = (
+        "Escreva UMA descrição curta de produto em português do Brasil, pronta "
+        "para ser guardada no catálogo do usuário e reutilizada em redes sociais.\n"
+        f"Produto: {name[:240]}\nTom: {tone}\n"
+        "Máximo de 220 caracteres de texto (incluindo emojis), idealmente até 160.\n"
+        "Descreva o produto de forma natural e verdadeira, sem inventar funções, "
+        "preço, desconto, avaliações, urgência ou garantias. "
+        "NÃO inclua links, URLs, @menções, hashtags, links de afiliados nem "
+        "chamada para clicar. Entregue SOMENTE a descrição, sem aspas ou markdown."
+    )
+    raw = complete(prompt, 350)
+    text = _PRODUCT_DESCRIPTION_URL_RE.sub("", raw.strip())
+    text = re.sub(r"(?i)^\s*(?:descrição|legenda)\s*:\s*", "", text)
+    text = re.sub(r"\s+", " ", text).strip().strip(chr(34) + chr(39) + chr(96)).strip()
+    if not text:
+        raise LLMError("bad_response", "A IA não produziu uma descrição válida. Tente novamente.")
+
+    # X pondera emoji com dois caracteres. Corte por palavra quando necessário,
+    # sem partir pares unicode, e valide com o mesmo schema do PUT de produto.
+    truncated = text_length(NETWORK_RULES["x"], text) > 280
+    while text and text_length(NETWORK_RULES["x"], text) > 280:
+        text = text[:-1]
+    text = text.rstrip(" ,;:-")
+    if not text:
+        raise LLMError("bad_response", "A IA não produziu uma descrição válida. Tente novamente.")
+    if truncated and " " in text:
+        text = text.rsplit(" ", 1)[0].rstrip(" ,;:-")
+
+    from .routers.products import ProductUpdate
+    try:
+        ProductUpdate.model_validate({"description": text})
+    except ValueError:
+        raise LLMError("bad_response", "A IA incluiu um link ou texto inválido. Tente novamente.") from None
+    return text
+
+
 # Limite próprio do aplicativo. Não equivale a uma cota anti-spam oficial:
 # cada provedor ainda aplica limites de API e políticas de automação.
 MAX_THREAD_PARTS = 10
