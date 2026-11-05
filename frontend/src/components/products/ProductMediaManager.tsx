@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRef, useState } from "react"
 import { productsApi, type ProductMedia } from "../../api/products"
+import { Button } from "../ui/Button"
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024
 
@@ -81,10 +82,21 @@ export function ProductMediaManager({ productId }: { productId: number }) {
         multiple
         accept="image/jpeg,image/png,image/gif,image/webp,video/mp4"
         disabled={uploading || (images.length >= 5 && videos.length >= 2)}
-        aria-label="Enviar imagens ou vídeos ao produto"
+        aria-label="Selecionar imagens ou vídeos do computador ou celular"
         onChange={(event) => { void handleUpload(event.target.files) }}
-        style={{ display: "block", width: "100%", maxWidth: "100%", marginBottom: 10, color: "var(--text-secondary)" }}
+        style={{ display: "none" }}
       />
+      <Button
+        type="button"
+        variant="secondary"
+        icon="upload"
+        loading={uploading}
+        disabled={uploading || (images.length >= 5 && videos.length >= 2)}
+        onClick={() => inputRef.current?.click()}
+        style={{ marginBottom: 10 }}
+      >
+        {uploading ? "Enviando arquivos…" : "Selecionar imagens ou vídeos"}
+      </Button>
       <p style={{ color: "var(--text-muted)", fontSize: 12, margin: "0 0 8px" }}>
         JPG, PNG, GIF, WebP ou MP4, até 50 MB por arquivo. O envio salva os arquivos imediatamente.
       </p>
