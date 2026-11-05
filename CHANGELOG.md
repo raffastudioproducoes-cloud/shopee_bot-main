@@ -12,6 +12,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Configurações — planos e limites (staging):** seção `/settings#planos` compara cotas Free, Pro e Premium e concentra as informações de disponibilidade e limites; contratação e mudança de plano continuam indisponíveis.
 
 ### Fixed
+- **Produtos — skeleton sem ação fantasma (staging):** retirado o placeholder de botão à direita do cabeçalho durante o carregamento, pois a tela não possui tal ação. Mantidos skeleton de título, filtros e lista, além do cartão de perfil independente na TopBar; correção visual PATCH absorvida na candidata MINOR `3.3.0` (`VERSION=3.2.0` até release aprovada).
 - **TopBar — carregamento da identidade/etiqueta (staging):** o cartão de foto/nome mantém altura e largura de referência no skeleton, inclusive no mobile, sem sobrepor Sair/Notificações; a aba do plano só aparece após a resolução de perfil e cota válidos. Nunca exibir o texto provisório “Plano indisponível”. Correção visual PATCH absorvida pela candidata MINOR `3.3.0`; `VERSION=3.2.0` até homologação e aprovação de release.
 - **Compilação do editor Gemini (staging):** import da navegação não utilizado removido do compositor após compartilhar o controle de IA; correção de build sem mudança de comportamento.
 
