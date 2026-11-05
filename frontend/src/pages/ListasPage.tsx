@@ -9,7 +9,7 @@ import { router } from "../router"
 import { listsApi, type ProductList, type ProductListsResponse } from "../api/lists"
 import { productsApi, type ProductsResponse } from "../api/products"
 import { formatBRL, formatPriceRange, toNumber } from "../lib/commission"
-import { PlanSummary } from "../components/plans/PlanSummary"
+import { ResourceQuotaBar } from "../components/plans/ProductQuotaBar"
 import { usePlanUsage } from "../hooks/usePlanUsage"
 import { resourceAtLimit } from "../lib/planPresentation"
 import { Panel } from "../components/ui/Panel"
@@ -182,7 +182,13 @@ export function ListasPage() {
         </Button>
       </header>
 
-      <PlanSummary resources={["lists"]} />
+      <ResourceQuotaBar
+        resource="lists"
+        plan={planQuery.data}
+        loading={planQuery.isPending}
+        error={planQuery.isError}
+        onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })}
+      />
       {/* Lists */}
       {lists.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
