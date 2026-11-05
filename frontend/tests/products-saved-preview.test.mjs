@@ -40,3 +40,20 @@ test("imagens e vídeos permitem visualização ampliada sem edição", () => {
   assert.match(source.preview, /<img src=\{selected\.preview_url\}/)
   assert.match(source.preview, /whiteSpace: "pre-wrap"/)
 })
+
+test("card mantém os cinco indicadores e exibe somente links na timeline", () => {
+  const statsStart = source.page.indexOf('stats={[')
+  const sectionsStart = source.page.indexOf('sections={[', statsStart)
+  const sectionsEnd = source.page.indexOf('\n              ]}', sectionsStart)
+  assert.ok(statsStart >= 0 && sectionsStart > statsStart && sectionsEnd > sectionsStart)
+
+  const stats = source.page.slice(statsStart, sectionsStart)
+  const sections = source.page.slice(sectionsStart, sectionsEnd)
+  for (const title of ["ID Shopee", "Preço", "Comissão", "Ganho/venda", "Cadastrado"]) {
+    assert.ok(stats.includes(`label: "${title}"`), `${title} deve permanecer nos indicadores`)
+  }
+  assert.deepEqual([...sections.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]), ["Links"])
+  assert.match(sections, /product\.original_link/)
+  assert.match(sections, /product\.commission_link/)
+  assert.match(source.page, /expandedFooter=\{<ProductSavedPersonalization/)
+})
