@@ -55,7 +55,7 @@ from ..media_composition import plan_network_composition
 from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload, detect_media_type
 from ..video_processor import process_video_upload
 from .. import x_oauth
-from ..text_variants import generate_variants, generate_thread_replies, MAX_THREAD_PARTS
+from ..text_variants import generate_variants, generate_thread_replies, generate_short_product_description, MAX_THREAD_PARTS
 from ..internal_client import (
     create_scheduler_job,
     scheduler_availability,
@@ -375,9 +375,13 @@ class GenerateCopyBody(BaseModel):
     part_count: int = Field(default=1, ge=1, le=MAX_THREAD_PARTS)
     mode: Literal["full", "append"] = "full"
     existing_texts: list[str] = []
+    # Na personalização, usa o mesmo gerador mas sem link e com teto X=280.
+    description_only: bool = False
 
     @model_validator(mode="after")
     def _valid_generation_mode(self):
+        if self.description_only and (self.mode != "full" or self.part_count != 1 or self.existing_texts or self.networks):
+            raise ValueError("Descrição de produto exige apenas uma parte, sem redes ou continuação.")
         if self.mode == "append":
             if (not self.existing_texts or
                     len(self.existing_texts) >= self.part_count or
@@ -1336,6 +1340,8 @@ async def generate_copy(
         return llm.complete(provider, api_key, model, prompt, max_tokens)
 
     def generate():
+        if body.description_only:
+            return [], [generate_short_product_description(product_result.data, body.persona, complete)]
         if body.mode == "append":
             replies = generate_thread_replies(
                 product_result.data, body.persona, body.networks,
@@ -1365,6 +1371,8 @@ async def generate_copy(
         logger.warning("Falha ao gerar texto do produto %s (%s): %s", body.product_id, provider, e.kind)
         raise HTTPException(status_code=400, detail=str(e))
 
+    if body.description_only:
+        return {"text": replies[0], "variants": [], "parts": replies, "start_index": 0}
     if body.mode == "append":
         return {
             "text": body.existing_texts[0], "variants": [],
