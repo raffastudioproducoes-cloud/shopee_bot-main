@@ -1,5 +1,7 @@
 # Análises — redes sociais e coleta por plataforma
 
+> **Shopee Vídeo (revisão 07/11/2026):** não está confirmado que a família `Video Management` atenda o feed brasileiro de **criadores afiliados**. Os até seis produtos são vinculados no vídeo; URL na legenda não substitui o vínculo. `get_overview_performance` não é métrica de post, nem a conversão da Affiliate GraphQL é automaticamente atribuível a um vídeo. [Pesquisa técnica, riscos e desbloqueio](SHOPEE-VIDEO-AFILIADOS-GATE-20261107.md). A integração continua informativa, sem chamadas reais.
+
 **07/11/2026 · Base:** staging 3.4.0 · **Escopo:** UI/documentação, candidata MINOR 3.5.0 · **Estado:** catálogo inicial [PR #326](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/326), CI #1077 aprovada, Render staging `dep-dbnglqq9lscs73c0r7f0` LIVE e QA autenticada desktop; ajuste posterior de seletor único/tabela de nove redes em homologação.
 
 ## Contrato atual da interface

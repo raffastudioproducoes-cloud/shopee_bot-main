@@ -99,6 +99,8 @@
 
 ## 0. Identidade, localização e ordem obrigatória de leitura
 
+> **07/11/2026 — SHOPEE VÍDEO, GATE DE AFILIADOS:** fontes oficiais confirmam vídeo de 3–60 segundos e até seis produtos associados **no vídeo** (links na legenda não substituem a associação), relevância e comissão padrão alterada desde 01/07/2026. **Ainda não foi comprovado** que `Video Management` da Open Platform autorize publicar no feed brasileiro **de criadores afiliados**, e não somente vídeos de vendedores. O cliente `apis/shopee_video.py` segue isolado; o compositor continua selecionando um produto para as redes atuais e Análises só aceitará métricas oficiais de vídeos próprios confirmados. [Contrato e fontes](SHOPEE-VIDEO-AFILIADOS-GATE-20261107.md), [TASK](TASK.md). Sem API/OAuth/UI, DB, filas, cron ou `main` alterados; `VERSION=3.4.0`.
+
 - **Produto:** Auto Orbital; software proprietário da **Raffa Studio Produções**, responsável Rafa. Nome histórico de pasta/repositório: *ShopeeAutoVendas* e *shopee_bot*. Não renomear paths técnicos só porque a marca mudou.
 - **Código principal (fonte do comportamento):** https://github.com/raffastudioproducoes-cloud/shopee_bot-main — branches `staging` (homologação) e `main` (produção).
 - **Documentação de decisões e histórico:** https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/tree/main/Projetos/ShopeeAutoVendas — pasta **Projetos/ShopeeAutoVendas/**. Pode estar sincronizada localmente com Obsidian, mas **não presumir** um caminho absoluto de disco em outro ambiente.
