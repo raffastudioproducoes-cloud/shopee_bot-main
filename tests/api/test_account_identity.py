@@ -3,7 +3,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from api.account_identity import cpf_record, normalize_cpf, purchase_readiness
+from api.account_identity import cpf_record, normalize_cpf, normalize_phone, purchase_readiness
 from api.main import app
 from api.routers import users as users_router
 from api.routers.auth import get_current_user_id
@@ -31,6 +31,35 @@ def test_purchase_requirements_only_four_mandatory():
     assert purchase_readiness({"email": None}, None)["missing"] == [
         "Nome e sobrenome", "CPF", "E-mail", "Celular",
     ]
+
+
+def test_phone_accepts_international_ddi_without_breaking_legacy_brazilian_numbers():
+    assert normalize_phone("(21) 99999-8888", mobile=True) == "21999998888"
+    assert normalize_phone("+55 (21) 99999-8888", mobile=True) == "+5521999998888"
+    assert normalize_phone("+1 (415) 555-1234", mobile=True) == "+14155551234"
+    assert normalize_phone("+351 912 345 678") == "+351912345678"
+    assert normalize_phone("") is None
+    for invalid in ("+55 (21) 8888-8888", "+0 123456789", "+1 22", "+12 345 abc", "+1234567890123456"):
+        with pytest.raises(HTTPException) as exc:
+            normalize_phone(invalid, mobile=True)
+        assert exc.value.status_code == 422
+
+
+def test_account_identity_saves_both_international_phones(monkeypatch, fake_db):
+    db = fake_db({"users": [{"id": "mine", "email": "mine@example.com"}], "account_billing_identity": []})
+    monkeypatch.setattr(users_router, "get_supabase", lambda: db)
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: "mine"
+    try:
+        result = TestClient(app).put("/users/me/identity", json={
+            "mobile_phone": "+1 (415) 555-1234", "contact_phone": "+351 912 345 678",
+        })
+        assert result.status_code == 200
+        assert result.json()["mobile_phone"] == "+14155551234"
+        assert result.json()["contact_phone"] == "+351912345678"
+        assert result.json()["purchase_readiness"]["missing"] == ["Nome e sobrenome", "CPF"]
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_identity_api_requires_session():

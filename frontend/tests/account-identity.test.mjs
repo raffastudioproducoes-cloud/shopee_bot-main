@@ -23,6 +23,34 @@ test("CPF só aceita documento com dígitos verificadores válidos", async () =>
   assert.equal(formatCpf("529982247251234"), "529.982.247-25")
 })
 
+test("telefones aplicam máscaras por DDI e aceitam números brasileiros antigos", async () => {
+  const transpiled = ts.transpileModule(await src("lib/phone.ts"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText
+  const mod = { exports: {} }
+  vm.runInNewContext(transpiled, { module: mod, exports: mod.exports })
+  const { PHONE_COUNTRIES, parseStoredPhone, internationalPhone, maskNationalPhone } = mod.exports
+  const br = PHONE_COUNTRIES.find(country => country.id === "BR")
+  const us = PHONE_COUNTRIES.find(country => country.id === "US")
+  const pt = PHONE_COUNTRIES.find(country => country.id === "PT")
+  assert.equal(parseStoredPhone("21999998888").country.id, "BR")
+  assert.equal(parseStoredPhone("+5521999998888").national, "21999998888")
+  assert.equal(parseStoredPhone("+351912345678").country.id, "PT")
+  assert.equal(maskNationalPhone(br, "21999998888", true), "(21) 99999-8888")
+  assert.equal(maskNationalPhone(br, "2199998888"), "(21) 9999-8888")
+  assert.equal(maskNationalPhone(us, "4155551234"), "(415) 555-1234")
+  assert.equal(maskNationalPhone(pt, "912345678"), "912 345 678")
+  assert.equal(internationalPhone(pt, "912 345 678"), "+351912345678")
+  assert.equal(internationalPhone(br, ""), "")
+  assert.equal(internationalPhone(br, "219999988881234"), "+5521999998888")
+  const form = await src("components/profiles/AccountIdentityForm.tsx")
+  const phoneInput = await src("components/profiles/PhoneInput.tsx")
+  assert.match(form, /<PhoneInput label="Celular \* para contratar plano" mobile/)
+  assert.match(form, /<PhoneInput label="Telefone de contato \(opcional\)"/)
+  assert.match(phoneInput, /<select[^>]*aria-label=\{`Código do país/)
+  assert.match(phoneInput, /<input[^>]*type="tel"/)
+})
+
 test("Perfis mostra apenas cota compacta e cadastro por conta", async () => {
   const page = await src("pages/ProfilesPage.tsx")
   assert.doesNotMatch(page, /<PlanBadge \/>/)

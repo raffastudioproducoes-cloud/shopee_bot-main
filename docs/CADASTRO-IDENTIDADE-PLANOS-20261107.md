@@ -28,6 +28,14 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
   mantém validação de dígitos verificadores, sem mudar o contrato cifrado.
   O calendário nativo permite selecionar dia/mês/ano, salvo em `birth_date`
   como data completa, sem deduzir nascimento a partir da idade legada.
+- **Telefones com DDI (07/11):** celular obrigatório para futura contratação
+  e telefone alternativo opcional têm seletor de código do país e entrada com
+  máscara progressiva do número nacional. Brasil inicia selecionado; países do
+  catálogo local incluem Portugal, EUA/Canadá e outros. A troca de país limpa
+  o número visível para evitar reinterpretar um telefone de DDI diferente.
+  Valores novos são persistidos como `+DDI+número` em E.164; valores antigos
+  brasileiros com 10/11 dígitos continuam legíveis, editáveis e válidos no
+  backend. Sem nova coluna, sem mudança de CPF, e-mail ou exigência de compra.
 - E-mail principal é herdado da autenticação, somente leitura; mudanças devem
   seguir fluxo de verificação separado. E-mail alternativo ainda **não recebe**
   links de redefinição: precisará provar propriedade antes de habilitar isso.
@@ -84,6 +92,12 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
 - `PUT /users/me/identity`: altera apenas o próprio `user_id` obtido da sessão;
   valida CPF (dígitos), nome, telefone, CEP e data de nascimento não futura;
   `birth_date` é ISO `YYYY-MM-DD` ou `null`, erro não revela fingerprint.
+- `mobile_phone`/`contact_phone`: aceita BR legado com DDD sem prefixo ou
+  telefone internacional começando por `+` com 8–15 dígitos totais; BR `+55`
+  preserva as regras de DDD e nono dígito móvel. Para os demais países, a
+  verificação atual é **estrutural** (E.164), não prova que número/linha existe,
+  está ativo ou é móvel. Conferir disponibilidade e posse do contato antes
+  de usar para cobrança/recuperação. Base: [ITU-T E.164](https://www.itu.int/itu-t/recommendations/rec.aspx?rec=E.164).
 - `GET /users/me/purchase-readiness`: `{ ready, missing }`. Para contratar:
   **nome completo + CPF + e-mail de acesso + celular**. O gateway futuro deve
   aplicar o mesmo gate no backend imediatamente antes de criar pedido ou mudar
