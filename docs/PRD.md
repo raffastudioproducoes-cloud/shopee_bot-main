@@ -14,7 +14,7 @@
 
 # PRD — Shopee Auto Vendas
 
-> **07/11/2026 — IA DA PLATAFORMA (staging LIVE, release MINOR 3.4.0 autorizada):** clientes não cadastram chave de IA. A plataforma fornece o serviço, e somente ADMIN gerencia provedor/modelo/chave/teste em `/admin/credentials`; o card foi removido de `/credentials` para todos. A migração 089 foi aplicada com credencial ADMIN cifrada e isolamento staging/produção. CI e staging LIVE confirmados; a promoção a `main` está autorizada mas depende de CI/SemVer e deploy de produção. Ver [contrato](IA-PLATAFORMA-ADMIN-20261107.md). Trechos anteriores sobre chave por usuário são históricos da 3.3.0.
+> **07/11/2026 — IA DA PLATAFORMA (produção LIVE 3.4.0):** clientes não cadastram chave de IA. A plataforma fornece o serviço e só ADMIN gerencia provedor/modelo/chave/teste em `/admin/credentials`; o card saiu de `/credentials` para todos. Migração 089 aplicada com segredo ADMIN cifrado e isolamento staging/produção. PR de promoção #314 passou CI #1049 e SemVer #4, main `4ca125f`, Render produção `dep-dbndgcnb9u1s73cip6mg` LIVE, health/ready OK. Ver [contrato](IA-PLATAFORMA-ADMIN-20261107.md). Trechos anteriores sobre chave por usuário são históricos da 3.3.0; QA autenticado ainda não comprovado.
 
 > Documento canônico vivo. Cenário A (projeto existente) — todo o conteúdo abaixo vem do
 > código, do histórico git ou dos documentos já existentes neste repositório e no vault

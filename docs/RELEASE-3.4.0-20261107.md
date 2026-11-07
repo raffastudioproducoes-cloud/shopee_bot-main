@@ -22,6 +22,10 @@
 
 ## Gate de promoção autorizado
 
+**Concluído em 07/11/2026:** PR [#313](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/313) passou CI #1047 e foi mesclada na staging SHA `b5bcbc0760af579dc24cd50f9508202e21b92b8b`; Render `dep-dbndesfb9u1s73cinq4g` LIVE e saúde OK. PR de promoção [#314](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/314) passou [CI #1049](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42352814892) e [SemVer #4](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42352814886), merge normal `main` `4ca125faf72f58c7d5c7623fc7b2a8bbb215f1b0`. Render produção `dep-dbndgcnb9u1s73cip6mg` **LIVE** com `/health` e `/api/health/ready` OK, logs error vazios pós-deploy. Banco confirmou Gemini global em ambos ambientes, sem leitura de segredos; dois cron jobs preservados. `VERSION=3.4.0` em `staging`/`main`, diferenças de arquivos zero após promoção. Vault PR #75 integrou o estado técnico anterior à produção; fechamento documental final desta release deve ser espelhado.
+
+**Checklist histórico utilizado antes da conclusão:**
+
 1. PR de release 3.4.0 para `staging` com `VERSION`, `CHANGELOG` e documentação; aguardar CI e Render LIVE.
 2. Comparar `staging` com `main`; PR de promoção para `main` com gate SemVer 3.3.0→3.4.0 e CI.
 3. Merge e deploy em Render produção `srv-da6vrla6iojc7380a13g`; verificar SHA LIVE, `/health`, `/api/health/ready`, logs e dois crons.
