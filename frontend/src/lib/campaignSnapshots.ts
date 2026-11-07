@@ -77,21 +77,3 @@ export function patchCampaignSnapshot(
   if (!snapshots[productId]) return { ...snapshots }
   return { ...snapshots, [productId]: { ...snapshots[productId], ...changes } }
 }
-
-/** Seleção de redes no nível da campanha, preservando textos próprios de cada produto. */
-export function setCampaignNetworkForAll(
-  snapshots: Readonly<SnapshotMap>,
-  productIds: readonly number[],
-  network: PostNetwork,
-  checked: boolean,
-): SnapshotMap {
-  const next = { ...snapshots }
-  for (const id of productIds) {
-    if (!next[id]) continue
-    const networks = checked
-      ? [...new Set([...next[id].networks, network])]
-      : next[id].networks.filter((entry) => entry !== network)
-    next[id] = { ...next[id], networks }
-  }
-  return next
-}

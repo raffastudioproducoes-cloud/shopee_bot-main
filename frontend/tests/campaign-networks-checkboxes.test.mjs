@@ -19,9 +19,10 @@ test("campanha exibe caixas para todo catálogo social, inclusive planejadas, se
   assert.match(picker, /state\?\.connected === true/)
   assert.match(picker, /isNetworkDisabled\(key\)/)
   assert.match(picker, /!event\.currentTarget\.checked/)
-  assert.match(planner, /scope="campaign"/)
   assert.match(planner, /scope=\{`campaign-product-\$\{id\}`\}/)
-  assert.match(planner, /setCampaignNetworkForAll/)
+  assert.doesNotMatch(planner, /scope="campaign"/)
+  assert.doesNotMatch(planner, /campaignNetworkSelection|updateAllNetworks/)
+  assert.doesNotMatch(picker, /<img\b|partial\?:|campaign-network-option-content/)
   assert.doesNotMatch(picker, /onClick=\{\(\) => onToggle/)
 })
 
