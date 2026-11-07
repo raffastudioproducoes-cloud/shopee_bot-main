@@ -2,11 +2,12 @@
 
 - [x] Decisão e arquitetura documentadas: ADMIN detém App ID/Secret global cifrado por ambiente; clientes salvam somente ID de afiliado por conta, nunca credenciais da plataforma. Origem e limites em [contrato Shopee](SHOPEE-API-GLOBAL-ID-AFILIADO-20261107.md).
 - [x] Código de migração 090 e endpoints, links por conta em busca/produtos/listas e snapshots novos de campanhas; sem writes em cron, scheduler e jobs existentes.
-- [x] Testes locais: 1.265 API PASS (mais um teste ADMIN adicional focalizado), 208 scheduler PASS/1 XFAIL, web 27 PASS, build TypeScript/Vite PASS, Node de credenciais 6/6 e lint bloqueante 0. PostgreSQL 16 adicionado ao CI, ainda sujeito à execução remota.
+- [x] Testes locais: 1.265 API PASS (mais um teste ADMIN adicional focalizado), 208 scheduler PASS/1 XFAIL, web 27 PASS, build TypeScript/Vite PASS, Node de credenciais 6/6 e lint bloqueante 0. PostgreSQL 16 executado na CI remota #1056 e aprovado.
 - [x] Migração 090 aditiva aplicada no Supabase e registrada uma vez em `public.migrations` (`id=85`). Checagem somente de metadados: `production:true, staging:true` para presença de API cifrada, RLS nas duas tabelas, `anon`/`authenticated` sem SELECT; nenhum ID de usuário criado automaticamente. Dois crons inalterados (`wake` */2, `uptime` */12). Nenhum segredo consultado ou reexibido.
-- [ ] Commit, push, PR para `staging`, CI GitHub SUCCESS, merge staging, Render staging LIVE e smoke.
+- [x] **PR #317 integrada em `staging`** no SHA `d196b90963e4e3ebbc17abbb10049b179347ba66` depois de [CI #1056](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42357564587) com os três gates **SUCCESS**: API Python 3.13, frontend Node 20 e PostgreSQL 16 descartável. A CI inicial #1055 encontrou um contrato legado do rascunho USER e dois seletores CSS órfãos; corrigidos na branch, reexecutados localmente (frontend 38+29+9 PASS, web 27 PASS, build PASS) e homologados na #1056. Smoke de promoção a `main` foi `skipped` por condição correta do workflow (PR base staging), não é falha.
+- [x] **Render staging LIVE**: deploy automático `dep-dbneg8h42hec73cbskf0`, mesmo SHA `d196b909`, em 07/11/2026 às 08:59:12 UTC; `/health` e `/api/health/ready` observados pelo navegador com `{"status":"ok"}`. Após 08:59:20 UTC, consulta de logs `error` e HTTP `500/502/503` não retornou eventos; SIGTERM do worker antigo às 08:59:15 UTC é esperado na troca de instâncias. Esses checks **não** substituem QA com sessão USER/ADMIN nem clique Shopee.
 - [ ] Homologação autenticada ADMIN/USER, duas contas com IDs distintos, clique Shopee com `utm_source` correto e atribuição comercial. **Nunca fazer merge main antes da autorização explícita de Rafa.**
-- [ ] Versão MINOR candidata 3.5.0; `VERSION=3.4.0` continua vigente em staging durante a implementação.
+- [x] Classificação SemVer documentada: versão MINOR **candidata 3.5.0**; `VERSION=3.4.0` permanece vigente em staging e produção até autorização e PR de release para `main`.
 
 ## 07/11/2026 — Release 3.4.0 da IA compartilhada: promoção autorizada
 
