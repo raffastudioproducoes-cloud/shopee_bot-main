@@ -7,10 +7,9 @@ const { DISABLED_NETWORKS } = await import('../src/lib/networkLimits.ts')
 
 test('X fica indisponivel no seletor ate virar plano pago', () => {
   const picker = source('../src/components/posts/NetworkPicker.tsx')
-  const postsPage = source('../src/pages/PostsPage.tsx')
-
   assert.equal(DISABLED_NETWORKS.x, 'X estará disponível em um plano pago em breve')
   assert.match(picker, /em breve · plano pago/)
-  assert.match(picker, /isNetworkDisabled\(n\)/)
-  assert.match(postsPage, /if \(isNetworkDisabled\(n\)\) return/)
+  assert.match(picker, /isNetworkDisabled\(key\)/)
+  assert.match(picker, /const ready = availability === "active" && supported && !unavailable/)
+  assert.match(picker, /disabled=\{disabled\}/)
 })
