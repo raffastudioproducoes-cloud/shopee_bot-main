@@ -170,7 +170,7 @@ export function ProfilesPage() {
       )}
 
       {profilesLoading ? (
-        <SkeletonRegion><div className="profiles-cards">
+        <SkeletonRegion><div className="profiles-cards profiles-cards--with-secondary">
           <Panel padding={24}>
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}><SkeletonAvatar size={88} /><Skeleton width="35%" height={24} /></div>
             <div style={{ marginTop: 24 }}><Skeleton width="100%" height={240} /></div>
@@ -191,7 +191,7 @@ export function ProfilesPage() {
           </Button>
         </Panel>
       ) : (
-        <div className="profiles-cards">
+        <div className={`profiles-cards${secondaryProfiles.length > 0 ? " profiles-cards--with-secondary" : ""}`}>
           {principalProfile
             ? profileCard(principalProfile, primaryDetails)
             : <Panel className="profiles-primary-card__fallback">

@@ -217,3 +217,5 @@ Campanha limita seletor/datas por política; frequência legada acima da nova co
 
 > **07/11/2026 — ESTADO DE FALHA DO CADASTRO:** renderizar a grade completa independentemente do resultado inicial de `GET /users/me/identity`, evitando que um erro temporário transforme a área em um aviso sem campos. Quando os dados ainda não foram carregados, usar `fieldset` bloqueado e manter retry visível; habilitar a edição somente após resposta confiável, para preservar dados pessoais já salvos. O primeiro acesso sem linha deve responder HTTP 200 com formulário vazio.
 
+> **07/11/2026 — DISPOSIÇÃO DOS PERFIS:** quando houver perfis secundários, telas com pelo menos 1000px apresentam o card principal à esquerda (coluna flexível) e uma coluna de 240–320px à direita, com cards adicionais alinhados ao topo e empilhados verticalmente. Em telas menores a coluna secundária passa para baixo do card principal. Sem adicionais, o card principal mantém largura integral. Não duplicar formulário, dados de conta ou tags nos secundários.
+

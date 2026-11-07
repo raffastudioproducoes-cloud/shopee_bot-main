@@ -30,6 +30,12 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
   Os demais cards continuam compactos, só com foto e nome; seu menu permite
   editar apenas nome/foto. Se o registro de perfil principal estiver temporariamente
   ausente da lista, um card de contingência mantém acesso ao cadastro da conta.
+- **Distribuição dos cards em 07/11/2026:** em largura de desktop (a partir de
+  1000px) e com perfis adicionais, o card principal permanece à **esquerda** e
+  os secundários ocupam a coluna da **direita em fila vertical**, alinhados ao
+  topo. Abaixo disso, os cards são empilhados com o principal primeiro. Se a
+  conta ainda não tem secundários, o principal pode usar a largura disponível.
+  Nenhum campo muda de dono, e os cards secundários continuam só foto/nome.
 - **Correção de primeiro acesso em 07/11/2026:** para contas antigas sem linha em
   `account_billing_identity`, `maybe_single().execute()` pode retornar o objeto
   Python `None`, não apenas uma resposta com `data=None`. A leitura e a primeira

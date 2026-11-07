@@ -7,8 +7,12 @@
   padding: 16px 48px 16px 16px;
 }
 
-.profiles-cards { display: grid; gap: 20px; margin-top: 20px; }
-.profiles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.profiles-cards { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 20px; margin-top: 20px; }
+.profiles-grid { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; min-width: 0; gap: 16px; }
+@media (min-width: 1000px) {
+  .profiles-cards--with-secondary { grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); }
+  .profiles-cards--with-secondary > .profiles-grid { grid-column: 2; grid-row: 1; }
+}
 .profiles-primary-card__quota { max-width: 700px; margin-bottom: 22px; }
 .profiles-primary-card__fallback { padding: 24px; }
 .profiles-primary-card__fallback h2 { margin: 0 0 14px; font-size: 1.2rem; }
