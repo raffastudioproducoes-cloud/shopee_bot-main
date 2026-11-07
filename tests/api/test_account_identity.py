@@ -96,3 +96,49 @@ def test_identity_api_rejects_invalid_cpf_before_write(monkeypatch, fake_db):
         assert db.tables["account_billing_identity"] == []
     finally:
         app.dependency_overrides.clear()
+
+
+def test_identity_first_access_when_maybe_single_returns_none(monkeypatch, fake_db):
+    """Regressão real: postgrest-py devolve None se a conta ainda não tem cadastro."""
+    db = fake_db({"users": [{"id": "mine", "email": "mine@example.com"}],
+                  "account_billing_identity": []})
+    original_table = db.table
+
+    def table_with_nullable_single(name):
+        query = original_table(name)
+        original_execute = query.execute
+
+        def execute():
+            result = original_execute()
+            if query._single and result.data is None:
+                return None
+            return result
+
+        query.execute = execute
+        return query
+
+    monkeypatch.setattr(db, "table", table_with_nullable_single)
+    monkeypatch.setattr(users_router, "get_supabase", lambda: db)
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: "mine"
+    try:
+        client = TestClient(app)
+        empty = client.get("/users/me/identity")
+        assert empty.status_code == 200
+        assert empty.json()["email"] == "mine@example.com"
+        assert empty.json()["cpf_registered"] is False
+        assert empty.json()["full_name"] is None
+        assert empty.json()["purchase_readiness"]["ready"] is False
+        assert client.get("/users/me/purchase-readiness").status_code == 200
+
+        saved = client.put("/users/me/identity", json={
+            "full_name": "Cliente Teste", "cpf": "52998224725", "mobile_phone": "21999998888",
+        })
+        assert saved.status_code == 200
+        assert saved.json()["purchase_readiness"]["ready"] is True
+        assert len(db.tables["account_billing_identity"]) == 1
+
+        app.dependency_overrides[get_current_user_id] = lambda: "missing"
+        assert client.get("/users/me/identity").status_code == 404
+    finally:
+        app.dependency_overrides.clear()

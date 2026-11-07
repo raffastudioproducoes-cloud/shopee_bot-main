@@ -77,14 +77,15 @@ export function AccountIdentityForm() {
     </div>
     {isPending && <p role="status">Consultando seus dados cadastrais...</p>}
     {isError && <div role="alert">Não foi possível carregar seus dados. <Button type="button" variant="ghost" onClick={() => void refetch()}>Tentar novamente</Button></div>}
-    {data && <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit}>
+      <fieldset className="account-identity__fieldset" disabled={!data}>
       <div className="account-identity__grid">
         <TextInput label="Nome e sobrenome *" required maxLength={150} autoComplete="name" value={form.full_name} onChange={e => change("full_name", e.target.value)} />
-        <div><TextInput label={data.cpf_registered ? "CPF (já cadastrado; preencher somente para alterar)" : "CPF *"}
-          required={!data.cpf_registered} maxLength={18} inputMode="numeric" autoComplete="off" value={form.cpf} onChange={e => change("cpf", e.target.value)} placeholder={data.cpf_registered ? "Protegido •••.•••.•••-••" : "000.000.000-00"} />
+        <div><TextInput label={data?.cpf_registered ? "CPF (já cadastrado; preencher somente para alterar)" : "CPF *"}
+          required={!data?.cpf_registered} maxLength={18} inputMode="numeric" autoComplete="off" value={form.cpf} onChange={e => change("cpf", e.target.value)} placeholder={data?.cpf_registered ? "Protegido •••.•••.•••-••" : "000.000.000-00"} />
           {cpfProblem && <small role="alert" className="account-identity__error">CPF inválido.</small>}
         </div>
-        <TextInput label="E-mail de acesso * (confirmado no cadastro)" type="email" disabled value={data.email ?? "Não cadastrado"} />
+        <TextInput label="E-mail de acesso * (confirmado no cadastro)" type="email" disabled value={data?.email ?? "Aguardando consulta"} />
         <TextInput label="Celular * para contratar plano" type="tel" inputMode="tel" autoComplete="tel" maxLength={24} value={form.mobile_phone} onChange={e => change("mobile_phone", e.target.value)} placeholder="(21) 99999-9999" />
         <TextInput label="Idade (opcional)" type="number" min={0} max={120} value={form.age} onChange={e => change("age", e.target.value)} />
         <TextInput label="E-mail alternativo de recuperação (opcional)" type="email" maxLength={254} autoComplete="off" value={form.recovery_email} onChange={e => change("recovery_email", e.target.value)} />
@@ -98,12 +99,13 @@ export function AccountIdentityForm() {
         <TextInput label="Estado — UF (opcional)" maxLength={2} autoComplete="address-level1" value={form.state} onChange={e => change("state", e.target.value)} />
       </div>
       <p className="account-identity__note">* Nome, CPF e e-mail são exigidos no cadastro. O celular é necessário para contratar. Os demais campos são opcionais. O e-mail alternativo é só contato por enquanto: a recuperação da senha continua pelo e-mail principal confirmado, até a verificação do alternativo. Nenhuma cobrança ocorre aqui.</p>
-      {data.purchase_readiness.missing.length > 0 && <p role="status" className="account-identity__pending">Para contratar futuramente: {data.purchase_readiness.missing.join(", ")}.</p>}
+      {data && data.purchase_readiness.missing.length > 0 && <p role="status" className="account-identity__pending">Para contratar futuramente: {data.purchase_readiness.missing.join(", ")}.</p>}
       {save.isError && <p role="alert" className="account-identity__error">{save.error instanceof Error ? save.error.message : "Não foi possível salvar."}</p>}
       {feedback && <p role="status" className="account-identity__ready">{feedback}</p>}
-      <div className="account-identity__actions"><Button type="submit" variant="primary" disabled={save.isPending || cpfProblem || missingCpf}>
+      <div className="account-identity__actions"><Button type="submit" variant="primary" disabled={!data || save.isPending || cpfProblem || missingCpf}>
         {save.isPending ? "Salvando..." : "Salvar dados cadastrais"}
       </Button></div>
-    </form>}
+      </fieldset>
+    </form>
   </section>
 }

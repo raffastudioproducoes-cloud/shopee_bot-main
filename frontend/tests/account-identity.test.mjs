@@ -31,6 +31,10 @@ test("Perfis mostra apenas cota compacta e cadastro por conta", async () => {
   }
   assert.match(form, /data\.purchase_readiness\.missing/)
   assert.match(form, /cpf_registered/)
+  assert.match(form, /<form onSubmit=\{handleSubmit\}>/)
+  assert.match(form, /<fieldset className="account-identity__fieldset" disabled=\{!data\}>/)
+  assert.doesNotMatch(form, /\{data && <form/)
+  assert.match(form, /disabled=\{!data \|\| save\.isPending/)
   assert.doesNotMatch(form, /localStorage|sessionStorage/)
 })
 
