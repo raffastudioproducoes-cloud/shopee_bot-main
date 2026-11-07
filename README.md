@@ -117,7 +117,7 @@ Tirar o trabalho manual de quem divulga produto de afiliado:
 | **Produtos** | Cadastro, edição, listagem com busca — origem manual ou vinda do garimpo. Aba "Pesquisa Avançada" busca em tempo real no catálogo da Shopee (API de afiliados), com filtros e importação direta pro catálogo pessoal |
 | **Listas de produtos** | Agrupamento de produtos reaproveitável entre posts |
 | **Posts** | Criação de post com um produto, publicação imediata ou recorrente (até 7 dias, até cinco horários diários), histórico de ocorrências e tratamento de resultados incertos. Preview e variantes por rede com mídia privada e adaptação conforme compatibilidade; sucesso real depende de OAuth/escopos e teste na rede. |
-| **Copywriter IA** | Geração de texto de post por persona com a chave de IA do próprio usuário (Gemini, OpenAI ou Anthropic — Credenciais; `apis/llm.py`) |
+| **Copywriter IA** | Geração de texto de post por persona com IA fornecida pela plataforma; o ADMIN gerencia Gemini/OpenAI/Anthropic em `/admin/credentials` (`apis/llm.py`, `api/routers/platform_ai.py`). |
 | **Credenciais** | Shopee, Threads, X, Facebook, Instagram, TikTok, Kwai — cifradas em repouso (Fernet), nunca reexibidas |
 | **Atividades** | Histórico auditável de ações do usuário |
 | **Perfis e Configurações** | Até 3 perfis por conta (1 principal + 2 secundários, com avatar), editar/excluir/ativar sem recarregar a página e perfil ativo na TopBar; Shopee, assistente/IA e catálogo de produtos são compartilhados pela conta. Listas, posts, mídias, credenciais sociais, dashboard operacional, notificações, logs e backup/restore usam o perfil ativo (ver [Multi-perfil](#multi-perfil)). Página `/settings` com troca de senha. Administração de acesso (ADMIN/USER) na página Perfis |
@@ -262,7 +262,7 @@ Principais grupos: Supabase (`SUPABASE_URL`, `SUPABASE_KEY`), JWT da API (`API_S
 Postgres do Flask/scheduler (`SHOPEE_PG_*`), bridge interno (`INTERNAL_API_SECRET`,
 `FLASK_INTERNAL_URL`, `API_INTERNAL_URL`), OAuth de app único (`THREADS_*`, `X_CLIENT_ID/SECRET`,
 `INSTAGRAM_*`, `FACEBOOK_*`, `TIKTOK_CLIENT_KEY/SECRET`, mais as `*_CALLBACK_URL`),
-criptografia (`APP_ENCRYPTION_KEY`), mídia (bucket privado `post-media` no Supabase Storage, sem credencial de CDN externo) (IA: chave por usuário em Credenciais),
+criptografia (`APP_ENCRYPTION_KEY`), mídia (bucket privado `post-media` no Supabase Storage, sem credencial de CDN externo) (IA: chave central cifrada e editável somente pelo ADMIN, isolada por ambiente),
 `FRONTEND_URL`, `CORS_ORIGINS` e `REQUEST_LOGGING_ENABLED`. Nunca versionar valores reais.
 
 ### Processo no container

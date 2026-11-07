@@ -7,13 +7,14 @@ const registryStart = source.indexOf("  const cards: {")
 const registryEnd = source.indexOf("  const grouped = groupCredentialCards(cards)", registryStart)
 const registry = source.slice(registryStart, registryEnd)
 
-test("os nove cards integram o agrupamento, com ordenação alfabética PT-BR em cada seção", () => {
+test("os oito cards das redes integram o agrupamento, sem chave IA na página comum", () => {
   assert.ok(registryStart >= 0 && registryEnd > registryStart)
-  const cards = ["Facebook", "Instagram", "Inteligência Artificial", "Kwai",
+  const cards = ["Facebook", "Instagram", "Kwai",
     "Shopee Vídeo", "Threads", "TikTok", "X (Twitter)"]
   for (const title of cards) {
     assert.equal(registry.split('title: "' + title + '"').length - 1, 1, `Card ${title} deve aparecer uma vez`)
   }
+  assert.doesNotMatch(registry, /Inteligência Artificial|AiCredentialCard/)
   assert.match(source, /const SIMPLE_NETWORKS[^]*?key: "shopee", label: "Shopee"/)
   assert.match(registry, /\.\.\.SIMPLE_NETWORKS\.map\(\(network\) => \(\{/)
   assert.match(source, /groupCredentialCards\(cards\)/)
@@ -25,7 +26,7 @@ test("os nove cards integram o agrupamento, com ordenação alfabética PT-BR em
 
 test("Shopee Vídeo é card informativo, recolhível e sem conexão fictícia", () => {
   const start = source.indexOf("function ShopeeVideoCredentialCard()")
-  const end = source.indexOf("// ── Card da chave de IA", start)
+  const end = source.indexOf("// ── Card do Threads", start)
   assert.ok(start > 0 && end > start)
   const card = source.slice(start, end)
   assert.match(card, /<CredPanel id="Shopee Vídeo">/)

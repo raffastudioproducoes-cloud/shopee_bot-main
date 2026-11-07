@@ -196,13 +196,13 @@ def test_short_description_generation_payload_isolated_from_post_variants():
 
 def test_product_description_endpoint_uses_existing_gemini_and_does_not_write(fake_db, monkeypatch):
     from api.routers import posts as posts_module
-    from api.routers import credentials as credentials_module
+    from api.routers import platform_ai as platform_ai_module
     from apis import llm
 
     client, db = _client(fake_db, monkeypatch)
     monkeypatch.setattr(posts_module, "supabase", db)
     monkeypatch.setattr(posts_module, "_check_login_rate_limit", lambda *args, **kwargs: None)
-    monkeypatch.setattr(credentials_module, "resolve_ai_key", lambda *args: ("gemini", "fixture-only", "gemini-test"))
+    monkeypatch.setattr(platform_ai_module, "resolve_platform_ai_key", lambda: ("gemini", "fixture-only", "gemini-test"))
     monkeypatch.setattr(llm, "complete", lambda provider, key, model, prompt, max_tokens: "Uma peça prática para o dia a dia.")
     response = client.post("/posts/generate-copy", json={
         "product_id": 7, "persona": "casual", "description_only": True, "provider": "gemini",

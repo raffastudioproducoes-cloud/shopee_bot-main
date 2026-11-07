@@ -168,8 +168,8 @@ def api(fake_db, monkeypatch):
     monkeypatch.setattr(posts_module, "supabase", db)
     from api.routers import auth
     monkeypatch.setattr(auth, "_login_attempts", {})
-    from api.routers import credentials
-    monkeypatch.setattr(credentials, "resolve_ai_key", lambda *_a, **_k: ("gemini", "k", None))
+    from api.routers import platform_ai
+    monkeypatch.setattr(platform_ai, "resolve_platform_ai_key", lambda: ("gemini", "k", None))
 
     async def fake_job(**_kw):
         return "job-1"

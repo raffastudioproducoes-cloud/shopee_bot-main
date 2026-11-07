@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — IA custeada pela plataforma (candidata MINOR 3.4.0, branch 07/11/2026)
+
+- `POST /posts/generate-copy` usa exclusivamente o provedor ativo da plataforma; `/ai/status` informa somente disponibilidade, sem exigir chave de clientes. Mantém checagem de propriedade e limite atual de 5 gerações/minuto por usuário.
+- Gestão Gemini/OpenAI/Anthropic (chave cifrada, modelo, ativação, troca, teste e desconexão) transferida para `/admin/credentials`, com rotas `/admin/ai` protegidas; card removido de `/credentials` para USER e ADMIN.
+- Migration **089** aditiva cria tabelas com RLS e grants restritos, isola `staging`/`production` e copia a chave ADMIN existente sem decifrar nem apagar credenciais legadas. Nenhuma mudança em `pg_cron`, `pg_net`, OAuth, pagamentos ou filas.
+- Testes novos da API, RLS e frontend; contratos antigos atualizados. Detalhes: [IA-PLATAFORMA-ADMIN-20261107](docs/IA-PLATAFORMA-ADMIN-20261107.md).
+- **Estado:** branch candidata, não publicada. `VERSION=3.3.0` até release. Gemini API tem faturamento próprio, separado da assinatura Google AI Pro; o titular deve configurar teto mensal de gastos no projeto API.
+
 ## [3.3.0] - 2026-11-07
 
 ### Release 3.3.0 — promoção autorizada em 05/11/2026
