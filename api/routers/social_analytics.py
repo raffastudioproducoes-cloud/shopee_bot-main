@@ -1,18 +1,19 @@
 """Contagens operacionais de publicacao, sem confundir com insights das redes."""
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
-from ..analytics_refresh import TABLE as REFRESH_TABLE, refresh_account
+from ..analytics_refresh import (TABLE as REFRESH_TABLE, claim_manual_refresh,
+                                 manual_quota_status, refresh_account)
 from ..database import supabase
 from ..post_insights import (current_network_connections, distinct_published_jobs,
                              indexed_insights, published_jobs, summarize_post_metrics)
 from ..profiles import scope_account, scope_owner
 from .auth import get_current_user_id
-from .credentials import _check_test_rate_limit, _require_admin
 from .profiles import get_current_profile_id
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -103,37 +104,6 @@ def _account_timeline(user_id, days: int, network: Network | None) -> list[dict]
             for (day, name, status), total in sorted(totals.items())]
 
 
-@router.post("/probe/{network}")
-async def probe_insights(
-    network: str,
-    days: int = Query(30),
-    selected_profile_id: str | None = Query(None, alias="profile_id"),
-    user_id: int = Depends(_require_admin),
-    profile_id: str | None = Depends(get_current_profile_id),
-):
-    """Admin: valida cache de publicação individual, sem consultar contas ou Páginas."""
-    if network not in NETWORKS:
-        raise HTTPException(status_code=404, detail="Rede não reconhecida")
-    if days not in (7, 30, 90):
-        raise HTTPException(status_code=422, detail="Período inválido")
-    profile_id, all_profiles = _analytics_profile(user_id, selected_profile_id, profile_id)
-    if all_profiles or not profile_id:
-        raise HTTPException(status_code=400, detail="Selecione um perfil")
-    _check_test_rate_limit(user_id)
-    jobs = distinct_published_jobs(published_jobs(user_id, profile_id, days, network))
-    if not jobs:
-        return {"network": network, "state": "no_posts", "post_count": 0}
-    selected = next((job for job in jobs if job.get("external_id")), None)
-    if not selected:
-        return {"network": network, "state": "missing_external_id", "post_count": len(jobs)}
-    index = indexed_insights(user_id, [selected])
-    item = index.get(selected["id"])
-    if not item or item.get("external_id") != selected["external_id"]:
-        return {"network": network, "state": "not_collected", "post_count": len(jobs)}
-    return {"network": network, "state": item["state"], "post_count": len(jobs),
-            "metric": "views", "total_views": item.get("views") if item["state"] == "ok" else None}
-
-
 @router.post("/refresh")
 async def refresh_information(
     selected_profile_id: str | None = Query(None, alias="profile_id"),
@@ -141,9 +111,49 @@ async def refresh_information(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     profile_id, all_profiles = _analytics_profile(user_id, selected_profile_id, profile_id)
-    if all_profiles or not profile_id:
+    if not all_profiles and not profile_id:
         raise HTTPException(status_code=400, detail="Selecione um perfil")
-    return await refresh_account(user_id, profile_id, manual=True)
+    try:
+        profile_ids = _account_profile_ids(user_id) if all_profiles else [profile_id]
+    except Exception:
+        raise HTTPException(status_code=503, detail="Não foi possível consultar os perfis")
+    if not profile_ids:
+        raise HTTPException(status_code=400, detail="Nenhum perfil disponível para atualização")
+    if len(profile_ids) > 12:
+        raise HTTPException(status_code=422, detail="Selecione um perfil para atualizar; limite de 12 por solicitação")
+    try:
+        claim = await asyncio.to_thread(claim_manual_refresh, user_id, profile_ids)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Controle de atualizações temporariamente indisponível")
+    if not isinstance(claim, dict) or not isinstance(claim.get("quota"), dict):
+        raise HTTPException(status_code=503, detail="Controle de atualizações temporariamente indisponível")
+    if claim.get("state") == "limit_reached":
+        raise HTTPException(status_code=429, detail="Limite de 10 atualizações por dia atingido")
+    if claim.get("state") == "recent":
+        return {"state": "recent", "quota": claim["quota"], "updated_profiles": 0}
+    tokens = claim.get("claims")
+    if claim.get("state") != "accepted" or not isinstance(tokens, dict) or not tokens:
+        raise HTTPException(status_code=503, detail="Controle de atualizações temporariamente indisponível")
+    # Os claims são obtidos pelo backend; nunca chegam ao cliente, nem aos logs.
+    gate = asyncio.Semaphore(3)
+
+    async def collect(selected, token):
+        async with gate:
+            return await refresh_account(user_id, selected, manual=True, claim_token=token)
+
+    await asyncio.gather(*(collect(selected, token) for selected, token in tokens.items()))
+    return {"state": "updated", "quota": claim["quota"], "updated_profiles": len(tokens)}
+
+
+@router.get("/refresh/quota")
+def refresh_quota(user_id: int = Depends(get_current_user_id)):
+    try:
+        quota = manual_quota_status(user_id)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Cota de atualizações indisponível")
+    if not isinstance(quota, dict) or not isinstance(quota.get("unlimited"), bool):
+        raise HTTPException(status_code=503, detail="Cota de atualizações indisponível")
+    return quota
 
 
 def _read_refresh(user_id, profile_id):

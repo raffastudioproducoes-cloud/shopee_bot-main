@@ -17,6 +17,18 @@ class AdminLogEntry(BaseModel):
     def route_template(cls, value: str) -> str:
         # Só templates registrados: nunca repassar parâmetros, queries ou rotas desconhecidas.
         from .main import app
+        if value == 'admin_credentials_test_all':
+            return 'Diagnóstico: teste geral de conexões'
+        platform_names = {
+            'ai': 'IA', 'shopee': 'Shopee', 'facebook': 'Facebook',
+            'instagram': 'Instagram', 'kwai': 'Kwai', 'threads': 'Threads',
+            'tiktok': 'TikTok', 'x': 'X',
+        }
+        # Somente as combinações públicas e enumeradas; não mostrar texto livre.
+        for platform, label in platform_names.items():
+            for state, status in (('ok', 'funcionando'), ('error', 'falha')):
+                if value == f'admin_credentials_test_{platform}_{state}':
+                    return f'Diagnóstico: {label} — {status}'
         if not value.startswith('/'):
             return 'Rota não identificada'
         path = value.partition('?')[0].partition('#')[0]
@@ -31,6 +43,8 @@ class AdminLogEntry(BaseModel):
     @field_validator('method')
     @classmethod
     def known_method(cls, value: str) -> str:
+        if value == 'ACTION':
+            return 'AÇÃO'
         return value if value in {'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'} else 'OUTRO'
 
     @field_validator('created_at')

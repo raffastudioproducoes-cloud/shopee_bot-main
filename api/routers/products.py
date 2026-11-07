@@ -17,6 +17,8 @@ from ..audit_trail import record_audit_event
 from ..database import supabase
 from ..network_limits import NETWORK_RULES, text_length
 from ..profiles import scope_account
+from ..shopee_affiliate_links import canonical_product_url, build_affiliate_link, personalize_product
+from .platform_shopee import get_affiliate_id
 
 router = APIRouter(prefix="/products", tags=["products"])
 logger = logging.getLogger(__name__)
@@ -109,7 +111,8 @@ def _get(user_id: int, product_id: int) -> dict[str, Any]:
     result = query.single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
-    return _normalize_numeric_fields(result.data)
+    row = _normalize_numeric_fields(result.data)
+    return personalize_product(row, get_affiliate_id(user_id) if canonical_product_url(row.get("original_link")) else None)
 
 
 def find_product_in_profile(db: Any, user_id: Any, product_id: Any, profile_id: str | None) -> dict[str, Any] | None:
@@ -169,8 +172,11 @@ async def list_products(
     offset = (page - 1) * page_size
     result = query.range(offset, offset + page_size - 1).execute()
 
+    affiliate_id = (get_affiliate_id(user_id) if any(
+        canonical_product_url(row.get("original_link")) for row in result.data) else None)
     return {
-        "data": [_normalize_numeric_fields(row) for row in result.data],
+        "data": [personalize_product(_normalize_numeric_fields(row), affiliate_id)
+                 for row in result.data],
         "total": len(result.data),
         "page": page,
         "page_size": page_size,
@@ -183,12 +189,17 @@ async def create_product(
     user_id: int = Depends(get_current_user_id),
 ):
     """Cria um novo produto."""
+    affiliate_link = body.commission_link
+    if canonical_product_url(body.original_link):
+        affiliate_link = build_affiliate_link(body.original_link, get_affiliate_id(user_id))
+        if not affiliate_link:
+            raise HTTPException(status_code=400, detail="Cadastre seu ID de afiliado Shopee antes de salvar produtos.")
     data: dict[str, Any] = {
         "user_id": user_id,
         "product_id": body.product_id,
         "name": body.name,
         "original_link": body.original_link,
-        "commission_link": body.commission_link,
+        "commission_link": affiliate_link,
         "commission": body.commission,
         "image": body.image,
         "price_min": body.price_min,
@@ -214,7 +225,8 @@ async def create_product(
         raise HTTPException(status_code=500, detail="Falha ao criar produto") from None
     if not result.data:
         raise HTTPException(status_code=500, detail="Falha ao criar produto")
-    return _normalize_numeric_fields(result.data[0])
+    row = _normalize_numeric_fields(result.data[0])
+    return personalize_product(row, get_affiliate_id(user_id) if canonical_product_url(row.get("original_link")) else None)
 
 
 @router.get("/{product_id}")

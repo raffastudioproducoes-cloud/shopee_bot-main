@@ -48,6 +48,7 @@ jobs:
           python -m unittest discover -s tests/sql -p 'test_f4e2b4_*.py' -v
           python -m unittest discover -s tests/sql -p 'test_f4e2b*.py' -v
           python -m unittest discover -s tests/sql -p 'test_platform_ai_*.py' -v
+          python -m unittest discover -s tests/sql -p 'test_platform_shopee_*.py' -v
 
   api:
     name: API Python (lint + testes)
@@ -111,7 +112,7 @@ jobs:
         run: python -m unittest discover -s tests/ci -p 'test_release_semver.py' -v
 
       - name: Contratos de migracoes de seguranca e indices
-        run: python -m pytest tests/database/test_056_harden_internal_grants.py tests/database/test_057_revoke_table_ddl_grants.py tests/database/test_089_platform_ai_credentials.py --confcutdir=tests/database -q
+        run: python -m pytest tests/database/test_056_harden_internal_grants.py tests/database/test_057_revoke_table_ddl_grants.py tests/database/test_089_platform_ai_credentials.py tests/database/test_090_platform_shopee_affiliate_ids.py tests/database/test_093_account_billing_identity.py --confcutdir=tests/database -q
 
       - name: Testes de seguranca do proxy, CSP e bridge de agendamento
         run: python -m pytest tests/web/test_api_proxy_csrf.py tests/web/test_csp_policy.py tests/web/test_internal_func_whitelist.py --confcutdir=tests/web -q
@@ -135,13 +136,13 @@ jobs:
       - run: npm ci
 
       - name: Contratos de rotas, login e piloto visual da landing
-        run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs tests/posts-composer.test.mjs tests/form-drafts.test.mjs tests/campaign-snapshots.test.mjs tests/plan-access.test.mjs
+        run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs tests/posts-composer.test.mjs tests/form-drafts.test.mjs tests/campaign-snapshots.test.mjs tests/campaign-networks-checkboxes.test.mjs tests/plan-access.test.mjs tests/account-identity.test.mjs tests/profiles-identity-only.test.mjs
 
       - name: Ordenação de Listas e buscas contextuais (Node 20)
         run: node --test tests/posts-history-pagination.test.mjs tests/lists-sort.test.mjs tests/scoped-page-search.test.mjs tests/products-topbar-tab.test.mjs tests/products-topbar-search.test.mjs
 
       - name: Credenciais — ordem, agrupamento e Shopee Vídeo (Node 20)
-        run: node --test tests/credentials-card-order.test.mjs tests/credentials-sections.test.mjs tests/platform-ai-panel.test.mjs
+        run: node --test tests/credentials-card-order.test.mjs tests/credentials-sections.test.mjs tests/credentials-compact-platforms.test.mjs tests/platform-ai-panel.test.mjs tests/admin-diagnostics-compact.test.mjs tests/admin-diagnostics-catalog.test.mjs
 
       - name: Build (tsc && vite build)
         run: npm run build

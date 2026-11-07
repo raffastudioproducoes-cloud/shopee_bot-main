@@ -14,6 +14,8 @@
 
 # PRD — Shopee Auto Vendas
 
+> **07/11/2026 — decisão comercial Shopee para próxima versão (somente staging):** o cliente não fornece mais App ID/Secret Shopee para garimpo, apenas ID de afiliado por conta. A chave da plataforma serve ao catálogo e fica com ADMIN; links do cliente são construídos via `an_redir` com o ID específico. Comissões continuam condicionadas à Shopee, sem prometer elegibilidade ou atribuição sem QA. Migração 090 e detalhes em [contrato Shopee](SHOPEE-API-GLOBAL-ID-AFILIADO-20261107.md). Trechos abaixo que exigem credencial manual Shopee por usuário são históricos da 3.4.0.
+
 > **07/11/2026 — IA DA PLATAFORMA (produção LIVE 3.4.0):** clientes não cadastram chave de IA. A plataforma fornece o serviço e só ADMIN gerencia provedor/modelo/chave/teste em `/admin/credentials`; o card saiu de `/credentials` para todos. Migração 089 aplicada com segredo ADMIN cifrado e isolamento staging/produção. PR de promoção #314 passou CI #1049 e SemVer #4, main `4ca125f`, Render produção `dep-dbndgcnb9u1s73cip6mg` LIVE, health/ready OK. Ver [contrato](IA-PLATAFORMA-ADMIN-20261107.md). Trechos anteriores sobre chave por usuário são históricos da 3.3.0; QA autenticado ainda não comprovado.
 
 > Documento canônico vivo. Cenário A (projeto existente) — todo o conteúdo abaixo vem do
@@ -174,3 +176,6 @@ que iniciaram o fluxo.
 ## Atualização 2026-10-13 - decisão de marca futura
 
 Decisão aprovada em 2026-10-13: a marca futura do produto será **Auto Orbital**. Implementação ainda pendente; o produto, runtime, frontend, infra e documentação viva ainda não foram convertidos. Ver `docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md`.
+> **07/11/2026 — CADASTRO / CONTRATAÇÃO FUTURA (layout revisado):** nome completo, CPF, e-mail e senha obrigatórios no cadastro por e-mail; Google dispensa senha local. Celular obrigatório antes de compra de plano, demais dados pessoais opcionais **editáveis dentro do card do perfil principal** em `/profiles` (não em formulário externo à lista). Cards secundários mostram somente imagem e nome. Identidade de pagamento será **da conta, não de perfil social**. Contratação/renovação ainda não estão implementadas; CPF criptografado, readiness calculado em API; e-mail autenticador só altera por fluxo verificado, ainda não disponível. [Contrato](CADASTRO-IDENTIDADE-PLANOS-20261107.md).
+
+> **07/11/2026 — PERFIS SEM DADOS PESSOAIS DUPLICADOS:** perfis secundários identificados apenas por nome e foto (foto opcional). Criação/edição do perfil não solicita contatos/endereço; estes ficam no formulário editável do titular dentro do card principal da conta. Cota de perfis não exibe tag de plano; botão de upgrade somente quando aplicável. Ativação e gerenciamento continuam operacionais.

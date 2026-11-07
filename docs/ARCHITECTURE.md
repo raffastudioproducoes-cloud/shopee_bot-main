@@ -35,6 +35,8 @@
 
 # ARCHITECTURE — Shopee Auto Vendas
 
+> **07/11/2026 — Shopee API global em staging, candidata 3.5.0:** `api/routers/platform_shopee.py` lê App ID e Secret de `platform_shopee_credentials` com `current_environment()` e `api/crypto.py`; credencial global por branch Render, gerida somente em `/admin/shopee`. `shopee_affiliate_accounts` associa ID numérico à conta; links são compostos com `api/shopee_affiliate_links.py` usando URL original da Shopee e `affiliate_id` individual. `/products/catalog-search` descarta `offerLink` de resultado do app ADMIN. Leitura de produtos/listas reescreve respostas antigas sem DML; criação de produto e novo snapshot de campanha substituem link do cliente por um construído pelo servidor. Migração 090 apenas aditiva, serviço principal 3.4.0 permanece compatível. Histórico de anúncios não é reescrito. [Contrato e gates](SHOPEE-API-GLOBAL-ID-AFILIADO-20261107.md). Nenhuma CI/staging remota alegada nesta nota.
+
 > **07/11/2026 — IA de plataforma LIVE em produção 3.4.0:** `api/routers/platform_ai.py` centraliza provedor e segredo Fernet, separados por `current_environment()` no Supabase compartilhado. Migração 089 aplicada: `platform_ai_credentials` + `platform_ai_settings`, RLS deny-all, acesso `service_role` e cópia cifrada da chave ADMIN; `POST /posts/generate-copy` ignora provedor do cliente. Somente `/admin/ai` gerencia/valida chave, `/ai/status` autenticado retorna disponibilidade e `/credentials/ai` rejeita gestão legada. PR #314 CI #1049/SemVer #4 SUCCESS, main `4ca125f`, Render produção LIVE e saúde OK. Contrato, riscos, testes e rollout em [IA-PLATAFORMA-ADMIN-20261107](IA-PLATAFORMA-ADMIN-20261107.md). QA autenticado não comprovado.
 
 > Documento canônico vivo. Cenário A (projeto existente). Toda afirmação técnica abaixo foi
@@ -482,6 +484,10 @@ staging aprovados. Nenhum post real foi reenviado no teste.
 
 
 ## Atualização de Análises — 31/10/2026 (PR #140)
+
+**Complemento de 07/11/2026 — catálogo social em Análises (staging).** `frontend/src/lib/analyticsNetworks.ts` deriva as nove redes da seção **social** de Credenciais e associa estado de analytics, sem lojas. O seletor Rede é o único controle; a apresentação local da tabela une a lista de nove redes às respostas de cinco filtros operacionais sem alterar nem completar falsamente a API. Kwai, Shopee Vídeo, Telegram e WhatsApp aparecem com métricas nulas/traços, mesmo na lista mobile; seleção individual tem linha informativa. Não há requisições incompatíveis, números simulados nem nova contagem no Supabase. Nenhuma mudança em RPC, schema ou publicador. [Matriz por rede](ANALISE-REDES-COBERTURA-20261107.md).
+
+**Precedência técnica:** o parágrafo histórico de 31/10 abaixo sobre `page_media_view`/`threads_views` foi superado pelo contrato de 05/11: as métricas de perfil/Página foram retiradas e só post individual confirmado pode gerar insight. A coleta atual é somente Threads; ver [ANALISE-REDES-PLANO.md](ANALISE-REDES-PLANO.md).
 
 Fluxo: `AnalyticsPage.tsx` → `GET /api/analytics/summary` (contadores de `publish_jobs` por usuário/perfil em tempo real + cache de métricas da Página Facebook), e `POST /api/analytics/refresh` (coleta sob demanda para USER/ADMIN). A leitura inicial agenda revalidação não bloqueante. `api/analytics_refresh.py` consulta Threads, Facebook e Instagram com a credencial pertencente **à mesma conta e perfil**, por HTTPS, sem enviar token ao cliente; registra somente métricas validadas, estado e horário em `public.analytics_daily_refreshes`.
 

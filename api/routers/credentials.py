@@ -400,6 +400,21 @@ async def list_credentials(user_id: int = Depends(get_current_user_id), profile_
     result: dict[str, dict] = {}
 
     for network, table in SIMPLE_NETWORKS.items():
+        if network == "shopee":
+            # Migração incremental: a chave antiga fica arquivada/cifrada,
+            # mas NÃO indica conexão. Somente o ID da conta é usado nos links.
+            affiliate = scope_account(
+                supabase.table("shopee_affiliate_accounts").select("affiliate_id"), user_id,
+            ).maybe_single().execute()
+            saved_id = (affiliate.data or {}).get("affiliate_id") if affiliate else None
+            registered = bool(saved_id)
+            result[network] = {
+                "connected": registered, "light": "green" if registered else "red",
+                "state": "ok" if registered else "disconnected",
+                "status_text": "ID cadastrado" if registered else "ID não cadastrado",
+                "checked_at": None,
+            }
+            continue
         query = scope_account(supabase.table(table).select("status"), user_id) if network == "shopee" else scope_owner(
             supabase.table(table).select("status"), user_id, profile_id,
         )
@@ -1409,6 +1424,11 @@ async def test_credential(network: str, user_id: int = Depends(get_current_user_
     credencial (escopo user_id/perfil em _test_payload — nunca a de outro),
     com rate limit pra não gastar chamada real à toa."""
     _check_test_rate_limit(user_id)
+    return await _execute_credential_test(network, user_id, profile_id)
+
+
+async def _execute_credential_test(network: str, user_id, profile_id: str | None) -> dict:
+    """Valida uma única credencial do dono e registra a luz; limitador na rota chamadora."""
     payload = _test_payload(network, user_id, profile_id)
     if payload is None:
         raise HTTPException(status_code=400, detail="Nenhuma credencial salva para esta rede.")

@@ -1,0 +1,25 @@
+.account-identity { margin: 0; min-width: 0; }
+.account-identity__intro { display: grid; gap: 8px; min-width: 0; }
+.account-identity__header { display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 16px; }
+.account-identity__header h2 { margin: 0 0 6px; font-size: 1.2rem; }
+.account-identity__header p, .account-identity__note { margin: 0; color: var(--text-muted); font-size: .9rem; line-height: 1.5; }
+.account-identity__fieldset { margin: 0; padding: 0; min-width: 0; border: 0; }
+.account-identity__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 14px 18px; }
+.account-phone { min-width: 0; }
+.account-phone__row { display: flex; gap: 8px; min-width: 0; }
+.account-phone__country, .account-phone__number {
+  height: 40px; min-width: 0; border-radius: var(--r-md); border: 1px solid var(--border-hairline);
+  background: var(--surface-inset); color: var(--text-body); font: var(--text-role-body);
+  transition: var(--t-hover); color-scheme: dark;
+}
+.account-phone__country { flex: 0 0 138px; max-width: 52%; padding: 0 6px; cursor: pointer; }
+.account-phone__number { flex: 1 1 0; padding: 0 12px; }
+.account-phone__country:focus-visible, .account-phone__number:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.account-phone__country:disabled, .account-phone__number:disabled { opacity: .5; cursor: not-allowed; }
+.account-identity input[type="date"] { color-scheme: dark; }
+.account-identity__ready { color: var(--positive); }
+.account-identity__pending { color: var(--text-muted); }
+.account-identity__error { color: var(--negative); }
+.account-identity__note { margin-top: 0; }
+.account-identity__actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+@media (max-width: 650px) { .account-identity__actions > button { width: 100%; } }

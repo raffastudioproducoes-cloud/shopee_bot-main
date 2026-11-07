@@ -27,6 +27,10 @@
 
 > **Auto Orbital — F4C1 concluída em staging (03/11/2026):** PR #215 squash-merge apenas em staging SHA `397f0f760570c7aa39a1756f6a9e05deaf205d2f`, CI #717 verde, migration 073 autorizada e aplicada (Supabase `20261103175106`, `public.migrations` id=68), Render `dep-dbl20fss728c739c6kag` LIVE, `/health` e `/api/health/ready` = `{"status":"ok"}`. Sem post externo nem promoção `main`/produção; `VERSION=3.0.0`. Cotas protegidas por RPC; F4C2 campanhas/automação é etapa posterior. Ver [contrato F4](docs/PLANOS-F4-POLITICAS-E-FASES-20261103.md) e `CHANGELOG.md`.
 
+> **07/11/2026 — diagnóstico de credenciais ADMIN (candidato staging):** painéis IA/Shopee recolhíveis e compactos, logos e grade social somente de status; único botão de teste auditável, sem formulário de overrides na tela. [Contrato e limites](docs/ADMIN-DIAGNOSTICO-CONEXOES-20261107.md). `VERSION=3.4.0` mantida; main não autorizada nesta tarefa.
+
+> **07/11/2026 — proposta em staging:** a próxima versão da Shopee Afiliados usa App ID/Secret global de ADMIN e ID de afiliado individual por conta; gera links `an_redir` sem reutilizar links do administrador. Migração 090 aditiva e homologação de comissão antes de produção. Veja [contrato Shopee](docs/SHOPEE-API-GLOBAL-ID-AFILIADO-20261107.md). `VERSION=3.4.0` permanece vigente até aprovação da release 3.5.0.
+
 > **Entrada obrigatória para agentes e IAs:** leia primeiro [AGENTS.md](AGENTS.md) e o [Guia Mestre de Contexto](docs/GUIA-MESTRE-IA.md) — propósito, localização do Vault, arquitetura, módulos, fluxos, APIs, segurança, RLS, custos, limites e método de verificação. Documentos históricos não substituem o código implantado.
 
 <div align="center">
@@ -34,6 +38,10 @@
 > **Homologação de posts, 02/11/2026:** PR [#186](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/186) implementa geração de uma descrição de IA por rede, limites validados e avisos de compatibilidade de mídia. Somente staging, sem publicação real de teste; [detalhes](docs/POSTS-COPY-IA-POR-REDE-20261102.md).
 
 # Shopee Auto Vendas
+
+> **07/11/2026 — Interface de Perfis na candidata 3.5.0 (somente staging):** `/profiles` organiza o cadastro dentro do card principal (foto/nome, cota e campos editáveis da conta titular); cards secundários exibem apenas foto/nome. O e-mail de login continua protegido por verificação e não pode ser alterado neste formulário. Nenhum gateway, banco, cron ou produção foi alterado. Ver [contrato da identidade](docs/CADASTRO-IDENTIDADE-PLANOS-20261107.md) e [`VERSION`](VERSION), atualmente `3.4.0`.
+
+> **07/11/2026 — Análises (staging):** [PR #326](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/326), CI #1077 e deploy Render LIVE levaram o catálogo de nove redes à página, sem lojas. Após feedback de Rafa, os cards redundantes do topo foram removidos: **Rede** é o único filtro e **Detalhamento por rede** lista nove redes quando em “Todas”, com traços/status para integrações futuras sem números fictícios. [Matriz de dados por rede](docs/ANALISE-REDES-COBERTURA-20261107.md). `VERSION=3.4.0`, candidata 3.5.0; ajuste posterior ainda exige CI/deploy de staging e QA mobile, não promover `main` automaticamente.
 
 ### Divulgação automática de afiliado, do garimpo ao post.
 
@@ -74,6 +82,8 @@
 
 ## Apresentação
 
+> **07/11/2026 — Shopee Open Platform:** antes da integração com Shopee Vídeo de afiliados, o cadastro externo será tratado na ordem **relatório de pentest rejeitado → documentos pendentes → criação de aplicativo**. O motivo da rejeição não aparece nas capturas; não há app cadastrado na conta mostrada. [Checklist de regularização](docs/SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md) e [contrato de vídeo afiliado](docs/SHOPEE-VIDEO-AFILIADOS-GATE-20261107.md). Sem alterar app, tokens, envios ou produção até autorização e comprovação externas.
+
 **Shopee Auto Vendas** é uma plataforma que automatiza a divulgação de links de
 afiliado da Shopee (e, em expansão, de outras redes sociais). Um único painel
 cobre o fluxo inteiro: garimpar produto na Shopee Open API, gerar o texto do
@@ -88,7 +98,7 @@ Banco: **Supabase** (Postgres gerenciado).
 > (`LEGACY_PANEL_ENABLED=false`) e o painel principal é o React (`frontend/`). Ver
 > [Roadmap da migração](#roadmap-da-migração).
 
-**Versão atual:** `3.1.1` (fonte oficial: [`VERSION`](VERSION), histórico: [`CHANGELOG.md`](CHANGELOG.md)). A 3.1.1 endurece a leitura HTTP/2 de perfis. A 3.1.0 promoveu F4E para produção: campanhas por lista com reserva de cotas por rede/dia, retenção de mídia, OAuth, executor seguro, pausas e cancelamentos, histórico e interface PT-BR. O gateway de pagamento, o teste manual final e a confirmação externa de publicações permanecem pendentes. A 3.0.0 consolidou as alterações incompatíveis do fluxo de posts: um produto por publicação e criação somente em `Agora` ou `Recorrente`. `2.7.0` introduziu até cinco horários diários de recorrência e reencodificação MP4. O vídeo continua sem scanner antivírus isolado (ver `docs/POST-MEDIA-SECURITY.md`).
+**Versão atual:** `3.4.0` (fonte oficial: [`VERSION`](VERSION), histórico: [`CHANGELOG.md`](CHANGELOG.md)). A release 3.4.0 centralizou a gestão de IA da plataforma para ADMIN; a candidata 3.5.0 está somente em staging e ainda depende de aprovação. Historicamente, a 3.1.1 endureceu o transporte HTTP/2 de perfis e a 3.1.0 integrou campanhas F4E à produção. Gateway de pagamento, teste manual final e confirmação externa de publicações permanecem pendentes. A 3.0.0 simplificou o fluxo de posts para um produto por publicação. O vídeo continua sem scanner antivírus isolado (ver `docs/POST-MEDIA-SECURITY.md`).
 
 **Campanhas F4E em produção:** o menu possui `Criar POST` e prévia de campanha com ordem de produtos e calendário; a prévia isoladamente não ativa publicações. O ciclo de ativação, reserva e execução de campanha foi integrado em produção na v3.1.0, respeitando guardas de plano e ambiente. Evidência externa de postagem e cobrança por gateway dependem dos gates de aceite ainda abertos. Ver [documentação da campanha](docs/CAMPANHA-POR-LISTA-PREVIA-20261103.md), [TASK](docs/TASK.md) e o bloco `[3.1.0]` do `CHANGELOG.md`. O ícone do menu usa Lucide `square-pen` do design system.
 

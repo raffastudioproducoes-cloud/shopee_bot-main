@@ -32,9 +32,18 @@ export interface TestConnectionResult {
   checked_at: string
 }
 
+export interface AdminTestAllResult {
+  tested: number
+  skipped: number
+  results: Record<string, { state: 'ok' | 'error' | 'skipped'; status_text: string; checked_at: string | null }>
+}
+
 export const credentialsApi = {
   async listAdminStatus(): Promise<Record<SimpleNetwork | 'threads', Pick<CredentialStatusWithLight, 'connected' | 'light' | 'state' | 'status_text' | 'checked_at'>>> {
     return api.get('/admin/credentials/status')
+  },
+  async testAllAdminConnections(): Promise<AdminTestAllResult> {
+    return api.post('/admin/credentials/test-all', undefined)
   },
   async list(): Promise<CredentialsStatusMap> {
     return api.get<CredentialsStatusMap>('/credentials')
@@ -80,6 +89,31 @@ export const credentialsApi = {
     return api.post<TestConnectionResult>(`/credentials/${network}/test`, undefined)
   },
 
+}
+
+export interface ShopeeAffiliateStatus {
+  connected: boolean
+  affiliate_id: string | null
+  catalog_available: boolean
+}
+
+export const shopeeAffiliateApi = {
+  status: () => api.get<ShopeeAffiliateStatus>('/shopee/affiliate'),
+  save: (affiliateId: string) => api.put<{ connected: boolean; affiliate_id: string }>('/shopee/affiliate', { affiliate_id: affiliateId }),
+  delete: () => api.delete<{ connected: boolean }>('/shopee/affiliate'),
+}
+
+export interface AdminShopeeStatus {
+  connected: boolean
+  state: 'ok' | 'error' | 'testing' | null
+  checked_at: string | null
+}
+
+export const adminShopeeApi = {
+  status: () => api.get<AdminShopeeStatus>('/admin/shopee'),
+  save: (appId: string, secret: string) => api.put<{ connected: boolean }>('/admin/shopee', { app_id: appId, secret }),
+  delete: () => api.delete<{ connected: boolean }>('/admin/shopee'),
+  test: () => api.post<TestConnectionResult>('/admin/shopee/test', undefined),
 }
 
 // ── IA fornecida pelo Auto Orbital (chave protegida no servidor) ──

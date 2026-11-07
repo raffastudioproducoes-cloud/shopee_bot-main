@@ -460,6 +460,31 @@ def test_create_profile_uses_atomic_rpc_and_never_trusts_tier_from_browser(auth_
     assert "access" not in call.args[1]
 
 
+def test_create_profile_needs_only_name_and_does_not_duplicate_account_contacts(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [{"id": "new-profile"}])
+    response = auth_client.post("/profiles", json={"nome": "Ofertas do Rafa"})
+    assert response.status_code == 201
+    args = query._fake_client.rpc.call_args.args[1]
+    assert args["p_nome"] == "Ofertas do Rafa"
+    assert args["p_email"] is None
+    assert args["p_telefone"] is None
+    assert args["p_endereco"] is None
+
+
+def test_update_only_profile_name_preserves_legacy_contact_fields(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [{"id": "p-2", "user_id": USER_ID}])
+    response = auth_client.put("/profiles/p-2", json={"nome": "Nome renovado"})
+    assert response.status_code == 200
+    query.update.assert_called_once_with({"nome": "Nome renovado"})
+
+
+def test_list_profiles_returns_only_card_fields(auth_client, monkeypatch):
+    query = _mock_supabase(monkeypatch, [])
+    response = auth_client.get("/profiles")
+    assert response.status_code == 200
+    query.select.assert_called_once_with("id,user_id,kind,plan_tier,nome,avatar_url")
+
+
 def test_create_profile_rejects_policy_unavailable(auth_client, monkeypatch):
     query = _mock_supabase(monkeypatch, [])
     query.execute.side_effect = Exception("plan_policy_unavailable")

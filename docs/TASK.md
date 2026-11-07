@@ -1,3 +1,139 @@
+## 07/11/2026 — Remoção completa de botões e sonda ADMIN de Análises (PATCH candidata 3.5.0)
+
+- [x] Excluir os botões **Verificar coleta de Threads/Facebook/Instagram** e respectivos handlers, estados, mensagens e CSS exclusivos do painel.
+- [x] Encerrar a rota ADMIN órfã `POST /analytics/probe/{network}`, com testes 404 e regressões sobre cache oficial de posts; manter `summary`, `posts`, `timeline`, `refresh`, cota, integração e gráficos.
+- [x] Revisar Guia Mestre, plano, histórico de testes, changelog e contrato; documentação registra a descontinuação sem apagar o histórico das decisões.
+- [ ] CI verde, merge e Render LIVE **somente staging**; validar visualmente ausência dos três botões e preservar `main` até aprovação de Rafa. Sem alteração de `VERSION=3.4.0`; PATCH da candidata `3.5.0`.
+
+## 07/11/2026 — Ajuste textual do painel de integrações (staging)
+
+- [x] Título visível ajustado para **Situação das redes**; preservar nove cards, indicadores, filtros e dados. PATCH da candidata 3.5.0; `VERSION=3.4.0`.
+- [ ] Validar CI, staging LIVE e QA visual; `main` somente após aprovação expressa de Rafa.
+
+## 07/11/2026 — Análises: remover apenas tabelas redundantes (PATCH candidata 3.5.0)
+
+- [x] Remover **Detalhamento por rede** e **Desempenho por publicação**, incluindo renderizações mobile, sem excluir os seis KPIs, seis painéis ou gráficos recém-criados.
+- [x] Manter nove redes/filtros, indicadores oficiais por post e por rede; levar visualizações, curtidas, comentários, reposts, cliques e status para os cards correspondentes. Não substituir ausências de dados por zeros.
+- [x] Atualizar contrato técnico, changelog e teste de regressão; SemVer permanece `VERSION=3.4.0` até release candidata `3.5.0`.
+- [ ] Validar CI, publicar em **staging** e fazer QA autenticada; registrar SHA/deploy. **main somente com aprovação expressa de Rafa.**
+
+## 07/11/2026 — Análises redes: gráficos distintos e cota manual por conta (staging)
+
+- [x] Reorganizar seis KPIs e seis painéis não redundantes; incluir nove redes e ausência de dados oficiais; considerar somente posts publicados pela plataforma.
+- [x] Permitir atualização em Todos os perfis, limitar a 10 ações válidas/dia Brasília por conta em todos os planos, ADMIN ilimitado; atualizar saldo/desabilitar botão e validar 429 no servidor.
+- [x] Criar migração 092 aditiva, RPCs com ownership/lock/RLS e testes de fluxos comuns/admin/cooldown/escopo.
+- [ ] Revisão CI de Python/frontend e migração do Supabase compartilhado, sem alterar cron/pg_net.
+- [ ] Render staging LIVE + QA autenticada, saúde e documentação de evidência; main só após aprovação expressa de Rafa.
+- [Contrato técnico](ANALISE-REDES-DASHBOARD-COTA-20261107.md); `VERSION=3.4.0`, candidata MINOR `3.5.0`.
+
+## 07/11/2026 — Redes sociais compactas na Publicação única (staging)
+
+- [x] Reutilizar o seletor de nove redes da campanha na **Publicação única**, acima de Produtos e no local do seletor atual, com somente checkbox e nome, sem ícones, contêineres individuais ou bordas.
+- [x] Manter redes desconectadas/planejadas visualmente apagadas e bloqueadas; preservar `readOnly` de post existente e permitir apenas desmarcar seleção antiga sem OAuth válido.
+- [ ] CI, Render staging LIVE e validação visual; `main` e produção intocados até autorização expressa de Rafa. SemVer: PATCH compatível incluído na candidata 3.5.0, sem alterar `VERSION=3.4.0`.
+
+## 07/11/2026 — Caixas de seleção de redes na Campanha por lista (staging)
+
+- [x] Mostrar nove redes do catálogo somente no editor **Preparar** de cada produto: checkbox + nome, sem logo, sem caixa/borda nem seletor global. Redes sem OAuth válido, sem publicação ou em desenvolvimento ficam apagadas e não podem ser marcadas.
+- [x] Seleção independente por produto; permitir remover escolhas legadas desconectadas e preservar textos específicos. Consulta de credenciais isolada por conta e perfil.
+- [ ] Confirmar build/testes, CI, deploy LIVE de staging e QA visual; `main` apenas após aprovação de Rafa. Candidata `3.5.0`, sem bump de `VERSION` agora.
+
+## 07/11/2026 — Shopee Vídeo afiliados — execução em staging
+
+- [x] Confirmada a categoria Shopee Video Management para criador afiliado e `auth_type=user` no guia oficial.
+- [x] PR [#331](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/331) com [CI #1089 SUCCESS](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42398886627); merge **staging** `974f56b`, `VERSION=3.4.0` preservada; 3.5.0 candidata MINOR para release aprovada.
+- [x] Migration 091 aditiva aplicada ao Supabase único; duas tabelas com RLS e `anon/authenticated` sem SELECT, credenciais/tokens cifrados pelo backend.
+- [x] Deploy inicial Render staging `dep-dbnme829lscs73c76460` LIVE, health/ready OK, sem HTTP 5xx na janela observada; callback staging configurado e novo deploy `dep-dbnmfbqjnfac73cpsj60` **LIVE**.
+- [ ] Autorizar domínio staging na Shopee, configurar Partner ID/Key TEST do app Video Management e fazer OAuth real com afiliado. Não reutilizar chave Affiliate GraphQL.
+- [ ] Homologar upload multipart, processamento, edição, `aigc_label`, vinculação de itens, postagem e reconciliação antes de habilitar publicação real.
+- [ ] PR `main` e bump da release somente após nova aprovação explícita de Rafa. Não tocar nos dois crons ou `pg_net`.
+- [ ] Caso 1750/pentest segue separado e sem laudo validado; não presumir autorização Go-Live. Ver [contrato](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/blob/staging/docs/SHOPEE-VIDEO-OAUTH-AFILIADOS-20261107.md).
+
+## 07/11/2026 — Atualização oficial Shopee: perfil verificado, caso 1750 esclarecido e pausa solicitada
+
+- [x] **Notificação Shopee 03/11/2026 18:29:** perfil de desenvolvedor **verificado** e liberado para **começar a desenvolver** na Open Platform; **não** significa app, escopo ou API de afiliados/vídeos aprovados. App Type define endpoints.
+- [x] **`My Tasks` 07/11:** **0** obrigatórias atrasadas, **0** obrigatórias nos próximos 7 dias, **0** obrigatórias em andamento e **0** recomendadas em andamento. A lista visível em andamento estava vazia; isso **não prova** dispensa de pentest para futura permissão de app.
+- [x] **Rejeição esclarecida:** `Penetration Test Report` **Case ID 1750**, atualizado **04/11/2026 03:32**, comentário literal: `Not a pentest: document/code review only, no active testing; findings R-01...R-07 have no screenshots, requests or tool output (links only).` Não reenviar documento como pentest nem fabricar provas.
+- [x] Mensagem em inglês com quatro perguntas sobre obrigatoriedade de pentest para afiliado BR, bloqueios, evidências necessárias e regularização do caso, **salva como rascunho não enviado** em [cadastro Shopee](SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md).
+- [ ] **Ao retomar, somente com Rafa:** examinar `Ticket System → Raise Ticket`, selecionar categoria e enviar mensagem **após decisão expressa**. Não houve ticket enviado, gasto, teste ativo, alteração de cadastro ou app criado.
+- **Decisão:** documentação organizada; tarefa **em espera** por solicitação de Rafa. Ainda seguir rejeitado → pendências → app, sem confundir perfil verificado com permissão do serviço de Shopee Vídeo.
+
+## 07/11/2026 — Shopee Open Platform: rejeitado → pendências → aplicativo
+
+- [x] Inventário das três capturas de Rafa: `Penetration Test Report` **Rejected** com motivo conhecido no caso 1750 (ver atualização acima); `Supporting Documents Information` **Pending Upload** com declaração/capturas/URL/credenciais de teste não preenchidas; `App List` **sem aplicativos**.
+- [x] Registrar [roteiro de regularização do console, modelos de consulta, riscos de pentest e preparação segura de documentos](SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md) preservando a implementação de Shopee Vídeo **pausada**.
+- [x] **Fase 1a — rejeitado:** Rafa abriu o lápis e obteve motivo real: não era pentest, somente review sem testes ativos e sem evidências dos achados R-01...R-07 (caso 1750).
+- [ ] **Fase 1b — requisito e regularização:** confirmar via suporte oficial a obrigatoriedade e o modo correto de regularizar o caso para afiliado brasileiro; mensagem **apenas guardada**, envio futuro condicionado à decisão de Rafa. Não reenviar PDF ou contratar pentest sem resposta e aprovação.
+- [ ] **Fase 2 — pendentes:** depois de resolver a fase 1, obter modelo oficial da declaração, montar evidências verdadeiras da aplicação, confirmar URL de revisão e criar **conta de teste exclusiva** (dados sintéticos/menor privilégio), sem expor senha no chat/repo.
+- [ ] **Fase 3 — app:** verificar categoria/serviço realmente capaz de publicar no **feed Shopee Vídeo de criadores afiliados brasileiros** antes de criar App ou ligar OAuth; cliente de vídeo continua bloqueado.
+- **Estado:** só documentação no branch de `staging`, `VERSION=3.4.0` sem bump; nenhuma mudança Shopee, API, banco, cron/pg_net, serviços, custos ou `main`. Sem gatilho de SMTP por domínio próprio **registrado e configurado**.
+
+## 07/11/2026 — Shopee Vídeo de afiliados: pesquisa e gate de autorização
+
+- [x] Ler Guia Mestre, contrato, Vault vivo, `apis/shopee_video.py`, compositor, analytics e fontes oficiais Shopee.
+- [x] Confirmar vídeo de 3–60s, até seis produtos **no vídeo**, sem links de comissão na legenda; associação relevante e imutável depois de publicar. Comissão padrão atualizada a 1,5% em 01/07/2026, sem valor fixado no código.
+- [x] Registrar [mapeamento de IDs, mídia, OAuth, fluxos, métricas candidatas e limites](SHOPEE-VIDEO-AFILIADOS-GATE-20261107.md).
+- [x] **Gate SV.0 — intenção de produto:** Rafa confirmou **feed Shopee Vídeo de criadores/afiliados com comissão** (07/11/2026).
+- [ ] **Gate SV.0 — acesso externo:** Shopee confirmar serviço `Video Management` especificamente autorizado para o **feed de afiliados brasileiros**, após regularizar os documentos e criar app correto. Console genérico não basta.
+- [ ] Após SV.0, OAuth seguro por perfil, seleção exclusiva de até seis `products.product_id`, upload/edição/publicação idempotente; insights por ID externo confirmado, com teste real apenas após consentimento em staging.
+- [ ] CI, deploy LIVE, QA desktop/mobile; `main` somente após autorização separada.
+- **Estado:** documentação apenas; `VERSION=3.4.0`, sem banco/Supabase, dois crons, `pg_net`, scheduler, tokens ou posts afetados. Sem evidência nova de domínio próprio registrado **e configurado** para gatilho SMTP.
+
+## 07/11/2026 — Análises: cobertura das nove redes sociais (candidata 3.5.0)
+
+- [x] Ler AGENTS/Guia/RULES/PRD, código, documentação específica, catálogo de Credenciais e TASK vivo do Vault; preservar insight apenas de post confirmado.
+- [x] Exibir somente nove canais sociais no seletor; ignorar lojas e manter filtros, perfis, tabelas, gráficos e comportamento atual dos cinco filtros da API. **Correção após feedback de Rafa:** remover cards duplicados acima dos gráficos e usar apenas o seletor Rede.
+- [x] Listar todas as nove plataformas no **Detalhamento por rede** para filtro “Todas” (desktop/mobile), com estado legível e `—` para valores sem fonte, inclusive ausência de histórico; seleção individual reduz a uma linha também para rede futura, sem 422 ou consulta externa.
+- [x] Kwai, Shopee Vídeo, Telegram e WhatsApp são estritamente informativos, sem fetch de API ou zeros inventados; X preserva histórico e bloqueio de publicação.
+- [x] Revisar documentação oficial e registrar [fontes, permissões e gates por rede](ANALISE-REDES-COBERTURA-20261107.md).
+- [x] Testes específicos de contrato do frontend 5/5 PASS e TypeScript/Vite build PASS localmente; testes integrados ao workflow CI. Testes de API existentes 25/25 PASS; OAuth e consultas externas não testados.
+- [x] **Primeira entrega:** [PR #326](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/326), [CI #1077](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42368001296) aprovada, merge staging `a056f665797a48556fd2b08ca58966be45826f7b`, Render `dep-dbnglqq9lscs73c0r7f0` LIVE. QA ADMIN autenticada confirmou nove cards/filtros anteriores e comportamento seguro Shopee Vídeo/Threads.
+- [x] **Ajuste solicitado:** novo componente compartilhado de tabela/lista com nove redes, cards superiores removidos e cinco testes de contrato específicos + build TypeScript/Vite **PASS locais**.
+- [ ] **Ajuste posterior:** PR/CI e Render staging LIVE, QA autenticada desktop/mobile após implantação. `main` permanece intacta até autorização separada.
+- **SemVer:** `VERSION=3.4.0`, candidata MINOR `3.5.0`. Sem DB/migration, cron, pg_net, OAuth, post externo ou contratação. Sem evidência nova de domínio próprio registrado **e configurado** para acionar SMTP.
+
+## 07/11/2026 — Diagnóstico ADMIN: catálogo integral de lojas e redes (staging, candidata 3.5.0)
+
+- [x] A partir do catálogo de `/credentials`, incluir no diagnóstico ADMIN os 12 cards de lojas futuras e 3 canais sociais informativos (Shopee Vídeo, Telegram, WhatsApp); manter 6 estados sociais reais e 2 cards globais superiores.
+- [x] Mostrar as seções Lojas/Redes em ordem alfabética PT-BR, com logos locais e selo honesto **Em breve** para integrações ainda não disponíveis. Nenhum campo de token novo ou teste externo para placeholders.
+- [x] Helper de catálogo testado com entradas reais, frontend TypeScript/Vite compilado e teste incorporado ao Actions. Sem backend, schema, API, tokens, jobs ou alterações em banco compartilhado.
+- [x] [PR #324](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/324), [Actions #1071](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42365513913) (API, Frontend e PostgreSQL isolado **SUCCESS**), merge staging `2b1c0a33483cc273d4e576bfe61563c1b6e655bd`, Render `dep-dbng4t7avr4c73adujfg` **LIVE** e QA visual ADMIN autenticada: 12 lojas, 9 sociais, logos e estados informativos exibidos corretamente. O QA detectou baixo contraste em 3 logos, corrigido em um follow-up visual. `main` não deve ser promovida sem aprovação expressa de Rafa.
+- **Referência:** [contrato do diagnóstico](ADMIN-DIAGNOSTICO-CONEXOES-20261107.md), `VERSION=3.4.0` atual e candidata `3.5.0` MINOR. Gatilho SMTP não acionado: sem evidência de domínio próprio novo registrado/configurado.
+
+## 07/11/2026 — Diagnóstico ADMIN compacto (staging LIVE, candidata 3.5.0)
+
+- [x] Escopo: IA/Shopee em ordem alfabética, cards recolhíveis com logos reais e duas colunas no desktop; manter todos os controles globais existentes ao expandir.
+- [x] Área inferior substitui formulários sociais de override por estados resumidos com logos, última verificação e um único botão de testar todas. Rotas e tokens legados preservados, sem exclusão.
+- [x] Endpoint `POST /admin/credentials/test-all` autentica ADMIN, limita uma chamada por lote, testa só IA ativa, Shopee global e redes do próprio perfil conectado, ignora ausentes; atualiza checagens existentes e gera logs sem segredos no Render e na Central administrativa (gravação best effort).
+- [x] Testes API focados e suíte integral local PASS (1.271/1.271), build TypeScript/Vite e Node/CSP PASS; CI #1067 confirmou lint, API, frontend e banco descartável.
+- [x] [PR #322](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/322), [CI #1067](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42363907682) SUCCESS (API, frontend e PostgreSQL isolado), merge **staging** `8345cc74c2ba31f58e70fd0a074ef77485aa5f2b`, Render `dep-dbnfq30473hc739jbs30` LIVE, `/health` + `/api/health/ready` OK; QA autenticado desktop observou cards e formulários recolhíveis sem alterar chaves. **Main intacta.**
+- [ ] Após homologação de Rafa, executar o único botão autenticado e conferir logs reais do lote/custos de chamadas, além de viewport mobile; **não promover main até nova autorização**.
+- **Documentação:** [contrato técnico](ADMIN-DIAGNOSTICO-CONEXOES-20261107.md), [design QA](DESIGN-QA-ADMIN-DIAGNOSTICO-20261107.md) e [plano](superpowers/plans/2026-11-07-admin-diagnostico-compacto.md); `VERSION=3.4.0` permanece, candidata MINOR 3.5.0. Banco compartilhado, `pg_cron` (2), `pg_net`, publicações e produção intocados.
+- **Gatilho SMTP:** sem nova evidência verificável de domínio próprio registrado/configurado; manter configuração atual.
+
+## 07/11/2026 — Credenciais compactas em abas (somente staging, candidata 3.5.0)
+
+- [x] Plano/contrato: [Credenciais compactas — lojas e redes](CREDENCIAIS-COMPACTAS-LOJAS-REDES-20261107.md); logos autênticas e fontes em [`frontend/public/brand-logos/SOURCES.md`](../frontend/public/brand-logos/SOURCES.md).
+- [x] Código local: abas Lojas/Redes sociais, grupos de cadastrados/pendentes em ordem PT-BR por aba, cards compactos fechados inicialmente, logo/nome/status e ajuda interna expansível. Preservados IDs da Shopee, OAuth, desconexão, status e textos existentes.
+- [x] “Testar conexão” foi retirado de `/credentials`, inclusive para ADMIN, e está disponível no diagnóstico `/admin/credentials` apenas para ADMIN. Sem expor segredos, sem alterar endpoints de OAuth ou cadastro.
+- [x] Cards futuros apenas informativos para 12 lojas/redes de afiliados (incluindo Natura e Avon em um card) e Telegram/WhatsApp. Shopee Vídeo e Kwai permanecem bloqueados. **Nunca exibir “Conectado” em plataforma futura sem integração real.**
+- [x] **Correção de categorização (07/11):** Shopee Vídeo pertence à aba **Redes sociais** (publicação de vídeo), enquanto Shopee Afiliados permanece em **Lojas**. A aprovação de Video Management continua pendente; mudança apenas de organização visual, com teste de regressão.
+- [x] Testes locais: 19 Node selecionados PASS, Vite/TypeScript build PASS; verificação de CSP estático 380/380 sem divergência. Pytest focal local bloqueado pela configuração de PostgreSQL inexistente no runner local, devendo ser comprovado na CI isolada.
+- [x] **PR #319 → `staging`** integrada no SHA `a37b9382407e0aa3223d26b5841849c2ba1b27c6`; [CI #1060](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42360659833) **SUCCESS** (frontend, API Python 3.13, PostgreSQL 16 descartável); Render `dep-dbnf4h7b9u1s73ck27hg` **LIVE** às 09:42:26 UTC, mesmo SHA. `/health`, `/api/health/ready`, arquivos de logo Shopee/Pró Spin HTTP 200. Logs detalhados não verificados por exigir workspace Render.
+- [ ] QA autenticado em desktop/mobile e homologação visual de logomarcas, status e persistência do colapso. Navegador de verificação foi redirecionado a `/login` (sem sessão); não foi usado login de cliente nem disparado OAuth. Merge em `main` somente com autorização posterior explícita de Rafa; `VERSION=3.4.0` mantida, candidata MINOR `3.5.0`.
+- [x] **Preservação:** banco Supabase compartilhado, `pg_net`, dois cron jobs, agendamento, produção e credenciais existentes não foram alterados nesta UI. GitHub Actions disponível em 07/11; #305 é incidente histórico resolvido.
+
+## 07/11/2026 — Shopee API global + ID por afiliado (somente staging, candidato 3.5.0)
+
+- [x] Decisão e arquitetura documentadas: ADMIN detém App ID/Secret global cifrado por ambiente; clientes salvam somente ID de afiliado por conta, nunca credenciais da plataforma. Origem e limites em [contrato Shopee](SHOPEE-API-GLOBAL-ID-AFILIADO-20261107.md).
+- [x] Código de migração 090 e endpoints, links por conta em busca/produtos/listas e snapshots novos de campanhas; sem writes em cron, scheduler e jobs existentes.
+- [x] Testes locais: 1.265 API PASS (mais um teste ADMIN adicional focalizado), 208 scheduler PASS/1 XFAIL, web 27 PASS, build TypeScript/Vite PASS, Node de credenciais 6/6 e lint bloqueante 0. PostgreSQL 16 executado na CI remota #1056 e aprovado.
+- [x] Migração 090 aditiva aplicada no Supabase e registrada uma vez em `public.migrations` (`id=85`). Checagem somente de metadados: `production:true, staging:true` para presença de API cifrada, RLS nas duas tabelas, `anon`/`authenticated` sem SELECT; nenhum ID de usuário criado automaticamente. Dois crons inalterados (`wake` */2, `uptime` */12). Nenhum segredo consultado ou reexibido.
+- [x] **PR #317 integrada em `staging`** no SHA `d196b90963e4e3ebbc17abbb10049b179347ba66` depois de [CI #1056](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42357564587) com os três gates **SUCCESS**: API Python 3.13, frontend Node 20 e PostgreSQL 16 descartável. A CI inicial #1055 encontrou um contrato legado do rascunho USER e dois seletores CSS órfãos; corrigidos na branch, reexecutados localmente (frontend 38+29+9 PASS, web 27 PASS, build PASS) e homologados na #1056. Smoke de promoção a `main` foi `skipped` por condição correta do workflow (PR base staging), não é falha.
+- [x] **Render staging LIVE**: deploy automático `dep-dbneg8h42hec73cbskf0`, mesmo SHA `d196b909`, em 07/11/2026 às 08:59:12 UTC; `/health` e `/api/health/ready` observados pelo navegador com `{"status":"ok"}`. Após 08:59:20 UTC, consulta de logs `error` e HTTP `500/502/503` não retornou eventos; SIGTERM do worker antigo às 08:59:15 UTC é esperado na troca de instâncias. Esses checks **não** substituem QA com sessão USER/ADMIN nem clique Shopee.
+- [ ] Homologação autenticada ADMIN/USER, duas contas com IDs distintos, clique Shopee com `utm_source` correto e atribuição comercial. **Nunca fazer merge main antes da autorização explícita de Rafa.**
+- [x] Classificação SemVer documentada: versão MINOR **candidata 3.5.0**; `VERSION=3.4.0` permanece vigente em staging e produção até autorização e PR de release para `main`.
+
 ## 07/11/2026 — Release 3.4.0 da IA compartilhada: promoção autorizada
 
 - [x] **FECHAMENTO VERIFICADO EM PRODUÇÃO (07/11/2026):** PR de release [#313](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/313) CI #1047 SUCCESS, staging SHA `b5bcbc0760af579dc24cd50f9508202e21b92b8b`, Render `dep-dbndesfb9u1s73cinq4g` LIVE e endpoints HTTP `{"status":"ok"}`. PR de promoção [#314](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/314), [CI #1049](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42352814892) **SUCCESS** nos quatro jobs (API, frontend, PostgreSQL descartável e smoke HTTP externo) e [SemVer #4](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42352814886) **SUCCESS**. Merge `main` `4ca125faf72f58c7d5c7623fc7b2a8bbb215f1b0`; Render produção `dep-dbndgcnb9u1s73cip6mg` **LIVE**, `/health` e `/api/health/ready` OK; nenhum erro nível `error` na janela de 07:50 UTC em diante. `VERSION=3.4.0` em ambas, zero diferenças de arquivos no momento da promoção.
@@ -1057,3 +1193,48 @@ Status: não iniciado.
 ### F4E-2B1 — contrato inerte de dispatch (PR #233; PRE-DEPLOY)
 
 Contrato isolado e ainda não integrado ao executor: `CampaignDispatchIdentity` valida somente formato em memória; não comprova vínculo, posse ou imutabilidade persistida. `require_campaign_dispatch_authorization` sempre recusa, independentemente de flags. Não altera fluxo legado, não autoriza campanha e não protege o executor central de produção atual. Sem criação de jobs/posts/reservas, SQL, migrations, configuração ou chamadas externas. Antes de qualquer execução: identidade verificável e protegida entre reserva, ocorrência, job e post; guardas transacionais no claim e imediatamente antes da chamada externa; compatibilidade nos dois ambientes; proteção de mídia e revisão do acesso service_role. CI/revisão/deploy não confirmados neste registro. `VERSION=3.0.0`.
+
+# 07/11/2026 — Dados cadastrais para contratação (MINOR candidata 3.5.0)
+
+- [x] **Layout de perfis revisado conforme Rafa:** em tela grande, card principal à esquerda, adicionais em uma única coluna à direita (de cima para baixo); no celular empilhar. Esqueleto de carregamento responsivo e ausência de secundários preservados; mudanças só React/CSS, sem banco/API, cron ou `main`. Teste Node de estrutura e build incluídos no PATCH da candidata 3.5.0.
+- [x] **Correção emergencial após print de Rafa:** staging registrava HTTP 500 em `/users/me/identity` (`AttributeError` ao acessar `.data` de `None`); a ausência da primeira linha no cadastro precisava ser aceita nos endpoints GET/PUT. Tratados leitura vazia e primeiro insert; formulário agora sempre visível no card principal, desabilitado somente enquanto a consulta não for confiável, com botão de retry. Regressões API/UI incluídas; sem tocar Supabase, cron ou main.
+- [x] Retirar `PlanSummary` grande de `/profiles`; manter cota de perfis + CTA somente quando aplicável, **sem etiqueta do plano nesta área**.
+- [x] Preparar cadastro: nome completo, CPF, e-mail e senha; Google confirma nome/CPF e delega login ao provedor.
+- [x] Adicionar formulário de dados da conta (celular obrigatório na futura compra, idade/e-mail alternativo/telefone/endereço/CEP opcionais), CPF cifrado e gate de prontidão no servidor.
+- [x] PR #342 incorporado apenas em `staging` SHA `6ad4b308`; CI #1120 verde, migration 093 aplicada e RLS/GRANTS verificados, Render `dep-dbnpmbu8bjmc73ahmrp0` LIVE. Formulário de cadastro conferido; QA autenticada de `/profiles` ainda depende de Rafa.
+- [ ] Revisar política de retenção de pendências e fluxo de comprovação do e-mail alternativo antes de gateway; **não existe checkout**.
+- [ ] Não promover `main` sem aprovação de Rafa. Ver [contrato](CADASTRO-IDENTIDADE-PLANOS-20261107.md).
+
+## 07/11/2026 — Perfis somente com nome/foto (ajuste UX, candidata 3.5.0)
+
+- [x] Remover a tag junto à cota de `/profiles`; preservar cota e upgrade condicional.
+- [x] Identificação dos cards sem e-mail/telefone/endereço, tags de plano/função e status textual; seleção pelo card, foto/nome visíveis e menu contextual para gerenciar (formulário do titular passa ao card principal no ajuste subsequente).
+- [x] Modal novo/editar com nome e foto opcional, upload sem criação duplicada; API aceita `email=NULL` e preserva campos legados quando a edição altera só nome.
+- [x] PR [#343](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/343) integrada somente a `staging` (`0477e2d`), CI #1122 verde, Render `dep-dbnpu18ae00c7391lp10` LIVE; 1.290 testes API, 45 frontend selecionados e 17 CSP, build OK; Vault registrado.
+- [ ] QA visual autenticada de `/profiles` por Rafa; `main` sob aprovação expressa. Nenhuma migration ou cron adicional.
+
+## 07/11/2026 — Dados da conta dentro do card principal (ajuste UX)
+
+- [x] Retirar formulário cadastral isolado da página; card principal reúne foto/nome, cota/upgrade condicional e todos os campos cadastrais do titular com edição direta.
+- [x] Preservar cards secundários compactos somente com foto/nome e ações em menu. Identidade do titular continua escopada à conta; CPF protegido; e-mail de acesso requer verificação própria para ser alterado (fluxo ainda indisponível).
+- [x] Sem migration, alteração de Supabase, gateway, cron ou serviço; registrar como PATCH acumulado na candidata 3.5.0 e manter `VERSION=3.4.0`.
+- [x] Build TypeScript/Vite, 46 testes frontend selecionados, 1.290 testes API e 17 testes CSP locais aprovados; documentação e contrato visual atualizados.
+- [x] PR [#344](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/344) merged somente em `staging` SHA `e1f61a4`; [CI #1124](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42419595799) SUCCESS; Render `dep-dbnq5pcs728c739ha80g` LIVE no mesmo SHA.
+- [x] Vault `TASK.md` e Guia Mestre espelhado atualizados; release segue `3.4.0`, candidata 3.5.0.
+- [ ] Homologação visual autenticada em `/profiles` por Rafa; `main` somente após aprovação expressa.
+
+## 07/11/2026 — Calendário, máscara do CPF e avisos fora do card principal (PATCH candidata 3.5.0)
+
+- [x] Substituir somente o campo **Idade** por **Data de nascimento** com seletor nativo de dia/mês/ano, persistindo data completa no cadastro da conta; preservar `age` legada para compatibilidade.
+- [x] Aplicar máscara automática `000.000.000-00` no CPF durante a digitação, sem relaxar validação/cifragem.
+- [x] Mover cota, título e mensagens informativas para **acima** do card principal, mantendo dentro do card o formulário editável e feedback de salvar; não alterar perfis secundários ou grade responsiva.
+- [x] Testar API, componentes, frontend build e registrar migration aditiva 094/documentação; sem gateway, crons, produção ou `main`.
+- [x] Migration 094 aplicada ao Supabase único: `birth_date DATE NULL` confirmada, RLS habilitado e `anon`/`authenticated` sem leitura da tabela.
+- [x] [PR #348](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/348), [CI #1132](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42423023915) SUCCESS, merge staging `3be514019649606b20aa45111869c41d5a644217` e Render `dep-dbnqqitg1s2s73fsipo0` LIVE; saúde 200. QA autenticada ainda pendente; `VERSION=3.4.0` permanece.
+
+## 07/11/2026 — Máscara de telefone e seletor de DDI em ambos os campos do titular (MINOR candidata 3.5.0)
+
+- [x] Adicionar seletor de país/DDI e máscara no Celular e no Telefone de contato em `/profiles`, acessíveis por teclado, com default Brasil e variantes internacionais.
+- [x] Gravar novos valores em E.164 (`+DDI+número`); aceitar números brasileiros legados sem prefixo, mantendo validação nacional e escopo da conta. Sem alterar tabela ou histórico.
+- [x] Cobrir formatação progressiva, normalização, rejeição inválida e PUT autenticado nos testes específicos; manter documentação, changelog e Guia atualizados.
+- [ ] CI, merge e Render LIVE somente em `staging`; confirmar QA autenticada desktop/mobile. `main`, dois crons, gateway e `VERSION=3.4.0` intocados.

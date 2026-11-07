@@ -43,6 +43,22 @@ def test_log_action_stores_profile_id(monkeypatch):
     assert fake_client.table.return_value.insert.call_args[0][0]["profile_id"] == "profile-a"
 
 
+def test_admin_diagnostic_can_force_targeted_audit_without_global_request_logging(monkeypatch):
+    settings.request_logging_enabled = False
+    fake_client = MagicMock()
+    monkeypatch.setattr(audit_log_module, "get_supabase", lambda: fake_client)
+
+    audit_log_module.log_action("ordinary_event", user_id=1)
+    fake_client.table.assert_not_called()
+
+    audit_log_module.log_action("admin_credentials_test_ai_ok", user_id=1, force=True)
+    fake_client.table.assert_called_once_with("request_logs")
+    row = fake_client.table.return_value.insert.call_args.args[0]
+    assert row["action"] == "admin_credentials_test_ai_ok"
+    assert row["user_id"] == 1
+    assert row["error"] is None
+
+
 def test_log_action_replaces_lone_surrogates_so_httpx_can_encode(monkeypatch):
     settings.request_logging_enabled = True
     fake_client = MagicMock()

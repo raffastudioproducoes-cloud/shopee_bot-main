@@ -23,10 +23,26 @@ def _claim(user_id, profile_id, manual):
     return result.data if result else None
 
 
-async def refresh_account(user_id, profile_id, *, manual=False):
+def manual_quota_status(user_id):
+    """Estado compartilhado do contador, consultado sempre no servidor."""
+    result = supabase.rpc("analytics_manual_refresh_status", {
+        "p_user_id": str(user_id),
+    }).execute()
+    return result.data
+
+
+def claim_manual_refresh(user_id, profile_ids):
+    """Reserva atômica por conta e retorna tokens de claim, nunca expostos à UI."""
+    result = supabase.rpc("claim_analytics_manual_refresh", {
+        "p_user_id": str(user_id), "p_profile_ids": [str(item) for item in profile_ids],
+    }).execute()
+    return result.data
+
+
+async def refresh_account(user_id, profile_id, *, manual=False, claim_token=None):
     if not profile_id:
         return {"state": "no_profile"}
-    token = await asyncio.to_thread(_claim, user_id, profile_id, manual)
+    token = claim_token or await asyncio.to_thread(_claim, user_id, profile_id, manual)
     if not token:
         return {"state": "recent"}
     try:

@@ -16,6 +16,7 @@ import { SegmentedToggle } from "../components/ui/SegmentedToggle"
 /** Página dedicada de criação. Preserva o fluxo de envio e o rascunho anterior. */
 export function CreatePostPage() {
   const { logout } = useAuthStore()
+  const userId = useAuthStore((state) => state.user?.id)
   const [creationMode, setCreationMode] = useState<"single" | "campaign">("single")
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const queryClient = useQueryClient()
@@ -24,9 +25,10 @@ export function CreatePostPage() {
   // Carrega antes do editor: uma conexão já testada não fica
   // momentaneamente parecendo indisponível no compositor.
   const { data: credentials } = useQuery({
-    queryKey: ["credentials"],
+    queryKey: ["credentials", userId, activeProfileId],
     queryFn: () => credentialsApi.list(),
     staleTime: 30_000,
+    enabled: Boolean(userId && activeProfileId),
   })
 
   const onAuthError = useCallback(

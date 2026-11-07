@@ -28,16 +28,18 @@ def log_action(
     user_id: int | None = None,
     username: str | None = None,
     profile_id: str | None = None,
+    force: bool = False,
 ) -> None:
     """Grava um passo de negócio em request_logs.action.
 
     `message` passa por sanitize_log_data ANTES de ir pro banco (defesa
     em profundidade nº1 — a nº2 é no GET /logs, ver api/routers/logs.py).
-    Desligado junto com REQUEST_LOGGING_ENABLED=false (mesmo flag do
-    middleware) — não faz sentido logar passo de negócio se o histórico
-    de requisição também está desligado.
+    Desligado junto com REQUEST_LOGGING_ENABLED=false, exceto quando
+    `force=True` para o diagnóstico ADMIN explícito (somente evento fixo
+    e resultado sanitizado, nunca token ou mensagem externa). A exceção
+    não habilita coleta geral de tráfego nem muda o middleware.
     """
-    if not settings.request_logging_enabled:
+    if not settings.request_logging_enabled and not force:
         return
 
     try:

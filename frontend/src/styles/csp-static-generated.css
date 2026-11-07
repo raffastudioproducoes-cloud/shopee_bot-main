@@ -57,10 +57,6 @@
 /* frontend/src/components/posts/MediaTray.tsx */
 :is(#root, body) .csp-s-0028 { display: flex; justify-content: space-between; }
 /* frontend/src/components/posts/NetworkPicker.tsx */
-:is(#root, body) .csp-s-0029 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-/* frontend/src/components/posts/NetworkPicker.tsx */
-:is(#root, body) .csp-s-0030 { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr)); gap: 8px; }
-/* frontend/src/components/posts/NetworkPicker.tsx */
 :is(#root, body) .csp-s-0031 { border: 1px solid var(--border-hairline); border-radius: var(--r-md); background: var(--surface-inset); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
 /* frontend/src/components/posts/NetworkPicker.tsx */
 :is(#root, body) .csp-s-0032 { display: flex; flex-wrap: wrap; gap: 6px 14px; }
@@ -182,18 +178,6 @@
 :is(#root, body) .csp-s-0090 { color: var(--negative-ink); }
 /* frontend/src/components/profiles/LocationPermissionNotice.tsx */
 :is(#root, body) .csp-s-0091 { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0092 { position: relative; width: 96px; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0093 { display: none; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0094 { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0095 { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0096 { display: flex; gap: 6px; flex-wrap: wrap; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0097 { display: flex; align-items: center; gap: 4px; margin-top: auto; padding-top: 8px; }
 /* frontend/src/components/profiles/ProfileFormModal.tsx */
 :is(#root, body) .csp-s-0098 { display: flex; flex-direction: column; gap: 16px; }
 /* frontend/src/components/profiles/ProfileFormModal.tsx */
@@ -343,14 +327,6 @@
 /* frontend/src/pages/AnalyticsPage.tsx */
 :is(#root, body) .csp-s-0171 { color: var(--negative); }
 /* frontend/src/pages/AnalyticsPage.tsx */
-:is(#root, body) .csp-s-0172 { width: 100%; border-collapse: collapse; min-width: 780px; text-align: left; }
-/* frontend/src/pages/AnalyticsPage.tsx */
-:is(#root, body) .csp-s-0173 { padding: 12px 10px; color: var(--text-muted); border-bottom: 1px solid var(--border-card); }
-/* frontend/src/pages/AnalyticsPage.tsx */
-:is(#root, body) .csp-s-0174 { padding: 12px 10px; border-bottom: 1px solid var(--border-card); }
-/* frontend/src/pages/AnalyticsPage.tsx */
-:is(#root, body) .csp-s-0175 { color: var(--text-muted); margin: 0; }
-/* frontend/src/pages/AnalyticsPage.tsx */
 :is(#root, body) .csp-s-0176 { color: var(--text-muted); margin: 0; }
 /* frontend/src/pages/CredentialsPage.tsx */
 :is(#root, body) .csp-s-0188 { display: flex; flex-direction: column; gap: 16px; }
@@ -387,11 +363,7 @@
 /* frontend/src/pages/CredentialsPage.tsx */
 :is(#root, body) .csp-s-0204 { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 12px; }
 /* frontend/src/pages/CredentialsPage.tsx */
-:is(#root, body) .csp-s-0205 { display: flex; align-items: center; gap: 6px; }
-/* frontend/src/pages/CredentialsPage.tsx */
 :is(#root, body) .csp-s-0206 { font: var(--text-role-body); color: var(--accent-500); }
-/* frontend/src/pages/CredentialsPage.tsx */
-:is(#root, body) .csp-s-0207 { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex-shrink: 0; border-radius: 50%; border: 1px solid currentColor; background: none; color: var(--accent-500); cursor: pointer; opacity: 0.75; font: var(--fw-semibold) 10px/1 var(--font-sans); padding: 0; }
 /* frontend/src/pages/CredentialsPage.tsx */
 :is(#root, body) .csp-s-0208 { display: flex; justify-content: flex-end; gap: 8px; }
 /* frontend/src/pages/CredentialsPage.tsx */

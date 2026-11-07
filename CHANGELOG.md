@@ -5,6 +5,165 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.5.0] - 2026-11-07
+
+### Added — Máscaras telefônicas com seleção de DDI (MINOR candidata 3.5.0, 07/11/2026)
+
+- `/profiles`, apenas no formulário do titular: **Celular** e **Telefone de contato** passam a ter seletor acessível de país/DDI ao lado do número, com máscaras progressivas por país (Brasil, EUA/Canadá, Portugal e outros DDIs disponíveis) em desktop e celular.
+- Novo valor de telefone usa formato internacional `+DDI+número` (E.164); a API normaliza e valida comprimento e mantém validação brasileira de DDD/nono dígito. Números brasileiros legados sem `+55` continuam aceitos e exibidos com máscara nacional, sem migração destrutiva.
+- Catálogo local de DDIs sem serviço externo ou dependência nova; trocar de país limpa o número para evitar associar por engano um telefone de outro país. Sem alteração de outros campos, perfis secundários, Supabase, gateway, cron ou `main`. `VERSION=3.4.0` permanece até release aprovada.
+
+### Changed — Data de nascimento, CPF formatado e avisos acima do perfil (PATCH da candidata 3.5.0, 07/11/2026)
+
+- `/profiles`: o campo opcional **Idade** virou **Data de nascimento**, com calendário nativo para dia, mês e ano e persistência de data exata; a coluna legada `age` permanece para compatibilidade, sem fabricar uma data para idades anteriores.
+- O CPF recebe automaticamente a máscara `000.000.000-00` durante a digitação, mantendo validação dos dígitos e armazenamento cifrado já existentes.
+- Cota compacta e mensagens explicativas/do estado cadastral passam a aparecer organizadas **acima** do card principal. O formulário editável e os retornos da ação de salvar continuam no card; a coluna de perfis secundários, menus e responsividade não mudam.
+- Migração **094** adiciona `birth_date DATE NULL` apenas à tabela protegida da conta no Supabase compartilhado, sem alterar RLS/grants. Apenas `staging`; `VERSION=3.4.0` e `main` preservadas, sem gateway, cron ou alterações nos outros campos.
+
+### Changed — Cards de perfis lado a lado em telas grandes (PATCH da candidata 3.5.0, 07/11/2026)
+
+- `/profiles`: quando houver perfis adicionais e largura de tela suficiente (a partir de 1000px), card **principal à esquerda** e perfis **secundários em coluna única à direita**, um abaixo do outro, alinhados ao topo. Sem perfis adicionais, o card principal ocupa toda a largura disponível.
+- Em telas menores a grade passa para uma coluna, com perfil principal primeiro e adicionais abaixo; esqueleto de carregamento segue o mesmo desenho. Preservados formulário, cota, foto/nome, menus, seleção e isolamento dos dados.
+- Mudança exclusivamente de layout React/CSS e regressão de responsividade. Sem banco, APIs, gateway, planos, cron, serviços de produção ou `main`. `VERSION=3.4.0` preservada, acumulada na candidata `3.5.0`.
+
+### Fixed — Formulário cadastral invisível no primeiro acesso (PATCH da candidata 3.5.0, 07/11/2026)
+
+- Corrigido **HTTP 500 em `GET /users/me/identity`** para contas antigas ainda sem registro em `account_billing_identity`: `maybe_single()` da biblioteca Supabase pode retornar `None` quando não há linha. O endpoint agora devolve os campos vazios e a prontidão de compra, sem tratar a ausência de cadastro como falha.
+- Corrigido também o **primeiro `PUT /users/me/identity`**: a verificação de existência aceita o mesmo retorno `None` e cria a linha do titular; edições posteriores continuam preservando o CPF cifrado.
+- O formulário completo fica **sempre renderizado dentro do card principal** (nome, CPF, e-mail, celular, idade, recuperação, telefone, endereço completo e CEP). Enquanto a leitura falhar por outra razão, os campos permanecem visíveis, porém desabilitados para impedir sobrescrever dados já persistidos; há opção de tentar novamente. Regressões API/frontend adicionadas.
+- Sem DDL, mudança de cota/planos, cobrança, cron, publicação ou alteração de `main`. `VERSION=3.4.0` segue até aprovação de Rafa; staging candidata `3.5.0`.
+
+### Changed — Dados da conta integrados ao card principal (PATCH da candidata 3.5.0, 07/11/2026)
+
+- `/profiles`: o formulário cadastral saiu da área independente da página e passou a viver **dentro do card do perfil principal**, junto à sua foto e nome. A cota compacta e o upgrade condicional também ficam nesse card; os perfis secundários permanecem apenas foto/nome, com menu de ações.
+- Mantidos campos editáveis e estado de prontidão de compra diretamente no card principal, sem duplicar dados por perfil. E-mail de autenticação continua apenas leitura até existir fluxo de troca com verificação de posse; CPF é protegido e não reexibido.
+- Sem mudança de API, payload, Supabase, migration, gateway, cron, publicação ou `main`. UI responsiva e testes de separação principal/secundário atualizados. `VERSION=3.4.0` preservada; correção acumulada na candidata 3.5.0.
+- [PR #344](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/344) merged apenas em staging `e1f61a4`; [CI #1124](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42419595799) SUCCESS e Render `dep-dbnq5pcs728c739ha80g` LIVE. Documentação final sincronizada no Vault; falta homologação visual de Rafa.
+
+### Changed — Perfis com identificação somente por nome/foto (PATCH da candidata 3.5.0, 07/11/2026)
+
+- `/profiles`: retirada a etiqueta do plano ao lado da cota; mantidos **Cota de perfis** e upgrade somente quando disponível. A tag animada do cabeçalho global não foi alterada.
+- Cards de perfis exibem **somente foto e nome**, com seleção pelo card e gerenciamento no menu de opções; sem e-mail, telefone, endereço, status e etiquetas de função/plano duplicadas.
+- Criar/editar perfil pede **nome e foto opcional**, sem dados pessoais; backend aceita perfis novos com e-mail nulo no schema existente e edição parcial preserva contatos legados. `GET /profiles` retorna apenas campos necessários aos cards (não reenvia contatos legados). Foto é enviada após criação/edição, sem repetir a criação em caso de falha de upload.
+- Nenhuma migration, exclusão de dados legados, alteração de planos, gateway, cron ou `main`. Documentação/testes atualizados; versão oficial `3.4.0`, candidata `3.5.0`.
+
+### Added / Changed — Identidade cadastral por conta e perfil compacto (MINOR candidata 3.5.0, 07/11/2026)
+
+- `/profiles`: banner de plano substituído por cota de perfis e botão de upgrade apenas para Free/Pro (a etiqueta inicialmente incluída foi removida no ajuste de UX posterior). Novo formulário de dados cadastrais do titular da conta, sem misturar CPF e contato com perfis sociais.
+- Novo cadastro Supabase e conclusão Google passam a exigir **nome completo e CPF válidos**; e-mail/senha permanecem obrigatórios no cadastro por e-mail. O username técnico é gerado pelo servidor. Celular passa a ser obrigatório **para futura contratação**; idade, e-mail alternativo, telefone, endereço e CEP continuam opcionais.
+- Nova migration aditiva `093_account_billing_identity.sql`: CPF cifrado, HMAC para deduplicação, tabela vinculada à conta, RLS bloqueando anon/authenticated e integração com pending registrations. Endpoints autenticados `/users/me/identity` e `/users/me/purchase-readiness`; nenhum checkout ou cobrança foi criado. Privacidade/dados coletados e testes atualizados. `VERSION=3.4.0` preservada; produção `main` requer aprovação de Rafa. [Contrato](docs/CADASTRO-IDENTIDADE-PLANOS-20261107.md).
+
+### Removed — Sondas manuais de coleta no painel Análises (PATCH da candidata 3.5.0, 07/11/2026)
+
+- Retirados os três botões **Verificar coleta de Threads/Facebook/Instagram** do rodapé de Análises para todos os perfis, inclusive ADMIN. Eliminados os handlers, estados, mensagens, importações e estilos responsivos exclusivos.
+- A rota órfã de diagnóstico **POST /analytics/probe/{network}** também foi descontinuada; testes agora confirmam HTTP 404 para os caminhos antigos e validam os insights oficiais pelo módulo compartilhado de posts. Sem remover a coleta automática, a atualização manual, os indicadores, as nove redes ou as métricas.
+- Guia Mestre, plano, testes históricos e TASK reconciliados. Nenhuma migração, ação em banco, cron ou produção. `VERSION=3.4.0` mantida; PATCH incluído na release candidata `3.5.0`, main só após aprovação.
+
+
+### Changed — Ajuste de título do painel de integrações (PATCH, 07/11/2026)
+
+- Alterado somente o título visível do painel de integrações de **Situação das nove redes** para **Situação das redes**; todas as nove plataformas, métricas e estados de conexão continuam exibidos. Sem mudança de lógica, banco, cron ou produção. Mantido `VERSION=3.4.0` (candidata 3.5.0).
+
+
+### Changed — Análises sem tabelas redundantes (PATCH da candidata 3.5.0, 07/11/2026)
+
+- Retiradas exclusivamente as duas listagens extensas **Detalhamento por rede** e **Desempenho por publicação**, incluindo versões para desktop/mobile. Permanecem intactos os seis indicadores, os seis painéis de gráficos, filtros e cota manual.
+- Dados úteis antes exclusivos das tabelas passaram aos próprios painéis: visualizações e interações oficiais por plataforma nos cards de **Situação das nove redes**; data, rede, estado de coleta, visualizações e interações nos itens de **Publicações em destaque**. Publicações sem visualizações oficiais são exibidas após as mensuradas (—, nunca zero presumido).
+- Sem mudança nas APIs, no Supabase, nos agendamentos ou em produção. `VERSION=3.4.0` permanece; lançamento candidato `3.5.0` depende de aprovação de Rafa. Teste de regressão das métricas, nove redes e ausência de tabelas.
+
+
+### Fixed — Preservação das nove redes no filtro e detalhamento de Análises (PATCH da candidata 3.5.0, 07/11/2026)
+
+- Corrigida regressão detectada na QA autenticada após PR #337: restauradas as nove opções em **Rede**, as nove linhas informativas em **Detalhamento por rede** e o estado explícito de integração pendente ao escolher Kwai/Shopee Vídeo/Telegram/WhatsApp. Nenhuma consulta é enviada a endpoints ainda não suportados. Teste de contrato ampliado.
+
+### Added / Changed — Análises diversas e limite de 10 atualizações (MINOR candidata 3.5.0, 07/11/2026)
+
+- Página **Análise de redes** reorganizada com seis KPIs distintos e seis painéis (linha temporal, comparação por rede, composição de engajamento, dias da semana, ranking de posts e matriz das nove integrações). Dados só de posts confirmados pelo Auto Orbital; ausência de insight exibida como indisponível, nunca zero inventado.
+- Atualização manual em **Todos os perfis** e perfis individuais; **10 atualizações válidas por conta por dia civil de Brasília**, todos os planos, conferidas por RPC atômica e RLS no Supabase. ADMIN ilimitado; automático 24 h não consome cota. Exibir saldo, desabilitar botão ao esgotar e rejeitar HTTP 429 no servidor. Tentativa sob cooldown não consome cota.
+- Migração aditiva `092_analytics_manual_refresh_quota.sql` e rotas autenticadas `GET /analytics/refresh/quota`, `POST /analytics/refresh`. Nenhum novo cron, nenhum dado de perfil geral convertido em métrica de post; não alterar `main` sem aprovação. [Contrato](docs/ANALISE-REDES-DASHBOARD-COTA-20261107.md).
+
+### Changed — Redes compactas também na Publicação única (PATCH incluído na candidata 3.5.0, 07/11/2026)
+
+- `/posts/criar` → **Publicação única** agora apresenta, no mesmo local acima dos produtos, todas as nove redes sociais do catálogo em linha compacta com apenas checkbox e nome; sem logos, cartões ou bordas.
+- **Campanha por lista** mantém a escolha por produto, usando o mesmo componente compartilhado. Redes desconectadas, sem suporte ou planejadas permanecem apagadas e bloqueadas; selecionar/desmarcar preserva as validações, e posts existentes continuam somente leitura.
+- Alteração de interface e testes frontend; não altera publicação, credenciais, banco, cron, produção ou `main`. `VERSION=3.4.0` permanece, candidata `3.5.0` aguardando homologação.
+
+### Changed — Redes por caixas na campanha por lista (PATCH incluído na candidata 3.5.0, 07/11/2026)
+
+- `/posts/criar` → Campanha por lista mostra nove redes sociais exclusivamente dentro de **Preparar** de cada produto, com checkbox + nome, sem logo, sem cartão ou seletor global. Só redes com publicação implementada e conexão OAuth testada (`state=ok`) são marcáveis; canais planejados ou desconectados ficam apagados e bloqueados.
+- Cada produto mantém sua seleção independente e seus textos próprios. Uma rede antiga desconectada pode ser desmarcada, nunca marcada novamente. Credenciais no Criar POST são consultadas por usuário e perfil para evitar cruzamento de estados.
+- A ativação de campanhas continua verificando OAuth em tempo real no servidor; nenhum job, Supabase, cron, `pg_net`, token, schema ou produção alterado. `VERSION=3.4.0` mantida; `main` depende de aprovação expressa.
+
+### Docs — Estado de homologação Shopee Vídeo em staging (07/11/2026)
+
+- Guia Mestre, AGENTS e TASK alinhados à PR #331, CI #1089, migration 091, Render staging LIVE e pendências de callback/OAuth real; nenhuma alteração de código, banco, cron, `pg_net`, `main` ou `VERSION=3.4.0` nesta atualização documental.
+
+
+### Added — OAuth Shopee Vídeo para afiliados (MINOR candidata 3.5.0, 07/11/2026)
+
+- Categoria oficial `Shopee Video Management` também atende criadores afiliados; integração isolada da Affiliate GraphQL com consentimento `auth_type=user`, assinatura HMAC-SHA256, troca e renovação de tokens, cookie de `state` assinado e proteção por perfil.
+- ADMIN pode configurar Partner ID/Key global com criptografia e isolamento por ambiente; usuário autoriza e desconecta somente a própria conta. Migration 091 aditiva com RLS e tokens cifrados.
+- `POST /shopee-video/preview` valida metadados e vínculos de produtos do perfil sem enviar conteúdo. Publicação real e jobs continuam **desativados** até validação do upload multipart, consentimento e homologação da Shopee. Sem mudança nos cron/filas existentes, Supabase em produção ou `main` nesta branch.
+- Callback deve ser cadastrado em Shopee e configurado via `SHOPEE_VIDEO_CALLBACK_URL` específico de cada host. `VERSION=3.4.0` preservada até aprovação de release.
+- Contrato de rollout, documentação oficial e critérios de homologação: [SHOPEE-VIDEO-OAUTH-AFILIADOS-20261107](docs/SHOPEE-VIDEO-OAUTH-AFILIADOS-20261107.md).
+
+
+### Docs — Motivo da rejeição Shopee, perfil verificado e pausa (07/11/2026)
+
+- Acrescentadas evidências do console: notificação de perfil **aprovado em 03/11/2026**, `My Tasks` com **0** obrigatórias/recomendadas em andamento e rejeição `Penetration Test Report` **Case ID 1750** (04/11), porque era somente revisão de código/documento, sem testes ativos nem screenshots/requests/saídas dos achados R-01...R-07.
+- Atualizado [roteiro de cadastro](docs/SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md), TASK, Guia Mestre e Vault. Guardada **mensagem pronta de suporte, não enviada**, perguntando aplicabilidade do pentest a afiliado BR e modo de regularização. A pedido de Rafa, execução externa **em espera**.
+- Somente docs; nenhuma modificação em conta Shopee, ticket, app, serviço, dados, cron, `pg_net`, segredos, `main` ou `VERSION=3.4.0`.
+
+### Docs — Regularização do cadastro Shopee Open Platform (07/11/2026)
+
+- Organizada a sequência definida por Rafa: **rejeitado primeiro** (`Penetration Test Report`, motivo não exibido nas capturas), **pendentes depois** (declaração, capturas, URL e conta de teste não enviados), **app por último** (lista atualmente vazia).
+- Documento [SHOPEE-OPEN-PLATFORM-CADASTRO-20261107](docs/SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md) inclui checklist seguro, pergunta de aplicabilidade de pentest para afiliado brasileiro, encaminhamento de suporte e limites de comprovação. Shopee Vídeo permanece pausada e sem API ativa; não houve reenvio de PDF, abertura de ticket, contratação, app novo ou alteração de dados.
+- Apenas documentos, `VERSION=3.4.0` inalterada; banco, scheduler, dois cron, `pg_net`, serviços, `staging` executável e `main` intactos.
+
+### Docs — Shopee Vídeo: contrato para afiliados e autorização (07/11/2026)
+
+- Confirmados nas fontes Shopee Brasil vídeos de 3–60 segundos, até seis produtos vinculados **no vídeo** (URLs em descrições não substituem o vínculo), revisão de relevância e atualização da comissão padrão em 01/07/2026, sem promessa de ganhos.
+- Documentada a distinção ainda pendente entre feed de **criadores afiliados** e APIs `Video Management` para **vendedores**. O cliente técnico segue bloqueado; as redes atuais continuam com seleção de um produto e a coleta por vídeo ainda depende de OAuth, ID externo e campos autorizados.
+- Somente documentação, sem API externa, UI, DB, cron, scheduler, OAuth, publicação ou alteração de `VERSION=3.4.0`.
+
+### Added — Análises sociais (candidata MINOR 3.5.0, 07/11/2026)
+
+- A página `/analytics` oferece nove redes sociais no seletor Rede, em ordem alfabética PT-BR; nenhuma loja entra nesse catálogo. **Ajuste visual posterior à PR #326:** retirados os cartões de redes acima dos indicadores, por redundância com o seletor.
+- O **Detalhamento por rede** passa a listar as nove opções em “Todas”, na tabela desktop e nos cartões de indicadores mobile. Cada rede exibe seu estado; apenas as cinco redes operacionais podem apresentar contagens reais da API, enquanto as quatro futuras mostram traços em vez de zeros artificiais. Selecionar rede não integrada mantém uma linha informativa em vez de esconder a tabela.
+- Shopee Vídeo, Telegram, WhatsApp e Kwai aparecem no filtro com informação de integração pendente, sem consultas inválidas ao backend nem números fictícios. Os cinco filtros reconhecidos, gráficos, histórico por perfil e coletor individual Threads não foram alterados.
+- Nova [matriz de origem de dados e bloqueios por rede](docs/ANALISE-REDES-COBERTURA-20261107.md). Sem API externa, OAuth, banco, scheduler, `pg_cron`, `pg_net` ou publicadores novos. `VERSION=3.4.0` até release aprovada.
+
+### Changed — Catálogo completo no diagnóstico ADMIN (MINOR candidata 3.5.0, 07/11/2026)
+
+- Abaixo da gestão global de IA/Shopee, o diagnóstico agrupa Lojas e Redes sociais e reaproveita todos os 14 placeholders já presentes em `/credentials`, mais os seis status sociais reais e Shopee Vídeo, totalizando 21 cards pequenos no painel de status.
+- Lojas e redes futuras exibem logos locais e estado "Em breve"; não são consideradas conectadas, nem entram no teste geral ou geram chamadas a fornecedores. A UI deriva do catálogo único de plataformas futuras.
+- Ajustes de contraste para logos de Mercado Livre/Pró Spin no tema escuro e preenchimento explícito no SVG da Lomadee para evitar dependência de variável CSS não disponível em imagens externas.
+- Nenhum endpoint, credencial, armazenamento, scheduler, cron, `pg_net` ou produção alterados. `VERSION=3.4.0` preservada, candidata MINOR `3.5.0` após homologação.
+
+### Changed — Diagnóstico ADMIN compacto e teste consolidado (MINOR candidata 3.5.0, 07/11/2026)
+
+- `/admin/credentials`: cards de IA e Shopee com logos, recolhíveis e lado a lado no desktop (um por linha no celular), preservando gestão completa da chave/modelo/provedor global, opções de salvar/ativar/desconectar.
+- Overrides manuais sociais saem da **interface** administrativa; endpoints e credenciais anteriores preservados por compatibilidade. Seis redes passam a aparecer em cards pequenos, ordenados e apenas com situação real/última verificação.
+- Um botão `Testar todas as conexões` executa rota ADMIN limitada e isolada: IA ativa, Shopee global e conexões do próprio perfil ADMIN, ignorando configurações ausentes. Registros sanitizados no Render e em `request_logs` (evento explícito de auditoria independente do logging geral); nenhuma chave de cliente é testada ou exposta.
+- `VERSION=3.4.0` preservada; candidata MINOR `3.5.0`. Sem DDL, mudança de cron, `pg_net`, scheduler, serviço de publicação ou produção. Contrato [ADMIN-DIAGNOSTICO-CONEXOES-20261107](docs/ADMIN-DIAGNOSTICO-CONEXOES-20261107.md).
+
+### Changed — Credenciais compactas por lojas e redes sociais (MINOR candidata 3.5.0, 07/11/2026)
+
+- `/credentials` recebe abas **Lojas** e **Redes sociais**, cada uma com os grupos existentes **Já credenciados** e **Ainda não cadastrados** e ordenação alfabética PT-BR; cards com logomarcas reais locais, status resumido e corpo fechado inicialmente.
+- Correção solicitada por Rafa: **Shopee Vídeo** fica em **Redes sociais**, não em Lojas; a autenticação Shopee Afiliados continua na aba Lojas. Sem habilitar Video Management ou mudar o backend.
+- Explicações e links existentes ficam em uma segunda área expandível, independente do card principal. OAuth social, ID de afiliado Shopee, atualização/desconexão e avisos continuam operando como antes. `Testar conexão` sai da tela comum e passa a ficar no painel ADMIN (`Resultado das conexões`).
+- 14 cartões de futuras integrações: AliExpress, Amazon, Americanas, Awin, Lomadee, Magalu, Mercado Livre, Natura e Avon, Pró Spin, Rakuten, SHEIN, TerabyteShop, Telegram e WhatsApp. São informativos `Em breve`, sem armazenamento, chamadas de API ou autenticação simulada; Kwai/Shopee Vídeo continuam bloqueados.
+- Logos transparentes locais com fontes listadas em [`frontend/public/brand-logos/SOURCES.md`](frontend/public/brand-logos/SOURCES.md); testes Node específicos e gate CI de frontend estendido. `VERSION=3.4.0` permanece; classificada como melhoria compatível para a candidata `3.5.0`. Nenhum banco, cron, scheduler, postagem, pagamentos ou `main` alterado nesta entrega.
+- Contrato e QA: [`docs/CREDENCIAIS-COMPACTAS-LOJAS-REDES-20261107.md`](docs/CREDENCIAIS-COMPACTAS-LOJAS-REDES-20261107.md). PR/CI/deploy de staging documentados após conclusão dos gates.
+- **Integração verificada em staging 07/11:** [PR #319](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/319), [CI #1060](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42360659833) verde em todos os gates obrigatórios, merge `staging` `a37b9382407e0aa3223d26b5841849c2ba1b27c6`, Render `dep-dbnf4h7b9u1s73ck27hg` LIVE e health/readiness/logos HTTP 200. QA autenticado e `main` aguardam Rafa.
+
+### Added — Shopee Afiliados da plataforma (MINOR candidata 3.5.0, 07/11/2026)
+
+- Consulta de produtos via App ID/Secret global da plataforma, mantido cifrado, testável e gerenciável somente por ADMIN em `/admin/credentials`; `staging` e `production` com registros próprios no Supabase compartilhado.
+- Credenciais comuns agora recebem exclusivamente ID numérico de afiliado por conta (ou URL oficial expandida contendo ID). O backend constrói `an_redir` por cliente sem reutilizar `offerLink` ADMIN; atualiza respostas de produtos/listas existentes e snapshots novos de campanhas.
+- Nova migration 090 aditiva, com RLS e isolamento por conta; rotas protegidas e testes de regressão, SQL, API e UI. Nenhum cron, pg_net, scheduler ou rede social alterado. **Atribuição comercial real e autorização regional da Shopee precisam de homologação**, não presumidas pelo teste da URL.
+- `VERSION=3.4.0` preservada nesta branch de homologação; a candidata `3.5.0` só vira release mediante aprovação de Rafa para `main`. Detalhes e gates no [contrato Shopee](docs/SHOPEE-API-GLOBAL-ID-AFILIADO-20261107.md).
+
 ## [3.4.0] - 2026-11-07
 
 ### Added — IA custeada pela plataforma (MINOR, autorização de promoção 07/11/2026)

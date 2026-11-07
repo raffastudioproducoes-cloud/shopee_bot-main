@@ -219,6 +219,11 @@ async def delete_platform_ai_key(provider: str, admin: int = Depends(_require_ad
 async def test_platform_ai_key(provider: str, admin: int = Depends(_require_admin)):
     provider = _provider(provider)
     _check_test_rate_limit(admin)
+    return await _execute_platform_ai_test(provider, admin)
+
+
+async def _execute_platform_ai_test(provider: str, admin: int) -> dict:
+    """Reutilizável pelo teste em lote, sem consumir outra tentativa do limitador."""
     api_key, model = _key_for_provider(provider)
     try:
         await run_in_threadpool(llm.check_key, provider, api_key, model)

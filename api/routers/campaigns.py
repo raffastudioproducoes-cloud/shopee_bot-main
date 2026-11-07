@@ -21,6 +21,8 @@ from ..database import supabase
 from ..storage_capacity import storage_upload_reservation
 from .posts import _read_media_content, _sanitize_upload, MEDIA_DRAFT_BUCKET
 from ..profiles import scope_owner
+from ..shopee_affiliate_links import canonical_product_url, build_affiliate_link
+from .platform_shopee import get_affiliate_id
 from urllib.parse import urlsplit
 from typing import Literal
 from uuid import UUID
@@ -232,11 +234,20 @@ async def create_campaign_draft(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     by_id = {int(p["id"]): p for p in products}
+    affiliate_id = get_affiliate_id(user_id) if any(
+        canonical_product_url(p.get("original_link")) for p in products) else None
     items = []
     for item in body.items:
         saved = item.model_dump(mode="json")
         saved["source_image"] = by_id[item.product_id].get("image")
         saved["use_shopee_image"] = bool(saved["source_image"]) and item.use_shopee_image
+        product = by_id[item.product_id]
+        if canonical_product_url(product.get("original_link")):
+            link = build_affiliate_link(product["original_link"], affiliate_id)
+            if not link:
+                raise HTTPException(status_code=400, detail="Cadastre seu ID de afiliado Shopee antes de salvar esta campanha.")
+            saved["source_original_link"] = product["original_link"]
+            saved["affiliate_link"] = link
         items.append(saved)
     result = supabase.table("campaign_drafts").insert({
         "user_id": user_id, "profile_id": profile_id,
@@ -342,11 +353,21 @@ async def update_campaign_draft(
         validate_campaign_network_volume(policy, body.schedule, body.items)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    affiliate_id = get_affiliate_id(user_id) if any(
+        canonical_product_url(p.get("source_original_link")) for p in old_items.values()) else None
     items = []
     for item in body.items:
         saved = item.model_dump(mode="json")
-        saved["source_image"] = old_items[item.product_id].get("source_image")
+        previous = old_items[item.product_id]
+        saved["source_image"] = previous.get("source_image")
         saved["use_shopee_image"] = bool(saved["source_image"]) and item.use_shopee_image
+        original = previous.get("source_original_link")
+        if canonical_product_url(original):
+            link = build_affiliate_link(original, affiliate_id)
+            if not link:
+                raise HTTPException(status_code=400, detail="Cadastre seu ID de afiliado Shopee antes de editar esta campanha.")
+            saved["source_original_link"] = original
+            saved["affiliate_link"] = link
         items.append(saved)
     update = {"items": items, "campaign_name": body.name,
               "schedule": body.schedule.model_dump(mode="json") if body.schedule else None,

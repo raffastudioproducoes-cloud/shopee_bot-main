@@ -11,6 +11,8 @@ from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..database import supabase
 from ..profiles import scope_account
+from ..shopee_affiliate_links import canonical_product_url, personalize_product
+from .platform_shopee import get_affiliate_id
 
 router = APIRouter(prefix="/lists", tags=["lists"])
 
@@ -176,9 +178,15 @@ async def list_product_lists(
 
     result = query.execute()
 
+    affiliate_id = None
     lists: list[dict] = []
     for item in result.data:
         products = _get_list_products(item["id"])
+        if affiliate_id is None and any(
+            canonical_product_url(p.get("original_link")) for p in products
+        ):
+            affiliate_id = get_affiliate_id(user_id)
+        products = [personalize_product(p, affiliate_id) for p in products]
         lists.append({
             "id": item["id"],
             "name": item["name"],
@@ -285,6 +293,9 @@ async def get_product_list(
     """Retorna uma lista específica com seus produtos."""
     list_data = _get_list(user_id, product_list_id, profile_id)
     products = _get_list_products(product_list_id)
+    affiliate_id = (get_affiliate_id(user_id) if any(
+        canonical_product_url(p.get("original_link")) for p in products) else None)
+    products = [personalize_product(p, affiliate_id) for p in products]
     return {
         "id": list_data["id"],
         "name": list_data["name"],

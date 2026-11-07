@@ -14,6 +14,18 @@ def test_unknown_route_and_http_method_cannot_expose_free_text():
     assert entry.created_at.tzinfo is not None
 
 
+def test_credential_diagnostic_actions_have_useful_whitelisted_log_labels():
+    stamp = '2026-11-07T12:00:00Z'
+    assert AdminLogEntry(method='ACTION', path='admin_credentials_test_shopee_ok',
+                         created_at=stamp).path == 'Diagnóstico: Shopee — funcionando'
+    assert AdminLogEntry(method='ACTION', path='admin_credentials_test_x_error',
+                         created_at=stamp).path == 'Diagnóstico: X — falha'
+    assert AdminLogEntry(method='ACTION', path='admin_credentials_test_all',
+                         created_at=stamp).path == 'Diagnóstico: teste geral de conexões'
+    assert AdminLogEntry(method='ACTION', path='admin_credentials_test_secret_ok',
+                         created_at=stamp).path == 'Rota não identificada'
+
+
 def test_admin_connection_status_omits_provider_diagnostics(monkeypatch, fake_db):
     db = fake_db({'users': [{'id': 'owner', 'access': 'ADMIN'}]})
     monkeypatch.setattr(database, 'get_supabase', lambda: db)

@@ -461,7 +461,7 @@ export function CampaignPlanner({ credentials }: {
                           <input className="campaign-select" id={`campaign-link-${id}`} type="url" maxLength={2048}
                             value={snapshot.affiliateLink} onChange={(e) => updateSnapshot(id, { affiliateLink: e.target.value })}
                             placeholder="https://..." />
-                          <span className="campaign-field-label">Redes para este produto</span>
+                          <span className="campaign-field-label">Redes para este produto <small>(marque uma ou mais)</small></span>
                           <NetworkPicker selected={snapshot.networks} states={networkStates}
                             onToggle={(network) => updateSnapshot(id, {
                               networks: snapshot.networks.includes(network)
