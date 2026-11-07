@@ -1,3 +1,9 @@
+## 07/11/2026 — Redes sociais compactas na Publicação única (staging)
+
+- [x] Reutilizar o seletor de nove redes da campanha na **Publicação única**, acima de Produtos e no local do seletor atual, com somente checkbox e nome, sem ícones, contêineres individuais ou bordas.
+- [x] Manter redes desconectadas/planejadas visualmente apagadas e bloqueadas; preservar `readOnly` de post existente e permitir apenas desmarcar seleção antiga sem OAuth válido.
+- [ ] CI, Render staging LIVE e validação visual; `main` e produção intocados até autorização expressa de Rafa. SemVer: PATCH compatível incluído na candidata 3.5.0, sem alterar `VERSION=3.4.0`.
+
 ## 07/11/2026 — Caixas de seleção de redes na Campanha por lista (staging)
 
 - [x] Mostrar nove redes do catálogo somente no editor **Preparar** de cada produto: checkbox + nome, sem logo, sem caixa/borda nem seletor global. Redes sem OAuth válido, sem publicação ou em desenvolvimento ficam apagadas e não podem ser marcadas.
