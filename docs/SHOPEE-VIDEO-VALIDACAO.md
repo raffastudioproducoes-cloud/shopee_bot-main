@@ -1,5 +1,7 @@
 # Validação Shopee Open Platform e integração Shopee Vídeo
 
+> **07/11/2026 — Estado atual de produção:** versão Auto Orbital **3.3.0**, PR #308, Render `dep-dbncbp0473hc739ghhpg` LIVE, API saúde 200. O card Shopee Vídeo informativo aparece na seção **Ainda não cadastrados**, com botão desabilitado; esta publicação de UI **não ativa** Shopee Video Management, OAuth, upload nem publicação. Aprovação oficial e QA autenticado continuam pendentes. O relato abaixo sobre a proposta de staging é histórico.
+
 > **Atualização de 07/11/2026 (staging LIVE):** a página Credenciais já contém card *informativo* “Shopee Vídeo” com “Aguardando aprovação” e botão desabilitado. Integração visual aprovada na PR #304 (CI #1030) e agrupada em **Ainda não cadastrados** pela PR #306 (CI #1032), deploy staging `dep-dbnc6hp42hec73ca3ik0` LIVE e `/health` HTTP 200. Nenhum OAuth, credencial, upload ou publicador de Shopee Vídeo foi ativado; a autorização da API Video Management continua pendente e distinta da Shopee Afiliados. A interface ainda não foi submetida a QA visual autenticado nesta revisão; produção continua na versão anterior até promoção. Estado técnico inicial de 31/10: cliente em preparação, sem integração de publicação.
 
 ## Mensagem de reprovação recebida

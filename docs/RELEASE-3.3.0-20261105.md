@@ -4,7 +4,7 @@
 
 - **Aprovado pelo proprietário:** Rafa autorizou promoção do conjunto acumulado em `staging` para `main`, SemVer e atualização da documentação do projeto e do Vault.
 - **Classificação:** MINOR `3.2.0 → 3.3.0`; funcionalidades compatíveis novas com correções PATCH incorporadas.
-- **Estado em 07/11/2026:** branch `release/3.3.0-20261105` candidata à promoção, reconciliada com as PRs #307, #304 e #306 já integradas em staging. Não declarar produção até CI do release, PR de promoção e deploy live com SHA. Acompanhar fechamento no Vault `TASK.md`.
+- **Estado final em 07/11/2026:** **3.3.0 em produção e staging**, após PR de release #303 e PR de promoção #308 com CI/SemVer aprovados, CD e deploys Render LIVE e saúde 200. O estado de candidata anterior permanece documentado nas evidências históricas abaixo; o fechamento operacional prevalece.
 - **Origens conferidas:** `main=561345b102f95979eb979167ec52e9d823681768` (produção 3.2.0); `staging=9eede9d79db65263094c27c43f25a022f9e83ec2` (Render `dep-dbm39ijncjis738ogs10` live) antes do bump. Comparação registrou 72 arquivos diferentes; os 10 commits exclusivos em main, por histórico de merges anteriores, não adicionaram diferenças de arquivo em `staging...main`. A verificação de conflitos deve continuar no PR de promoção.
 - **Reconciliação em 07/11:** CI #1028 da PR #307 (base técnica), #1030 da PR #304 (ordem/Shopee Vídeo), #1032 da PR #306 (duas seções) **SUCCESS** nos três jobs obrigatórios. Staging no SHA `6a3b3228936a5860bd03a8060fd183c6c2cdb94d`, Render deploy `dep-dbnc6hp42hec73ca3ik0` **LIVE**, `GET /health` **HTTP 200** com `{"status":"ok"}`. A indisponibilidade de Actions em 05–07/11 foi encerrada; conservar como histórico na issue #305.
 
@@ -33,7 +33,14 @@
 - **Gate SemVer antes da promoção:** `python scripts/check_release_semver.py --base-ref origin/main` na release reconciliada retornou **`Release SemVer OK: 3.2.0 -> 3.3.0; 87 arquivos verificados`**. CI própria da PR #303 [#1034](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42346880692) iniciada; esperar conclusão e repetir na última revisão documental antes do merge.
 - **Não homologados nesta preparação:** QA autenticado da divisão de credenciais em desktop/mobile, publicação real em Facebook/Instagram/X, pagamento/checkout ou automação de campanhas externas. Sem autorização para testar postagem externa ou ativar pagamentos. Pytest completo da API passou no runner Python 3.13 nas CIs acima.
 
-## Gate de promoção e acompanhamento
+## Fechamento operacional comprovado — 07/11/2026
+
+1. **Release em staging:** PR #303 merge `821a16a542694c77eb4f778a99168de2dc801c72`, CI #1035 da PR e CI push #1036 **SUCCESS**; CD Staging #293, segurança HTTP #159 e ZAP baseline passivo #154 **SUCCESS**. Render deploy `dep-dbnca34s728c73934u0g` **LIVE**; `GET /health` e `GET /api/health/ready` HTTP 200 com `{"status":"ok"}`.
+2. **Promoção em produção:** [PR #308](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/308) por merge normal no SHA `1cde5216c385985a1360dc9d730286e40faab283`, após CI #1037 **SUCCESS** e gate **SemVer #2 SUCCESS**. Comparação de merge `main`/staging sem conflitos; script SemVer retornou `3.2.0 -> 3.3.0; 87 arquivos verificados`. CI push da main #1038 e CD #169 **SUCCESS**.
+3. **Saúde em produção:** Render deploy `dep-dbncbp0473hc739ghhpg` **LIVE** no SHA de main acima, `GET /health` e `GET /api/health/ready` HTTP 200. Logs confirmaram `Scheduler initializing in production`, `Scheduler started`, migrações 087/088 **já aplicadas, ignoradas**, nenhuma linha nível `error` na janela 06:33:40–06:36 UTC. Não houve escrita ou reconfiguração dos dois `pg_cron` e nem publicação externa/cobrança de teste por esta operação.
+4. **Versão e ressalvas:** `VERSION=3.3.0` em ambas as branches. Os seis contratos de Credenciais passam no workflow Node 20, mas QA autenticado da UI em desktop/mobile ainda não foi comprovado. Os 23 testes opcionais antigos fora do conjunto CI permanecem dívida técnica observada; integrações sociais e pagamento requerem validação própria e não foram acionados nesta release. O incidente de Actions #305 é **histórico resolvido**, não HOLD atual.
+
+## Gate de promoção e acompanhamento (checklist usado, concluído acima)
 
 1. PR de release com VERSION/CHANGELOG e reconciliação das três PRs anteriores → staging; Render staging `live`, checar saúde.
 2. PR `staging → main`, revisar diff/conflitos, SemVer e CI; não ignorar status impeditivo sem decisão.
