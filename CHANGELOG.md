@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added / Changed — Identidade cadastral por conta e perfil compacto (MINOR candidata 3.5.0, 07/11/2026)
+
+- `/profiles`: banner de plano substituído por etiqueta, cota de perfis e botão de upgrade apenas para Free/Pro. Novo formulário de dados cadastrais do titular da conta, sem misturar CPF e contato com perfis sociais.
+- Novo cadastro Supabase e conclusão Google passam a exigir **nome completo e CPF válidos**; e-mail/senha permanecem obrigatórios no cadastro por e-mail. O username técnico é gerado pelo servidor. Celular passa a ser obrigatório **para futura contratação**; idade, e-mail alternativo, telefone, endereço e CEP continuam opcionais.
+- Nova migration aditiva `093_account_billing_identity.sql`: CPF cifrado, HMAC para deduplicação, tabela vinculada à conta, RLS bloqueando anon/authenticated e integração com pending registrations. Endpoints autenticados `/users/me/identity` e `/users/me/purchase-readiness`; nenhum checkout ou cobrança foi criado. Privacidade/dados coletados e testes atualizados. `VERSION=3.4.0` preservada; produção `main` requer aprovação de Rafa. [Contrato](docs/CADASTRO-IDENTIDADE-PLANOS-20261107.md).
+
 ### Removed — Sondas manuais de coleta no painel Análises (PATCH da candidata 3.5.0, 07/11/2026)
 
 - Retirados os três botões **Verificar coleta de Threads/Facebook/Instagram** do rodapé de Análises para todos os perfis, inclusive ADMIN. Eliminados os handlers, estados, mensagens, importações e estilos responsivos exclusivos.

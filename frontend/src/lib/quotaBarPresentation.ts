@@ -1,6 +1,6 @@
 import type { PlanUsage, ResourceUsage } from "../api/planUsage"
 
-export type QuotaScope = "products" | "lists" | "publishing" | "campaigns"
+export type QuotaScope = "products" | "lists" | "profiles" | "publishing" | "campaigns"
 
 /** Apenas apresentação: a API continua responsável pelos limites e permissões. */
 export function canOfferPlanUpgrade(plan: Pick<PlanUsage, "is_admin" | "plan_tier"> | undefined): boolean {
@@ -18,7 +18,7 @@ function knownLimit(label: string, usage: ResourceUsage | undefined, period: str
 
 export function quotaBarText(plan: PlanUsage | undefined, scope: QuotaScope, loading: boolean, error: boolean) {
   const title = ({
-    products: "Cota de produtos", lists: "Cota de listas",
+    products: "Cota de produtos", lists: "Cota de listas", profiles: "Cota de perfis",
     publishing: "Cota de publicações", campaigns: "Cota de campanhas",
   })[scope]
   if (loading) return { title, detail: "Consultando cota..." }

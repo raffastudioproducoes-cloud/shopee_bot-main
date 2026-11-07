@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -16,6 +17,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from starlette.concurrency import run_in_threadpool
 from supabase import create_client
 from pydantic import BaseModel, Field, ValidationError
+
+from ..account_identity import (
+    cpf_record, normalize_cep, normalize_full_name, normalize_phone, purchase_readiness,
+)
 
 from .auth import (
     _check_login_rate_limit,
@@ -30,7 +35,7 @@ from .products import ProductCreate, _normalize_numeric_fields, find_product_in_
 from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..config import settings
-from ..database import supabase
+from ..database import get_supabase, supabase
 from ..account_erasure import erase_account, account_erasure_enabled
 from ..profiles import scope_account, scope_owner
 from ..utils.log_sanitizer import sanitize_log_data
@@ -47,6 +52,100 @@ _MAX_BACKUP_POSTS = 500
 _MAX_BACKUP_TEXTS_PER_POST = 50
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+class AccountIdentityUpdate(BaseModel):
+    """Dados da conta comercial, não dos perfis sociais da mesma conta."""
+
+    full_name: str | None = Field(default=None, max_length=150)
+    cpf: str | None = Field(default=None, max_length=18, repr=False)
+    age: int | None = Field(default=None, ge=0, le=120)
+    mobile_phone: str | None = Field(default=None, max_length=24)
+    recovery_email: str | None = Field(default=None, max_length=254)
+    contact_phone: str | None = Field(default=None, max_length=24)
+    address_line: str | None = Field(default=None, max_length=180)
+    address_number: str | None = Field(default=None, max_length=25)
+    address_complement: str | None = Field(default=None, max_length=120)
+    neighborhood: str | None = Field(default=None, max_length=100)
+    city: str | None = Field(default=None, max_length=100)
+    state: str | None = Field(default=None, max_length=2)
+    cep: str | None = Field(default=None, max_length=10)
+
+
+def _account_identity_data(user_id: str) -> dict:
+    db = get_supabase()
+    user_result = db.table("users").select("id,email").eq("id", user_id).maybe_single().execute()
+    if not user_result.data:
+        raise HTTPException(404, "Conta não encontrada.")
+    result = (db.table("account_billing_identity").select("*")
+              .eq("user_id", user_id).maybe_single().execute())
+    row = result.data or {}
+    public = {key: row.get(key) for key in (
+        "full_name", "age", "mobile_phone", "recovery_email", "contact_phone",
+        "address_line", "address_number", "address_complement", "neighborhood",
+        "city", "state", "cep",
+    )}
+    public["cpf_registered"] = bool(row.get("cpf_ciphertext"))
+    public["email"] = user_result.data.get("email")
+    public["purchase_readiness"] = purchase_readiness(user_result.data, row)
+    return public
+
+
+@router.get("/me/identity")
+def get_own_identity(user_id: str = Depends(get_current_user_id)):
+    return _account_identity_data(user_id)
+
+
+@router.get("/me/purchase-readiness")
+def get_purchase_readiness(user_id: str = Depends(get_current_user_id)):
+    """Contrato obrigatório para o futuro checkout; não cria pedido/pagamento."""
+    return _account_identity_data(user_id)["purchase_readiness"]
+
+
+@router.put("/me/identity")
+def update_own_identity(body: AccountIdentityUpdate, user_id: str = Depends(get_current_user_id)):
+    db = get_supabase()
+    updates = body.model_dump(exclude_unset=True)
+    cpf = updates.pop("cpf", None)
+    if "full_name" in updates:
+        if not updates["full_name"]:
+            raise HTTPException(422, "Nome e sobrenome são obrigatórios.")
+        updates["full_name"] = normalize_full_name(updates["full_name"])
+    if cpf is not None and cpf.strip():
+        updates.update(cpf_record(cpf))
+    if "mobile_phone" in updates:
+        updates["mobile_phone"] = normalize_phone(updates["mobile_phone"], mobile=True)
+    if "contact_phone" in updates:
+        updates["contact_phone"] = normalize_phone(updates["contact_phone"])
+    if "cep" in updates:
+        updates["cep"] = normalize_cep(updates["cep"])
+    if "recovery_email" in updates and updates["recovery_email"]:
+        from .supabase_auth import _normalized_email
+        updates["recovery_email"] = _normalized_email(updates["recovery_email"])
+    for field in ("address_line", "address_number", "address_complement", "neighborhood", "city", "state"):
+        if field in updates and updates[field] is not None:
+            updates[field] = updates[field].strip() or None
+    if updates.get("state") and not re.fullmatch(r"[A-Za-z]{2}", updates["state"]):
+        raise HTTPException(422, "UF deve ter duas letras.")
+    if updates.get("state"):
+        updates["state"] = updates["state"].upper()
+    if updates:
+        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+        try:
+            # Um UPSERT com colunas ausentes pode enviar NULL no merge do
+            # PostgREST e apagar o CPF cifrado. Em edições parciais, UPDATE
+            # preserva todas as colunas não enviadas.
+            current = (db.table("account_billing_identity").select("user_id")
+                       .eq("user_id", user_id).maybe_single().execute())
+            if current.data:
+                (db.table("account_billing_identity").update(updates)
+                 .eq("user_id", user_id).execute())
+            else:
+                db.table("account_billing_identity").insert({"user_id": user_id, **updates}).execute()
+        except Exception:
+            # Não mostrar índice/fingerprint ou os dados enviados nas falhas.
+            raise HTTPException(409, "Não foi possível salvar os dados. Verifique o CPF ou tente novamente.") from None
+    return _account_identity_data(user_id)
 logger = logging.getLogger("uvicorn.error")
 
 

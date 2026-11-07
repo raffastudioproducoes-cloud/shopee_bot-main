@@ -41,6 +41,7 @@ def test_capabilities_are_disabled_by_default(client):
 def test_registration_never_falls_back_to_legacy(client):
     response = client.post("/auth/supabase/register", json={
         "username": "clienteteste", "email": "cliente@example.com",
+        "full_name": "Cliente Teste", "cpf": "52998224725",
         "password": "minhasenhasegura", "confirm_password": "minhasenhasegura",
         "accepted_terms_version": "2026-10-31",
     })
@@ -53,6 +54,7 @@ def test_registration_rejects_password_mismatch_before_auth_call(client, monkeyp
     monkeypatch.setattr(sb, "_auth_client", lambda: pytest.fail("não deve consultar GoTrue"))
     response = client.post("/auth/supabase/register", json={
         "username": "clienteteste", "email": "cliente@example.com",
+        "full_name": "Cliente Teste", "cpf": "52998224725",
         "password": "minhasenhasegura", "confirm_password": "senhadiferente",
         "accepted_terms_version": "2026-10-31",
     })
@@ -145,7 +147,8 @@ def test_google_completion_requires_pending_auth(client, monkeypatch):
     _enable(monkeypatch)
     monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key: None)
     response = client.post("/auth/supabase/google/complete", json={
-        "username": "novousuario", "accepted_terms_version": "2026-10-31",
+        "username": "novousuario", "full_name": "Cliente Teste", "cpf": "52998224725",
+        "accepted_terms_version": "2026-10-31",
     })
     assert response.status_code == 401
 
@@ -164,6 +167,7 @@ def test_email_signup_is_pending_until_validation(client, monkeypatch, fake_db):
     monkeypatch.setattr(sb, "_auth_client", lambda: SimpleNamespace(auth=FakeAuth()))
     result = client.post("/auth/supabase/register", json={
         "username": "novocliente", "email": "cliente@example.com",
+        "full_name": "Cliente Teste", "cpf": "52998224725",
         "password": "senhasegura123", "confirm_password": "senhasegura123",
         "accepted_terms_version": "2026-10-31",
     })
@@ -172,6 +176,11 @@ def test_email_signup_is_pending_until_validation(client, monkeypatch, fake_db):
     assert captured["options"]["email_redirect_to"] == "https://app.example.com/login"
     assert db.tables["users"] == []
     assert len(db.tables["pending_auth_registrations"]) == 1
+    pending = db.tables["pending_auth_registrations"][0]
+    assert pending["full_name"] == "Cliente Teste"
+    assert pending["cpf_ciphertext"] != "52998224725"
+    assert "52998224725" not in str(pending)
+    assert len(pending["cpf_fingerprint"]) == 64
 
 
 def test_login_email_not_confirmed_cannot_enter(client, monkeypatch):
@@ -265,6 +274,7 @@ def test_signup_fails_closed_if_confirm_email_is_disabled(client, monkeypatch, f
     monkeypatch.setattr(sb, "_auth_client", lambda: SimpleNamespace(auth=FakeAuth()))
     result = client.post("/auth/supabase/register", json={
         "username": "novocliente", "email": "cliente@example.com",
+        "full_name": "Cliente Teste", "cpf": "52998224725",
         "password": "senhasegura123", "confirm_password": "senhasegura123",
         "accepted_terms_version": "2026-10-31",
     })

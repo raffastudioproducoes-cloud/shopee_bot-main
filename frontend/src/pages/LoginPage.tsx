@@ -11,6 +11,7 @@ import { Icon } from '../components/ui/Icon'
 import { AppFooter } from '../components/layout/AppFooter'
 import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
 import { validatePassword } from '../lib/password'
+import { validCpf } from '../lib/cpf'
 import { PasswordRecoveryRequestModal } from '../components/auth/PasswordRecoveryRequestModal'
 
 // Split-screen responsivo: sem breakpoint padrão no projeto (nenhum @media existente
@@ -363,7 +364,8 @@ interface RegisterModalProps {
 }
 
 function RegisterModal({ enabled, onClose }: RegisterModalProps) {
-  const [username, setUsername] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [cpf, setCpf] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -377,6 +379,8 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
     setError('')
 
     if (!acceptedTerms) { setError('É necessário ler e aceitar os Termos para criar a conta.'); return }
+    if (fullName.trim().split(/\s+/).length < 2) { setError('Informe nome e sobrenome.'); return }
+    if (!validCpf(cpf)) { setError('Informe um CPF válido.'); return }
     const passwordProblem = validatePassword(password)
     if (passwordProblem) { setError(passwordProblem); return }
     if (password !== confirmPassword) {
@@ -386,7 +390,7 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
 
     setLoading(true)
     try {
-      const result = await authApi.register(username, email, password, confirmPassword)
+      const result = await authApi.register(fullName, cpf, email, password, confirmPassword)
       setSuccess(result.msg || 'Enviamos uma confirmação ao seu e-mail. Confirme antes de entrar.')
     } catch (err: unknown) {
       if (err instanceof Error && 'status' in err) {
@@ -407,13 +411,15 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
         {success && <div className="csp-login-banner csp-login-banner-success">{success}</div>}
 
         <TextInput
-          label="Nome de usuário"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          label="Nome completo *"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
           required
-          autoComplete="username"
+          autoComplete="name"
           disabled={!!success}
         />
+        <TextInput label="CPF *" value={cpf} onChange={e => setCpf(e.target.value)} required
+          inputMode="numeric" maxLength={18} autoComplete="off" placeholder="000.000.000-00" disabled={!!success} />
         <TextInput
           label="E-mail"
           type="email"
@@ -461,7 +467,8 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
 
 
 function GoogleSetupModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => Promise<void> }) {
-  const [username, setUsername] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [cpf, setCpf] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -469,10 +476,11 @@ function GoogleSetupModal({ onClose, onSuccess }: { onClose: () => void; onSucce
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!acceptedTerms) { setError('Aceite os Termos de Uso para continuar.'); return }
+    if (fullName.trim().split(/\s+/).length < 2 || !validCpf(cpf)) { setError('Informe nome completo e CPF válido.'); return }
     setLoading(true)
     setError('')
     try {
-      await authApi.completeGoogle(username)
+      await authApi.completeGoogle(fullName, cpf)
       await onSuccess()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível concluir o cadastro Google.')
@@ -484,10 +492,12 @@ function GoogleSetupModal({ onClose, onSuccess }: { onClose: () => void; onSucce
   return (
     <Modal open onClose={onClose} title="Concluir cadastro com Google" width={400}>
       <form onSubmit={submit} className="csp-login-31">
-        <p>Escolha um nome de usuário para sua nova conta do Auto Orbital.</p>
+        <p>Confirme seus dados cadastrais. O Google gerencia sua senha de acesso.</p>
         {error && <div className="csp-login-banner csp-login-banner-error">{error}</div>}
-        <TextInput label="Usuário" value={username} onChange={e => setUsername(e.target.value)}
-          required minLength={3} maxLength={64} autoComplete="username" />
+        <TextInput label="Nome completo *" value={fullName} onChange={e => setFullName(e.target.value)}
+          required minLength={5} maxLength={150} autoComplete="name" />
+        <TextInput label="CPF *" value={cpf} onChange={e => setCpf(e.target.value)}
+          required inputMode="numeric" maxLength={18} autoComplete="off" />
         <label><input type="checkbox" checked={acceptedTerms}
           onChange={e => setAcceptedTerms(e.target.checked)} required /> Aceito os{' '}
           <a href="/termos" target="_blank" rel="noreferrer">Termos de Uso</a> e li a{' '}

@@ -1,10 +1,10 @@
 import { LegalLayout } from './LegalLayout'
 
 export function DataCollectedPage() {
-  return <LegalLayout title="Quais dados o Auto Orbital utiliza?" updatedAt="31 de outubro de 2026">
+  return <LegalLayout title="Quais dados o Auto Orbital utiliza?" updatedAt="7 de novembro de 2026">
     <p>Este inventário descreve os dados que o site e suas integrações podem tratar ao abrir no computador, tablet ou celular. Nem todos os dados são coletados em todas as sessões.</p>
     <h2>1. Identificação e conta</h2>
-    <ul><li>Nome de usuário, senha protegida por hash e perfis cadastrados, incluindo dados preenchidos voluntariamente.</li><li>Aceite dos Termos (versão e data) e preferências opcionais de região, GPS e origem do cadastro, com possibilidade de revogação.</li></ul>
+    <ul><li>Nome completo, CPF e e-mail são exigidos no cadastro por e-mail; a senha é gerenciada pelo Supabase Auth, sem armazenamento em texto claro na aplicação. O acesso com Google utiliza a autenticação do próprio provedor.</li><li>O CPF é cifrado em repouso, com identificador criptográfico protegido para impedir duplicidade. Sua numeração completa não é devolvida ao painel.</li><li>Na página Perfis, celular é necessário para futura contratação; idade, e-mail alternativo, telefone, endereço completo e CEP podem ser informados opcionalmente.</li><li>Aceite dos Termos (versão e data) e preferências opcionais de região, GPS e origem do cadastro, com possibilidade de revogação.</li></ul>
     <h2>2. Navegador, dispositivo e rede</h2>
     <ul><li>Endereço IP, caminho da requisição, método, resposta e tempo de processamento podem constar de registros técnicos da aplicação, da hospedagem ou dos serviços de segurança.</li><li>Navegador, sistema operacional e características técnicas podem integrar cabeçalhos padrão HTTP observados pela infraestrutura. O aplicativo não usa uma funcionalidade própria de impressão digital do dispositivo para identificar pessoas.</li><li>Cookie essencial de sessão para autenticação; a aplicação também pode manter preferências de interface localmente no navegador.</li></ul>
     <h2>3. Localização (opcional)</h2>
@@ -14,6 +14,6 @@ export function DataCollectedPage() {
     <h2>5. Dados que não pedimos automaticamente</h2>
     <p>O site não precisa de acesso à câmera, microfone, contatos, arquivos pessoais, mensagens privadas, Bluetooth ou localização precisa contínua. Arquivos e mídias só são recebidos quando enviados voluntariamente. Recursos de terceiros podem possuir políticas próprias.</p>
     <h2>6. Gerenciamento e direitos</h2>
-    <p>Consulte <a href="/privacidade">Privacidade</a> para bases legais, destinatários, retenção, exclusão e contato. Gerencie GPS, localização regional e origem informada na página <a href="/settings">Configurações</a>. Para solicitar acesso, correção ou eliminação de dados, contate contato.raffasp@gmail.com.</p>
+    <p>Consulte <a href="/privacidade">Privacidade</a> para bases legais, destinatários, retenção, exclusão e contato. Dados cadastrais ficam em <a href="/profiles">Perfis</a>; GPS e região ficam em <a href="/settings">Configurações</a>. O e-mail alternativo ainda não recebe links de redefinição: isso exigirá confirmação própria. Para solicitar acesso, correção ou eliminação de dados, contate contato.raffasp@gmail.com.</p>
   </LegalLayout>
 }
