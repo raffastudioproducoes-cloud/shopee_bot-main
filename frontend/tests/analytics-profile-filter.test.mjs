@@ -40,6 +40,10 @@ test('atualização manual aceita Todos, respeita cota diária e ranking por pos
 test('o dashboard apresenta métricas por post, redes sociais completas e visualizações distintas', () => {
   const visuals = readFileSync(new URL('../src/components/AnalyticsVisuals.tsx', import.meta.url), 'utf8')
   assert.match(visuals, /buildAdminDiagnosticSections\(\)\.social/)
+  assert.match(page, /ANALYTICS_NETWORKS\.map\(\(item\) => \(\{ value: item\.key, label: item\.title \}\)\)/)
+  assert.match(page, /<AnalyticsDetailTable rows=\{rows\} selectedProfile=\{selectedProfile\} selectedNetwork=\{network\}/)
+  assert.match(page, /hasRecordedAnalytics\(network\)/)
+  assert.match(page, /análises indisponíveis/)
   for (const widget of ['Total de envios', 'Redes com atividade', 'Visualizações de posts',
     'Interações mensuradas', 'Posts com insights', 'Comparação entre redes',
     'Composição do engajamento', 'Atividade por dia da semana', 'Publicações em destaque',
