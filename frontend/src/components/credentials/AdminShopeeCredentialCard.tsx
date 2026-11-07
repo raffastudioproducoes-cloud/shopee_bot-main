@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminShopeeApi } from '../../api/credentials'
-import { Panel } from '../ui/Panel'
 import { Button } from '../ui/Button'
 import { TextInput } from '../ui/TextInput'
 import { StatusBadge } from '../ui/StatusBadge'
+import { Icon } from '../ui/Icon'
 
 type Banner = { ok: boolean; text: string } | null
 
@@ -31,7 +31,7 @@ export function AdminShopeeCredentialCard({
     onSuccess: () => {
       setAppId('')
       setSecret('')
-      setBanner({ ok: true, text: 'API Shopee global salva. Execute o teste de conexão.' })
+      setBanner({ ok: true, text: 'API Shopee global salva. Use “Testar todas as conexões” no diagnóstico.' })
       refresh()
     },
     onError: onAuthError,
@@ -41,22 +41,22 @@ export function AdminShopeeCredentialCard({
     onSuccess: () => { setBanner({ ok: true, text: 'API Shopee global desconectada.' }); refresh() },
     onError: onAuthError,
   })
-  const test = useMutation({
-    mutationFn: adminShopeeApi.test,
-    onSuccess: result => {
-      setBanner({ ok: result.light === 'green', text: result.message })
-      refresh()
-    },
-    onError: onAuthError,
-  })
   return (
-    <Panel surface="dark" className="cred-card">
-      <div className="csp-s-0192">
-        <h2 className="csp-s-0194">Shopee Afiliados — API da plataforma</h2>
+    <details className="admin-platform-card">
+      <summary className="admin-platform-card__header csp-s-0192">
+        <span className="credential-brand credential-brand--shopee" aria-hidden="true">
+          <img src="/brand-logos/shopee.svg" alt="" />
+        </span>
+        <span className="admin-platform-card__heading">
+          <h2 className="csp-s-0194">Shopee Afiliados</h2>
+          <small>API da plataforma</small>
+        </span>
         <StatusBadge tone={data?.state === 'ok' ? 'positive' : 'neutral'}>
           {data?.connected ? data.state === 'ok' ? 'API testada' : 'API salva (teste pendente)' : 'Não configurada'}
         </StatusBadge>
-      </div>
+        <Icon name="chevron-down" size={18} className="admin-platform-card__chevron" />
+      </summary>
+      <div className="admin-platform-card__body">
       <p className="csp-s-0211">
         Seu App ID e Secret consultam o catálogo para todos os usuários. Cada cliente cadastra
         separadamente o próprio ID de afiliado; o sistema não publica seu link pessoal no lugar do cliente.
@@ -75,9 +75,6 @@ export function AdminShopeeCredentialCard({
           </div>
           <div className="csp-s-0213">
             {data?.connected && <>
-              <Button type="button" variant="secondary" disabled={test.isPending} onClick={() => test.mutate()}>
-                {test.isPending ? 'Testando…' : 'Testar conexão'}
-              </Button>
               <Button type="button" variant="ghost" disabled={remove.isPending} onClick={() => remove.mutate()}>
                 {remove.isPending ? 'Desconectando…' : 'Desconectar'}
               </Button>
@@ -88,6 +85,7 @@ export function AdminShopeeCredentialCard({
           </div>
         </form>
       )}
-    </Panel>
+      </div>
+    </details>
   )
 }

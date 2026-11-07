@@ -17,5 +17,6 @@ Arquivos locais, com transparência. São marcas de terceiros usadas apenas para
 | `prospin.png` | [Pró Spin — imagem de marca da própria empresa](https://blog.prospin.com.br/wp-content/uploads/2026/04/logo-prospin-rebranding-azul-horizontal-e1777246237970.png) | **Rebranding de 2026**; redimensionada com transparência preservada |
 | `shein.svg` | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Shein_Logo_2017.svg) | Wordmark original |
 | `terabyteshop.png` | [Inno3D — logotipo do parceiro comercial](https://www.inno3d.com/sites/default/files/2023-11/TERABYTE_eshop_Logo_color.png) | Redimensionado com transparência preservada |
+| `gemini.svg` | [Wikimedia Commons — Gemini icon 2025](https://commons.wikimedia.org/wiki/File:Google_Gemini_icon_2025.svg), marca de Google LLC | Ícone colorido transparente para o diagnóstico ADMIN de IA global, não indica parceria |
 
 Os arquivos são carregados de `/brand-logos/` no próprio site e nunca precisam consultar a origem externa em tempo de execução. Shopee Vídeo reutiliza a marca Shopee; não implica acesso a Video Management.

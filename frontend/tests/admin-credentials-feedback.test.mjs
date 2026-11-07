@@ -15,7 +15,7 @@ test('diagnóstico acompanha o resultado assíncrono das credenciais', () => {
   runInNewContext(code, { exports, require(name) {
     if (name === 'react') return { useState: value => [value, () => {}] }
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx }
-    if (name === '@tanstack/react-query') return { useQueryClient: () => ({}), useQuery(options) { query = options; return { data: { threads: { state: 'testing', status_text: 'Verificando' } } } } }
+    if (name === '@tanstack/react-query') return { useQueryClient: () => ({}), useMutation: () => ({ isPending: false }), useQuery(options) { query = options; return { data: { threads: { state: 'testing', status_text: 'Verificando' } } } } }
     if (name === '@tanstack/react-router') return { useNavigate: () => () => {} }
     if (name === '../stores/authStore') return { useAuthStore: () => () => {} }
     if (name === '../api/credentials') return { credentialsApi: { listAdminStatus() { statusCalls++ } } }

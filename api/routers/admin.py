@@ -1,4 +1,6 @@
 """Área administrativa: mesmos handlers, com autorização também no prefixo."""
+import asyncio
+import logging
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Query
@@ -11,8 +13,12 @@ from .auth import get_current_user_id
 from ..admin_operations import OperationsResponse, collect_operations
 from ..admin_queue_health import QueueHealthResponse, collect_queue_health
 from ..admin_views import AdminLogsResponse, AdminCredentialStatus
+from ..audit_log import log_action
+from .profiles import get_current_profile_id
 
-from . import logs, users, credentials
+from . import logs, users, credentials, platform_ai, platform_shopee
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(users._require_admin)])
 router.add_api_route("/users", users.list_users, methods=["GET"])
@@ -38,6 +44,71 @@ router.add_api_route("/logs", logs.list_logs, methods=["GET"], response_model=Ad
 @router.get('/credentials/status', response_model=dict[str, AdminCredentialStatus])
 async def connection_status(statuses: dict = Depends(credentials.list_credentials)):
     return statuses
+
+
+@router.post("/credentials/test-all")
+async def test_all_connections(
+    admin: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Uma tentativa administrativa para o lote; sem testar IDs de afiliado como chaves.
+
+    Não acessa dados de outros clientes: redes OAuth são as credenciais do
+    perfil ADMIN atual. Somente IA ativa e Shopee global são compartilhadas.
+    """
+    credentials._check_test_rate_limit(admin)
+    statuses = await credentials.list_credentials(admin, profile_id)
+    shopee_status = await platform_shopee.admin_shopee_status()
+    try:
+        ai_status = await platform_ai.admin_platform_ai_status()
+    except Exception as exc:
+        logger.warning("Diagnóstico: configuração de IA indisponível (%s)", type(exc).__name__)
+        ai_status = {"active": None, "providers": {}}
+
+    runners = {}
+    active_ai = ai_status.get("active")
+    if active_ai and ai_status.get("providers", {}).get(active_ai, {}).get("connected"):
+        runners["ai"] = lambda: platform_ai._execute_platform_ai_test(active_ai, admin)
+    if shopee_status.get("connected"):
+        runners["shopee"] = lambda: platform_shopee._execute_platform_shopee_test(admin)
+
+    # A API antiga associa "shopee" ao ID de afiliado do ADMIN; a conexão
+    # global Shopee é a única testável aqui. Kwai permanece diagnóstico apenas.
+    for network in ("facebook", "instagram", "kwai", "threads", "tiktok", "x"):
+        if statuses.get(network, {}).get("connected"):
+            runners[network] = lambda network=network: credentials._execute_credential_test(
+                network, admin, profile_id
+            )
+
+    semaphore = asyncio.Semaphore(3)
+
+    async def run_one(network, operation):
+        async with semaphore:
+            try:
+                result = await operation()
+                state = "ok" if result.get("light") == "green" else "error"
+                checked_at = result.get("checked_at")
+            except Exception as exc:
+                logger.warning("Diagnóstico ADMIN: teste %s indisponível (%s)", network, type(exc).__name__)
+                state, checked_at = "error", None
+            # Nunca salvar erros crus de fornecedor (podem incluir IDs/chaves).
+            # Render recebe evento sempre. Esta ação ADMIN explícita exige
+            # auditoria, mesmo sem logging geral de tráfego. Nenhum segredo.
+            logger.info("credential_diagnostic network=%s state=%s", network, state)
+            log_action(f"admin_credentials_test_{network}_{state}", user_id=admin, force=True)
+            return network, {"state": state, "status_text": (
+                "Funcionando" if state == "ok" else "Falha no teste de conexão"
+            ), "checked_at": checked_at}
+
+    completed = dict(await asyncio.gather(*(run_one(name, fn) for name, fn in runners.items())))
+    results = {}
+    for key in ("ai", "shopee", "facebook", "instagram", "kwai", "threads", "tiktok", "x"):
+        results[key] = completed.get(key, {
+            "state": "skipped", "status_text": "Não configurada — teste não executado", "checked_at": None,
+        })
+    log_action("admin_credentials_test_all", f"tested={len(completed)} skipped={8-len(completed)}", user_id=admin, force=True)
+    logger.info("credential_diagnostic_batch tested=%s skipped=%s", len(completed), 8 - len(completed))
+    return {"tested": len(completed), "skipped": 8 - len(completed), "results": results}
 
 
 @router.get("/metrics", response_model=AdminMetricsResponse)

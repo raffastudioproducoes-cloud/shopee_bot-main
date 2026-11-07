@@ -1,3 +1,13 @@
+## 07/11/2026 — Diagnóstico ADMIN compacto (branch → staging, candidata 3.5.0)
+
+- [x] Escopo: IA/Shopee em ordem alfabética, cards recolhíveis com logos reais e duas colunas no desktop; manter todos os controles globais existentes ao expandir.
+- [x] Área inferior substitui formulários sociais de override por estados resumidos com logos, última verificação e um único botão de testar todas. Rotas e tokens legados preservados, sem exclusão.
+- [x] Endpoint `POST /admin/credentials/test-all` autentica ADMIN, limita uma chamada por lote, testa só IA ativa, Shopee global e redes do próprio perfil conectado, ignora ausentes; atualiza checagens existentes e gera logs sem segredos no Render e na Central administrativa (gravação best effort).
+- [x] Testes API focados e suíte integral local PASS (1.271/1.271). Build TypeScript/Vite PASS. Testes de UI/CSP sob validação na CI.
+- [ ] PR, CI, merge e deploy **somente staging**, com SHA evidenciado. **Não promover main até Rafa aprovar.** QA visual autenticado e execução externa do botão permanecem gates independentes.
+- **Documentação:** [contrato técnico](ADMIN-DIAGNOSTICO-CONEXOES-20261107.md) e [plano](superpowers/plans/2026-11-07-admin-diagnostico-compacto.md); `VERSION=3.4.0` permanece, candidata MINOR 3.5.0. Banco compartilhado, `pg_cron` (2), `pg_net`, publicações e produção intocados.
+- **Gatilho SMTP:** sem nova evidência verificável de domínio próprio registrado/configurado; manter configuração atual.
+
 ## 07/11/2026 — Credenciais compactas em abas (somente staging, candidata 3.5.0)
 
 - [x] Plano/contrato: [Credenciais compactas — lojas e redes](CREDENCIAIS-COMPACTAS-LOJAS-REDES-20261107.md); logos autênticas e fontes em [`frontend/public/brand-logos/SOURCES.md`](../frontend/public/brand-logos/SOURCES.md).

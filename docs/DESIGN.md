@@ -52,6 +52,8 @@
 > Flask legado (`web/templates/`, Tailwind + Alpine.js) **não** foi auditado neste documento
 > — ver nota no final.
 
+> **07/11/2026 — Diagnóstico ADMIN:** IA e Shopee como `<details>` recolhíveis com logos, grid de duas colunas no desktop e uma em telas estreitas. Redes em cartões pequenos somente com logo/nome/estado/horário, botão único de teste. Reusar tokens de cor/raio, foco por teclado e reduzir movimento quando solicitado. Fonte: [contrato do diagnóstico](ADMIN-DIAGNOSTICO-CONEXOES-20261107.md).
+
 ## 1. Paleta
 
 Fonte: `frontend/src/styles/tokens/colors.css`. O comentário no topo do arquivo identifica a

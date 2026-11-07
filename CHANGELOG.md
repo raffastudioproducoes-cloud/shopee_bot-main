@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Diagnóstico ADMIN compacto e teste consolidado (MINOR candidata 3.5.0, 07/11/2026)
+
+- `/admin/credentials`: cards de IA e Shopee com logos, recolhíveis e lado a lado no desktop (um por linha no celular), preservando gestão completa da chave/modelo/provedor global, opções de salvar/ativar/desconectar.
+- Overrides manuais sociais saem da **interface** administrativa; endpoints e credenciais anteriores preservados por compatibilidade. Seis redes passam a aparecer em cards pequenos, ordenados e apenas com situação real/última verificação.
+- Um botão `Testar todas as conexões` executa rota ADMIN limitada e isolada: IA ativa, Shopee global e conexões do próprio perfil ADMIN, ignorando configurações ausentes. Registros sanitizados no Render e em `request_logs` (evento explícito de auditoria independente do logging geral); nenhuma chave de cliente é testada ou exposta.
+- `VERSION=3.4.0` preservada; candidata MINOR `3.5.0`. Sem DDL, mudança de cron, `pg_net`, scheduler, serviço de publicação ou produção. Contrato [ADMIN-DIAGNOSTICO-CONEXOES-20261107](docs/ADMIN-DIAGNOSTICO-CONEXOES-20261107.md).
+
 ### Changed — Credenciais compactas por lojas e redes sociais (MINOR candidata 3.5.0, 07/11/2026)
 
 - `/credentials` recebe abas **Lojas** e **Redes sociais**, cada uma com os grupos existentes **Já credenciados** e **Ainda não cadastrados** e ordenação alfabética PT-BR; cards com logomarcas reais locais, status resumido e corpo fechado inicialmente.
