@@ -367,7 +367,8 @@ export default function AnalyticsPage() {
             Nunca usamos visualizações gerais do perfil ou da Página. A consulta automática usa o agendamento existente a cada 24 horas; uma consulta manual por perfil pode ser solicitada após 5 minutos.
             Traço significa métrica indisponível, não zero. Facebook e Instagram exigem contas conectadas e uma integração de insights por post validada;
             X e TikTok permanecem indisponíveis para métricas nesta etapa. A atualização manual permite até 10 consultas diárias por conta,
-            em qualquer plano, com reset à meia-noite de Brasília; ADMIN tem uso ilimitado. Aguardar 5 minutos entre coletas do mesmo perfil.
+            em qualquer plano, com reset à meia-noite de Brasília; ADMIN tem uso ilimitado. Contas comuns aguardam 5 minutos entre coletas
+            do mesmo perfil; ADMIN pode atualizar novamente quando a coleta em andamento for concluída.
           </p>
           {isAdmin && <div className="analytics-probe-actions" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
             {(['threads', 'facebook', 'instagram'] as const).map((name) => (
