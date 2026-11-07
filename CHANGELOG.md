@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Docs — Fechamento confirmado 3.5.0 e checklist recorrente de segurança (07/11/2026)
+
+- Após CI/SemVer, staging e `main` foram validadas em Render LIVE na versão 3.5.0; evidências documentadas em `docs/RELEASE-3.5.0-20261107.md`, sem nova alteração operacional.
+- Adicionados `docs/SEGURANCA-VARREDURA-CHECKLIST.md` (rotina permanente de revisão de segredos, RLS, auth, IDOR, rate limits, ADMIN e injeção/IA) e `docs/SEGURANCA-AUDITORIA-20261107.md` (achados classificados, limites da prova e plano de mitigação; nenhuma correção de código/banco nesta etapa).
+- Atualizados Guia Mestre, regras, arquitetura, TASK e espelho do Vault; mudança **somente documental**, sem bump além da release 3.5.0 já implantada.
+
 ## [3.5.0] - 2026-11-07
 
 ### Added — Máscaras telefônicas com seleção de DDI (MINOR candidata 3.5.0, 07/11/2026)
