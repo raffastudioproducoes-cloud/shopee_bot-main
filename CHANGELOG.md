@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Credenciais separadas por cadastro (branch, 07/11/2026)
+
+- A página `/credentials` agora distribui os nove cards em seções **Já credenciados** e **Ainda não cadastrados**, com títulos, contagens, mensagens de vazio e ordem alfabética PT-BR por seção, preservando cartões, ações e layout responsivo.
+- Critério de grupo: `connected` da API, inclusive quando o teste está vencido/amarelo; IA cadastrada se qualquer provedor tem chave salva; Shopee Vídeo permanece pendente e sem integração. Query de IA compartilhada, estado de erro com retentativa, mudança automática de grupo após salvar/desconectar, sem expor segredo.
+- Implementação dependente da PR #304: [PR #306](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/306) **draft**, somente branch `feat/credenciais-grupos-20261107`. Testes Node **6/6 PASS**; build TS/Vite, CI e QA autenticado ainda **NÃO EXECUTADOS** (`ACTIONS_INDISPONÍVEL`, [issue #305](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/issues/305)).
+- Classificação **MINOR candidata 3.3.0**; `VERSION=3.2.0` preservado. Sem alteração de API/backend, banco, migrations, cron, pg_net, flags, pagamentos ou produção.
+
 ### Changed — Credenciais (staging, 05/11/2026)
 
 - Cards de `/credentials` exibidos em ordem alfabética PT-BR: Facebook, Instagram, Inteligência Artificial, Kwai, Shopee, Shopee Vídeo, Threads, TikTok e X (Twitter), preservando estado, teste, OAuth, formulários, responsividade e recolhimento.
