@@ -1,9 +1,9 @@
 # IA da plataforma — serviço compartilhado e painel administrativo
 
 **Data:** 07/11/2026
-**Escopo:** Auto Orbital, PR #311 `feat/ia-compartilhada-admin-20261107` integrada em `staging`; produção aguarda aprovação.
-**SemVer:** funcionalidade compatível **MINOR 3.4.0**; `VERSION=3.3.0` até o gate de release.
-**Estado verificado em 07/11/2026:** **staging LIVE** no SHA `c352fb841ac45b56d86aefc3947c375a1c01cd8a` (Render `dep-dbnd8e0ae00c738kgrqg`). PR #311 aprovada na CI #1043, com jobs de API, frontend e PostgreSQL isolado verdes. Migração 089 já aplicada no Supabase e registrada em `public.migrations`; `production` e `staging` possuem configuração inicial Gemini ativa, sob RLS/revogação de SELECT aos clientes. `/health` e `/api/health/ready` responderam `{"status":"ok"}`. `main` permanece na versão 3.3.0; falta QA autenticado e autorização explícita de promoção. Histórico e gates no `docs/TASK.md`.
+**Escopo:** Auto Orbital, PR #311 integrada em `staging`; promoção completa para `main` autorizada por Rafa em 07/11.
+**SemVer:** funcionalidade compatível **MINOR 3.4.0**, `VERSION=3.4.0` na branch de release.
+**Estado verificado em 07/11/2026:** **staging LIVE** no SHA `c352fb841ac45b56d86aefc3947c375a1c01cd8a` (Render `dep-dbnd8e0ae00c738kgrqg`), seguida por documentação PR #312. CI #1043 aprovou API, frontend e PostgreSQL isolado; migração 089 aplicada no Supabase e registrada em `public.migrations`; configurações `production` e `staging` com Gemini inicial ativo e acesso restrito por RLS/grants. `/health` e `/api/health/ready` responderam `{"status":"ok"}`. A promoção foi autorizada, mas **main só recebe 3.4.0 após os gates e deploy comprovados**; QA autenticado permanece não verificado. Histórico e gates no `docs/TASK.md`.
 
 ## Contrato aprovado pelo proprietário
 
