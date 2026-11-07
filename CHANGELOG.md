@@ -5,6 +5,8 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.5.0] - 2026-11-07
+
 ### Added — Máscaras telefônicas com seleção de DDI (MINOR candidata 3.5.0, 07/11/2026)
 
 - `/profiles`, apenas no formulário do titular: **Celular** e **Telefone de contato** passam a ter seletor acessível de país/DDI ao lado do número, com máscaras progressivas por país (Brasil, EUA/Canadá, Portugal e outros DDIs disponíveis) em desktop e celular.
