@@ -1,8 +1,18 @@
+## 07/11/2026 — Atualização oficial Shopee: perfil verificado, caso 1750 esclarecido e pausa solicitada
+
+- [x] **Notificação Shopee 03/11/2026 18:29:** perfil de desenvolvedor **verificado** e liberado para **começar a desenvolver** na Open Platform; **não** significa app, escopo ou API de afiliados/vídeos aprovados. App Type define endpoints.
+- [x] **`My Tasks` 07/11:** **0** obrigatórias atrasadas, **0** obrigatórias nos próximos 7 dias, **0** obrigatórias em andamento e **0** recomendadas em andamento. A lista visível em andamento estava vazia; isso **não prova** dispensa de pentest para futura permissão de app.
+- [x] **Rejeição esclarecida:** `Penetration Test Report` **Case ID 1750**, atualizado **04/11/2026 03:32**, comentário literal: `Not a pentest: document/code review only, no active testing; findings R-01...R-07 have no screenshots, requests or tool output (links only).` Não reenviar documento como pentest nem fabricar provas.
+- [x] Mensagem em inglês com quatro perguntas sobre obrigatoriedade de pentest para afiliado BR, bloqueios, evidências necessárias e regularização do caso, **salva como rascunho não enviado** em [cadastro Shopee](SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md).
+- [ ] **Ao retomar, somente com Rafa:** examinar `Ticket System → Raise Ticket`, selecionar categoria e enviar mensagem **após decisão expressa**. Não houve ticket enviado, gasto, teste ativo, alteração de cadastro ou app criado.
+- **Decisão:** documentação organizada; tarefa **em espera** por solicitação de Rafa. Ainda seguir rejeitado → pendências → app, sem confundir perfil verificado com permissão do serviço de Shopee Vídeo.
+
 ## 07/11/2026 — Shopee Open Platform: rejeitado → pendências → aplicativo
 
-- [x] Inventário das três capturas de Rafa: `Penetration Test Report` **Rejected** sem motivo visível; `Supporting Documents Information` **Pending Upload** com declaração/capturas/URL/credenciais de teste não preenchidas; `App List` **sem aplicativos**.
+- [x] Inventário das três capturas de Rafa: `Penetration Test Report` **Rejected** com motivo conhecido no caso 1750 (ver atualização acima); `Supporting Documents Information` **Pending Upload** com declaração/capturas/URL/credenciais de teste não preenchidas; `App List` **sem aplicativos**.
 - [x] Registrar [roteiro de regularização do console, modelos de consulta, riscos de pentest e preparação segura de documentos](SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md) preservando a implementação de Shopee Vídeo **pausada**.
-- [ ] **Fase 1 — rejeitado:** Rafa abrir o **lápis de edição** do relatório rejeitado e verificar comentários/motivo sem salvar; se não houver, consultar `My Tickets`/abrir pedido formal de esclarecimento sobre exigência para **afiliado brasileiro sem acesso de PII de comprador**. Não reenviar PDF ou contratar pentest sem resposta e aprovação.
+- [x] **Fase 1a — rejeitado:** Rafa abriu o lápis e obteve motivo real: não era pentest, somente review sem testes ativos e sem evidências dos achados R-01...R-07 (caso 1750).
+- [ ] **Fase 1b — requisito e regularização:** confirmar via suporte oficial a obrigatoriedade e o modo correto de regularizar o caso para afiliado brasileiro; mensagem **apenas guardada**, envio futuro condicionado à decisão de Rafa. Não reenviar PDF ou contratar pentest sem resposta e aprovação.
 - [ ] **Fase 2 — pendentes:** depois de resolver a fase 1, obter modelo oficial da declaração, montar evidências verdadeiras da aplicação, confirmar URL de revisão e criar **conta de teste exclusiva** (dados sintéticos/menor privilégio), sem expor senha no chat/repo.
 - [ ] **Fase 3 — app:** verificar categoria/serviço realmente capaz de publicar no **feed Shopee Vídeo de criadores afiliados brasileiros** antes de criar App ou ligar OAuth; cliente de vídeo continua bloqueado.
 - **Estado:** só documentação no branch de `staging`, `VERSION=3.4.0` sem bump; nenhuma mudança Shopee, API, banco, cron/pg_net, serviços, custos ou `main`. Sem gatilho de SMTP por domínio próprio **registrado e configurado**.
