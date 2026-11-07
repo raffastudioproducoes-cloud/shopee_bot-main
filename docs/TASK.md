@@ -1,3 +1,12 @@
+## 07/11/2026 — Análises redes: gráficos distintos e cota manual por conta (staging)
+
+- [x] Reorganizar seis KPIs e seis painéis não redundantes; incluir nove redes e ausência de dados oficiais; considerar somente posts publicados pela plataforma.
+- [x] Permitir atualização em Todos os perfis, limitar a 10 ações válidas/dia Brasília por conta em todos os planos, ADMIN ilimitado; atualizar saldo/desabilitar botão e validar 429 no servidor.
+- [x] Criar migração 092 aditiva, RPCs com ownership/lock/RLS e testes de fluxos comuns/admin/cooldown/escopo.
+- [ ] Revisão CI de Python/frontend e migração do Supabase compartilhado, sem alterar cron/pg_net.
+- [ ] Render staging LIVE + QA autenticada, saúde e documentação de evidência; main só após aprovação expressa de Rafa.
+- [Contrato técnico](ANALISE-REDES-DASHBOARD-COTA-20261107.md); `VERSION=3.4.0`, candidata MINOR `3.5.0`.
+
 ## 07/11/2026 — Redes sociais compactas na Publicação única (staging)
 
 - [x] Reutilizar o seletor de nove redes da campanha na **Publicação única**, acima de Produtos e no local do seletor atual, com somente checkbox e nome, sem ícones, contêineres individuais ou bordas.
