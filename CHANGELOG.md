@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Redes compactas também na Publicação única (PATCH incluído na candidata 3.5.0, 07/11/2026)
+
+- `/posts/criar` → **Publicação única** agora apresenta, no mesmo local acima dos produtos, todas as nove redes sociais do catálogo em linha compacta com apenas checkbox e nome; sem logos, cartões ou bordas.
+- **Campanha por lista** mantém a escolha por produto, usando o mesmo componente compartilhado. Redes desconectadas, sem suporte ou planejadas permanecem apagadas e bloqueadas; selecionar/desmarcar preserva as validações, e posts existentes continuam somente leitura.
+- Alteração de interface e testes frontend; não altera publicação, credenciais, banco, cron, produção ou `main`. `VERSION=3.4.0` permanece, candidata `3.5.0` aguardando homologação.
+
 ### Changed — Redes por caixas na campanha por lista (PATCH incluído na candidata 3.5.0, 07/11/2026)
 
 - `/posts/criar` → Campanha por lista mostra nove redes sociais exclusivamente dentro de **Preparar** de cada produto, com checkbox + nome, sem logo, sem cartão ou seletor global. Só redes com publicação implementada e conexão OAuth testada (`state=ok`) são marcáveis; canais planejados ou desconectados ficam apagados e bloqueados.
