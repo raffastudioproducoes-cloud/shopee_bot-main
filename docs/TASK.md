@@ -1,3 +1,8 @@
+## 07/11/2026 — Ajuste textual do painel de integrações (staging)
+
+- [x] Título visível ajustado para **Situação das redes**; preservar nove cards, indicadores, filtros e dados. PATCH da candidata 3.5.0; `VERSION=3.4.0`.
+- [ ] Validar CI, staging LIVE e QA visual; `main` somente após aprovação expressa de Rafa.
+
 ## 07/11/2026 — Análises: remover apenas tabelas redundantes (PATCH candidata 3.5.0)
 
 - [x] Remover **Detalhamento por rede** e **Desempenho por publicação**, incluindo renderizações mobile, sem excluir os seis KPIs, seis painéis ou gráficos recém-criados.
