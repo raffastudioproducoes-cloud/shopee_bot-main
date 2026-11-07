@@ -47,7 +47,7 @@ test('o dashboard apresenta métricas por post, redes sociais completas e visual
   for (const widget of ['Total de envios', 'Redes com atividade', 'Visualizações de posts',
     'Interações mensuradas', 'Posts com insights', 'Comparação entre redes',
     'Composição do engajamento', 'Atividade por dia da semana', 'Publicações em destaque',
-    'Situação das nove redes']) assert.ok(visuals.includes(widget), `ausente: ${widget}`)
+    'Situação das redes']) assert.ok(visuals.includes(widget), `ausente: ${widget}`)
   assert.match(visuals, /item\.value === null \? '—'/)
   assert.doesNotMatch(visuals, /Visualizações da Página/)
 })
