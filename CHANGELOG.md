@@ -5,6 +5,16 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.3.0] - 2026-11-07
+
+### Release 3.3.0 — promoção autorizada em 05/11/2026
+
+- Release **MINOR retrocompatível** autorizada por Rafa, consolidando o conteúdo homologado em `staging` após a 3.2.0. A rastreabilidade detalhada de cada item permanece nas seções abaixo e em [docs/RELEASE-3.3.0-20261105.md](docs/RELEASE-3.3.0-20261105.md).
+- Inclui: análises somente por post do Auto Orbital (não por perfil externo), seletor todos/um perfil, histórico de Posts paginado, busca contextual e classificação de Listas, personalização e mídia de Produtos, IA de descrição, barras de cotas, comparação de planos, ajuste do criador/campanhas e da etiqueta visual; **Credenciais** ordenadas alfabeticamente e agrupadas por cadastro, com Shopee Vídeo informativo (não conectado).
+- Migrations aditivas 087 e 088 já observadas no banco compartilhado; fluxo de agendamento, `pg_net`, dois `pg_cron` e restrições de integração não são modificados pela versão. Integrações Facebook/Instagram desconectadas, X bloqueado e métricas externas indisponíveis não são tratadas como zero.
+- **Porta operacional:** a versão de código em `main` e o deploy Render de produção só podem ser declarados após PR de promoção, verificações de CI/saúde e registro de SHA exatos. GitHub Actions recuperado em 07/11: CI #1028, #1030 e #1032 aprovadas em PRs para staging; os resultados antigos que falharam antes dos steps são históricos.
+
+
 ### Changed — Credenciais separadas por cadastro (branch, 07/11/2026)
 
 - A página `/credentials` agora distribui os nove cards em seções **Já credenciados** e **Ainda não cadastrados**, com títulos, contagens, mensagens de vazio e ordem alfabética PT-BR por seção, preservando cartões, ações e layout responsivo.
