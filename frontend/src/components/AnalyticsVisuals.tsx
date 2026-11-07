@@ -416,7 +416,7 @@ export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timeli
       <Panel surface="dark" className="analytics-data-panel analytics-availability-panel">
         <div className="analytics-panel-heading">
           <div><span className="analytics-panel-eyebrow"><Activity size={14} aria-hidden="true" /> INTEGRAÇÕES</span>
-            <h2>Situação das nove redes</h2><p>Disponibilidade real da coleta por post</p></div>
+            <h2>Situação das redes</h2><p>Disponibilidade real da coleta por post</p></div>
         </div>
         <SocialAvailability rows={rows} />
         <p className="analytics-insights-note">Indicadores indisponíveis não equivalem a zero. Nenhuma métrica geral de perfis ou páginas é atribuída aos posts.</p>
