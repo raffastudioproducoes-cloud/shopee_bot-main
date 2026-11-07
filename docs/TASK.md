@@ -1217,4 +1217,6 @@ Contrato isolado e ainda não integrado ao executor: `CampaignDispatchIdentity` 
 - [x] Preservar cards secundários compactos somente com foto/nome e ações em menu. Identidade do titular continua escopada à conta; CPF protegido; e-mail de acesso requer verificação própria para ser alterado (fluxo ainda indisponível).
 - [x] Sem migration, alteração de Supabase, gateway, cron ou serviço; registrar como PATCH acumulado na candidata 3.5.0 e manter `VERSION=3.4.0`.
 - [x] Build TypeScript/Vite, 46 testes frontend selecionados, 1.290 testes API e 17 testes CSP locais aprovados; documentação e contrato visual atualizados.
-- [ ] PR, CI, deploy Render staging, registro final no Vault e homologação visual; `main` somente após aprovação de Rafa.
+- [x] PR [#344](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/344) merged somente em `staging` SHA `e1f61a4`; [CI #1124](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42419595799) SUCCESS; Render `dep-dbnq5pcs728c739ha80g` LIVE no mesmo SHA.
+- [x] Vault `TASK.md` e Guia Mestre espelhado atualizados; release segue `3.4.0`, candidata 3.5.0.
+- [ ] Homologação visual autenticada em `/profiles` por Rafa; `main` somente após aprovação expressa.

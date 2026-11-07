@@ -10,6 +10,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - `/profiles`: o formulário cadastral saiu da área independente da página e passou a viver **dentro do card do perfil principal**, junto à sua foto e nome. A cota compacta e o upgrade condicional também ficam nesse card; os perfis secundários permanecem apenas foto/nome, com menu de ações.
 - Mantidos campos editáveis e estado de prontidão de compra diretamente no card principal, sem duplicar dados por perfil. E-mail de autenticação continua apenas leitura até existir fluxo de troca com verificação de posse; CPF é protegido e não reexibido.
 - Sem mudança de API, payload, Supabase, migration, gateway, cron, publicação ou `main`. UI responsiva e testes de separação principal/secundário atualizados. `VERSION=3.4.0` preservada; correção acumulada na candidata 3.5.0.
+- [PR #344](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/344) merged apenas em staging `e1f61a4`; [CI #1124](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42419595799) SUCCESS e Render `dep-dbnq5pcs728c739ha80g` LIVE. Documentação final sincronizada no Vault; falta homologação visual de Rafa.
 
 ### Changed — Perfis com identificação somente por nome/foto (PATCH da candidata 3.5.0, 07/11/2026)
 
