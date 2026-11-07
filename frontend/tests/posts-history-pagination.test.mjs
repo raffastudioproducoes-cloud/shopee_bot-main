@@ -1,9 +1,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import ts from 'typescript'
 
+// O CI utiliza Node 20, que não suporta importação direta de arquivos .ts.
+// Transpilamos o módulo puro em memória sem alterar seu contrato de produção.
+const paginationSource = readFileSync(new URL('../src/lib/postHistoryPagination.ts', import.meta.url), 'utf8')
+const { outputText } = ts.transpileModule(paginationSource, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
+})
 const { POSTS_PER_PAGE, POSTS_FETCH_LIMIT, paginatePostHistory, canAdvancePostHistory } =
-  await import('../src/lib/postHistoryPagination.ts')
+  await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
 
 const posts = Array.from({ length: 37 }, (_, index) => ({ id: 37 - index }))
 

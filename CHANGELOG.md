@@ -9,13 +9,20 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 - A página `/credentials` agora distribui os nove cards em seções **Já credenciados** e **Ainda não cadastrados**, com títulos, contagens, mensagens de vazio e ordem alfabética PT-BR por seção, preservando cartões, ações e layout responsivo.
 - Critério de grupo: `connected` da API, inclusive quando o teste está vencido/amarelo; IA cadastrada se qualquer provedor tem chave salva; Shopee Vídeo permanece pendente e sem integração. Query de IA compartilhada, estado de erro com retentativa, mudança automática de grupo após salvar/desconectar, sem expor segredo.
-- Implementação dependente da PR #304: [PR #306](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/306) **draft**, somente branch `feat/credenciais-grupos-20261107`. Testes Node **6/6 PASS**; build TS/Vite, CI e QA autenticado ainda **NÃO EXECUTADOS** (`ACTIONS_INDISPONÍVEL`, [issue #305](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/issues/305)).
+- Implementação dependente da PR #304: [PR #306](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/306) **draft**, somente branch `feat/credenciais-grupos-20261107`. Testes específicos de agrupamento **6/6 PASS**, seleção completa de CI local e build TypeScript/Vite aprovados após sincronização com a PR #304; CI remoto e QA autenticado ainda precisam comprovar este SHA antes de merge. O incidente [#305](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/issues/305) é histórico.
 - Classificação **MINOR candidata 3.3.0**; `VERSION=3.2.0` preservado. Sem alteração de API/backend, banco, migrations, cron, pg_net, flags, pagamentos ou produção.
+
+### Fixed — GitHub Actions e contratos de frontend (07/11/2026)
+
+- GitHub Actions voltou a iniciar jobs após o repositório se tornar público; o bloqueio observado em 05–07/11 permanece registrado como histórico, **não é o estado atual**. A primeira reexecução real da CI da PR #304 identificou quatro testes frontend desatualizados.
+- Contratos atualizados para a etiqueta de plano com exposição de 24 px, busca contextual da TopBar, hook de perfil no resumo de plano, e controles de IA reutilizados no criador de posts. Nenhum comportamento comercial, mídia ou produção foi alterado para satisfazer testes antigos.
+- Segunda etapa da CI identificou o teste de paginação importando diretamente `.ts` em Node 20 (`ERR_UNKNOWN_FILE_EXTENSION`). O teste agora transpila o módulo TypeScript puro em memória, sem modificar o código do produto ou exigir Node 24.
+- A branch de credenciais mantém `VERSION=3.2.0`; a funcionalidade compatível compõe a candidata **MINOR 3.3.0**. Merge/deploy somente após CI e homologação; histórico de execução e gates em `docs/TASK.md`.
 
 ### Changed — Credenciais (staging, 05/11/2026)
 
 - Cards de `/credentials` exibidos em ordem alfabética PT-BR: Facebook, Instagram, Inteligência Artificial, Kwai, Shopee, Shopee Vídeo, Threads, TikTok e X (Twitter), preservando estado, teste, OAuth, formulários, responsividade e recolhimento.
-- Adicionado card recolhível **Shopee Vídeo** com aviso de aprovação oficial pendente e ação de conexão desabilitada. Nenhuma credencial Affiliate é reutilizada, nenhuma nova API/OAuth ou publicação foi habilitada. UI informativa, sem alteração do backend, Supabase, cron ou flags. Testes Node específicos de ordem e bloqueio adicionados; CI GitHub indisponível por limite de compute, portanto staging não será mesclada sem gate/decisão aplicável.
+- Adicionado card recolhível **Shopee Vídeo** com aviso de aprovação oficial pendente e ação de conexão desabilitada. Nenhuma credencial Affiliate é reutilizada, nenhuma nova API/OAuth ou publicação foi habilitada. UI informativa, sem alteração do backend, Supabase, cron ou flags. Testes Node específicos de ordem e bloqueio adicionados; a indisponibilidade inicial de CI foi superada em 07/11 e as aprovações devem usar as novas execuções reais.
 
 
 ### Fixed — Analytics por publicação (staging, 05/11/2026)
