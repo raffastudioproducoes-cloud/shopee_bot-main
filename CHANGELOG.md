@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Removed — Sondas manuais de coleta no painel Análises (PATCH da candidata 3.5.0, 07/11/2026)
+
+- Retirados os três botões **Verificar coleta de Threads/Facebook/Instagram** do rodapé de Análises para todos os perfis, inclusive ADMIN. Eliminados os handlers, estados, mensagens, importações e estilos responsivos exclusivos.
+- A rota órfã de diagnóstico **POST /analytics/probe/{network}** também foi descontinuada; testes agora confirmam HTTP 404 para os caminhos antigos e validam os insights oficiais pelo módulo compartilhado de posts. Sem remover a coleta automática, a atualização manual, os indicadores, as nove redes ou as métricas.
+- Guia Mestre, plano, testes históricos e TASK reconciliados. Nenhuma migração, ação em banco, cron ou produção. `VERSION=3.4.0` mantida; PATCH incluído na release candidata `3.5.0`, main só após aprovação.
+
+
 ### Changed — Ajuste de título do painel de integrações (PATCH, 07/11/2026)
 
 - Alterado somente o título visível do painel de integrações de **Situação das nove redes** para **Situação das redes**; todas as nove plataformas, métricas e estados de conexão continuam exibidos. Sem mudança de lógica, banco, cron ou produção. Mantido `VERSION=3.4.0` (candidata 3.5.0).
