@@ -27,3 +27,11 @@ test('diagnóstico contempla seis redes existentes e três informativas em ordem
   ])
   assert.equal(new Set([...social.map(platform => platform.key), ...buildAdminDiagnosticSections().stores.map(platform => platform.key)]).size, 21)
 })
+
+test('logos de lojas com traços escuros continuam visíveis no diagnóstico ADMIN', () => {
+  const logo = readFileSync(new URL('../public/brand-logos/lomadee.svg', import.meta.url), 'utf8')
+  const css = readFileSync(new URL('../src/styles/admin.css', import.meta.url), 'utf8')
+  assert.match(logo, /fill="#[A-Fa-f0-9]{6}"/)
+  assert.doesNotMatch(logo, /var\(--color-brand\)/)
+  assert.match(css, /credential-brand--mercadolivre[\s\S]*?credential-brand--prospin\s*\{[^}]*background:\s*#f8faff/)
+})
