@@ -3,31 +3,24 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 
 const source = readFileSync(new URL("../src/pages/CredentialsPage.tsx", import.meta.url), "utf8")
-const gridStart = source.lastIndexOf('<div className="credentials-card-grid csp-named-card-grid">')
-const gridEnd = source.indexOf("\n      </div>", gridStart)
-const grid = source.slice(gridStart, gridEnd)
+const registryStart = source.indexOf("  const cards: {")
+const registryEnd = source.indexOf("  const grouped = groupCredentialCards(cards)", registryStart)
+const registry = source.slice(registryStart, registryEnd)
 
-test("cards de Credenciais seguem a ordem alfabética dos títulos em PT-BR", () => {
-  const entries = [
-    ["Facebook", "<FacebookCredentialCard"],
-    ["Instagram", "<InstagramCredentialCard"],
-    ["Inteligência Artificial", "<AiCredentialCard"],
-    ["Kwai", 'network="kwai"'],
-    ["Shopee", "{SIMPLE_NETWORKS.map("],
-    ["Shopee Vídeo", "<ShopeeVideoCredentialCard"],
-    ["Threads", "<ThreadsCredentialCard"],
-    ["TikTok", "<TikTokCredentialCard"],
-    ["X (Twitter)", "<XCredentialCard"],
-  ]
-  const collator = new Intl.Collator("pt-BR", { sensitivity: "base" })
-  assert.deepEqual(entries.map(([name]) => name), entries.map(([name]) => name).sort(collator.compare))
-  const positions = entries.map(([name, anchor]) => {
-    const index = grid.indexOf(anchor)
-    assert.ok(index >= 0, `Card ausente: ${name}`)
-    return index
-  })
-  assert.deepEqual(positions, [...positions].sort((a, b) => a - b))
+test("os nove cards integram o agrupamento, com ordenação alfabética PT-BR em cada seção", () => {
+  assert.ok(registryStart >= 0 && registryEnd > registryStart)
+  const cards = ["Facebook", "Instagram", "Inteligência Artificial", "Kwai",
+    "Shopee Vídeo", "Threads", "TikTok", "X (Twitter)"]
+  for (const title of cards) {
+    assert.equal(registry.split('title: "' + title + '"').length - 1, 1, `Card ${title} deve aparecer uma vez`)
+  }
   assert.match(source, /const SIMPLE_NETWORKS[^]*?key: "shopee", label: "Shopee"/)
+  assert.match(registry, /\.\.\.SIMPLE_NETWORKS\.map\(\(network\) => \(\{/)
+  assert.match(source, /groupCredentialCards\(cards\)/)
+  assert.match(source, /title: "Já credenciados"[^]*?title: "Ainda não cadastrados"/)
+  assert.match(source, /grouped\.registered[^]*?grouped\.pending/)
+  assert.match(source, /aria-labelledby=\{`credentials-\$\{group\.id\}`\}/)
+  assert.match(source, /credentials-card-grid csp-named-card-grid/)
 })
 
 test("Shopee Vídeo é card informativo, recolhível e sem conexão fictícia", () => {
