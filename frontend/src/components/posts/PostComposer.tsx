@@ -4,7 +4,7 @@ import { usePlanUsage } from "../../hooks/usePlanUsage"
 import { Eye } from "lucide-react"
 import { useAuthStore } from "../../stores/authStore"
 import { postsApi, type Post, type PostSchedule, type PostNetwork } from "../../api/posts"
-import { credentialsApi, aiCredentialsApi } from "../../api/credentials"
+import { credentialsApi, platformAiApi } from "../../api/credentials"
 import {
   NETWORK_RULES,
   isNetworkDisabled,
@@ -213,13 +213,13 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     return product ? [product] : []
   })
   const importablePhotos = !post && useShopeeImages ? selectedProducts.filter((p) => !!p.image) : []
-  // Sem chave de IA própria não há o que chamar (não existe chave global):
-  // em vez do botão, atalho pra Credenciais.
+  // Serviço de IA da plataforma: nenhuma chave por usuário ou perfil.
   const { data: aiStatus } = useQuery({
-    queryKey: ["credentials", "ai"],
-    queryFn: () => aiCredentialsApi.list(),
+    queryKey: ["platform", "ai", "status"],
+    queryFn: () => platformAiApi.status(),
+    refetchInterval: 60_000,
   })
-  const hasAiKey = aiStatus ? aiStatus.active !== null : true
+  const hasAiKey = aiStatus?.available === true
   const planQuery = usePlanUsage()
   const plan = planQuery.isError ? undefined : planQuery.data
   const recurringLimit = plan?.resources.recurring.unlimited ? null : plan?.resources.recurring.limit

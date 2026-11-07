@@ -82,7 +82,7 @@ export const credentialsApi = {
 
 }
 
-// ── Chave de IA do próprio usuário/perfil (sem chave global no servidor) ──
+// ── IA fornecida pelo Auto Orbital (chave protegida no servidor) ──
 
 export type AiProvider = 'gemini' | 'openai' | 'anthropic'
 
@@ -99,21 +99,30 @@ export interface AiProviderStatus extends CredentialStatusWithLight {
 
 export interface AiCredentialsStatus {
   providers: Record<AiProvider, AiProviderStatus>
-  /** Provedor usado pelo "Gerar texto com IA" (último salvo); null = sem chave. */
+  /** Provedor escolhido pelo ADMIN; null = serviço ainda não configurado. */
   active: AiProvider | null
 }
 
-export const aiCredentialsApi = {
+export const platformAiApi = {
+  async status(): Promise<{ available: boolean }> {
+    return api.get('/ai/status')
+  },
+}
+
+export const adminAiCredentialsApi = {
   async list(): Promise<AiCredentialsStatus> {
-    return api.get<AiCredentialsStatus>('/credentials/ai')
+    return api.get<AiCredentialsStatus>('/admin/ai')
   },
   async save(provider: AiProvider, apiKey: string, model?: string): Promise<CredentialStatus> {
-    return api.put<CredentialStatus>(`/credentials/ai/${provider}`, { api_key: apiKey, model: model || undefined })
+    return api.put<CredentialStatus>(`/admin/ai/${provider}`, { api_key: apiKey, model: model || undefined })
   },
   async delete(provider: AiProvider): Promise<CredentialStatus> {
-    return api.delete<CredentialStatus>(`/credentials/ai/${provider}`)
+    return api.delete<CredentialStatus>(`/admin/ai/${provider}`)
   },
   async test(provider: AiProvider): Promise<TestConnectionResult> {
-    return api.post<TestConnectionResult>(`/credentials/ai/${provider}/test`, undefined)
+    return api.post<TestConnectionResult>(`/admin/ai/${provider}/test`, undefined)
+  },
+  async activate(provider: AiProvider): Promise<{ active: AiProvider }> {
+    return api.post(`/admin/ai/${provider}/activate`, undefined)
   },
 }

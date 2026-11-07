@@ -10,7 +10,7 @@ import { ProductMediaManager } from "../components/products/ProductMediaManager"
 import { ProductSavedPersonalization } from "../components/products/ProductSavedPersonalization"
 import { AiCopyControls } from "../components/posts/AiCopyControls"
 import { postsApi } from "../api/posts"
-import { aiCredentialsApi } from "../api/credentials"
+import { platformAiApi } from "../api/credentials"
 import { NETWORK_RULES, textLength } from "../lib/networkLimits"
 import { ProductQuotaBar } from "../components/plans/ProductQuotaBar"
 import { usePlanUsage } from "../hooks/usePlanUsage"
@@ -117,9 +117,10 @@ export function ProductsPage() {
   const products = data?.data ?? []
 
   const { data: aiStatus, isPending: aiStatusLoading, isError: aiStatusError } = useQuery({
-    queryKey: ["credentials", "ai"],
-    queryFn: () => aiCredentialsApi.list(),
+    queryKey: ["platform", "ai", "status"],
+    queryFn: () => platformAiApi.status(),
     enabled: modalOpen && editingId !== null,
+    refetchInterval: 60_000,
   })
 
   // ── Mutations ──────────────────────────────────────────────────────────────────
@@ -133,7 +134,7 @@ export function ProductsPage() {
 
   const generateDescriptionMutation = useMutation({
     mutationFn: (productId: number) => postsApi.generateCopy(productId, aiPersona, [], {
-      descriptionOnly: true, provider: "gemini",
+      descriptionOnly: true,
     }),
     onSuccess: (result, productId) => {
       if (editingId !== productId) return
@@ -445,15 +446,14 @@ export function ProductsPage() {
               </label>
               <div style={{ display: "flex", alignItems: "end", flexWrap: "wrap", gap: 10, margin: "0 0 12px" }}>
                 {aiStatusError ? (
-                  <p role="alert" style={{ fontSize: 13, color: "var(--negative)" }}>Não foi possível consultar a chave Gemini. Tente novamente.</p>
+                  <p role="alert" style={{ fontSize: 13, color: "var(--negative)" }}>Não foi possível consultar o serviço de IA. Tente novamente.</p>
                 ) : aiStatusLoading ? (
-                  <p role="status" style={{ fontSize: 13, color: "var(--text-muted)" }}>Verificando sua chave Gemini…</p>
+                  <p role="status" style={{ fontSize: 13, color: "var(--text-muted)" }}>Verificando disponibilidade da IA…</p>
                 ) : (
                   <AiCopyControls
                     persona={aiPersona}
                     onPersonaChange={setAiPersona}
-                    hasAiKey={aiStatus?.providers.gemini?.connected === true}
-                    missingKeyLabel="Cadastre sua chave Gemini em Credenciais"
+                    hasAiKey={aiStatus?.available === true}
                     isPending={generateDescriptionMutation.isPending}
                     disabled={!editingId}
                     onGenerate={() => { if (editingId) generateDescriptionMutation.mutate(editingId) }}

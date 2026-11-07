@@ -35,6 +35,8 @@
 
 # ARCHITECTURE — Shopee Auto Vendas
 
+> **07/11/2026 — IA de plataforma, candidata 3.4.0 em branch (NÃO LIVE):** novo `api/routers/platform_ai.py` centraliza o provedor selecionado e segredo Fernet, separados por `current_environment()` para `staging`/`production` no mesmo Supabase. Migração aditiva 089 cria `platform_ai_credentials` + `platform_ai_settings`, RLS deny-all, acesso exclusivo `service_role` e seed da chave cifrada ADMIN existente; `POST /posts/generate-copy` ignora provedor fornecido por cliente. Somente `/admin/ai` gerencia/valida chave, enquanto `/ai/status` autenticado retorna disponibilidade sem detalhes. As antigas rotas de IA pessoal em `/credentials/ai` recusam gestão. Contrato, riscos, testes e rollout em [IA-PLATAFORMA-ADMIN-20261107](IA-PLATAFORMA-ADMIN-20261107.md). Até promoção comprovada, produção permanece 3.3.0.
+
 > Documento canônico vivo. Cenário A (projeto existente). Toda afirmação técnica abaixo foi
 > verificada lendo o código real do repositório em 2026-09-29. Itens sem evidência direta
 > estão marcados **[A CONFIRMAR COM O USUÁRIO]**.

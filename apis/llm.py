@@ -1,7 +1,5 @@
-"""Copywriter IA: gera o texto de um post de afiliado com a chave do PRÓPRIO
-usuário (Gemini, OpenAI ou Anthropic). Não existe chave global do servidor:
-quem chama passa provedor, chave e modelo (ver api/routers/credentials.py,
-tabela ai_credentials).
+"""Copywriter IA: chamadas dos provedores com credencial fornecida SOMENTE
+pelo backend (api/routers/platform_ai.py). Jamais expor a chave no cliente.
 
 Endpoints e modelos padrão conferidos nas docs oficiais em 2026-10-07:
 - Gemini: POST generativelanguage.googleapis.com/v1beta/models/{model}:generateContent,
@@ -135,12 +133,12 @@ def _extract_text(provider: str, data: dict) -> str:
 def _error_for_status(status: int, body: str) -> LLMError:
     low = body.lower()
     if status in (401, 403) or "api_key_invalid" in low or "api key not valid" in low:
-        return LLMError("invalid_key", "Chave de IA inválida ou sem permissão. Confira a chave em Credenciais.")
+        return LLMError("invalid_key", "Serviço de IA indisponível por configuração. Contate o suporte.")
     if status == 429 or "insufficient_quota" in low or "resource_exhausted" in low:
         return LLMError("quota", "Sem cota ou limite de uso atingido no provedor de IA. Verifique seu plano/créditos.")
     if status == 404 or (status == 400 and "model" in low):
         return LLMError(
-            "model", "Modelo de IA não encontrado ou indisponível para esta chave. Confira o modelo em Credenciais."
+            "model", "Modelo de IA indisponível. Contate o suporte."
         )
     return LLMError("provider", f"O provedor de IA recusou a requisição (status {status}). Tente novamente.")
 
@@ -150,7 +148,7 @@ def complete(provider: str, api_key: str, model: str | None, prompt: str,
     if provider not in PROVIDERS:
         raise LLMError("provider", "Provedor de IA não suportado.")
     if not api_key:
-        raise LLMError("invalid_key", "Nenhuma chave de IA cadastrada. Cadastre sua chave em Credenciais.")
+        raise LLMError("invalid_key", "Serviço de IA indisponível. Contate o suporte.")
     model = model or DEFAULT_MODELS[provider]
     if not valid_model(model):
         raise LLMError("model", "Nome de modelo de IA inválido.")
@@ -174,8 +172,7 @@ def complete(provider: str, api_key: str, model: str | None, prompt: str,
 
 
 def generate_product_copy(product, persona, provider, api_key, model=None):
-    """Texto de post de afiliado Shopee a partir de um produto, com a chave
-    do usuário. Levanta LLMError com mensagem segura em caso de falha."""
+    """Texto de afiliado Shopee a partir de um produto; chave só no servidor."""
     return complete(provider, api_key, model, _build_prompt(product, persona))
 
 

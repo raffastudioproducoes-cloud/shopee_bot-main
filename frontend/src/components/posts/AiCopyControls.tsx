@@ -1,4 +1,3 @@
-import { router } from "../../router"
 import { Button } from "../ui/Button"
 import { Select } from "../ui/Select"
 
@@ -23,7 +22,7 @@ interface AiCopyControlsProps {
 /** Reutilizado sem armazenar nem expor a chave de IA no navegador. */
 export function AiCopyControls({
   persona, onPersonaChange, onGenerate, hasAiKey,
-  disabled = false, isPending = false, missingKeyLabel = "Cadastre sua chave de IA em Credenciais",
+  disabled = false, isPending = false, missingKeyLabel = "IA temporariamente indisponível",
 }: AiCopyControlsProps) {
   return (
     <>
@@ -49,7 +48,7 @@ export function AiCopyControls({
           type="button"
           variant="secondary"
           icon="sparkles"
-          onClick={() => router.navigate({ to: "/credentials" })}
+          disabled
         >
           {missingKeyLabel}
         </Button>

@@ -366,8 +366,8 @@ class PostUpdate(BaseModel):
 class GenerateCopyBody(BaseModel):
     product_id: int
     persona: str = "casual"
-    # Provedor de IA (gemini/openai/anthropic). Omitido: o único salvo ou o
-    # salvo mais recentemente pelo usuário/perfil (ver resolve_ai_key).
+    # Compatibilidade com clientes antigos. O backend usa SOMENTE o provedor
+    # ativo da plataforma, ignorando qualquer valor enviado pelo usuário.
     provider: str | None = None
     # Redes marcadas: uma versão individual por rede (api/text_variants.py).
     networks: list[NetworkLiteral] = []
@@ -1308,14 +1308,12 @@ async def generate_copy(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Gera texto de post via IA para um produto, por persona, com a chave de
-    IA do PRÓPRIO usuário/perfil (Credenciais). Sem chave global: sem chave
-    cadastrada -> 400 pedindo pra cadastrar.
+    """Gera texto via credencial da plataforma, sem chave por cliente.
 
     Com `networks`, devolve uma descrição por rede em uma geração;
     `text` mantém a primeira descrição para compatibilidade."""
     from apis import llm
-    from .credentials import resolve_ai_key
+    from .platform_ai import resolve_platform_ai_key
 
     # Cada chamada custa uma requisição paga de LLM: limite por usuário.
     _check_login_rate_limit(
@@ -1334,7 +1332,7 @@ async def generate_copy(
     if not product_result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-    provider, api_key, model = resolve_ai_key(user_id, profile_id, body.provider)
+    provider, api_key, model = resolve_platform_ai_key()
 
     def complete(prompt: str, max_tokens: int) -> str:
         return llm.complete(provider, api_key, model, prompt, max_tokens)

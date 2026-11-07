@@ -43,6 +43,8 @@
 
 # DESIGN — Shopee Auto Vendas (frontend novo, React)
 
+> **07/11/2026 — IA administrativa, candidata MINOR 3.4.0 (branch, não publicada):** o card “Inteligência Artificial” sai da tela `/credentials` tanto para USER quanto ADMIN, sem alterar grupos, ordem alfabética, cards das redes e Shopee Vídeo informativo. O editor completo muda para `/admin/credentials`, com seletor de provedor, chave oculta, modelo, status, teste, ativação de provedor salvo, salvar e desconectar. Em Posts e Produtos, a IA é fornecida pela plataforma; ausência de serviço desabilita a geração em vez de encaminhar o cliente para cadastrar chave. Contrato em [IA-PLATAFORMA-ADMIN-20261107](IA-PLATAFORMA-ADMIN-20261107.md). As anotações sobre o card antigo são históricas da 3.3.0.
+
 > Sistema visual real do frontend novo (`frontend/src/`). Extraído dos tokens CSS em
 > `frontend/src/styles/tokens/` e dos componentes em `frontend/src/components/ui/`. O painel
 > Flask legado (`web/templates/`, Tailwind + Alpine.js) **não** foi auditado neste documento
