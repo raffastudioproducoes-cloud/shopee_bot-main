@@ -9,6 +9,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 - GitHub Actions voltou a iniciar jobs após o repositório se tornar público; o bloqueio observado em 05–07/11 permanece registrado como histórico, **não é o estado atual**. A primeira reexecução real da CI da PR #304 identificou quatro testes frontend desatualizados.
 - Contratos atualizados para a etiqueta de plano com exposição de 24 px, busca contextual da TopBar, hook de perfil no resumo de plano, e controles de IA reutilizados no criador de posts. Nenhum comportamento comercial, mídia ou produção foi alterado para satisfazer testes antigos.
+- Segunda etapa da CI identificou o teste de paginação importando diretamente `.ts` em Node 20 (`ERR_UNKNOWN_FILE_EXTENSION`). O teste agora transpila o módulo TypeScript puro em memória, sem modificar o código do produto ou exigir Node 24.
 - A branch de credenciais mantém `VERSION=3.2.0`; a funcionalidade compatível compõe a candidata **MINOR 3.3.0**. Merge/deploy somente após CI e homologação; histórico de execução e gates em `docs/TASK.md`.
 
 ### Changed — Credenciais (staging, 05/11/2026)
