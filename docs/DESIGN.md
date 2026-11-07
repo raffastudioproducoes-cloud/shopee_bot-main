@@ -43,7 +43,7 @@
 
 # DESIGN — Shopee Auto Vendas (frontend novo, React)
 
-> **07/11/2026 — IA administrativa, staging LIVE; release 3.4.0 autorizada:** o card “Inteligência Artificial” sai de `/credentials` tanto para USER quanto ADMIN, preservando grupos e cards de redes/Shopee Vídeo. O editor completo está em `/admin/credentials`, com seletor de provedor, chave oculta, modelo, status, teste, ativação de provedor salvo, salvar e desconectar. Em Posts e Produtos, a IA é fornecida pela plataforma; ausência de serviço desabilita a geração. CI #1043 e staging LIVE comprovados; o release 3.4.0 foi autorizado e aguarda os gates de promoção para produção. Contrato em [IA-PLATAFORMA-ADMIN-20261107](IA-PLATAFORMA-ADMIN-20261107.md). O card antigo é histórico da 3.3.0.
+> **07/11/2026 — IA administrativa LIVE em produção 3.4.0:** o card “Inteligência Artificial” saiu de `/credentials` para USER e ADMIN, preservando grupos e cards de redes/Shopee Vídeo. O editor completo está em `/admin/credentials`, com seletor de provedor, chave oculta, modelo, status, teste, ativação de provedor salvo, salvar e desconectar. Em Posts e Produtos, a IA é fornecida pela plataforma; ausência de serviço desabilita a geração. PR #314 passou CI #1049 e SemVer #4, merge main `4ca125f`, Render produção `dep-dbndgcnb9u1s73cip6mg` LIVE, saúde OK. Contrato em [IA-PLATAFORMA-ADMIN-20261107](IA-PLATAFORMA-ADMIN-20261107.md). O card antigo é histórico da 3.3.0; QA autenticado pendente.
 
 > Sistema visual real do frontend novo (`frontend/src/`). Extraído dos tokens CSS em
 > `frontend/src/styles/tokens/` e dos componentes em `frontend/src/components/ui/`. O painel

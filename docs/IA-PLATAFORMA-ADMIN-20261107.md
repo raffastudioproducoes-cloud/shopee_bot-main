@@ -1,9 +1,9 @@
 # IA da plataforma — serviço compartilhado e painel administrativo
 
 **Data:** 07/11/2026
-**Escopo:** Auto Orbital, PR #311 integrada em `staging`; promoção completa para `main` autorizada por Rafa em 07/11.
-**SemVer:** funcionalidade compatível **MINOR 3.4.0**, `VERSION=3.4.0` na branch de release.
-**Estado verificado em 07/11/2026:** **staging LIVE** no SHA `c352fb841ac45b56d86aefc3947c375a1c01cd8a` (Render `dep-dbnd8e0ae00c738kgrqg`), seguida por documentação PR #312. CI #1043 aprovou API, frontend e PostgreSQL isolado; migração 089 aplicada no Supabase e registrada em `public.migrations`; configurações `production` e `staging` com Gemini inicial ativo e acesso restrito por RLS/grants. `/health` e `/api/health/ready` responderam `{"status":"ok"}`. A promoção foi autorizada, mas **main só recebe 3.4.0 após os gates e deploy comprovados**; QA autenticado permanece não verificado. Histórico e gates no `docs/TASK.md`.
+**Escopo:** Auto Orbital, PR #311 integrada em `staging`, release #313 e promoção #314 autorizada por Rafa e publicada em `main` em 07/11.
+**SemVer:** funcionalidade compatível **MINOR 3.4.0**, `VERSION=3.4.0` em `main` e `staging`.
+**Estado final verificado em 07/11/2026:** **produção e staging LIVE na release 3.4.0.** Após PR #311 CI #1043, PR documental #312 CI #1045 e migração 089 aditiva aplicada/registrada, a PR de release #313 obteve CI #1047 e staging `b5bcbc0` LIVE. A promoção [#314](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/314) passou CI #1049 e SemVer #4; merge `main` `4ca125faf72f58c7d5c7623fc7b2a8bbb215f1b0`, Render produção `dep-dbndgcnb9u1s73cip6mg` LIVE, `/health` e `/api/health/ready` `{"status":"ok"}`, sem erro nível `error` na janela pós-deploy. No Supabase, `production` e `staging` têm Gemini ativo, RLS e restrição de SELECT ao público; os dois cron jobs seguem intocados. **Não houve QA autenticado nem geração real Gemini.** Evidências em `docs/TASK.md` e [RELEASE-3.4.0-20261107.md](RELEASE-3.4.0-20261107.md).
 
 ## Contrato aprovado pelo proprietário
 
