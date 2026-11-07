@@ -5,7 +5,6 @@ from fastapi.testclient import TestClient
 from api.main import app
 from api import database as database_module
 from api.routers.auth import get_current_user_id
-from api.routers.credentials import _require_admin
 from api.routers.profiles import get_current_profile_id
 from api.routers import social_analytics
 from api import analytics_refresh
@@ -22,7 +21,6 @@ def _no_post_insights(monkeypatch, *, connected=True):
 def test_analytics_requires_login():
     app.dependency_overrides.clear()
     assert TestClient(app).get('/analytics/summary').status_code == 401
-    assert TestClient(app).post('/analytics/probe/threads').status_code == 401
     assert TestClient(app).post('/analytics/refresh').status_code == 401
 
 
@@ -76,42 +74,11 @@ def test_analytics_rejects_unknown_network_and_period():
     app.dependency_overrides.clear()
 
 
-def test_insights_probe_rejects_common_users_without_calling_provider(monkeypatch):
+def test_retired_insights_probe_endpoint_is_not_exposed():
     app.dependency_overrides.clear()
-    app.dependency_overrides[get_current_user_id] = lambda: 42
-    app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
-
-    query = MagicMock()
-    query.select.return_value = query
-    query.eq.return_value = query
-    query.maybe_single.return_value = query
-    query.execute.return_value = MagicMock(data={'access': 'USER'})
-    fake_client = MagicMock()
-    fake_client.table.return_value = query
-    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake_client)
-    try:
-        response = TestClient(app).post('/analytics/probe/threads')
-        assert response.status_code == 403
-        fake_client.table.assert_called_once_with('users')
-    finally:
-        app.dependency_overrides.clear()
-
-
-def test_insights_probe_uses_only_cached_owned_post_not_account_insights(monkeypatch):
-    app.dependency_overrides.clear()
-    app.dependency_overrides[get_current_user_id] = lambda: 42
-    app.dependency_overrides[_require_admin] = lambda: 42
-    app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
-    monkeypatch.setattr(social_analytics, "_check_test_rate_limit", lambda user_id: None)
-    monkeypatch.setattr(social_analytics, 'published_jobs', lambda *args: [{
-        'id': 'job-1', 'network': 'threads', 'external_id': '123'}])
-    monkeypatch.setattr(social_analytics, 'indexed_insights', lambda *args: {
-        'job-1': {'external_id': '123', 'state': 'ok', 'views': 4}})
-    response = TestClient(app).post('/analytics/probe/threads')
-    assert response.status_code == 200
-    result = response.json()
-    assert result == {"network": "threads", "state": "ok", "metric": "views", "post_count": 1, "total_views": 4}
-    app.dependency_overrides.clear()
+    client = TestClient(app)
+    for network in ('threads', 'facebook', 'instagram'):
+        assert client.post(f'/analytics/probe/{network}').status_code == 404
 
 
 def test_manual_refresh_scoped_to_logged_in_profile(monkeypatch):
