@@ -1,3 +1,14 @@
+## 07/11/2026 — Shopee Vídeo afiliados — execução em staging
+
+- [x] Confirmada a categoria Shopee Video Management para criador afiliado e `auth_type=user` no guia oficial.
+- [x] PR [#331](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/331) com [CI #1089 SUCCESS](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42398886627); merge **staging** `974f56b`, `VERSION=3.4.0` preservada; 3.5.0 candidata MINOR para release aprovada.
+- [x] Migration 091 aditiva aplicada ao Supabase único; duas tabelas com RLS e `anon/authenticated` sem SELECT, credenciais/tokens cifrados pelo backend.
+- [x] Deploy inicial Render staging `dep-dbnme829lscs73c76460` LIVE, health/ready OK, sem HTTP 5xx na janela observada; callback staging configurado em nova implantação.
+- [ ] Confirmar deploy do callback LIVE; autorizar domínio staging na Shopee, configurar Partner ID/Key TEST do app Video Management e fazer OAuth real com afiliado. Não reutilizar chave Affiliate GraphQL.
+- [ ] Homologar upload multipart, processamento, edição, `aigc_label`, vinculação de itens, postagem e reconciliação antes de habilitar publicação real.
+- [ ] PR `main` e bump da release somente após nova aprovação explícita de Rafa. Não tocar nos dois crons ou `pg_net`.
+- [ ] Caso 1750/pentest segue separado e sem laudo validado; não presumir autorização Go-Live. Ver [contrato](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/blob/staging/docs/SHOPEE-VIDEO-OAUTH-AFILIADOS-20261107.md).
+
 ## 07/11/2026 — Atualização oficial Shopee: perfil verificado, caso 1750 esclarecido e pausa solicitada
 
 - [x] **Notificação Shopee 03/11/2026 18:29:** perfil de desenvolvedor **verificado** e liberado para **começar a desenvolver** na Open Platform; **não** significa app, escopo ou API de afiliados/vídeos aprovados. App Type define endpoints.
