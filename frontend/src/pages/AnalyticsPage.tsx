@@ -63,79 +63,6 @@ type PostsResult = { posts: PostMetric[]; total_posts: number; truncated: boolea
 
 const names = ANALYTICS_RECORDED_NAMES
 
-const metricColumns = [
-  { key: 'succeeded', label: 'Envios concluídos' },
-  { key: 'failed', label: 'Falhas' },
-  { key: 'unknown', label: 'Sem confirmação' },
-  { key: 'views', label: 'Visualizações' },
-  { key: 'likes', label: 'Curtidas' },
-  { key: 'comments', label: 'Comentários' },
-  { key: 'reposts', label: 'Reposts' },
-  { key: 'clicks', label: 'Cliques' },
-] as const
-
-function AnalyticsDetailTable({ rows, selectedProfile, selectedNetwork }: {
-  rows: Row[]
-  selectedProfile: string
-  selectedNetwork: string
-}) {
-  const recordedRows = new Map(rows.map((row) => [row.network, row]))
-  const platforms = ANALYTICS_NETWORKS.filter((item) => selectedNetwork === 'all' || item.key === selectedNetwork)
-  const getRow = (key: string) => hasRecordedAnalytics(key) ? recordedRows.get(key) : undefined
-  const showMetric = (value: number | null | undefined, detail: string) => value == null
-    ? <span title={detail}>—</span>
-    : value.toLocaleString('pt-BR')
-
-  return <>
-    <div className="analytics-table-heading">
-      <h2>Detalhamento por rede</h2>
-      <p>{selectedProfile === 'all'
-        ? 'Resultados das publicações de todos os perfis da conta'
-        : 'Resultados das publicações do perfil selecionado'}</p>
-    </div>
-    <div className="analytics-desktop-table" style={{ overflowX: 'auto' }}>
-      <table className="csp-s-0172">
-        <thead><tr><th scope="col" className="csp-s-0173">Rede</th>{metricColumns.map(({ label }) => (
-          <th key={label} scope="col" className="csp-s-0173">{label}</th>
-        ))}</tr></thead>
-        <tbody>{platforms.map((platform) => {
-          const row = getRow(platform.key)
-          return <tr key={platform.key}>
-            <th scope="row" className="csp-s-0174">
-              {platform.title}
-              <small className={`analytics-detail-status analytics-detail-status--${platform.tone}`} title={platform.detail}>{platform.label}</small>
-            </th>
-            {metricColumns.map(({ key }) => {
-              const value = row?.[key]
-              return <td key={key} style={{ padding: '12px 10px', borderBottom: '1px solid var(--border-card)', color: value == null ? 'var(--text-muted)' : undefined }}>
-                {showMetric(value, platform.detail)}
-              </td>
-            })}
-          </tr>
-        })}</tbody>
-      </table>
-    </div>
-    <section className="analytics-mobile-list" aria-label="Indicadores por rede social">
-      {platforms.map((platform) => {
-        const row = getRow(platform.key)
-        return <article className="analytics-mobile-card" key={platform.key}>
-          <h2>{platform.title}</h2>
-          <small className={`analytics-detail-status analytics-detail-status--${platform.tone}`} title={platform.detail}>{platform.label}</small>
-          <dl>{metricColumns.map(({ key, label }) => (
-            <div key={key}>
-              <dt>{label}</dt>
-              <dd>{showMetric(row?.[key], platform.detail)}</dd>
-            </div>
-          ))}</dl>
-        </article>
-      })}
-    </section>
-    <div className="analytics-detail-note">
-      <p className="csp-s-0175">Um traço indica dados indisponíveis, não zero. As redes sem integração aparecem para consulta de cobertura, sem simular envios ou métricas.</p>
-    </div>
-  </>
-}
-
 export default function AnalyticsPage() {
   const [days, setDays] = useState('30')
   const [network, setNetwork] = useState('all')
@@ -322,45 +249,16 @@ export default function AnalyticsPage() {
             <p>{pendingPlatform?.detail ?? 'Esta rede ainda não possui integração de métricas.'}</p>
             <p>Não há coleta externa habilitada para esta rede. Os dados não são apresentados como zero e nenhuma consulta à API da plataforma é realizada.</p>
           </section>
-          <AnalyticsDetailTable rows={[]} selectedProfile={selectedProfile} selectedNetwork={network} />
         </>
       ) : isLoading || waitingForProfileList ? <PageSkeleton variant="table" heading={false} /> : error ? (
         <>
           <p role="alert" className="csp-s-0171">Não foi possível carregar as análises.</p>
-          <AnalyticsDetailTable rows={[]} selectedProfile={selectedProfile} selectedNetwork={network} />
         </>
       ) : (
         <>
           <AnalyticsVisuals rows={rows} days={Number(days)} timeline={timeline} posts={postsData?.posts}
             postsLoading={postsLoading} postsError={postsError}
             timelineLoading={timelineLoading} timelineError={timelineError} />
-          <AnalyticsDetailTable rows={rows} selectedProfile={selectedProfile} selectedNetwork={network} />
-          <div className="analytics-table-heading">
-            <h2>Desempenho por publicação</h2>
-            <p>Posts enviados pelo Auto Orbital e confirmados pela rede, ordenados por visualizações disponíveis.</p>
-          </div>
-          {postsLoading ? <p className="csp-s-0176">Carregando desempenho dos posts...</p>
-            : postsError ? <p role="alert" className="csp-s-0176">Não foi possível consultar o desempenho por publicação.</p>
-              : postsData?.posts.length === 0 ? <p className="csp-s-0176">Nenhuma publicação confirmada neste período.</p>
-                : <div className="analytics-performance-table" style={{ overflowX: 'auto', maxWidth: '100%' }}>
-                  <table className="csp-s-0172">
-                    <thead><tr>{['Publicação', 'Rede', 'Publicado em', 'Visualizações', 'Curtidas', 'Comentários', 'Reposts', 'Cliques', 'Coleta'].map((label) => (
-                      <th key={label} scope="col" className="csp-s-0173">{label}</th>
-                    ))}</tr></thead>
-                    <tbody>{postsData?.posts.map((post) => (
-                      <tr key={post.job_id}>
-                        <th scope="row" style={{ padding: '12px 10px', maxWidth: 320, minWidth: 210, overflowWrap: 'anywhere' }}>{post.preview || 'Publicação sem texto'}</th>
-                        <td>{names[post.network]}</td>
-                        <td style={{ whiteSpace: 'nowrap' }}>{new Date(post.finished_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
-                        {[post.views, post.likes, post.comments, post.reposts, post.clicks].map((value, index) => (
-                          <td key={index}>{value === null ? <span title="Não disponível para este post">—</span> : value.toLocaleString('pt-BR')}</td>
-                        ))}
-                        <td>{post.state === 'ok' ? 'Coletado' : post.state === 'multipart_unmapped' ? 'Sequência sem IDs completos' : post.state === 'not_collected' ? 'Aguardando coleta' : post.state === 'missing_external_id' ? 'Sem ID de postagem' : 'Indisponível'}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                  {postsData?.truncated && <p>Exibindo 150 das {postsData.total_posts} publicações. O resumo por rede considera todas.</p>}
-                </div>}
           <p className="csp-s-0176">
             Envios vêm da fila do Auto Orbital. Os filtros de 7, 30 ou 90 dias escolhem os posts <strong>publicados nesse intervalo</strong>;
             os insights exibidos são os <strong>totais acumulados de cada post</strong> até a última coleta, não as visualizações ocorridas apenas no intervalo.
