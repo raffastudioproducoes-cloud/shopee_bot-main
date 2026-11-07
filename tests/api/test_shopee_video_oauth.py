@@ -154,6 +154,9 @@ def test_oauth_callback_binds_csrf_and_profile(video_db, monkeypatch):
         state = params["state"][0]
         assert client.get(f"/shopee-video/callback?code=okay&state={state}-tampered",
                           follow_redirects=False).headers["location"].endswith("shopee_video=error")
+        # Falha de CSRF descarta o cookie: iniciar um novo consentimento.
+        retried = client.get("/shopee-video/authorize")
+        state = parse_qs(urlsplit(retried.json()["url"]).query)["state"][0]
         assert client.get(f"/shopee-video/callback?code=okay&state={state}",
                           follow_redirects=False).headers["location"].endswith("shopee_video=success")
     rows = [r for r in video_db.tables["shopee_video_authorizations"] if r["user_id"] == "other"]
