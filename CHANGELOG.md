@@ -12,6 +12,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - 14 cartões de futuras integrações: AliExpress, Amazon, Americanas, Awin, Lomadee, Magalu, Mercado Livre, Natura e Avon, Pró Spin, Rakuten, SHEIN, TerabyteShop, Telegram e WhatsApp. São informativos `Em breve`, sem armazenamento, chamadas de API ou autenticação simulada; Kwai/Shopee Vídeo continuam bloqueados.
 - Logos transparentes locais com fontes listadas em [`frontend/public/brand-logos/SOURCES.md`](frontend/public/brand-logos/SOURCES.md); testes Node específicos e gate CI de frontend estendido. `VERSION=3.4.0` permanece; classificada como melhoria compatível para a candidata `3.5.0`. Nenhum banco, cron, scheduler, postagem, pagamentos ou `main` alterado nesta entrega.
 - Contrato e QA: [`docs/CREDENCIAIS-COMPACTAS-LOJAS-REDES-20261107.md`](docs/CREDENCIAIS-COMPACTAS-LOJAS-REDES-20261107.md). PR/CI/deploy de staging documentados após conclusão dos gates.
+- **Integração verificada em staging 07/11:** [PR #319](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/319), [CI #1060](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42360659833) verde em todos os gates obrigatórios, merge `staging` `a37b9382407e0aa3223d26b5841849c2ba1b27c6`, Render `dep-dbnf4h7b9u1s73ck27hg` LIVE e health/readiness/logos HTTP 200. QA autenticado e `main` aguardam Rafa.
 
 ### Added — Shopee Afiliados da plataforma (MINOR candidata 3.5.0, 07/11/2026)
 

@@ -1,6 +1,6 @@
 # Credenciais compactas — lojas e redes sociais (homologação `staging`)
 
-**Data:** 07/11/2026 · **Estado:** implementado localmente, aguardando CI/deploy de `staging` e QA autenticado. **SemVer:** melhoria de interface compatível, candidata MINOR ao próximo release (`VERSION=3.4.0` permanece até promoção autorizada).
+**Data:** 07/11/2026 · **Estado:** integrado e LIVE em `staging`; aguardando QA visual autenticado e autorização posterior de `main`. **SemVer:** melhoria compatível, candidata MINOR `3.5.0` (`VERSION=3.4.0` permanece até promoção autorizada).
 
 ## Requisitos e decisões
 
@@ -28,6 +28,8 @@
 - Fonte: `frontend/src/pages/CredentialsPage.tsx` e `frontend/src/lib/credentialPlatforms.ts`; CSS: `frontend/src/index.css`; teste ADMIN: `frontend/src/pages/AdminCredentialsPage.tsx`; teste novo: `frontend/tests/credentials-compact-platforms.test.mjs` incluído na workflow CI.
 - Nenhuma migração, alteração no Supabase/pg_cron, integração OAuth, API de publicação, plataforma IA ou receita de afiliados.
 - Card futuro **não tem botão ativo de salvar ou conexão**. Não prometer que o link de afiliado dessas lojas funcione; habilitar individualmente conforme aprovação da API e implementação validada.
-- **Pré-merge:** build Vite/TypeScript e 19 testes de frontend selecionados verdes (07/11). `pytest` focal de CSP não inicia localmente porque o fixture exige PostgreSQL não disponível no ambiente; verificação Node da igualdade das 380 classes CSP estáticas passou. CI fará o teste real em PostgreSQL isolado.
-- **Pendência de QA visual:** verificar navegação autenticada em desktop/mobile após deploy na staging, com conta real e consentimento apenas se Rafa solicitar; não se fez OAuth nem publicação como teste.
-- **Branch:** `feat/credenciais-compactas-lojas-redes-20261107`. Acrescentar PR, CI, SHA, Render LIVE e estado depois dos gates.
+- **Build e testes locais:** Vite/TypeScript PASS; 19 testes frontend selecionados PASS; CSP estático 380/380 consistente. `pytest` focal local não pôde iniciar por falta de PostgreSQL no executor; o CI remoto passou a suíte web/CSP com seu banco isolado.
+- **PR:** [#319](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/319), branch `feat/credenciais-compactas-lojas-redes-20261107`, commit fonte `d98f836ff6b050ba3c1715ba9b5175cfd56826d5`. [CI #1060](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42360659833): **SUCCESS**, Frontend Node 20, API Python 3.13 e PostgreSQL descartável; smoke externo corretamente `skipped` porque base da PR era `staging`.
+- **Merge staging:** `a37b9382407e0aa3223d26b5841849c2ba1b27c6` (squash). Render `dep-dbnf4h7b9u1s73ck27hg` **LIVE** nesse commit às 09:42:26 UTC (07/11). `/health` e `/api/health/ready` responderam HTTP 200; logomarcas `/brand-logos/shopee.svg` e `/brand-logos/prospin.png` retornaram HTTP 200 com MIME correto. A inspeção de logs Render foi indisponível pelo conector sem workspace selecionado; não foi alegado “zero erros”.
+- **Limite de QA:** uma tentativa de abrir `/credentials` na staging foi redirecionada a `/login`; não há sessão autenticada naquele navegador. Rafa deve verificar com login próprio as abas, ajuda, badges, cards e responsividade, antes da autorização de `main`. Nenhum OAuth, envio ou afiliado real foi manipulado durante a homologação.
+- **Produção `main`:** não recebeu esta alteração; manter `VERSION=3.4.0` e solicitar aprovação futura para release candidata `3.5.0`.
