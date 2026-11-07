@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Credenciais separadas por cadastro (branch, 07/11/2026)
+
+- A página `/credentials` agora distribui os nove cards em seções **Já credenciados** e **Ainda não cadastrados**, com títulos, contagens, mensagens de vazio e ordem alfabética PT-BR por seção, preservando cartões, ações e layout responsivo.
+- Critério de grupo: `connected` da API, inclusive quando o teste está vencido/amarelo; IA cadastrada se qualquer provedor tem chave salva; Shopee Vídeo permanece pendente e sem integração. Query de IA compartilhada, estado de erro com retentativa, mudança automática de grupo após salvar/desconectar, sem expor segredo.
+- A PR #304 passou na CI real [#1030](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42345936793) e foi integrada à staging no SHA `4d483d2`; a [PR #306](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/306) foi reconciliada com essa base, com cobertura incluída na CI. Os seis testes específicos passaram anteriormente; a validação remota deste merge e o QA autenticado ainda são gates da #306. O incidente [#305](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/issues/305) é histórico.
+- Classificação **MINOR candidata 3.3.0**; `VERSION=3.2.0` preservado. Sem alteração de API/backend, banco, migrations, cron, pg_net, flags, pagamentos ou produção.
+
 ### Fixed — GitHub Actions e contratos de frontend (07/11/2026)
 
 - GitHub Actions voltou a iniciar jobs após o repositório se tornar público; o bloqueio observado em 05–07/11 permanece registrado como histórico, **não é o estado atual**. A primeira reexecução real da CI da PR #304 identificou quatro testes frontend desatualizados.

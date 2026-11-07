@@ -9,6 +9,7 @@ import {
   aiCredentialsApi,
   AI_PROVIDERS,
   type AiProvider,
+  type AiCredentialsStatus,
   type SimpleNetwork,
   type CredentialStatusWithLight,
 } from "../api/credentials"
@@ -23,6 +24,7 @@ import { Icon } from "../components/ui/Icon"
 import { Select } from "../components/ui/Select"
 import { Modal } from "../components/ui/Modal"
 import { isNetworkDisabled } from "../lib/networkLimits"
+import { groupCredentialCards } from "../lib/credentialSections"
 
 // X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
 // FacebookCredentialCard — mesmo padrão de TikTok/Instagram) porque usam
@@ -181,13 +183,24 @@ export function CredentialsPage() {
   const queryClient = useQueryClient()
   const [banner, setBanner] = useState<{ ok: boolean; text: string } | null>(null)
 
-  const { data: status, isLoading } = useQuery({
+  const { data: status, isLoading, isError: isStatusError, refetch: refetchStatus } = useQuery({
     queryKey: ["credentials"],
     queryFn: () => credentialsApi.list(),
     // Salvar/reconectar dispara teste automático no backend: enquanto algum
     // card estiver "testando", consulta de novo (o backend encerra o estado
     // sozinho em até ~45 s, então o polling nunca fica infinito).
     refetchInterval: (q) => (anyTesting(q.state.data) ? TESTING_POLL_MS : false),
+  })
+
+  const {
+    data: aiCredentials,
+    isLoading: isAiLoading,
+    isError: isAiError,
+    refetch: refetchAi,
+  } = useQuery({
+    queryKey: ["credentials", "ai"],
+    queryFn: () => aiCredentialsApi.list(),
+    refetchInterval: (q) => (anyTesting(q.state.data?.providers) ? TESTING_POLL_MS : false),
   })
 
   useEffect(() => {
@@ -275,11 +288,101 @@ export function CredentialsPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["credentials"] })
 
-  if (isLoading) {
+  if (isLoading || isAiLoading) {
     return (
       <SkeletonRegion><div className="csp-s-0197"><div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="360px" /></div><div className="credentials-card-grid csp-named-card-grid">{[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
     )
   }
+
+  if ((!status && isStatusError) || (!aiCredentials && isAiError)) {
+    return (
+      <div className="csp-s-0198">
+        <h1 className="csp-s-0199">Credenciais</h1>
+        <div role="alert" className="credentials-group__empty">
+          Não foi possível consultar o cadastro das credenciais. Tente novamente para visualizar os grupos corretamente.
+        </div>
+        <div>
+          <Button type="button" variant="primary" onClick={() => {
+            if (!status) void refetchStatus()
+            if (!aiCredentials) void refetchAi()
+          }}>
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // O agrupamento considera credenciais cadastradas, mesmo que o último teste
+  // esteja vencido, com erro ou em andamento; a luz não define o grupo.
+  const cards: { key: string; title: string; connected: boolean; element: ReactNode }[] = [
+    {
+      key: "facebook",
+      title: "Facebook",
+      connected: Boolean(status?.facebook?.connected),
+      element: <FacebookCredentialCard key="facebook" status={status?.facebook ?? EMPTY_STATUS}
+        onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />,
+    },
+    {
+      key: "instagram",
+      title: "Instagram",
+      connected: Boolean(status?.instagram?.connected),
+      element: <InstagramCredentialCard key="instagram" status={status?.instagram ?? EMPTY_STATUS}
+        onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />,
+    },
+    {
+      key: "ai",
+      title: "Inteligência Artificial",
+      connected: AI_PROVIDERS.some(({ key }) => aiCredentials?.providers[key]?.connected === true),
+      element: <AiCredentialCard key="ai" data={aiCredentials}
+        onAuthError={onAuthError} setBanner={setBanner} />,
+    },
+    {
+      key: "kwai",
+      title: "Kwai",
+      connected: Boolean(status?.kwai?.connected),
+      element: <SimpleCredentialCard key="kwai" network="kwai" label="Kwai"
+        status={status?.kwai ?? EMPTY_STATUS} onSaved={invalidate}
+        onAuthError={onAuthError} setBanner={setBanner} comingSoon />,
+    },
+    ...SIMPLE_NETWORKS.map((network) => ({
+      key: network.key,
+      title: network.label,
+      connected: Boolean(status?.[network.key]?.connected),
+      element: <SimpleCredentialCard key={network.key} network={network.key} label={network.label}
+        status={status?.[network.key] ?? EMPTY_STATUS} onSaved={invalidate}
+        onAuthError={onAuthError} setBanner={setBanner} />,
+    })),
+    {
+      key: "shopee-video",
+      title: "Shopee Vídeo",
+      connected: false, // Bloqueada até aprovação oficial específica.
+      element: <ShopeeVideoCredentialCard key="shopee-video" />,
+    },
+    {
+      key: "threads",
+      title: "Threads",
+      connected: Boolean(status?.threads?.connected),
+      element: <ThreadsCredentialCard key="threads" status={status?.threads ?? EMPTY_STATUS}
+        onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />,
+    },
+    {
+      key: "tiktok",
+      title: "TikTok",
+      connected: Boolean(status?.tiktok?.connected),
+      element: <TikTokCredentialCard key="tiktok" status={status?.tiktok ?? EMPTY_STATUS}
+        onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />,
+    },
+    {
+      key: "x",
+      title: "X (Twitter)",
+      connected: Boolean(status?.x?.connected),
+      element: <XCredentialCard key="x" status={status?.x ?? EMPTY_STATUS}
+        onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />,
+    },
+  ]
+  const grouped = groupCredentialCards(cards)
+
 
   return (
     <div className="csp-s-0198">
@@ -304,70 +407,42 @@ export function CredentialsPage() {
         </div>
       )}
 
-      {/* Ordem alfabética PT-BR; grade continua responsiva no desktop e celular. */}
-      <div className="credentials-card-grid csp-named-card-grid">
-        <FacebookCredentialCard
-          status={status?.facebook ?? EMPTY_STATUS}
-          onSaved={invalidate}
-          onAuthError={onAuthError}
-          setBanner={setBanner}
-        />
-
-        <InstagramCredentialCard
-          status={status?.instagram ?? EMPTY_STATUS}
-          onSaved={invalidate}
-          onAuthError={onAuthError}
-          setBanner={setBanner}
-        />
-
-        <AiCredentialCard onAuthError={onAuthError} setBanner={setBanner} />
-
-        <SimpleCredentialCard
-          network="kwai"
-          label="Kwai"
-          status={status?.kwai ?? EMPTY_STATUS}
-          onSaved={invalidate}
-          onAuthError={onAuthError}
-          setBanner={setBanner}
-          comingSoon
-        />
-
-        {SIMPLE_NETWORKS.map((network) => (
-          <SimpleCredentialCard
-            key={network.key}
-            network={network.key}
-            label={network.label}
-            status={status?.[network.key] ?? EMPTY_STATUS}
-            onSaved={invalidate}
-            onAuthError={onAuthError}
-            setBanner={setBanner}
-          />
-        ))}
-
-        <ShopeeVideoCredentialCard />
-
-        <ThreadsCredentialCard
-          status={status?.threads ?? EMPTY_STATUS}
-          onSaved={invalidate}
-          onAuthError={onAuthError}
-          setBanner={setBanner}
-        />
-
-        <TikTokCredentialCard
-          status={status?.tiktok ?? EMPTY_STATUS}
-          onSaved={invalidate}
-          onAuthError={onAuthError}
-          setBanner={setBanner}
-        />
-
-        <XCredentialCard
-          status={status?.x ?? EMPTY_STATUS}
-          onSaved={invalidate}
-          onAuthError={onAuthError}
-          setBanner={setBanner}
-        />
-      </div>
-
+      {/* Os dois grupos são sempre visíveis; dentro de cada um a ordem é PT-BR. */}
+      {[
+        {
+          id: "cadastradas",
+          title: "Já credenciados",
+          description: "Serviços cadastrados, incluindo aqueles que precisam testar a conexão novamente.",
+          cards: grouped.registered,
+          empty: "Nenhuma credencial cadastrada. Conecte um serviço na seção abaixo.",
+        },
+        {
+          id: "pendentes",
+          title: "Ainda não cadastrados",
+          description: "Conecte os serviços disponíveis ou acompanhe os que aguardam liberação.",
+          cards: grouped.pending,
+          empty: "Todos os serviços disponíveis já foram cadastrados.",
+        },
+      ].map((group) => (
+        <section className="credentials-group" aria-labelledby={`credentials-${group.id}`} key={group.id}>
+          <div className="credentials-group__header">
+            <div>
+              <h2 id={`credentials-${group.id}`} className="credentials-group__title">{group.title}</h2>
+              <p className="credentials-group__description">{group.description}</p>
+            </div>
+            <span className="credentials-group__count" title={`${group.cards.length} serviços`}>
+              {group.cards.length}
+            </span>
+          </div>
+          {group.cards.length ? (
+            <div className="credentials-card-grid csp-named-card-grid">
+              {group.cards.map((card) => card.element)}
+            </div>
+          ) : (
+            <p className="credentials-group__empty">{group.empty}</p>
+          )}
+        </section>
+      ))}
     </div>
   )
 }
@@ -606,9 +681,11 @@ function ShopeeVideoCredentialCard() {
 // no "Gerar texto com IA" (Posts). Sem chave global no servidor. ──────────────
 
 function AiCredentialCard({
+  data,
   onAuthError,
   setBanner,
 }: {
+  data?: AiCredentialsStatus
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
@@ -622,11 +699,6 @@ function AiCredentialCard({
     setProvider(saved?.provider && AI_PROVIDERS.some((item) => item.key === saved.provider) ? saved.provider : "gemini")
     setModel(typeof saved?.model === "string" ? saved.model : "")
     setApiKey("") // Nunca guardar chave de API no navegador.
-  })
-  const { data } = useQuery({
-    queryKey: ["credentials", "ai"],
-    queryFn: () => aiCredentialsApi.list(),
-    refetchInterval: (q) => (anyTesting(q.state.data?.providers) ? TESTING_POLL_MS : false),
   })
   const info = AI_PROVIDERS.find((p) => p.key === provider)!
   const status = data?.providers[provider] ?? { ...EMPTY_STATUS, model: null, default_model: "" }
