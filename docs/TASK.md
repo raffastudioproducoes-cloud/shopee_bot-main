@@ -1,9 +1,19 @@
+## 07/11/2026 — Shopee Open Platform: rejeitado → pendências → aplicativo
+
+- [x] Inventário das três capturas de Rafa: `Penetration Test Report` **Rejected** sem motivo visível; `Supporting Documents Information` **Pending Upload** com declaração/capturas/URL/credenciais de teste não preenchidas; `App List` **sem aplicativos**.
+- [x] Registrar [roteiro de regularização do console, modelos de consulta, riscos de pentest e preparação segura de documentos](SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md) preservando a implementação de Shopee Vídeo **pausada**.
+- [ ] **Fase 1 — rejeitado:** Rafa abrir o **lápis de edição** do relatório rejeitado e verificar comentários/motivo sem salvar; se não houver, consultar `My Tickets`/abrir pedido formal de esclarecimento sobre exigência para **afiliado brasileiro sem acesso de PII de comprador**. Não reenviar PDF ou contratar pentest sem resposta e aprovação.
+- [ ] **Fase 2 — pendentes:** depois de resolver a fase 1, obter modelo oficial da declaração, montar evidências verdadeiras da aplicação, confirmar URL de revisão e criar **conta de teste exclusiva** (dados sintéticos/menor privilégio), sem expor senha no chat/repo.
+- [ ] **Fase 3 — app:** verificar categoria/serviço realmente capaz de publicar no **feed Shopee Vídeo de criadores afiliados brasileiros** antes de criar App ou ligar OAuth; cliente de vídeo continua bloqueado.
+- **Estado:** só documentação no branch de `staging`, `VERSION=3.4.0` sem bump; nenhuma mudança Shopee, API, banco, cron/pg_net, serviços, custos ou `main`. Sem gatilho de SMTP por domínio próprio **registrado e configurado**.
+
 ## 07/11/2026 — Shopee Vídeo de afiliados: pesquisa e gate de autorização
 
 - [x] Ler Guia Mestre, contrato, Vault vivo, `apis/shopee_video.py`, compositor, analytics e fontes oficiais Shopee.
 - [x] Confirmar vídeo de 3–60s, até seis produtos **no vídeo**, sem links de comissão na legenda; associação relevante e imutável depois de publicar. Comissão padrão atualizada a 1,5% em 01/07/2026, sem valor fixado no código.
 - [x] Registrar [mapeamento de IDs, mídia, OAuth, fluxos, métricas candidatas e limites](SHOPEE-VIDEO-AFILIADOS-GATE-20261107.md).
-- [ ] **Gate SV.0:** Rafa confirmar feed **de afiliado/criador ou vendedor** e serviço `Video Management` especificamente autorizado para o destino no Brasil. Console genérico não basta.
+- [x] **Gate SV.0 — intenção de produto:** Rafa confirmou **feed Shopee Vídeo de criadores/afiliados com comissão** (07/11/2026).
+- [ ] **Gate SV.0 — acesso externo:** Shopee confirmar serviço `Video Management` especificamente autorizado para o **feed de afiliados brasileiros**, após regularizar os documentos e criar app correto. Console genérico não basta.
 - [ ] Após SV.0, OAuth seguro por perfil, seleção exclusiva de até seis `products.product_id`, upload/edição/publicação idempotente; insights por ID externo confirmado, com teste real apenas após consentimento em staging.
 - [ ] CI, deploy LIVE, QA desktop/mobile; `main` somente após autorização separada.
 - **Estado:** documentação apenas; `VERSION=3.4.0`, sem banco/Supabase, dois crons, `pg_net`, scheduler, tokens ou posts afetados. Sem evidência nova de domínio próprio registrado **e configurado** para gatilho SMTP.

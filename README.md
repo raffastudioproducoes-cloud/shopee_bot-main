@@ -80,6 +80,8 @@
 
 ## Apresentação
 
+> **07/11/2026 — Shopee Open Platform:** antes da integração com Shopee Vídeo de afiliados, o cadastro externo será tratado na ordem **relatório de pentest rejeitado → documentos pendentes → criação de aplicativo**. O motivo da rejeição não aparece nas capturas; não há app cadastrado na conta mostrada. [Checklist de regularização](docs/SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md) e [contrato de vídeo afiliado](docs/SHOPEE-VIDEO-AFILIADOS-GATE-20261107.md). Sem alterar app, tokens, envios ou produção até autorização e comprovação externas.
+
 **Shopee Auto Vendas** é uma plataforma que automatiza a divulgação de links de
 afiliado da Shopee (e, em expansão, de outras redes sociais). Um único painel
 cobre o fluxo inteiro: garimpar produto na Shopee Open API, gerar o texto do
