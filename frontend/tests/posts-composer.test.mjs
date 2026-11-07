@@ -29,9 +29,11 @@ test('envio de mídia do computador aparece logo após fotos Shopee, antes da pe
   const page = await source('components/posts/PostComposer.tsx')
   const shopee = page.indexOf('Usar fotos dos produtos Shopee na publicação')
   const media = page.indexOf('Mídia (imagem/vídeo)')
-  const persona = page.indexOf('label="Persona da IA"')
-  assert.ok(shopee >= 0 && shopee < media && media < persona,
-    'Seletor de arquivo deve ficar diretamente abaixo das fotos Shopee e acima da IA')
+  const ai = page.indexOf('<AiCopyControls')
+  const persona = await source('components/posts/AiCopyControls.tsx')
+  assert.ok(shopee >= 0 && shopee < media && media < ai,
+    'Seletor de arquivo deve ficar abaixo das fotos Shopee e antes dos controles de IA')
+  assert.match(persona, /label="Persona da IA"/)
   assert.equal(page.split('ref={fileInputRef}').length - 1, 1,
     'O mesmo input de mídia deve continuar único, sem duplicação de comportamento')
 })
@@ -39,11 +41,14 @@ test('envio de mídia do computador aparece logo após fotos Shopee, antes da pe
 test('IA cria descrições por rede e sinaliza ajustes de limites', async () => {
   const limits = await source('lib/networkLimits.ts')
   const page = await source('components/posts/PostComposer.tsx')
+  const ai = await source('components/posts/AiCopyControls.tsx')
   const tabs = await source('components/posts/TextVariantTabs.tsx')
   assert.match(limits, /key: network,/)
   assert.match(limits, /networks: \[network\],/)
   assert.match(page, /const adjusted = \(res\.variants \?\? \[\]\)\.filter/)
-  assert.match(page, /activeNetworks\.length === 0 \|\| generateMutation\.isPending/)
+  assert.match(page, /disabled=\{selectedProductIds\.length === 0 \|\| activeNetworks\.length === 0\}/)
+  assert.match(page, /isPending=\{generateMutation\.isPending\}/)
+  assert.match(ai, /disabled=\{disabled \|\| isPending\}/)
   assert.match(tabs, /Cada rede tem sua própria descrição/)
 })
 
