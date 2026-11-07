@@ -10,23 +10,31 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
 - `/profiles`: substitui o banner grande por cota compacta de perfis e
   `Melhorar plano` apenas para Free/Pro (não para Premium/ADMIN). Após revisão,
   removida também a etiqueta do plano desta área; não afeta a TopBar global.
+  **Revisão de 07/11:** a cota e os textos informativos (título, instruções,
+  prontidão/pendências de contratação e aviso de carregamento) ficam organizados
+  **acima do card principal**, sem duplicação dentro dele.
 - **Dentro do card do perfil principal** (foto e nome), formulário **Dados cadastrais da conta**,
   com dados de titular armazenados separadamente de `public.profiles`: nome/sobrenome,
-  CPF, e-mail de acesso, celular, idade, e-mail
+  CPF, e-mail de acesso, celular, data de nascimento com calendário, e-mail
   alternativo de recuperação, telefone, endereço (logradouro, número,
   complemento, bairro, cidade, UF) e CEP.
 - Nome completo, CPF, e-mail e senha são pedidos no cadastro por e-mail; o
   username técnico é gerado automaticamente. Login Google usa credencial do
   Google e pede nome/CPF ao finalizar OAuth (sem senha local inventada).
-- Celular completa os requisitos de identificação para futura compra. Idade,
+- Celular completa os requisitos de identificação para futura compra. Data de nascimento,
   e-mail alternativo, telefone, endereço e CEP são opcionais. O CPF anterior
   permanece cifrado e não é reexibido. Campo em branco significa preservar CPF.
+- A máscara de CPF surge automaticamente na digitação (`000.000.000-00`);
+  mantém validação de dígitos verificadores, sem mudar o contrato cifrado.
+  O calendário nativo permite selecionar dia/mês/ano, salvo em `birth_date`
+  como data completa, sem deduzir nascimento a partir da idade legada.
 - E-mail principal é herdado da autenticação, somente leitura; mudanças devem
   seguir fluxo de verificação separado. E-mail alternativo ainda **não recebe**
   links de redefinição: precisará provar propriedade antes de habilitar isso.
 - A página organiza a conta em **cards**, não apresenta formulário cadastral
   isolado acima dos perfis: o card principal ocupa a largura disponível, traz
-  foto/nome, cota/upgrade condicional e a grade editável de dados do titular.
+  foto/nome e a grade editável de dados do titular. Cota e informações gerais
+  ficam acima do card, no mesmo bloco da coluna esquerda, sem outros formulários.
   Os demais cards continuam compactos, só com foto e nome; seu menu permite
   editar apenas nome/foto. Se o registro de perfil principal estiver temporariamente
   ausente da lista, um card de contingência mantém acesso ao cadastro da conta.
@@ -51,7 +59,11 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
   `public.account_billing_identity` com PK/FK `user_id -> users`, cascade na
   exclusão integral, RLS habilitado, nenhum GRANT para anon/authenticated,
   service_role apenas; sem lista ou leitura global no browser.
-- `full_name`, idade, telefone, endereço e CEP ficam somente na tabela de
+- Migration `094_account_identity_birth_date.sql`: coluna opcional `birth_date
+  DATE`, aditiva e idempotente, na mesma tabela com RLS/grants preservados.
+  Coluna legada `age` não é removida; somente a data completa é atualizada
+  pelo novo formulário. Não converter idade para uma data aproximada.
+- `full_name`, idade legada, data de nascimento, telefone, endereço e CEP ficam somente na tabela de
   conta. CPF fica cifrado Fernet `APP_ENCRYPTION_KEY`, com HMAC-SHA256 derivado
   da chave para deduplicação. Nunca transmitir CPF de volta no GET, em logs,
   histórico ou no Store/localStorage. **Manter chave de cifragem compatível entre
@@ -70,7 +82,8 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
 - `GET /users/me/identity`: apenas dados da conta autenticada, CPF mascarado
   como `cpf_registered: boolean` e `purchase_readiness` calculado pelo servidor.
 - `PUT /users/me/identity`: altera apenas o próprio `user_id` obtido da sessão;
-  valida CPF (dígitos), nome, telefone e CEP; erro não revela fingerprint.
+  valida CPF (dígitos), nome, telefone, CEP e data de nascimento não futura;
+  `birth_date` é ISO `YYYY-MM-DD` ou `null`, erro não revela fingerprint.
 - `GET /users/me/purchase-readiness`: `{ ready, missing }`. Para contratar:
   **nome completo + CPF + e-mail de acesso + celular**. O gateway futuro deve
   aplicar o mesmo gate no backend imediatamente antes de criar pedido ou mudar

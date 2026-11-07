@@ -60,7 +60,7 @@ def test_account_identity_ownership_and_no_raw_cpf(monkeypatch, fake_db):
         assert "other@example.com" not in before.text
         created = client.put("/users/me/identity", json={
             "full_name": "Cliente Teste", "cpf": "52998224725", "mobile_phone": "(21) 99999-8888",
-            "age": 29, "cep": "23000-000", "user_id": "other",
+            "age": 29, "birth_date": "1988-05-17", "cep": "23000-000", "user_id": "other",
         })
         assert created.status_code == 200
         assert created.json()["purchase_readiness"] == {"ready": True, "missing": []}
@@ -72,6 +72,8 @@ def test_account_identity_ownership_and_no_raw_cpf(monkeypatch, fake_db):
         assert saved["cpf_ciphertext"] != "52998224725"
         assert saved["mobile_phone"] == "21999998888"
         assert saved["cep"] == "23000000"
+        assert saved["birth_date"] == "1988-05-17"
+        assert created.json()["birth_date"] == "1988-05-17"
         assert db.tables["account_billing_identity"][0]["user_id"] == "other"
         # Salvar outro campo não pode apagar o CPF já cifrado no banco.
         edited = client.put("/users/me/identity", json={"mobile_phone": "21999997777"})
@@ -79,6 +81,7 @@ def test_account_identity_ownership_and_no_raw_cpf(monkeypatch, fake_db):
         assert edited.json()["cpf_registered"] is True
         assert edited.json()["purchase_readiness"]["ready"] is True
         assert db.tables["account_billing_identity"][-1]["cpf_ciphertext"] == saved["cpf_ciphertext"]
+        assert edited.json()["birth_date"] == "1988-05-17"
     finally:
         app.dependency_overrides.clear()
 
@@ -93,6 +96,21 @@ def test_identity_api_rejects_invalid_cpf_before_write(monkeypatch, fake_db):
             "full_name": "Cliente Teste", "cpf": "11111111111",
         })
         assert response.status_code == 422
+        assert db.tables["account_billing_identity"] == []
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_identity_rejects_invalid_or_future_birth_date(monkeypatch, fake_db):
+    db = fake_db({"users": [{"id": "mine", "email": "mine@example.com"}], "account_billing_identity": []})
+    monkeypatch.setattr(users_router, "get_supabase", lambda: db)
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: "mine"
+    try:
+        client = TestClient(app)
+        for invalid in ("2035-01-01", "1988-02-30"):
+            response = client.put("/users/me/identity", json={"birth_date": invalid})
+            assert response.status_code == 422
         assert db.tables["account_billing_identity"] == []
     finally:
         app.dependency_overrides.clear()

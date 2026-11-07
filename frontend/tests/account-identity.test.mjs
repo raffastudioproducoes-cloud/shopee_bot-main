@@ -12,11 +12,15 @@ test("CPF só aceita documento com dígitos verificadores válidos", async () =>
   }).outputText
   const mod = { exports: {} }
   vm.runInNewContext(transpiled, { module: mod, exports: mod.exports })
-  const { validCpf } = mod.exports
+  const { validCpf, formatCpf } = mod.exports
   assert.equal(validCpf("529.982.247-25"), true)
   assert.equal(validCpf("52998224725"), true)
   assert.equal(validCpf("111.111.111-11"), false)
   assert.equal(validCpf("52998224726"), false)
+  assert.equal(formatCpf("52998224725"), "529.982.247-25")
+  assert.equal(formatCpf("529.982.247-25"), "529.982.247-25")
+  assert.equal(formatCpf("52998"), "529.98")
+  assert.equal(formatCpf("529982247251234"), "529.982.247-25")
 })
 
 test("Perfis mostra apenas cota compacta e cadastro por conta", async () => {
@@ -26,11 +30,15 @@ test("Perfis mostra apenas cota compacta e cadastro por conta", async () => {
   assert.match(page, /<AccountIdentityForm \/>/)
   assert.doesNotMatch(page, /<PlanSummary|<UpgradeInfo/)
   const form = await src("components/profiles/AccountIdentityForm.tsx")
-  for (const field of ["Nome e sobrenome", "CPF", "Celular", "Idade", "E-mail alternativo", "Telefone de contato", "Endereço", "CEP"]) {
+  for (const field of ["Nome e sobrenome", "CPF", "Celular", "Data de nascimento", "E-mail alternativo", "Telefone de contato", "Endereço", "CEP"]) {
     assert.match(form, new RegExp(field))
   }
   assert.match(form, /data\.purchase_readiness\.missing/)
   assert.match(form, /cpf_registered/)
+  assert.match(form, /type="date"/)
+  assert.match(form, /birth_date: form\.birth_date \|\| null/)
+  assert.match(form, /formatCpf\(e\.target\.value\)/)
+  assert.match(form, /export function AccountIdentityIntro\(\)/)
   assert.match(form, /<form onSubmit=\{handleSubmit\}>/)
   assert.match(form, /<fieldset className="account-identity__fieldset" disabled=\{!data\}>/)
   assert.doesNotMatch(form, /\{data && <form/)

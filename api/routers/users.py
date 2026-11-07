@@ -10,7 +10,7 @@ import hmac
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -60,6 +60,7 @@ class AccountIdentityUpdate(BaseModel):
     full_name: str | None = Field(default=None, max_length=150)
     cpf: str | None = Field(default=None, max_length=18, repr=False)
     age: int | None = Field(default=None, ge=0, le=120)
+    birth_date: date | None = None
     mobile_phone: str | None = Field(default=None, max_length=24)
     recovery_email: str | None = Field(default=None, max_length=254)
     contact_phone: str | None = Field(default=None, max_length=24)
@@ -84,7 +85,7 @@ def _account_identity_data(user_id: str) -> dict:
     # account_billing_identity: devem receber o formulário vazio, não HTTP 500.
     row = (result.data if result is not None else None) or {}
     public = {key: row.get(key) for key in (
-        "full_name", "age", "mobile_phone", "recovery_email", "contact_phone",
+        "full_name", "age", "birth_date", "mobile_phone", "recovery_email", "contact_phone",
         "address_line", "address_number", "address_complement", "neighborhood",
         "city", "state", "cep",
     )}
@@ -114,6 +115,10 @@ def update_own_identity(body: AccountIdentityUpdate, user_id: str = Depends(get_
         if not updates["full_name"]:
             raise HTTPException(422, "Nome e sobrenome são obrigatórios.")
         updates["full_name"] = normalize_full_name(updates["full_name"])
+    if updates.get("birth_date") is not None:
+        if updates["birth_date"] > date.today():
+            raise HTTPException(422, "A data de nascimento não pode ser futura.")
+        updates["birth_date"] = updates["birth_date"].isoformat()
     if cpf is not None and cpf.strip():
         updates.update(cpf_record(cpf))
     if "mobile_phone" in updates:
