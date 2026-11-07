@@ -27,6 +27,6 @@ test("campanha exibe caixas para todo catálogo social, inclusive planejadas, se
 
 test("estado de credenciais é isolado por perfil ativo", async () => {
   const page = await src("pages/CreatePostPage.tsx")
-  assert.match(page, /queryKey: \["credentials", activeProfileId\]/)
-  assert.match(page, /enabled: Boolean\(activeProfileId\)/)
+  assert.match(page, /queryKey: \["credentials", userId, activeProfileId\]/)
+  assert.match(page, /enabled: Boolean\(userId && activeProfileId\)/)
 })
