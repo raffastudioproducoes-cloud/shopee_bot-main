@@ -6,10 +6,6 @@ import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
 import {
   credentialsApi,
-  aiCredentialsApi,
-  AI_PROVIDERS,
-  type AiProvider,
-  type AiCredentialsStatus,
   type SimpleNetwork,
   type CredentialStatusWithLight,
 } from "../api/credentials"
@@ -21,7 +17,6 @@ import { TextInput } from "../components/ui/TextInput"
 import { StatusBadge } from "../components/ui/StatusBadge"
 import { ConnectionLight } from "../components/ui/ConnectionLight"
 import { Icon } from "../components/ui/Icon"
-import { Select } from "../components/ui/Select"
 import { Modal } from "../components/ui/Modal"
 import { isNetworkDisabled } from "../lib/networkLimits"
 import { groupCredentialCards } from "../lib/credentialSections"
@@ -192,17 +187,6 @@ export function CredentialsPage() {
     refetchInterval: (q) => (anyTesting(q.state.data) ? TESTING_POLL_MS : false),
   })
 
-  const {
-    data: aiCredentials,
-    isLoading: isAiLoading,
-    isError: isAiError,
-    refetch: refetchAi,
-  } = useQuery({
-    queryKey: ["credentials", "ai"],
-    queryFn: () => aiCredentialsApi.list(),
-    refetchInterval: (q) => (anyTesting(q.state.data?.providers) ? TESTING_POLL_MS : false),
-  })
-
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const threads = params.get("threads")
@@ -288,13 +272,13 @@ export function CredentialsPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["credentials"] })
 
-  if (isLoading || isAiLoading) {
+  if (isLoading) {
     return (
       <SkeletonRegion><div className="csp-s-0197"><div><Skeleton width="180px" height={34} /><Skeleton className="skeleton-sub" width="360px" /></div><div className="credentials-card-grid csp-named-card-grid">{[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}</div></div></SkeletonRegion>
     )
   }
 
-  if ((!status && isStatusError) || (!aiCredentials && isAiError)) {
+  if (!status && isStatusError) {
     return (
       <div className="csp-s-0198">
         <h1 className="csp-s-0199">Credenciais</h1>
@@ -304,7 +288,6 @@ export function CredentialsPage() {
         <div>
           <Button type="button" variant="primary" onClick={() => {
             if (!status) void refetchStatus()
-            if (!aiCredentials) void refetchAi()
           }}>
             Tentar novamente
           </Button>
@@ -329,13 +312,6 @@ export function CredentialsPage() {
       connected: Boolean(status?.instagram?.connected),
       element: <InstagramCredentialCard key="instagram" status={status?.instagram ?? EMPTY_STATUS}
         onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />,
-    },
-    {
-      key: "ai",
-      title: "Inteligência Artificial",
-      connected: AI_PROVIDERS.some(({ key }) => aiCredentials?.providers[key]?.connected === true),
-      element: <AiCredentialCard key="ai" data={aiCredentials}
-        onAuthError={onAuthError} setBanner={setBanner} />,
     },
     {
       key: "kwai",
@@ -673,143 +649,6 @@ function ShopeeVideoCredentialCard() {
           Conectar Shopee Vídeo
         </Button>
       </div>
-    </CredPanel>
-  )
-}
-
-// ── Card da chave de IA (admin E usuário comum): cada um usa a PRÓPRIA chave
-// no "Gerar texto com IA" (Posts). Sem chave global no servidor. ──────────────
-
-function AiCredentialCard({
-  data,
-  onAuthError,
-  setBanner,
-}: {
-  data?: AiCredentialsStatus
-  onAuthError: (err: Error) => void
-  setBanner: (b: { ok: boolean; text: string } | null) => void
-}) {
-  const queryClient = useQueryClient()
-  const [provider, setProvider] = useState<AiProvider>("gemini")
-  const [apiKey, setApiKey] = useState("")
-  const [model, setModel] = useState("")
-  const accountId = useAuthStore((state) => state.user?.id)
-  const modelDraftKey = formDraftKey(accountId, "ai-credential-preferences", null, false)
-  useAutosavedDraft(modelDraftKey, { provider, model }, (saved) => {
-    setProvider(saved?.provider && AI_PROVIDERS.some((item) => item.key === saved.provider) ? saved.provider : "gemini")
-    setModel(typeof saved?.model === "string" ? saved.model : "")
-    setApiKey("") // Nunca guardar chave de API no navegador.
-  })
-  const info = AI_PROVIDERS.find((p) => p.key === provider)!
-  const status = data?.providers[provider] ?? { ...EMPTY_STATUS, model: null, default_model: "" }
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["credentials", "ai"] })
-
-  const saveMutation = useMutation({
-    mutationFn: () => aiCredentialsApi.save(provider, apiKey, model.trim()),
-    onSuccess: () => {
-      clearFormDraft(modelDraftKey)
-      setApiKey("")
-      setModel("")
-      setBanner({ ok: true, text: `Chave de IA (${info.label}) salva. Testando a conexão…` })
-      refresh()
-    },
-    onError: onAuthError,
-  })
-  const deleteMutation = useMutation({
-    mutationFn: () => aiCredentialsApi.delete(provider),
-    onSuccess: () => {
-      setBanner({ ok: true, text: `Chave de IA (${info.label}) removida.` })
-      refresh()
-    },
-    onError: onAuthError,
-  })
-  const testMutation = useMutation({
-    mutationFn: () => aiCredentialsApi.test(provider),
-    onSuccess: (result) => {
-      setBanner({ ok: result.light === "green", text: `${info.label}: ${result.message}` })
-      refresh()
-    },
-    onError: onAuthError,
-  })
-
-  return (
-    <CredPanel id="Inteligência Artificial">
-      <CredHeader
-        title="Inteligência Artificial"
-        trailing={
-          <div className="csp-s-0209">
-            <ConnectionStatus status={status} />
-            {status.connected && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={testMutation.isPending || status.state === "testing"}
-                onClick={() => testMutation.mutate()}
-              >
-                {testMutation.isPending || status.state === "testing" ? "Testando..." : "Testar conexão"}
-              </Button>
-            )}
-          </div>
-        }
-      />
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          saveMutation.mutate()
-        }}
-        className="csp-s-0210"
-      >
-        <p className="csp-s-0211">
-          Usada no "Gerar texto com IA" dos Posts. A chave é sua: o consumo é cobrado na sua conta do provedor.
-          {data?.active ? ` Em uso agora: ${AI_PROVIDERS.find((p) => p.key === data.active)?.label}.` : ""}
-        </p>
-        <Select
-          label="Provedor"
-          value={provider}
-          onChange={(e) => setProvider(e.target.value as AiProvider)}
-          options={AI_PROVIDERS.map((p) => ({
-            value: p.key,
-            label: data?.providers[p.key]?.connected ? `${p.label} (salva)` : p.label,
-          }))}
-        />
-        <a href={info.helpUrl} target="_blank" rel="noreferrer" className="csp-s-0212">
-          Como obter a chave da {info.label} ↗
-        </a>
-        <div className="csp-named-field-grid">
-          <TextInput
-            label="Chave de API"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={status.connected ? "Salva — cole uma nova para trocar" : "Cole sua chave"}
-            autoComplete="off"
-            required
-          />
-          <TextInput
-            label="Modelo (opcional)"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder={status.model || status.default_model || "padrão"}
-            autoComplete="off"
-          />
-        </div>
-        <div className="csp-s-0213">
-          {status.connected && (
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={deleteMutation.isPending}
-              onClick={() => deleteMutation.mutate()}
-              style={{ color: "var(--red-300)" }}
-            >
-              {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
-            </Button>
-          )}
-          <Button type="submit" variant="primary" disabled={saveMutation.isPending || !apiKey.trim()}>
-            {saveMutation.isPending ? "Salvando..." : "Salvar"}
-          </Button>
-        </div>
-      </form>
     </CredPanel>
   )
 }

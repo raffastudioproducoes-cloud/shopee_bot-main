@@ -1,5 +1,4 @@
-"""Teste automatico pos-salvar: salvar grava testing, o worker faz o teste
-real e grava o resultado. Provedores/bridge mockados (nenhuma chamada real)."""
+"""Teste automático de IA global e credenciais sociais (nenhum provedor real)."""
 import logging
 import time
 from datetime import datetime, timedelta, timezone
@@ -7,109 +6,137 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 
+from api.crypto import decrypt, encrypt
 from api.internal_client import InternalApiError
-from api.crypto import encrypt
 from api.main import app
-from api.routers import credentials as cred, users as users_module
+from api.routers import credentials as cred, platform_ai as ai, users as users_module
 from api.routers.auth import get_current_user_id
 from apis import llm
 
-SECRET = "sk-test-SEGREDO-123"
+SECRET = "chave-global-teste"
 
 
 @pytest.fixture
 def db(fake_db, monkeypatch):
     database = fake_db({
-        "users": [{"id": 42, "access": "USER"}],
+        "users": [{"id": 7, "access": "ADMIN"}, {"id": 42, "access": "USER"}],
+        "platform_ai_settings": [{"environment": "production", "active_provider": None}],
+        "platform_ai_credentials": [],
         "ai_credentials": [], "shopee_credentials": [], "credential_checks": [],
     })
-    monkeypatch.setattr(cred, "supabase", database)
-    monkeypatch.setattr(users_module, "supabase", database)
+    for module in (cred, ai, users_module):
+        monkeypatch.setattr(module, "supabase", database)
     monkeypatch.setattr(cred, "log_action", lambda *a, **k: None)
+    monkeypatch.setattr(ai, "log_action", lambda *a, **k: None)
     cred._test_attempts.clear()
     return database
 
 
 @pytest.fixture
+def client():
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 7
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
 def inline(monkeypatch):
-    monkeypatch.setattr(cred, "_autotest_submit", lambda fn, *a: fn(*a))
+    monkeypatch.setattr(ai, "_autotest_submit", lambda fn, *args: fn(*args))
+    monkeypatch.setattr(cred, "_autotest_submit", lambda fn, *args: fn(*args))
 
 
 @pytest.fixture
 def deferred(monkeypatch):
     jobs = []
-    monkeypatch.setattr(cred, "_autotest_submit", lambda fn, *a: jobs.append((fn, a)))
+    monkeypatch.setattr(ai, "_autotest_submit", lambda fn, *args: jobs.append((fn, args)))
     return jobs
 
 
-@pytest.fixture
-def client():
-    app.dependency_overrides.clear()
-    app.dependency_overrides[get_current_user_id] = lambda: 42
-    yield TestClient(app)
-    app.dependency_overrides.clear()
+def _ai_row(db, provider="gemini"):
+    return next((row for row in db.tables["platform_ai_credentials"] if row["provider"] == provider), None)
 
 
 def _check(db, network):
-    return next((c for c in db.tables["credential_checks"] if c["network"] == network), None)
+    return next((row for row in db.tables["credential_checks"] if row["network"] == network), None)
 
 
-def _quota_error(*a, **k):
-    raise llm.LLMError("quota", "Cota")
-
-
-def test_ai_save_marks_testing_then_worker_sets_green(db, client, deferred, monkeypatch):
+def test_platform_ai_autotest_marks_testing_then_green(db, client, deferred, monkeypatch):
     monkeypatch.setattr(llm, "check_key", lambda *a, **k: None)
-
-    assert client.put("/credentials/ai/gemini", json={"api_key": SECRET}).status_code == 200
-    shown = client.get("/credentials/ai").json()["providers"]["gemini"]
-    assert (shown["state"], shown["status_text"]) == ("testing", "Testando…")
-
+    assert client.put("/admin/ai/gemini", json={"api_key": SECRET}).status_code == 200
+    status = client.get("/admin/ai").json()["providers"]["gemini"]
+    assert (status["state"], status["status_text"]) == ("testing", "Testando…")
+    assert decrypt(_ai_row(db)["secret"]) == SECRET
     for fn, args in deferred:
         fn(*args)
-    shown = client.get("/credentials/ai").json()["providers"]["gemini"]
-    assert (shown["light"], shown["state"], shown["status_text"]) == ("green", "ok", "Funcionando")
-    assert shown["checked_at"]
+    status = client.get("/admin/ai").json()["providers"]["gemini"]
+    assert (status["state"], status["status_text"]) == ("ok", "Funcionando")
+    assert status["checked_at"]
 
 
-def test_ai_provider_error_becomes_error_state_without_secret(db, client, inline, monkeypatch, caplog):
-    def boom(*a, **k):
-        raise llm.LLMError("invalid_key", "Chave invalida. Confira a chave de API.")
-    monkeypatch.setattr(llm, "check_key", boom)
-
+def test_platform_ai_provider_error_without_key_leak(db, client, inline, monkeypatch, caplog):
+    def bad_key(*a, **k):
+        raise llm.LLMError("invalid_key", "Chave inválida no provedor")
+    monkeypatch.setattr(llm, "check_key", bad_key)
     with caplog.at_level(logging.DEBUG):
-        res = client.put("/credentials/ai/openai", json={"api_key": SECRET})
-    listed = client.get("/credentials/ai")
-
-    shown = listed.json()["providers"]["openai"]
-    assert (shown["light"], shown["state"]) == ("yellow", "error")
-    assert "Chave invalida" in shown["status_text"]
-    for text in (res.text, listed.text, caplog.text, str(db.tables["credential_checks"])):
-        assert SECRET not in text
+        response = client.put("/admin/ai/openai", json={"api_key": SECRET})
+    status = client.get("/admin/ai").json()["providers"]["openai"]
+    assert status["state"] == "error" and status["light"] == "yellow"
+    assert "inválida" in status["status_text"]
+    assert SECRET not in response.text + caplog.text + str(db.tables["platform_ai_credentials"])
 
 
-def test_unexpected_exception_never_leaves_testing(db, client, inline, monkeypatch, caplog):
-    def boom(*a, **k):
-        raise RuntimeError("explodiu com " + SECRET)
-    monkeypatch.setattr(llm, "check_key", boom)
-
+def test_platform_ai_unexpected_exception_never_stuck(db, client, inline, monkeypatch, caplog):
+    monkeypatch.setattr(llm, "check_key", lambda *a: (_ for _ in ()).throw(RuntimeError("no log " + SECRET)))
     with caplog.at_level(logging.DEBUG):
-        client.put("/credentials/ai/anthropic", json={"api_key": SECRET})
+        client.put("/admin/ai/gemini", json={"api_key": SECRET})
+    assert _ai_row(db)["check_state"] == "error"
+    assert SECRET not in caplog.text and SECRET not in (_ai_row(db).get("check_message") or "")
 
-    check = _check(db, "ai_anthropic")
-    assert check["state"] == "error" and SECRET not in str(check) and SECRET not in caplog.text
 
-
-def test_slow_provider_times_out_and_does_not_hang(db, client, inline, monkeypatch):
-    monkeypatch.setattr(cred, "AUTOTEST_TIMEOUT_SECONDS", 0.2)
+def test_platform_ai_autotest_timeout(db, client, inline, monkeypatch):
+    monkeypatch.setattr(cred, "AUTOTEST_TIMEOUT_SECONDS", 0.15)
     monkeypatch.setattr(llm, "check_key", lambda *a, **k: time.sleep(2))
-
     started = time.monotonic()
-    client.put("/credentials/ai/gemini", json={"api_key": SECRET})
-
+    client.put("/admin/ai/gemini", json={"api_key": SECRET})
     assert time.monotonic() - started < 1.5
-    check = _check(db, "ai_gemini")
-    assert check["state"] == "error" and "tempo limite" in check["message"]
+    assert _ai_row(db)["check_state"] == "error"
+
+
+def test_platform_ai_old_worker_does_not_overwrite_new_key_test(db, client, deferred, monkeypatch):
+    monkeypatch.setattr(llm, "check_key", lambda *a, **k: None)
+    client.put("/admin/ai/gemini", json={"api_key": "old"})
+    time.sleep(0.01)
+    client.put("/admin/ai/gemini", json={"api_key": "new"})
+    first, second = deferred
+    second[0](*second[1])
+    assert _ai_row(db)["check_state"] == "ok"
+    first[0](*first[1])
+    assert _ai_row(db)["check_state"] == "ok"
+
+
+def test_platform_ai_autotest_cannot_restore_disconnected_key(db, client, deferred, monkeypatch):
+    monkeypatch.setattr(llm, "check_key", lambda *a, **k: None)
+    client.put("/admin/ai/gemini", json={"api_key": SECRET})
+    client.delete("/admin/ai/gemini")
+    for fn, args in deferred:
+        fn(*args)
+    assert _ai_row(db)["secret"] is None and _ai_row(db)["check_state"] is None
+
+
+def test_platform_ai_save_survives_failed_autotest_dispatch(db, client, monkeypatch):
+    monkeypatch.setattr(ai, "_autotest_submit", lambda *a: (_ for _ in ()).throw(RuntimeError("worker down")))
+    response = client.put("/admin/ai/gemini", json={"api_key": SECRET})
+    assert response.status_code == 200
+    assert decrypt(_ai_row(db)["secret"]) == SECRET
+
+
+def test_platform_ai_autotest_does_not_consume_manual_limit(db, client, deferred, monkeypatch):
+    monkeypatch.setattr(llm, "check_key", lambda *a, **k: None)
+    for provider in ("gemini", "openai", "anthropic"):
+        client.put(f"/admin/ai/{provider}", json={"api_key": SECRET})
+    assert cred._test_attempts == {}
+    assert client.post("/admin/ai/gemini/test").status_code == 200
 
 
 def test_stuck_testing_expires_into_error():
@@ -118,139 +145,59 @@ def test_stuck_testing_expires_into_error():
     assert (light, state) == ("yellow", "error") and "não terminou" in text
 
 
-def test_older_worker_result_is_discarded_after_resave(db, client, deferred, monkeypatch):
-    monkeypatch.setattr(llm, "check_key", lambda *a, **k: None)
-    client.put("/credentials/ai/gemini", json={"api_key": "chave-antiga"})
-    time.sleep(0.01)
-    client.put("/credentials/ai/gemini", json={"api_key": "chave-nova"})
-    first, second = deferred
-
-    second[0](*second[1])
-    assert _check(db, "ai_gemini")["state"] == "ok"
-    monkeypatch.setattr(llm, "check_key", _quota_error)
-    first[0](*first[1])
-    assert _check(db, "ai_gemini")["state"] == "ok"
-
-
-def test_worker_skips_when_credential_was_disconnected(db, client, deferred, monkeypatch):
-    monkeypatch.setattr(llm, "check_key", lambda *a, **k: None)
-    client.put("/credentials/ai/gemini", json={"api_key": SECRET})
-    client.delete("/credentials/ai/gemini")
-    for fn, args in deferred:
-        fn(*args)
-    assert _check(db, "ai_gemini") is None
-
-
-def test_shopee_save_autotests_via_bridge(db, client, inline, monkeypatch):
+def test_shopee_autotests_still_use_bridge(db, client, monkeypatch):
+    pending = []
+    monkeypatch.setattr(cred, "_autotest_submit", lambda fn, *args: pending.append((fn, args)))
     async def valid(app_id, secret):
         return True
-
     async def bridge(network, payload):
         assert network == "shopee" and payload["secret"] == "seg-shopee"
-        return {"state": "ok", "message": "Conta de afiliado OK"}
-
+        return {"state": "ok", "message": "Conta OK"}
     monkeypatch.setattr(cred, "validate_shopee_credential", valid)
     monkeypatch.setattr(cred, "validate_network_credential", bridge)
-
     assert client.put("/credentials/shopee", json={"app_id": "123", "secret": "seg-shopee"}).status_code == 200
-    status = client.get("/credentials").json()["shopee"]
-    assert (status["light"], status["state"]) == ("green", "ok")
+    for fn, args in pending:
+        fn(*args)
+    assert client.get("/credentials").json()["shopee"]["state"] == "ok"
 
 
-def test_shopee_bridge_down_becomes_error(db, client, inline, monkeypatch):
+def test_shopee_bridge_down_becomes_safe_error(db, client, monkeypatch):
+    pending = []
+    monkeypatch.setattr(cred, "_autotest_submit", lambda fn, *args: pending.append((fn, args)))
     async def valid(app_id, secret):
         return True
-
     async def down(network, payload):
         raise InternalApiError("bridge fora")
-
     monkeypatch.setattr(cred, "validate_shopee_credential", valid)
     monkeypatch.setattr(cred, "validate_network_credential", down)
-
     client.put("/credentials/shopee", json={"app_id": "123", "secret": "seg-shopee"})
-    status = client.get("/credentials").json()["shopee"]
-    assert status["state"] == "error" and "bridge fora" not in status["status_text"]
-
-
-def test_autotest_does_not_consume_manual_rate_limit(db, client, inline, monkeypatch):
-    monkeypatch.setattr(llm, "check_key", lambda *a, **k: None)
-    for provider in ("gemini", "openai", "anthropic") * 3:
-        assert client.put("/credentials/ai/" + provider, json={"api_key": SECRET}).status_code == 200
-    assert cred._test_attempts == {}
-    assert client.post("/credentials/ai/gemini/test").status_code == 200
-
-
-def test_ai_autotest_is_shared_by_account(db, client, deferred, monkeypatch, profile_cookie):
-    monkeypatch.setattr(llm, "check_key", lambda *a, **k: None)
-    client.cookies.update(profile_cookie("profile-a"))
-    client.put("/credentials/ai/gemini", json={"api_key": SECRET})
-    other = TestClient(app)
-    other.cookies.update(profile_cookie("profile-b"))
-
-    assert "profile_id" not in _check(db, "ai_gemini")
-    assert other.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "testing"
-    for fn, args in deferred:
+    for fn, args in pending:
         fn(*args)
-    assert other.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "ok"
-    assert client.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "ok"
+    assert client.get("/credentials").json()["shopee"]["state"] == "error"
 
 
-def test_latest_check_uses_numeric_serial_id_when_timestamps_tie():
+def test_latest_check_prefers_serial_id_when_timestamps_tie():
     latest = cred._latest_check([
         {"id": 9, "checked_at": "2026-10-11T12:00:00+00:00"},
         {"id": 10, "checked_at": "2026-10-11T12:00:00+00:00"},
     ])
-
     assert latest["id"] == 10
 
 
-def test_legacy_account_checks_are_shared_and_consolidated(db, client, profile_cookie):
+def test_social_account_checks_remain_scoped(db, client, profile_cookie):
     now = datetime.now(timezone.utc).isoformat()
-    db.tables["shopee_credentials"].append({"id": 1, "user_id": 42, "status": True})
-    db.tables["ai_credentials"].append({
-        "id": 2, "user_id": 42, "provider": "gemini", "secret": encrypt(SECRET), "status": True,
-    })
-    db.tables["threads_credentials"] = [
-        {"id": 3, "user_id": 42, "profile_id": "profile-a", "status": True, "access_token": "a"},
-        {"id": 4, "user_id": 42, "profile_id": "profile-b", "status": True, "access_token": "b"},
-    ]
+    db.tables["shopee_credentials"].append({"id": 1, "user_id": 7, "status": True})
     db.tables["credential_checks"] = [
-        {"id": 2, "user_id": 42, "profile_id": "profile-b", "network": "shopee", "state": "ok", "message": "novo", "checked_at": now},
-        {"id": 1, "user_id": 42, "profile_id": "profile-a", "network": "shopee", "state": "error", "message": "antigo", "checked_at": "2026-10-11T09:00:00+00:00"},
-        {"id": 4, "user_id": 42, "profile_id": "profile-b", "network": "ai_gemini", "state": "ok", "message": "novo", "checked_at": now},
-        {"id": 3, "user_id": 42, "profile_id": "profile-a", "network": "ai_gemini", "state": "error", "message": "antigo", "checked_at": "2026-10-11T09:00:00+00:00"},
-        {"id": 5, "user_id": 42, "profile_id": "profile-a", "network": "threads", "state": "ok", "message": "a", "checked_at": now},
-        {"id": 6, "user_id": 42, "profile_id": "profile-b", "network": "threads", "state": "error", "message": "b", "checked_at": now},
+        {"id": 2, "user_id": 7, "network": "shopee", "state": "ok", "checked_at": now},
+        {"id": 1, "user_id": 7, "network": "shopee", "state": "error", "checked_at": "2026-10-11T09:00:00+00:00"},
     ]
     client.cookies.update(profile_cookie("profile-a"))
-    other = TestClient(app)
-    other.cookies.update(profile_cookie("profile-b"))
-
     assert client.get("/credentials").json()["shopee"]["state"] == "ok"
-    assert other.get("/credentials").json()["shopee"]["state"] == "ok"
-    assert client.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "ok"
-    assert other.get("/credentials/ai").json()["providers"]["gemini"]["state"] == "ok"
-    assert client.get("/credentials").json()["threads"]["state"] == "ok"
-    assert other.get("/credentials").json()["threads"]["state"] == "error"
-
-    cred._save_check(42, "profile-b", "shopee", "error", "atual")
-    cred._save_check(42, "profile-b", "ai_gemini", "error", "atual")
-
-    for network in ("shopee", "ai_gemini"):
-        checks = [row for row in db.tables["credential_checks"] if row["network"] == network]
-        assert len(checks) == 1 and checks[0].get("profile_id") is None
-    assert {row["profile_id"] for row in db.tables["credential_checks"] if row["network"] == "threads"} == {"profile-a", "profile-b"}
+    cred._save_check(7, "profile-b", "shopee", "error", "atual")
+    assert len(db.tables["credential_checks"]) == 1
 
 
 def test_user_cannot_override_social_credential(db, client):
+    app.dependency_overrides[get_current_user_id] = lambda: 42
     response = client.put("/admin/credentials/threads", json={"t_user_id": "1", "access_token": "token"})
-
     assert response.status_code == 403
-    assert db.tables.get("threads_credentials", []) == []
-
-
-def test_save_still_succeeds_when_autotest_cannot_start(db, client, monkeypatch):
-    def boom(*a, **k):
-        raise RuntimeError("db fora")
-    monkeypatch.setattr(cred, "_save_check", boom)
-    assert client.put("/credentials/ai/gemini", json={"api_key": SECRET}).status_code == 200

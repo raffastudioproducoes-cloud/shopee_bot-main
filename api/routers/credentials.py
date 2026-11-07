@@ -23,7 +23,6 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
-from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from .auth import get_current_user_id
@@ -38,7 +37,6 @@ from .. import x_oauth
 from ..config import settings
 from ..database import supabase
 from ..crypto import encrypt, decrypt
-from apis import llm as ai_llm
 from ..utils.log_sanitizer import sanitize_log_data
 from ..internal_client import (
     validate_shopee_credential,
@@ -1119,47 +1117,8 @@ async def save_kwai_credential_manual(
     return {"connected": True}
 
 
-# ── Chave de IA por usuário/perfil (Gemini/OpenAI/Anthropic) ──────────────────
-# Sem chave global do servidor: cada usuário (admin ou comum) cadastra a
-# própria; "Gerar texto com IA" (api/routers/posts.py) usa resolve_ai_key.
-# O resultado do "Testar conexão" vai pra credential_checks com network
-# "ai_<provedor>", mesma luz/estado das outras redes (_connection_state).
-
-AI_TABLE = "ai_credentials"
-_AI_KEY_MAX_LEN = 500
-
-
-class AiCredentialBody(BaseModel):
-    api_key: str
-    model: str | None = None
-
-
-def _ai_provider(provider: str) -> str:
-    if provider not in ai_llm.PROVIDERS:
-        raise HTTPException(status_code=404, detail=f"Provedor de IA '{provider}' não suportado")
-    return provider
-
-
-def _ai_rows(user_id, profile_id: str | None) -> list[dict]:
-    return scope_account(
-        supabase.table(AI_TABLE).select("provider, secret, model, status, updated_at"), user_id,
-    ).execute().data or []
-
-
-def resolve_ai_key(user_id, profile_id: str | None, provider: str | None = None) -> tuple[str, str, str | None]:
-    """(provedor, chave decifrada, modelo) do usuário/perfil. Com `provider`,
-    usa só aquele; sem, o único salvo ou o salvo mais recentemente. Nunca cai
-    pra chave global: sem chave -> 400 acionável."""
-    rows = [r for r in _ai_rows(user_id, profile_id) if r.get("status") and r.get("secret")]
-    if provider:
-        rows = [r for r in rows if r.get("provider") == _ai_provider(provider)]
-    if not rows:
-        raise HTTPException(
-            status_code=400,
-            detail="Nenhuma chave de IA cadastrada. Cadastre sua chave em Credenciais → Inteligência Artificial.",
-        )
-    row = max(rows, key=lambda r: str(r.get("updated_at") or ""))
-    return row["provider"], decrypt(row["secret"]), row.get("model")
+# Credenciais de IA particulares são legado somente de banco. Nenhuma rota
+# usa ai_credentials; o serviço compartilhado fica em platform_ai.py.
 
 
 def _save_check(user_id, profile_id: str | None, network: str, state: str, message: str) -> str:
@@ -1204,60 +1163,17 @@ async def list_ai_credentials(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Status por provedor (sem a chave) + qual seria usado no "Gerar texto"."""
-    rows = {r["provider"]: r for r in _ai_rows(user_id, profile_id)}
-    checks_by_network = _account_checks(user_id)
-    providers = {}
-    for provider in ai_llm.PROVIDERS:
-        row = rows.get(provider)
-        status = _status_only(
-            {"status": bool(row and row.get("status") and row.get("secret"))},
-            checks_by_network.get(f"ai_{provider}"),
-        )
-        status["model"] = row.get("model") if row else None
-        status["default_model"] = ai_llm.DEFAULT_MODELS[provider]
-        providers[provider] = status
-    connected = [rows[p] for p in rows if providers.get(p, {}).get("connected")]
-    active = max(connected, key=lambda r: str(r.get("updated_at") or ""))["provider"] if connected else None
-    return {"providers": providers, "active": active}
+    raise HTTPException(status_code=410, detail="A IA é fornecida pela plataforma; consulte /ai/status.")
 
 
 @router.put("/ai/{provider}")
 async def save_ai_credential(
     provider: str,
-    body: AiCredentialBody,
+    body: dict,
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Salva (cifrada) a chave do provedor e dispara o teste automático em
-    segundo plano (estado "testing" -> resultado). Nunca devolve nem loga a chave."""
-    provider = _ai_provider(provider)
-    api_key = body.api_key.strip()
-    if not api_key or len(api_key) > _AI_KEY_MAX_LEN:
-        raise HTTPException(status_code=400, detail="Informe uma chave de API válida.")
-    model = (body.model or "").strip() or None
-    if model and not ai_llm.valid_model(model):
-        raise HTTPException(status_code=400, detail="Nome de modelo inválido.")
-
-    data = {
-        "secret": encrypt(api_key), "model": model, "status": True,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }
-    existing = scope_account(
-        supabase.table(AI_TABLE).select("id"), user_id,
-    ).eq("provider", provider).execute().data or []
-    if existing:
-        result = supabase.table(AI_TABLE).update(data).eq(
-            "id", existing[0]["id"],
-        ).eq("user_id", user_id).execute()
-    else:
-        row = {**data, "user_id": user_id, "provider": provider}
-        result = supabase.table(AI_TABLE).insert(row).execute()
-    if not result.data:
-        raise HTTPException(status_code=500, detail="Falha ao salvar a chave de IA")
-    _start_autotest(f"ai_{provider}", user_id, profile_id)
-    log_action("ai_credential_saved", provider, user_id=user_id, profile_id=profile_id)
-    return {"connected": True}
+    raise HTTPException(status_code=403, detail="Credenciais de IA são gerenciadas apenas no painel ADMIN.")
 
 
 @router.delete("/ai/{provider}")
@@ -1266,17 +1182,7 @@ async def delete_ai_credential(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Desconecta (apaga a chave cifrada, mantém a linha)."""
-    provider = _ai_provider(provider)
-    result = scope_account(
-        supabase.table(AI_TABLE).update({"secret": None, "status": False}), user_id,
-    ).eq("provider", provider).execute()
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Chave de IA não encontrada")
-    scope_account(supabase.table("credential_checks").delete(), user_id).eq(
-        "network", f"ai_{provider}").execute()
-    log_action("ai_credential_deleted", provider, user_id=user_id, profile_id=profile_id)
-    return {"connected": False}
+    raise HTTPException(status_code=403, detail="Credenciais de IA são gerenciadas apenas no painel ADMIN.")
 
 
 @router.post("/ai/{provider}/test")
@@ -1285,21 +1191,7 @@ async def test_ai_credential(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    """Chamada mínima ao provedor com a chave do próprio usuário/perfil."""
-    provider = _ai_provider(provider)
-    _check_test_rate_limit(user_id)
-    _, api_key, model = resolve_ai_key(user_id, profile_id, provider)
-    try:
-        await run_in_threadpool(ai_llm.check_key, provider, api_key, model)
-        state, message = "ok", "Chave funcionando"
-    except ai_llm.LLMError as e:
-        state, message = "error", str(e)
-    checked_at = _save_check(user_id, profile_id, f"ai_{provider}", state, message)
-    light, conn_state, status_text = _connection_state(True, {"state": state, "message": message})
-    return {
-        "light": light, "state": conn_state, "status_text": status_text,
-        "message": message, "checked_at": checked_at,
-    }
+    raise HTTPException(status_code=403, detail="Teste de IA disponível somente no painel ADMIN.")
 
 
 _TEST_NETWORKS = {**SIMPLE_NETWORKS, **{n: t for n, (t, _) in OAUTH_NETWORKS.items()}}
@@ -1437,12 +1329,7 @@ def _call_with_timeout(fn, *args):
 
 def _autotest_outcome(network: str, user_id, profile_id: str | None) -> tuple[str, str]:
     if network.startswith("ai_"):
-        _, api_key, model = resolve_ai_key(user_id, profile_id, network[3:])
-        try:
-            _call_with_timeout(ai_llm.check_key, network[3:], api_key, model)
-        except ai_llm.LLMError as e:
-            return "error", str(e)
-        return "ok", "Chave funcionando"
+        return "error", "Teste legado de IA desativado; use o painel ADMIN."
     payload = _test_payload(network, user_id, profile_id)
     if payload is None:
         return "error", "Credencial incompleta — nada para testar"

@@ -51,12 +51,10 @@ test("seções sem itens e ordenação não dependem de luz/validade do teste", 
   assert.deepEqual(result.pending.map(x => x.title), ["Shopee Vídeo"])
 })
 
-test("consulta compartilhada de IA evita classificar chave salva como ausente", () => {
+test("página comum não consulta nem classifica chave de IA da plataforma", () => {
   const page = readFileSync(new URL("../src/pages/CredentialsPage.tsx", import.meta.url), "utf8")
-  assert.equal(page.split('queryKey: ["credentials", "ai"]').length - 1, 2,
-    "uma consulta e uma invalidação; sem consulta duplicada no filho")
-  assert.match(page, /AI_PROVIDERS\.some\(\(\{ key \}\) => aiCredentials\?\.providers\[key\]\?\.connected === true\)/)
-  assert.match(page, /if \(isLoading \|\| isAiLoading\)/)
+  assert.doesNotMatch(page, /aiCredentialsApi|AiCredentialCard|queryKey: \["credentials", "ai"\]/)
+  assert.match(page, /if \(isLoading\)/)
   assert.match(page, /Não foi possível consultar o cadastro das credenciais/)
   assert.match(page, /connected: Boolean\(status\?\.shopee\?\.connected\)|\.\.\.SIMPLE_NETWORKS\.map/)
   assert.match(page, /connected: false, \/\/ Bloqueada até aprovação oficial específica\./)

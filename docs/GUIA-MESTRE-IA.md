@@ -78,6 +78,8 @@
 
 # Auto Orbital — Guia Mestre de Contexto para IAs e Mantenedores
 
+> **07/11/2026 — IA COMPARTILHADA EM STAGING LIVE; RELEASE 3.4.0 AUTORIZADA:** Rafa determinou que a IA seja custeada pela plataforma e nenhuma conta precise cadastrar chave. O formulário Gemini/OpenAI/Anthropic saiu de `/credentials` inclusive para ADMIN e todas as opções foram para `/admin/credentials` (ADMIN validado no backend). `api/routers/platform_ai.py` usa configuração por ambiente (`production`/`staging` isolados no Supabase compartilhado), migração 089 aplicada com cópia cifrada do segredo ADMIN, RLS deny-all e grants restritos. O cliente consulta `/ai/status` e gera copy com chave do servidor. CI #1043/#1045 e Render staging LIVE foram comprovados; Rafa autorizou promoção `3.3.0 → 3.4.0`, condicionada à CI/SemVer e deploy `main` para confirmar produção. Não altera dois crons/pg_net, OAuth, scheduler, pagamento ou segredos de rede. Contrato [IA-PLATAFORMA-ADMIN-20261107](IA-PLATAFORMA-ADMIN-20261107.md) e [TASK](TASK.md).
+
 ## Estado vigente — Supabase Auth publicado em produção (01/11/2026, 05:13 UTC)
 
 - **Código/release:** PR [#155](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/155) integrado em `main` SHA `a6b87b3228db2164601225652d95b5bbbc38184c`; CI [#437](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/41275819236) **success** (API, frontend e smoke de staging). PR #154 criou coexistência de login e PR #156 adequou o smoke; staging `1738c146`, deploy `dep-dbjcgjou01pc73f2scng` live.
@@ -221,7 +223,7 @@ flowchart TD
 2. O app gera `state` aleatório vinculado a cookie assinado httpOnly de curta duração, associado à conta/perfil. O callback `/credentials/<rede>/callback` valida state, sessão, dono, perfil e troca `code` por token (X também usa PKCE).
 3. Token e refresh, quando presentes, são cifrados com Fernet antes de persistir. O endpoint de listagem devolve **status**, nunca texto do token. Um teste automático pode atualizar `credential_checks` com estado `testing/ok/error`, expiração e motivos sanitizados; teste não garante permissão de publicação.
 4. Callback Meta/Threads de revogação/uninstall/exclusão recebe payload assinado; valida HMAC/assinatura, registra solicitação de remoção e trata repetição de callbacks conforme módulo. Não reutilizar credenciais entre perfis nem presumir que um token autorizado há dias mantenha todos os escopos.
-5. Exceção deliberada: Shopee Affiliate e chave de IA são fornecidas pelo próprio usuário; overrides manuais sociais são **somente ADMIN**, com checagem no servidor. Kwai manual não cria capacidade real de postagem.
+5. Exceção deliberada: Shopee Affiliate é fornecida pelo próprio usuário; a chave de IA, após a release candidata 3.4.0, passa a ser da plataforma e gerida exclusivamente por ADMIN. Overrides manuais sociais continuam **somente ADMIN** com checagem no servidor. Kwai manual não cria capacidade real de postagem.
 
 ### 5.4 Mídia: arquivo local/URL Shopee → Storage → publicação
 

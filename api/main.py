@@ -44,6 +44,7 @@ from .routers import (
     settings_router,
     meta_callbacks_router,
 )
+from .routers.platform_ai import router as platform_ai_router
 
 app = FastAPI(
     title="Auto Orbital API",
@@ -83,6 +84,7 @@ app.include_router(lists_router)
 app.include_router(campaigns_router)
 app.include_router(posts_router)
 app.include_router(credentials_router)
+app.include_router(platform_ai_router)
 app.include_router(users_router)
 app.include_router(dashboard_router)
 app.include_router(social_analytics_router)

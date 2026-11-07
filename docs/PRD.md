@@ -14,6 +14,8 @@
 
 # PRD — Shopee Auto Vendas
 
+> **07/11/2026 — IA DA PLATAFORMA (staging LIVE, release MINOR 3.4.0 autorizada):** clientes não cadastram chave de IA. A plataforma fornece o serviço, e somente ADMIN gerencia provedor/modelo/chave/teste em `/admin/credentials`; o card foi removido de `/credentials` para todos. A migração 089 foi aplicada com credencial ADMIN cifrada e isolamento staging/produção. CI e staging LIVE confirmados; a promoção a `main` está autorizada mas depende de CI/SemVer e deploy de produção. Ver [contrato](IA-PLATAFORMA-ADMIN-20261107.md). Trechos anteriores sobre chave por usuário são históricos da 3.3.0.
+
 > Documento canônico vivo. Cenário A (projeto existente) — todo o conteúdo abaixo vem do
 > código, do histórico git ou dos documentos já existentes neste repositório e no vault
 > Obsidian (`Projetos/ShopeeAutoVendas/` em `C:\Users\rafae\Documents\Obsidian`). Itens sem
@@ -29,7 +31,7 @@ Para o usuário leigo, conectar uma rede social é um clique em "Conectar [rede]
 vê nem cola Client ID/Secret de app nenhum (modelo de **app único**: o dono do SaaS registra
 um único app por rede social, o usuário final apenas autoriza via OAuth). Antes do redirecionamento,
 o produto explica quais dados e permissões serão solicitados. As exceções manuais do cliente
-padrão são a credencial da Shopee e a chave de IA do provedor escolhido. Kwai não possui
+padrão são as credenciais da Shopee; a IA é fornecida pela plataforma. Kwai não possui
 postagem automática enquanto não houver API pública adequada.
 
 ADMIN também usa o mesmo OAuth por perfil, mas pode usar overrides manuais de diagnóstico
@@ -74,8 +76,8 @@ Multi-tenant com múltiplos usuários pagantes é visão pós-MVP, não implemen
 | Garimpo/Produtos | Cadastro/edição de produto Shopee (URL colada, valida contra a API deles) | `README.md`, `database/products.py` |
 | Listas de produtos | Agrupamento reaproveitável entre posts | `database/product_lists*.py` |
 | Posts | Criação, thread multi-parte, composição por rede de texto/mídia, agendamento (cron/data) ou publicação imediata, retry e log de falha. Rede incompatível não bloqueia as demais: recebe texto válido com aviso quando a API suporta publicação sem mídia, ou fica fora com motivo claro | `api/routers/posts.py`, `scheduler/`, `docs/superpowers/specs/2026-10-11-composicao-midia-por-rede-design.md` |
-| Copywriter IA | Geração de texto de post por persona com a chave de IA do próprio usuário (Gemini/OpenAI/Anthropic, `apis/llm.py`) | `README.md` |
-| Credenciais | Shopee e IA por valor manual do próprio usuário; redes sociais por OAuth do app único. Overrides sociais/Kwai são ADMIN-only e nunca reexibem segredo | `api/routers/credentials.py` |
+| Copywriter IA | Geração de texto de post por persona com credencial central da plataforma (Gemini/OpenAI/Anthropic, `apis/llm.py`) | `api/routers/platform_ai.py` |
+| Credenciais | Shopee manual por usuário, redes sociais por OAuth; IA somente em `/admin/credentials` para gestão pelo ADMIN, nunca reexibe segredo | `api/routers/credentials.py`, `api/routers/platform_ai.py` |
 | Atividades | Histórico auditável de ações do usuário | `database/activities.py` |
 | Usuários | Administração de acesso ADMIN/USER | `api/routers/users.py` |
 | Perfis | Até 3 perfis (lojas) por conta, com avatar. Atualização 2026-10-05 (branch `chore/phase-12-integration`): o isolamento por perfil cobre também posts, mídias, credenciais das redes, dashboard, notificações, logs e backup/restore; a versão anterior desta linha dizia só produtos e listas | `api/routers/profiles.py`, `database/migrations/038`, frontend `ProfilesPage` |
@@ -125,8 +127,8 @@ que iniciaram o fluxo.
 ## 5.1 Conta, perfis e papeis
 
 - Uma conta pode manter o perfil principal e mais dois perfis.
-- Produtos salvos, credencial Shopee e configuracao/chave de IA pertencem a conta e sao
-  reutilizados pelos tres perfis.
+- Produtos salvos e credencial Shopee pertencem à conta e são reutilizados pelos perfis.
+- A chave de IA pertence à plataforma e é compartilhada entre contas, isolada por ambiente.
 - Cada perfil preserva suas proprias redes conectadas, listas, posts, midias, agendamentos,
   resultados, notificacoes e preferencias de publicacao.
 - Usuario comum conecta redes por OAuth; nao recebe formulario de token manual, portal de
@@ -137,7 +139,7 @@ que iniciaram o fluxo.
 ## 6. Critérios de sucesso
 
 - Usuário conecta uma rede social clicando em "Conectar" e sem colar segredo nenhum
-  (exceto Shopee e a chave de IA escolhida pelo próprio usuário).
+  (exceto Shopee; a chave de IA é administrada somente pela plataforma).
 - Post agendado é publicado no horário certo pelo scheduler, com log de falha visível.
 - Credencial de rede social nunca é reexibida em nenhuma resposta da API.
 - Cadastro público nunca cria usuário ADMIN.
