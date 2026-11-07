@@ -304,37 +304,8 @@ export function CredentialsPage() {
         </div>
       )}
 
-      {/* Grade responsiva: cards lado a lado no desktop, 1 coluna no celular.
-          Um novo card (ex.: chave de IA) entra como mais um filho desta grade. */}
+      {/* Ordem alfabética PT-BR; grade continua responsiva no desktop e celular. */}
       <div className="credentials-card-grid csp-named-card-grid">
-        {SIMPLE_NETWORKS.map((network) => (
-          <SimpleCredentialCard
-            key={network.key}
-            network={network.key}
-            label={network.label}
-            status={status?.[network.key] ?? EMPTY_STATUS}
-            onSaved={invalidate}
-            onAuthError={onAuthError}
-            setBanner={setBanner}
-          />
-        ))}
-
-        <AiCredentialCard onAuthError={onAuthError} setBanner={setBanner} />
-
-        <ThreadsCredentialCard
-          status={status?.threads ?? EMPTY_STATUS}
-          onSaved={invalidate}
-          onAuthError={onAuthError}
-          setBanner={setBanner}
-        />
-
-        <XCredentialCard
-          status={status?.x ?? EMPTY_STATUS}
-          onSaved={invalidate}
-          onAuthError={onAuthError}
-          setBanner={setBanner}
-        />
-
         <FacebookCredentialCard
           status={status?.facebook ?? EMPTY_STATUS}
           onSaved={invalidate}
@@ -349,12 +320,7 @@ export function CredentialsPage() {
           setBanner={setBanner}
         />
 
-        <TikTokCredentialCard
-          status={status?.tiktok ?? EMPTY_STATUS}
-          onSaved={invalidate}
-          onAuthError={onAuthError}
-          setBanner={setBanner}
-        />
+        <AiCredentialCard onAuthError={onAuthError} setBanner={setBanner} />
 
         <SimpleCredentialCard
           network="kwai"
@@ -364,6 +330,41 @@ export function CredentialsPage() {
           onAuthError={onAuthError}
           setBanner={setBanner}
           comingSoon
+        />
+
+        {SIMPLE_NETWORKS.map((network) => (
+          <SimpleCredentialCard
+            key={network.key}
+            network={network.key}
+            label={network.label}
+            status={status?.[network.key] ?? EMPTY_STATUS}
+            onSaved={invalidate}
+            onAuthError={onAuthError}
+            setBanner={setBanner}
+          />
+        ))}
+
+        <ShopeeVideoCredentialCard />
+
+        <ThreadsCredentialCard
+          status={status?.threads ?? EMPTY_STATUS}
+          onSaved={invalidate}
+          onAuthError={onAuthError}
+          setBanner={setBanner}
+        />
+
+        <TikTokCredentialCard
+          status={status?.tiktok ?? EMPTY_STATUS}
+          onSaved={invalidate}
+          onAuthError={onAuthError}
+          setBanner={setBanner}
+        />
+
+        <XCredentialCard
+          status={status?.x ?? EMPTY_STATUS}
+          onSaved={invalidate}
+          onAuthError={onAuthError}
+          setBanner={setBanner}
         />
       </div>
 
@@ -568,6 +569,35 @@ function SimpleCredentialCard({
           </Button>
         </div>
       </form>
+    </CredPanel>
+  )
+}
+
+// Shopee Vídeo exige autorização oficial (Open Platform/Video Management),
+// distinta da API Shopee Afiliados já configurada no card "Shopee".
+// Este card é apenas informativo: não armazena segredo nem chama OAuth/endpoint.
+function ShopeeVideoCredentialCard() {
+  return (
+    <CredPanel id="Shopee Vídeo">
+      <CredHeader
+        title="Shopee Vídeo"
+        trailing={
+          <div className="csp-s-0201">
+            <ConnectionLight state="yellow" title="Aguardando aprovação oficial da Shopee" />
+            <StatusBadge tone="warning" icon="clock-3">Aguardando aprovação</StatusBadge>
+          </div>
+        }
+      />
+      <div className="csp-s-0202">
+        <p className="csp-s-0203">
+          A conexão para publicar no Shopee Vídeo depende da aprovação oficial
+          do acesso Shopee Video Management. As credenciais da Shopee Afiliados
+          não autorizam a publicação de vídeos.
+        </p>
+        <Button type="button" variant="primary" disabled>
+          Conectar Shopee Vídeo
+        </Button>
+      </div>
     </CredPanel>
   )
 }
