@@ -11,7 +11,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Gestão Gemini/OpenAI/Anthropic (chave cifrada, modelo, ativação, troca, teste e desconexão) transferida para `/admin/credentials`, com rotas `/admin/ai` protegidas; card removido de `/credentials` para USER e ADMIN.
 - Migration **089** aditiva cria tabelas com RLS e grants restritos, isola `staging`/`production` e copia a chave ADMIN existente sem decifrar nem apagar credenciais legadas. Nenhuma mudança em `pg_cron`, `pg_net`, OAuth, pagamentos ou filas.
 - Testes novos da API, RLS e frontend; contratos antigos atualizados. Detalhes: [IA-PLATAFORMA-ADMIN-20261107](docs/IA-PLATAFORMA-ADMIN-20261107.md).
-- **Estado:** branch candidata, não publicada. `VERSION=3.3.0` até release. Gemini API tem faturamento próprio, separado da assinatura Google AI Pro; o titular deve configurar teto mensal de gastos no projeto API.
+- **Estado em 07/11/2026:** publicada **somente em staging** pela PR #311 (CI #1043 aprovada), SHA `c352fb841ac45b56d86aefc3947c375a1c01cd8a`, Render `dep-dbnd8e0ae00c738kgrqg` LIVE, health/ready OK. Migration 089 aplicada e verificada em Supabase, com RLS e isolamento de ambientes; sem alteração de dados legados. **Produção ainda 3.3.0**, sem QA autenticado ou promoção; release candidata 3.4.0 requer autorização e gate SemVer. Gemini API tem faturamento próprio, separado da assinatura Google AI Pro; o titular deve configurar teto mensal de gastos no projeto API.
 
 ## [3.3.0] - 2026-11-07
 
