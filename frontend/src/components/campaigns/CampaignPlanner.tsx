@@ -7,8 +7,9 @@ import { campaignsApi, type CampaignPreviewRequest, type CampaignDraftSaveReques
 import { credentialsApi } from "../../api/credentials"
 import type { PostNetwork } from "../../api/posts"
 import { NETWORK_RULES } from "../../lib/networkLimits"
-import { NetworkPicker, PICKER_NETWORKS, type NetworkState } from "../posts/NetworkPicker"
-import { reconcileCampaignSnapshots, patchCampaignSnapshot, type CampaignItemSnapshot } from "../../lib/campaignSnapshots"
+import { PICKER_NETWORKS, type NetworkState } from "../posts/NetworkPicker"
+import { CampaignNetworkCheckboxes } from "./CampaignNetworkCheckboxes"
+import { reconcileCampaignSnapshots, patchCampaignSnapshot, setCampaignNetworkForAll, type CampaignItemSnapshot } from "../../lib/campaignSnapshots"
 import { formDraftKey } from "../../lib/formDraftStorage"
 import { useAutosavedDraft } from "../../hooks/useAutosavedDraft"
 import { usePlanUsage } from "../../hooks/usePlanUsage"
@@ -140,6 +141,16 @@ export function CampaignPlanner({ credentials }: {
     }
     return states
   }, [credentials])
+  const campaignNetworkSelection = useMemo(() => {
+    const selected: PostNetwork[] = []
+    const partial: PostNetwork[] = []
+    for (const network of PICKER_NETWORKS) {
+      const count = draft.itemIds.filter((id) => snapshots[id]?.networks.includes(network)).length
+      if (count && count === draft.itemIds.length) selected.push(network)
+      else if (count) partial.push(network)
+    }
+    return { selected, partial }
+  }, [draft.itemIds, snapshots])
   const previewMutation = useMutation({ mutationFn: campaignsApi.preview })
   const draftsQuery = useQuery({
     queryKey: ["campaign-drafts", userId, profileId],
@@ -346,6 +357,16 @@ export function CampaignPlanner({ credentials }: {
     })
   }
 
+  const updateAllNetworks = (network: PostNetwork, checked: boolean) => {
+    if (checked && networkStates[network]?.connected !== true) return
+    setDraft((current) => ({
+      ...current,
+      itemSnapshots: setCampaignNetworkForAll(
+        reconcileCampaignSnapshots(products, current.itemSnapshots), current.itemIds, network, checked,
+      ),
+    }))
+  }
+
   const moveProduct = (at: number, direction: -1 | 1) => {
     setDraft((current) => {
       const next = [...current.itemIds]
@@ -414,6 +435,12 @@ export function CampaignPlanner({ credentials }: {
             {listsError && <p className="campaign-error">Não foi possível carregar as listas.</p>}
             {listsResponse?.next_cursor && <p className="campaign-status">Exibindo as 100 listas mais recentes.</p>}
             {selectedList && products.length === 0 && <p className="campaign-status">Esta lista não tem produtos. Adicione produtos em Listas.</p>}
+            <span className="campaign-field-label" id="campaign-networks-label">Redes sociais da campanha</span>
+            <p className="campaign-network-help">Marque as redes para todos os produtos da lista. Redes desconectadas ou indisponíveis ficam apagadas e bloqueadas. Você pode ajustar cada produto depois.</p>
+            <CampaignNetworkCheckboxes scope="campaign" selected={campaignNetworkSelection.selected}
+              partial={campaignNetworkSelection.partial} states={networkStates}
+              disabled={!draft.itemIds.length} onToggle={updateAllNetworks} />
+            {!draft.itemIds.length && <small className="campaign-status">Escolha uma lista para habilitar as redes conectadas.</small>}
             {selectedList && draft.itemIds.length > 0 && (
               <ol className="campaign-products">
                 {draft.itemIds.map((id, index) => {
@@ -462,11 +489,12 @@ export function CampaignPlanner({ credentials }: {
                             value={snapshot.affiliateLink} onChange={(e) => updateSnapshot(id, { affiliateLink: e.target.value })}
                             placeholder="https://..." />
                           <span className="campaign-field-label">Redes para este produto</span>
-                          <NetworkPicker selected={snapshot.networks} states={networkStates}
-                            onToggle={(network) => updateSnapshot(id, {
-                              networks: snapshot.networks.includes(network)
-                                ? snapshot.networks.filter((entry) => entry !== network)
-                                : [...snapshot.networks, network],
+                          <CampaignNetworkCheckboxes scope={`campaign-product-${id}`}
+                            selected={snapshot.networks} states={networkStates}
+                            onToggle={(network, checked) => updateSnapshot(id, {
+                              networks: checked
+                                ? [...new Set([...snapshot.networks, network])]
+                                : snapshot.networks.filter((entry) => entry !== network),
                             })} />
                           {snapshot.networks.length > 0 && (
                             <div className="campaign-network-copy">
