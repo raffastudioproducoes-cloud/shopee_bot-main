@@ -7,8 +7,7 @@ import { campaignsApi, type CampaignPreviewRequest, type CampaignDraftSaveReques
 import { credentialsApi } from "../../api/credentials"
 import type { PostNetwork } from "../../api/posts"
 import { NETWORK_RULES } from "../../lib/networkLimits"
-import { PICKER_NETWORKS, type NetworkState } from "../posts/NetworkPicker"
-import { CampaignNetworkCheckboxes } from "./CampaignNetworkCheckboxes"
+import { NetworkPicker, PICKER_NETWORKS, type NetworkState } from "../posts/NetworkPicker"
 import { reconcileCampaignSnapshots, patchCampaignSnapshot, type CampaignItemSnapshot } from "../../lib/campaignSnapshots"
 import { formDraftKey } from "../../lib/formDraftStorage"
 import { useAutosavedDraft } from "../../hooks/useAutosavedDraft"
@@ -463,12 +462,11 @@ export function CampaignPlanner({ credentials }: {
                             value={snapshot.affiliateLink} onChange={(e) => updateSnapshot(id, { affiliateLink: e.target.value })}
                             placeholder="https://..." />
                           <span className="campaign-field-label">Redes para este produto <small>(marque uma ou mais)</small></span>
-                          <CampaignNetworkCheckboxes scope={`campaign-product-${id}`}
-                            selected={snapshot.networks} states={networkStates}
-                            onToggle={(network, checked) => updateSnapshot(id, {
-                              networks: checked
-                                ? [...new Set([...snapshot.networks, network])]
-                                : snapshot.networks.filter((entry) => entry !== network),
+                          <NetworkPicker selected={snapshot.networks} states={networkStates}
+                            onToggle={(network) => updateSnapshot(id, {
+                              networks: snapshot.networks.includes(network)
+                                ? snapshot.networks.filter((entry) => entry !== network)
+                                : [...snapshot.networks, network],
                             })} />
                           {snapshot.networks.length > 0 && (
                             <div className="campaign-network-copy">
