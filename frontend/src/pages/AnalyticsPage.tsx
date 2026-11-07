@@ -61,6 +61,79 @@ type PostsResult = { posts: PostMetric[]; total_posts: number; truncated: boolea
 
 const names = ANALYTICS_RECORDED_NAMES
 
+const metricColumns = [
+  { key: 'succeeded', label: 'Envios concluídos' },
+  { key: 'failed', label: 'Falhas' },
+  { key: 'unknown', label: 'Sem confirmação' },
+  { key: 'views', label: 'Visualizações' },
+  { key: 'likes', label: 'Curtidas' },
+  { key: 'comments', label: 'Comentários' },
+  { key: 'reposts', label: 'Reposts' },
+  { key: 'clicks', label: 'Cliques' },
+] as const
+
+function AnalyticsDetailTable({ rows, selectedProfile, selectedNetwork }: {
+  rows: Row[]
+  selectedProfile: string
+  selectedNetwork: string
+}) {
+  const recordedRows = new Map(rows.map((row) => [row.network, row]))
+  const platforms = ANALYTICS_NETWORKS.filter((item) => selectedNetwork === 'all' || item.key === selectedNetwork)
+  const getRow = (key: string) => hasRecordedAnalytics(key) ? recordedRows.get(key) : undefined
+  const showMetric = (value: number | null | undefined, detail: string) => value == null
+    ? <span title={detail}>—</span>
+    : value.toLocaleString('pt-BR')
+
+  return <>
+    <div className="analytics-table-heading">
+      <h2>Detalhamento por rede</h2>
+      <p>{selectedProfile === 'all'
+        ? 'Resultados das publicações de todos os perfis da conta'
+        : 'Resultados das publicações do perfil selecionado'}</p>
+    </div>
+    <div className="analytics-desktop-table" style={{ overflowX: 'auto' }}>
+      <table className="csp-s-0172">
+        <thead><tr><th scope="col" className="csp-s-0173">Rede</th>{metricColumns.map(({ label }) => (
+          <th key={label} scope="col" className="csp-s-0173">{label}</th>
+        ))}</tr></thead>
+        <tbody>{platforms.map((platform) => {
+          const row = getRow(platform.key)
+          return <tr key={platform.key}>
+            <th scope="row" className="csp-s-0174">
+              {platform.title}
+              <small className={`analytics-detail-status analytics-detail-status--${platform.tone}`} title={platform.detail}>{platform.label}</small>
+            </th>
+            {metricColumns.map(({ key }) => {
+              const value = row?.[key]
+              return <td key={key} style={{ padding: '12px 10px', borderBottom: '1px solid var(--border-card)', color: value == null ? 'var(--text-muted)' : undefined }}>
+                {showMetric(value, platform.detail)}
+              </td>
+            })}
+          </tr>
+        })}</tbody>
+      </table>
+    </div>
+    <section className="analytics-mobile-list" aria-label="Indicadores por rede social">
+      {platforms.map((platform) => {
+        const row = getRow(platform.key)
+        return <article className="analytics-mobile-card" key={platform.key}>
+          <h2>{platform.title}</h2>
+          <small className={`analytics-detail-status analytics-detail-status--${platform.tone}`} title={platform.detail}>{platform.label}</small>
+          <dl>{metricColumns.map(({ key, label }) => (
+            <div key={key}>
+              <dt>{label}</dt>
+              <dd>{showMetric(row?.[key], platform.detail)}</dd>
+            </div>
+          ))}</dl>
+        </article>
+      })}
+    </section>
+    <div className="analytics-detail-note">
+      <p className="csp-s-0175">Um traço indica dados indisponíveis, não zero. As redes sem integração aparecem para consulta de cobertura, sem simular envios ou métricas.</p>
+    </div>
+  </>
+}
+
 export default function AnalyticsPage() {
   const [days, setDays] = useState('30')
   const [network, setNetwork] = useState('all')
@@ -220,90 +293,25 @@ export default function AnalyticsPage() {
         Última consulta às redes: {new Date(data.last_completed_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })} (Brasília).
       </p>}
 
-      <section className="analytics-platform-coverage" aria-labelledby="analytics-platforms-title">
-        <div className="analytics-platform-heading">
-          <h2 id="analytics-platforms-title">Redes sociais</h2>
-          <p>Selecione uma rede para ver os resultados disponíveis. Integração listada não significa coleta ativa.</p>
-        </div>
-        <div className="analytics-platform-grid">
-          {ANALYTICS_NETWORKS.map((platform) => (
-            <button key={platform.key} type="button" className="analytics-platform-card"
-              aria-pressed={network === platform.key} onClick={() => setNetwork(platform.key)}
-              title={platform.detail}>
-              <span className={`credential-brand credential-brand--${platform.key}`} aria-hidden="true">
-                {platform.logos.map((logo) => <img key={logo} src={`/brand-logos/${logo}`} alt="" width={32} height={32} loading="lazy" />)}
-              </span>
-              <span className="analytics-platform-description">
-                <strong>{platform.title}</strong>
-                <small className={`analytics-platform-state analytics-platform-state--${platform.tone}`}>{platform.label}</small>
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-
       {!filterAvailable ? (
-        <section className="analytics-platform-pending" role="status">
-          <h2>{pendingPlatform?.title ?? 'Rede selecionada'} — análises indisponíveis</h2>
-          <p>{pendingPlatform?.detail ?? 'Esta rede ainda não possui integração de métricas.'}</p>
-          <p>Não há coleta externa habilitada para esta rede. Os dados não são apresentados como zero e nenhuma consulta à API da plataforma é realizada.</p>
-        </section>
+        <>
+          <section className="analytics-platform-pending" role="status">
+            <h2>{pendingPlatform?.title ?? 'Rede selecionada'} — análises indisponíveis</h2>
+            <p>{pendingPlatform?.detail ?? 'Esta rede ainda não possui integração de métricas.'}</p>
+            <p>Não há coleta externa habilitada para esta rede. Os dados não são apresentados como zero e nenhuma consulta à API da plataforma é realizada.</p>
+          </section>
+          <AnalyticsDetailTable rows={[]} selectedProfile={selectedProfile} selectedNetwork={network} />
+        </>
       ) : isLoading || waitingForProfileList ? <PageSkeleton variant="table" heading={false} /> : error ? (
-        <p role="alert" className="csp-s-0171">Não foi possível carregar as análises.</p>
+        <>
+          <p role="alert" className="csp-s-0171">Não foi possível carregar as análises.</p>
+          <AnalyticsDetailTable rows={[]} selectedProfile={selectedProfile} selectedNetwork={network} />
+        </>
       ) : (
         <>
           <AnalyticsVisuals rows={rows} days={Number(days)} timeline={timeline}
             timelineLoading={timelineLoading} timelineError={timelineError} />
-          <div className="analytics-table-heading">
-            <h2>Detalhamento por rede</h2>
-            <p>{selectedProfile === 'all'
-              ? 'Resultados das publicações de todos os perfis da conta'
-              : 'Resultados das publicações do perfil selecionado'}</p>
-          </div>
-          <div className="analytics-desktop-table" style={{ overflowX: 'auto' }}>
-            <table className="csp-s-0172">
-              <thead><tr>{['Rede', 'Envios concluídos', 'Falhas', 'Sem confirmação', 'Visualizações', 'Curtidas', 'Comentários', 'Reposts', 'Cliques'].map((label) => (
-                <th key={label} scope="col" className="csp-s-0173">{label}</th>
-              ))}</tr></thead>
-              <tbody>{rows.map((row) => (
-                <tr key={row.network}>
-                  <th scope="row" className="csp-s-0174">{names[row.network]}</th>
-                  {[row.succeeded, row.failed, row.unknown, row.views, row.likes, row.comments, row.reposts, row.clicks].map((value, index) => (
-                    <td key={index} style={{ padding: '12px 10px', borderBottom: '1px solid var(--border-card)', color: value === null ? 'var(--text-muted)' : undefined }}>
-                      {value === null ? <span title="Dados da plataforma ainda indisponíveis">—</span> : value.toLocaleString('pt-BR')}
-                    </td>
-                  ))}
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
-          <section className="analytics-mobile-list" aria-label="Indicadores por rede social">
-            {rows.length === 0 && <p className="csp-s-0175">Nenhum resultado disponível para este período.</p>}
-            {rows.map((row) => (
-              <article className="analytics-mobile-card" key={row.network}>
-                <h2>{names[row.network]}</h2>
-                <dl>
-                  {([
-                    ['Envios concluídos', row.succeeded],
-                    ['Falhas', row.failed],
-                    ['Sem confirmação', row.unknown],
-                    ['Visualizações', row.views],
-                    ['Curtidas', row.likes],
-                    ['Comentários', row.comments],
-                    ['Reposts', row.reposts],
-                    ['Cliques', row.clicks],
-                  ] as const).map(([label, value]) => (
-                    <div key={label}>
-                      <dt>{label}</dt>
-                      <dd>{value === null
-                        ? <span title="Dados da plataforma ainda indisponíveis">—</span>
-                        : value.toLocaleString('pt-BR')}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </article>
-            ))}
-          </section>
+          <AnalyticsDetailTable rows={rows} selectedProfile={selectedProfile} selectedNetwork={network} />
           <div className="analytics-table-heading">
             <h2>Desempenho por publicação</h2>
             <p>Posts enviados pelo Auto Orbital e confirmados pela rede, ordenados por visualizações disponíveis.</p>

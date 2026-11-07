@@ -7,7 +7,8 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Added — Análises sociais (candidata MINOR 3.5.0, 07/11/2026)
 
-- A página `/analytics` exibe nove redes sociais, em ordem alfabética PT-BR, com logos locais, cartões compactos acessíveis e indicadores honestos de disponibilidade; nenhuma loja entra nesse catálogo.
+- A página `/analytics` oferece nove redes sociais no seletor Rede, em ordem alfabética PT-BR; nenhuma loja entra nesse catálogo. **Ajuste visual posterior à PR #326:** retirados os cartões de redes acima dos indicadores, por redundância com o seletor.
+- O **Detalhamento por rede** passa a listar as nove opções em “Todas”, na tabela desktop e nos cartões de indicadores mobile. Cada rede exibe seu estado; apenas as cinco redes operacionais podem apresentar contagens reais da API, enquanto as quatro futuras mostram traços em vez de zeros artificiais. Selecionar rede não integrada mantém uma linha informativa em vez de esconder a tabela.
 - Shopee Vídeo, Telegram, WhatsApp e Kwai aparecem no filtro com informação de integração pendente, sem consultas inválidas ao backend nem números fictícios. Os cinco filtros reconhecidos, gráficos, histórico por perfil e coletor individual Threads não foram alterados.
 - Nova [matriz de origem de dados e bloqueios por rede](docs/ANALISE-REDES-COBERTURA-20261107.md). Sem API externa, OAuth, banco, scheduler, `pg_cron`, `pg_net` ou publicadores novos. `VERSION=3.4.0` até release aprovada.
 

@@ -1,11 +1,14 @@
 ## 07/11/2026 — Análises: cobertura das nove redes sociais (candidata 3.5.0)
 
 - [x] Ler AGENTS/Guia/RULES/PRD, código, documentação específica, catálogo de Credenciais e TASK vivo do Vault; preservar insight apenas de post confirmado.
-- [x] Exibir somente nove canais sociais no seletor e cartões com logos/estado; ignorar lojas e manter filtros, perfis, tabelas, gráficos e comportamento atual dos cinco filtros da API.
+- [x] Exibir somente nove canais sociais no seletor; ignorar lojas e manter filtros, perfis, tabelas, gráficos e comportamento atual dos cinco filtros da API. **Correção após feedback de Rafa:** remover cards duplicados acima dos gráficos e usar apenas o seletor Rede.
+- [x] Listar todas as nove plataformas no **Detalhamento por rede** para filtro “Todas” (desktop/mobile), com estado legível e `—` para valores sem fonte, inclusive ausência de histórico; seleção individual reduz a uma linha também para rede futura, sem 422 ou consulta externa.
 - [x] Kwai, Shopee Vídeo, Telegram e WhatsApp são estritamente informativos, sem fetch de API ou zeros inventados; X preserva histórico e bloqueio de publicação.
 - [x] Revisar documentação oficial e registrar [fontes, permissões e gates por rede](ANALISE-REDES-COBERTURA-20261107.md).
 - [x] Testes específicos de contrato do frontend 5/5 PASS e TypeScript/Vite build PASS localmente; testes integrados ao workflow CI. Testes de API existentes 25/25 PASS; OAuth e consultas externas não testados.
-- [ ] PR e CI para staging, Render LIVE e QA visual autenticado desktop/mobile; preencher apenas após evidência. `main` permanece intacta até autorização separada.
+- [x] **Primeira entrega:** [PR #326](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/326), [CI #1077](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42368001296) aprovada, merge staging `a056f665797a48556fd2b08ca58966be45826f7b`, Render `dep-dbnglqq9lscs73c0r7f0` LIVE. QA ADMIN autenticada confirmou nove cards/filtros anteriores e comportamento seguro Shopee Vídeo/Threads.
+- [x] **Ajuste solicitado:** novo componente compartilhado de tabela/lista com nove redes, cards superiores removidos e cinco testes de contrato específicos + build TypeScript/Vite **PASS locais**.
+- [ ] **Ajuste posterior:** PR/CI e Render staging LIVE, QA autenticada desktop/mobile após implantação. `main` permanece intacta até autorização separada.
 - **SemVer:** `VERSION=3.4.0`, candidata MINOR `3.5.0`. Sem DB/migration, cron, pg_net, OAuth, post externo ou contratação. Sem evidência nova de domínio próprio registrado **e configurado** para acionar SMTP.
 
 ## 07/11/2026 — Diagnóstico ADMIN: catálogo integral de lojas e redes (staging, candidata 3.5.0)

@@ -1,23 +1,11 @@
 /* Painéis de Análises — tokens e superfícies do Auto Orbital. */
-.analytics-platform-coverage { margin-top: 18px; }
-.analytics-platform-heading { margin-bottom: 10px; }
-.analytics-platform-heading h2 { margin: 0 0 3px; color: var(--text-display); font-size: 17px; }
-.analytics-platform-heading p { margin: 0; color: var(--text-muted); font-size: 12px; }
-.analytics-platform-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(174px, 1fr)); gap: 9px; }
-.analytics-platform-card { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 64px; padding: 9px 11px; border: 1px solid var(--border-card); border-radius: 12px; background: var(--surface-card); text-align: left; color: var(--text-body); cursor: pointer; font: inherit; }
-.analytics-platform-card:hover { border-color: var(--brand-orbit-blue); }
-.analytics-platform-card[aria-pressed="true"] { border-color: var(--brand-electric-cyan); box-shadow: inset 0 0 0 1px var(--brand-electric-cyan); }
-.analytics-platform-card:focus-visible { outline: 2px solid var(--brand-electric-cyan); outline-offset: 2px; }
-.analytics-platform-card .credential-brand { width: 36px; height: 36px; border-radius: 10px; }
-.analytics-platform-card .credential-brand img { max-width: 31px; max-height: 29px; }
-.analytics-platform-description { display: flex; flex-direction: column; min-width: 0; gap: 3px; }
-.analytics-platform-description strong { overflow-wrap: anywhere; font-size: 12px; line-height: 1.25; }
-.analytics-platform-state { color: var(--text-muted); font-size: 10px; line-height: 1.3; }
-.analytics-platform-state--available { color: var(--positive); }
-.analytics-platform-state--planned { color: var(--amber-300); }
 .analytics-platform-pending { margin-top: 18px; padding: 19px; border: 1px solid var(--border-card); border-radius: 14px; background: var(--surface-card); }
 .analytics-platform-pending h2 { margin: 0 0 8px; font-size: 19px; color: var(--text-display); }
 .analytics-platform-pending p { margin: 5px 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.analytics-detail-status { display: block; margin-top: 4px; color: var(--text-muted); font-size: 11px; line-height: 1.35; font-weight: 500; }
+.analytics-detail-status--available { color: var(--positive); }
+.analytics-detail-status--planned { color: var(--amber-300); }
+.analytics-detail-note { margin-top: 10px !important; font-size: 12px; line-height: 1.5; }
 .analytics-visuals {
   margin-top: 22px;
 }

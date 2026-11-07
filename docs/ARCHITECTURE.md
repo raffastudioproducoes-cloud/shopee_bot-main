@@ -485,7 +485,7 @@ staging aprovados. Nenhum post real foi reenviado no teste.
 
 ## Atualização de Análises — 31/10/2026 (PR #140)
 
-**Complemento de 07/11/2026 — catálogo social em Análises (branch staging).** `frontend/src/lib/analyticsNetworks.ts` deriva a lista da seção **social** do catálogo de Credenciais; associa logos e disponibilidade de analytics, sem lojas. Os cinco filtros que o backend aceita continuam consultando `/analytics/{summary,timeline,posts}`. Kwai, Shopee Vídeo, Telegram e WhatsApp são somente informativos: sem requisições incompatíveis, números simulados ou nova contagem no Supabase. Não altera RPC, schema ou publicador. [Matriz por rede](ANALISE-REDES-COBERTURA-20261107.md).
+**Complemento de 07/11/2026 — catálogo social em Análises (staging).** `frontend/src/lib/analyticsNetworks.ts` deriva as nove redes da seção **social** de Credenciais e associa estado de analytics, sem lojas. O seletor Rede é o único controle; a apresentação local da tabela une a lista de nove redes às respostas de cinco filtros operacionais sem alterar nem completar falsamente a API. Kwai, Shopee Vídeo, Telegram e WhatsApp aparecem com métricas nulas/traços, mesmo na lista mobile; seleção individual tem linha informativa. Não há requisições incompatíveis, números simulados nem nova contagem no Supabase. Nenhuma mudança em RPC, schema ou publicador. [Matriz por rede](ANALISE-REDES-COBERTURA-20261107.md).
 
 **Precedência técnica:** o parágrafo histórico de 31/10 abaixo sobre `page_media_view`/`threads_views` foi superado pelo contrato de 05/11: as métricas de perfil/Página foram retiradas e só post individual confirmado pode gerar insight. A coleta atual é somente Threads; ver [ANALISE-REDES-PLANO.md](ANALISE-REDES-PLANO.md).
 
