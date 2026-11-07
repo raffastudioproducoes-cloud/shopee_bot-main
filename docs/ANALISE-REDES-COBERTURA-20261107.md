@@ -1,0 +1,44 @@
+# Análises — redes sociais e coleta por plataforma
+
+**07/11/2026 · Base:** staging 3.4.0 · **Escopo:** UI/documentação, candidata MINOR 3.5.0 · **Estado:** branch de implementação; PR/CI/deploy pendentes.
+
+## Contrato atual da interface
+
+- `/analytics` reaproveita **somente** `buildAdminDiagnosticSections().social` de `frontend/src/lib/credentialPlatforms.ts`. São nove redes em ordem alfabética PT-BR: Facebook, Instagram, Kwai, Shopee Vídeo, Telegram, Threads, TikTok, WhatsApp e X (Twitter). **Lojas não entram.** Os logos são arquivos locais já catalogados em Credenciais.
+- `frontend/src/lib/analyticsNetworks.ts` define cobertura de **métricas**, separada do status de conexão. Cards compactos clicáveis (`aria-pressed`, teclado/foco) selecionam o filtro Rede; o seletor também contém todos os nove nomes.
+- O backend mantém **cinco filtros com histórico operacional** (`facebook`, `instagram`, `threads`, `tiktok`, `x`) nos endpoints `/analytics/{summary,timeline,posts}`. Selecionar **Kwai, Shopee Vídeo, Telegram ou WhatsApp** exibe explicação de indisponibilidade, sem enviar um filtro 422 à API, consultar a rede ou mostrar zeros inventados. Nesses quatro filtros, o botão de coleta manual é desabilitado. “Todas” mantém o contrato atual de cinco redes, enquanto os nove cards de cobertura permanecem visíveis.
+- Contadores de sucesso/falha/incerteza são registros internos de `publish_jobs`; não comprovam engajamento externo. Métricas sociais só decorrem de `publish_jobs.status=succeeded`, ID externo de post validado e cache `publication_insights` correspondente. Ausente = `null`/`—`, nunca zero presumido; não atribuir métricas de perfil/Página a posts. Período 7/30/90 dias seleciona posts por data de publicação; os insights desses posts são **lifetime** até a última coleta.
+- `profile_id=all` preserva histórico de conta/arquivados e deduplicação; perfil individual tem validação de ownership. Esta rodada não altera backend, SQL, RLS, OAuth, publicadores, scheduler, `pg_cron`, `pg_net`, billing ou dados reais.
+
+## Matriz de obtenção dos dados
+
+| Rede | Situação efetiva | Caminho oficial possível para dados do **post** | Gate antes de implementar |
+|---|---|---|---|
+| **Facebook** | Histórico de envios; sem leitor individual homologado | Graph API para **post/mídia da Página** usando ID externo e token de Página; permissões `pages_read_engagement`/`read_insights` conforme campo e app. | Confirmar versão e métricas por formato; depreciações em 2026, não usar `/{page_id}/insights` geral. |
+| **Instagram** | Histórico de envios; sem coletor por mídia | Graph API `/{ig-media-id}/insights` em conta profissional Business/Creator autorizada; campos por foto, vídeo, Reel e carrossel. | Confirmar permissão/escopo de insights e tipos/períodos no app Meta; não converter `reach` de conta em views de posts. |
+| **Kwai** | Sem publicador e sem leitor | Nenhum endpoint de API pública de **post próprio** foi validado pelo produto; portal de criadores não fornece esse contrato de integração. | Aprovação e documentação oficial; proibir scraping, API de anúncios como substituto ou números de perfil atribuídos aos posts. |
+| **Shopee Vídeo** | Cliente isolado, bloqueado; sem OAuth, publicação ou coleta ativos | Open Platform: `v2.video.get_video_list`, `get_video_detail` e `get_overview_performance`. Só métricas comprovadamente de **vídeo individual** podem entrar por ID. | Aprovação Shopee Video Management e OAuth próprios (Affiliate GraphQL não serve), validação de campos/IDs e teste autorizado; overview geral não vira soma de posts. |
+| **Telegram** | Canal planejado | Bot API retorna `message_id` do envio, mas **não oferece consulta geral de views por mensagem**. API Telegram MTProto documenta estatísticas de canal e mensagem para administradores elegíveis — outra arquitetura/autorização. | Rever segurança de sessão, elegibilidade administrativa e permissões; não coletar views por bot inexistente nem confundir membros com alcance. |
+| **Threads** | **Coletor individual já implementado** | `GET https://graph.threads.net/v1.0/{post_id}/insights?metric=views,likes,replies,reposts,quotes,shares`, token da conta com `threads_manage_insights`. | Validar ID externo em job confirmado, OAuth/escopo, erros, métricas ausentes e partes de sequência; `api/post_insights.py` faz a coleta e cache atual. |
+| **TikTok** | Histórico de vídeos; sem leitor | Display API `POST https://open.tiktokapis.com/v2/video/query/?fields=id,view_count,like_count,comment_count,share_count`, `filters.video_ids` (máx. 20), token do titular com `video.list`. | O OAuth atual não pede `video.list`; requer aprovação/consentimento, vínculo ID do Content Posting com vídeo final e teste. Research API não serve para esse uso comercial. |
+| **WhatsApp** | Integração planejada | WhatsApp Business Cloud API + webhook de status por `message_id` (`sent`, `delivered`, `read`), **não são views/curtidas de postagem**. | Conta Business/número/templates/consentimento e LGPD, webhook assinado e política de mensagens; não usar dados pessoais dos destinatários como analytics público. |
+| **X (Twitter)** | Publicação desabilitada; histórico anterior disponível | X API v2 `GET /2/tweets/{id}?tweet.fields=public_metrics` pode retornar curtidas, respostas, reposts e quotes do post. | Política do produto bloqueia ativação; acesso/plano/custos e escopo devem ser aprovados; cliques e impressões não são garantidos por `public_metrics`. |
+
+## Documentação oficial consultada em 07/11/2026
+
+- Meta: [Threads Get Post Insights](https://www.postman.com/meta/threads/request/34203612-385abc7d-b3cc-4e5d-9937-ebbe7174e041), [permissões Threads](https://www.postman.com/meta/threads/documentation/dht3nzz/threads-api), [Instagram Graph API](https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api), [Facebook Graph API Insights](https://developers.facebook.com/docs/graph-api/reference/insights/) (conferir versão/depreciações).
+- TikTok: [Query Videos v2](https://developers.tiktok.com/docs/en/tiktok-api-v2-video-query) e [Video Object](https://developers.tiktok.com/docs/en/tiktok-api-v2-video-object).
+- X: [Post Lookup API v2](https://www.postman.com/xapidevelopers/x-api-public-workspace/documentation/34902927-2efc5689-99c6-4ab6-8091-996f35c2fd80).
+- Telegram: [Bot API](https://core.telegram.org/bots/api) versus [stats de canais/mensagens por MTProto](https://core.telegram.org/api/stats).
+- WhatsApp: [Meta — status de mensagem por webhook](https://www.postman.com/meta/whatsapp-business-platform/request/rgtfq23/message-status-update-notifications).
+- Shopee: [get_video_detail](https://open.shopee.com/documents/v2/v2.video.get_video_detail?module=129&type=1), [get_video_list](https://open.shopee.com/documents/v2/v2.video.get_video_list?module=129&type=1) e [get_overview_performance](https://open.shopee.com/documents/v2/v2.video.get_overview_performance?module=129&type=1); documentação sujeita a acesso aprovado.
+- Kwai: [Creator Center oficial](https://www.kwai.com/support/creator-center) **não comprova** API de métricas do usuário para este SaaS.
+
+## Gate de futuro coletor
+
+1. Exigir app/escopo/consentimento, token decifrado só no servidor, `user_id+profile_id`/ownership e ID externo da publicação realmente confirmada; testar isolamento entre duas contas e dois perfis.
+2. Usar exclusivamente resposta oficial de **post**, validando formato, unidade, intervalo, IDs e campos. Registrar fonte/horário/estado sanitizados; ausente não vira zero e não guardar resposta bruta/token em log.
+3. Reusar `claim_analytics_refresh` (24h automático, 5min manual), `publication_insights` por job e controles de taxa. Alteração do SQL/schema compartilhado requer tarefa separada, migração aditiva e plano compatível com produção.
+4. Nenhum refresh deve criar posts nem reenviar `unknown`. Exigir testes mockados, CI, resposta real autorizada, Render staging LIVE, QA desktop/mobile e aprovação de release separada.
+
+**Evidência da rodada:** leitura estática do código de `api/routers/social_analytics.py`, `api/post_insights.py`, `api/analytics_refresh.py`, `apis/shopee_video.py`, catálogo de Credenciais e RPC `065_analytics_daily_job_counts.sql`, além dos documentos oficiais listados. Nenhuma API de rede, conta real, banco ou publicador foi acionado.

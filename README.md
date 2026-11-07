@@ -39,6 +39,8 @@
 
 # Shopee Auto Vendas
 
+> **07/11/2026 — Análises (branch staging):** catálogo das nove redes sociais com logos e estados, inclusive Shopee Vídeo, Telegram e WhatsApp, sem lojas. Cinco redes preservam histórico da API atual; as demais têm aviso sem coleta simulada. [Matriz de dados por rede](docs/ANALISE-REDES-COBERTURA-20261107.md). `VERSION=3.4.0`, candidata 3.5.0; PR/CI/QA/deploy da mudança ainda pendentes.
+
 ### Divulgação automática de afiliado, do garimpo ao post.
 
 [![React](https://img.shields.io/badge/React-19-06B6D4?logo=react&logoColor=white)](https://react.dev)

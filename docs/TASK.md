@@ -1,3 +1,13 @@
+## 07/11/2026 — Análises: cobertura das nove redes sociais (candidata 3.5.0)
+
+- [x] Ler AGENTS/Guia/RULES/PRD, código, documentação específica, catálogo de Credenciais e TASK vivo do Vault; preservar insight apenas de post confirmado.
+- [x] Exibir somente nove canais sociais no seletor e cartões com logos/estado; ignorar lojas e manter filtros, perfis, tabelas, gráficos e comportamento atual dos cinco filtros da API.
+- [x] Kwai, Shopee Vídeo, Telegram e WhatsApp são estritamente informativos, sem fetch de API ou zeros inventados; X preserva histórico e bloqueio de publicação.
+- [x] Revisar documentação oficial e registrar [fontes, permissões e gates por rede](ANALISE-REDES-COBERTURA-20261107.md).
+- [x] Testes específicos de contrato do frontend 5/5 PASS e TypeScript/Vite build PASS localmente; testes integrados ao workflow CI. Testes de API existentes 25/25 PASS; OAuth e consultas externas não testados.
+- [ ] PR e CI para staging, Render LIVE e QA visual autenticado desktop/mobile; preencher apenas após evidência. `main` permanece intacta até autorização separada.
+- **SemVer:** `VERSION=3.4.0`, candidata MINOR `3.5.0`. Sem DB/migration, cron, pg_net, OAuth, post externo ou contratação. Sem evidência nova de domínio próprio registrado **e configurado** para acionar SMTP.
+
 ## 07/11/2026 — Diagnóstico ADMIN: catálogo integral de lojas e redes (staging, candidata 3.5.0)
 
 - [x] A partir do catálogo de `/credentials`, incluir no diagnóstico ADMIN os 12 cards de lojas futuras e 3 canais sociais informativos (Shopee Vídeo, Telegram, WhatsApp); manter 6 estados sociais reais e 2 cards globais superiores.
