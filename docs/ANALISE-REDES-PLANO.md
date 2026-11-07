@@ -1,5 +1,7 @@
 # Analise de redes: contrato e fases
 
+> **07/11/2026 — Dashboard ampliado e cota manual:** seis KPIs + seis painéis não redundantes; status das nove redes (indisponíveis explícitas), engajamento e ranking apenas com insights de posts oficiais. Botão de atualizar disponível para perfil individual ou Todos, 10 atualizações válidas/dia por conta (Brasília) em todos os planos, ADMIN ilimitado; limite server-side via migração 092 e RLS, sem consumo em cooldown e sem afetar rotina automática de 24h. [Contrato e gate](ANALISE-REDES-DASHBOARD-COTA-20261107.md). `main` protegida até aprovação de Rafa.
+
 > **07/11/2026 — catálogo social em Análises e ajuste visual solicitado por Rafa:** nove redes (Facebook, Instagram, Kwai, Shopee Vídeo, Telegram, Threads, TikTok, WhatsApp e X), sem lojas. O único seletor Rede filtra os resultados; removidos os cards redundantes superiores. A tabela **Detalhamento por rede** relaciona todas as nove no filtro “Todas”, exibindo métricas reais das cinco reconhecidas pelo backend e traços/status nas quatro futuras. Em seleção individual, permanece uma linha para a rede escolhida, mesmo se não integrada. Não consultar APIs inexistentes ou inventar zeros. A [matriz por plataforma](ANALISE-REDES-COBERTURA-20261107.md) detalha fontes oficiais e gates. O contrato de insights estritamente **por publicação** abaixo permanece obrigatório.
 
 ## Correção de origem dos insights por POST (05/11/2026 — staging)

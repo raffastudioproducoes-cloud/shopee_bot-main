@@ -1,16 +1,22 @@
 import { useId } from 'react'
-import { Activity, AlertCircle, CheckCircle2, CircleHelp, Gauge, TrendingUp } from 'lucide-react'
+import { Activity, BarChart3, Eye, Gauge, Layers, MessageCircle, TrendingUp } from 'lucide-react'
 import { Panel } from './ui/Panel'
+import { buildAdminDiagnosticSections } from '../lib/credentialPlatforms'
 import '../styles/analytics-panels.css'
-import { ANALYTICS_RECORDED_NAMES, type AnalyticsRecordedNetwork } from '../lib/analyticsNetworks'
 
-export type AnalyticsNetwork = AnalyticsRecordedNetwork
+export type AnalyticsNetwork = 'threads' | 'facebook' | 'instagram' | 'tiktok' | 'x'
 export type AnalyticsSummaryRow = {
   network: AnalyticsNetwork
   succeeded: number
   failed: number
   unknown: number
   views: number | null
+  likes: number | null
+  comments: number | null
+  reposts: number | null
+  clicks: number | null
+  posts_with_insights?: number
+  posts_with_external_id?: number
   insights_status: string
 }
 export type AnalyticsTimeline = {
@@ -18,41 +24,42 @@ export type AnalyticsTimeline = {
   points: { day: string; network: AnalyticsNetwork; status: 'succeeded' | 'failed' | 'unknown'; total: number }[]
 }
 
-const networkNames = ANALYTICS_RECORDED_NAMES
-const networkColors: Record<AnalyticsNetwork, string> = {
-  threads: 'var(--brand-electric-cyan)',
-  facebook: 'var(--brand-orbit-blue)',
-  instagram: 'var(--brand-orbital-violet)',
-  tiktok: 'var(--brand-indigo)',
-  x: 'var(--brand-ice-blue)',
+const networkNames: Record<AnalyticsNetwork, string> = {
+  threads: 'Threads', facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', x: 'X',
 }
-const statusColors = {
-  succeeded: 'var(--positive)',
-  failed: 'var(--negative)',
-  unknown: 'var(--amber-300)',
+const socialCatalog = buildAdminDiagnosticSections().social
+export type AnalyticsPostMetric = {
+  job_id: string
+  network: AnalyticsNetwork
+  preview: string
+  views: number | null
+  likes: number | null
+  comments: number | null
+  reposts: number | null
+  clicks: number | null
 }
 const formatNumber = (value: number) => value.toLocaleString('pt-BR')
 const shortDate = (date: string) => date.slice(8, 10) + '/' + date.slice(5, 7)
 
 function RadialBreakdown({ items, center, sublabel, accessibleLabel }: {
-  items: { label: string; value: number; color: string; tone: string }[]
+  items: { label: string; value: number | null; color: string; tone: string }[]
   center: string
   sublabel: string
   accessibleLabel: string
 }) {
-  const total = items.reduce((sum, item) => sum + item.value, 0)
+  const total = items.reduce((sum, item) => sum + (item.value ?? 0), 0)
   let offset = 0
   return <div className="analytics-radial-layout">
     <svg viewBox="0 0 184 184" className="analytics-radial" role="img" aria-label={accessibleLabel}>
       <circle cx="92" cy="92" r="70" fill="none" stroke="var(--chart-grid)" strokeWidth="16" />
-      {total > 0 && items.filter(item => item.value > 0).map(item => {
-        const length = (item.value / total) * 100
+      {total > 0 && items.filter(item => (item.value ?? 0) > 0).map(item => {
+        const length = ((item.value ?? 0) / total) * 100
         const start = offset
         offset += length
         return <circle key={item.label} cx="92" cy="92" r="70" fill="none" stroke={item.color}
           strokeWidth="16" pathLength="100" strokeDasharray={String(length) + ' ' + String(100 - length)}
           strokeDashoffset={String(-start)} transform="rotate(-90 92 92)">
-          <title>{item.label}: {formatNumber(item.value)}</title>
+          <title>{item.label}: {formatNumber(item.value ?? 0)}</title>
         </circle>
       })}
       <text x="92" y="88" textAnchor="middle" className="analytics-radial-value">{center}</text>
@@ -61,7 +68,7 @@ function RadialBreakdown({ items, center, sublabel, accessibleLabel }: {
     <ul className="analytics-radial-legend">
       {items.map(item => <li key={item.label}>
         <span className="analytics-legend-name"><span className={'analytics-legend-dot analytics-legend-' + item.tone} />{item.label}</span>
-        <strong>{formatNumber(item.value)}</strong>
+        <strong>{item.value === null ? '—' : formatNumber(item.value)}</strong>
       </li>)}
     </ul>
   </div>
@@ -164,41 +171,171 @@ const providerDescriptions: Record<string, string> = {
   unsupported: 'Insights por post indisponíveis',
 }
 
-export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timelineError }: {
+function NetworkComparison({ rows }: { rows: AnalyticsSummaryRow[] }) {
+  const source = new Map(rows.map(row => [row.network, row]))
+  const maximum = Math.max(1, ...rows.map(row => row.succeeded + row.failed + row.unknown))
+  return <>
+    <div className="analytics-chart-legend">
+      <span><i className="analytics-legend-dot analytics-legend-succeeded" />Concluídos</span>
+      <span><i className="analytics-legend-dot analytics-legend-failed" />Falhas</span>
+      <span><i className="analytics-legend-dot analytics-legend-unknown" />Sem confirmação</span>
+    </div>
+    <svg className="analytics-comparison-chart" viewBox="0 0 670 326" role="img"
+      aria-label="Comparação de envios finalizados por rede social, sem incluir as redes indisponíveis">
+      {socialCatalog.map((channel, index) => {
+        const row = source.get(channel.key as AnalyticsNetwork)
+        const total = row ? row.succeeded + row.failed + row.unknown : 0
+        const y = index * 35 + 19
+        const bars = row ? [
+          { value: row.succeeded, color: 'var(--positive)' },
+          { value: row.failed, color: 'var(--negative)' },
+          { value: row.unknown, color: 'var(--amber-300)' },
+        ] : []
+        let offset = 0
+        return <g key={channel.key}>
+          <text x="4" y={y + 9} className={'analytics-bar-name' + (!row ? ' analytics-muted' : '')}>{channel.title}</text>
+          <rect x="150" y={y - 1} width="424" height="12" rx="5" fill="var(--chart-grid)" />
+          {bars.map(({ value, color }, segment) => {
+            const width = (value / maximum) * 424
+            const x = 150 + offset
+            offset += width
+            return value > 0 ? <rect key={segment} x={x} y={y - 1} width={width} height="12" fill={color}>
+              <title>{channel.title}: {formatNumber(value)} {['concluídos', 'falhas', 'sem confirmação'][segment]}</title>
+            </rect> : null
+          })}
+          <text x="644" y={y + 9} textAnchor="end" className="analytics-bar-count">
+            {row ? formatNumber(total) : '—'}
+          </text>
+        </g>
+      })}
+    </svg>
+    <p className="analytics-chart-footnote">Somente envios registrados na plataforma; — indica rede sem dados neste filtro ou sem publicação disponível.</p>
+  </>
+}
+
+function WeekdayActivity({ timeline, loading, error }: { timeline?: AnalyticsTimeline; loading: boolean; error: boolean }) {
+  const labels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+  const totals = Array(7).fill(0) as number[]
+  for (const point of timeline?.points ?? []) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(point.day)) continue
+    const date = new Date(point.day + 'T00:00:00Z')
+    const index = (date.getUTCDay() + 6) % 7
+    totals[index] += point.total
+  }
+  const max = Math.max(1, ...totals)
+  return <>
+    {loading ? <p className="analytics-chart-note">Carregando distribuição semanal...</p>
+      : error ? <p role="alert" className="analytics-chart-note">Distribuição semanal indisponível.</p>
+        : totals.every(value => value === 0) ? <p className="analytics-chart-note">Sem atividade registrada no período.</p> : null}
+    <svg viewBox="0 0 560 212" className="analytics-weekday-chart" role="img" aria-label="Quantidade de envios por dia da semana em UTC">
+      {totals.map((count, index) => {
+        const h = count / max * 142
+        return <g key={labels[index]}>
+          <rect x={24 + index * 78} y={25} width="46" height="142" rx="8" fill="var(--chart-grid)" />
+          {count > 0 && <rect x={24 + index * 78} y={167 - h} width="46" height={h} rx="8" fill="var(--brand-electric-cyan)" />}
+          <text x={47 + index * 78} y="20" textAnchor="middle" className="analytics-bar-count">{count}</text>
+          <text x={47 + index * 78} y="193" textAnchor="middle" className="analytics-bar-name">{labels[index]}</text>
+        </g>
+      })}
+    </svg>
+    <p className="analytics-chart-footnote">Frequência dos envios finalizados por dia da semana (UTC), não previsão de alcance.</p>
+  </>
+}
+
+function SocialAvailability({ rows }: { rows: AnalyticsSummaryRow[] }) {
+  const status = new Map(rows.map(row => [row.network, row]))
+  return <div className="analytics-social-grid" aria-label="Situação das nove redes sociais">
+    {socialCatalog.map(channel => {
+      const row = status.get(channel.key as AnalyticsNetwork)
+      const planned = channel.availability === 'planned'
+      return <div className={'analytics-social-item' + (planned ? ' is-planned' : '')} key={channel.key}>
+        <strong>{channel.title}</strong>
+        <span className={'analytics-insights-status' + (row?.insights_status === 'ok' ? ' is-available' : '')}>
+          <i className="analytics-insights-indicator" />
+          {planned ? 'Em breve · sem integração' : !row && channel.key === 'kwai' ? 'Insights por post indisponíveis'
+            : !row ? 'Fora do filtro atual'
+            : providerDescriptions[row.insights_status] ?? 'Sem coleta oficial'}
+        </span>
+      </div>
+    })}
+  </div>
+}
+
+function TopPosts({ posts, loading, error }: { posts?: AnalyticsPostMetric[]; loading: boolean; error: boolean }) {
+  if (loading) return <p className="analytics-chart-note" role="status">Carregando desempenho por publicação...</p>
+  if (error) return <p className="analytics-chart-note" role="alert">Ranking de publicações indisponível.</p>
+  const ranked = (posts ?? []).filter(post => post.views !== null)
+    .sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).slice(0, 5)
+  if (!ranked.length) return <p className="analytics-chart-note">Nenhum post com visualizações oficiais disponível neste filtro.</p>
+  return <ol className="analytics-top-posts">
+    {ranked.map(post => <li key={post.job_id}>
+      <span><strong>{post.preview || 'Publicação sem texto'}</strong>
+        <small>{networkNames[post.network]}</small></span>
+      <span className="analytics-post-views"><Eye size={14} aria-hidden="true" />{formatNumber(post.views ?? 0)}</span>
+    </li>)}
+  </ol>
+}
+
+export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timelineError, posts, postsLoading, postsError }: {
   rows: AnalyticsSummaryRow[]
   days: number
   timeline?: AnalyticsTimeline
   timelineLoading: boolean
   timelineError: boolean
+  posts?: AnalyticsPostMetric[]
+  postsLoading: boolean
+  postsError: boolean
 }) {
   const completed = rows.reduce((sum, row) => sum + row.succeeded, 0)
   const failed = rows.reduce((sum, row) => sum + row.failed, 0)
   const uncertain = rows.reduce((sum, row) => sum + row.unknown, 0)
   const all = completed + failed + uncertain
   const confirmedRate = all > 0 ? Math.round(completed / all * 100) : null
+  const networksWithActivity = rows.filter(row => row.succeeded + row.failed + row.unknown > 0).length
   const views = rows.filter(row => row.views !== null)
   const totalViews = views.length ? views.reduce((sum, row) => sum + row.views!, 0) : null
+  const measured = (['likes', 'comments', 'reposts', 'clicks'] as const).map(key => {
+    const known = rows.filter(row => row[key] !== null)
+    return { key, value: known.length ? known.reduce((sum, row) => sum + row[key]!, 0) : null }
+  })
+  const measuredInteractions = measured.filter(item => item.value !== null)
+  const interactionTotal = measuredInteractions.length
+    ? measuredInteractions.reduce((sum, item) => sum + item.value!, 0) : null
+  const postsWithInsights = rows.reduce((sum, row) => sum + (row.posts_with_insights ?? 0), 0)
+  const postsWithExternalId = rows.reduce((sum, row) => sum + (row.posts_with_external_id ?? 0), 0)
+  const engagementLabels: Record<string, string> = { likes: 'Curtidas', comments: 'Comentários', reposts: 'Reposts', clicks: 'Cliques' }
+  const engagementColors = ['var(--brand-electric-cyan)', 'var(--brand-orbital-violet)', 'var(--positive)', 'var(--brand-ice-blue)']
   return <div className="analytics-visuals">
-    <section className="analytics-kpi-grid" aria-label="Resumo dos envios">
+    <section className="analytics-kpi-grid" aria-label="Indicadores gerais e oficiais">
       <Panel surface="dark" className="analytics-kpi-card analytics-kpi-primary">
-        <div className="analytics-kpi-top"><span>Envios concluídos</span><CheckCircle2 size={20} aria-hidden="true" /></div>
-        <strong className="analytics-kpi-value">{formatNumber(completed)}</strong>
-        <small>Publicações confirmadas</small>
-      </Panel>
-      <Panel surface="dark" className="analytics-kpi-card analytics-kpi-failed">
-        <div className="analytics-kpi-top"><span>Falhas</span><AlertCircle size={20} aria-hidden="true" /></div>
-        <strong className="analytics-kpi-value">{formatNumber(failed)}</strong>
-        <small>Envios com erro registrado</small>
-      </Panel>
-      <Panel surface="dark" className="analytics-kpi-card analytics-kpi-unknown">
-        <div className="analytics-kpi-top"><span>Sem confirmação</span><CircleHelp size={20} aria-hidden="true" /></div>
-        <strong className="analytics-kpi-value">{formatNumber(uncertain)}</strong>
-        <small>Exigem verificação na rede</small>
+        <div className="analytics-kpi-top"><span>Total de envios</span><Layers size={20} aria-hidden="true" /></div>
+        <strong className="analytics-kpi-value">{formatNumber(all)}</strong>
+        <small>{formatNumber(completed)} concluídos · {formatNumber(failed)} falhas · {formatNumber(uncertain)} sem confirmação</small>
       </Panel>
       <Panel surface="dark" className="analytics-kpi-card analytics-kpi-rate">
         <div className="analytics-kpi-top"><span>Taxa confirmada</span><Gauge size={20} aria-hidden="true" /></div>
         <strong className="analytics-kpi-value">{confirmedRate === null ? '—' : String(confirmedRate) + '%'}</strong>
-        <small>{all > 0 ? formatNumber(completed) + ' de ' + formatNumber(all) + ' envios' : 'Sem envios para calcular'}</small>
+        <small>{all > 0 ? `${formatNumber(completed)} de ${formatNumber(all)} envios` : 'Sem envios para calcular'}</small>
+      </Panel>
+      <Panel surface="dark" className="analytics-kpi-card analytics-kpi-networks">
+        <div className="analytics-kpi-top"><span>Redes com atividade</span><BarChart3 size={20} aria-hidden="true" /></div>
+        <strong className="analytics-kpi-value">{formatNumber(networksWithActivity)}</strong>
+        <small>De {socialCatalog.length} redes listadas</small>
+      </Panel>
+      <Panel surface="dark" className="analytics-kpi-card analytics-kpi-views">
+        <div className="analytics-kpi-top"><span>Visualizações de posts</span><Eye size={20} aria-hidden="true" /></div>
+        <strong className="analytics-kpi-value">{totalViews === null ? '—' : formatNumber(totalViews)}</strong>
+        <small>Somente dados oficiais dos posts rastreados</small>
+      </Panel>
+      <Panel surface="dark" className="analytics-kpi-card analytics-kpi-engagement">
+        <div className="analytics-kpi-top"><span>Interações mensuradas</span><MessageCircle size={20} aria-hidden="true" /></div>
+        <strong className="analytics-kpi-value">{interactionTotal === null ? '—' : formatNumber(interactionTotal)}</strong>
+        <small>Curtidas, comentários, reposts e cliques disponíveis</small>
+      </Panel>
+      <Panel surface="dark" className="analytics-kpi-card analytics-kpi-tracked">
+        <div className="analytics-kpi-top"><span>Posts com insights</span><Activity size={20} aria-hidden="true" /></div>
+        <strong className="analytics-kpi-value">{formatNumber(postsWithInsights)}</strong>
+        <small>{formatNumber(postsWithExternalId)} com ID rastreável</small>
       </Panel>
     </section>
 
@@ -213,48 +350,44 @@ export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timeli
       </Panel>
       <Panel surface="dark" className="analytics-data-panel analytics-network-panel">
         <div className="analytics-panel-heading">
-          <div><span className="analytics-panel-eyebrow"><Activity size={14} aria-hidden="true" /> REDES SOCIAIS</span>
-            <h2>Envios por rede</h2><p>Distribuição dos envios concluídos</p></div>
+          <div><span className="analytics-panel-eyebrow"><BarChart3 size={14} aria-hidden="true" /> REDES SOCIAIS</span>
+            <h2>Comparação entre redes</h2><p>Volume e resultados por plataforma</p></div>
         </div>
-        <RadialBreakdown
-          items={rows.map(row => ({ label: networkNames[row.network], value: row.succeeded, color: networkColors[row.network], tone: row.network }))}
-          center={formatNumber(completed)} sublabel="concluídos"
-          accessibleLabel={'Distribuição de ' + completed + ' publicações concluídas entre as redes selecionadas.'} />
+        <NetworkComparison rows={rows} />
       </Panel>
       <Panel surface="dark" className="analytics-data-panel analytics-status-panel">
         <div className="analytics-panel-heading">
-          <div><span className="analytics-panel-eyebrow"><Gauge size={14} aria-hidden="true" /> RESULTADOS</span>
-            <h2>Situação dos envios</h2><p>O que ocorreu com as publicações</p></div>
+          <div><span className="analytics-panel-eyebrow"><MessageCircle size={14} aria-hidden="true" /> INTERAÇÕES</span>
+            <h2>Composição do engajamento</h2><p>Tipos de interação oficialmente retornados por post</p></div>
         </div>
         <RadialBreakdown
-          items={[
-            { label: 'Concluídos', value: completed, color: statusColors.succeeded, tone: 'succeeded' },
-            { label: 'Falhas', value: failed, color: statusColors.failed, tone: 'failed' },
-            { label: 'Sem confirmação', value: uncertain, color: statusColors.unknown, tone: 'unknown' },
-          ]}
-          center={formatNumber(all)} sublabel="envios"
-          accessibleLabel={'Situação: ' + completed + ' concluídos, ' + failed + ' falhas e ' + uncertain + ' sem confirmação.'} />
+          items={measured.map((item, index) => ({ label: engagementLabels[item.key] + (item.value === null ? ' (indisponível)' : ''),
+            value: item.value, color: engagementColors[index], tone: item.key }))}
+          center={interactionTotal === null ? '—' : formatNumber(interactionTotal)} sublabel="interações"
+          accessibleLabel="Interações de publicações rastreadas, agrupadas por curtidas, comentários, reposts e cliques." />
+        <p className="analytics-chart-footnote">Dados indisponíveis não são contabilizados como zero. Apenas posts publicados pela plataforma.</p>
       </Panel>
       <Panel surface="dark" className="analytics-data-panel analytics-insights-panel">
         <div className="analytics-panel-heading">
-          <div><span className="analytics-panel-eyebrow"><Activity size={14} aria-hidden="true" /> DADOS OFICIAIS</span>
-            <h2>Insights das plataformas</h2><p>Disponibilidade da última coleta</p></div>
+          <div><span className="analytics-panel-eyebrow"><BarChart3 size={14} aria-hidden="true" /> FREQUÊNCIA</span>
+            <h2>Atividade por dia da semana</h2><p>Em quais dias os envios ocorreram</p></div>
         </div>
-        {totalViews !== null && <div className="analytics-insights-highlight">
-          <span>Visualizações dos posts rastreados</span>
-          <strong>{formatNumber(totalViews)}</strong>
-          <small>Total acumulado apenas dos posts publicados pelo Auto Orbital com insight disponível.</small>
-        </div>}
-        <ul className="analytics-insights-list">
-          {rows.map(row => <li key={row.network}>
-            <span>{networkNames[row.network]}</span>
-            <span className={'analytics-insights-status ' + (row.insights_status === 'ok' ? 'is-available' : '')}>
-              <span className="analytics-insights-indicator" />
-              {providerDescriptions[row.insights_status] ?? 'Consulta não disponível'}
-            </span>
-          </li>)}
-        </ul>
-        <p className="analytics-insights-note">Não somamos visualizações gerais de perfis ou páginas. Uma métrica indisponível não equivale a zero; uma coleta parcial pode subestimar o total.</p>
+        <WeekdayActivity timeline={timeline} loading={timelineLoading} error={timelineError} />
+      </Panel>
+      <Panel surface="dark" className="analytics-data-panel analytics-top-panel">
+        <div className="analytics-panel-heading">
+          <div><span className="analytics-panel-eyebrow"><Eye size={14} aria-hidden="true" /> CONTEÚDOS</span>
+            <h2>Publicações em destaque</h2><p>Até cinco posts com mais visualizações oficiais</p></div>
+        </div>
+        <TopPosts posts={posts} loading={postsLoading} error={postsError} />
+      </Panel>
+      <Panel surface="dark" className="analytics-data-panel analytics-availability-panel">
+        <div className="analytics-panel-heading">
+          <div><span className="analytics-panel-eyebrow"><Activity size={14} aria-hidden="true" /> INTEGRAÇÕES</span>
+            <h2>Situação das nove redes</h2><p>Disponibilidade real da coleta por post</p></div>
+        </div>
+        <SocialAvailability rows={rows} />
+        <p className="analytics-insights-note">Indicadores indisponíveis não equivalem a zero. Nenhuma métrica geral de perfis ou páginas é atribuída aos posts.</p>
       </Panel>
     </div>
   </div>

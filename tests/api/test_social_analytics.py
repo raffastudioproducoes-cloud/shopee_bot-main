@@ -120,16 +120,106 @@ def test_manual_refresh_scoped_to_logged_in_profile(monkeypatch):
     app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
     called = []
 
-    async def fake_refresh(user_id, profile_id, *, manual=False):
-        called.append((user_id, profile_id, manual))
+    def fake_claim(user_id, profile_ids):
+        assert (user_id, profile_ids) == ('user-a', ['profile-a'])
+        return {'state': 'accepted', 'claims': {'profile-a': 'claim-secret'},
+                'quota': {'unlimited': False, 'used': 1, 'limit': 10, 'remaining': 9}}
+
+    async def fake_refresh(user_id, profile_id, *, manual=False, claim_token=None):
+        called.append((user_id, profile_id, manual, claim_token))
         return {"state": "updated", "provider_states": {"facebook": "not_connected"}}
 
+    monkeypatch.setattr(social_analytics, 'claim_manual_refresh', fake_claim)
     monkeypatch.setattr(social_analytics, "refresh_account", fake_refresh)
     try:
         response = TestClient(app).post('/analytics/refresh')
         assert response.status_code == 200
         assert response.json()["state"] == "updated"
-        assert called == [('user-a', 'profile-a', True)]
+        assert response.json()['quota']['remaining'] == 9
+        assert called == [('user-a', 'profile-a', True, 'claim-secret')]
+        assert 'claim-secret' not in response.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_manual_refresh_all_profiles_claims_once_for_the_account(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
+    claims = []
+    refreshed = []
+    monkeypatch.setattr(social_analytics, '_account_profile_ids', lambda user_id: ['profile-a', 'profile-b'])
+
+    def fake_claim(user_id, ids):
+        claims.append((user_id, ids))
+        return {'state': 'accepted', 'claims': {'profile-a': 'tok-a', 'profile-b': 'tok-b'},
+                'quota': {'unlimited': False, 'used': 1, 'remaining': 9, 'limit': 10}}
+
+    async def fake_refresh(user_id, profile_id, *, manual=False, claim_token=None):
+        refreshed.append((user_id, profile_id, manual, claim_token))
+        return {'state': 'updated'}
+
+    monkeypatch.setattr(social_analytics, 'claim_manual_refresh', fake_claim)
+    monkeypatch.setattr(social_analytics, 'refresh_account', fake_refresh)
+    try:
+        result = TestClient(app).post('/analytics/refresh?profile_id=all')
+        assert result.status_code == 200
+        assert result.json()['updated_profiles'] == 2
+        assert claims == [('user-a', ['profile-a', 'profile-b'])]
+        assert sorted(refreshed) == [
+            ('user-a', 'profile-a', True, 'tok-a'), ('user-a', 'profile-b', True, 'tok-b')]
+        assert 'tok-a' not in result.text and 'tok-b' not in result.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_manual_refresh_limit_returns_429_without_collecting(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
+    monkeypatch.setattr(social_analytics, 'claim_manual_refresh', lambda *args: {
+        'state': 'limit_reached',
+        'quota': {'unlimited': False, 'used': 10, 'remaining': 0, 'limit': 10}})
+
+    async def forbidden(*args, **kwargs):
+        raise AssertionError('quota excedida não pode acionar provedor')
+
+    monkeypatch.setattr(social_analytics, 'refresh_account', forbidden)
+    try:
+        result = TestClient(app).post('/analytics/refresh')
+        assert result.status_code == 429
+        assert 'Limite de 10' in result.json()['detail']
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_manual_refresh_in_cooldown_does_not_consume_quota(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
+    monkeypatch.setattr(social_analytics, 'claim_manual_refresh', lambda *args: {
+        'state': 'recent',
+        'quota': {'unlimited': False, 'used': 1, 'remaining': 9, 'limit': 10}})
+    try:
+        result = TestClient(app).post('/analytics/refresh')
+        assert result.status_code == 200
+        assert result.json()['state'] == 'recent'
+        assert result.json()['quota']['remaining'] == 9
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_manual_quota_status_admin_unlimited_and_normal_limit(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    monkeypatch.setattr(social_analytics, 'manual_quota_status', lambda user_id: {
+        'unlimited': True, 'used': 0, 'remaining': None, 'limit': None,
+        'reset_at': '2026-11-08T03:00:00Z'})
+    try:
+        result = TestClient(app).get('/analytics/refresh/quota')
+        assert result.status_code == 200
+        assert result.json()['unlimited'] is True
+        assert result.json()['remaining'] is None
     finally:
         app.dependency_overrides.clear()
 
@@ -461,16 +551,22 @@ def test_analytics_refresh_explicit_owned_profile_without_mass_refresh(monkeypat
     monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
     called = []
 
-    async def fake_refresh(user_id, profile_id, *, manual=False):
-        called.append((user_id, profile_id, manual))
+    def fake_claim(user_id, profile_ids):
+        assert (user_id, profile_ids) == ('user-a', [selected])
+        return {'state': 'accepted', 'claims': {selected: 'token-scoped'},
+                'quota': {'unlimited': False, 'used': 1, 'remaining': 9, 'limit': 10}}
+
+    async def fake_refresh(user_id, profile_id, *, manual=False, claim_token=None):
+        called.append((user_id, profile_id, manual, claim_token))
         return {'state': 'updated'}
 
+    monkeypatch.setattr(social_analytics, 'claim_manual_refresh', fake_claim)
     monkeypatch.setattr(social_analytics, 'refresh_account', fake_refresh)
     try:
         client = TestClient(app)
         assert client.post('/analytics/refresh?profile_id=all').status_code == 400
         result = client.post(f'/analytics/refresh?profile_id={selected}')
         assert result.status_code == 200
-        assert called == [('user-a', selected, True)]
+        assert called == [('user-a', selected, True, 'token-scoped')]
     finally:
         app.dependency_overrides.clear()

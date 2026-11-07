@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added / Changed — Análises diversas e limite de 10 atualizações (MINOR candidata 3.5.0, 07/11/2026)
+
+- Página **Análise de redes** reorganizada com seis KPIs distintos e seis painéis (linha temporal, comparação por rede, composição de engajamento, dias da semana, ranking de posts e matriz das nove integrações). Dados só de posts confirmados pelo Auto Orbital; ausência de insight exibida como indisponível, nunca zero inventado.
+- Atualização manual em **Todos os perfis** e perfis individuais; **10 atualizações válidas por conta por dia civil de Brasília**, todos os planos, conferidas por RPC atômica e RLS no Supabase. ADMIN ilimitado; automático 24 h não consome cota. Exibir saldo, desabilitar botão ao esgotar e rejeitar HTTP 429 no servidor. Tentativa sob cooldown não consome cota.
+- Migração aditiva `092_analytics_manual_refresh_quota.sql` e rotas autenticadas `GET /analytics/refresh/quota`, `POST /analytics/refresh`. Nenhum novo cron, nenhum dado de perfil geral convertido em métrica de post; não alterar `main` sem aprovação. [Contrato](docs/ANALISE-REDES-DASHBOARD-COTA-20261107.md).
+
 ### Changed — Redes compactas também na Publicação única (PATCH incluído na candidata 3.5.0, 07/11/2026)
 
 - `/posts/criar` → **Publicação única** agora apresenta, no mesmo local acima dos produtos, todas as nove redes sociais do catálogo em linha compacta com apenas checkbox e nome; sem logos, cartões ou bordas.

@@ -1,12 +1,14 @@
 """Contagens operacionais de publicacao, sem confundir com insights das redes."""
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
-from ..analytics_refresh import TABLE as REFRESH_TABLE, refresh_account
+from ..analytics_refresh import (TABLE as REFRESH_TABLE, claim_manual_refresh,
+                                 manual_quota_status, refresh_account)
 from ..database import supabase
 from ..post_insights import (current_network_connections, distinct_published_jobs,
                              indexed_insights, published_jobs, summarize_post_metrics)
@@ -141,9 +143,49 @@ async def refresh_information(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     profile_id, all_profiles = _analytics_profile(user_id, selected_profile_id, profile_id)
-    if all_profiles or not profile_id:
+    if not all_profiles and not profile_id:
         raise HTTPException(status_code=400, detail="Selecione um perfil")
-    return await refresh_account(user_id, profile_id, manual=True)
+    try:
+        profile_ids = _account_profile_ids(user_id) if all_profiles else [profile_id]
+    except Exception:
+        raise HTTPException(status_code=503, detail="Não foi possível consultar os perfis")
+    if not profile_ids:
+        raise HTTPException(status_code=400, detail="Nenhum perfil disponível para atualização")
+    if len(profile_ids) > 12:
+        raise HTTPException(status_code=422, detail="Selecione um perfil para atualizar; limite de 12 por solicitação")
+    try:
+        claim = await asyncio.to_thread(claim_manual_refresh, user_id, profile_ids)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Controle de atualizações temporariamente indisponível")
+    if not isinstance(claim, dict) or not isinstance(claim.get("quota"), dict):
+        raise HTTPException(status_code=503, detail="Controle de atualizações temporariamente indisponível")
+    if claim.get("state") == "limit_reached":
+        raise HTTPException(status_code=429, detail="Limite de 10 atualizações por dia atingido")
+    if claim.get("state") == "recent":
+        return {"state": "recent", "quota": claim["quota"], "updated_profiles": 0}
+    tokens = claim.get("claims")
+    if claim.get("state") != "accepted" or not isinstance(tokens, dict) or not tokens:
+        raise HTTPException(status_code=503, detail="Controle de atualizações temporariamente indisponível")
+    # Os claims são obtidos pelo backend; nunca chegam ao cliente, nem aos logs.
+    gate = asyncio.Semaphore(3)
+
+    async def collect(selected, token):
+        async with gate:
+            return await refresh_account(user_id, selected, manual=True, claim_token=token)
+
+    await asyncio.gather(*(collect(selected, token) for selected, token in tokens.items()))
+    return {"state": "updated", "quota": claim["quota"], "updated_profiles": len(tokens)}
+
+
+@router.get("/refresh/quota")
+def refresh_quota(user_id: int = Depends(get_current_user_id)):
+    try:
+        quota = manual_quota_status(user_id)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Cota de atualizações indisponível")
+    if not isinstance(quota, dict) or not isinstance(quota.get("unlimited"), bool):
+        raise HTTPException(status_code=503, detail="Cota de atualizações indisponível")
+    return quota
 
 
 def _read_refresh(user_id, profile_id):
