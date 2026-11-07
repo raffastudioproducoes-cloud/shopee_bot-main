@@ -1,0 +1,7 @@
+/* O mesmo seletor de nove redes serve à publicação única e à edição de cada produto da campanha. */
+.compact-network-picker { display:flex; flex-wrap:wrap; align-items:center; gap:8px 20px; margin:8px 0 14px; }
+.compact-network-option { display:inline-flex; align-items:center; gap:7px; min-height:24px; padding:0; color:var(--text-body); cursor:pointer; font:var(--text-role-small); white-space:nowrap; }
+.compact-network-option.is-disabled { opacity:.48; cursor:not-allowed; }
+.compact-network-option.has-errors { color:var(--negative); }
+.compact-network-option input { width:16px; height:16px; flex:none; margin:0; accent-color:var(--accent); cursor:inherit; }
+.compact-network-option:focus-within { outline:2px solid var(--mint-400); outline-offset:2px; }
