@@ -1,3 +1,10 @@
+## 07/11/2026 — Análises: remover apenas tabelas redundantes (PATCH candidata 3.5.0)
+
+- [x] Remover **Detalhamento por rede** e **Desempenho por publicação**, incluindo renderizações mobile, sem excluir os seis KPIs, seis painéis ou gráficos recém-criados.
+- [x] Manter nove redes/filtros, indicadores oficiais por post e por rede; levar visualizações, curtidas, comentários, reposts, cliques e status para os cards correspondentes. Não substituir ausências de dados por zeros.
+- [x] Atualizar contrato técnico, changelog e teste de regressão; SemVer permanece `VERSION=3.4.0` até release candidata `3.5.0`.
+- [ ] Validar CI, publicar em **staging** e fazer QA autenticada; registrar SHA/deploy. **main somente com aprovação expressa de Rafa.**
+
 ## 07/11/2026 — Análises redes: gráficos distintos e cota manual por conta (staging)
 
 - [x] Reorganizar seis KPIs e seis painéis não redundantes; incluir nove redes e ausência de dados oficiais; considerar somente posts publicados pela plataforma.
