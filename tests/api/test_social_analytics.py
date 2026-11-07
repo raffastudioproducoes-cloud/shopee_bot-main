@@ -160,8 +160,8 @@ def test_collector_parses_only_valid_metrics():
     assert parsed['clicks'] is None
     assert post_insights.parse_threads_post_insights([{"name": "views", "values": [
         {"value": 10}, {"value": 10}
-    ]}])['views'] is None
-    assert post_insights.parse_threads_post_insights([{"name": "views", "total_value": {"value": True}}])['views'] is None
+    ]}]) is None
+    assert post_insights.parse_threads_post_insights([{"name": "views", "total_value": {"value": True}}]) is None
 
 
 def test_collector_credentials_restricted_by_user_and_profile(monkeypatch):
