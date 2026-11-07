@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Docs — Regularização do cadastro Shopee Open Platform (07/11/2026)
+
+- Organizada a sequência definida por Rafa: **rejeitado primeiro** (`Penetration Test Report`, motivo não exibido nas capturas), **pendentes depois** (declaração, capturas, URL e conta de teste não enviados), **app por último** (lista atualmente vazia).
+- Documento [SHOPEE-OPEN-PLATFORM-CADASTRO-20261107](docs/SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md) inclui checklist seguro, pergunta de aplicabilidade de pentest para afiliado brasileiro, encaminhamento de suporte e limites de comprovação. Shopee Vídeo permanece pausada e sem API ativa; não houve reenvio de PDF, abertura de ticket, contratação, app novo ou alteração de dados.
+- Apenas documentos, `VERSION=3.4.0` inalterada; banco, scheduler, dois cron, `pg_net`, serviços, `staging` executável e `main` intactos.
+
 ### Docs — Shopee Vídeo: contrato para afiliados e autorização (07/11/2026)
 
 - Confirmados nas fontes Shopee Brasil vídeos de 3–60 segundos, até seis produtos vinculados **no vídeo** (URLs em descrições não substituem o vínculo), revisão de relevância e atualização da comissão padrão em 01/07/2026, sem promessa de ganhos.

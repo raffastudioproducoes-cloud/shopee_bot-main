@@ -8,7 +8,7 @@ O Auto Orbital é direcionado a **criadores e afiliados**. A Shopee Brasil docum
 
 A captura de Rafa mostra um **lembrete genérico de ativação** da conta de desenvolvedor; não prova que existe App com Video Management, escopo concedido, OAuth autorizado ou elegibilidade do feed afiliado. As páginas Open Platform de referência retornaram **403 sem acesso** nesta apuração. O cliente `apis/shopee_video.py` permanece **isolado e bloqueado**; seus parâmetros ainda precisam de confirmação na documentação autorizada.
 
-**Pergunta necessária:** o destino é o feed de **criador/afiliado** (com comissão) ou a área de **vídeos de uma loja vendedora**? Para desbloquear SV.0, verificar **App List → aplicativo → Serviços/Permissões**, categoria, região, status do serviço Video Management e se ele contempla **afiliados**. Encaminhar somente tela com nomes/estados, **ocultando Partner Key, token e dados pessoais**, ou resposta do suporte Shopee. Sem atalho por sessão pessoal, scraping ou falsa declaração empresarial.
+**Decisão de Rafa em 07/11/2026:** o destino é o feed de **criadores/afiliados**, com produtos associados e comissão — **não** vídeos de loja vendedora. As novas capturas mostram **App List vazia** e dois bloqueios documentais no cadastro da Open Platform. Para desbloquear SV.0, ainda será preciso confirmar na Shopee se o serviço de Video Management contempla **esse feed brasileiro de afiliados**, com categoria, região, escopos e autorização oficiais. A regularização será tratada **antes de criar o aplicativo**: [cadastro Shopee Open Platform](SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md). Sem atalho por sessão pessoal, scraping ou declaração empresarial falsa.
 
 ## 2. Regras públicas para afiliados
 
@@ -48,7 +48,8 @@ Regras existentes em `docs/ANALISE-REDES-COBERTURA-20261107.md`: guardar somente
 
 - [x] Ler código/contratos/estado do projeto e fontes Shopee Brasil.
 - [x] Confirmar duração, associação de até seis produtos, relevância, comissão e bloqueios de analytics.
-- [ ] SV.0: identificar se a conta é **afiliado ou vendedor** e validar serviço/API/escopo específico da Shopee em app autorizado.
+- [x] SV.0 — tipo de conteúdo: Rafa confirmou **feed de criadores/afiliados** (07/11/2026).
+- [ ] SV.0 — autorização: validar serviço/API/escopo para **vídeos de afiliados brasileiros** após regularização documental e cadastro de aplicativo.
 - [ ] SV.1–SV.4: OAuth/segurança, mídia compatível, UI de até seis itens, fila idempotente, testes offline e homologação real consentida em staging.
 - [ ] SV.5: leitura de resposta real de vídeo por ID, contrato de métricas, ownership, testes e integração ao filtro.
 - [ ] CI, Render staging LIVE, QA desktop/mobile e autorização separada para `main`.
