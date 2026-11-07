@@ -177,3 +177,5 @@ que iniciaram o fluxo.
 
 Decisão aprovada em 2026-10-13: a marca futura do produto será **Auto Orbital**. Implementação ainda pendente; o produto, runtime, frontend, infra e documentação viva ainda não foram convertidos. Ver `docs/rebranding/34-Rebranding-Auto-Orbital-Plano-Mestre.md`.
 > **07/11/2026 — CADASTRO / CONTRATAÇÃO FUTURA:** nome completo, CPF, e-mail e senha obrigatórios no cadastro por e-mail; Google dispensa senha local. Celular obrigatório antes de compra de plano, demais dados pessoais adicionais opcionais na página `/profiles`. Identidade de pagamento será **da conta, não de perfil social**. Contratação/renovação ainda não estão implementadas; CPF criptografado, readiness calculado em API. [Contrato](CADASTRO-IDENTIDADE-PLANOS-20261107.md).
+
+> **07/11/2026 — PERFIS SEM DADOS PESSOAIS DUPLICADOS:** perfis de uso da conta identificados apenas por nome e foto (foto opcional). Criação/edição não solicita contatos/endereço; estes ficam nos dados do titular. Cota de perfis não exibe tag de plano; botão de upgrade somente quando aplicável. Ativação e gerenciamento continuam operacionais.

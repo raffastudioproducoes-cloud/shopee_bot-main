@@ -1196,9 +1196,16 @@ Contrato isolado e ainda não integrado ao executor: `CampaignDispatchIdentity` 
 
 # 07/11/2026 — Dados cadastrais para contratação (MINOR candidata 3.5.0)
 
-- [x] Retirar `PlanSummary` grande de `/profiles`; manter etiqueta + cota de perfis + CTA somente quando aplicável.
+- [x] Retirar `PlanSummary` grande de `/profiles`; manter cota de perfis + CTA somente quando aplicável, **sem etiqueta do plano nesta área**.
 - [x] Preparar cadastro: nome completo, CPF, e-mail e senha; Google confirma nome/CPF e delega login ao provedor.
 - [x] Adicionar formulário de dados da conta (celular obrigatório na futura compra, idade/e-mail alternativo/telefone/endereço/CEP opcionais), CPF cifrado e gate de prontidão no servidor.
-- [ ] CI, migration 093 no Supabase único, RLS/GRANTS, deploy Render staging e QA; registrar evidências após execução.
+- [x] PR #342 incorporado apenas em `staging` SHA `6ad4b308`; CI #1120 verde, migration 093 aplicada e RLS/GRANTS verificados, Render `dep-dbnpmbu8bjmc73ahmrp0` LIVE. Formulário de cadastro conferido; QA autenticada de `/profiles` ainda depende de Rafa.
 - [ ] Revisar política de retenção de pendências e fluxo de comprovação do e-mail alternativo antes de gateway; **não existe checkout**.
 - [ ] Não promover `main` sem aprovação de Rafa. Ver [contrato](CADASTRO-IDENTIDADE-PLANOS-20261107.md).
+
+## 07/11/2026 — Perfis somente com nome/foto (ajuste UX, candidata 3.5.0)
+
+- [x] Remover a tag junto à cota de `/profiles`; preservar cota e upgrade condicional.
+- [x] Cards sem email/telefone/endereço, tags de plano/função e status textual; seleção pelo card, foto/nome visíveis e menu contextual para gerenciar.
+- [x] Modal novo/editar com nome e foto opcional, upload sem criação duplicada; API aceita `email=NULL` e preserva campos legados quando a edição altera só nome.
+- [ ] Testes completos, PR/CI/staging/Render, QA visual autenticada e registro no Vault; `main` sob aprovação expressa. Nenhuma migration ou cron adicional.

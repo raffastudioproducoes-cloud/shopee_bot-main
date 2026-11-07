@@ -7,8 +7,9 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
 
 ## Interface
 
-- `/profiles`: substitui o banner grande por etiqueta de plano, cota compacta de
-  perfis e `Melhorar plano` apenas para Free/Pro (não para Premium/ADMIN).
+- `/profiles`: substitui o banner grande por cota compacta de perfis e
+  `Melhorar plano` apenas para Free/Pro (não para Premium/ADMIN). Após revisão,
+  removida também a etiqueta do plano desta área; não afeta a TopBar global.
 - Na própria página, formulário **Dados cadastrais da conta**, independente de
   `public.profiles`: nome/sobrenome, CPF, e-mail de acesso, celular, idade, e-mail
   alternativo de recuperação, telefone, endereço (logradouro, número,
@@ -59,6 +60,23 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
   estado de assinatura e histórico sem duplicar cobranças.
 - Perfis sociais secundários não adquirem assinaturas independentes. Titular é
   `public.users.id` e a conta compartilha um plano.
+
+## Simplificação dos perfis sociais (07/11/2026)
+
+- Cards exibem somente imagem e nome. Clique/toque no card para ativar; menu
+  discreto permite alterar foto, editar nome e, quando permitido, excluir.
+  Perfil ativo fica distinguido pela borda, sem tag de status; função e plano
+  continuam no backend, mas não são repetidos no cartão.
+- Formulário de perfil pede **nome** e **foto opcional** (JPEG/PNG/WebP até
+  5 MB). Se a foto falhar após criar ou renomear, o perfil continua salvo e a
+  interface avisa; nunca recria o perfil automaticamente.
+- `profiles.email`, `telefone` e `endereco` permanecem como colunas legadas
+  compatíveis com produção, mas **não são coletadas** no novo formulário.
+  RPC existente permite `p_email=NULL`; edições somente do nome preservam
+  valores legados, sem nova migration nem limpeza de dados. Dados cadastrais
+  do titular seguem na tabela da conta (`account_billing_identity`). `GET /profiles`
+  passa a retornar apenas ID, proprietário, função técnica, plano técnico,
+  nome e avatar, evitando expor no browser contatos antigos desnecessários.
 
 ## Rollout e verificação
 

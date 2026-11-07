@@ -19,9 +19,9 @@ test("CPF só aceita documento com dígitos verificadores válidos", async () =>
   assert.equal(validCpf("52998224726"), false)
 })
 
-test("Perfis substitui banner por plano compacto e cadastro por conta", async () => {
+test("Perfis mostra apenas cota compacta e cadastro por conta", async () => {
   const page = await src("pages/ProfilesPage.tsx")
-  assert.match(page, /<PlanBadge \/>/)
+  assert.doesNotMatch(page, /<PlanBadge \/>/)
   assert.match(page, /<ResourceQuotaBar[^>]*resource="profiles"/)
   assert.match(page, /<AccountIdentityForm \/>/)
   assert.doesNotMatch(page, /<PlanSummary|<UpgradeInfo/)

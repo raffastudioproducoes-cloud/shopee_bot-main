@@ -90,22 +90,9 @@
     text-align: center;
   }
 
-  /* Perfis: foto e identificacao na mesma linha, acoes completas embaixo. */
+  /* Perfis: somente avatar/nome; ações ficam no menu de três pontos. */
   .profiles-grid { gap: 10px !important; }
-  .profile-card {
-    display: grid !important;
-    grid-template-columns: 96px minmax(0, 1fr);
-    grid-template-areas: "avatar identity" "avatar email" "avatar badges" "actions actions";
-    column-gap: 12px !important;
-    row-gap: 6px !important;
-    align-items: start;
-    padding: 12px !important;
-  }
-  .profile-card > div:nth-child(1) { grid-area: avatar; }
-  .profile-card > div:nth-child(2) { grid-area: identity; flex-wrap: wrap; min-width: 0; overflow-wrap: anywhere; }
-  .profile-card > div:nth-child(3) { grid-area: email; min-width: 0; }
-  .profile-card > div:nth-child(4) { grid-area: badges; min-width: 0; }
-  .profile-card > div:nth-child(5) { grid-area: actions; min-width: 0; padding-top: 6px !important; }
+  .profile-card--minimal { display: flex !important; align-items: center; padding: 12px 48px 12px 12px !important; }
 
   /* Cards de posts, listas, produtos e credenciais mais densos. */
   /* Cabeçalho da página: título e ação lado a lado; descrição usa toda a largura. */

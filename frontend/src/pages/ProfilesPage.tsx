@@ -4,7 +4,6 @@ import { useAuthStore } from "../stores/authStore"
 import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
 import { profilesApi, type Profile, type ProfileInput } from "../api/profiles"
 import { useActivateProfile, useProfiles } from "../hooks/useProfiles"
-import { PlanBadge } from "../components/plans/PlanSummary"
 import { ResourceQuotaBar } from "../components/plans/ProductQuotaBar"
 import { usePlanUsage } from "../hooks/usePlanUsage"
 import { router } from "../router"
@@ -15,9 +14,10 @@ import { StatusMessage } from "../components/StatusMessage"
 import { ProfileCard } from "../components/profiles/ProfileCard"
 import { ProfileFormModal } from "../components/profiles/ProfileFormModal"
 import { ConfirmModal } from "../components/profiles/ConfirmModal"
-import { Skeleton, SkeletonAvatar, SkeletonText, SkeletonRegion } from "../components/ui/Skeleton"
+import { Skeleton, SkeletonAvatar, SkeletonRegion } from "../components/ui/Skeleton"
 
 const errMsg = (err: unknown, fallback: string) => (err instanceof Error && err.message ? err.message : fallback)
+type ProfileSave = { data: ProfileInput; avatar?: File }
 
 export function ProfilesPage() {
   const queryClient = useQueryClient()
@@ -46,22 +46,34 @@ export function ProfilesPage() {
   }
 
   const createProfileMutation = useMutation({
-    mutationFn: profilesApi.create,
-    onSuccess: () => {
+    mutationFn: async ({ data, avatar }: ProfileSave) => {
+      const created = await profilesApi.create(data)
+      if (!avatar) return { avatarError: null }
+      try { await profilesApi.uploadAvatar(created.id, avatar); return { avatarError: null } }
+      catch (err) { return { avatarError: errMsg(err, "Não foi possível salvar a foto.") } }
+    },
+    onSuccess: ({ avatarError }) => {
       clearFormDraft(formDraftKey(userId, "profile-create", null, false))
       invalidateProfiles()
       setProfileModalOpen(false)
-      setFeedback({ kind: "success", text: "Perfil criado." })
+      setFeedback(avatarError ? { kind: "error", text: `Perfil criado, mas a foto não foi salva: ${avatarError}` }
+        : { kind: "success", text: "Perfil criado." })
     },
   })
 
   const updateProfileMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: ProfileInput }) => profilesApi.update(id, data),
-    onSuccess: (_result, variables) => {
+    mutationFn: async ({ id, data, avatar }: ProfileSave & { id: string }) => {
+      await profilesApi.update(id, data)
+      if (!avatar) return { avatarError: null }
+      try { await profilesApi.uploadAvatar(id, avatar); return { avatarError: null } }
+      catch (err) { return { avatarError: errMsg(err, "Não foi possível salvar a foto.") } }
+    },
+    onSuccess: ({ avatarError }, variables) => {
       clearFormDraft(formDraftKey(userId, `profile-edit:${variables.id}`, null, false))
       invalidateProfiles()
       setEditingProfile(null)
-      setFeedback({ kind: "success", text: "Perfil atualizado." })
+      setFeedback(avatarError ? { kind: "error", text: `Nome atualizado, mas a foto não foi salva: ${avatarError}` }
+        : { kind: "success", text: "Perfil atualizado." })
     },
   })
 
@@ -122,12 +134,9 @@ export function ProfilesPage() {
         </div>
       </div>
 
-      <div className="profiles-compact-plan" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <PlanBadge />
-        <div style={{ flex: "1 1 320px", minWidth: 0 }}>
-          <ResourceQuotaBar plan={planQuery.data} resource="profiles" loading={planQuery.isPending} error={planQuery.isError}
-            onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })} />
-        </div>
+      <div className="profiles-compact-plan" style={{ maxWidth: 700 }}>
+        <ResourceQuotaBar plan={planQuery.data} resource="profiles" loading={planQuery.isPending} error={planQuery.isError}
+          onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })} />
       </div>
 
       <AccountIdentityForm />
@@ -143,7 +152,7 @@ export function ProfilesPage() {
           className="profiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}
         >
           {[0, 1, 2].map((i) => (
-            <Panel key={i} style={{ height: 240, padding: 16, display: "flex", flexDirection: "column", gap: 16 }}><SkeletonAvatar size={64} /><Skeleton width="70%" height={20} /><SkeletonText lines={2} /><Skeleton width="90px" height={36} /></Panel>
+            <Panel key={i} style={{ height: 162, padding: 16, display: "flex", alignItems: "center", flexDirection: "column", gap: 12 }}><SkeletonAvatar size={64} /><Skeleton width="70%" height={20} /></Panel>
           ))}
         </div></SkeletonRegion>
       ) : profilesError ? (
@@ -181,7 +190,7 @@ export function ProfilesPage() {
       {profileModalOpen && (
         <ProfileFormModal
           onClose={() => setProfileModalOpen(false)}
-          onSubmit={(data) => createProfileMutation.mutate(data)}
+          onSubmit={(data, avatar) => createProfileMutation.mutate({ data, avatar })}
           loading={createProfileMutation.isPending}
           error={createProfileMutation.isError ? errMsg(createProfileMutation.error, "Não foi possível criar o perfil.") : null}
         />
@@ -191,7 +200,7 @@ export function ProfilesPage() {
         <ProfileFormModal
           profile={editingProfile}
           onClose={() => setEditingProfile(null)}
-          onSubmit={(data) => updateProfileMutation.mutate({ id: editingProfile.id, data })}
+          onSubmit={(data, avatar) => updateProfileMutation.mutate({ id: editingProfile.id, data, avatar })}
           loading={updateProfileMutation.isPending}
           error={updateProfileMutation.isError ? errMsg(updateProfileMutation.error, "Não foi possível salvar o perfil.") : null}
         />

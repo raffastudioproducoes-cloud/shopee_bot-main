@@ -44,6 +44,7 @@ import {
   ChevronLeft,
   List,
   Menu,
+  Ellipsis,
   Download,
   Upload,
   Grid3x3,
@@ -93,6 +94,7 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   // StatusBadge (ver Modal.tsx / StatusBadge.tsx) — não fazem parte do mapa original.
   x: X,
   menu: Menu,
+  ellipsis: Ellipsis,
   download: Download,
   upload: Upload,
   "check-circle-2": CheckCircle2,

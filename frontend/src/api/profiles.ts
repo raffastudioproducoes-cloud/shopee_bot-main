@@ -9,17 +9,11 @@ export interface Profile {
   kind: ProfileKind
   plan_tier: PlanTier
   nome: string
-  email: string
-  telefone: string | null
-  endereco: string | null
   avatar_url: string | null
 }
 
 export interface ProfileInput {
   nome: string
-  email: string
-  telefone?: string
-  endereco?: string
 }
 
 export interface ProfileQuota {
