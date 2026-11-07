@@ -43,3 +43,14 @@ test("O card principal contém os dados editáveis e os secundários mantêm só
   assert.match(identity, /<form onSubmit=\{handleSubmit\}>/)
   assert.match(identity, /Salvar dados cadastrais/)
 })
+
+test("Desktop organiza card principal à esquerda e perfis adicionais em coluna à direita; celular empilha", () => {
+  const page = read("../src/pages/ProfilesPage.tsx")
+  const styles = read("../src/components/profiles/profileCard.css")
+  assert.match(page, /profiles-cards--with-secondary/)
+  assert.match(page, /secondaryProfiles\.length > 0/)
+  assert.match(styles, /\.profiles-cards\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/)
+  assert.match(styles, /\.profiles-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/)
+  assert.match(styles, /@media \(min-width: 1000px\)\s*\{\s*\.profiles-cards--with-secondary\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) minmax\(240px, 320px\)/)
+  assert.match(styles, /\.profiles-cards--with-secondary > \.profiles-grid\s*\{[^}]*grid-column:\s*2;\s*grid-row:\s*1/)
+})

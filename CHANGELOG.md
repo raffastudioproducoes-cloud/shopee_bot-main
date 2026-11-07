@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Cards de perfis lado a lado em telas grandes (PATCH da candidata 3.5.0, 07/11/2026)
+
+- `/profiles`: quando houver perfis adicionais e largura de tela suficiente (a partir de 1000px), card **principal à esquerda** e perfis **secundários em coluna única à direita**, um abaixo do outro, alinhados ao topo. Sem perfis adicionais, o card principal ocupa toda a largura disponível.
+- Em telas menores a grade passa para uma coluna, com perfil principal primeiro e adicionais abaixo; esqueleto de carregamento segue o mesmo desenho. Preservados formulário, cota, foto/nome, menus, seleção e isolamento dos dados.
+- Mudança exclusivamente de layout React/CSS e regressão de responsividade. Sem banco, APIs, gateway, planos, cron, serviços de produção ou `main`. `VERSION=3.4.0` preservada, acumulada na candidata `3.5.0`.
+
 ### Fixed — Formulário cadastral invisível no primeiro acesso (PATCH da candidata 3.5.0, 07/11/2026)
 
 - Corrigido **HTTP 500 em `GET /users/me/identity`** para contas antigas ainda sem registro em `account_billing_identity`: `maybe_single()` da biblioteca Supabase pode retornar `None` quando não há linha. O endpoint agora devolve os campos vazios e a prontidão de compra, sem tratar a ausência de cadastro como falha.

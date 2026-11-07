@@ -468,3 +468,5 @@ Esta homologação cobre planejamento, reserva, materialização, controles e hi
 
 > **07/11/2026 — CORREÇÃO DO FORMULÁRIO OCULTO:** o staging real acusou HTTP 500 em `GET /users/me/identity` porque o cliente Supabase `maybe_single()` retornou `None` para conta sem registro inicial e a API acessava `.data`. Corrigidos GET e PUT inicial, com regressão reproduzindo o retorno nulo. A UI sempre renderiza a grade completa **no card principal**, inclusive sob erro de rede, mas bloqueia entrada/gravação até carregar dados confiáveis, para não apagar informação persistida. `main`, banco, crons e pagamentos não são alterados.
 
+> **07/11/2026 — LAYOUT DE PERFIS APÓS HOTFIX:** o formulário completo permanece apenas no card principal, à **esquerda** em desktop; cada perfil adicional ocupa a coluna da **direita, em fila vertical**, sem compartilhar dados de titular. A partir de 1000px e somente quando há secundários: grade com coluna principal flexível + lateral de 240–320px; em telas estreitas a lateral fica abaixo. Sem perfil adicional, principal ocupa a largura. Mudança apenas React/CSS/testes/docs na candidata 3.5.0; nenhuma migração, serviço externo ou `main`.
+
