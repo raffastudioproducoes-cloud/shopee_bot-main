@@ -1222,3 +1222,12 @@ Contrato isolado e ainda não integrado ao executor: `CampaignDispatchIdentity` 
 - [x] PR [#344](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/344) merged somente em `staging` SHA `e1f61a4`; [CI #1124](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42419595799) SUCCESS; Render `dep-dbnq5pcs728c739ha80g` LIVE no mesmo SHA.
 - [x] Vault `TASK.md` e Guia Mestre espelhado atualizados; release segue `3.4.0`, candidata 3.5.0.
 - [ ] Homologação visual autenticada em `/profiles` por Rafa; `main` somente após aprovação expressa.
+
+## 07/11/2026 — Calendário, máscara do CPF e avisos fora do card principal (PATCH candidata 3.5.0)
+
+- [x] Substituir somente o campo **Idade** por **Data de nascimento** com seletor nativo de dia/mês/ano, persistindo data completa no cadastro da conta; preservar `age` legada para compatibilidade.
+- [x] Aplicar máscara automática `000.000.000-00` no CPF durante a digitação, sem relaxar validação/cifragem.
+- [x] Mover cota, título e mensagens informativas para **acima** do card principal, mantendo dentro do card o formulário editável e feedback de salvar; não alterar perfis secundários ou grade responsiva.
+- [x] Testar API, componentes, frontend build e registrar migration aditiva 094/documentação; sem gateway, crons, produção ou `main`.
+- [x] Migration 094 aplicada ao Supabase único: `birth_date DATE NULL` confirmada, RLS habilitado e `anon`/`authenticated` sem leitura da tabela.
+- [ ] Concluir CI/merge/deploy LIVE somente em `staging`, confirmar QA autenticada; `VERSION=3.4.0` permanece.

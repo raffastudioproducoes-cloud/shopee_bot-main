@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Data de nascimento, CPF formatado e avisos acima do perfil (PATCH da candidata 3.5.0, 07/11/2026)
+
+- `/profiles`: o campo opcional **Idade** virou **Data de nascimento**, com calendário nativo para dia, mês e ano e persistência de data exata; a coluna legada `age` permanece para compatibilidade, sem fabricar uma data para idades anteriores.
+- O CPF recebe automaticamente a máscara `000.000.000-00` durante a digitação, mantendo validação dos dígitos e armazenamento cifrado já existentes.
+- Cota compacta e mensagens explicativas/do estado cadastral passam a aparecer organizadas **acima** do card principal. O formulário editável e os retornos da ação de salvar continuam no card; a coluna de perfis secundários, menus e responsividade não mudam.
+- Migração **094** adiciona `birth_date DATE NULL` apenas à tabela protegida da conta no Supabase compartilhado, sem alterar RLS/grants. Apenas `staging`; `VERSION=3.4.0` e `main` preservadas, sem gateway, cron ou alterações nos outros campos.
+
 ### Changed — Cards de perfis lado a lado em telas grandes (PATCH da candidata 3.5.0, 07/11/2026)
 
 - `/profiles`: quando houver perfis adicionais e largura de tela suficiente (a partir de 1000px), card **principal à esquerda** e perfis **secundários em coluna única à direita**, um abaixo do outro, alinhados ao topo. Sem perfis adicionais, o card principal ocupa toda a largura disponível.

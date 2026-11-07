@@ -5,6 +5,7 @@ export type AccountIdentity = {
   cpf_registered: boolean
   email: string | null
   age: number | null
+  birth_date: string | null
   mobile_phone: string | null
   recovery_email: string | null
   contact_phone: string | null

@@ -7,7 +7,7 @@ import { useActivateProfile, useProfiles } from "../hooks/useProfiles"
 import { ResourceQuotaBar } from "../components/plans/ProductQuotaBar"
 import { usePlanUsage } from "../hooks/usePlanUsage"
 import { router } from "../router"
-import { AccountIdentityForm } from "../components/profiles/AccountIdentityForm"
+import { AccountIdentityForm, AccountIdentityIntro } from "../components/profiles/AccountIdentityForm"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { StatusMessage } from "../components/StatusMessage"
@@ -126,13 +126,14 @@ export function ProfilesPage() {
     >{details}</ProfileCard>
   )
 
-  const primaryDetails = <>
+  const primaryNotices = <>
     <div className="profiles-primary-card__quota">
       <ResourceQuotaBar plan={planQuery.data} resource="profiles" loading={planQuery.isPending} error={planQuery.isError}
         onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })} />
     </div>
-    <AccountIdentityForm />
+    <AccountIdentityIntro />
   </>
+  const primaryDetails = <AccountIdentityForm />
 
   return (
     <div className="csp-s-0372">
@@ -171,10 +172,12 @@ export function ProfilesPage() {
 
       {profilesLoading ? (
         <SkeletonRegion><div className="profiles-cards profiles-cards--with-secondary">
+          <div className="profiles-primary-stack">
           <Panel padding={24}>
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}><SkeletonAvatar size={88} /><Skeleton width="35%" height={24} /></div>
             <div style={{ marginTop: 24 }}><Skeleton width="100%" height={240} /></div>
           </Panel>
+          </div>
           <div className="profiles-grid">
             {[0, 1].map((i) => (
               <Panel key={i} style={{ height: 162, padding: 16, display: "flex", alignItems: "center", flexDirection: "column", gap: 12 }}><SkeletonAvatar size={64} /><Skeleton width="70%" height={20} /></Panel>
@@ -192,6 +195,8 @@ export function ProfilesPage() {
         </Panel>
       ) : (
         <div className={`profiles-cards${secondaryProfiles.length > 0 ? " profiles-cards--with-secondary" : ""}`}>
+          <div className="profiles-primary-stack">
+          {primaryNotices}
           {principalProfile
             ? profileCard(principalProfile, primaryDetails)
             : <Panel className="profiles-primary-card__fallback">
@@ -199,6 +204,7 @@ export function ProfilesPage() {
                 <p role="status">O perfil principal não foi encontrado. Seus dados da conta continuam disponíveis.</p>
                 {primaryDetails}
               </Panel>}
+          </div>
           {secondaryProfiles.length > 0 && <div className="profiles-grid">
             {secondaryProfiles.map(profile => profileCard(profile))}
           </div>}

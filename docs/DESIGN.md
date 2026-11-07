@@ -219,3 +219,5 @@ Campanha limita seletor/datas por política; frequência legada acima da nova co
 
 > **07/11/2026 — DISPOSIÇÃO DOS PERFIS:** quando houver perfis secundários, telas com pelo menos 1000px apresentam o card principal à esquerda (coluna flexível) e uma coluna de 240–320px à direita, com cards adicionais alinhados ao topo e empilhados verticalmente. Em telas menores a coluna secundária passa para baixo do card principal. Sem adicionais, o card principal mantém largura integral. Não duplicar formulário, dados de conta ou tags nos secundários.
 
+> **07/11/2026 — Perfil cadastral (PATCH staging):** cota compacta, título, instruções e avisos de contratação/carregamento estão organizados **acima** do card principal, na coluna esquerda. O card principal mantém avatar/nome, campos editáveis e feedback de salvar; secundários seguem empilhados na coluna direita no desktop e abaixo no celular. O antigo campo Idade vira calendário nativo de **Data de nascimento (opcional)**; CPF insere automaticamente pontos e traço ao digitar, sem logotipo/bordas adicionais nem alterações em outros campos. [Contrato](CADASTRO-IDENTIDADE-PLANOS-20261107.md).
+
