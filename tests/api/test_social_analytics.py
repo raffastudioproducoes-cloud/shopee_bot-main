@@ -551,16 +551,22 @@ def test_analytics_refresh_explicit_owned_profile_without_mass_refresh(monkeypat
     monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
     called = []
 
-    async def fake_refresh(user_id, profile_id, *, manual=False):
-        called.append((user_id, profile_id, manual))
+    def fake_claim(user_id, profile_ids):
+        assert (user_id, profile_ids) == ('user-a', [selected])
+        return {'state': 'accepted', 'claims': {selected: 'token-scoped'},
+                'quota': {'unlimited': False, 'used': 1, 'remaining': 9, 'limit': 10}}
+
+    async def fake_refresh(user_id, profile_id, *, manual=False, claim_token=None):
+        called.append((user_id, profile_id, manual, claim_token))
         return {'state': 'updated'}
 
+    monkeypatch.setattr(social_analytics, 'claim_manual_refresh', fake_claim)
     monkeypatch.setattr(social_analytics, 'refresh_account', fake_refresh)
     try:
         client = TestClient(app)
         assert client.post('/analytics/refresh?profile_id=all').status_code == 400
         result = client.post(f'/analytics/refresh?profile_id={selected}')
         assert result.status_code == 200
-        assert called == [('user-a', selected, True)]
+        assert called == [('user-a', selected, True, 'token-scoped')]
     finally:
         app.dependency_overrides.clear()
