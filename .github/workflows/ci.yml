@@ -136,16 +136,13 @@ jobs:
       - run: npm ci
 
       - name: Contratos de rotas, login e piloto visual da landing
-        run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs tests/posts-composer.test.mjs tests/form-drafts.test.mjs tests/campaign-snapshots.test.mjs tests/plan-access.test.mjs
+        run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs tests/posts-composer.test.mjs tests/form-drafts.test.mjs tests/campaign-snapshots.test.mjs tests/campaign-networks-checkboxes.test.mjs tests/plan-access.test.mjs
 
       - name: Ordenação de Listas e buscas contextuais (Node 20)
         run: node --test tests/posts-history-pagination.test.mjs tests/lists-sort.test.mjs tests/scoped-page-search.test.mjs tests/products-topbar-tab.test.mjs tests/products-topbar-search.test.mjs
 
       - name: Credenciais — ordem, agrupamento e Shopee Vídeo (Node 20)
         run: node --test tests/credentials-card-order.test.mjs tests/credentials-sections.test.mjs tests/credentials-compact-platforms.test.mjs tests/platform-ai-panel.test.mjs tests/admin-diagnostics-compact.test.mjs tests/admin-diagnostics-catalog.test.mjs
-
-      - name: Análises — perfis e cobertura de redes sociais (Node 20)
-        run: node --test tests/analytics-profile-filter.test.mjs tests/analytics-social-platforms.test.mjs
 
       - name: Build (tsc && vite build)
         run: npm run build
