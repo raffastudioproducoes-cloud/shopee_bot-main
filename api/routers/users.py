@@ -75,11 +75,14 @@ class AccountIdentityUpdate(BaseModel):
 def _account_identity_data(user_id: str) -> dict:
     db = get_supabase()
     user_result = db.table("users").select("id,email").eq("id", user_id).maybe_single().execute()
-    if not user_result.data:
+    if not user_result or not user_result.data:
         raise HTTPException(404, "Conta não encontrada.")
     result = (db.table("account_billing_identity").select("*")
               .eq("user_id", user_id).maybe_single().execute())
-    row = result.data or {}
+    # postgrest-py pode devolver None (em vez de APIResponse(data=None))
+    # para maybe_single() sem linha. Contas antigas ainda não possuem
+    # account_billing_identity: devem receber o formulário vazio, não HTTP 500.
+    row = (result.data if result is not None else None) or {}
     public = {key: row.get(key) for key in (
         "full_name", "age", "mobile_phone", "recovery_email", "contact_phone",
         "address_line", "address_number", "address_complement", "neighborhood",
@@ -137,7 +140,7 @@ def update_own_identity(body: AccountIdentityUpdate, user_id: str = Depends(get_
             # preserva todas as colunas não enviadas.
             current = (db.table("account_billing_identity").select("user_id")
                        .eq("user_id", user_id).maybe_single().execute())
-            if current.data:
+            if current is not None and current.data:
                 (db.table("account_billing_identity").update(updates)
                  .eq("user_id", user_id).execute())
             else:

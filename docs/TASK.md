@@ -1196,6 +1196,7 @@ Contrato isolado e ainda não integrado ao executor: `CampaignDispatchIdentity` 
 
 # 07/11/2026 — Dados cadastrais para contratação (MINOR candidata 3.5.0)
 
+- [x] **Correção emergencial após print de Rafa:** staging registrava HTTP 500 em `/users/me/identity` (`AttributeError` ao acessar `.data` de `None`); a ausência da primeira linha no cadastro precisava ser aceita nos endpoints GET/PUT. Tratados leitura vazia e primeiro insert; formulário agora sempre visível no card principal, desabilitado somente enquanto a consulta não for confiável, com botão de retry. Regressões API/UI incluídas; sem tocar Supabase, cron ou main.
 - [x] Retirar `PlanSummary` grande de `/profiles`; manter cota de perfis + CTA somente quando aplicável, **sem etiqueta do plano nesta área**.
 - [x] Preparar cadastro: nome completo, CPF, e-mail e senha; Google confirma nome/CPF e delega login ao provedor.
 - [x] Adicionar formulário de dados da conta (celular obrigatório na futura compra, idade/e-mail alternativo/telefone/endereço/CEP opcionais), CPF cifrado e gate de prontidão no servidor.

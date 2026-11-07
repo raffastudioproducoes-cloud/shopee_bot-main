@@ -30,6 +30,14 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
   Os demais cards continuam compactos, só com foto e nome; seu menu permite
   editar apenas nome/foto. Se o registro de perfil principal estiver temporariamente
   ausente da lista, um card de contingência mantém acesso ao cadastro da conta.
+- **Correção de primeiro acesso em 07/11/2026:** para contas antigas sem linha em
+  `account_billing_identity`, `maybe_single().execute()` pode retornar o objeto
+  Python `None`, não apenas uma resposta com `data=None`. A leitura e a primeira
+  gravação agora toleram esse resultado; `GET` retorna dados vazios com HTTP 200
+  e `PUT` insere o registro da conta. O formulário inteiro é renderizado desde
+  o início. Em caso de indisponibilidade real da API, fica visível mas bloqueado,
+  com opção de tentar novamente; nunca permitir salvar estado vazio sobre dados
+  existentes sem hidratar o formulário. Teste de regressão simula `None`.
 
 ## Dados, isolamento e LGPD
 

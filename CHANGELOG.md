@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — Formulário cadastral invisível no primeiro acesso (PATCH da candidata 3.5.0, 07/11/2026)
+
+- Corrigido **HTTP 500 em `GET /users/me/identity`** para contas antigas ainda sem registro em `account_billing_identity`: `maybe_single()` da biblioteca Supabase pode retornar `None` quando não há linha. O endpoint agora devolve os campos vazios e a prontidão de compra, sem tratar a ausência de cadastro como falha.
+- Corrigido também o **primeiro `PUT /users/me/identity`**: a verificação de existência aceita o mesmo retorno `None` e cria a linha do titular; edições posteriores continuam preservando o CPF cifrado.
+- O formulário completo fica **sempre renderizado dentro do card principal** (nome, CPF, e-mail, celular, idade, recuperação, telefone, endereço completo e CEP). Enquanto a leitura falhar por outra razão, os campos permanecem visíveis, porém desabilitados para impedir sobrescrever dados já persistidos; há opção de tentar novamente. Regressões API/frontend adicionadas.
+- Sem DDL, mudança de cota/planos, cobrança, cron, publicação ou alteração de `main`. `VERSION=3.4.0` segue até aprovação de Rafa; staging candidata `3.5.0`.
+
 ### Changed — Dados da conta integrados ao card principal (PATCH da candidata 3.5.0, 07/11/2026)
 
 - `/profiles`: o formulário cadastral saiu da área independente da página e passou a viver **dentro do card do perfil principal**, junto à sua foto e nome. A cota compacta e o upgrade condicional também ficam nesse card; os perfis secundários permanecem apenas foto/nome, com menu de ações.
