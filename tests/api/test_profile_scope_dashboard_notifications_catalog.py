@@ -7,6 +7,7 @@ from api.main import app
 from api.routers import catalog as catalog_module
 from api.routers import dashboard as dashboard_module
 from api.routers import notifications as notifications_module
+from api.routers import platform_shopee as platform_shopee_module
 from api.routers.auth import get_current_user_id
 
 
@@ -27,12 +28,14 @@ def env(fake_db, monkeypatch):
             {"id": 1, "user_id": 42, "profile_id": "profile-a", "metadata": {}, "created_at": "2026-01-01"},
             {"id": 2, "user_id": 42, "profile_id": "profile-b", "metadata": {}, "created_at": "2026-01-02"},
         ],
-        "shopee_credentials": [
-            {"id": 1, "user_id": 42, "profile_id": None, "app_id": "app-a", "secret": encrypt("sec-a")},
+        "platform_shopee_credentials": [
+            {"environment": "production", "app_id": "app-a", "secret": encrypt("sec-a"), "status": True},
         ],
+        "shopee_affiliate_accounts": [{"user_id": 42, "affiliate_id": "1234567890123"}],
     })
     for module in (dashboard_module, notifications_module, catalog_module):
         monkeypatch.setattr(module, "supabase", db)
+    monkeypatch.setattr(platform_shopee_module, "supabase", db)
     yield db
     app.dependency_overrides.clear()
 

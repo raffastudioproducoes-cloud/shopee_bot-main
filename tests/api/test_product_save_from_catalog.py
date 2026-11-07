@@ -17,6 +17,7 @@ from api import database as database_module
 from api.main import app
 from api.routers.auth import get_current_user_id
 from api.routers.catalog import _map_catalog_node
+from api.routers import products as products_module
 
 
 @pytest.fixture
@@ -25,6 +26,11 @@ def auth_client():
     app.dependency_overrides[get_current_user_id] = lambda: 42
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def affiliate_id(monkeypatch):
+    monkeypatch.setattr(products_module, "get_affiliate_id", lambda _uid: "1234567890123")
 
 
 def _fake_insert_client():

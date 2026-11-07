@@ -17,6 +17,7 @@ from api import shopee_catalog
 from api.crypto import encrypt
 from api.main import app
 from api.routers.auth import get_current_user_id
+from api.routers import catalog as catalog_module
 
 
 @pytest.fixture
@@ -32,6 +33,11 @@ def auth_client():
     return TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _configured_affiliate(monkeypatch):
+    monkeypatch.setattr(catalog_module, "get_affiliate_id", lambda _user_id: "1234567890123")
+
+
 def _fake_supabase_with_credential(app_id: str = "app-123", secret_plain: str = "s3cr3t"):
     fake_client = MagicMock()
     query = fake_client.table.return_value
@@ -39,7 +45,7 @@ def _fake_supabase_with_credential(app_id: str = "app-123", secret_plain: str = 
     query.eq.return_value = query
     query.maybe_single.return_value = query
     query.execute.return_value = MagicMock(
-        data={"app_id": app_id, "secret": encrypt(secret_plain)}
+        data={"app_id": app_id, "secret": encrypt(secret_plain), "status": True}
     )
     return fake_client
 
@@ -85,8 +91,8 @@ class TestCatalogSearchCredential:
             database_module, "get_supabase", lambda: _fake_supabase_without_credential()
         )
         res = auth_client.get("/products/catalog-search")
-        assert res.status_code == 400
-        assert "credencial" in res.json()["detail"].lower()
+        assert res.status_code == 503
+        assert "Catálogo Shopee" in res.json()["detail"]
 
     def test_search_with_invalid_sort_type_is_rejected(self, auth_client, monkeypatch):
         monkeypatch.setattr(
@@ -158,7 +164,9 @@ class TestCatalogSearchFieldFallback:
         assert product["product_id"] == "111"
         assert product["name"] == "Fone Bluetooth"
         assert product["original_link"] == "https://shopee.com.br/prod-111"
-        assert product["commission_link"] == "https://s.shopee.com.br/offer"
+        assert "affiliate_id=1234567890123" in product["commission_link"]
+        assert "https%3A%2F%2Fshopee.com.br%2Fprod-111" in product["commission_link"]
+        assert "https://s.shopee.com.br/offer" not in res.text
         assert product["image"] == "https://img/1.jpg"
         assert product["price_min"] == "99.90"
         assert product["price_max"] == "129.90"
@@ -421,8 +429,8 @@ class TestCatalogSearchCredentialDecryptFailure:
         monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
 
         res = auth_client.get("/products/catalog-search")
-        assert res.status_code == 400
-        assert "reconecte" in res.json()["detail"].lower()
+        assert res.status_code == 503
+        assert "indisponível" in res.json()["detail"].lower()
 
 
 class TestCatalogCategoriesLoopAndCache:
@@ -650,13 +658,13 @@ class TestCatalogSearchSpecificErrors:
         ]})
         res = auth_client.get("/products/catalog-search", params={"keyword": "sapato"})
         assert res.status_code == 422
-        assert "Credenciais" in res.json()["detail"]
+        assert "administrador" in res.json()["detail"]
 
     def test_http_401_asks_to_reconnect(self, auth_client, monkeypatch, with_credential):
         _post_returning(monkeypatch, {}, status_code=401)
         res = auth_client.get("/products/catalog-search")
         assert res.status_code == 422
-        assert "Reconecte" in res.json()["detail"]
+        assert "administrador" in res.json()["detail"]
 
     def test_rate_limit_code_10030_has_specific_message(self, auth_client, monkeypatch, with_credential):
         _post_returning(monkeypatch, {"errors": [

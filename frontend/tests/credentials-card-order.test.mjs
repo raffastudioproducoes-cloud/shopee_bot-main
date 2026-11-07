@@ -15,8 +15,10 @@ test("os oito cards das redes integram o agrupamento, sem chave IA na página co
     assert.equal(registry.split('title: "' + title + '"').length - 1, 1, `Card ${title} deve aparecer uma vez`)
   }
   assert.doesNotMatch(registry, /Inteligência Artificial|AiCredentialCard/)
-  assert.match(source, /const SIMPLE_NETWORKS[^]*?key: "shopee", label: "Shopee"/)
-  assert.match(registry, /\.\.\.SIMPLE_NETWORKS\.map\(\(network\) => \(\{/)
+  assert.match(registry, /title: "Shopee"[^]*?<ShopeeAffiliateCredentialCard/)
+  assert.match(source, /ID do afiliado \(ou link completo com o ID\)/)
+  assert.doesNotMatch(source.slice(source.indexOf('function ShopeeAffiliateCredentialCard'), source.indexOf('function KwaiComingSoonCredentialCard')), /label="(App ID|Secret)"/)
+  assert.doesNotMatch(source, /function SimpleCredentialCard|pegar App ID\/Secret/)
   assert.match(source, /groupCredentialCards\(cards\)/)
   assert.match(source, /title: "Já credenciados"[^]*?title: "Ainda não cadastrados"/)
   assert.match(source, /grouped\.registered[^]*?grouped\.pending/)

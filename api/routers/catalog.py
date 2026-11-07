@@ -17,12 +17,12 @@ import logging
 import time
 from urllib.parse import urlparse
 
-from cryptography.fernet import InvalidToken
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from .auth import get_current_user_id
+from .platform_shopee import get_affiliate_id, resolve_platform_shopee_key
 from .. import shopee_catalog
-from ..crypto import decrypt
+from ..shopee_affiliate_links import build_affiliate_link
 from ..database import supabase
 from ..profiles import scope_account
 
@@ -68,33 +68,8 @@ def _check_search_rate_limit(user_id: int) -> None:
 
 
 def _get_shopee_credential(user_id: int) -> tuple[str, str] | None:
-    """Busca e descifra app_id/secret da Shopee do usuário autenticado —
-    mesmo padrão de `api/routers/credentials.py::_test_payload` pra
-    `SIMPLE_NETWORKS`. A credencial é compartilhada pela conta. None quando
-    não há credencial salva/completa."""
-    row = (
-        scope_account(supabase.table("shopee_credentials").select("app_id, secret"), user_id)
-        .maybe_single().execute()
-    )
-    data = row.data if row and row.data else None
-    if not data or not data.get("app_id") or not data.get("secret"):
-        return None
-    # .strip() defensivo (mesmo padrão de save_credential em credentials.py):
-    # copiar/colar do painel da Shopee pode trazer espaço em branco.
-    app_id = (data["app_id"] or "").strip()
-    try:
-        secret = (decrypt(data["secret"]) or "").strip()
-    except InvalidToken:
-        # Chave de criptografia rotacionada (ou dado corrompido) — erro
-        # claro pro usuário, sem vazar detalhe interno da exceção
-        # (ver LOW-2 do relatório de segurança).
-        raise HTTPException(
-            status_code=400,
-            detail="Credencial da Shopee corrompida ou desatualizada. Reconecte-a em Credenciais.",
-        )
-    if not app_id or not secret:
-        return None
-    return app_id, secret
+    """Catálogo global; o parâmetro legado não seleciona chaves de USER."""
+    return resolve_platform_shopee_key()
 
 
 def _to_float(value) -> float | None:
@@ -121,7 +96,7 @@ def _commission_percent(node: dict) -> float | None:
     return round(amount / price * 100, 2)
 
 
-def _map_catalog_node(node: dict) -> dict:
+def _map_catalog_node(node: dict, affiliate_id: str | None = None) -> dict:
     """Mapeia o retorno cru do GraphQL da Shopee pros campos que o frontend
     espera — quase 1:1 com o schema de `products` (ver
     database/migrations/002_create_products_table.sql). `commission` sai
@@ -134,7 +109,8 @@ def _map_catalog_node(node: dict) -> dict:
         "product_id": str(item_id) if item_id is not None else None,
         "name": node.get("productName"),
         "original_link": node.get("productLink"),
-        "commission_link": node.get("offerLink"),
+        # `offerLink` veio das credenciais ADMIN: jamais entregá-lo ao USER.
+        "commission_link": build_affiliate_link(node.get("productLink"), affiliate_id),
         "commission": _commission_percent(node),
         "commission_amount": round(amount, 2) if amount is not None else None,
         "image": node.get("imageUrl"),
@@ -153,8 +129,7 @@ def _error_status(exc: Exception) -> int:
 def _error_detail(exc: Exception) -> str:
     """Mensagem específica por causa, sem detalhe interno/segredo."""
     if isinstance(exc, shopee_catalog.ShopeeAuthError):
-        return ("Credencial da Shopee inválida, expirada ou sem acesso à API de afiliados. "
-                "Reconecte em Credenciais.")
+        return "A API Shopee da plataforma precisa ser verificada pelo administrador."
     if isinstance(exc, shopee_catalog.ShopeeRateLimitError):
         return "A Shopee limitou as buscas por alguns instantes. Aguarde um minuto e tente de novo."
     if exc.errors:
@@ -177,9 +152,7 @@ async def catalog_search(
     limit: int = Query(DEFAULT_SEARCH_LIMIT, ge=1, le=MAX_SEARCH_LIMIT),
     page: int = Query(1, ge=1, le=100, description="Página da Shopee (tamanho = min(limit, 50))"),
 ):
-    """Busca produtos no catálogo real da Shopee usando a credencial de
-    afiliado do próprio usuário. Não persiste nada — o frontend decide o
-    que adicionar via POST /products."""
+    """Busca com API global, links personalizados somente para esta conta."""
     _check_search_rate_limit(user_id)
 
     if sort_type not in shopee_catalog.VALID_SORT_TYPES:
@@ -189,12 +162,13 @@ async def catalog_search(
                    "3 (Preço: maior→menor), 4 (Preço: menor→maior) ou 5 (Melhor comissão).",
         )
 
-    credential = _get_shopee_credential(user_id)
-    if credential is None:
+    affiliate_id = get_affiliate_id(user_id)
+    if affiliate_id is None:
         raise HTTPException(
             status_code=400,
-            detail="Nenhuma credencial da Shopee conectada. Configure em Credenciais antes de buscar produtos.",
+            detail="Cadastre seu ID de afiliado Shopee em Credenciais antes de buscar produtos.",
         )
+    credential = _get_shopee_credential(user_id)
     app_id, secret = credential
 
     try:
@@ -216,7 +190,7 @@ async def catalog_search(
         )
         raise HTTPException(status_code=_error_status(exc), detail=_error_detail(exc))
 
-    return {"data": [_map_catalog_node(node) for node in nodes]}
+    return {"data": [_map_catalog_node(node, affiliate_id) for node in nodes]}
 
 
 def _safe_shopee_gallery_url(value: object) -> bool:
@@ -269,11 +243,12 @@ async def shopee_gallery_probe(
             "image_urls": fallback, "status": "not_identified",
             "message": "Produto sem itemId numérico; somente foto cadastrada disponível.",
         }
-    credential = _get_shopee_credential(user_id)
-    if credential is None:
+    try:
+        credential = _get_shopee_credential(user_id)
+    except HTTPException:
         return {
             "image_urls": fallback, "status": "not_connected",
-            "message": "Conecte sua API Shopee para verificar outras fotos. O upload local continua disponível.",
+            "message": "A API Shopee da plataforma está indisponível. O upload local continua disponível.",
         }
     try:
         result = await shopee_catalog.probe_product_gallery(
