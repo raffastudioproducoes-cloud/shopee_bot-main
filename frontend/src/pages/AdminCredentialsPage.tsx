@@ -68,7 +68,11 @@ export default function AdminCredentialsPage() {
     mutationFn: () => credentialsApi.testAllAdminConnections(),
     onSuccess: (result) => {
       setLastBatch(result)
-      setBanner({ ok: true, text: `${result.tested} conexão(ões) testada(s); ${result.skipped} sem credencial para testar.` })
+      const failed = Object.values(result.results).filter(item => item.state === 'error').length
+      setBanner({
+        ok: failed === 0,
+        text: `${result.tested} conexão(ões) testada(s); ${failed} falha(s); ${result.skipped} sem credencial para testar.`,
+      })
       void queryClient.invalidateQueries({ queryKey: ['admin', 'credentials', 'status'] })
       void queryClient.invalidateQueries({ queryKey: ['admin', 'ai'] })
       void queryClient.invalidateQueries({ queryKey: ['admin', 'shopee'] })

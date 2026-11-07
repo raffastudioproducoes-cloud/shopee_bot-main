@@ -31,6 +31,8 @@ test('estados reais usam logos, ordem alfabética e endpoint de teste em lote', 
   assert.deepEqual(networkKeys, ['facebook', 'instagram', 'kwai', 'threads', 'tiktok', 'x'])
   assert.match(page, /CREDENTIAL_BRAND_LOGOS\[network\]/)
   assert.match(page, /lastBatch\?\.results\[key\]/)
+  assert.match(page, /item\.state === 'error'/)
+  assert.match(page, /ok: failed === 0/)
   assert.match(api, /api\.post\('\/admin\/credentials\/test-all'/)
   assert.match(page, /invalidateQueries\(\{ queryKey: \['admin', 'recent-logs'\]/)
 })
