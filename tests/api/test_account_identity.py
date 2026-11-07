@@ -73,6 +73,12 @@ def test_account_identity_ownership_and_no_raw_cpf(monkeypatch, fake_db):
         assert saved["mobile_phone"] == "21999998888"
         assert saved["cep"] == "23000000"
         assert db.tables["account_billing_identity"][0]["user_id"] == "other"
+        # Salvar outro campo não pode apagar o CPF já cifrado no banco.
+        edited = client.put("/users/me/identity", json={"mobile_phone": "21999997777"})
+        assert edited.status_code == 200
+        assert edited.json()["cpf_registered"] is True
+        assert edited.json()["purchase_readiness"]["ready"] is True
+        assert db.tables["account_billing_identity"][-1]["cpf_ciphertext"] == saved["cpf_ciphertext"]
     finally:
         app.dependency_overrides.clear()
 

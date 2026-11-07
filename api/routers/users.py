@@ -130,10 +130,18 @@ def update_own_identity(body: AccountIdentityUpdate, user_id: str = Depends(get_
     if updates.get("state"):
         updates["state"] = updates["state"].upper()
     if updates:
-        updates["user_id"] = user_id  # somente da sessão autenticada, não do cliente
         updates["updated_at"] = datetime.now(timezone.utc).isoformat()
         try:
-            db.table("account_billing_identity").upsert(updates, on_conflict="user_id").execute()
+            # Um UPSERT com colunas ausentes pode enviar NULL no merge do
+            # PostgREST e apagar o CPF cifrado. Em edições parciais, UPDATE
+            # preserva todas as colunas não enviadas.
+            current = (db.table("account_billing_identity").select("user_id")
+                       .eq("user_id", user_id).maybe_single().execute())
+            if current.data:
+                (db.table("account_billing_identity").update(updates)
+                 .eq("user_id", user_id).execute())
+            else:
+                db.table("account_billing_identity").insert({"user_id": user_id, **updates}).execute()
         except Exception:
             # Não mostrar índice/fingerprint ou os dados enviados nas falhas.
             raise HTTPException(409, "Não foi possível salvar os dados. Verifique o CPF ou tente novamente.") from None
