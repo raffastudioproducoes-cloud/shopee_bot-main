@@ -60,3 +60,20 @@ test("snapshot inválido não mantém foto inexistente nem rede proibida", async
   assert.deepEqual(restored[12].networks, ["tiktok", "instagram"])
   assert.deepEqual(restored[12].networkCopies, { tiktok: "A", instagram: "B" })
 })
+
+test("seleção global de redes altera todos os itens sem apagar as copies individuais", async () => {
+  const { createCampaignSnapshot, setCampaignNetworkForAll } = await loadSnapshots()
+  const base = {
+    11: { ...createCampaignSnapshot(products[0]), networkCopies: { threads: "Texto A" } },
+    12: { ...createCampaignSnapshot(products[1]), networkCopies: { threads: "Texto B" } },
+  }
+  const checked = setCampaignNetworkForAll(base, [11, 12], "threads", true)
+  assert.deepEqual(checked[11].networks, ["threads"])
+  assert.deepEqual(checked[12].networks, ["threads"])
+  assert.deepEqual(setCampaignNetworkForAll(checked, [11, 12], "threads", true)[11].networks, ["threads"])
+  assert.deepEqual(setCampaignNetworkForAll(checked, [11, 12], "threads", false)[12].networks, [])
+  assert.equal(checked[11].networkCopies.threads, "Texto A")
+  assert.equal(checked[12].networkCopies.threads, "Texto B")
+  assert.deepEqual(base[11].networks, [], "não altera o rascunho original por referência")
+  assert.equal(setCampaignNetworkForAll(checked, [999], "facebook", true)[999], undefined)
+})

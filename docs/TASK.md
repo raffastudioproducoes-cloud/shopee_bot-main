@@ -1,3 +1,9 @@
+## 07/11/2026 — Caixas de seleção de redes na Campanha por lista (staging)
+
+- [x] Mostrar nove redes do catálogo com checkbox e logo, mesmo sem integração; redes sem OAuth válido, sem publicação ou em desenvolvimento aparecem cinzas e não podem ser marcadas.
+- [x] Seleção da campanha aplicada a todos os produtos e seleção individual mantida; permitir remover escolhas legadas desconectadas e preservar textos específicos. Atualizar consulta de credenciais por perfil.
+- [ ] Confirmar build/testes, CI, deploy LIVE de staging e QA visual; `main` apenas após aprovação de Rafa. Candidata `3.5.0`, sem bump de `VERSION` agora.
+
 ## 07/11/2026 — Shopee Vídeo afiliados — execução em staging
 
 - [x] Confirmada a categoria Shopee Video Management para criador afiliado e `auth_type=user` no guia oficial.
