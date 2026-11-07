@@ -5,8 +5,14 @@ import { useAuthStore } from "../stores/authStore"
 import { formDraftKey, clearFormDraft, saveFormDraft } from "../lib/formDraftStorage"
 import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
-import { productsApi, type Product } from "../api/products"
-import { PlanSummary } from "../components/plans/PlanSummary"
+import { productsApi, type Product, type ProductCreate, type ProductUpdate } from "../api/products"
+import { ProductMediaManager } from "../components/products/ProductMediaManager"
+import { ProductSavedPersonalization } from "../components/products/ProductSavedPersonalization"
+import { AiCopyControls } from "../components/posts/AiCopyControls"
+import { postsApi } from "../api/posts"
+import { aiCredentialsApi } from "../api/credentials"
+import { NETWORK_RULES, textLength } from "../lib/networkLimits"
+import { ProductQuotaBar } from "../components/plans/ProductQuotaBar"
 import { usePlanUsage } from "../hooks/usePlanUsage"
 import { resourceAtLimit } from "../lib/planPresentation"
 import { Panel } from "../components/ui/Panel"
@@ -15,7 +21,7 @@ import { PageSkeleton } from "../components/ui/Skeleton"
 import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { Modal } from "../components/ui/Modal"
-import { SearchField } from "../components/ui/SearchField"
+import { useProductsSearchStore } from "../stores/productsSearchStore"
 import { SegmentedToggle } from "../components/ui/SegmentedToggle"
 import { ViewSwitcher, useViewMode, viewContainerStyle } from "../components/ui/ViewSwitcher"
 import { TimelineListCard } from "../components/ui/TimelineListCard"
@@ -34,6 +40,7 @@ const TABS_OPTIONS = [
 
 const emptyForm = {
   name: "",
+  description: "",
   product_id: "",
   original_link: "",
   commission_link: "",
@@ -61,8 +68,15 @@ export function ProductsPage() {
   const queryClient = useQueryClient()
   const planQuery = usePlanUsage()
   const productsAtLimit = !planQuery.isError && resourceAtLimit(planQuery.data?.resources.products)
-  const [activeTab, setActiveTab] = useState<ProductsTab>("mine")
-  const [search, setSearch] = useState("")
+  const activeTab = useProductsSearchStore((state) => state.activeTab)
+  const setActiveTab = useProductsSearchStore((state) => state.setActiveTab)
+  const search = useProductsSearchStore((state) => state.query)
+  const setSearch = useProductsSearchStore((state) => state.setQuery)
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 280)
+    return () => window.clearTimeout(timer)
+  }, [search])
   useAutosavedDraft(formDraftKey(user?.id, "products-filters", null, false), { activeTab, search }, (saved) => {
     setActiveTab(saved?.activeTab === "catalog" ? "catalog" : "mine")
     setSearch(typeof saved?.search === "string" ? saved.search : "")
@@ -73,6 +87,8 @@ export function ProductsPage() {
   const [form, setForm] = useState(emptyForm)
   const [formBase, setFormBase] = useState(emptyForm)
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [copyError, setCopyError] = useState("")
+  const [aiPersona, setAiPersona] = useState("casual")
   const activeDraftKey = modalOpen
     ? formDraftKey(user?.id, editingId ? `product-edit:${editingId}` : "product-create", null, false)
     : null
@@ -80,6 +96,7 @@ export function ProductsPage() {
     const base = saved && typeof saved === "object" ? saved : formBase
     setForm({
       name: typeof base.name === "string" ? base.name : "",
+      description: typeof base.description === "string" ? base.description : "",
       product_id: typeof base.product_id === "string" ? base.product_id : "",
       original_link: typeof base.original_link === "string" ? base.original_link : "",
       commission_link: typeof base.commission_link === "string" ? base.commission_link : "",
@@ -93,11 +110,17 @@ export function ProductsPage() {
   // ── Query ──────────────────────────────────────────────────────────────────────
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["products", search],
-    queryFn: () => productsApi.list({ search: search || undefined }),
+    queryKey: ["products", debouncedSearch],
+    queryFn: () => productsApi.list({ search: debouncedSearch || undefined, page_size: 200 }),
   })
 
   const products = data?.data ?? []
+
+  const { data: aiStatus, isPending: aiStatusLoading, isError: aiStatusError } = useQuery({
+    queryKey: ["credentials", "ai"],
+    queryFn: () => aiCredentialsApi.list(),
+    enabled: modalOpen && editingId !== null,
+  })
 
   // ── Mutations ──────────────────────────────────────────────────────────────────
 
@@ -108,8 +131,20 @@ export function ProductsPage() {
     }
   }
 
+  const generateDescriptionMutation = useMutation({
+    mutationFn: (productId: number) => postsApi.generateCopy(productId, aiPersona, [], {
+      descriptionOnly: true, provider: "gemini",
+    }),
+    onSuccess: (result, productId) => {
+      if (editingId !== productId) return
+      setCopyError("")
+      setForm((current) => ({ ...current, description: result.text }))
+    },
+    onError: onAuthError,
+  })
+
   const createMutation = useMutation({
-    mutationFn: (body: Omit<Product, 'id' | 'user_id' | 'created_at' | 'updated_at'>) =>
+    mutationFn: (body: ProductCreate) =>
       productsApi.create({
         ...body,
         original_link: body.original_link ?? '',
@@ -127,7 +162,7 @@ export function ProductsPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: Partial<Product> }) =>
+    mutationFn: ({ id, body }: { id: number; body: ProductUpdate }) =>
       productsApi.update(id, body),
     meta: { toast: { pending: "Salvando alterações…", success: "Produto atualizado", error: "Não foi possível salvar" } },
     onSuccess: (_result, variables) => {
@@ -171,19 +206,18 @@ export function ProductsPage() {
 
   const handleUpdate = useCallback(() => {
     if (!editingId) return
-    updateMutation.mutate({
-      id: editingId,
-      body: {
-        name: form.name,
-        product_id: form.product_id,
-        original_link: form.original_link,
-        commission_link: form.commission_link,
-        commission: formNumber(form.commission),
-        image: form.image || null,
-        price_min: formNumber(form.price_min),
-        price_max: formNumber(form.price_max),
-      },
-    })
+    const description = form.description.trim()
+    const weighted = textLength(NETWORK_RULES.x, description)
+    if (weighted > 280) {
+      setCopyError("A descrição ultrapassa 280 caracteres ponderados.")
+      return
+    }
+    if (/https?:\/\/|www\.|(?:^|\s)(?:s\.shopee|shopee\.com|bit\.ly|t\.co)/i.test(description)) {
+      setCopyError("A descrição não deve conter links; a URL de comissão fica separada.")
+      return
+    }
+    setCopyError("")
+    updateMutation.mutate({ id: editingId, body: { name: form.name.trim(), description: description || null } })
   }, [form, editingId, updateMutation])
 
   const handleDelete = useCallback(() => {
@@ -192,8 +226,11 @@ export function ProductsPage() {
 
   const handleEdit = useCallback((product: Product) => {
     setEditingId(product.id)
+    setCopyError("")
+    generateDescriptionMutation.reset()
     const nextForm = {
       name: product.name || "",
+      description: product.description || "",
       product_id: product.product_id || "",
       original_link: product.original_link || "",
       commission_link: product.commission_link || "",
@@ -212,6 +249,7 @@ export function ProductsPage() {
     setEditingId(null)
     const nextForm = {
       name: p.name,
+      description: "",
       product_id: p.product_id,
       original_link: p.original_link || "",
       commission_link: p.commission_link || "",
@@ -229,12 +267,15 @@ export function ProductsPage() {
   const handleCancel = useCallback(() => {
     setModalOpen(false)
     setEditingId(null)
+    setCopyError("")
+    generateDescriptionMutation.reset()
     setForm(emptyForm)
   }, [])
 
   const openCreateModal = useCallback(() => {
     if (productsAtLimit) return
     setEditingId(null)
+    setCopyError("")
     setFormBase(emptyForm)
     setForm(emptyForm)
     setModalOpen(true)
@@ -252,7 +293,7 @@ export function ProductsPage() {
 
   if (isLoading) {
     return (
-      <PageSkeleton variant="table" titleWidth="180px" subtitleWidth="260px" action toolbar />
+      <PageSkeleton variant="table" titleWidth="180px" subtitleWidth="260px" toolbar />
     )
   }
 
@@ -287,19 +328,14 @@ export function ProductsPage() {
             ) : null}
           </div>
         </div>
-        {activeTab === "mine" ? (
-          <div className="csp-s-0356">
-            <SearchField
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar produtos..."
-              width={240}
-            />
-          </div>
-        ) : null}
       </header>
 
-      <PlanSummary resources={["products"]} />
+      <ProductQuotaBar
+        plan={planQuery.data}
+        loading={planQuery.isPending}
+        error={planQuery.isError}
+        onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })}
+      />
       {activeTab === "catalog" ? (
         <CatalogSearchTab createBlocked={productsAtLimit} onManualCreate={openCreateModal} onPrefill={handlePrefill} />
       ) : (
@@ -357,14 +393,9 @@ export function ProductsPage() {
                 { icon: "dollar-sign", label: "Ganho/venda", value: formatEarnings(product.price_min, product.price_max, product.commission) },
                 { icon: "calendar", label: "Cadastrado", value: new Date(product.created_at).toLocaleDateString("pt-BR") },
               ]}
+              expandedHeader={<ProductSavedPersonalization productId={product.id} description={product.description} />}
+              statsPlacement="bottom"
               sections={[
-                { label: "Produto", category: product.category || undefined, content: product.name },
-                { label: "Preço", category: "Faixa", content: formatPriceRange(product) },
-                {
-                  label: "Comissão",
-                  category: "Taxa e ganho",
-                  content: `${formatRate(product.commission)} · ganho estimado ${formatEarnings(product.price_min, product.price_max, product.commission)} por venda`,
-                },
                 {
                   label: "Links",
                   category: "Afiliado",
@@ -384,16 +415,6 @@ export function ProductsPage() {
                     </div>
                   ),
                 },
-                {
-                  label: "Cadastro",
-                  category: "Datas",
-                  content: (
-                    <div className="csp-s-0364">
-                      <span>Criado em {new Date(product.created_at).toLocaleString("pt-BR")}</span>
-                      {product.updated_at ? <span className="csp-s-0365">Atualizado em {new Date(product.updated_at).toLocaleString("pt-BR")}</span> : null}
-                    </div>
-                  ),
-                },
               ]}
             />
           ))}
@@ -403,7 +424,7 @@ export function ProductsPage() {
       )}
 
       {/* Modal de criação/edição */}
-      <Modal open={modalOpen} onClose={handleCancel} title={editingId ? "Editar produto" : "Novo produto"} width={560}>
+      <Modal open={modalOpen} onClose={handleCancel} title={editingId ? "Personalizar produto" : "Novo produto"} width={editingId ? 660 : 560}>
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -411,6 +432,64 @@ export function ProductsPage() {
           }}
           className="csp-s-0366"
         >
+          {editingId ? (
+            <>
+              <TextInput
+                label="Nome do produto *"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                required
+              />
+              <label htmlFor="product-custom-copy" style={{ display: "block", marginTop: 16, marginBottom: 6, color: "var(--text-secondary)", fontWeight: 600 }}>
+                Descrição curta para redes sociais (sem links)
+              </label>
+              <div style={{ display: "flex", alignItems: "end", flexWrap: "wrap", gap: 10, margin: "0 0 12px" }}>
+                {aiStatusError ? (
+                  <p role="alert" style={{ fontSize: 13, color: "var(--negative)" }}>Não foi possível consultar a chave Gemini. Tente novamente.</p>
+                ) : aiStatusLoading ? (
+                  <p role="status" style={{ fontSize: 13, color: "var(--text-muted)" }}>Verificando sua chave Gemini…</p>
+                ) : (
+                  <AiCopyControls
+                    persona={aiPersona}
+                    onPersonaChange={setAiPersona}
+                    hasAiKey={aiStatus?.providers.gemini?.connected === true}
+                    missingKeyLabel="Cadastre sua chave Gemini em Credenciais"
+                    isPending={generateDescriptionMutation.isPending}
+                    disabled={!editingId}
+                    onGenerate={() => { if (editingId) generateDescriptionMutation.mutate(editingId) }}
+                  />
+                )}
+              </div>
+              {generateDescriptionMutation.isError && (
+                <p role="alert" style={{ color: "var(--negative)", fontSize: 13, marginBottom: 8 }}>
+                  {generateDescriptionMutation.error.message}
+                </p>
+              )}
+              <textarea
+                id="product-custom-copy"
+                value={form.description}
+                onChange={(e) => { setForm((f) => ({ ...f, description: e.target.value })); setCopyError("") }}
+                placeholder="Descreva o produto em poucas palavras, sem inserir o link de compra."
+                rows={3}
+                maxLength={280}
+                style={{ boxSizing: "border-box", width: "100%", minHeight: 100, padding: 12, borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface, #0d1420)", color: "var(--text-primary)", font: "inherit", resize: "vertical" }}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 4, fontSize: 12, color: textLength(NETWORK_RULES.x, form.description) > 280 ? "var(--color-error, #fb7185)" : "var(--text-muted)" }}>
+                <span>Texto salvo separadamente dos links comerciais.</span>
+                <span>{textLength(NETWORK_RULES.x, form.description)} / 280</span>
+              </div>
+              {copyError && <p role="alert" style={{ color: "#fb7185", fontSize: 13, marginTop: 6 }}>{copyError}</p>}
+              <div style={{ marginTop: 18, padding: 12, border: "1px solid var(--border)", borderRadius: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Imagem original da Shopee (preservada)</div>
+                {form.image ? (
+                  <a href={form.image} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-secondary)", fontSize: 12, overflowWrap: "anywhere" }}>{form.image}</a>
+                ) : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Este produto não possui imagem original.</span>}
+                <p style={{ margin: "8px 0 0", color: "var(--text-muted)", fontSize: 12 }}>ID, links, preços e comissão são protegidos e não podem ser editados.</p>
+              </div>
+              <ProductMediaManager productId={editingId} />
+            </>
+          ) : (
+            <>
           <div className="mobile-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <TextInput
               label="Nome *"
@@ -493,12 +572,15 @@ export function ProductsPage() {
             Ganho estimado por venda: <strong className="csp-s-0368">{formatEarnings(form.price_min, form.price_max, form.commission)}</strong>
           </p>
 
+            </>
+          )}
+
           <p style={{ color: "var(--text-muted)", font: "var(--text-role-caption)" }}>Rascunho salvo neste navegador até você salvar o produto.</p>
           <div className="csp-s-0369">
             <Button type="button" variant="ghost" onClick={handleCancel}>
               Cancelar
             </Button>
-            <Button type="submit" variant="primary" disabled={!editingId && productsAtLimit} loading={createMutation.isPending || updateMutation.isPending}>
+            <Button type="submit" variant="primary" disabled={(!editingId && productsAtLimit) || (Boolean(editingId) && (!form.name.trim() || textLength(NETWORK_RULES.x, form.description) > 280))} loading={createMutation.isPending || updateMutation.isPending}>
               {createMutation.isPending || updateMutation.isPending ? "Salvando..." : editingId ? "Salvar" : "Criar"}
             </Button>
           </div>

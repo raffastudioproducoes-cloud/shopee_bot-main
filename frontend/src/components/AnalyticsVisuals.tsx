@@ -150,14 +150,19 @@ function PublicationTrend({ timeline, days, loading, error }: {
 }
 
 const providerDescriptions: Record<string, string> = {
-  ok: 'Coleta confirmada',
-  no_data: 'Sem períodos retornados',
+  ok: 'Insights dos posts coletados',
+  partial: 'Coleta parcial dos posts',
+  no_data: 'Post sem dados retornados',
+  no_posts: 'Sem posts confirmados',
+  missing_external_id: 'Post sem ID rastreável',
+  multipart_unmapped: 'Sequência de posts incompleta',
   not_connected: 'Rede não conectada',
-  api_error: 'API não autorizou a leitura',
+  api_error: 'API não retornou insights do post',
+  permission_required: 'Sem permissão para insights do post',
   network_error: 'Falha de conexão',
   invalid_response: 'Resposta não validada',
   not_collected: 'Aguardando coleta',
-  unsupported: 'Métrica não disponível',
+  unsupported: 'Insights por post indisponíveis',
 }
 
 export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timelineError }: {
@@ -172,8 +177,8 @@ export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timeli
   const uncertain = rows.reduce((sum, row) => sum + row.unknown, 0)
   const all = completed + failed + uncertain
   const confirmedRate = all > 0 ? Math.round(completed / all * 100) : null
-  const views = rows.filter(row => row.network === 'facebook' && row.views !== null)
-  const firstViews = views.length ? views[0].views : null
+  const views = rows.filter(row => row.views !== null)
+  const totalViews = views.length ? views.reduce((sum, row) => sum + row.views!, 0) : null
   return <div className="analytics-visuals">
     <section className="analytics-kpi-grid" aria-label="Resumo dos envios">
       <Panel surface="dark" className="analytics-kpi-card analytics-kpi-primary">
@@ -236,10 +241,10 @@ export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timeli
           <div><span className="analytics-panel-eyebrow"><Activity size={14} aria-hidden="true" /> DADOS OFICIAIS</span>
             <h2>Insights das plataformas</h2><p>Disponibilidade da última coleta</p></div>
         </div>
-        {firstViews !== null && <div className="analytics-insights-highlight">
-          <span>Visualizações da Página do Facebook</span>
-          <strong>{formatNumber(firstViews!)}</strong>
-          <small>Somente períodos fornecidos pela Meta; não são visualizações individuais dos posts.</small>
+        {totalViews !== null && <div className="analytics-insights-highlight">
+          <span>Visualizações dos posts rastreados</span>
+          <strong>{formatNumber(totalViews)}</strong>
+          <small>Total acumulado apenas dos posts publicados pelo Auto Orbital com insight disponível.</small>
         </div>}
         <ul className="analytics-insights-list">
           {rows.map(row => <li key={row.network}>
@@ -250,7 +255,7 @@ export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timeli
             </span>
           </li>)}
         </ul>
-        <p className="analytics-insights-note">Uma métrica indisponível não equivale a zero. As fontes e os valores detalhados permanecem na tabela abaixo.</p>
+        <p className="analytics-insights-note">Não somamos visualizações gerais de perfis ou páginas. Uma métrica indisponível não equivale a zero; uma coleta parcial pode subestimar o total.</p>
       </Panel>
     </div>
   </div>

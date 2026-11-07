@@ -139,6 +139,24 @@ def _sync_list_products(user_id: int, list_id: int, product_ids: list[int]) -> N
         )
 
 
+def _count_activated_list_ids(rows: list[dict]) -> dict[str, int]:
+    """Conta uma utilização por campanha ativada, não por post/rede/slot.
+
+    Os registros já chegam filtrados por activated_at no banco e pelo dono/perfil.
+    """
+    counts: dict[str, int] = {}
+    for row in rows:
+        try:
+            list_id = int(row.get("source_list_id"))
+        except (TypeError, ValueError):
+            continue
+        if list_id <= 0:
+            continue
+        key = str(list_id)
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────────
 
 @router.get("")
@@ -177,6 +195,45 @@ async def list_product_lists(
         next_cursor = last_item["created_at"]
 
     return {"data": lists, "next_cursor": next_cursor}
+
+
+@router.get("/usage")
+async def get_product_list_usage(
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Uso histórico: cada campanha efetivamente ativada conta uma vez.
+
+    Leitura sob escopo de usuário/perfil; não faz migração nem escreve em campanhas.
+    Seleciona somente o ID da lista do snapshot, nunca a copy ou mídias da campanha.
+    """
+    counts: dict[str, int] = {}
+    offset = 0
+    page_size = 500
+    try:
+        while True:
+            query = (
+                supabase.table("campaign_reservations_f4e")
+                .select("source_list_id:draft_snapshot->>source_list_id")
+                .eq("user_id", str(user_id))
+                .not_.is_("activated_at", "null")
+                .order("id")
+                .range(offset, offset + page_size - 1)
+            )
+            if profile_id:
+                query = query.eq("profile_id", profile_id)
+            rows = query.execute().data or []
+            for key, amount in _count_activated_list_ids(rows).items():
+                counts[key] = counts.get(key, 0) + amount
+            if len(rows) < page_size:
+                break
+            offset += page_size
+    except Exception:
+        # Não expor detalhes da consulta/estrutura do banco ao cliente.
+        raise HTTPException(
+            status_code=503, detail="Histórico de utilização indisponível. Tente novamente."
+        ) from None
+    return {"counts": counts}
 
 
 @router.post("")

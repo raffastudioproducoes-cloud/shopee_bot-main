@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock
 
-import httpx
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -10,6 +9,14 @@ from api.routers.credentials import _require_admin
 from api.routers.profiles import get_current_profile_id
 from api.routers import social_analytics
 from api import analytics_refresh
+from api import post_insights
+
+
+def _no_post_insights(monkeypatch, *, connected=True):
+    monkeypatch.setattr(social_analytics, 'published_jobs', lambda *args: [])
+    monkeypatch.setattr(social_analytics, 'indexed_insights', lambda *args: {})
+    monkeypatch.setattr(social_analytics, 'current_network_connections',
+                        lambda *args: {'threads': connected, 'facebook': False, 'instagram': False})
 
 
 def test_analytics_requires_login():
@@ -39,6 +46,7 @@ def test_analytics_counts_only_owned_profile_and_never_invents_social_metrics(mo
     fake_client.table.side_effect = table
     monkeypatch.setattr(database_module, 'get_supabase', lambda: fake_client)
     monkeypatch.setattr(social_analytics, '_read_refresh', lambda *args: None)
+    _no_post_insights(monkeypatch)
 
     async def skip_background(*args, **kwargs):
         return {"state": "recent"}
@@ -89,41 +97,20 @@ def test_insights_probe_rejects_common_users_without_calling_provider(monkeypatc
         app.dependency_overrides.clear()
 
 
-def test_insights_probe_uses_owned_token_and_returns_only_safe_metadata(monkeypatch):
+def test_insights_probe_uses_only_cached_owned_post_not_account_insights(monkeypatch):
     app.dependency_overrides.clear()
     app.dependency_overrides[get_current_user_id] = lambda: 42
     app.dependency_overrides[_require_admin] = lambda: 42
     app.dependency_overrides[get_current_profile_id] = lambda: 'profile-a'
-    seen = []
-    query = MagicMock()
-    query.select.return_value = query
-    query.eq.side_effect = lambda key, value: (seen.append((key, value)), query)[1]
-    query.maybe_single.return_value = query
-    query.execute.return_value = MagicMock(data={"t_user_id": "123", "access_token": "ciphertext"})
-    fake_client = MagicMock()
-    fake_client.table.return_value = query
-    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake_client)
-    monkeypatch.setattr(social_analytics, "decrypt", lambda value: "private-token")
     monkeypatch.setattr(social_analytics, "_check_test_rate_limit", lambda user_id: None)
-
-    def handler(request):
-        assert request.url.host == "graph.threads.net"
-        assert request.url.path == "/v1.0/123/threads_insights"
-        assert request.headers["Authorization"] == "Bearer private-token"
-        return httpx.Response(200, json={"data": [{"name": "views", "values": [{"value": 4}]}]})
-
-    class Client(httpx.AsyncClient):
-        def __init__(self, **kwargs):
-            super().__init__(transport=httpx.MockTransport(handler), **kwargs)
-
-    monkeypatch.setattr(social_analytics.httpx, "AsyncClient", Client)
+    monkeypatch.setattr(social_analytics, 'published_jobs', lambda *args: [{
+        'id': 'job-1', 'network': 'threads', 'external_id': '123'}])
+    monkeypatch.setattr(social_analytics, 'indexed_insights', lambda *args: {
+        'job-1': {'external_id': '123', 'state': 'ok', 'views': 4}})
     response = TestClient(app).post('/analytics/probe/threads')
     assert response.status_code == 200
     result = response.json()
-    assert result == {"network": "threads", "state": "ok", "metric": "views", "result_count": 1}
-    assert ("user_id", 42) in seen
-    assert ("profile_id", "profile-a") in seen
-    assert "private-token" not in str(result)
+    assert result == {"network": "threads", "state": "ok", "metric": "views", "post_count": 1, "total_views": 4}
     app.dependency_overrides.clear()
 
 
@@ -157,33 +144,24 @@ def test_refresh_requires_active_profile(monkeypatch):
         app.dependency_overrides.clear()
 
 
-def test_facebook_cached_daily_values_never_fill_missing_days():
-    cached = {"provider_states": {"facebook": "ok"},
-              "facebook_daily_values": [
-                  {"period_end": "2999-01-01", "value": 7},
-                  {"period_end": "2999-01-02", "value": 0},
-              ]}
-    assert social_analytics._facebook_views_for_period(cached, 7) == 7
-    cached["provider_states"] = {"facebook": "api_error"}
-    assert social_analytics._facebook_views_for_period(cached, 7) is None
-    cached["provider_states"] = {"facebook": "ok"}
-    cached["facebook_daily_values"][0]["value"] = True
-    assert social_analytics._facebook_views_for_period(cached, 7) is None
+def test_account_views_are_never_treated_as_post_metrics():
+    jobs = [{'id': 'a', 'network': 'threads', 'external_id': '111'}]
+    result, collected, eligible, states = post_insights.summarize_post_metrics(jobs, {
+        'a': {'network': 'facebook', 'external_id': '111', 'state': 'ok', 'views': 31}})
+    assert result['views'] is None
+    assert collected == 0 and eligible == 1 and states == {'not_collected'}
 
 
 def test_collector_parses_only_valid_metrics():
-    metrics = [{"name": "views", "total_value": {"value": 33}}]
-    assert analytics_refresh._threads_views(metrics) == 33
-    assert analytics_refresh._threads_views([{"name": "views", "values": [
+    metrics = [{"name": "views", "total_value": {"value": 33}},
+               {"name": "likes", "values": [{"value": 0}]}]
+    parsed = post_insights.parse_threads_post_insights(metrics)
+    assert parsed['views'] == 33 and parsed['likes'] == 0
+    assert parsed['clicks'] is None
+    assert post_insights.parse_threads_post_insights([{"name": "views", "values": [
         {"value": 10}, {"value": 10}
     ]}]) is None
-    assert analytics_refresh._threads_views([{"name": "views", "total_value": {"value": True}}]) is None
-    daily = [{"name": "page_media_view", "values": [
-        {"value": 0, "end_time": "2026-10-30T00:00:00+0000"},
-    ]}]
-    assert analytics_refresh._facebook_daily_values(daily) == [
-        {"period_end": "2026-10-30", "value": 0}
-    ]
+    assert post_insights.parse_threads_post_insights([{"name": "views", "total_value": {"value": True}}]) is None
 
 
 def test_collector_credentials_restricted_by_user_and_profile(monkeypatch):
@@ -192,11 +170,11 @@ def test_collector_credentials_restricted_by_user_and_profile(monkeypatch):
     query.select.return_value = query
     query.eq.side_effect = lambda key, value: (fields.append((key, value)), query)[1]
     query.maybe_single.return_value = query
-    query.execute.return_value = MagicMock(data={"page_id": "page-a", "page_access_token": "cipher"})
+    query.execute.return_value = MagicMock(data={"t_user_id": "123", "access_token": "cipher", "status": True})
     fake = MagicMock()
     fake.table.return_value = query
     monkeypatch.setattr(database_module, "get_supabase", lambda: fake)
-    assert analytics_refresh._credential("user-a", "profile-a", "facebook") == ("page-a", "cipher")
+    assert post_insights._threads_credential("user-a", "profile-a") == "cipher"
     assert ("user_id", "user-a") in fields
     assert ("profile_id", "profile-a") in fields
     assert "cipher" not in str(fields)
@@ -207,7 +185,7 @@ def test_collector_does_not_repeat_when_claim_unavailable(monkeypatch):
     monkeypatch.setattr(analytics_refresh, "_claim", lambda *args: None)
     async def forbidden(*args, **kwargs):
         raise AssertionError("não deve chamar API externa sem claim")
-    monkeypatch.setattr(analytics_refresh, "_fetch_network", forbidden)
+    monkeypatch.setattr(analytics_refresh, "collect_profile_posts", forbidden)
     assert asyncio.run(analytics_refresh.refresh_account("user-a", "profile-a")) == {"state": "recent"}
 
 
@@ -276,5 +254,223 @@ def test_analytics_timeline_does_not_expose_database_errors(monkeypatch):
         result = TestClient(app).get('/analytics/timeline')
         assert result.status_code == 503
         assert 'internal database connection' not in result.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_all_profiles_counts_account_history_without_reading_credentials(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    filters = []
+
+    def account_jobs_query(name):
+        assert name == 'publish_jobs'
+        query = MagicMock()
+        query.select.return_value = query
+        query.eq.side_effect = lambda k, v: (filters.append((k, v)), query)[1]
+        query.gte.return_value = query
+        query.limit.return_value = query
+        query.execute.return_value = MagicMock(count=2)
+        return query
+
+    fake = MagicMock()
+    fake.table.side_effect = account_jobs_query
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    monkeypatch.setattr(social_analytics, '_read_refresh', lambda *args: 1 / 0)
+    monkeypatch.setattr(social_analytics, '_account_profile_ids', lambda *args: [])
+    _no_post_insights(monkeypatch)
+
+    async def forbidden(*args, **kwargs):
+        raise AssertionError('all não dispara OAuth/coleta em massa')
+
+    monkeypatch.setattr(social_analytics, 'refresh_account', forbidden)
+    try:
+        result = TestClient(app).get('/analytics/summary?profile_id=all&days=7&network=threads')
+        assert result.status_code == 200
+        body = result.json()
+        assert body['networks'] == [{
+            'network': 'threads', 'succeeded': 2, 'failed': 2, 'unknown': 2,
+            'views': None, 'likes': None, 'comments': None, 'reposts': None,
+            'clicks': None, 'shares': None, 'quotes': None, 'insights_status': 'no_posts',
+            'posts_with_insights': 0, 'posts_with_external_id': 0,
+        }]
+        assert ('user_id', 'user-a') in filters
+        assert all(name != 'profile_id' for name, _ in filters)
+        assert fake.table.call_count == 3
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_selected_profile_requires_ownership_without_activating_it(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    selected = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    seen = []
+
+    def table(name):
+        query = MagicMock()
+        query.select.return_value = query
+        query.eq.side_effect = lambda k, v: (seen.append((name, k, v)), query)[1]
+        query.maybe_single.return_value = query
+        query.execute.return_value = MagicMock(data={'id': selected} if name == 'profiles' else None, count=1)
+        query.gte.return_value = query
+        query.limit.return_value = query
+        return query
+
+    fake = MagicMock()
+    fake.table.side_effect = table
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    monkeypatch.setattr(social_analytics, '_read_refresh', lambda *args: None)
+    _no_post_insights(monkeypatch)
+
+    async def skip_background(*args, **kwargs):
+        return {'state': 'recent'}
+
+    monkeypatch.setattr(social_analytics, 'refresh_account', skip_background)
+    try:
+        result = TestClient(app).get(f'/analytics/summary?days=7&network=threads&profile_id={selected}')
+        assert result.status_code == 200
+        assert ('profiles', 'user_id', 'user-a') in seen
+        assert ('profiles', 'id', selected) in seen
+        assert ('publish_jobs', 'user_id', 'user-a') in seen
+        assert ('publish_jobs', 'profile_id', selected) in seen
+        assert ('publish_jobs', 'profile_id', 'active-id') not in seen
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_foreign_or_invalid_profile_is_rejected_before_jobs(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    fake = MagicMock()
+    owned_query = MagicMock()
+    owned_query.select.return_value = owned_query
+    owned_query.eq.return_value = owned_query
+    owned_query.maybe_single.return_value = owned_query
+    owned_query.execute.return_value = MagicMock(data=None)
+    fake.table.return_value = owned_query
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    try:
+        client = TestClient(app)
+        assert client.get('/analytics/summary?profile_id=not-a-uuid').status_code == 422
+        assert client.get('/analytics/summary?profile_id=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb').status_code == 404
+        assert client.get('/analytics/timeline?profile_id=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb').status_code == 404
+        assert client.post('/analytics/refresh?profile_id=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb').status_code == 404
+        assert all(call.args[0] == 'profiles' for call in fake.table.call_args_list)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_all_timeline_includes_archived_and_unassigned_without_duplicates(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    first = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    archived = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+    filters = []
+    sorts = []
+    rpc_calls = []
+
+    def query_for(name):
+        query = MagicMock()
+        query.select.return_value = query
+        query.eq.side_effect = lambda k, v: (filters.append((name, k, v)), query)[1]
+        query.is_.side_effect = lambda k, v: (filters.append((name, k, v)), query)[1]
+        query.in_.return_value = query
+        query.gte.return_value = query
+        query.order.side_effect = lambda field: (sorts.append(field), query)[1]
+        query.range.return_value = query
+        if name == 'profiles':
+            query.execute.return_value = MagicMock(data=[{'id': first}, {'id': archived}])
+        else:
+            query.execute.return_value = MagicMock(data=[{
+                'id': 9, 'network': 'threads', 'status': 'succeeded',
+                'finished_at': '2026-11-05T14:00:00+00:00',
+            }])
+        return query
+
+    fake = MagicMock()
+    fake.table.side_effect = query_for
+
+    def rpc(name, args):
+        rpc_calls.append((name, args))
+        result = MagicMock()
+        result.execute.return_value = MagicMock(data=[{
+            'day': '2026-11-05', 'network': 'threads', 'status': 'succeeded', 'total': 2,
+        }])
+        return result
+
+    fake.rpc.side_effect = rpc
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    try:
+        result = TestClient(app).get('/analytics/timeline?profile_id=all&days=30&network=threads')
+        assert result.status_code == 200
+        assert result.json()['points'] == [{
+            'day': '2026-11-05', 'network': 'threads', 'status': 'succeeded', 'total': 5,
+        }]
+        assert len(rpc_calls) == 2
+        assert {args['p_profile_id'] for _, args in rpc_calls} == {first, archived}
+        assert all(args['p_user_id'] == 'user-a' for _, args in rpc_calls)
+        assert ('profiles', 'user_id', 'user-a') in filters
+        assert ('publish_jobs', 'user_id', 'user-a') in filters
+        assert ('publish_jobs', 'profile_id', 'null') in filters
+        assert sorts[-2:] == ['finished_at', 'id']
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_missing_count_is_not_reported_as_zero(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    query = MagicMock()
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.gte.return_value = query
+    query.limit.return_value = query
+    query.execute.return_value = MagicMock(count=None)
+    fake = MagicMock()
+    fake.table.return_value = query
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    monkeypatch.setattr(social_analytics, '_read_refresh', lambda *args: None)
+    monkeypatch.setattr(social_analytics, '_account_profile_ids', lambda *args: [])
+    _no_post_insights(monkeypatch)
+    try:
+        result = TestClient(app).get('/analytics/summary?profile_id=all&network=threads')
+        assert result.status_code == 503
+        assert 'temporariamente indisponível' in result.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_analytics_refresh_explicit_owned_profile_without_mass_refresh(monkeypatch):
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: 'user-a'
+    app.dependency_overrides[get_current_profile_id] = lambda: 'active-id'
+    selected = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    query = MagicMock()
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.maybe_single.return_value = query
+    query.execute.return_value = MagicMock(data={'id': selected})
+    fake = MagicMock()
+    fake.table.return_value = query
+    monkeypatch.setattr(database_module, 'get_supabase', lambda: fake)
+    called = []
+
+    async def fake_refresh(user_id, profile_id, *, manual=False):
+        called.append((user_id, profile_id, manual))
+        return {'state': 'updated'}
+
+    monkeypatch.setattr(social_analytics, 'refresh_account', fake_refresh)
+    try:
+        client = TestClient(app)
+        assert client.post('/analytics/refresh?profile_id=all').status_code == 400
+        result = client.post(f'/analytics/refresh?profile_id={selected}')
+        assert result.status_code == 200
+        assert called == [('user-a', selected, True)]
     finally:
         app.dependency_overrides.clear()

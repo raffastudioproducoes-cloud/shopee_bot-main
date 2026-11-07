@@ -167,6 +167,8 @@ export interface GenerateCopyOptions {
   partCount?: number
   mode?: "full" | "append"
   existingTexts?: string[]
+  descriptionOnly?: boolean
+  provider?: "gemini" | "openai" | "anthropic"
 }
 
 export interface PostFutureRevision {
@@ -272,6 +274,8 @@ export const postsApi = {
       part_count: options.partCount ?? 1,
       mode: options.mode ?? "full",
       existing_texts: options.existingTexts ?? [],
+      description_only: options.descriptionOnly ?? false,
+      ...(options.provider ? { provider: options.provider } : {}),
     })
   },
 

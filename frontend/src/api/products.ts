@@ -5,6 +5,7 @@ export interface Product {
   user_id: number
   product_id: string
   name: string
+  description?: string | null
   original_link: string | null
   commission_link: string | null
   commission: number | string | null
@@ -29,15 +30,18 @@ export interface ProductCreate {
 }
 
 export interface ProductUpdate {
-  product_id?: string | null
-  name?: string | null
-  original_link?: string | null
-  commission_link?: string | null
-  commission?: number | string | null
-  image?: string | null
-  price_min?: number | string | null
-  price_max?: number | string | null
-  category?: string | null
+  name?: string
+  description?: string | null
+}
+
+export interface ProductMedia {
+  id: string
+  product_id: number
+  media_type: "IMAGE" | "VIDEO"
+  file_name: string
+  size_bytes: number
+  slot: number
+  preview_url: string
 }
 
 export interface ProductsResponse {
@@ -82,6 +86,18 @@ export const productsApi = {
 
   async update(id: number, data: ProductUpdate): Promise<Product> {
     return api.put<Product>(`/products/${id}`, data)
+  },
+
+  async media(id: number): Promise<{ items: ProductMedia[] }> {
+    return api.get<{ items: ProductMedia[] }>(`/products/${id}/media`)
+  },
+
+  async uploadMedia(id: number, file: File): Promise<ProductMedia> {
+    return api.upload<ProductMedia>(`/products/${id}/media`, file)
+  },
+
+  async deleteMedia(id: number, assetId: string): Promise<{ msg: string }> {
+    return api.delete<{ msg: string }>(`/products/${id}/media/${assetId}`)
   },
 
   async delete(id: number): Promise<{ msg: string }> {

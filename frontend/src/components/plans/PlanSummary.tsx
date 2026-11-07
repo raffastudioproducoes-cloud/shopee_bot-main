@@ -4,6 +4,7 @@ import { Button } from "../ui/Button"
 import { Panel } from "../ui/Panel"
 import { Skeleton } from "../ui/Skeleton"
 import { usePlanUsage } from "../../hooks/usePlanUsage"
+import { useProfiles } from "../../hooks/useProfiles"
 import { accountPlanLabel, resourceAtLimit, usageLabel } from "../../lib/planPresentation"
 import type { PlanResource } from "../../api/planUsage"
 import "./planSummary.css"
@@ -30,9 +31,15 @@ export function UpgradeInfo({ feature }: { feature?: string }) {
 }
 
 export function PlanBadge() {
+  const { activeProfile } = useProfiles()
   const query = usePlanUsage()
-  return <Badge tone={query.data?.is_admin || query.data?.plan_tier === "premium" ? "mint" : "neutral"}>
-    {accountPlanLabel(query.isError ? undefined : query.data)}
+  // Nunca mostrar "Plano indisponível": só renderizar a aba após
+  // o perfil e um plano válido estarem efetivamente disponíveis.
+  if (!activeProfile || query.isError || !query.data) return null
+  const label = accountPlanLabel(query.data)
+  if (label === "Plano indisponível") return null
+  return <Badge tone={query.data.is_admin || query.data.plan_tier === "premium" ? "mint" : "neutral"}>
+    {label}
   </Badge>
 }
 

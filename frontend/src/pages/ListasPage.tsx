@@ -3,13 +3,16 @@ import { useState, useCallback, useEffect } from "react"
 import { useSearch } from "@tanstack/react-router"
 import { useAuthStore } from "../stores/authStore"
 import { useProfileStore } from "../stores/profileStore"
+import { useListsSearchStore } from "../stores/listsSearchStore"
+import { matchesScopedSearch } from "../lib/pageSearch"
 import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
 import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
-import { listsApi, type ProductList, type ProductListsResponse } from "../api/lists"
+import { listsApi, type ProductList, type ProductListsResponse, type ListUsageResponse } from "../api/lists"
+import { DEFAULT_LIST_SORT, LIST_SORT_OPTIONS, isListSortMode, isUsageSort, sortProductLists, type ListSortMode } from "../lib/listSorting"
 import { productsApi, type ProductsResponse } from "../api/products"
 import { formatBRL, formatPriceRange, toNumber } from "../lib/commission"
-import { PlanSummary } from "../components/plans/PlanSummary"
+import { ResourceQuotaBar } from "../components/plans/ProductQuotaBar"
 import { usePlanUsage } from "../hooks/usePlanUsage"
 import { resourceAtLimit } from "../lib/planPresentation"
 import { Panel } from "../components/ui/Panel"
@@ -17,6 +20,7 @@ import { Button } from "../components/ui/Button"
 import { PageSkeleton } from "../components/ui/Skeleton"
 import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
+import { Select } from "../components/ui/Select"
 import { Modal } from "../components/ui/Modal"
 import { TimelineListCard } from "../components/ui/TimelineListCard"
 import { Icon } from "../components/ui/Icon"
@@ -39,6 +43,25 @@ export function ListasPage() {
   const [editingList, setEditingList] = useState<ProductList | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
   const [view, setView] = useViewMode("lists-view")
+  const [sortMode, setSortMode] = useState<ListSortMode>(() => {
+    try {
+      const saved = localStorage.getItem("lists-sort")
+      if (isListSortMode(saved)) return saved
+    } catch {
+      // Preferência não persiste no modo privado.
+    }
+    return DEFAULT_LIST_SORT
+  })
+  const changeSortMode = (next: ListSortMode) => {
+    setSortMode(next)
+    try {
+      localStorage.setItem("lists-sort", next)
+    } catch {
+      // A ordenação continua funcional na sessão.
+    }
+  }
+  const listSearch = useListsSearchStore((state) => state.query)
+  const clearListSearch = useListsSearchStore((state) => state.clear)
 
   useEffect(() => {
     if (action !== "create" || planQuery.isPending || planQuery.isError || !planQuery.data) return
@@ -50,11 +73,26 @@ export function ListasPage() {
   }, [action, planQuery.isPending, planQuery.isError, planQuery.data, listsAtLimit])
 
   const { data: listsData, isLoading } = useQuery<ProductListsResponse>({
-    queryKey: ["lists"],
-    queryFn: () => listsApi.list(),
+    queryKey: ["lists", user?.id, activeProfileId],
+    // Cobre os tetos comerciais Free/Pro/Premium numa chamada (20/100 listas por perfil).
+    queryFn: () => listsApi.list({ limit: 100 }),
   })
 
+  const usageSortSelected = isUsageSort(sortMode)
+  // Consultar histórico somente quando o usuário ordenar por campanhas ativadas.
+  const usageQuery = useQuery<ListUsageResponse>({
+    queryKey: ["lists-usage", user?.id, activeProfileId],
+    queryFn: () => listsApi.usage(),
+    enabled: usageSortSelected && Boolean(user?.id) && Boolean(listsData),
+    staleTime: 60_000,
+  })
   const lists = listsData?.data ?? []
+  const filteredLists = listSearch.trim()
+    ? lists.filter((list) => matchesScopedSearch([
+        list.name, ...(list.products ?? []).flatMap((product) => [product.name, product.product_id]),
+      ], listSearch))
+    : lists
+  const visibleLists = sortProductLists(filteredLists, sortMode, usageQuery.data?.counts)
 
   const onAuthError = (err: Error) => {
     if (err.message.includes("401") || err.message === "Não autenticado") {
@@ -165,8 +203,15 @@ export function ListasPage() {
         <div>
           <h1 className="csp-s-0277">Listas de Produtos</h1>
           <p className="csp-s-0278">Agrupe seus produtos em listas.</p>
-          <div className="csp-s-0279">
+          <div className="csp-s-0279" style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
             <ViewSwitcher value={view} onChange={setView} />
+            <Select
+              label="ORDENAR LISTAS"
+              width="min(100%, 270px)"
+              value={sortMode}
+              onChange={(event) => changeSortMode(event.target.value as ListSortMode)}
+              options={LIST_SORT_OPTIONS}
+            />
           </div>
         </div>
         <Button
@@ -182,26 +227,52 @@ export function ListasPage() {
         </Button>
       </header>
 
-      <PlanSummary resources={["lists"]} />
+      <ResourceQuotaBar
+        resource="lists"
+        plan={planQuery.data}
+        loading={planQuery.isPending}
+        error={planQuery.isError}
+        onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })}
+      />
+      {usageSortSelected && usageQuery.isPending && (
+        <p role="status" style={{ color: "var(--text-muted)", marginBottom: 12 }}>
+          Consultando as campanhas ativadas dessas listas...
+        </p>
+      )}
+      {usageSortSelected && usageQuery.isError && (
+        <p role="alert" style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          Não foi possível obter os dados de uso. A ordenação por campanhas fica pendente.
+          <Button variant="ghost" size="sm" onClick={() => void usageQuery.refetch()}>Tentar novamente</Button>
+        </p>
+      )}
+      {/* Busca restrita às listas do perfil ativo e aos produtos nelas contidos. */}
+      {listSearch.trim() && (
+        <p role="status" style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          {visibleLists.length} de {lists.length} lista(s) encontrada(s).
+          <Button variant="ghost" size="sm" onClick={clearListSearch}>Limpar busca</Button>
+        </p>
+      )}
       {/* Lists */}
-      {lists.length === 0 ? (
+      {visibleLists.length === 0 ? (
         <Panel surface="dark" style={{ padding: "48px 16px", textAlign: "center" }}>
-          <p className="csp-s-0280">Nenhuma lista criada.</p>
-          <Button
-            variant="primary"
-            style={{ marginTop: 16 }}
-            disabled={listsAtLimit}
-            onClick={() => {
-              setEditingList(null)
-              setModalOpen(true)
-            }}
-          >
-            Criar primeira lista
-          </Button>
+          <p className="csp-s-0280">{listSearch.trim() ? "Nenhuma lista corresponde à busca." : "Nenhuma lista criada."}</p>
+          {!listSearch.trim() && (
+            <Button
+              variant="primary"
+              style={{ marginTop: 16 }}
+              disabled={listsAtLimit}
+              onClick={() => {
+                setEditingList(null)
+                setModalOpen(true)
+              }}
+            >
+              Criar primeira lista
+            </Button>
+          )}
         </Panel>
       ) : (
         <div style={viewContainerStyle(view)}>
-          {lists.map((list) => (
+          {visibleLists.map((list) => (
             <TimelineListCard
               key={list.id}
               title={list.name}
@@ -245,7 +316,6 @@ export function ListasPage() {
                 { icon: "dollar-sign", label: "Valor (mín.)", value: estimatedListValue(list) },
               ]}
               sections={[
-                { label: "Lista", content: list.name },
                 {
                   label: "Produtos",
                   category: `${list.product_count ?? 0} ${list.product_count === 1 ? "item" : "itens"}`,
@@ -267,16 +337,6 @@ export function ListasPage() {
                     ) : (
                       "Nenhum produto nesta lista."
                     ),
-                },
-                {
-                  label: "Criada em",
-                  category: "Data",
-                  content: new Date(list.created_at).toLocaleString("pt-BR"),
-                },
-                {
-                  label: "Atualizada em",
-                  category: "Data",
-                  content: list.updated_at ? new Date(list.updated_at).toLocaleString("pt-BR") : "Nunca atualizada",
                 },
               ]}
             />
@@ -342,7 +402,7 @@ function ListModal({ list, onClose, onSave, loading }: ListModalProps) {
 
   const products = productsData?.data ?? []
   const filteredProducts = search.trim()
-    ? products.filter((p) => p.name.toLowerCase().includes(search.trim().toLowerCase()))
+    ? products.filter((product) => matchesScopedSearch([product.name, product.product_id], search))
     : products
 
   const toggleProduct = (id: number) => {

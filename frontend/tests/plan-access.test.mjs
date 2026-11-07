@@ -79,6 +79,7 @@ test("resumo renderiza escopo, consumo ausente, erro 503 e CTA sem checkout", as
     "../ui/Badge": { Badge: box("span") }, "../ui/Button": { Button: box("button") },
     "../ui/Panel": { Panel: box("section") }, "../ui/Skeleton": { Skeleton: box("div") },
     "../../hooks/usePlanUsage": { usePlanUsage: () => query },
+    "../../hooks/useProfiles": { useProfiles: () => ({ activeProfile: { id: "a" } }) },
     "../../lib/planPresentation": lib,
   })
   let html = renderToStaticMarkup(React.createElement(mod.PlanSummary))
@@ -130,8 +131,25 @@ test("resumo é responsivo e não depende só de cor ou hover", async () => {
   assert.match(css, /repeat\(auto-fit, minmax\(min\(100%, 200px\), 1fr\)\)/)
   assert.match(css, /flex-wrap: wrap/)
   assert.match(css, /focus-visible/)
-  assert.match(css, /\.plan-topbar-account \{ flex-direction: column/)
+  assert.match(css, /\.app-topbar \.plan-topbar-account \{[\s\S]*?flex-direction: column/)
+  assert.match(css, /\.app-topbar \.plan-topbar-account \{[\s\S]*?padding-bottom: 24px/)
+  assert.match(css, /\.plan-topbar-account \.active-profile-chip \{[\s\S]*?z-index: 2/)
+  assert.match(css, /\.plan-topbar-account \.plan-topbar-tag \{[\s\S]*?position: absolute/)
+  assert.match(css, /\.plan-topbar-account \.plan-topbar-tag \{[\s\S]*?left: 0;[\s\S]*?right: 0;[\s\S]*?bottom: 0/)
+  assert.match(css, /\.plan-topbar-account \.plan-topbar-tag \{[\s\S]*?z-index: 1/)
+  assert.match(css, /\.plan-topbar-account \.plan-topbar-tag > span \{[\s\S]*?width: 100%/)
+  assert.match(css, /\.plan-topbar-account \.plan-topbar-tag > span \{[\s\S]*?align-items: flex-end/)
+  assert.match(css, /padding: 32px 12px 8px !important/)
+  assert.doesNotMatch(css, /margin: 0 0 0 -19px/)
+  const chip = await readFile(new URL("../src/components/profiles/ActiveProfileChip.tsx", import.meta.url), "utf8")
+  assert.match(chip, /background: "#303440"/)
+  assert.match(chip, /minHeight: 70/)
+  assert.match(chip, /size=\{48\}/)
+  assert.doesNotMatch(chip, /background: "rgba\(255,255,255,\.14\)"/)
   const panel = await readFile(new URL("../src/pages/PanelPage.tsx", import.meta.url), "utf8")
-  assert.match(panel, /className="plan-topbar-account"[\s\S]*?<PlanBadge \/>[\s\S]*?<ActiveProfileChip \/>/)
+  assert.match(panel, /className="plan-topbar-account"[\s\S]*?<ActiveProfileChip \/>[\s\S]*?className="plan-topbar-tag"[\s\S]*?<PlanBadge \/>/)
+  assert.match(panel, /const searchPage = searchPageForRoute\(location\.pathname, activeProductsTab\)/)
+  assert.match(panel, /showSearch=\{searchPage !== null\}/)
+  assert.match(panel, /onQuery=\{searchPage \? \(event\) => setPageSearch\(event\.target\.value\) : undefined\}/)
   assert.match(css, /min-height: var\(--hit-min\)/)
 })

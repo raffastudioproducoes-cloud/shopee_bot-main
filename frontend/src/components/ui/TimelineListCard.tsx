@@ -39,6 +39,12 @@ export interface TimelineListCardProps {
   sections: TimelineSection[]
   /** Botões de ação (editar/remover), ficam entre o badge e o chevron. */
   actions?: ReactNode
+  /** Conteúdo logo após o cabeçalho, antes dos links e indicadores. */
+  expandedHeader?: ReactNode
+  /** Bloco em largura total, montado somente com o card expandido. */
+  expandedFooter?: ReactNode
+  /** Mantém os indicadores no topo por padrão; produtos usam o rodapé. */
+  statsPlacement?: "top" | "bottom"
   defaultOpen?: boolean
   style?: CSSProperties
 }
@@ -51,10 +57,28 @@ export function TimelineListCard({
   stats,
   sections,
   actions,
+  expandedHeader,
+  expandedFooter,
+  statsPlacement = "top",
   defaultOpen = false,
   style,
 }: TimelineListCardProps) {
   const [open, setOpen] = useState(defaultOpen)
+  const statsContent = stats.length > 0 ? (
+    <div
+      className="timeline-card-stats"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
+        gap: 8,
+        marginBottom: statsPlacement === "top" ? 20 : 0,
+      }}
+    >
+      {stats.map((stat, index) => (
+        <InfoStat key={index} icon={stat.icon} label={stat.label} value={stat.value} />
+      ))}
+    </div>
+  ) : null
 
   return (
     <Panel surface="dark" className="timeline-list-card" style={{ padding: 0, ...style }}>
@@ -113,23 +137,13 @@ export function TimelineListCard({
         <div className="csp-s-0150">
           <Divider style={{ marginBottom: 16 }} />
 
-          {stats.length > 0 ? (
-            <div
-              className="timeline-card-stats"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))",
-                gap: 8,
-                marginBottom: 20,
-              }}
-            >
-              {stats.map((s, i) => (
-                <InfoStat key={i} icon={s.icon} label={s.label} value={s.value} />
-              ))}
-            </div>
+          {statsPlacement === "top" ? statsContent : null}
+
+          {expandedHeader ? (
+            <div style={{ marginBottom: 20 }}>{expandedHeader}</div>
           ) : null}
 
-          <div className="csp-s-0151">
+          {sections.length > 0 ? <div className="csp-s-0151">
             <div
               className="csp-s-0152"
             />
@@ -163,7 +177,15 @@ export function TimelineListCard({
                 </div>
               </div>
             ))}
-          </div>
+          </div> : null}
+          {statsPlacement === "bottom" && statsContent ? (
+            <div style={{ marginTop: sections.length > 0 ? 20 : 0 }}>{statsContent}</div>
+          ) : null}
+          {expandedFooter ? (
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              {expandedFooter}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </Panel>

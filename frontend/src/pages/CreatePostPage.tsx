@@ -9,7 +9,8 @@ import { ApiError } from "../lib/api"
 import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
 import { PostComposer, type NetworkResult } from "../components/posts/PostComposer"
 import { CampaignPlanner } from "../components/campaigns/CampaignPlanner"
-import { PlanSummary } from "../components/plans/PlanSummary"
+import { ResourceQuotaBar } from "../components/plans/ProductQuotaBar"
+import { usePlanUsage } from "../hooks/usePlanUsage"
 import { SegmentedToggle } from "../components/ui/SegmentedToggle"
 
 /** Página dedicada de criação. Preserva o fluxo de envio e o rascunho anterior. */
@@ -18,6 +19,7 @@ export function CreatePostPage() {
   const [creationMode, setCreationMode] = useState<"single" | "campaign">("single")
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const queryClient = useQueryClient()
+  const planQuery = usePlanUsage()
 
   // Carrega antes do editor: uma conexão já testada não fica
   // momentaneamente parecendo indisponível no compositor.
@@ -157,7 +159,13 @@ export function CreatePostPage() {
           onChange={(mode) => setCreationMode(mode as "single" | "campaign")}
         />
       </div>
-      <PlanSummary resources={["immediate", "recurring"]} />
+      <ResourceQuotaBar
+        resource={creationMode === "campaign" ? "campaigns" : "publishing"}
+        plan={planQuery.data}
+        loading={planQuery.isPending}
+        error={planQuery.isError}
+        onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })}
+      />
       {creationMode === "campaign" ? <CampaignPlanner key={activeProfileId} credentials={credentials} /> : <PostComposer
         post={null}
         onClose={() => void router.navigate({ to: "/posts" })}
@@ -171,3 +179,4 @@ export function CreatePostPage() {
     </div>
   )
 }
+

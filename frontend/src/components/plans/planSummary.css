@@ -13,8 +13,136 @@
 .plan-campaign-lock { margin-block: var(--sp-4); padding: var(--sp-4); border: 1px solid var(--border-card); border-radius: var(--r-md); }
 .plan-campaign-editor { border: 0; padding: 0; margin: 0; min-width: 0; }
 
-.plan-topbar-account { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
-@media (max-width: 767px) {
-  .plan-topbar-account { flex-direction: column; align-items: flex-end; gap: var(--sp-1); flex-shrink: 1; }
-  .plan-topbar-account > :first-child { max-width: 100%; font-size: var(--fs-caption); overflow-wrap: anywhere; }
+/* Dois cartões realmente empilhados no eixo VERTICAL:
+   cartão do perfil totalmente à frente; cartão do plano atrás e
+   parcialmente visível ABAIXO, no mesmo eixo e mesma largura.
+   O texto do plano permanece na parte exposta do cartão traseiro. */
+.app-topbar .plan-topbar-account {
+  display: inline-flex;
+  position: relative;
+  isolation: isolate;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  flex-shrink: 0;
+  /* Reserva somente a faixa que fica visível abaixo do cartão frontal. */
+  padding-bottom: 24px;
+  white-space: nowrap;
 }
+.plan-topbar-account .active-profile-chip {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  white-space: nowrap;
+}
+/* O carregamento ocupa exatamente a área frontal, sem colapsar a largura. */
+.plan-topbar-account .active-profile-chip--loading {
+  box-sizing: border-box;
+  width: 206px;
+  cursor: default;
+}
+.plan-topbar-account .active-profile-loading-name {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.plan-topbar-account .active-profile-chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.plan-topbar-account .plan-topbar-tag {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  pointer-events: none;
+}
+.plan-topbar-account .plan-topbar-tag > span {
+  box-sizing: border-box;
+  display: flex !important;
+  width: 100%;
+  min-height: 62px;
+  padding: 32px 12px 8px !important;
+  border-radius: 26px !important;
+  justify-content: center;
+  align-items: flex-end;
+  font-size: 14px !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,.2);
+  /* O badge só monta quando o plano chega: desliza naquele momento,
+     de trás do perfil (z-index 2), sem animar o placeholder vazio. */
+  --plan-tag-entry-offset: -24px;
+  animation: plan-topbar-tag-reveal 680ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+@keyframes plan-topbar-tag-reveal {
+  from { transform: translateY(var(--plan-tag-entry-offset)); }
+  to { transform: translateY(0); }
+}
+
+@media (max-width: 767px) {
+  /* O mesmo encaixe vertical em dimensões compactas para o cabeçalho móvel. */
+  .app-topbar .plan-topbar-account {
+    display: inline-flex;
+    position: relative;
+    flex: 0 1 auto;
+    width: min(43vw, 164px);
+    min-width: 0;
+    height: auto;
+    padding-bottom: 19px;
+  }
+  .app-topbar .plan-topbar-account .active-profile-chip {
+    position: relative;
+    width: 100%;
+    max-width: 100% !important;
+    min-width: 0;
+    min-height: 47px !important;
+    gap: 6px !important;
+    padding: 0 9px 0 4px !important;
+    border-radius: 19px !important;
+    font-size: 12px !important;
+    overflow: hidden;
+  }
+  .app-topbar .plan-topbar-account .active-profile-chip--loading .active-profile-loading-avatar {
+    width: 34px !important;
+    height: 34px !important;
+    flex: 0 0 34px;
+  }
+  .app-topbar .plan-topbar-account .active-profile-chip--loading .active-profile-loading-name {
+    width: auto !important;
+    max-width: calc(100% - 40px);
+  }
+  .app-topbar .plan-topbar-account .active-profile-chip .csp-s-0072 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .app-topbar .plan-topbar-account .active-profile-chip :is(img, [role="img"]) {
+    width: 34px !important;
+    height: 34px !important;
+  }
+  .app-topbar .plan-topbar-account .plan-topbar-tag {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+  }
+  .app-topbar .plan-topbar-account .plan-topbar-tag > span {
+    width: 100%;
+    min-height: 50px;
+    padding: 27px 6px 5px !important;
+    border-radius: 19px !important;
+    justify-content: center;
+    align-items: flex-end;
+    font-size: 11px !important;
+    --plan-tag-entry-offset: -19px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-topbar-account .plan-topbar-tag > span { animation: none; }
+}
+

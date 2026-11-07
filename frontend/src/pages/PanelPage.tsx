@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation, Outlet } from '@tanstack/react-router'
 import { useAuthStore } from '../stores/authStore'
 import { usePostsSearchStore } from '../stores/postsSearchStore'
+import { useProductsSearchStore } from '../stores/productsSearchStore'
+import { useListsSearchStore } from '../stores/listsSearchStore'
+import { searchPageForRoute } from '../lib/pageSearch'
 import { authApi } from '../api/auth'
 import { ApiError } from '../lib/api'
 import { SideRail, type SideRailItem } from '../components/ui/SideRail'
@@ -40,6 +43,18 @@ export function PanelPage() {
   const location = useLocation()
   const postsSearch = usePostsSearchStore((state) => state.query)
   const setPostsSearch = usePostsSearchStore((state) => state.setQuery)
+  const productsSearch = useProductsSearchStore((state) => state.query)
+  const setProductsSearch = useProductsSearchStore((state) => state.setQuery)
+  const activeProductsTab = useProductsSearchStore((state) => state.activeTab)
+  const listsSearch = useListsSearchStore((state) => state.query)
+  const setListsSearch = useListsSearchStore((state) => state.setQuery)
+  const searchPage = searchPageForRoute(location.pathname, activeProductsTab)
+  const searchValue = searchPage === 'posts' ? postsSearch : searchPage === 'products' ? productsSearch : searchPage === 'lists' ? listsSearch : ''
+  const setPageSearch = (query: string) => {
+    if (searchPage === 'posts') setPostsSearch(query)
+    else if (searchPage === 'products') setProductsSearch(query)
+    else if (searchPage === 'lists') setListsSearch(query)
+  }
   const { user, login, logout, setUser, isAuthenticated, isRoleVerified, setRoleVerified } = useAuthStore()
   const [menuOpen, setMenuOpen] = useState(false)
   const [logoutError, setLogoutError] = useState(false)
@@ -156,8 +171,9 @@ export function PanelPage() {
 
       <div className="app-col">
         <TopBar
-          query={location.pathname === "/posts" ? postsSearch : ""}
-          onQuery={location.pathname === "/posts" ? (event) => setPostsSearch(event.target.value) : undefined}
+          showSearch={searchPage !== null}
+          query={searchValue}
+          onQuery={searchPage ? (event) => setPageSearch(event.target.value) : undefined}
           leading={
             <button
               ref={menuBtnRef}
@@ -186,8 +202,8 @@ export function PanelPage() {
           trailing={
             <>
               <div className="plan-topbar-account">
-                <PlanBadge />
                 <ActiveProfileChip />
+                <span className="plan-topbar-tag"><PlanBadge /></span>
               </div>
               <IconButton icon="log-out" label="Sair" tone="glass" onClick={handleLogout} />
             </>

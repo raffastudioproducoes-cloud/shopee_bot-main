@@ -1,0 +1,37 @@
+import test from "node:test"
+import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
+
+const source = readFileSync(new URL("../src/pages/CredentialsPage.tsx", import.meta.url), "utf8")
+const registryStart = source.indexOf("  const cards: {")
+const registryEnd = source.indexOf("  const grouped = groupCredentialCards(cards)", registryStart)
+const registry = source.slice(registryStart, registryEnd)
+
+test("os nove cards integram o agrupamento, com ordenação alfabética PT-BR em cada seção", () => {
+  assert.ok(registryStart >= 0 && registryEnd > registryStart)
+  const cards = ["Facebook", "Instagram", "Inteligência Artificial", "Kwai",
+    "Shopee Vídeo", "Threads", "TikTok", "X (Twitter)"]
+  for (const title of cards) {
+    assert.equal(registry.split('title: "' + title + '"').length - 1, 1, `Card ${title} deve aparecer uma vez`)
+  }
+  assert.match(source, /const SIMPLE_NETWORKS[^]*?key: "shopee", label: "Shopee"/)
+  assert.match(registry, /\.\.\.SIMPLE_NETWORKS\.map\(\(network\) => \(\{/)
+  assert.match(source, /groupCredentialCards\(cards\)/)
+  assert.match(source, /title: "Já credenciados"[^]*?title: "Ainda não cadastrados"/)
+  assert.match(source, /grouped\.registered[^]*?grouped\.pending/)
+  assert.match(source, /aria-labelledby=\{`credentials-\$\{group\.id\}`\}/)
+  assert.match(source, /credentials-card-grid csp-named-card-grid/)
+})
+
+test("Shopee Vídeo é card informativo, recolhível e sem conexão fictícia", () => {
+  const start = source.indexOf("function ShopeeVideoCredentialCard()")
+  const end = source.indexOf("// ── Card da chave de IA", start)
+  assert.ok(start > 0 && end > start)
+  const card = source.slice(start, end)
+  assert.match(card, /<CredPanel id="Shopee Vídeo">/)
+  assert.match(card, /<CredHeader[^]*?title="Shopee Vídeo"/)
+  assert.match(card, /Aguardando aprovação/)
+  assert.match(card, /Shopee Afiliados[^]*?não autorizam a publicação de vídeos/)
+  assert.match(card, /<Button type="button" variant="primary" disabled>\s*Conectar Shopee Vídeo/)
+  assert.doesNotMatch(card, /credentialsApi|useMutation|authorize|appId|secret/i)
+})

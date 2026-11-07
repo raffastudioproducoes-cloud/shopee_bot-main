@@ -8,6 +8,7 @@ import { NETWORK_RULES } from "../lib/networkLimits"
 import { NetworkLogo } from "../components/posts/NetworkPicker"
 import { useProfileStore } from "../stores/profileStore"
 import { formDraftKey } from "../lib/formDraftStorage"
+import { POSTS_FETCH_LIMIT, POSTS_PER_PAGE, canAdvancePostHistory, paginatePostHistory } from "../lib/postHistoryPagination"
 import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { Panel, PanelHeader, Divider } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
@@ -53,6 +54,7 @@ export function PostsPage() {
   const queryClient = useQueryClient()
   const activeProfileId = useProfileStore((state) => state.activeProfileId)
   const [detailsPost, setDetailsPost] = useState<Post | null>(null)
+  const [historyPage, setHistoryPage] = useState(1)
   const searchQuery = usePostsSearchStore((state) => state.query)
   const clearSearch = usePostsSearchStore((state) => state.clear)
   const setSearchQuery = usePostsSearchStore((state) => state.setQuery)
@@ -71,7 +73,7 @@ export function PostsPage() {
   const { data: postsPages, isLoading, isError: postsLoadError, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["posts", activeProfileId],
     initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) => postsApi.list({ cursor: pageParam, limit: 100 }),
+    queryFn: ({ pageParam }) => postsApi.list({ cursor: pageParam, limit: POSTS_FETCH_LIMIT }),
     getNextPageParam: (page) => page.next_cursor ?? undefined,
     refetchInterval: (query) => query.state.data?.pages?.some((page) =>
       page.data.some((post) => post.scheduled && (
@@ -81,7 +83,25 @@ export function PostsPage() {
     ) ? 30_000 : false,
   })
   const posts = postsPages?.pages.flatMap((page) => page.data) ?? []
-  const visiblePosts = searchQuery.trim() ? posts.filter((post) => matchesPost(post, searchQuery)) : posts
+  const hasActiveSearch = searchQuery.trim().length > 0
+  const visiblePosts = hasActiveSearch ? posts.filter((post) => matchesPost(post, searchQuery)) : posts
+  const pagination = paginatePostHistory(visiblePosts, historyPage)
+  const canNextHistoryPage = !postsLoadError && canAdvancePostHistory(
+    pagination.page, pagination.loadedPages, !!hasNextPage, hasActiveSearch,
+  )
+
+  useEffect(() => setHistoryPage(1), [searchQuery, activeProfileId])
+
+  const goToNextHistoryPage = () => {
+    if (pagination.page < pagination.loadedPages) {
+      setHistoryPage(pagination.page + 1)
+    } else if (!hasActiveSearch && hasNextPage && !isFetchingNextPage && !postsLoadError) {
+      void fetchNextPage().then((result) => {
+        const nextPostCount = result.data?.pages.reduce((count, page) => count + page.data.length, 0) ?? posts.length
+        if (nextPostCount > pagination.page * POSTS_PER_PAGE) setHistoryPage(pagination.page + 1)
+      })
+    }
+  }
   useEffect(() => {
     if (searchQuery.trim() && hasNextPage && !isFetchingNextPage && !postsLoadError) void fetchNextPage()
   }, [searchQuery, hasNextPage, isFetchingNextPage, postsLoadError, fetchNextPage, posts.length])
@@ -212,7 +232,7 @@ export function PostsPage() {
       ) : (
         <Panel surface="dark" className="posts-list-panel">
           <PanelHeader title="Posts" />
-          {visiblePosts.map((post, index) => (
+          {pagination.items.map((post, index) => (
             <div key={post.id}>
               {index > 0 && <Divider />}
               <div
@@ -367,14 +387,30 @@ export function PostsPage() {
             </div>
           ))}
           {visiblePosts.length === 0 && searchQuery.trim() && <p style={{ padding: 16, color: "var(--text-muted)" }}>{hasNextPage ? "Procurando em publicações anteriores..." : "Nenhuma publicação corresponde à busca."}</p>}
-          {hasNextPage && !searchQuery.trim() && (
-            <div style={{ padding: 16, display: "flex", justifyContent: "center" }}>
-              <Button variant="ghost" disabled={isFetchingNextPage} onClick={() => void fetchNextPage()}>
-                {isFetchingNextPage ? "Carregando..." : "Carregar mais posts"}
-              </Button>
-            </div>
+          {visiblePosts.length > 0 && (
+            <nav
+              aria-label="Paginação do histórico de posts"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                borderTop: "1px solid rgba(255,255,255,.08)", padding: "4px 12px",
+              }}
+            >
+              <Button variant="ghost" size="sm" icon="chevron-left" aria-label="Página anterior"
+                title="Página anterior" disabled={pagination.page <= 1}
+                onClick={() => setHistoryPage(pagination.page - 1)} />
+              <span aria-live="polite" style={{ minWidth: 70, textAlign: "center", font: "var(--text-role-caption)", color: "var(--text-muted)" }}>
+                Página {pagination.page}
+              </span>
+              <Button variant="ghost" size="sm" icon="chevron-right" aria-label="Próxima página"
+                title="Próxima página" disabled={!canNextHistoryPage || isFetchingNextPage}
+                onClick={goToNextHistoryPage} />
+            </nav>
           )}
-          {isFetchingNextPage && searchQuery.trim() && <p role="status" style={{ padding: 16 }}>Consultando publicações anteriores...</p>}
+          {isFetchingNextPage && (
+            <p role="status" style={{ padding: "0 16px 8px", margin: 0, textAlign: "center", color: "var(--text-muted)", font: "var(--text-role-caption)" }}>
+              {hasActiveSearch ? "Consultando publicações anteriores..." : "Carregando página..."}
+            </p>
+          )}
         </Panel>
       )}
 

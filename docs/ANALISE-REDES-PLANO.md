@@ -1,5 +1,33 @@
 # Analise de redes: contrato e fases
 
+## Correção de origem dos insights por POST (05/11/2026 — staging)
+
+**Homologação final de staging:** [PR #300](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/300) (`d7cbabb`) e [PR #301](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/301) (`58c5d7a`) mescladas. Render `dep-dbm37g67bikc73egaugg` **live** no SHA `58c5d7a91c53b83a22764a5f97cd7df901f3d10f`; Docker build com TypeScript/Vite passou. Tela autenticada verificada com perfil individual e Todos, 30 dias, redes; atualização manual retornou **zero visualizações reais para um post Threads** e zero para curtidas/respostas/reposts/shares/quotes, com cliques indisponíveis. Snapshot legado Facebook apagado na atualização desse perfil; contagem de dois crons permaneceu igual. O CI GitHub para a PR #300 (run `41988037724`) falhou **antes dos steps**, então não há prova de pytest integral no CI. Produção/main intocadas.
+
+**Regra canônica exigida por Rafa:** a página só exibe métricas de publicações que o Auto Orbital confirmou em `publish_jobs.status=succeeded` e registrou com `external_id`. **Nunca** consultar nem somar `/{threads_user_id}/threads_insights`, métricas gerais de Páginas Facebook ou insights agregados de perfis Instagram. As 14 visualizações gerais do Threads e as 3 do Facebook vistas nas capturas não são evidência de visualizações dos posts feitos pelo Auto Orbital; portanto não entram nas análises.
+
+- Fonte da única coleta individual implementada: Threads `GET https://graph.threads.net/v1.0/{media_id}/insights?metric=views,likes,replies,reposts,quotes`, com token do próprio perfil e ID externo gravado no job confirmado. Sem ID, sem fonte; valor inexistente é `null`/traço e zero é exibido **apenas** se explicitamente retornado. A API pode negar escopo `threads_manage_insights`; registrar `permission_required` e não inventar valor.
+- Migração **088** (aditiva, compatível com o Supabase compartilhado): `publication_insights`, chave por UUID do job, vínculo com usuário/perfil/rede/ID externo, métricas opcionais, estado e horários. RLS + grants somente `service_role`. Nenhuma credencial ou resposta bruta é gravada. Dedupe por `(network,external_id)` ao somar.
+- `GET /api/analytics/summary` conserva contadores de sucesso/falha/incerteza e gráficos, mas as colunas sociais usam exclusivamente cache validado por `publish_job_id`, `network` e `external_id`. `GET /api/analytics/posts` retorna o ranking por post próprio, com resumo e métricas. `profile_id=all` soma posts da conta; seleção individual valida titularidade. O diagnóstico ADMIN `/analytics/probe` lê cache individual, nunca perfil social.
+- Período 7/30/90 dias filtra a **data de envio dos posts**; o contador de cada post é **lifetime** até a consulta oficial mais recente. Sem snapshots históricos não podemos afirmar "visualizações ocorridas nos últimos 30 dias". Sequências Threads com IDs incompletos são sinalizadas `multipart_unmapped`, sem atribuir o último item à sequência inteira.
+- Facebook e Instagram **não estão conectados** no estado observado; X está bloqueado para cadastro; TikTok/X continuam sem consulta de insights no produto. Um futuro Facebook/Instagram conectado precisa de OAuth/escopo e teste de insights **por mídia**, jamais métricas gerais.
+- Atualização diária e manual reutilizam `claim_analytics_refresh` e APScheduler já existente: 24h/5 minutos, sem cron/pg_net/worker novo. Snapshots legados `facebook_daily_values` e `threads_views` são ignorados no resumo e invalidados na próxima coleta, sem limpeza histórica em massa.
+- Segurança: `scope_account`/`scope_owner`, IDs e status confirmados, token decifrado somente no servidor, sem logs de token/respostas. QA inclui parser, agregador, dedupe, ID inválido e endpoint estritamente de mídia. **Homologação externa efetiva depende de resposta do token real; 14 views gerais não comprovam funcionamento**.
+- Legado observado: o único `publish_job` Threads com ID externo não possui mais `posts` vinculados nem `content_snapshot`/revisão para reconstruir o texto. O ranking exibe o sufixo do ID externo em vez de inventar uma descrição. Para novos envios, manter texto ou snapshot de origem conforme retenção aprovada para permitir comparação sem depender de posts apagados.
+
+Os itens históricos abaixo descrevem implementações anteriores e ficam supersedidos por esta regra quando mencionarem métricas agregadas de Facebook/Threads.
+
+## Seletor de perfil para análises (staging LIVE, 05/11/2026)
+
+A página `/analytics` passa a oferecer **Perfil** acima de Período e Rede, com **Todos os perfis** como visão inicial e opções individuais dos perfis da conta. O seletor é apenas de leitura: não ativa nem altera o perfil operacional. Os filtros de período/rede, cartões, gráficos, tabela e a identidade visual permanecem como estavam.
+
+- A seleção é enviada como `profile_id=all` ou UUID aos endpoints `GET /analytics/summary` e `GET /analytics/timeline`. Sem o parâmetro, clientes anteriores continuam usando o perfil ativo.
+- O backend valida a propriedade do UUID (`profiles.user_id`) e aplica `publish_jobs.user_id` a todas as contagens. A visão geral inclui perfis arquivados e registros legados sem `profile_id`; a série usa o RPC existente por perfil e soma somente os registros legados de perfil nulo, sem contar duas vezes.
+- Na visão geral, as métricas oficiais das plataformas não são somadas sem deduplicação de fonte. Atualização manual e testes de insights ficam disponíveis apenas para um perfil específico. Não há migrations, alterações de cron ou de serviços de agendamento.
+- Os filtros e caches de consulta diferenciam usuário, perfil, período e rede, evitando exibir dados de uma seleção anterior.
+
+**Estado:** PR #298 mesclada em `staging` (SHA `d588eb1cf77335ed9a8f8d0ac91c5b7f9c528d98`), deploy Render `dep-dbm27ne8bjmc739fcfag` confirmado `live` em 05/11/2026; registro integrado ao Vault. Não homologada funcionalmente: pytest/tsc pendentes e CI #41981263248 falhou antes dos steps (duas tentativas).
+
 ## Painéis de visualização (31/10/2026)
 
 O frontend React apresenta a **mesma tabela detalhada de redes** após quatro cartões de KPI e quatro painéis no design system Auto Orbital (paleta Graphite / cyan / orbit blue / índigo / violeta, superfícies `Panel`), também responsivos:

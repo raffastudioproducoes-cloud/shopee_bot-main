@@ -10,6 +10,7 @@ from api import database as database_module
 from api.audit_trail import record_audit_event
 from api.main import app
 from api.routers import products as products_router
+from api.routers import product_media
 from api.routers.auth import get_current_user_id
 
 
@@ -96,27 +97,14 @@ class TestRecordAuditEvent:
 
 
 class TestProductMutationsTriggerAudit:
-    """Alterar preço ou deletar produto chama record_audit_event após o
-    sucesso da operação principal (spy em vez de Supabase real, mesmo
-    padrão dos outros testes de router)."""
+    """Preços importados são imutáveis; exclusão auditada após limpar mídia."""
 
-    def test_price_change_calls_audit(self, auth_client, monkeypatch):
+    def test_price_change_is_rejected_and_not_audited(self, auth_client, monkeypatch):
         spy = MagicMock()
         monkeypatch.setattr(products_router, "record_audit_event", spy)
-        _mock_supabase(
-            monkeypatch,
-            [
-                {"id": 1, "user_id": 42, "price_min": "10.0", "price_max": "20.0"},  # _get (before)
-                {"id": 1, "user_id": 42, "price_min": "15.0", "price_max": "20.0"},  # update result (after)
-            ],
-        )
-
         res = auth_client.put("/products/1", json={"price_min": 15.0})
-
-        assert res.status_code == 200
-        spy.assert_called_once()
-        assert spy.call_args.kwargs["action"] == "product_price_changed"
-        assert spy.call_args.kwargs["entity"] == "product"
+        assert res.status_code == 422
+        spy.assert_not_called()
 
     def test_no_price_change_does_not_call_audit(self, auth_client, monkeypatch):
         spy = MagicMock()
@@ -125,7 +113,7 @@ class TestProductMutationsTriggerAudit:
             monkeypatch,
             [
                 {"id": 1, "user_id": 42, "name": "Fone", "price_min": "10.0", "price_max": "20.0"},
-                {"id": 1, "user_id": 42, "name": "Novo nome", "price_min": "10.0", "price_max": "20.0"},
+                [{"id": 1, "user_id": 42, "name": "Novo nome", "price_min": "10.0", "price_max": "20.0"}],
             ],
         )
 
@@ -137,6 +125,8 @@ class TestProductMutationsTriggerAudit:
     def test_delete_calls_audit(self, auth_client, monkeypatch):
         spy = MagicMock()
         monkeypatch.setattr(products_router, "record_audit_event", spy)
+        media_cleanup = MagicMock()
+        monkeypatch.setattr(product_media, "remove_product_media_files", media_cleanup)
         _mock_supabase(
             monkeypatch,
             [
@@ -148,6 +138,7 @@ class TestProductMutationsTriggerAudit:
         res = auth_client.delete("/products/1")
 
         assert res.status_code == 200
+        media_cleanup.assert_called_once_with(42, 1)
         spy.assert_called_once()
         assert spy.call_args.kwargs["action"] == "product_deleted"
         assert spy.call_args.kwargs["entity"] == "product"
