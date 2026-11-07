@@ -16,6 +16,8 @@ test("abas lojas e redes sociais, com card compacto e ajuda expansível", () => 
   assert.match(page, /aria-expanded=\{!collapsed\}/)
   assert.match(page, /localStorage\.getItem\(COLLAPSE_KEY \+ id\) !== "0"/)
   assert.match(styles, /credentials-card-grid/)
+  assert.match(page, /key: "shopee-video",\s*title: "Shopee Vídeo",\s*category: "social"/)
+  assert.match(page, /key: "shopee",\s*title: "Shopee",\s*category: "stores"/)
 })
 
 test("botão testar conexão sai da página comum e continua no painel ADMIN", () => {
