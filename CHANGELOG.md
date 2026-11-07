@@ -9,7 +9,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 - A página `/credentials` agora distribui os nove cards em seções **Já credenciados** e **Ainda não cadastrados**, com títulos, contagens, mensagens de vazio e ordem alfabética PT-BR por seção, preservando cartões, ações e layout responsivo.
 - Critério de grupo: `connected` da API, inclusive quando o teste está vencido/amarelo; IA cadastrada se qualquer provedor tem chave salva; Shopee Vídeo permanece pendente e sem integração. Query de IA compartilhada, estado de erro com retentativa, mudança automática de grupo após salvar/desconectar, sem expor segredo.
-- Implementação dependente da PR #304: [PR #306](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/306) **draft**, somente branch `feat/credenciais-grupos-20261107`. Testes específicos de agrupamento **6/6 PASS**, seleção completa de CI local e build TypeScript/Vite aprovados após sincronização com a PR #304; CI remoto e QA autenticado ainda precisam comprovar este SHA antes de merge. O incidente [#305](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/issues/305) é histórico.
+- A PR #304 passou na CI real [#1030](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42345936793) e foi integrada à staging no SHA `4d483d2`; a [PR #306](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/306) foi reconciliada com essa base, com cobertura incluída na CI. Os seis testes específicos passaram anteriormente; a validação remota deste merge e o QA autenticado ainda são gates da #306. O incidente [#305](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/issues/305) é histórico.
 - Classificação **MINOR candidata 3.3.0**; `VERSION=3.2.0` preservado. Sem alteração de API/backend, banco, migrations, cron, pg_net, flags, pagamentos ou produção.
 
 ### Fixed — GitHub Actions e contratos de frontend (07/11/2026)
@@ -17,13 +17,23 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - GitHub Actions voltou a iniciar jobs após o repositório se tornar público; o bloqueio observado em 05–07/11 permanece registrado como histórico, **não é o estado atual**. A primeira reexecução real da CI da PR #304 identificou quatro testes frontend desatualizados.
 - Contratos atualizados para a etiqueta de plano com exposição de 24 px, busca contextual da TopBar, hook de perfil no resumo de plano, e controles de IA reutilizados no criador de posts. Nenhum comportamento comercial, mídia ou produção foi alterado para satisfazer testes antigos.
 - Segunda etapa da CI identificou o teste de paginação importando diretamente `.ts` em Node 20 (`ERR_UNKNOWN_FILE_EXTENSION`). O teste agora transpila o módulo TypeScript puro em memória, sem modificar o código do produto ou exigir Node 24.
-- A branch de credenciais mantém `VERSION=3.2.0`; a funcionalidade compatível compõe a candidata **MINOR 3.3.0**. Merge/deploy somente após CI e homologação; histórico de execução e gates em `docs/TASK.md`.
+- A branch de credenciais mantém `VERSION=3.2.0`; a funcionalidade compatível compõe a candidata **MINOR 3.3.0**. A PR técnica #307 foi aprovada pela CI #1028 e integrada primeiro à staging; a PR de UI deve confirmar CI própria e homologação antes de qualquer promoção.
+- O deploy de staging dessa base técnica ficou **LIVE** no Render (`dep-dbnc0jh42hec73c9v66g`, SHA `48b9c34`), com `GET /health` retornando HTTP 200 e `status=ok`. A integração visual depende de CI no seu SHA final.
 
 ### Changed — Credenciais (staging, 05/11/2026)
 
 - Cards de `/credentials` exibidos em ordem alfabética PT-BR: Facebook, Instagram, Inteligência Artificial, Kwai, Shopee, Shopee Vídeo, Threads, TikTok e X (Twitter), preservando estado, teste, OAuth, formulários, responsividade e recolhimento.
 - Adicionado card recolhível **Shopee Vídeo** com aviso de aprovação oficial pendente e ação de conexão desabilitada. Nenhuma credencial Affiliate é reutilizada, nenhuma nova API/OAuth ou publicação foi habilitada. UI informativa, sem alteração do backend, Supabase, cron ou flags. Testes Node específicos de ordem e bloqueio adicionados; a indisponibilidade inicial de CI foi superada em 07/11 e as aprovações devem usar as novas execuções reais.
 
+
+### Fixed — Regressões de contratos Python após retorno do Actions (07/11/2026)
+
+- A CI real da PR #304 identificou **9 falhas em 1.264 testes de API** (run #1026), em testes historicamente acoplados a comportamentos removidos/atualizados: edição de preço Shopee, retorno do UPDATE e limpeza da mídia antes da exclusão; consulta geral de insights de Página Facebook; rejeição de contagens ambíguas de um post Threads.
+- Contratos de teste alinhados à regra atual de produto: **preço importado é imutável** (422), nome/copy podem ser editados, exclusão remove mídia e gera auditoria; métricas de Análises só vêm de posts realmente publicados, com identidade de job e ID externo, sem métrica geral de Página. Respostas inválidas não são convertidas em zero.
+- Branch de correção `fix/ci-contratos-api-20261107` destinada primeiro a `staging`. Mudança de testes, documentação e remoção de CSS sem uso; `VERSION=3.2.0` mantida, release candidata `3.3.0` continua MINOR. Nenhuma rota, lógica de backend, banco, produção ou cron foi modificada.
+- Gate CSP: removidos 14 seletores gerados sem referência após as mudanças em Analytics/Produtos; o teste agora exige correspondência exata entre classes JSX e regras CSS, com limite mínimo histórico reajustado. Testes de segurança web **27/27 PASS** localmente; esta limpeza CSS não altera classes utilizadas.
+- Consolidada na PR técnica a correção dos quatro contratos frontend antigos (resumo de plano, layout, IA e mídia) e o teste de paginação compatível com Node 20, anteriormente preparados na PR #304. Isso permite que a branch de manutenção passe a CI independentemente da funcionalidade de credenciais.
+- Validação local completa: **API 1.264/1.264**, scheduler **208 PASS + 1 XFAIL**, banco **4/4**, SemVer **5/5** e web/CSP **27/27**, com Python 3.12 e dependências de teste instaladas; GitHub ainda deve confirmar Python 3.13.
 
 ### Fixed — Analytics por publicação (staging, 05/11/2026)
 

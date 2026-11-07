@@ -443,7 +443,6 @@ export function CredentialsPage() {
           )}
         </section>
       ))}
-
     </div>
   )
 }
