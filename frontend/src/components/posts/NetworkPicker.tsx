@@ -1,9 +1,10 @@
-// Seletor multi-rede do criador de post: botões horizontais minimalistas,
-// logos vetoriais existentes e limites centralizados por plataforma. Regras
-// e textos de erro vêm de lib/networkLimits.ts.
+// Seleção social compacta e reutilizada por Publicação única e Campanha por lista.
+// Os ícones SVG permanecem apenas nos indicadores de limite de mídia/texto.
 import type { ReactNode } from "react"
 import type { PostNetwork } from "../../api/posts"
 import { NETWORK_RULES, isNetworkDisabled, textLength, type Issue } from "../../lib/networkLimits"
+import { buildAdminDiagnosticSections } from "../../lib/credentialPlatforms"
+import "./NetworkPicker.css"
 
 // Logos simplificadas, monocromáticas (currentColor) — sem asset externo.
 const LOGOS: Record<PostNetwork | "kwai", ReactNode> = {
@@ -61,50 +62,10 @@ export interface NetworkState {
   errors: Issue[]
 }
 
-interface SquareProps {
-  network: PostNetwork | "kwai"
-  label: string
-  pressed: boolean
-  invalid?: boolean
-  disabledReason?: string
-  onClick?: () => void
-}
+const SOCIAL_CHANNELS = buildAdminDiagnosticSections().social
 
-function NetworkSquare({ network, label, pressed, invalid, disabledReason, onClick }: SquareProps) {
-  const disabled = !!disabledReason
-  const border = invalid ? "var(--negative)" : pressed ? "var(--accent)" : "var(--border-hairline)"
-  return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      disabled={disabled}
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      style={{
-        display: "inline-flex",
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "flex-start",
-        gap: 9,
-        minHeight: 42,
-        minWidth: 0,
-        padding: "8px 11px",
-        borderRadius: "var(--r-md)",
-        border: `1px solid ${border}`,
-        background: pressed ? "var(--accent-tint)" : "var(--surface-inset)",
-        color: invalid ? "var(--negative)" : pressed ? "var(--accent)" : "var(--text-body)",
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.3 : 1,
-        filter: disabled ? "grayscale(1)" : undefined,
-        font: "var(--fw-medium) var(--fs-caption)/1.3 var(--font-sans)",
-        transition: "var(--t-hover)",
-      }}
-    >
-      <NetworkLogo network={network} size={17} />
-      <span className="csp-s-0029">{label}</span>
-    </button>
-  )
+function isPublishingNetwork(key: string): key is PostNetwork {
+  return PICKER_NETWORKS.includes(key as PostNetwork)
 }
 
 interface NetworkPickerProps {
@@ -117,36 +78,32 @@ interface NetworkPickerProps {
 
 export function NetworkPicker({ selected, states, onToggle, readOnly }: NetworkPickerProps) {
   return (
-    <div>
-      <div
-        role="group"
-        aria-label="Redes sociais"
-        className="csp-s-0030"
-      >
-        {PICKER_NETWORKS.map((n) => {
-          const disabledByPlan = isNetworkDisabled(n)
-          const pressed = !disabledByPlan && selected.includes(n)
-          const st = disabledByPlan ? { ...states[n], connected: false as const, connectionReason: disabledByPlan } : states[n]
-          let reason: string | undefined
-          if (readOnly) reason = "a rede de um post existente não muda"
-          else if (st.connected !== true && !pressed) reason = st.connectionReason ?? "verificando conexão"
-          return (
-            <NetworkSquare
-              key={n}
-              network={n}
-              label={NETWORK_RULES[n].label}
-              pressed={pressed}
-              // Incompatibilidade de mídia nunca se disfarça de desconexão e
-              // nunca impede escolher a rede. Ela aparece em vermelho depois.
-              invalid={pressed && st.errors.length > 0}
-              disabledReason={reason}
-              onClick={() => onToggle(n)}
-            />
-          )
-        })}
-        <NetworkSquare network="kwai" label="Kwai" pressed={false} disabledReason="em breve" />
-      </div>
-
+    <div className="compact-network-picker" role="group" aria-label="Redes sociais">
+      {SOCIAL_CHANNELS.map(({ key, title, availability }) => {
+        const supported = isPublishingNetwork(key)
+        const state = supported ? states[key] : undefined
+        const unavailable = supported ? isNetworkDisabled(key) : undefined
+        const ready = availability === "active" && supported && !unavailable && state?.connected === true
+        const checked = supported && selected.includes(key)
+        const reason = availability === "planned" || !supported ? "Em breve"
+          : unavailable ? "em breve · plano pago"
+          : state?.connected === undefined ? "Verificando conexão"
+          : !state.connected ? "Não conectada" : "Conectada"
+        // Permitir remover escolhas legadas sem OAuth; jamais selecionar uma rede indisponível.
+        const disabled = Boolean(readOnly) || (!ready && !checked)
+        return (
+          <label key={key}
+            className={`compact-network-option${!ready || readOnly ? " is-disabled" : ""}${checked && state?.errors.length ? " has-errors" : ""}`}
+            title={readOnly ? "A rede de um post existente não muda" : unavailable || (!ready ? state?.connectionReason || reason : undefined)}>
+            <input type="checkbox" checked={checked} disabled={disabled} value={key}
+              aria-label={ready ? title : `${title} — ${reason}`}
+              onChange={(event) => {
+                if (supported && !readOnly && (ready || !event.currentTarget.checked)) onToggle(key)
+              }} />
+            <span>{title}</span>
+          </label>
+        )
+      })}
     </div>
   )
 }
