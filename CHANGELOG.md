@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Redes por caixas na campanha por lista (PATCH incluído na candidata 3.5.0, 07/11/2026)
+
+- `/posts/criar` → Campanha por lista mostra nove redes sociais em caixas de seleção com logos: Facebook, Instagram, Kwai, Shopee Vídeo, Telegram, Threads, TikTok, WhatsApp e X. Só redes com publicação implementada e conexão OAuth testada (`state=ok`) são marcáveis; canais planejados ou desconectados ficam esmaecidos e sem opção de marcar.
+- Seleção principal aplica a rede a todos os produtos da lista, preservando textos próprios de cada produto; o editor individual também usa caixas. Uma seleção antiga desconectada pode ser desmarcada, nunca marcada de novo. Credenciais no Criar POST passam a ser consultadas por perfil ativo para evitar mostrar o estado de outro perfil.
+- A ativação de campanhas continua verificando OAuth em tempo real no servidor; nenhum job, Supabase, cron, `pg_net`, token, schema ou produção alterado. `VERSION=3.4.0` mantida; `main` depende de aprovação expressa.
+
 ### Docs — Estado de homologação Shopee Vídeo em staging (07/11/2026)
 
 - Guia Mestre, AGENTS e TASK alinhados à PR #331, CI #1089, migration 091, Render staging LIVE e pendências de callback/OAuth real; nenhuma alteração de código, banco, cron, `pg_net`, `main` ou `VERSION=3.4.0` nesta atualização documental.
