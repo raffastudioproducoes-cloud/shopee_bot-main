@@ -1,17 +1,10 @@
 /* Painéis de Análises — tokens e superfícies do Auto Orbital. */
-.analytics-platform-pending { margin-top: 18px; padding: 19px; border: 1px solid var(--border-card); border-radius: 14px; background: var(--surface-card); }
-.analytics-platform-pending h2 { margin: 0 0 8px; font-size: 19px; color: var(--text-display); }
-.analytics-platform-pending p { margin: 5px 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
-.analytics-detail-status { display: block; margin-top: 4px; color: var(--text-muted); font-size: 11px; line-height: 1.35; font-weight: 500; }
-.analytics-detail-status--available { color: var(--positive); }
-.analytics-detail-status--planned { color: var(--amber-300); }
-.analytics-detail-note { margin-top: 10px !important; font-size: 12px; line-height: 1.5; }
 .analytics-visuals {
   margin-top: 22px;
 }
 .analytics-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 16px;
 }
@@ -27,6 +20,10 @@
 .analytics-kpi-failed { border-top-color: var(--negative) !important; }
 .analytics-kpi-unknown { border-top-color: var(--amber-300) !important; }
 .analytics-kpi-rate { border-top-color: var(--brand-orbital-violet) !important; }
+.analytics-kpi-networks { border-top-color: var(--brand-ice-blue) !important; }
+.analytics-kpi-views { border-top-color: var(--brand-electric-cyan) !important; }
+.analytics-kpi-engagement { border-top-color: var(--positive) !important; }
+.analytics-kpi-tracked { border-top-color: var(--amber-300) !important; }
 .analytics-kpi-top {
   display: flex;
   align-items: center;
@@ -40,6 +37,10 @@
 .analytics-kpi-failed .analytics-kpi-top svg { color: var(--negative); }
 .analytics-kpi-unknown .analytics-kpi-top svg { color: var(--amber-300); }
 .analytics-kpi-rate .analytics-kpi-top svg { color: var(--brand-orbital-violet); }
+.analytics-kpi-networks .analytics-kpi-top svg { color: var(--brand-ice-blue); }
+.analytics-kpi-views .analytics-kpi-top svg { color: var(--brand-electric-cyan); }
+.analytics-kpi-engagement .analytics-kpi-top svg { color: var(--positive); }
+.analytics-kpi-tracked .analytics-kpi-top svg { color: var(--amber-300); }
 .analytics-kpi-value {
   display: block;
   margin: 8px 0 3px;
@@ -64,6 +65,8 @@
 .analytics-network-panel { min-height: 395px; }
 .analytics-status-panel,
 .analytics-insights-panel { min-height: 330px; }
+.analytics-top-panel,
+.analytics-availability-panel { min-height: 300px; }
 .analytics-panel-heading {
   display: flex;
   align-items: flex-start;
@@ -123,6 +126,10 @@
 .analytics-legend-instagram { background: var(--brand-orbital-violet); }
 .analytics-legend-tiktok { background: var(--brand-indigo); }
 .analytics-legend-x { background: var(--brand-ice-blue); }
+.analytics-legend-likes { background: var(--brand-electric-cyan); }
+.analytics-legend-comments { background: var(--brand-orbital-violet); }
+.analytics-legend-reposts { background: var(--positive); }
+.analytics-legend-clicks { background: var(--brand-ice-blue); }
 .analytics-chart-container {
   position: relative;
   margin: 12px 0 0;
@@ -231,12 +238,31 @@
 .analytics-insights-indicator { display: inline-block; width: 6px; height: 6px; border-radius: 100%; background: var(--amber-300); margin-right: 5px; }
 .analytics-insights-status.is-available .analytics-insights-indicator { background: var(--positive); }
 .analytics-insights-note { margin: 14px 0 0; color: var(--text-faint); font-size: 11px; line-height: 1.5; }
+.analytics-comparison-chart, .analytics-weekday-chart { display: block; width: 100%; height: auto; margin: 16px auto 4px; }
+.analytics-comparison-chart { max-height: 350px; }
+.analytics-weekday-chart { max-width: 560px; max-height: 225px; }
+.analytics-bar-name { fill: var(--text-body); font-size: 12px; }
+.analytics-bar-name.analytics-muted { fill: var(--text-faint); }
+.analytics-bar-count { fill: var(--text-display); font-size: 12px; font-weight: 650; }
+.analytics-chart-note { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.analytics-social-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+.analytics-social-item { min-width: 0; display: flex; flex-direction: column; gap: 5px; padding: 11px 13px; border: 1px solid var(--border-card); border-radius: var(--r-md); }
+.analytics-social-item strong { color: var(--text-display); font-size: 12px; }
+.analytics-social-item.is-planned { opacity: .58; }
+.analytics-social-item .analytics-insights-status { text-align: left; line-height: 1.4; }
+.analytics-top-posts { list-style: none; margin: 0; padding: 0; }
+.analytics-top-posts li { display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; padding: 13px 0; border-bottom: 1px solid var(--border-card); }
+.analytics-top-posts li:last-child { border-bottom: 0; }
+.analytics-top-posts li > span:first-child { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.analytics-top-posts strong { color: var(--text-body); font-size: 13px; font-weight: 600; line-height: 1.4; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.analytics-top-posts small { color: var(--text-muted); font-size: 11px; }
+.analytics-post-views { flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--brand-electric-cyan); }
 .analytics-table-heading { margin: 27px 0 11px; }
 .analytics-table-heading h2 { margin: 0 0 5px; color: var(--text-display); font-size: 20px; }
 .analytics-table-heading p { margin: 0; color: var(--text-muted); font-size: 12px; }
 @media (max-width: 1150px) {
   .analytics-dashboard-grid { grid-template-columns: minmax(0, 1fr); }
-  .analytics-trend-panel, .analytics-network-panel, .analytics-status-panel, .analytics-insights-panel { min-height: 0; }
+  .analytics-trend-panel, .analytics-network-panel, .analytics-status-panel, .analytics-insights-panel, .analytics-top-panel, .analytics-availability-panel { min-height: 0; }
   .analytics-radial-layout { justify-content: flex-start; }
   .analytics-radial { width: 170px; }
 }
@@ -244,6 +270,7 @@
   .analytics-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 600px) {
+  .analytics-kpi-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
   .analytics-kpi-grid, .analytics-dashboard-grid { gap: 10px; }
   .analytics-kpi-card { min-height: 125px; padding: 15px !important; }
   .analytics-kpi-value { font-size: 32px; }
@@ -254,4 +281,7 @@
   .analytics-radial-legend li { gap: 5px; font-size: 11px; }
   .analytics-panel-heading { margin-bottom: 12px; }
   .analytics-chart-message { inset: 20% 4% auto; font-size: 12px; }
+  .analytics-comparison-chart { margin-top: 12px; }
+  .analytics-bar-name, .analytics-bar-count { font-size: 11px; }
+  .analytics-social-grid { grid-template-columns: 1fr; }
 }
