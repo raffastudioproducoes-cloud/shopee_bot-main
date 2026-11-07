@@ -113,7 +113,8 @@ def as_profile(user_id="owner", profile_id="profile-a", admin=False):
     app.dependency_overrides[get_current_profile_id] = lambda: profile_id
     if admin:
         app.dependency_overrides[_require_admin] = lambda: user_id
-    return TestClient(app)
+    # Cookie de state é Secure; simular HTTPS, como no Render real.
+    return TestClient(app, base_url="https://testserver")
 
 
 def test_user_status_never_exposes_global_or_personal_keys(video_db):
