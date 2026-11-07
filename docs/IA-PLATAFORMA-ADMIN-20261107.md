@@ -1,9 +1,9 @@
 # IA da plataforma — serviço compartilhado e painel administrativo
 
 **Data:** 07/11/2026
-**Escopo:** Auto Orbital, PR candidata `feat/ia-compartilhada-admin-20261107` → `staging` → `main`
+**Escopo:** Auto Orbital, PR #311 `feat/ia-compartilhada-admin-20261107` integrada em `staging`; produção aguarda aprovação.
 **SemVer:** funcionalidade compatível **MINOR 3.4.0**; `VERSION=3.3.0` até o gate de release.
-**Estado inicial:** implementação em branch, **ainda não publicada**. O relatório em `docs/TASK.md` registra CI, migração e deployments quando acontecerem.
+**Estado verificado em 07/11/2026:** **staging LIVE** no SHA `c352fb841ac45b56d86aefc3947c375a1c01cd8a` (Render `dep-dbnd8e0ae00c738kgrqg`). PR #311 aprovada na CI #1043, com jobs de API, frontend e PostgreSQL isolado verdes. Migração 089 já aplicada no Supabase e registrada em `public.migrations`; `production` e `staging` possuem configuração inicial Gemini ativa, sob RLS/revogação de SELECT aos clientes. `/health` e `/api/health/ready` responderam `{"status":"ok"}`. `main` permanece na versão 3.3.0; falta QA autenticado e autorização explícita de promoção. Histórico e gates no `docs/TASK.md`.
 
 ## Contrato aprovado pelo proprietário
 
