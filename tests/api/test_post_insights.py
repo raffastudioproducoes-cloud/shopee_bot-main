@@ -16,8 +16,8 @@ def test_threads_post_parser_preserves_zero_and_missing_values():
     assert result["likes"] == 0
     assert result["comments"] == 2
     assert result["clicks"] is None
-    assert insights.parse_threads_post_insights([{"name": "views", "total_value": {"value": True}}])["views"] is None
-    assert insights.parse_threads_post_insights([{"name": "views", "values": [{"value": 1}, {"value": 2}]}])["views"] is None
+    assert insights.parse_threads_post_insights([{"name": "views", "total_value": {"value": True}}]) is None
+    assert insights.parse_threads_post_insights([{"name": "views", "values": [{"value": 1}, {"value": 2}]}]) is None
 
 
 def test_only_confirmed_jobs_with_matching_network_and_id_are_summed():
