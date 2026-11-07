@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Credenciais compactas por lojas e redes sociais (MINOR candidata 3.5.0, 07/11/2026)
+
+- `/credentials` recebe abas **Lojas** e **Redes sociais**, cada uma com os grupos existentes **Já credenciados** e **Ainda não cadastrados** e ordenação alfabética PT-BR; cards com logomarcas reais locais, status resumido e corpo fechado inicialmente.
+- Explicações e links existentes ficam em uma segunda área expandível, independente do card principal. OAuth social, ID de afiliado Shopee, atualização/desconexão e avisos continuam operando como antes. `Testar conexão` sai da tela comum e passa a ficar no painel ADMIN (`Resultado das conexões`).
+- 14 cartões de futuras integrações: AliExpress, Amazon, Americanas, Awin, Lomadee, Magalu, Mercado Livre, Natura e Avon, Pró Spin, Rakuten, SHEIN, TerabyteShop, Telegram e WhatsApp. São informativos `Em breve`, sem armazenamento, chamadas de API ou autenticação simulada; Kwai/Shopee Vídeo continuam bloqueados.
+- Logos transparentes locais com fontes listadas em [`frontend/public/brand-logos/SOURCES.md`](frontend/public/brand-logos/SOURCES.md); testes Node específicos e gate CI de frontend estendido. `VERSION=3.4.0` permanece; classificada como melhoria compatível para a candidata `3.5.0`. Nenhum banco, cron, scheduler, postagem, pagamentos ou `main` alterado nesta entrega.
+- Contrato e QA: [`docs/CREDENCIAIS-COMPACTAS-LOJAS-REDES-20261107.md`](docs/CREDENCIAIS-COMPACTAS-LOJAS-REDES-20261107.md). PR/CI/deploy de staging documentados após conclusão dos gates.
+
 ### Added — Shopee Afiliados da plataforma (MINOR candidata 3.5.0, 07/11/2026)
 
 - Consulta de produtos via App ID/Secret global da plataforma, mantido cifrado, testável e gerenciável somente por ADMIN em `/admin/credentials`; `staging` e `production` com registros próprios no Supabase compartilhado.

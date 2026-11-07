@@ -142,7 +142,7 @@ jobs:
         run: node --test tests/posts-history-pagination.test.mjs tests/lists-sort.test.mjs tests/scoped-page-search.test.mjs tests/products-topbar-tab.test.mjs tests/products-topbar-search.test.mjs
 
       - name: Credenciais — ordem, agrupamento e Shopee Vídeo (Node 20)
-        run: node --test tests/credentials-card-order.test.mjs tests/credentials-sections.test.mjs tests/platform-ai-panel.test.mjs
+        run: node --test tests/credentials-card-order.test.mjs tests/credentials-sections.test.mjs tests/credentials-compact-platforms.test.mjs tests/platform-ai-panel.test.mjs
 
       - name: Build (tsc && vite build)
         run: npm run build

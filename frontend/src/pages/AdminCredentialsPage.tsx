@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { AdminOverrides } from '../components/credentials/AdminOverrides'
 import { AdminAiCredentialCard } from '../components/credentials/AdminAiCredentialCard'
 import { AdminShopeeCredentialCard } from '../components/credentials/AdminShopeeCredentialCard'
 import { ApiError } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
-import { credentialsApi } from '../api/credentials'
+import { credentialsApi, type SimpleNetwork } from '../api/credentials'
 import { Panel } from '../components/ui/Panel'
 import { Badge } from '../components/ui/Badge'
 import { PageSkeleton } from '../components/ui/Skeleton'
+import { Button } from '../components/ui/Button'
 
 export default function AdminCredentialsPage() {
   const [banner, setBanner] = useState<{ ok: boolean; text: string } | null>(null)
@@ -20,6 +21,14 @@ export default function AdminCredentialsPage() {
     queryKey: ['admin', 'credentials', 'status'],
     queryFn: () => credentialsApi.listAdminStatus(),
     refetchInterval: query => Object.values(query.state.data ?? {}).some(status => status.state === 'testing') ? 1500 : false,
+  })
+  const testConnection = useMutation({
+    mutationFn: (network: SimpleNetwork | 'threads') => credentialsApi.testConnection(network),
+    onSuccess: (result) => {
+      setBanner({ ok: result.light === 'green', text: result.message || 'Teste concluído.' })
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'credentials', 'status'] })
+    },
+    onError: (err: Error) => setBanner({ ok: false, text: err.message || 'Falha no teste de conexão.' }),
   })
   return (
     <div className="csp-s-0164">
@@ -46,7 +55,14 @@ export default function AdminCredentialsPage() {
         <Panel surface="dark" style={{ padding: 16 }}>
           <h2 className="csp-s-0167">Resultado das conexões</h2>
           <div className="admin-connection-results" aria-live="polite">
-            {Object.entries(statuses ?? {}).map(([network, status]) => <div key={network}><strong>{network}</strong><Badge tone={status.state === 'ok' ? 'mint' : 'neutral'}>{status.status_text || status.state || 'Desconectado'}</Badge></div>)}
+            {Object.entries(statuses ?? {}).map(([network, status]) => <div key={network}>
+              <strong>{network}</strong>
+              <Badge tone={status.state === 'ok' ? 'mint' : 'neutral'}>{status.status_text || status.state || 'Desconectado'}</Badge>
+              {status.connected && <Button type="button" variant="ghost" disabled={testConnection.isPending || status.state === 'testing'}
+                onClick={() => testConnection.mutate(network as SimpleNetwork | 'threads')}>
+                {testConnection.isPending && testConnection.variables === network ? 'Testando...' : 'Testar conexão'}
+              </Button>}
+            </div>)}
           </div>
         </Panel>
       )}
