@@ -98,6 +98,20 @@ body { background: var(--bg-app-gradient); background-attachment: fixed; }
 }
 @media (prefers-reduced-motion: reduce) { .app-rail { transition: none !important; } }
 
+
+/* Credenciais: seções por cadastro, mantendo a grade de cards existente. */
+.credentials-group { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.credentials-group + .credentials-group { padding-top: 24px; border-top: 1px solid var(--border-hairline); }
+.credentials-group__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.credentials-group__title { margin: 0; color: var(--text-display); font: var(--fw-semibold) var(--fs-price)/var(--lh-snug) var(--font-sans); }
+.credentials-group__description { margin: 5px 0 0; color: var(--text-muted); font: var(--text-role-body); }
+.credentials-group__count { display: grid; place-items: center; flex: none; min-width: 34px; height: 34px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--border-card); background: var(--surface-card); color: var(--text-body); font: var(--fw-semibold) var(--fs-body)/1 var(--font-sans); }
+.credentials-group__empty { margin: 0; padding: 16px; border: 1px dashed var(--border-card); border-radius: var(--r-md); color: var(--text-muted); font: var(--text-role-body); }
+@media (max-width: 767px) {
+  .credentials-group + .credentials-group { padding-top: 18px; }
+  .credentials-group__title { font-size: var(--fs-subtitle); }
+}
+
 /* Credenciais: card recolhido mostra so o cabecalho (titulo + status). */
 .cred-card.is-collapsed > :not(header) {
   display: none !important;
