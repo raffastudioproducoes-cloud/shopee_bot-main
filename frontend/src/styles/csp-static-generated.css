@@ -387,11 +387,7 @@
 /* frontend/src/pages/CredentialsPage.tsx */
 :is(#root, body) .csp-s-0204 { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 12px; }
 /* frontend/src/pages/CredentialsPage.tsx */
-:is(#root, body) .csp-s-0205 { display: flex; align-items: center; gap: 6px; }
-/* frontend/src/pages/CredentialsPage.tsx */
 :is(#root, body) .csp-s-0206 { font: var(--text-role-body); color: var(--accent-500); }
-/* frontend/src/pages/CredentialsPage.tsx */
-:is(#root, body) .csp-s-0207 { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex-shrink: 0; border-radius: 50%; border: 1px solid currentColor; background: none; color: var(--accent-500); cursor: pointer; opacity: 0.75; font: var(--fw-semibold) 10px/1 var(--font-sans); padding: 0; }
 /* frontend/src/pages/CredentialsPage.tsx */
 :is(#root, body) .csp-s-0208 { display: flex; justify-content: flex-end; gap: 8px; }
 /* frontend/src/pages/CredentialsPage.tsx */

@@ -92,7 +92,10 @@ test("contratos do hook e dos formulários não persistem File ou senha", async 
   assert.doesNotMatch(users, /useAutosavedDraft\([^\n]+password/)
   assert.match(adminAi, /useAutosavedDraft\(draftKey, \{ provider, model \}/)
   assert.doesNotMatch(adminAi, /useAutosavedDraft\([^\n]+apiKey/)
-  assert.match(credentials, /useAutosavedDraft\(publicIdDraftKey, \{ appId \}/)
+  // O antigo App ID/Secret de Shopee saiu da tela USER: somente o ID de
+  // afiliado e salvo, sem rascunho local com credenciais da plataforma.
+  assert.match(credentials, /shopeeAffiliateApi\.save\(value\.trim\(\)\)/)
+  assert.doesNotMatch(credentials, /useAutosavedDraft\([^\n]+appId/)
   assert.doesNotMatch(credentials, /useAutosavedDraft\([^\n]+apiKey/)
   assert.doesNotMatch(credentials, /useAutosavedDraft\([^\n]+secret/)
 })
