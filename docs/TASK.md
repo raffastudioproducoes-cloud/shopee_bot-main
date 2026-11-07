@@ -1,3 +1,13 @@
+## 07/11/2026 — Shopee Vídeo de afiliados: pesquisa e gate de autorização
+
+- [x] Ler Guia Mestre, contrato, Vault vivo, `apis/shopee_video.py`, compositor, analytics e fontes oficiais Shopee.
+- [x] Confirmar vídeo de 3–60s, até seis produtos **no vídeo**, sem links de comissão na legenda; associação relevante e imutável depois de publicar. Comissão padrão atualizada a 1,5% em 01/07/2026, sem valor fixado no código.
+- [x] Registrar [mapeamento de IDs, mídia, OAuth, fluxos, métricas candidatas e limites](SHOPEE-VIDEO-AFILIADOS-GATE-20261107.md).
+- [ ] **Gate SV.0:** Rafa confirmar feed **de afiliado/criador ou vendedor** e serviço `Video Management` especificamente autorizado para o destino no Brasil. Console genérico não basta.
+- [ ] Após SV.0, OAuth seguro por perfil, seleção exclusiva de até seis `products.product_id`, upload/edição/publicação idempotente; insights por ID externo confirmado, com teste real apenas após consentimento em staging.
+- [ ] CI, deploy LIVE, QA desktop/mobile; `main` somente após autorização separada.
+- **Estado:** documentação apenas; `VERSION=3.4.0`, sem banco/Supabase, dois crons, `pg_net`, scheduler, tokens ou posts afetados. Sem evidência nova de domínio próprio registrado **e configurado** para gatilho SMTP.
+
 ## 07/11/2026 — Análises: cobertura das nove redes sociais (candidata 3.5.0)
 
 - [x] Ler AGENTS/Guia/RULES/PRD, código, documentação específica, catálogo de Credenciais e TASK vivo do Vault; preservar insight apenas de post confirmado.

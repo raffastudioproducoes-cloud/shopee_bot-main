@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Docs — Shopee Vídeo: contrato para afiliados e autorização (07/11/2026)
+
+- Confirmados nas fontes Shopee Brasil vídeos de 3–60 segundos, até seis produtos vinculados **no vídeo** (URLs em descrições não substituem o vínculo), revisão de relevância e atualização da comissão padrão em 01/07/2026, sem promessa de ganhos.
+- Documentada a distinção ainda pendente entre feed de **criadores afiliados** e APIs `Video Management` para **vendedores**. O cliente técnico segue bloqueado; as redes atuais continuam com seleção de um produto e a coleta por vídeo ainda depende de OAuth, ID externo e campos autorizados.
+- Somente documentação, sem API externa, UI, DB, cron, scheduler, OAuth, publicação ou alteração de `VERSION=3.4.0`.
+
 ### Added — Análises sociais (candidata MINOR 3.5.0, 07/11/2026)
 
 - A página `/analytics` oferece nove redes sociais no seletor Rede, em ordem alfabética PT-BR; nenhuma loja entra nesse catálogo. **Ajuste visual posterior à PR #326:** retirados os cartões de redes acima dos indicadores, por redundância com o seletor.
