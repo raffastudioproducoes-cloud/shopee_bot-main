@@ -1,3 +1,5 @@
+> **Atualização em 07/11/2026:** os botões e a rota `/analytics/probe/{network}` descritos neste registro histórico foram removidos, sem afetar a coleta de insights via `summary`, `posts`, `timeline` ou `refresh`. Não utilizar estas instruções antigas como procedimento ativo.
+
 # Testes de insights Meta - 2026-10-21
 
 Escopo: leitura, sem publicar, alterar tokens ou expor segredos. Resultado: **ainda nao validado ponta a ponta**. "Pronto para teste" e preparacao do app, nao prova de consulta de insights nem aprovacao para usuarios comuns. A rota autenticada `POST /analytics/probe/{network}` usa o token do perfil ativo para uma consulta read-only e mostra apenas estado, HTTP e codigo de erro; sua resposta real ainda precisa ser observada no staging.

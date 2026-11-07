@@ -28,13 +28,12 @@ test('atualização manual aceita Todos, respeita cota diária e ranking por pos
   assert.match(page, /disabled=\{refreshing \|\| quotaLoading \|\| quotaError \|\| !refreshQuota \|\| quotaReached/)
   assert.match(page, /ADMIN: atualizações ilimitadas/)
   assert.match(page, /atualizações restantes hoje/)
-  assert.match(page, /disabled=\{probing !== null \|\| selectedProfile === 'all'\}/)
   assert.match(page, /\/analytics\/refresh\?profile_id=/)
-  assert.match(page, /\/analytics\/probe\/\$\{name\}\?profile_id=/)
   assert.match(page, /queryKey: \['analytics-posts', userId, selectedProfile, days, network\]/)
   assert.match(page, /<AnalyticsVisuals rows=\{rows\}/)
   assert.doesNotMatch(page, /page_media_view|Visualizações da Página do Facebook/)
   assert.match(page, /Nunca usamos visualizações gerais do perfil ou da Página/)
+  assert.doesNotMatch(page, /testInsights|ScopedProbe|ProbeResult|visibleProbe|analytics-probe-actions|analytics\/probe/)
 })
 
 test('o dashboard apresenta métricas por post, redes sociais completas e visualizações distintas', () => {

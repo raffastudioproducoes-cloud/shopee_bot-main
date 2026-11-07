@@ -15,6 +15,11 @@ Estado: implementação candidata publicada em staging (PRs #337 e #338; migraç
 - `Publicações em destaque`: ranquear até cinco posts do escopo selecionado por visualizações oficiais; incluir data de publicação (horário de Brasília), status da coleta, visualizações e quatro tipos de interação; posts confirmados sem visualizações oficiais aparecem depois e com `—`. Os registros continuam intactos no servidor.
 - Sem endpoint, migration, cron, `pg_net`, fila ou alteração de dados. Os cards são apenas novas apresentações dos mesmos dados; métricas agregadas oficiais continuam restritas aos posts da plataforma.
 
+## Descontinuação da sonda administrativa (PATCH de 07/11/2026)
+
+- Três ações de rodapé `Verificar coleta de Threads/Facebook/Instagram` eliminadas integralmente. Endpoint `POST /analytics/probe/{network}` desativado (HTTP 404), junto com suas importações, estados e CSS dedicados; não restam referências executáveis no frontend. Não afeta endpoints oficiais de visualização/atualização nem a cota.
+- Testes de insights do Facebook agora validam diretamente o cache de posts confirmados (zero oficial, indisponibilidade, identidade externa e ausência de vazamento); testes da API verificam que o caminho antigo não existe.
+
 ## Limite de atualização manual — servidor
 - `GET /analytics/refresh/quota`: objeto `{unlimited, used, remaining, limit, reset_at}`, escopo do usuário autenticado, sem permitir escolher usuário.
 - `POST /analytics/refresh?profile_id=<UUID|all>`: autoriza somente perfis pertencentes à própria conta; `all` permite atualizar até 12 perfis com paralelismo 3; uma única atualização válida consome **um** uso da cota da conta, independente de número de perfis e plano.

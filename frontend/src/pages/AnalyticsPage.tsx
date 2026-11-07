@@ -10,7 +10,7 @@ import { Select } from '../components/ui/Select'
 import { PageSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
 import { AnalyticsVisuals, type AnalyticsTimeline } from '../components/AnalyticsVisuals'
-import { ANALYTICS_NETWORKS, ANALYTICS_RECORDED_NAMES, hasRecordedAnalytics } from '../lib/analyticsNetworks'
+import { ANALYTICS_NETWORKS, hasRecordedAnalytics } from '../lib/analyticsNetworks'
 
 type Network = 'threads' | 'facebook' | 'instagram' | 'tiktok' | 'x'
 type Row = {
@@ -37,14 +37,6 @@ type Summary = {
 }
 type RefreshQuota = { unlimited: boolean; used: number; remaining: number | null; limit: number | null; reset_at: string }
 type RefreshResult = { state: string; updated_profiles?: number; quota?: RefreshQuota }
-type ProbeResult = {
-  network: string
-  state: string
-  metric?: string
-  post_count?: number
-  total_views?: number | null
-}
-type ScopedProbe = ProbeResult & { scopeKey: string }
 type PostMetric = {
   job_id: string
   network: Network
@@ -61,19 +53,14 @@ type PostMetric = {
 }
 type PostsResult = { posts: PostMetric[]; total_posts: number; truncated: boolean }
 
-const names = ANALYTICS_RECORDED_NAMES
-
 export default function AnalyticsPage() {
   const [days, setDays] = useState('30')
   const [network, setNetwork] = useState('all')
   const [selectedProfile, setSelectedProfile] = useState('all')
-  const [probe, setProbe] = useState<ScopedProbe | null>(null)
-  const [probing, setProbing] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshMessage, setRefreshMessage] = useState<{ scope: string; message: string } | null>(null)
   const queryClient = useQueryClient()
   const userId = useAuthStore((state) => state.user?.id)
-  const isAdmin = useAuthStore((state) => state.user?.access === 'ADMIN')
   const profileId = useProfileStore((state) => state.activeProfileId)
   const { data: profiles, isError: profilesError } = useQuery({
     queryKey: ['analytics-profiles', userId],
@@ -105,8 +92,6 @@ export default function AnalyticsPage() {
   }, [profiles, profilesError, selectedProfile])
   // Do not display another account's or another period's previous result.
   const profileScope = `${userId ?? ''}:${selectedProfile}`
-  const scopeKey = `${profileScope}:${days}`
-  const visibleProbe = isAdmin && selectedProfile !== 'all' && probe?.scopeKey === scopeKey ? probe : null
   const selectedProfileQuery = `&profile_id=${encodeURIComponent(selectedProfile)}`
   const canQuerySelection = selectedProfile === 'all'
     || Boolean(profiles?.some((item) => item.id === selectedProfile))
@@ -171,22 +156,6 @@ export default function AnalyticsPage() {
         : 'Falha ao atualizar. Tente novamente em alguns minutos.' })
     } finally {
       setRefreshing(false)
-    }
-  }
-
-  async function testInsights(name: 'threads' | 'facebook' | 'instagram') {
-    if (selectedProfile === 'all') return
-    setProbing(name)
-    setProbe(null)
-    try {
-      const result = await api.post<ProbeResult>(
-        `/analytics/probe/${name}?profile_id=${encodeURIComponent(selectedProfile)}&days=${days}`, {}
-      )
-      setProbe({ ...result, scopeKey })
-    } catch {
-      setProbe({ network: name, state: 'request_failed', scopeKey })
-    } finally {
-      setProbing(null)
     }
   }
 
@@ -268,17 +237,6 @@ export default function AnalyticsPage() {
             em qualquer plano, com reset à meia-noite de Brasília; ADMIN tem uso ilimitado. Contas comuns aguardam 5 minutos entre coletas
             do mesmo perfil; ADMIN pode atualizar novamente quando a coleta em andamento for concluída.
           </p>
-          {isAdmin && <div className="analytics-probe-actions" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-            {(['threads', 'facebook', 'instagram'] as const).map((name) => (
-              <Button key={name} variant="secondary" size="sm" loading={probing === name}
-                disabled={probing !== null || selectedProfile === 'all'} onClick={() => testInsights(name)}>
-                Verificar coleta de {names[name]}
-              </Button>
-            ))}
-          </div>}
-          {visibleProbe && <p role="status" style={{ margin: 0, color: visibleProbe.state === 'ok' ? 'var(--text-body)' : 'var(--negative)' }}>
-            {names[visibleProbe.network as Network]}: {visibleProbe.state === 'ok' ? `métrica de post já coletada (${visibleProbe.total_views ?? '—'} visualizações)` : visibleProbe.state === 'no_posts' ? 'nenhum post confirmado no período' : visibleProbe.state === 'not_collected' ? 'post confirmado, aguardando coleta' : visibleProbe.state === 'missing_external_id' ? 'post sem ID externo para consulta' : 'coleta individual indisponível'}.
-          </p>}
         </>
       )}
     </div>

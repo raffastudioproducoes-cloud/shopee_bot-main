@@ -14,7 +14,6 @@ from ..post_insights import (current_network_connections, distinct_published_job
                              indexed_insights, published_jobs, summarize_post_metrics)
 from ..profiles import scope_account, scope_owner
 from .auth import get_current_user_id
-from .credentials import _check_test_rate_limit, _require_admin
 from .profiles import get_current_profile_id
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -103,37 +102,6 @@ def _account_timeline(user_id, days: int, network: Network | None) -> list[dict]
         totals[key] = totals.get(key, 0) + item["total"]
     return [{"day": day, "network": name, "status": status, "total": total}
             for (day, name, status), total in sorted(totals.items())]
-
-
-@router.post("/probe/{network}")
-async def probe_insights(
-    network: str,
-    days: int = Query(30),
-    selected_profile_id: str | None = Query(None, alias="profile_id"),
-    user_id: int = Depends(_require_admin),
-    profile_id: str | None = Depends(get_current_profile_id),
-):
-    """Admin: valida cache de publicação individual, sem consultar contas ou Páginas."""
-    if network not in NETWORKS:
-        raise HTTPException(status_code=404, detail="Rede não reconhecida")
-    if days not in (7, 30, 90):
-        raise HTTPException(status_code=422, detail="Período inválido")
-    profile_id, all_profiles = _analytics_profile(user_id, selected_profile_id, profile_id)
-    if all_profiles or not profile_id:
-        raise HTTPException(status_code=400, detail="Selecione um perfil")
-    _check_test_rate_limit(user_id)
-    jobs = distinct_published_jobs(published_jobs(user_id, profile_id, days, network))
-    if not jobs:
-        return {"network": network, "state": "no_posts", "post_count": 0}
-    selected = next((job for job in jobs if job.get("external_id")), None)
-    if not selected:
-        return {"network": network, "state": "missing_external_id", "post_count": len(jobs)}
-    index = indexed_insights(user_id, [selected])
-    item = index.get(selected["id"])
-    if not item or item.get("external_id") != selected["external_id"]:
-        return {"network": network, "state": "not_collected", "post_count": len(jobs)}
-    return {"network": network, "state": item["state"], "post_count": len(jobs),
-            "metric": "views", "total_views": item.get("views") if item["state"] == "ok" else None}
 
 
 @router.post("/refresh")
