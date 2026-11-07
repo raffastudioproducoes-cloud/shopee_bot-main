@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — Análises sociais (candidata MINOR 3.5.0, 07/11/2026)
+
+- A página `/analytics` exibe nove redes sociais, em ordem alfabética PT-BR, com logos locais, cartões compactos acessíveis e indicadores honestos de disponibilidade; nenhuma loja entra nesse catálogo.
+- Shopee Vídeo, Telegram, WhatsApp e Kwai aparecem no filtro com informação de integração pendente, sem consultas inválidas ao backend nem números fictícios. Os cinco filtros reconhecidos, gráficos, histórico por perfil e coletor individual Threads não foram alterados.
+- Nova [matriz de origem de dados e bloqueios por rede](docs/ANALISE-REDES-COBERTURA-20261107.md). Sem API externa, OAuth, banco, scheduler, `pg_cron`, `pg_net` ou publicadores novos. `VERSION=3.4.0` até release aprovada.
+
 ### Changed — Catálogo completo no diagnóstico ADMIN (MINOR candidata 3.5.0, 07/11/2026)
 
 - Abaixo da gestão global de IA/Shopee, o diagnóstico agrupa Lojas e Redes sociais e reaproveita todos os 14 placeholders já presentes em `/credentials`, mais os seis status sociais reais e Shopee Vídeo, totalizando 21 cards pequenos no painel de status.

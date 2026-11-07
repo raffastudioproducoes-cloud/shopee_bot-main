@@ -10,8 +10,10 @@ import { Select } from '../components/ui/Select'
 import { PageSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
 import { AnalyticsVisuals, type AnalyticsTimeline } from '../components/AnalyticsVisuals'
+import { ANALYTICS_NETWORKS, ANALYTICS_RECORDED_NAMES, hasRecordedAnalytics, type AnalyticsRecordedNetwork } from '../lib/analyticsNetworks'
+import '../styles/analytics-panels.css'
 
-type Network = 'threads' | 'facebook' | 'instagram' | 'tiktok' | 'x'
+type Network = AnalyticsRecordedNetwork
 type Row = {
   network: Network
   succeeded: number
@@ -57,9 +59,7 @@ type PostMetric = {
 }
 type PostsResult = { posts: PostMetric[]; total_posts: number; truncated: boolean }
 
-const names: Record<Network, string> = {
-  threads: 'Threads', facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', x: 'X',
-}
+const names = ANALYTICS_RECORDED_NAMES
 
 export default function AnalyticsPage() {
   const [days, setDays] = useState('30')
@@ -103,10 +103,12 @@ export default function AnalyticsPage() {
   const canQuerySelection = selectedProfile === 'all'
     || Boolean(profiles?.some((item) => item.id === selectedProfile))
   const waitingForProfileList = selectedProfile !== 'all' && !profiles && !profilesError
+  const filterAvailable = network === 'all' || hasRecordedAnalytics(network)
+  const pendingPlatform = filterAvailable ? null : ANALYTICS_NETWORKS.find((item) => item.key === network)
   const { data, isLoading, error } = useQuery({
     queryKey: ['analytics-summary', userId, selectedProfile, days, network],
     queryFn: () => api.get<Summary>(`/analytics/summary?days=${days}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`),
-    enabled: Boolean(userId) && canQuerySelection,
+    enabled: Boolean(userId) && canQuerySelection && filterAvailable,
     refetchInterval: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
   })
@@ -114,7 +116,7 @@ export default function AnalyticsPage() {
   const { data: timeline, isLoading: timelineLoading, isError: timelineError } = useQuery({
     queryKey: ['analytics-timeline', userId, selectedProfile, days, network],
     queryFn: () => api.get<AnalyticsTimeline>(`/analytics/timeline?days=${days}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`),
-    enabled: Boolean(userId) && canQuerySelection,
+    enabled: Boolean(userId) && canQuerySelection && filterAvailable,
     retry: 1,
     refetchInterval: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -122,7 +124,7 @@ export default function AnalyticsPage() {
   const { data: postsData, isLoading: postsLoading, isError: postsError } = useQuery({
     queryKey: ['analytics-posts', userId, selectedProfile, days, network],
     queryFn: () => api.get<PostsResult>(`/analytics/posts?days=${days}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`),
-    enabled: Boolean(userId) && canQuerySelection,
+    enabled: Boolean(userId) && canQuerySelection && filterAvailable,
     refetchInterval: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
   })
@@ -130,7 +132,7 @@ export default function AnalyticsPage() {
   const rows = data?.networks ?? []
 
   async function refreshAll() {
-    if (selectedProfile === 'all' || refreshing) return
+    if (selectedProfile === 'all' || refreshing || !filterAvailable) return
     setRefreshing(true)
     setRefreshMessage(null)
     try {
@@ -194,10 +196,10 @@ export default function AnalyticsPage() {
           { value: '7', label: '7 dias' }, { value: '30', label: '30 dias' }, { value: '90', label: '90 dias' },
         ]} />
         <Select label="Rede" value={network} onChange={(event) => setNetwork(event.target.value)} width={190} options={[
-          { value: 'all', label: 'Todas' }, ...Object.entries(names).map(([value, label]) => ({ value, label })),
+          { value: 'all', label: 'Todas' }, ...ANALYTICS_NETWORKS.map((item) => ({ value: item.key, label: item.title })),
         ]} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'flex-end' }}>
-          <Button variant="secondary" size="sm" loading={refreshing} disabled={refreshing || selectedProfile === 'all'} onClick={refreshAll}>
+          <Button variant="secondary" size="sm" loading={refreshing} disabled={refreshing || selectedProfile === 'all' || !filterAvailable} onClick={refreshAll}>
             Atualizar informações
           </Button>
           <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Automático a cada 24 horas</span>
@@ -218,7 +220,35 @@ export default function AnalyticsPage() {
         Última consulta às redes: {new Date(data.last_completed_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })} (Brasília).
       </p>}
 
-      {isLoading || waitingForProfileList ? <PageSkeleton variant="table" heading={false} /> : error ? (
+      <section className="analytics-platform-coverage" aria-labelledby="analytics-platforms-title">
+        <div className="analytics-platform-heading">
+          <h2 id="analytics-platforms-title">Redes sociais</h2>
+          <p>Selecione uma rede para ver os resultados disponíveis. Integração listada não significa coleta ativa.</p>
+        </div>
+        <div className="analytics-platform-grid">
+          {ANALYTICS_NETWORKS.map((platform) => (
+            <button key={platform.key} type="button" className="analytics-platform-card"
+              aria-pressed={network === platform.key} onClick={() => setNetwork(platform.key)}
+              title={platform.detail}>
+              <span className={`credential-brand credential-brand--${platform.key}`} aria-hidden="true">
+                {platform.logos.map((logo) => <img key={logo} src={`/brand-logos/${logo}`} alt="" width={32} height={32} loading="lazy" />)}
+              </span>
+              <span className="analytics-platform-description">
+                <strong>{platform.title}</strong>
+                <small className={`analytics-platform-state analytics-platform-state--${platform.tone}`}>{platform.label}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {!filterAvailable ? (
+        <section className="analytics-platform-pending" role="status">
+          <h2>{pendingPlatform?.title ?? 'Rede selecionada'} — análises indisponíveis</h2>
+          <p>{pendingPlatform?.detail ?? 'Esta rede ainda não possui integração de métricas.'}</p>
+          <p>Não há coleta externa habilitada para esta rede. Os dados não são apresentados como zero e nenhuma consulta à API da plataforma é realizada.</p>
+        </section>
+      ) : isLoading || waitingForProfileList ? <PageSkeleton variant="table" heading={false} /> : error ? (
         <p role="alert" className="csp-s-0171">Não foi possível carregar as análises.</p>
       ) : (
         <>
@@ -305,7 +335,7 @@ export default function AnalyticsPage() {
             os insights exibidos são os <strong>totais acumulados de cada post</strong> até a última coleta, não as visualizações ocorridas apenas no intervalo.
             Nunca usamos visualizações gerais do perfil ou da Página. A consulta automática usa o agendamento existente a cada 24 horas; uma consulta manual por perfil pode ser solicitada após 5 minutos.
             Traço significa métrica indisponível, não zero. Facebook e Instagram exigem contas conectadas e uma integração de insights por post validada;
-            X e TikTok permanecem indisponíveis para métricas nesta etapa.
+            X e TikTok permanecem indisponíveis para métricas nesta etapa; Kwai, Shopee Vídeo, Telegram e WhatsApp ainda não possuem coleta integrada.
           </p>
           {isAdmin && <div className="analytics-probe-actions" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
             {(['threads', 'facebook', 'instagram'] as const).map((name) => (

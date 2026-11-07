@@ -22,7 +22,7 @@ test('a consulta troca somente o escopo visual e mantém cache isolado', () => {
 })
 
 test('atualização manual é individual e ranking por post segue a seleção', () => {
-  assert.match(page, /disabled=\{refreshing \|\| selectedProfile === 'all'\}/)
+  assert.match(page, /disabled=\{refreshing \|\| selectedProfile === 'all' \|\| !filterAvailable\}/)
   assert.match(page, /disabled=\{probing !== null \|\| selectedProfile === 'all'\}/)
   assert.match(page, /\/analytics\/refresh\?profile_id=/)
   assert.match(page, /\/analytics\/probe\/\$\{name\}\?profile_id=/)

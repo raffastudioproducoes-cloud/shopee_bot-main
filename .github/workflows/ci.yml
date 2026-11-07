@@ -144,6 +144,9 @@ jobs:
       - name: Credenciais — ordem, agrupamento e Shopee Vídeo (Node 20)
         run: node --test tests/credentials-card-order.test.mjs tests/credentials-sections.test.mjs tests/credentials-compact-platforms.test.mjs tests/platform-ai-panel.test.mjs tests/admin-diagnostics-compact.test.mjs tests/admin-diagnostics-catalog.test.mjs
 
+      - name: Análises — perfis e cobertura de redes sociais (Node 20)
+        run: node --test tests/analytics-profile-filter.test.mjs tests/analytics-social-platforms.test.mjs
+
       - name: Build (tsc && vite build)
         run: npm run build
 

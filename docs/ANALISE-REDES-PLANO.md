@@ -1,5 +1,7 @@
 # Analise de redes: contrato e fases
 
+> **07/11/2026 — catálogo social em Análises (branch staging):** nove redes (Facebook, Instagram, Kwai, Shopee Vídeo, Telegram, Threads, TikTok, WhatsApp e X), sem lojas. Somente cinco têm histórico operacional aceito pelo backend; nas quatro não integradas a UI informa indisponibilidade sem consultar APIs ou inventar zeros. A [matriz por plataforma](ANALISE-REDES-COBERTURA-20261107.md) detalha fontes oficiais e gates. O contrato de insights estritamente **por publicação** abaixo permanece obrigatório.
+
 ## Correção de origem dos insights por POST (05/11/2026 — staging)
 
 **Homologação final de staging:** [PR #300](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/300) (`d7cbabb`) e [PR #301](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/301) (`58c5d7a`) mescladas. Render `dep-dbm37g67bikc73egaugg` **live** no SHA `58c5d7a91c53b83a22764a5f97cd7df901f3d10f`; Docker build com TypeScript/Vite passou. Tela autenticada verificada com perfil individual e Todos, 30 dias, redes; atualização manual retornou **zero visualizações reais para um post Threads** e zero para curtidas/respostas/reposts/shares/quotes, com cliques indisponíveis. Snapshot legado Facebook apagado na atualização desse perfil; contagem de dois crons permaneceu igual. O CI GitHub para a PR #300 (run `41988037724`) falhou **antes dos steps**, então não há prova de pytest integral no CI. Produção/main intocadas.

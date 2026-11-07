@@ -2,8 +2,9 @@ import { useId } from 'react'
 import { Activity, AlertCircle, CheckCircle2, CircleHelp, Gauge, TrendingUp } from 'lucide-react'
 import { Panel } from './ui/Panel'
 import '../styles/analytics-panels.css'
+import { ANALYTICS_RECORDED_NAMES, type AnalyticsRecordedNetwork } from '../lib/analyticsNetworks'
 
-export type AnalyticsNetwork = 'threads' | 'facebook' | 'instagram' | 'tiktok' | 'x'
+export type AnalyticsNetwork = AnalyticsRecordedNetwork
 export type AnalyticsSummaryRow = {
   network: AnalyticsNetwork
   succeeded: number
@@ -17,9 +18,7 @@ export type AnalyticsTimeline = {
   points: { day: string; network: AnalyticsNetwork; status: 'succeeded' | 'failed' | 'unknown'; total: number }[]
 }
 
-const networkNames: Record<AnalyticsNetwork, string> = {
-  threads: 'Threads', facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', x: 'X',
-}
+const networkNames = ANALYTICS_RECORDED_NAMES
 const networkColors: Record<AnalyticsNetwork, string> = {
   threads: 'var(--brand-electric-cyan)',
   facebook: 'var(--brand-orbit-blue)',
