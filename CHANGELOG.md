@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Dados da conta integrados ao card principal (PATCH da candidata 3.5.0, 07/11/2026)
+
+- `/profiles`: o formulário cadastral saiu da área independente da página e passou a viver **dentro do card do perfil principal**, junto à sua foto e nome. A cota compacta e o upgrade condicional também ficam nesse card; os perfis secundários permanecem apenas foto/nome, com menu de ações.
+- Mantidos campos editáveis e estado de prontidão de compra diretamente no card principal, sem duplicar dados por perfil. E-mail de autenticação continua apenas leitura até existir fluxo de troca com verificação de posse; CPF é protegido e não reexibido.
+- Sem mudança de API, payload, Supabase, migration, gateway, cron, publicação ou `main`. UI responsiva e testes de separação principal/secundário atualizados. `VERSION=3.4.0` preservada; correção acumulada na candidata 3.5.0.
+
 ### Changed — Perfis com identificação somente por nome/foto (PATCH da candidata 3.5.0, 07/11/2026)
 
 - `/profiles`: retirada a etiqueta do plano ao lado da cota; mantidos **Cota de perfis** e upgrade somente quando disponível. A tag animada do cabeçalho global não foi alterada.

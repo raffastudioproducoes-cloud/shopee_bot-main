@@ -4,7 +4,6 @@ import { useAuthStore } from "../../stores/authStore"
 import { accountIdentityApi, type AccountIdentity, type AccountIdentitySave } from "../../api/accountIdentity"
 import { validCpf } from "../../lib/cpf"
 import { Button } from "../ui/Button"
-import { Panel } from "../ui/Panel"
 import { TextInput } from "../ui/TextInput"
 import "./accountIdentityForm.css"
 
@@ -68,10 +67,10 @@ export function AccountIdentityForm() {
     save.mutate(payload)
   }
 
-  return <Panel className="account-identity" padding={20} aria-label="Dados cadastrais do titular">
+  return <section className="account-identity" aria-label="Dados cadastrais do titular">
     <div className="account-identity__header">
       <div><h2>Dados cadastrais da conta</h2>
-        <p>Dados do titular para identificação e futura contratação de planos. Não pertencem aos perfis sociais.</p></div>
+        <p>Informações do titular, editáveis neste perfil principal. Não são compartilhadas com os perfis secundários.</p></div>
       {data && <span className={data.purchase_readiness.ready ? "account-identity__ready" : "account-identity__pending"}>
         {data.purchase_readiness.ready ? "Cadastro pronto para contratar" : "Cadastro para contratação incompleto"}
       </span>}
@@ -106,5 +105,5 @@ export function AccountIdentityForm() {
         {save.isPending ? "Salvando..." : "Salvar dados cadastrais"}
       </Button></div>
     </form>}
-  </Panel>
+  </section>
 }
