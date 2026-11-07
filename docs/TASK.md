@@ -1,3 +1,14 @@
+## 07/11/2026 — Credenciais compactas em abas (somente staging, candidata 3.5.0)
+
+- [x] Plano/contrato: [Credenciais compactas — lojas e redes](CREDENCIAIS-COMPACTAS-LOJAS-REDES-20261107.md); logos autênticas e fontes em [`frontend/public/brand-logos/SOURCES.md`](../frontend/public/brand-logos/SOURCES.md).
+- [x] Código local: abas Lojas/Redes sociais, grupos de cadastrados/pendentes em ordem PT-BR por aba, cards compactos fechados inicialmente, logo/nome/status e ajuda interna expansível. Preservados IDs da Shopee, OAuth, desconexão, status e textos existentes.
+- [x] “Testar conexão” foi retirado de `/credentials`, inclusive para ADMIN, e está disponível no diagnóstico `/admin/credentials` apenas para ADMIN. Sem expor segredos, sem alterar endpoints de OAuth ou cadastro.
+- [x] Cards futuros apenas informativos para 12 lojas/redes de afiliados (incluindo Natura e Avon em um card) e Telegram/WhatsApp. Shopee Vídeo e Kwai permanecem bloqueados. **Nunca exibir “Conectado” em plataforma futura sem integração real.**
+- [x] Testes locais: 19 Node selecionados PASS, Vite/TypeScript build PASS; verificação de CSP estático 380/380 sem divergência. Pytest focal local bloqueado pela configuração de PostgreSQL inexistente no runner local, devendo ser comprovado na CI isolada.
+- [ ] PR da branch `feat/credenciais-compactas-lojas-redes-20261107` → `staging`, CI real e Render LIVE. Registrar PR, SHA, deploy e saúde somente após a observação.
+- [ ] QA autenticado em desktop/mobile e homologação visual de logomarcas, status e persistência do colapso. Merge em `main` somente com autorização posterior explícita de Rafa; `VERSION=3.4.0` mantida, candidata MINOR `3.5.0`.
+- [x] **Preservação:** banco Supabase compartilhado, `pg_net`, dois cron jobs, agendamento, produção e credenciais existentes não foram alterados nesta UI. GitHub Actions disponível em 07/11; #305 é incidente histórico resolvido.
+
 ## 07/11/2026 — Shopee API global + ID por afiliado (somente staging, candidato 3.5.0)
 
 - [x] Decisão e arquitetura documentadas: ADMIN detém App ID/Secret global cifrado por ambiente; clientes salvam somente ID de afiliado por conta, nunca credenciais da plataforma. Origem e limites em [contrato Shopee](SHOPEE-API-GLOBAL-ID-AFILIADO-20261107.md).

@@ -11,7 +11,6 @@ import {
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { Skeleton, SkeletonCard, SkeletonRegion } from "../components/ui/Skeleton"
-import { IconButton } from "../components/ui/IconButton"
 import { TextInput } from "../components/ui/TextInput"
 import { StatusBadge } from "../components/ui/StatusBadge"
 import { ConnectionLight } from "../components/ui/ConnectionLight"
@@ -19,6 +18,7 @@ import { Icon } from "../components/ui/Icon"
 import { Modal } from "../components/ui/Modal"
 import { isNetworkDisabled } from "../lib/networkLimits"
 import { groupCredentialCards } from "../lib/credentialSections"
+import { CREDENTIAL_BRAND_LOGOS, FUTURE_CREDENTIAL_PLATFORMS, type CredentialTab } from "../lib/credentialPlatforms"
 
 // Nenhum card USER recebe App ID/Secret. Shopee é ID de afiliado; redes
 // sociais usam OAuth, e Kwai/Shopee Vídeo são cartões informativos.
@@ -77,10 +77,33 @@ const CollapseCtx = createContext<{ collapsed: boolean; toggle: () => void }>({ 
 
 function readCollapsed(id: string): boolean {
   try {
-    return localStorage.getItem(COLLAPSE_KEY + id) === "1"
+    // Primeiro acesso: card compacto. Respeitar preferência anterior de expansão.
+    return localStorage.getItem(COLLAPSE_KEY + id) !== "0"
   } catch {
-    return false
+    return true
   }
+}
+
+function BrandLogo({ platform, name }: { platform: string; name: string }) {
+  const logos = CREDENTIAL_BRAND_LOGOS[platform] ?? []
+  return (
+    <span className={`credential-brand credential-brand--${platform}`} aria-hidden="true">
+      {logos.map((logo) => (
+        <img key={logo} src={`/brand-logos/${logo}`} alt="" width={38} height={38} loading="lazy" />
+      ))}
+      {!logos.length && <span className="credential-brand__fallback">{name}</span>}
+    </span>
+  )
+}
+
+/** Independente do estado aberto/fechado do card principal. */
+function CredentialHelp({ children, title = "Como conectar e usar este serviço" }: { children: ReactNode; title?: string }) {
+  return (
+    <details className="credential-help">
+      <summary><Icon name="circle-help" size={17} /> {title}</summary>
+      <div className="credential-help__body">{children}</div>
+    </details>
+  )
 }
 
 function CredPanel({ id, children }: { id: string; children: ReactNode }) {
@@ -103,25 +126,17 @@ function CredPanel({ id, children }: { id: string; children: ReactNode }) {
   )
 }
 
-function CredHeader({ title, trailing }: { title: ReactNode; trailing?: ReactNode }) {
+function CredHeader({ title, brand, trailing }: { title: string; brand: string; trailing?: ReactNode }) {
   const { collapsed, toggle } = useContext(CollapseCtx)
   return (
     <header className="csp-s-0192">
-      <div className="csp-s-0193">
-        <span className="csp-s-0194">
-          {title}
-        </span>
-        <IconButton
-          icon={collapsed ? "chevron-down" : "chevron-up"}
-          label={collapsed ? "Expandir card" : "Recolher card"}
-          tone="plain"
-          size={30}
-          aria-expanded={!collapsed}
-          onClick={toggle}
-          style={{ flexShrink: 0 }}
-        />
-      </div>
-      {trailing}
+      <button type="button" className="csp-s-0193" onClick={toggle}
+        aria-expanded={!collapsed} aria-label={`${collapsed ? "Expandir" : "Recolher"} ${title}`}>
+        <BrandLogo platform={brand} name={title} />
+        <span className="csp-s-0194">{title}</span>
+        <span className="csp-s-0201">{trailing}</span>
+        <Icon name={collapsed ? "chevron-down" : "chevron-up"} size={18} />
+      </button>
     </header>
   )
 }
@@ -134,7 +149,7 @@ function anyTesting(map?: Record<string, { state?: string }>): boolean {
 
 // Luz + selo + data do teste, iguais em todos os cards. Em "testing" a luz vira
 // um spinner e o selo anuncia "Testando…" (região viva, lida por leitor de tela).
-function ConnectionStatus({ status }: { status: CredentialStatusWithLight }) {
+function ConnectionStatus({ status, compact = false }: { status: CredentialStatusWithLight; compact?: boolean }) {
   const testing = status.state === "testing"
   return (
     <>
@@ -145,18 +160,29 @@ function ConnectionStatus({ status }: { status: CredentialStatusWithLight }) {
       )}
       <span role="status" aria-live="polite" className="csp-s-0195">
         <StatusBadge
-          tone={status.light === "green" ? "positive" : "neutral"}
+          tone={compact ? (status.connected ? "positive" : "neutral") : (status.light === "green" ? "positive" : "neutral")}
           icon={testing ? undefined : status.light === "green" ? "check-circle-2" : "x-circle"}
         >
-          {status.status_text ?? (status.connected ? "Conectado" : "Desconectado")}
+          {compact ? (status.connected ? "Conectado" : "Desconectado") : (status.status_text ?? (status.connected ? "Conectado" : "Desconectado"))}
         </StatusBadge>
       </span>
-      {status.checked_at && !testing && (
+      {status.checked_at && !testing && !compact && (
         <span className="csp-s-0196">
           Testado em {new Date(status.checked_at).toLocaleString("pt-BR")}
         </span>
       )}
     </>
+  )
+}
+
+function ConnectionDetails({ status }: { status: CredentialStatusWithLight }) {
+  if (!status.checked_at && !status.check_message && !status.status_text) return null
+  return (
+    <div className="credentials-connection-details">
+      {status.status_text && <span>{status.status_text}</span>}
+      {status.checked_at && <span>Último teste: {new Date(status.checked_at).toLocaleString("pt-BR")}</span>}
+      {status.check_message && <span>{status.check_message}</span>}
+    </div>
   )
 }
 
@@ -171,6 +197,7 @@ export function CredentialsPage() {
   const { logout } = useAuthStore()
   const queryClient = useQueryClient()
   const [banner, setBanner] = useState<{ ok: boolean; text: string } | null>(null)
+  const [activeTab, setActiveTab] = useState<CredentialTab>("stores")
 
   const { data: status, isLoading, isError: isStatusError, refetch: refetchStatus } = useQuery({
     queryKey: ["credentials"],
@@ -296,10 +323,11 @@ export function CredentialsPage() {
 
   // O agrupamento considera credenciais cadastradas, mesmo que o último teste
   // esteja vencido, com erro ou em andamento; a luz não define o grupo.
-  const cards: { key: string; title: string; connected: boolean; element: ReactNode }[] = [
+  const cards: { key: string; title: string; category: CredentialTab; connected: boolean; element: ReactNode }[] = [
     {
       key: "facebook",
       title: "Facebook",
+      category: "social",
       connected: Boolean(status?.facebook?.connected),
       element: <FacebookCredentialCard key="facebook" status={status?.facebook ?? EMPTY_STATUS}
         onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />,
@@ -307,6 +335,7 @@ export function CredentialsPage() {
     {
       key: "instagram",
       title: "Instagram",
+      category: "social",
       connected: Boolean(status?.instagram?.connected),
       element: <InstagramCredentialCard key="instagram" status={status?.instagram ?? EMPTY_STATUS}
         onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />,
@@ -314,12 +343,14 @@ export function CredentialsPage() {
     {
       key: "kwai",
       title: "Kwai",
+      category: "social",
       connected: false,
       element: <KwaiComingSoonCredentialCard key="kwai" />,
     },
     {
       key: "shopee",
       title: "Shopee",
+      category: "stores",
       connected: Boolean(status?.shopee?.connected),
       element: <ShopeeAffiliateCredentialCard key="shopee" status={status?.shopee ?? EMPTY_STATUS}
         affiliateId={shopeeIdentity?.affiliate_id ?? null}
@@ -330,12 +361,14 @@ export function CredentialsPage() {
     {
       key: "shopee-video",
       title: "Shopee Vídeo",
+      category: "stores",
       connected: false, // Bloqueada até aprovação oficial específica.
       element: <ShopeeVideoCredentialCard key="shopee-video" />,
     },
     {
       key: "threads",
       title: "Threads",
+      category: "social",
       connected: Boolean(status?.threads?.connected),
       element: <ThreadsCredentialCard key="threads" status={status?.threads ?? EMPTY_STATUS}
         onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />,
@@ -343,6 +376,7 @@ export function CredentialsPage() {
     {
       key: "tiktok",
       title: "TikTok",
+      category: "social",
       connected: Boolean(status?.tiktok?.connected),
       element: <TikTokCredentialCard key="tiktok" status={status?.tiktok ?? EMPTY_STATUS}
         onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />,
@@ -350,21 +384,49 @@ export function CredentialsPage() {
     {
       key: "x",
       title: "X (Twitter)",
+      category: "social",
       connected: Boolean(status?.x?.connected),
       element: <XCredentialCard key="x" status={status?.x ?? EMPTY_STATUS}
         onSaved={invalidate} onAuthError={onAuthError} setBanner={setBanner} />,
     },
+    ...FUTURE_CREDENTIAL_PLATFORMS.map((platform) => ({
+      key: platform.key,
+      title: platform.title,
+      category: platform.category,
+      connected: false,
+      element: <FutureCredentialCard key={platform.key} platform={platform} />,
+    })),
   ]
-  const grouped = groupCredentialCards(cards)
+  const grouped = groupCredentialCards(cards.filter((card) => card.category === activeTab))
 
 
   return (
     <div className="csp-s-0198">
       <div>
         <h1 className="csp-s-0199">Credenciais</h1>
-        <p className="csp-s-0200">
-          O valor da credencial nunca é reexibido depois de salvo — só o status de conexão.
-        </p>
+        <p className="csp-s-0200">Conecte suas lojas e redes para usar seus próprios links de afiliado e publicar conteúdo.</p>
+      </div>
+
+      <div className="credentials-intro" role="note">
+        <Icon name="info" size={20} />
+        <div>
+          <strong>Como configurar suas credenciais</strong>
+          <p>Em <b>Lojas</b>, informe seu identificador de afiliado quando a integração estiver disponível.
+            Em <b>Redes sociais</b>, autorize apenas os perfis em que deseja publicar.
+            Abra um card para configurar e expanda “Como conectar” se precisar de ajuda.
+            Segredos de API não são exibidos novamente; os IDs públicos de afiliado podem ser consultados e alterados.</p>
+        </div>
+      </div>
+
+      <div className="credentials-tabs" role="tablist" aria-label="Categorias de credenciais">
+        <button type="button" role="tab" id="credentials-tab-stores" aria-controls="credentials-pane" aria-selected={activeTab === "stores"}
+          className={activeTab === "stores" ? "is-active" : ""} onClick={() => setActiveTab("stores")}>
+          <Icon name="shopping-bag" size={18} /> Lojas <span>{cards.filter(c => c.category === "stores").length}</span>
+        </button>
+        <button type="button" role="tab" id="credentials-tab-social" aria-controls="credentials-pane" aria-selected={activeTab === "social"}
+          className={activeTab === "social" ? "is-active" : ""} onClick={() => setActiveTab("social")}>
+          <Icon name="users" size={18} /> Redes sociais <span>{cards.filter(c => c.category === "social").length}</span>
+        </button>
       </div>
 
       {banner && (
@@ -381,19 +443,20 @@ export function CredentialsPage() {
         </div>
       )}
 
-      {/* Os dois grupos são sempre visíveis; dentro de cada um a ordem é PT-BR. */}
+      {/* Grupos independentes em cada aba; ordem PT-BR em ambos. */}
+      <div id="credentials-pane" role="tabpanel" aria-labelledby={`credentials-tab-${activeTab}`} className="credentials-tab-panel">
       {[
         {
           id: "cadastradas",
           title: "Já credenciados",
-          description: "Serviços cadastrados, incluindo aqueles que precisam testar a conexão novamente.",
+          description: "Serviços com credenciais ou autorizações cadastradas.",
           cards: grouped.registered,
           empty: "Nenhuma credencial cadastrada. Conecte um serviço na seção abaixo.",
         },
         {
           id: "pendentes",
           title: "Ainda não cadastrados",
-          description: "Conecte os serviços disponíveis ou acompanhe os que aguardam liberação.",
+          description: "Abra um serviço disponível para conectar ou veja o que vem em breve.",
           cards: grouped.pending,
           empty: "Todos os serviços disponíveis já foram cadastrados.",
         },
@@ -417,19 +480,15 @@ export function CredentialsPage() {
           )}
         </section>
       ))}
+      </div>
     </div>
   )
 }
 
-// ── Sinalizador (luz, visível a todo mundo) + botão "Testar conexão". ─────
+// ── Status compacto. Testes manuais ficam exclusivamente no painel ADMIN. ──
 
 function CredentialTrailing({
-  network,
-  label,
   status,
-  onSaved,
-  onAuthError,
-  setBanner,
 }: {
   network: SimpleNetwork | "threads"
   label: string
@@ -438,33 +497,7 @@ function CredentialTrailing({
   onAuthError: (err: Error) => void
   setBanner: (b: { ok: boolean; text: string } | null) => void
 }) {
-  const testMutation = useMutation({
-    mutationFn: () => credentialsApi.testConnection(network),
-    onSuccess: (result) => {
-      setBanner({
-        ok: result.light === "green",
-        text: `${label}: ${result.message || (result.light === "green" ? "conectado" : "problema encontrado")}`,
-      })
-      onSaved()
-    },
-    onError: onAuthError,
-  })
-
-  return (
-    <div className="csp-s-0201">
-      <ConnectionStatus status={status} />
-      {status.connected && (
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={testMutation.isPending || status.state === "testing"}
-          onClick={() => testMutation.mutate()}
-        >
-          {testMutation.isPending || status.state === "testing" ? "Testando..." : "Testar conexão"}
-        </Button>
-      )}
-    </div>
-  )
+  return <ConnectionStatus status={status} compact />
 }
 
 // ── Identidade de afiliado Shopee, sem formulário de chave API ──────────────
@@ -500,19 +533,22 @@ function ShopeeAffiliateCredentialCard({
   })
   return (
     <CredPanel id="Shopee">
-      <CredHeader title="Shopee" trailing={<ConnectionStatus status={status} />} />
-      <p className="csp-s-0203">
-        O Auto Orbital fornece a API de busca. Você só precisa informar seu ID de Afiliado Shopee
-        para que os links gerados usem a sua identificação, sem compartilhar App ID ou Secret.
-      </p>
-      <p className="csp-s-0203">
-        {catalogAvailable ? "Catálogo da plataforma disponível." : "Catálogo da plataforma indisponível no momento."}
-        {" "}O ID informado não é uma autorização OAuth; a comissão depende das regras da Shopee.
-      </p>
-      <form className="csp-s-0204" onSubmit={(event) => { event.preventDefault(); save.mutate() }}>
+      <CredHeader title="Shopee" brand="shopee" trailing={<ConnectionStatus status={status} compact />} />
+      <ConnectionDetails status={status} />
+      <CredentialHelp title="Onde encontrar meu ID e como funcionam os links?">
+        <p className="csp-s-0203">
+          O Auto Orbital fornece a API de busca. Você só precisa informar seu ID de Afiliado Shopee
+          para que os links gerados usem a sua identificação, sem compartilhar App ID ou Secret.
+        </p>
+        <p className="csp-s-0203">
+          {catalogAvailable ? "Catálogo da plataforma disponível." : "Catálogo da plataforma indisponível no momento."}
+          {" "}O ID informado não é uma autorização OAuth; a comissão depende das regras da Shopee.
+        </p>
         <a href="https://affiliate.shopee.com.br/account_setting" target="_blank" rel="noreferrer" className="csp-s-0206">
           Onde encontrar meu ID de afiliado na Shopee ↗
         </a>
+      </CredentialHelp>
+      <form className="csp-s-0204" onSubmit={(event) => { event.preventDefault(); save.mutate() }}>
         <TextInput
           label="ID do afiliado (ou link completo com o ID)"
           value={value}
@@ -535,9 +571,9 @@ function ShopeeAffiliateCredentialCard({
 function KwaiComingSoonCredentialCard() {
   return (
     <CredPanel id="Kwai">
-      <CredHeader title="Kwai" />
+      <CredHeader title="Kwai" brand="kwai" trailing={<StatusBadge tone="warning">Em breve</StatusBadge>} />
       <div className="csp-s-0202">
-        <p className="csp-s-0203">Em breve — a ligação com Kwai ainda não está disponível.</p>
+        <CredentialHelp><p className="csp-s-0203">Em breve — a ligação com Kwai ainda não está disponível.</p></CredentialHelp>
       </div>
     </CredPanel>
   )
@@ -551,22 +587,38 @@ function ShopeeVideoCredentialCard() {
     <CredPanel id="Shopee Vídeo">
       <CredHeader
         title="Shopee Vídeo"
+        brand="shopee-video"
         trailing={
           <div className="csp-s-0201">
             <ConnectionLight state="yellow" title="Aguardando aprovação oficial da Shopee" />
-            <StatusBadge tone="warning" icon="clock-3">Aguardando aprovação</StatusBadge>
+            <StatusBadge tone="warning" icon="clock-3">Em breve</StatusBadge>
           </div>
         }
       />
       <div className="csp-s-0202">
-        <p className="csp-s-0203">
-          A conexão para publicar no Shopee Vídeo depende da aprovação oficial
-          do acesso Shopee Video Management. As credenciais da Shopee Afiliados
-          não autorizam a publicação de vídeos.
-        </p>
+        <CredentialHelp><p className="csp-s-0203">
+            Aguardando aprovação oficial da Shopee.
+            A conexão para publicar no Shopee Vídeo depende da aprovação oficial
+            do acesso Shopee Video Management. As credenciais da Shopee Afiliados
+            não autorizam a publicação de vídeos.
+        </p></CredentialHelp>
         <Button type="button" variant="primary" disabled>
           Conectar Shopee Vídeo
         </Button>
+      </div>
+    </CredPanel>
+  )
+}
+
+function FutureCredentialCard({ platform }: { platform: (typeof FUTURE_CREDENTIAL_PLATFORMS)[number] }) {
+  return (
+    <CredPanel id={`future-${platform.key}`}>
+      <CredHeader title={platform.title} brand={platform.key} trailing={<StatusBadge tone="warning">Em breve</StatusBadge>} />
+      <div className="credential-future-content">
+        <CredentialHelp title={`Sobre a integração ${platform.title}`}>
+          <p>{platform.detail}</p>
+          <p>A conexão será liberada aqui quando estiver pronta. Não é necessário fornecer chaves ou tokens agora.</p>
+        </CredentialHelp>
       </div>
     </CredPanel>
   )
@@ -609,6 +661,7 @@ function ThreadsCredentialCard({
     <CredPanel id="Threads">
       <CredHeader
         title="Threads"
+        brand="threads"
         trailing={
           <CredentialTrailing
             network="threads"
@@ -620,11 +673,11 @@ function ThreadsCredentialCard({
           />
         }
       />
-
+      <ConnectionDetails status={status} />
       <div className="csp-s-0214">
-        <p className="csp-s-0215">
+        <CredentialHelp><p className="csp-s-0215">
           Conecte sua conta do Threads com um clique — nenhuma configuração técnica necessária.
-        </p>
+        </p></CredentialHelp>
 
         <div className="csp-s-0216">
           <Button
@@ -698,6 +751,7 @@ function XCredentialCard({
     <CredPanel id="X (Twitter)">
       <CredHeader
         title="X (Twitter)"
+        brand="x"
         trailing={
           <CredentialTrailing
             network="x"
@@ -709,11 +763,11 @@ function XCredentialCard({
           />
         }
       />
-
+      <ConnectionDetails status={status} />
       <div className="csp-s-0217">
-        <p className="csp-s-0218">
+        <CredentialHelp><p className="csp-s-0218">
           Conecte sua conta do X com um clique — nenhuma configuração técnica necessária.
-        </p>
+        </p></CredentialHelp>
 
         <div className="csp-s-0219">
           <Button
@@ -797,6 +851,7 @@ function FacebookCredentialCard({
     <CredPanel id="Facebook">
       <CredHeader
         title="Facebook"
+        brand="facebook"
         trailing={
           <CredentialTrailing
             network="facebook"
@@ -808,12 +863,12 @@ function FacebookCredentialCard({
           />
         }
       />
-
+      <ConnectionDetails status={status} />
       <div className="csp-s-0222">
-        <p className="csp-s-0223">
+        <CredentialHelp><p className="csp-s-0223">
           Conecte a Página do Facebook com um clique — nenhuma configuração técnica necessária.
           Se você administra mais de uma Página, a primeira encontrada é conectada automaticamente.
-        </p>
+        </p></CredentialHelp>
 
         <div className="csp-s-0224">
           <Button
@@ -886,6 +941,7 @@ function TikTokCredentialCard({
     <CredPanel id="TikTok">
       <CredHeader
         title="TikTok"
+        brand="tiktok"
         trailing={
           <CredentialTrailing
             network="tiktok"
@@ -897,11 +953,11 @@ function TikTokCredentialCard({
           />
         }
       />
-
+      <ConnectionDetails status={status} />
       <div className="csp-s-0225">
-        <p className="csp-s-0226">
+        <CredentialHelp><p className="csp-s-0226">
           Conecte sua conta do TikTok com um clique — nenhuma configuração técnica necessária.
-        </p>
+        </p></CredentialHelp>
 
         <div className="csp-s-0227">
           <Button
@@ -974,6 +1030,7 @@ function InstagramCredentialCard({
     <CredPanel id="Instagram">
       <CredHeader
         title="Instagram"
+        brand="instagram"
         trailing={
           <CredentialTrailing
             network="instagram"
@@ -985,12 +1042,12 @@ function InstagramCredentialCard({
           />
         }
       />
-
+      <ConnectionDetails status={status} />
       <div className="csp-s-0228">
-        <p className="csp-s-0229">
+        <CredentialHelp><p className="csp-s-0229">
           Publicar exige uma conta Business/Creator vinculada a uma Página do Facebook — conecte
           com um clique, nenhuma configuração técnica necessária.
-        </p>
+        </p></CredentialHelp>
 
         <div className="csp-s-0230">
           <Button

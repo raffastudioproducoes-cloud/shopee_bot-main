@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs"
 
 const source = readFileSync(new URL("../src/pages/CredentialsPage.tsx", import.meta.url), "utf8")
 const registryStart = source.indexOf("  const cards: {")
-const registryEnd = source.indexOf("  const grouped = groupCredentialCards(cards)", registryStart)
+const registryEnd = source.indexOf("  const grouped = groupCredentialCards(cards.filter(", registryStart)
 const registry = source.slice(registryStart, registryEnd)
 
 test("os oito cards das redes integram o agrupamento, sem chave IA na página comum", () => {
@@ -19,7 +19,9 @@ test("os oito cards das redes integram o agrupamento, sem chave IA na página co
   assert.match(source, /ID do afiliado \(ou link completo com o ID\)/)
   assert.doesNotMatch(source.slice(source.indexOf('function ShopeeAffiliateCredentialCard'), source.indexOf('function KwaiComingSoonCredentialCard')), /label="(App ID|Secret)"/)
   assert.doesNotMatch(source, /function SimpleCredentialCard|pegar App ID\/Secret/)
-  assert.match(source, /groupCredentialCards\(cards\)/)
+  assert.match(source, /groupCredentialCards\(cards\.filter\(\(card\) => card\.category === activeTab\)\)/)
+  assert.match(source, /role="tablist"/)
+  assert.match(source, /role="tabpanel"/)
   assert.match(source, /title: "Já credenciados"[^]*?title: "Ainda não cadastrados"/)
   assert.match(source, /grouped\.registered[^]*?grouped\.pending/)
   assert.match(source, /aria-labelledby=\{`credentials-\$\{group\.id\}`\}/)

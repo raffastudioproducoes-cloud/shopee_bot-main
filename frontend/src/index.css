@@ -118,6 +118,55 @@ body { background: var(--bg-app-gradient); background-attachment: fixed; }
 }
 .cred-card p, .cred-card label { overflow-wrap: anywhere; }
 
+/* Credenciais V2: cartão compacto, duas categorias e ajuda em acordeão. */
+.credentials-intro { display: flex; align-items: flex-start; gap: 14px; padding: 17px 20px; background: rgba(13, 160, 126, .08); border: 1px solid rgba(57, 204, 169, .24); border-radius: var(--r-lg); color: var(--text-body); }
+.credentials-intro > svg { flex-shrink: 0; color: var(--accent-500); margin-top: 1px; }
+.credentials-intro strong { display: block; margin-bottom: 5px; color: var(--text-display); }
+.credentials-intro p { margin: 0; line-height: 1.6; color: var(--text-muted); }
+.credentials-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 5px; align-self: flex-start; background: var(--surface-card); border: 1px solid var(--border-card); border-radius: var(--r-lg); }
+.credentials-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 0; border-radius: var(--r-md); background: transparent; color: var(--text-muted); padding: 11px 17px; font: var(--text-role-body); font-weight: 600; cursor: pointer; transition: background .16s ease, color .16s ease; }
+.credentials-tabs button:hover { color: var(--text-display); background: rgba(255,255,255,.05); }
+.credentials-tabs button.is-active { color: var(--text-display); background: var(--surface-raised, #273344); box-shadow: inset 0 0 0 1px var(--border-card); }
+.credentials-tabs button:focus-visible, #root .cred-card .csp-s-0193:focus-visible, .credential-help summary:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
+.credentials-tabs button span { display: inline-grid; place-items: center; min-width: 25px; height: 22px; padding: 0 5px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--text-body); font-size: 12px; }
+.credentials-tab-panel { display: flex; flex-direction: column; gap: var(--gap-column); min-width: 0; }
+#root .credentials-card-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 12px; }
+#root .cred-card .csp-s-0192 { padding: 0; display: block; }
+#root .cred-card .csp-s-0193 { width: 100%; min-height: 82px; padding: 14px 16px; display: flex; align-items: center; justify-content: flex-start; gap: 12px; background: transparent; border: 0; color: inherit; text-align: left; cursor: pointer; }
+#root .cred-card .csp-s-0193:hover { background: rgba(255,255,255,.025); }
+#root .cred-card .csp-s-0194 { flex: 1; font: var(--text-role-title); font-size: 15px; min-width: 0; white-space: normal; line-height: 1.3; }
+#root .cred-card .csp-s-0201 { display: inline-flex; flex: none; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: 6px; max-width: 52%; }
+#root .cred-card .csp-s-0201 .csp-s-0195 { white-space: nowrap; }
+.credential-brand { flex: none; width: 43px; height: 43px; display: inline-flex; align-items: center; justify-content: center; gap: 2px; overflow: hidden; border-radius: 12px; background: rgba(255,255,255,.085); }
+.credential-brand img { display: block; max-width: 37px; max-height: 35px; width: auto; height: auto; object-fit: contain; }
+.credential-brand--natura-avon { width: 60px; }
+.credential-brand--natura-avon img { max-width: 27px; max-height: 26px; }
+.credential-brand--facebook img, .credential-brand--instagram img, .credential-brand--threads img, .credential-brand--x img, .credential-brand--tiktok img, .credential-brand--shopee img, .credential-brand--shopee-video img, .credential-brand--amazon img, .credential-brand--rakuten img, .credential-brand--aliexpress img, .credential-brand--telegram img, .credential-brand--whatsapp img, .credential-brand--shein img, .credential-brand--awin img, .credential-brand--kwai img { filter: invert(1); }
+.credential-brand--mercadolivre img, .credential-brand--magalu img, .credential-brand--americanas img, .credential-brand--prospin img, .credential-brand--terabyteshop img { max-width: 39px; }
+.credential-brand__fallback { font-size: 9px; }
+.credential-help { margin: 0 16px 14px; border: 1px solid var(--border-card); border-radius: var(--r-md); background: rgba(255,255,255,.035); }
+.cred-card .csp-s-0214 .credential-help, .cred-card .csp-s-0217 .credential-help, .cred-card .csp-s-0222 .credential-help, .cred-card .csp-s-0225 .credential-help, .cred-card .csp-s-0228 .credential-help, .cred-card .csp-s-0202 .credential-help { margin: 0; }
+.credential-help summary { display: flex; align-items: center; gap: 9px; padding: 12px 14px; font: var(--text-role-body); color: var(--text-body); cursor: pointer; list-style: none; }
+.credential-help summary::-webkit-details-marker { display: none; }
+.credential-help summary::after { content: '▾'; margin-left: auto; font-size: 14px; transition: transform .16s ease; }
+.credential-help[open] summary::after { transform: rotate(180deg); }
+.credential-help summary svg { color: var(--accent-500); flex-shrink: 0; }
+.credential-help__body { display: flex; flex-direction: column; gap: 10px; padding: 0 14px 14px; color: var(--text-muted); font: var(--text-role-body); }
+.credential-help__body p { margin: 0; }
+.credentials-connection-details { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 0 16px 12px; color: var(--text-muted); font: var(--text-role-body); font-size: 12px; }
+.credential-future-content { padding-bottom: 1px; }
+@media (max-width: 680px) {
+  .credentials-intro { padding: 14px; }
+  .credentials-tabs { align-self: stretch; }
+  .credentials-tabs button { flex: 1; padding: 10px 11px; }
+  #root .cred-card .csp-s-0193 { padding: 12px; gap: 8px; min-height: 72px; }
+  #root .cred-card .csp-s-0194 { font-size: 13px; }
+  .credential-brand { width: 36px; height: 36px; border-radius: 10px; }
+  .credential-brand img { max-width: 32px; max-height: 31px; }
+  #root .cred-card .csp-s-0201 { max-width: 57%; }
+}
+@media (prefers-reduced-motion: reduce) { .credentials-tabs button, .credential-help summary::after { transition: none; } }
+
 /* ── Campos de formulário: tema escuro, autofill e popup de <select> ──────────
    Só existe tema escuro, então color-scheme: dark vale pra página toda: o popup
    nativo do <select>, o seletor de data/hora e as barras de rolagem herdam. Cores
