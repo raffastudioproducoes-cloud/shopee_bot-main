@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — Shopee Afiliados da plataforma (MINOR candidata 3.5.0, 07/11/2026)
+
+- Consulta de produtos via App ID/Secret global da plataforma, mantido cifrado, testável e gerenciável somente por ADMIN em `/admin/credentials`; `staging` e `production` com registros próprios no Supabase compartilhado.
+- Credenciais comuns agora recebem exclusivamente ID numérico de afiliado por conta (ou URL oficial expandida contendo ID). O backend constrói `an_redir` por cliente sem reutilizar `offerLink` ADMIN; atualiza respostas de produtos/listas existentes e snapshots novos de campanhas.
+- Nova migration 090 aditiva, com RLS e isolamento por conta; rotas protegidas e testes de regressão, SQL, API e UI. Nenhum cron, pg_net, scheduler ou rede social alterado. **Atribuição comercial real e autorização regional da Shopee precisam de homologação**, não presumidas pelo teste da URL.
+- `VERSION=3.4.0` preservada nesta branch de homologação; a candidata `3.5.0` só vira release mediante aprovação de Rafa para `main`. Detalhes e gates no [contrato Shopee](docs/SHOPEE-API-GLOBAL-ID-AFILIADO-20261107.md).
+
 ## [3.4.0] - 2026-11-07
 
 ### Added — IA custeada pela plataforma (MINOR, autorização de promoção 07/11/2026)

@@ -1332,6 +1332,18 @@ async def generate_copy(
     if not product_result.data:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
+    # Nunca entregar ao LLM o offerLink antigo da conta ADMIN. O texto de
+    # divulgação deve conter o link do afiliado desta conta, inclusive para
+    # produtos que já existiam antes da troca para a API global.
+    from .platform_shopee import get_affiliate_id
+    from ..shopee_affiliate_links import canonical_product_url, personalize_product
+    product_for_copy = product_result.data
+    if canonical_product_url(product_for_copy.get("original_link")):
+        affiliate_id = get_affiliate_id(user_id)
+        if not affiliate_id:
+            raise HTTPException(status_code=400, detail="Cadastre seu ID de afiliado Shopee antes de gerar textos.")
+        product_for_copy = personalize_product(product_for_copy, affiliate_id)
+
     provider, api_key, model = resolve_platform_ai_key()
 
     def complete(prompt: str, max_tokens: int) -> str:
@@ -1339,17 +1351,17 @@ async def generate_copy(
 
     def generate():
         if body.description_only:
-            return [], [generate_short_product_description(product_result.data, body.persona, complete)]
+            return [], [generate_short_product_description(product_for_copy, body.persona, complete)]
         if body.mode == "append":
             replies = generate_thread_replies(
-                product_result.data, body.persona, body.networks,
+                product_for_copy, body.persona, body.networks,
                 body.existing_texts,
                 body.part_count - len(body.existing_texts), complete,
             )
             return [], replies
 
         variants = generate_variants(
-            product_result.data, body.persona, body.networks, complete,
+            product_for_copy, body.persona, body.networks, complete,
         )
         # Threads/X may receive a shorter head variant than Facebook/Instagram.
         # Continue the actual thread head, not the longest generic description.
@@ -1358,7 +1370,7 @@ async def generate_copy(
             variants[0],
         )
         replies = generate_thread_replies(
-            product_result.data, body.persona, body.networks,
+            product_for_copy, body.persona, body.networks,
             [thread_variant["text"]], body.part_count - 1, complete,
         )
         return variants, replies

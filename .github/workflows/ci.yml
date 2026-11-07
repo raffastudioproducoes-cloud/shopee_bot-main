@@ -48,6 +48,7 @@ jobs:
           python -m unittest discover -s tests/sql -p 'test_f4e2b4_*.py' -v
           python -m unittest discover -s tests/sql -p 'test_f4e2b*.py' -v
           python -m unittest discover -s tests/sql -p 'test_platform_ai_*.py' -v
+          python -m unittest discover -s tests/sql -p 'test_platform_shopee_*.py' -v
 
   api:
     name: API Python (lint + testes)
@@ -111,7 +112,7 @@ jobs:
         run: python -m unittest discover -s tests/ci -p 'test_release_semver.py' -v
 
       - name: Contratos de migracoes de seguranca e indices
-        run: python -m pytest tests/database/test_056_harden_internal_grants.py tests/database/test_057_revoke_table_ddl_grants.py tests/database/test_089_platform_ai_credentials.py --confcutdir=tests/database -q
+        run: python -m pytest tests/database/test_056_harden_internal_grants.py tests/database/test_057_revoke_table_ddl_grants.py tests/database/test_089_platform_ai_credentials.py tests/database/test_090_platform_shopee_affiliate_ids.py --confcutdir=tests/database -q
 
       - name: Testes de seguranca do proxy, CSP e bridge de agendamento
         run: python -m pytest tests/web/test_api_proxy_csrf.py tests/web/test_csp_policy.py tests/web/test_internal_func_whitelist.py --confcutdir=tests/web -q

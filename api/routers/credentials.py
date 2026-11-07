@@ -400,6 +400,21 @@ async def list_credentials(user_id: int = Depends(get_current_user_id), profile_
     result: dict[str, dict] = {}
 
     for network, table in SIMPLE_NETWORKS.items():
+        if network == "shopee":
+            # Migração incremental: a chave antiga fica arquivada/cifrada,
+            # mas NÃO indica conexão. Somente o ID da conta é usado nos links.
+            affiliate = scope_account(
+                supabase.table("shopee_affiliate_accounts").select("affiliate_id"), user_id,
+            ).maybe_single().execute()
+            saved_id = (affiliate.data or {}).get("affiliate_id") if affiliate else None
+            registered = bool(saved_id)
+            result[network] = {
+                "connected": registered, "light": "green" if registered else "red",
+                "state": "ok" if registered else "disconnected",
+                "status_text": "ID cadastrado" if registered else "ID não cadastrado",
+                "checked_at": None,
+            }
+            continue
         query = scope_account(supabase.table(table).select("status"), user_id) if network == "shopee" else scope_owner(
             supabase.table(table).select("status"), user_id, profile_id,
         )

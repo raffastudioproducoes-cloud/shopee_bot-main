@@ -158,7 +158,9 @@ def test_shopee_autotests_still_use_bridge(db, client, monkeypatch):
     assert client.put("/credentials/shopee", json={"app_id": "123", "secret": "seg-shopee"}).status_code == 200
     for fn, args in pending:
         fn(*args)
-    assert client.get("/credentials").json()["shopee"]["state"] == "ok"
+    # API legada continua compatível para rollback; conexão exibida ao USER
+    # agora depende exclusivamente do ID de afiliado, não da chave antiga.
+    assert client.get("/credentials").json()["shopee"]["state"] == "disconnected"
 
 
 def test_shopee_bridge_down_becomes_safe_error(db, client, monkeypatch):
@@ -173,7 +175,7 @@ def test_shopee_bridge_down_becomes_safe_error(db, client, monkeypatch):
     client.put("/credentials/shopee", json={"app_id": "123", "secret": "seg-shopee"})
     for fn, args in pending:
         fn(*args)
-    assert client.get("/credentials").json()["shopee"]["state"] == "error"
+    assert client.get("/credentials").json()["shopee"]["state"] == "disconnected"
 
 
 def test_latest_check_prefers_serial_id_when_timestamps_tie():
@@ -192,7 +194,7 @@ def test_social_account_checks_remain_scoped(db, client, profile_cookie):
         {"id": 1, "user_id": 7, "network": "shopee", "state": "error", "checked_at": "2026-10-11T09:00:00+00:00"},
     ]
     client.cookies.update(profile_cookie("profile-a"))
-    assert client.get("/credentials").json()["shopee"]["state"] == "ok"
+    assert client.get("/credentials").json()["shopee"]["state"] == "disconnected"
     cred._save_check(7, "profile-b", "shopee", "error", "atual")
     assert len(db.tables["credential_checks"]) == 1
 

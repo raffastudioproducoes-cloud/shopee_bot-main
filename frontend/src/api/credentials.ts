@@ -82,6 +82,31 @@ export const credentialsApi = {
 
 }
 
+export interface ShopeeAffiliateStatus {
+  connected: boolean
+  affiliate_id: string | null
+  catalog_available: boolean
+}
+
+export const shopeeAffiliateApi = {
+  status: () => api.get<ShopeeAffiliateStatus>('/shopee/affiliate'),
+  save: (affiliateId: string) => api.put<{ connected: boolean; affiliate_id: string }>('/shopee/affiliate', { affiliate_id: affiliateId }),
+  delete: () => api.delete<{ connected: boolean }>('/shopee/affiliate'),
+}
+
+export interface AdminShopeeStatus {
+  connected: boolean
+  state: 'ok' | 'error' | 'testing' | null
+  checked_at: string | null
+}
+
+export const adminShopeeApi = {
+  status: () => api.get<AdminShopeeStatus>('/admin/shopee'),
+  save: (appId: string, secret: string) => api.put<{ connected: boolean }>('/admin/shopee', { app_id: appId, secret }),
+  delete: () => api.delete<{ connected: boolean }>('/admin/shopee'),
+  test: () => api.post<TestConnectionResult>('/admin/shopee/test', undefined),
+}
+
 // ── IA fornecida pelo Auto Orbital (chave protegida no servidor) ──
 
 export type AiProvider = 'gemini' | 'openai' | 'anthropic'

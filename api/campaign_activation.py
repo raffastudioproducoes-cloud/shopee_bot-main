@@ -193,6 +193,18 @@ async def activate(draft_id, expected_revision, user_id, profile_id):
         raise HTTPException(422, detail="Configure o período da campanha.")
     schedule = CampaignPreviewRequest.model_validate(draft["schedule"])
     items = [CampaignDraftItem.model_validate(item) for item in draft["items"]]
+    # Snapshot congelado deve estar associado ao ID atual da conta. Não
+    # reescrever jobs já agendados, nem autorizar publicação com link antigo.
+    from .routers.platform_shopee import get_affiliate_id
+    from .shopee_affiliate_links import canonical_product_url, build_affiliate_link
+    affiliate_id = (get_affiliate_id(user_id) if any(
+        canonical_product_url(i.get("source_original_link")) for i in draft["items"]) else None)
+    for item in draft["items"]:
+        original = item.get("source_original_link")
+        if canonical_product_url(original):
+            expected = build_affiliate_link(original, affiliate_id)
+            if not expected or item.get("affiliate_link") != expected:
+                raise HTTPException(409, detail="O ID de afiliado mudou. Reabra e salve o rascunho antes de ativar.")
     validate_campaign_plan_schedule(policy, schedule)
     validate_campaign_network_volume(policy, schedule, items)
     validate_campaign_draft_schedule(schedule, draft["source_list_id"], [i.product_id for i in items])

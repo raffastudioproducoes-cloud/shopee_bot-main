@@ -1,11 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { useAuthStore } from "../stores/authStore"
-import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
-import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { router } from "../router"
 import {
   credentialsApi,
+  shopeeAffiliateApi,
   type SimpleNetwork,
   type CredentialStatusWithLight,
 } from "../api/credentials"
@@ -21,13 +20,8 @@ import { Modal } from "../components/ui/Modal"
 import { isNetworkDisabled } from "../lib/networkLimits"
 import { groupCredentialCards } from "../lib/credentialSections"
 
-// X/Facebook saíram daqui: têm card dedicado (XCredentialCard,
-// FacebookCredentialCard — mesmo padrão de TikTok/Instagram) porque usam
-// OAuth authorize/callback, não app_id/secret por formulário. Kwai também
-// saiu do mapeamento: renderizado à parte, por último, com aviso "em breve".
-const SIMPLE_NETWORKS: { key: SimpleNetwork; label: string }[] = [
-  { key: "shopee", label: "Shopee" },
-]
+// Nenhum card USER recebe App ID/Secret. Shopee é ID de afiliado; redes
+// sociais usam OAuth, e Kwai/Shopee Vídeo são cartões informativos.
 
 // Grade de 2 colunas que colapsa pra 1 em telas estreitas (mesmo efeito do
 // antigo `grid-cols-1 sm:grid-cols-2`, sem depender de breakpoint Tailwind).
@@ -186,6 +180,10 @@ export function CredentialsPage() {
     // sozinho em até ~45 s, então o polling nunca fica infinito).
     refetchInterval: (q) => (anyTesting(q.state.data) ? TESTING_POLL_MS : false),
   })
+  const { data: shopeeIdentity } = useQuery({
+    queryKey: ["shopee", "affiliate"],
+    queryFn: shopeeAffiliateApi.status,
+  })
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -316,19 +314,19 @@ export function CredentialsPage() {
     {
       key: "kwai",
       title: "Kwai",
-      connected: Boolean(status?.kwai?.connected),
-      element: <SimpleCredentialCard key="kwai" network="kwai" label="Kwai"
-        status={status?.kwai ?? EMPTY_STATUS} onSaved={invalidate}
-        onAuthError={onAuthError} setBanner={setBanner} comingSoon />,
+      connected: false,
+      element: <KwaiComingSoonCredentialCard key="kwai" />,
     },
-    ...SIMPLE_NETWORKS.map((network) => ({
-      key: network.key,
-      title: network.label,
-      connected: Boolean(status?.[network.key]?.connected),
-      element: <SimpleCredentialCard key={network.key} network={network.key} label={network.label}
-        status={status?.[network.key] ?? EMPTY_STATUS} onSaved={invalidate}
+    {
+      key: "shopee",
+      title: "Shopee",
+      connected: Boolean(status?.shopee?.connected),
+      element: <ShopeeAffiliateCredentialCard key="shopee" status={status?.shopee ?? EMPTY_STATUS}
+        affiliateId={shopeeIdentity?.affiliate_id ?? null}
+        catalogAvailable={shopeeIdentity?.catalog_available ?? false}
+        onSaved={() => { invalidate(); void queryClient.invalidateQueries({ queryKey: ["shopee", "affiliate"] }) }}
         onAuthError={onAuthError} setBanner={setBanner} />,
-    })),
+    },
     {
       key: "shopee-video",
       title: "Shopee Vídeo",
@@ -469,157 +467,78 @@ function CredentialTrailing({
   )
 }
 
-// ── Card genérico (Shopee, X, Facebook, Kwai) ────────────────────────────────
+// ── Identidade de afiliado Shopee, sem formulário de chave API ──────────────
 
-function SimpleCredentialCard({
-  network,
-  label,
-  status,
-  onSaved,
-  onAuthError,
-  setBanner,
-  comingSoon,
+function ShopeeAffiliateCredentialCard({
+  status, affiliateId, catalogAvailable, onSaved, onAuthError, setBanner,
 }: {
-  network: SimpleNetwork
-  label: string
   status: CredentialStatusWithLight
+  affiliateId: string | null
+  catalogAvailable: boolean
   onSaved: () => void
-  onAuthError: (err: Error) => void
-  setBanner: (b: { ok: boolean; text: string } | null) => void
-  comingSoon?: boolean
+  onAuthError: (error: Error) => void
+  setBanner: (banner: { ok: boolean; text: string } | null) => void
 }) {
-  const [appId, setAppId] = useState("")
-  const [secret, setSecret] = useState("")
-  const accountId = useAuthStore((state) => state.user?.id)
-  const publicIdDraftKey = formDraftKey(accountId, `credential-id:${network}`, null, false)
-  useAutosavedDraft(publicIdDraftKey, { appId }, (saved) => {
-    setAppId(typeof saved?.appId === "string" ? saved.appId : "")
-    setSecret("") // O segredo precisa ser digitado novamente.
-  })
-  const connected = status.connected
-  const helpUrl = network === "shopee" ? "https://affiliate.shopee.com.br/" : undefined
-
-  const saveMutation = useMutation({
-    mutationFn: () => credentialsApi.save(network, appId, secret),
+  const [value, setValue] = useState("")
+  useEffect(() => { if (affiliateId) setValue(affiliateId) }, [affiliateId])
+  const save = useMutation({
+    mutationFn: () => shopeeAffiliateApi.save(value.trim()),
     onSuccess: () => {
-      clearFormDraft(publicIdDraftKey)
-      setAppId("")
-      setSecret("")
-      setBanner({ ok: true, text: `${label} salvo. Testando a conexão…` })
+      setBanner({ ok: true, text: "ID de afiliado salvo. Os próximos links do catálogo usarão sua identificação." })
       onSaved()
     },
     onError: onAuthError,
   })
-
-  const deleteMutation = useMutation({
-    mutationFn: () => credentialsApi.delete(network),
+  const remove = useMutation({
+    mutationFn: shopeeAffiliateApi.delete,
     onSuccess: () => {
-      setBanner({ ok: true, text: `${label} desconectado.` })
+      setValue("")
+      setBanner({ ok: true, text: "ID de afiliado removido. Novos links não serão gerados até configurar outro ID." })
       onSaved()
     },
     onError: onAuthError,
   })
-
-  if (comingSoon) {
-    return (
-      <CredPanel id={label}>
-        <CredHeader title={label} />
-        <div className="csp-s-0202">
-          <p className="csp-s-0203">
-            Em breve — a ligação com {label} ainda não está disponível.
-          </p>
-        </div>
-      </CredPanel>
-    )
-  }
-
   return (
-    <CredPanel id={label}>
-      <CredHeader
-        title={label}
-        trailing={
-          <CredentialTrailing
-            network={network}
-            label={label}
-            status={status}
-            onSaved={onSaved}
-            onAuthError={onAuthError}
-            setBanner={setBanner}
-          />
-        }
-      />
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          saveMutation.mutate()
-        }}
-        className="csp-s-0204"
-      >
-        {helpUrl && (
-          <div className="csp-s-0205">
-            <a
-              href={helpUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="csp-s-0206"
-            >
-              Abrir Portal de Afiliados da {label} (pegar App ID/Secret) ↗
-            </a>
-            {network === "shopee" && (
-              <button
-                type="button"
-                aria-label="Ver tutorial de como gerar App ID e Secret na Shopee"
-                title="Tutorial Shopee"
-                onClick={() => {
-                  window.location.href = "/ajuda?tab=shopee"
-                }}
-                className="csp-s-0207"
-              >
-                ?
-              </button>
-            )}
-          </div>
-        )}
-        <div className="csp-named-field-grid">
-          <TextInput
-            label="App ID"
-            value={appId}
-            onChange={(e) => setAppId(e.target.value)}
-            placeholder="APP ID"
-            required
-          />
-          <TextInput
-            label="Secret"
-            type="password"
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
-            placeholder="Secret"
-            autoComplete="off"
-            required
-          />
-        </div>
+    <CredPanel id="Shopee">
+      <CredHeader title="Shopee" trailing={<ConnectionStatus status={status} />} />
+      <p className="csp-s-0203">
+        O Auto Orbital fornece a API de busca. Você só precisa informar seu ID de Afiliado Shopee
+        para que os links gerados usem a sua identificação, sem compartilhar App ID ou Secret.
+      </p>
+      <p className="csp-s-0203">
+        {catalogAvailable ? "Catálogo da plataforma disponível." : "Catálogo da plataforma indisponível no momento."}
+        {" "}O ID informado não é uma autorização OAuth; a comissão depende das regras da Shopee.
+      </p>
+      <form className="csp-s-0204" onSubmit={(event) => { event.preventDefault(); save.mutate() }}>
+        <a href="https://affiliate.shopee.com.br/account_setting" target="_blank" rel="noreferrer" className="csp-s-0206">
+          Onde encontrar meu ID de afiliado na Shopee ↗
+        </a>
+        <TextInput
+          label="ID do afiliado (ou link completo com o ID)"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          placeholder="Digite seu ID numérico de afiliado"
+          required
+        />
         <div className="csp-s-0208">
-          {connected && (
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={deleteMutation.isPending}
-              onClick={() => deleteMutation.mutate()}
-              style={{ color: "var(--red-300)" }}
-            >
-              {deleteMutation.isPending ? "Removendo..." : "Desconectar"}
-            </Button>
-          )}
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={saveMutation.isPending || !appId || !secret}
-          >
-            {saveMutation.isPending ? "Salvando..." : "Salvar"}
+          {status.connected && <Button type="button" variant="ghost" disabled={remove.isPending}
+            onClick={() => remove.mutate()}>{remove.isPending ? "Removendo..." : "Desconectar"}</Button>}
+          <Button type="submit" variant="primary" disabled={save.isPending || !value.trim()}>
+            {save.isPending ? "Salvando..." : "Salvar ID"}
           </Button>
         </div>
       </form>
+    </CredPanel>
+  )
+}
+
+function KwaiComingSoonCredentialCard() {
+  return (
+    <CredPanel id="Kwai">
+      <CredHeader title="Kwai" />
+      <div className="csp-s-0202">
+        <p className="csp-s-0203">Em breve — a ligação com Kwai ainda não está disponível.</p>
+      </div>
     </CredPanel>
   )
 }

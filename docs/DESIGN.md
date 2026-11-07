@@ -43,6 +43,8 @@
 
 # DESIGN — Shopee Auto Vendas (frontend novo, React)
 
+> **07/11/2026 — credenciais Shopee propostas para staging:** preservar agrupamento em **Já credenciados/Ainda não cadastrados** e ordem PT-BR. Card “Shopee” de `/credentials` para USER e ADMIN recebe apenas ID de afiliado ou link oficial expandido; avisa que a API é fornecida pela plataforma e que ID não equivale a OAuth nem garante comissão. Card dedicado “Shopee Afiliados — API da plataforma” em `/admin/credentials` permite salvar App ID/Secret protegidos, testar e desconectar, sem devolução do segredo. Shopee Vídeo permanece independente e bloqueado. Detalhes em [contrato Shopee](SHOPEE-API-GLOBAL-ID-AFILIADO-20261107.md); MINOR 3.5.0 candidata, `VERSION=3.4.0`.
+
 > **07/11/2026 — IA administrativa LIVE em produção 3.4.0:** o card “Inteligência Artificial” saiu de `/credentials` para USER e ADMIN, preservando grupos e cards de redes/Shopee Vídeo. O editor completo está em `/admin/credentials`, com seletor de provedor, chave oculta, modelo, status, teste, ativação de provedor salvo, salvar e desconectar. Em Posts e Produtos, a IA é fornecida pela plataforma; ausência de serviço desabilita a geração. PR #314 passou CI #1049 e SemVer #4, merge main `4ca125f`, Render produção `dep-dbndgcnb9u1s73cip6mg` LIVE, saúde OK. Contrato em [IA-PLATAFORMA-ADMIN-20261107](IA-PLATAFORMA-ADMIN-20261107.md). O card antigo é histórico da 3.3.0; QA autenticado pendente.
 
 > Sistema visual real do frontend novo (`frontend/src/`). Extraído dos tokens CSS em

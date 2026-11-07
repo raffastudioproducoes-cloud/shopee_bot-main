@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { AdminOverrides } from '../components/credentials/AdminOverrides'
 import { AdminAiCredentialCard } from '../components/credentials/AdminAiCredentialCard'
+import { AdminShopeeCredentialCard } from '../components/credentials/AdminShopeeCredentialCard'
 import { ApiError } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import { credentialsApi } from '../api/credentials'
@@ -23,7 +24,7 @@ export default function AdminCredentialsPage() {
   return (
     <div className="csp-s-0164">
       <h1 className="csp-s-0165">Diagnóstico de credenciais</h1>
-      <p className="csp-s-0166">A IA atende toda a plataforma; as credenciais sociais continuam vinculadas ao perfil ativo.</p>
+      <p className="csp-s-0166">IA e API Shopee atendem toda a plataforma; os IDs de afiliados são individuais por conta.</p>
       {banner && <p role="status" style={{ color: banner.ok ? 'var(--positive-ink)' : 'var(--negative-ink)' }}>{banner.text}</p>}
       <AdminAiCredentialCard setBanner={setBanner} onAuthError={error => {
         if (error instanceof ApiError && error.status === 401) {
@@ -31,6 +32,14 @@ export default function AdminCredentialsPage() {
           void navigate({ to: '/login' })
         } else {
           setBanner({ ok: false, text: error.message || 'Não foi possível configurar a IA.' })
+        }
+      }} />
+      <AdminShopeeCredentialCard setBanner={setBanner} onAuthError={error => {
+        if (error instanceof ApiError && error.status === 401) {
+          logout()
+          void navigate({ to: '/login' })
+        } else {
+          setBanner({ ok: false, text: error.message || 'Não foi possível configurar a Shopee.' })
         }
       }} />
       {isLoading ? <PageSkeleton variant="list" heading={false} count={1} /> : error ? <p role="alert">Não foi possível acompanhar o teste de conexão.</p> : (
