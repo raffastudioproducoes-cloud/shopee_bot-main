@@ -1,3 +1,13 @@
+## 07/11/2026 — HOLD do GitHub Actions: desenvolvimento em branches, sem merges
+
+- [x] **Nova decisão de Rafa:** continuar desenvolvimento, correções e atualizações em branches isoladas enquanto Actions estiver indisponível; documentar cada tarefa, estado e classificação SemVer.
+- [x] **Estado verificado:** `main=561345b` / `staging=9eede9d`, ambos `VERSION=3.2.0`; PR #303 (release 3.3.0) e #304 (ordem alfabética de Credenciais + card Shopee Vídeo) abertas, sem merge.
+- [x] **Causa documentada da suspensão:** run [42068760376](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42068760376) falhou antes dos steps; captura de Rafa indica restrição por pagamento/limite da conta GitHub, sem concluir qual. É bloqueio do gate CI, não falha comprovada no código.
+- [x] **Fluxo registrado:** [docs/CI-ACTIONS-INDISPONIVEL-20261107.md](CI-ACTIONS-INDISPONIVEL-20261107.md), sem mudar workflow, branch protection, deploy, banco, cron, flags, produtos ou integrações.
+- [ ] **Pendente:** GitHub Actions executar e aprovar gates no SHA final; revisar dependências/versão; integrar PRs com revisão e testes; QA staging e promoção main controlada; atualizar Vault. Nenhum desses itens foi realizado nesta tarefa documental.
+- **SemVer desta tarefa:** somente documentação e governança, **sem bump**; `VERSION=3.2.0` mantido. A versão 3.3.0 segue apenas candidata na branch `release/3.3.0-20261105`.
+- **Ambiente:** documentação gravada em branch `docs/ci-actions-indisponivel-20261107`; **sem merge, sem CI, sem deploy**. Manter registro em TASK.md do Vault na branch de documentação correspondente.
+
 ## 04/11/2026 — Configuração final autorizada: SOMENTE DOIS CRONS no Supabase
 
 - [x] Confirmados **três** registros antes de alterar: `auto-orbital-wake-v1` (ID 1; a cada 2 minutos; `app_internal.wake_dispatch_if_needed`), `auto-orbital-admin-capacity-v1` (ID 2; diário), e `auto-orbital-uptime-sample-v1` (ID 3; a cada 5 minutos; `public.admin_uptime_tick` faz `net.http_get` e registra amostras do site).
