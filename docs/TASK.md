@@ -1,3 +1,10 @@
+## 07/11/2026 — Remoção completa de botões e sonda ADMIN de Análises (PATCH candidata 3.5.0)
+
+- [x] Excluir os botões **Verificar coleta de Threads/Facebook/Instagram** e respectivos handlers, estados, mensagens e CSS exclusivos do painel.
+- [x] Encerrar a rota ADMIN órfã `POST /analytics/probe/{network}`, com testes 404 e regressões sobre cache oficial de posts; manter `summary`, `posts`, `timeline`, `refresh`, cota, integração e gráficos.
+- [x] Revisar Guia Mestre, plano, histórico de testes, changelog e contrato; documentação registra a descontinuação sem apagar o histórico das decisões.
+- [ ] CI verde, merge e Render LIVE **somente staging**; validar visualmente ausência dos três botões e preservar `main` até aprovação de Rafa. Sem alteração de `VERSION=3.4.0`; PATCH da candidata `3.5.0`.
+
 ## 07/11/2026 — Ajuste textual do painel de integrações (staging)
 
 - [x] Título visível ajustado para **Situação das redes**; preservar nove cards, indicadores, filtros e dados. PATCH da candidata 3.5.0; `VERSION=3.4.0`.
