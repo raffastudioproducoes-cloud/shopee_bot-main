@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Documentation — suspensão temporária do gate CI (07/11/2026)
+
+- Registrada decisão de Rafa de continuar tarefas exclusivamente em branches com commits, testes locais e histórico por tarefa, mantendo os PRs #303/#304 sem merge enquanto o GitHub Actions não executar os gates no SHA final.
+- Incluído procedimento `docs/CI-ACTIONS-INDISPONIVEL-20261107.md`: classificação SemVer de cada tarefa, fila de pendências, evidências separadas (local/CI/staging/produção) e checklist de retomada. Nenhuma alteração de workflows/branch protection, Render, Supabase, crons ou dados.
+- Alteração **somente documental**, sem bump de `VERSION=3.2.0` em `staging`/`main`; `3.3.0` continua versão candidata do PR #303 e exige revalidação antes de release.
+
 ### Fixed — Analytics por publicação (staging, 05/11/2026)
 
 - Impedida a coleta de visualizações gerais de perfil Threads, Páginas Facebook e alcance de conta Instagram para a tela de Análises. As métricas só são agregadas de jobs `succeeded` com ID externo, usando fonte oficial **individual da publicação** e deduplicando `(network,external_id)`; o histórico e os KPIs de envios permanecem preservados.
