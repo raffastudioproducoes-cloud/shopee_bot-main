@@ -5,42 +5,34 @@ import { AdminAiCredentialCard } from '../components/credentials/AdminAiCredenti
 import { AdminShopeeCredentialCard } from '../components/credentials/AdminShopeeCredentialCard'
 import { ApiError } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
-import { credentialsApi, type AdminTestAllResult, type CredentialStatusWithLight } from '../api/credentials'
-import { CREDENTIAL_BRAND_LOGOS } from '../lib/credentialPlatforms'
+import { credentialsApi, type AdminTestAllResult, type CredentialStatusWithLight, type SimpleNetwork } from '../api/credentials'
+import { buildAdminDiagnosticSections, CREDENTIAL_BRAND_LOGOS, type AdminDiagnosticPlatform } from '../lib/credentialPlatforms'
 import { Panel } from '../components/ui/Panel'
 import { Badge } from '../components/ui/Badge'
 import { PageSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
 
-const NETWORKS = [
-  { key: 'facebook', label: 'Facebook' },
-  { key: 'instagram', label: 'Instagram' },
-  { key: 'kwai', label: 'Kwai' },
-  { key: 'threads', label: 'Threads' },
-  { key: 'tiktok', label: 'TikTok' },
-  { key: 'x', label: 'X (Twitter)' },
-] as const
-
-type Network = typeof NETWORKS[number]['key']
+const CATALOG = buildAdminDiagnosticSections()
 type NetworkStatus = Pick<CredentialStatusWithLight, 'connected' | 'light' | 'state' | 'status_text' | 'checked_at'>
 
-function StatusCard({ network, label, status, result }: {
-  network: Network; label: string; status?: NetworkStatus; result?: AdminTestAllResult['results'][string]
+function StatusCard({ platform, status, result }: {
+  platform: AdminDiagnosticPlatform; status?: NetworkStatus; result?: AdminTestAllResult['results'][string]
 }) {
-  const state = result?.state === 'skipped' ? status?.state : result?.state || status?.state
-  const checkedAt = result?.checked_at || status?.checked_at
+  const planned = platform.availability === 'planned'
+  const state = planned ? 'planned' : result?.state === 'skipped' ? status?.state : result?.state || status?.state
+  const checkedAt = planned ? null : result?.checked_at || status?.checked_at
   const tone = state === 'ok' ? 'mint' : 'neutral'
-  const image = CREDENTIAL_BRAND_LOGOS[network]?.[0]
+  const images = CREDENTIAL_BRAND_LOGOS[platform.key] ?? []
   return (
     <div className="admin-credential-status-card" data-state={state || 'disconnected'}>
-      <span className={`credential-brand credential-brand--${network}`} aria-hidden="true">
-        {image && <img src={`/brand-logos/${image}`} alt="" />}
+      <span className={`credential-brand credential-brand--${platform.key}`} aria-hidden="true">
+        {images.map(image => <img key={image} src={`/brand-logos/${image}`} alt="" loading="lazy" />)}
       </span>
       <div className="admin-credential-status-card__text">
-        <strong>{label}</strong>
+        <strong>{platform.title}</strong>
         {checkedAt && <small>Último teste: {new Date(checkedAt).toLocaleString('pt-BR')}</small>}
       </div>
-      <Badge tone={tone}>{state === 'ok' ? 'Funcionando' : result?.state === 'error' ? result.status_text : status?.status_text || 'Desconectado'}</Badge>
+      <Badge tone={tone}>{planned ? 'Em breve' : state === 'ok' ? 'Funcionando' : result?.state === 'error' ? result.status_text : status?.status_text || 'Desconectado'}</Badge>
     </div>
   )
 }
@@ -96,7 +88,7 @@ export default function AdminCredentialsPage() {
         <div className="admin-diagnostic-results__heading">
           <div>
             <h2 className="csp-s-0167">Estado das conexões</h2>
-            <p>Verificação real das conexões configuradas. Plataformas sem credencial não são testadas.</p>
+            <p>Verificação real das conexões configuradas. Plataformas “Em breve” são informativas e não participam dos testes.</p>
           </div>
           <Button type="button" variant="primary" loading={testAll.isPending} disabled={testAll.isPending || isLoading || Boolean(error)} onClick={() => testAll.mutate()}>
             {testAll.isPending ? 'Testando conexões…' : 'Testar todas as conexões'}
@@ -105,11 +97,23 @@ export default function AdminCredentialsPage() {
         {isLoading ? <PageSkeleton variant="list" heading={false} count={2} /> : error ? (
           <p role="alert">Não foi possível consultar as conexões. Tente recarregar a página.</p>
         ) : (
-          <div className="admin-connection-results" aria-live="polite">
-            {NETWORKS.map(({ key, label }) => (
-              <StatusCard key={key} network={key} label={label} status={statuses?.[key]}
-                result={lastBatch?.results[key]} />
-            ))}
+          <div className="admin-diagnostic-catalog" aria-live="polite">
+            <section className="admin-diagnostic-section" aria-labelledby="admin-stores-title">
+              <h3 id="admin-stores-title">Lojas <small>{CATALOG.stores.length} integrações planejadas</small></h3>
+              <div className="admin-connection-results">
+                {CATALOG.stores.map(platform => <StatusCard key={platform.key} platform={platform} />)}
+              </div>
+            </section>
+            <section className="admin-diagnostic-section" aria-labelledby="admin-social-title">
+              <h3 id="admin-social-title">Redes sociais <small>{CATALOG.social.length} plataformas</small></h3>
+              <div className="admin-connection-results">
+                {CATALOG.social.map(platform => (
+                  <StatusCard key={platform.key} platform={platform}
+                    status={platform.availability === 'active' ? statuses?.[platform.key as SimpleNetwork | 'threads'] : undefined}
+                    result={platform.availability === 'active' ? lastBatch?.results[platform.key] : undefined} />
+                ))}
+              </div>
+            </section>
           </div>
         )}
         {lastBatch && <p className="admin-diagnostic-results__footer" role="status">

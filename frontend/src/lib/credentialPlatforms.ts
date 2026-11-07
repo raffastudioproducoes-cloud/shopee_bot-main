@@ -35,3 +35,40 @@ export const CREDENTIAL_BRAND_LOGOS: Readonly<Record<string, readonly string[]>>
   telegram: ["telegram.svg"], terabyteshop: ["terabyteshop.png"],
   threads: ["threads.svg"], tiktok: ["tiktok.svg"], whatsapp: ["whatsapp.svg"], x: ["x.svg"],
 }
+
+/** O diagnóstico ADMIN inclui toda plataforma catalogada, mas só testa conexões reais.
+ * A Shopee (API global) já tem cartão de gerenciamento próprio acima dos resultados.
+ */
+export type AdminDiagnosticPlatform = {
+  key: string
+  title: string
+  category: CredentialTab
+  availability: "active" | "planned"
+}
+
+const ACTIVE_SOCIAL_DIAGNOSTICS: readonly { key: string; title: string }[] = [
+  { key: "facebook", title: "Facebook" },
+  { key: "instagram", title: "Instagram" },
+  { key: "kwai", title: "Kwai" },
+  { key: "threads", title: "Threads" },
+  { key: "tiktok", title: "TikTok" },
+  { key: "x", title: "X (Twitter)" },
+]
+
+export function buildAdminDiagnosticSections(): Record<CredentialTab, AdminDiagnosticPlatform[]> {
+  const platforms: AdminDiagnosticPlatform[] = [
+    ...ACTIVE_SOCIAL_DIAGNOSTICS.map(({ key, title }) => ({
+      key, title, category: "social" as const, availability: "active" as const,
+    })),
+    { key: "shopee-video", title: "Shopee Vídeo", category: "social", availability: "planned" },
+    ...FUTURE_CREDENTIAL_PLATFORMS.map(({ key, title, category }) => ({
+      key, title, category, availability: "planned" as const,
+    })),
+  ]
+  const byTitle = new Intl.Collator("pt-BR", { sensitivity: "base" })
+  const sorted = platforms.sort((a, b) => byTitle.compare(a.title, b.title))
+  return {
+    stores: sorted.filter(platform => platform.category === "stores"),
+    social: sorted.filter(platform => platform.category === "social"),
+  }
+}

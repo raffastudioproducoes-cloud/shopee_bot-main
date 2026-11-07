@@ -19,6 +19,7 @@ test('diagnóstico acompanha o resultado assíncrono das credenciais', () => {
     if (name === '@tanstack/react-router') return { useNavigate: () => () => {} }
     if (name === '../stores/authStore') return { useAuthStore: () => () => {} }
     if (name === '../api/credentials') return { credentialsApi: { listAdminStatus() { statusCalls++ } } }
+    if (name === '../lib/credentialPlatforms') return { buildAdminDiagnosticSections: () => ({ stores: [], social: [] }) }
     return new Proxy({}, { get: (_, key) => key })
   } })
   exports.default()
