@@ -24,9 +24,10 @@ export function CreatePostPage() {
   // Carrega antes do editor: uma conexão já testada não fica
   // momentaneamente parecendo indisponível no compositor.
   const { data: credentials } = useQuery({
-    queryKey: ["credentials"],
+    queryKey: ["credentials", activeProfileId],
     queryFn: () => credentialsApi.list(),
     staleTime: 30_000,
+    enabled: Boolean(activeProfileId),
   })
 
   const onAuthError = useCallback(
