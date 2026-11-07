@@ -39,7 +39,7 @@
 
 # Shopee Auto Vendas
 
-> **07/11/2026 — Análises (branch staging):** catálogo das nove redes sociais com logos e estados, inclusive Shopee Vídeo, Telegram e WhatsApp, sem lojas. Cinco redes preservam histórico da API atual; as demais têm aviso sem coleta simulada. [Matriz de dados por rede](docs/ANALISE-REDES-COBERTURA-20261107.md). `VERSION=3.4.0`, candidata 3.5.0; PR/CI/QA/deploy da mudança ainda pendentes.
+> **07/11/2026 — Análises (staging):** [PR #326](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/326), CI #1077 e deploy Render LIVE levaram o catálogo de nove redes à página, sem lojas. Após feedback de Rafa, os cards redundantes do topo foram removidos: **Rede** é o único filtro e **Detalhamento por rede** lista nove redes quando em “Todas”, com traços/status para integrações futuras sem números fictícios. [Matriz de dados por rede](docs/ANALISE-REDES-COBERTURA-20261107.md). `VERSION=3.4.0`, candidata 3.5.0; ajuste posterior ainda exige CI/deploy de staging e QA mobile, não promover `main` automaticamente.
 
 ### Divulgação automática de afiliado, do garimpo ao post.
 

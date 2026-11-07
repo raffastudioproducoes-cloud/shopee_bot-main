@@ -1,4 +1,4 @@
-import { buildAdminDiagnosticSections, CREDENTIAL_BRAND_LOGOS } from './credentialPlatforms'
+import { buildAdminDiagnosticSections } from './credentialPlatforms'
 
 /** O backend de Análises só aceita estes cinco filtros operacionais. */
 export const ANALYTICS_RECORDED_NETWORKS = ['facebook', 'instagram', 'threads', 'tiktok', 'x'] as const
@@ -21,7 +21,6 @@ const COVERAGE: Readonly<Record<string, Coverage>> = {
 
 export const ANALYTICS_NETWORKS = buildAdminDiagnosticSections().social.map((platform) => ({
   ...platform,
-  logos: CREDENTIAL_BRAND_LOGOS[platform.key] ?? [],
   ...(COVERAGE[platform.key] ?? {
     label: 'Não integrado', detail: 'A coleta de métricas desta rede ainda não foi implementada.', tone: 'planned',
   }),
