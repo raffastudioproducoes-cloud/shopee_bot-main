@@ -5,10 +5,16 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — GitHub Actions e contratos de frontend (07/11/2026)
+
+- GitHub Actions voltou a iniciar jobs após o repositório se tornar público; o bloqueio observado em 05–07/11 permanece registrado como histórico, **não é o estado atual**. A primeira reexecução real da CI da PR #304 identificou quatro testes frontend desatualizados.
+- Contratos atualizados para a etiqueta de plano com exposição de 24 px, busca contextual da TopBar, hook de perfil no resumo de plano, e controles de IA reutilizados no criador de posts. Nenhum comportamento comercial, mídia ou produção foi alterado para satisfazer testes antigos.
+- A branch de credenciais mantém `VERSION=3.2.0`; a funcionalidade compatível compõe a candidata **MINOR 3.3.0**. Merge/deploy somente após CI e homologação; histórico de execução e gates em `docs/TASK.md`.
+
 ### Changed — Credenciais (staging, 05/11/2026)
 
 - Cards de `/credentials` exibidos em ordem alfabética PT-BR: Facebook, Instagram, Inteligência Artificial, Kwai, Shopee, Shopee Vídeo, Threads, TikTok e X (Twitter), preservando estado, teste, OAuth, formulários, responsividade e recolhimento.
-- Adicionado card recolhível **Shopee Vídeo** com aviso de aprovação oficial pendente e ação de conexão desabilitada. Nenhuma credencial Affiliate é reutilizada, nenhuma nova API/OAuth ou publicação foi habilitada. UI informativa, sem alteração do backend, Supabase, cron ou flags. Testes Node específicos de ordem e bloqueio adicionados; CI GitHub indisponível por limite de compute, portanto staging não será mesclada sem gate/decisão aplicável.
+- Adicionado card recolhível **Shopee Vídeo** com aviso de aprovação oficial pendente e ação de conexão desabilitada. Nenhuma credencial Affiliate é reutilizada, nenhuma nova API/OAuth ou publicação foi habilitada. UI informativa, sem alteração do backend, Supabase, cron ou flags. Testes Node específicos de ordem e bloqueio adicionados; a indisponibilidade inicial de CI foi superada em 07/11 e as aprovações devem usar as novas execuções reais.
 
 
 ### Fixed — Analytics por publicação (staging, 05/11/2026)
