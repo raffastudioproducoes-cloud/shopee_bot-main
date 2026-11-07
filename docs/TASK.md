@@ -1,3 +1,15 @@
+## 07/11/2026 — Credenciais: separar cadastradas e pendentes (PR #306 DRAFT, somente branch)
+
+- [x] **Pedido de Rafa:** cartões com credenciais já salvas em seção superior e os ainda não cadastrados na inferior; manter ordem alfabética PT-BR dentro de cada grupo.
+- [x] **Dependência explícita:** branch `feat/credenciais-grupos-20261107` baseada em `feat/credenciais-alfabeticas-shopee-video-staging-20261105` (PR #304, base SHA `46cf39690e2adae916485a82ddf37f73f8eef40e`). [PR #306](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/306) criada como **draft** contra a branch da #304, não contra staging.
+- [x] **Implementação:** `credentialSections.ts` agrupa pelos `connected` persistidos, sem depender da luz/validade do teste. IA usa estado agregado dos provedores e mesma query do card; Shopee Vídeo é pendente e continua bloqueado. Dois grupos semânticos com contadores e estados vazios, grid responsiva preservada; save/delete/testes reposicionam automaticamente.
+- [x] **Testes locais antes do commit:** `node --test frontend/tests/credentials-card-order.test.mjs frontend/tests/credentials-sections.test.mjs` — **6/6 PASS (Node 24)**. Casos: alfabética, conexão/desconexão, stale amarelo salvo, vazio, IA e Shopee Vídeo.
+- [ ] **Pendente por gate:** `tsc && vite build`, suíte regressiva completa/CI GitHub, QA autenticado desktop/mobile e homologação de staging **não executados** para este SHA. `ACTIONS_INDISPONÍVEL`: [issue #305](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/issues/305). Nunca declarar build/CI verde por resultado unitário.
+- [ ] **Integração futura:** após Actions voltar e PR #304 validada, revisar conflitos/versão, rodar CI no SHA final, só então integrar com staging e homologar; promover main somente com gate release e deploy verificado. PR #306 deve ficar draft/sem merge até lá.
+- **SemVer:** `VERSION=3.2.0` lido e mantido. Agrupamento UI é recurso compatível **MINOR candidato** à 3.3.0; decidir inclusão no PR #303 e atualizar changelog datado na release aprovada; sem bump nesta tarefa.
+- **Segurança/impacto:** somente frontend/documentação/testes. Sem API, banco compartilhado, migração, Storage, OAuth, segredo, pg_cron, pg_net, serviço, agendamento, pagamento ou publicação real.
+- **Evidência de estado:** código e testes persistidos na branch; `main` e `staging` não alteradas nesta tarefa; Vault TASK mantido em branch documental até futura integração.
+
 ## 04/11/2026 — Configuração final autorizada: SOMENTE DOIS CRONS no Supabase
 
 - [x] Confirmados **três** registros antes de alterar: `auto-orbital-wake-v1` (ID 1; a cada 2 minutos; `app_internal.wake_dispatch_if_needed`), `auto-orbital-admin-capacity-v1` (ID 2; diário), e `auto-orbital-uptime-sample-v1` (ID 3; a cada 5 minutos; `public.admin_uptime_tick` faz `net.http_get` e registra amostras do site).
