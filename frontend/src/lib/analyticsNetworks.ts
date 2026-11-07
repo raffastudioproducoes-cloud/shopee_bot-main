@@ -26,10 +26,6 @@ export const ANALYTICS_NETWORKS = buildAdminDiagnosticSections().social.map((pla
   }),
 }))
 
-export const ANALYTICS_RECORDED_NAMES: Record<AnalyticsRecordedNetwork, string> = {
-  facebook: 'Facebook', instagram: 'Instagram', threads: 'Threads', tiktok: 'TikTok', x: 'X (Twitter)',
-}
-
 export function hasRecordedAnalytics(network: string): network is AnalyticsRecordedNetwork {
   return (ANALYTICS_RECORDED_NETWORKS as readonly string[]).includes(network)
 }
