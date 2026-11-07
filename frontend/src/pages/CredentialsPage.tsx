@@ -361,7 +361,7 @@ export function CredentialsPage() {
     {
       key: "shopee-video",
       title: "Shopee Vídeo",
-      category: "stores",
+      category: "social",
       connected: false, // Bloqueada até aprovação oficial específica.
       element: <ShopeeVideoCredentialCard key="shopee-video" />,
     },
