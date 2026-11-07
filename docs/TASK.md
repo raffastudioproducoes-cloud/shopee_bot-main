@@ -1,11 +1,20 @@
-## 07/11/2026 — Gate de release 3.3.0 retomado após CI recuperada
+## 07/11/2026 — Fechamento da release 3.3.0: staging e produção LIVE
+
+- [x] **Versão:** `VERSION=3.3.0` (MINOR desde 3.2.0), registrada no CHANGELOG de 07/11; integrada em `staging` pela [PR #303](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/303) no SHA `821a16a542694c77eb4f778a99168de2dc801c72` após CI #1035 SUCCESS. Render staging `dep-dbnca34s728c73934u0g` LIVE, `/health` e `/api/health/ready` HTTP 200.
+- [x] **Gates de staging no SHA de release:** CI push #1036, CD Staging #293, smoke de segurança HTTP #159 e ZAP passivo #154 **SUCCESS**.
+- [x] **Promoção autorizada para `main`:** [PR #308](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/308), CI #1037 e SemVer #2 **SUCCESS**, merge normal SHA `1cde5216c385985a1360dc9d730286e40faab283`; sem conflitos (`git merge-tree --write-tree` exit 0). CI push da main #1038 e CD Render #169 **SUCCESS**.
+- [x] **Produção:** Render `dep-dbncbp0473hc739ghhpg` **LIVE** no mesmo SHA, endpoints `/health` e `/api/health/ready` HTTP 200 `{"status":"ok"}`. Logs da nova instância registraram `Scheduler initializing in production`, `Scheduler started` e o processo live; zero eventos com nível `error` na janela 06:33:40–06:36 UTC. Migrações 087/088 já aplicadas foram ignoradas no startup. Nenhum cron Supabase, pg_net, pagamento, OAuth ou job `unknown` foi modificado/reexecutado por esta entrega.
+- [ ] **Não confundir com E2E:** QA autenticado desktop/mobile de credenciais, publicação social real e checkout/cobranças seguem sem evidência nesta operação; a suíte Node opcional fora do workflow tem 23 falhas legadas observadas. Registrar separadamente antes de alegar homologação dessas integrações.
+- [x] Histórico do bloqueio Actions preservado em #305 como incidente resolvido. Fonte operacional atual: `main` e `staging` 3.3.0, gates restabelecidos, sem HOLD.
+
+## 07/11/2026 — Gate de release 3.3.0 retomado após CI recuperada (histórico pré-promoção)
 
 - [x] Repo público, GitHub Actions voltou a executar. PR #307 aprovada em [CI #1028](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42345512375) e merge staging `48b9c34`; PR #304 em [CI #1030](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42345936793), merge `4d483d2`; PR #306 em [CI #1032](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42346491914), merge `6a3b3228936a5860bd03a8060fd183c6c2cdb94d`. Três jobs principais em cada CI: Python 3.13, frontend Node 20 e PostgreSQL isolado **SUCCESS**.
 - [x] Os seis testes de Credenciais passaram em Node 20 no próprio workflow; seleção local dos 73 testes e `tsc && vite build` PASS. Substituída indicação histórica de ACTIONS_INDISPONÍVEL por resultado real com referências. A suíte opcional integral de Node tem 23 falhas legadas observadas antes da correção; mantida como dívida, não se declara tudo verde.
 - [x] Render staging `dep-dbnc6hp42hec73ca3ik0` **LIVE** no SHA `6a3b322`, `/health` retornou **HTTP 200** e `status=ok`. Nenhum acesso ao Supabase/pg_cron foi escrito; dois crons existentes preservados.
 - [x] PR #303 da **release MINOR 3.3.0** reconciliada com staging e submetida à [CI #1034](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42346880692). Em validação local: `python scripts/check_release_semver.py --base-ref origin/main` **PASS, 3.2.0 → 3.3.0, 87 arquivos**, mais 5 testes unitários SemVer, frontend 73 e build. Os 87 arquivos são diferenças de conteúdo contra a main, não 87 mudanças desta tarefa. Após confirmar CI no SHA final e deploy staging da versão, criar PR de promoção para main e verificar gate SemVer, CD e Render produção.
 - [ ] QA autenticado desktop/mobile da separação de credenciais e gates F4E externos continuam diferenciados de testes automatizados; não usar ausência de publicação externa como evidência de sucesso social/pagamento.
-- [x] Documentação de release atualizada: `docs/RELEASE-3.3.0-20261105.md`, `CHANGELOG.md` e Guia Mestre. `VERSION=3.3.0` somente na branch de release; staging continua 3.2.0 até integração, main 3.2.0 até promoção.
+- [x] Documentação da candidata atualizada: `docs/RELEASE-3.3.0-20261105.md`, `CHANGELOG.md` e Guia Mestre. Naquele momento, `VERSION=3.3.0` estava apenas na branch de release; status final de staging/main consta no fechamento acima.
 
 ## 07/11/2026 — Credenciais: histórico da implementação inicial na PR #306
 
