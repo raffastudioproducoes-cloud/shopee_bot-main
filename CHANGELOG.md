@@ -5,6 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Docs — Estado de homologação Shopee Vídeo em staging (07/11/2026)
+
+- Guia Mestre, AGENTS e TASK alinhados à PR #331, CI #1089, migration 091, Render staging LIVE e pendências de callback/OAuth real; nenhuma alteração de código, banco, cron, `pg_net`, `main` ou `VERSION=3.4.0` nesta atualização documental.
+
+
 ### Added — OAuth Shopee Vídeo para afiliados (MINOR candidata 3.5.0, 07/11/2026)
 
 - Categoria oficial `Shopee Video Management` também atende criadores afiliados; integração isolada da Affiliate GraphQL com consentimento `auth_type=user`, assinatura HMAC-SHA256, troca e renovação de tokens, cookie de `state` assinado e proteção por perfil.
