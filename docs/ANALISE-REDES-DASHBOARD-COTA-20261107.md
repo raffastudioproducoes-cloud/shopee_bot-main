@@ -1,12 +1,19 @@
 # Análises — dashboard e cota diária de atualização manual (07/11/2026)
 
-Estado: implementação candidata de staging, aguardando CI, migração 092 e homologação visual. **Não promover a main sem aprovação expressa de Rafa**. Versão atual `3.4.0`; evolução MINOR na candidata `3.5.0`.
+Estado: implementação candidata publicada em staging (PRs #337 e #338; migração 092 aplicada e RLS verificada). Ajuste de interface em andamento: retirada das duas tabelas redundantes. **Não promover a main sem aprovação expressa de Rafa**. Versão atual `3.4.0`; evolução MINOR na candidata `3.5.0`.
 
 ## Layout e indicadores
 - Seis indicadores distintos: total de envios; taxa de confirmação; quantidade de redes com atividade; visualizações oficiais de posts; interações mensuradas (curtidas/comentários/reposts/cliques); posts com insights oficiais e IDs rastreáveis.
 - Seis painéis de gráficos/estado: série temporal por dia; comparação horizontal por rede de concluídos/falhas/sem confirmação; composição das interações; distribuição de envios por dia da semana UTC; ranking dos cinco posts com mais visualizações oficiais; estado das nove redes do catálogo.
-- Catálogo visual: Facebook, Instagram, Kwai, Shopee Vídeo, Telegram, Threads, TikTok, WhatsApp, X. Redes futuras ou sem coletor homologado exibem indisponibilidade; métrica ausente = **—**, jamais 0 presumido. A tabela existente permanece e o filtro Rede funciona para os provedores já suportados na API.
+- Catálogo visual: Facebook, Instagram, Kwai, Shopee Vídeo, Telegram, Threads, TikTok, WhatsApp, X. Redes futuras ou sem coletor homologado exibem indisponibilidade; métrica ausente = **—**, jamais 0 presumido. O filtro Rede inclui as nove opções, com aviso de indisponibilidade quando a API não suporta consulta.
 - Fontes: `GET /analytics/summary`, `GET /analytics/timeline`, `GET /analytics/posts` autenticados; apenas posts realmente publicados pelo Auto Orbital, por conta e perfil, inclusive histórico de perfis arquivados em Todos. Nunca somar métricas globais de conta ou Página ou duplicar IDs externos. A coleta oficial por post permanece limitada às APIs homologadas, não se criam números fictícios.
+
+## Interface compacta — PATCH subsequente
+
+- Remover exclusivamente as tabelas duplicadas `Detalhamento por rede` e `Desempenho por publicação`, no desktop e no mobile; preservar **todos** os seis KPIs e seis painéis de visualização, bem como filtros e botões.
+- `Situação das nove redes`: exibir, em cada card de rede com métricas oficiais, visualizações, curtidas, comentários, reposts e cliques, mantendo estado da integração, distinção entre zero e indisponibilidade e cobertura das nove redes.
+- `Publicações em destaque`: ranquear até cinco posts do escopo selecionado por visualizações oficiais; incluir data de publicação (horário de Brasília), status da coleta, visualizações e quatro tipos de interação; posts confirmados sem visualizações oficiais aparecem depois e com `—`. Os registros continuam intactos no servidor.
+- Sem endpoint, migration, cron, `pg_net`, fila ou alteração de dados. Os cards são apenas novas apresentações dos mesmos dados; métricas agregadas oficiais continuam restritas aos posts da plataforma.
 
 ## Limite de atualização manual — servidor
 - `GET /analytics/refresh/quota`: objeto `{unlimited, used, remaining, limit, reset_at}`, escopo do usuário autenticado, sem permitir escolher usuário.

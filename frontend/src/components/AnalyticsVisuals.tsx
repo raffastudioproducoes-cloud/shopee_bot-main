@@ -32,6 +32,8 @@ export type AnalyticsPostMetric = {
   job_id: string
   network: AnalyticsNetwork
   preview: string
+  finished_at: string
+  state: string
   views: number | null
   likes: number | null
   comments: number | null
@@ -256,6 +258,15 @@ function SocialAvailability({ rows }: { rows: AnalyticsSummaryRow[] }) {
             : !row ? 'Fora do filtro atual'
             : providerDescriptions[row.insights_status] ?? 'Sem coleta oficial'}
         </span>
+        {row && [row.views, row.likes, row.comments, row.reposts, row.clicks].some(value => value !== null) &&
+          <div className="analytics-social-metrics" aria-label={`Métricas oficiais de ${channel.title}`}>
+            {([
+              ['Visualizações', row.views], ['Curtidas', row.likes], ['Comentários', row.comments],
+              ['Reposts', row.reposts], ['Cliques', row.clicks],
+            ] as const).map(([label, value]) => (
+              <span key={label} title={label}>{label}: <strong>{value === null ? '—' : formatNumber(value)}</strong></span>
+            ))}
+          </div>}
       </div>
     })}
   </div>
@@ -264,16 +275,37 @@ function SocialAvailability({ rows }: { rows: AnalyticsSummaryRow[] }) {
 function TopPosts({ posts, loading, error }: { posts?: AnalyticsPostMetric[]; loading: boolean; error: boolean }) {
   if (loading) return <p className="analytics-chart-note" role="status">Carregando desempenho por publicação...</p>
   if (error) return <p className="analytics-chart-note" role="alert">Ranking de publicações indisponível.</p>
-  const ranked = (posts ?? []).filter(post => post.views !== null)
-    .sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).slice(0, 5)
-  if (!ranked.length) return <p className="analytics-chart-note">Nenhum post com visualizações oficiais disponível neste filtro.</p>
-  return <ol className="analytics-top-posts">
-    {ranked.map(post => <li key={post.job_id}>
-      <span><strong>{post.preview || 'Publicação sem texto'}</strong>
-        <small>{networkNames[post.network]}</small></span>
-      <span className="analytics-post-views"><Eye size={14} aria-hidden="true" />{formatNumber(post.views ?? 0)}</span>
-    </li>)}
-  </ol>
+  const ranked = [...(posts ?? [])].sort((a, b) => {
+    if (a.views === null) return b.views === null ? b.finished_at.localeCompare(a.finished_at) : 1
+    if (b.views === null) return -1
+    return b.views - a.views || b.finished_at.localeCompare(a.finished_at)
+  }).slice(0, 5)
+  if (!ranked.length) return <p className="analytics-chart-note">Nenhuma publicação confirmada neste período.</p>
+  const collectionLabel = (state: string) => state === 'ok' ? 'Coletado'
+    : state === 'multipart_unmapped' ? 'Sequência sem IDs completos'
+      : state === 'not_collected' ? 'Aguardando coleta'
+        : state === 'missing_external_id' ? 'Sem ID da publicação'
+          : 'Insights indisponíveis'
+  return <>
+    <ol className="analytics-top-posts">
+      {ranked.map(post => <li key={post.job_id}>
+        <div className="analytics-post-content">
+          <strong>{post.preview || 'Publicação sem texto'}</strong>
+          <small className="analytics-post-source">{networkNames[post.network]} · {new Date(post.finished_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} · {collectionLabel(post.state)}</small>
+          <div className="analytics-post-metrics" aria-label="Interações oficiais da publicação">
+            {([
+              ['Curtidas', post.likes], ['Comentários', post.comments],
+              ['Reposts', post.reposts], ['Cliques', post.clicks],
+            ] as const).map(([label, value]) => <span key={label}>{label}: <strong>{value === null ? '—' : formatNumber(value)}</strong></span>)}
+          </div>
+        </div>
+        <span className="analytics-post-views" title="Visualizações oficiais do post">
+          <Eye size={14} aria-hidden="true" />{post.views === null ? '—' : formatNumber(post.views)}
+        </span>
+      </li>)}
+    </ol>
+    <p className="analytics-chart-footnote">Até cinco publicações ordenadas por visualizações oficiais; posts sem essa métrica aparecem ao final. — significa indisponível, não zero.</p>
+  </>
 }
 
 export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timelineError, posts, postsLoading, postsError }: {
@@ -377,7 +409,7 @@ export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timeli
       <Panel surface="dark" className="analytics-data-panel analytics-top-panel">
         <div className="analytics-panel-heading">
           <div><span className="analytics-panel-eyebrow"><Eye size={14} aria-hidden="true" /> CONTEÚDOS</span>
-            <h2>Publicações em destaque</h2><p>Até cinco posts com mais visualizações oficiais</p></div>
+            <h2>Publicações em destaque</h2><p>Ranking e detalhes das publicações rastreadas</p></div>
         </div>
         <TopPosts posts={posts} loading={postsLoading} error={postsError} />
       </Panel>

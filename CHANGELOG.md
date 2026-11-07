@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Análises sem tabelas redundantes (PATCH da candidata 3.5.0, 07/11/2026)
+
+- Retiradas exclusivamente as duas listagens extensas **Detalhamento por rede** e **Desempenho por publicação**, incluindo versões para desktop/mobile. Permanecem intactos os seis indicadores, os seis painéis de gráficos, filtros e cota manual.
+- Dados úteis antes exclusivos das tabelas passaram aos próprios painéis: visualizações e interações oficiais por plataforma nos cards de **Situação das nove redes**; data, rede, estado de coleta, visualizações e interações nos itens de **Publicações em destaque**. Publicações sem visualizações oficiais são exibidas após as mensuradas (—, nunca zero presumido).
+- Sem mudança nas APIs, no Supabase, nos agendamentos ou em produção. `VERSION=3.4.0` permanece; lançamento candidato `3.5.0` depende de aprovação de Rafa. Teste de regressão das métricas, nove redes e ausência de tabelas.
+
+
 ### Fixed — Preservação das nove redes no filtro e detalhamento de Análises (PATCH da candidata 3.5.0, 07/11/2026)
 
 - Corrigida regressão detectada na QA autenticada após PR #337: restauradas as nove opções em **Rede**, as nove linhas informativas em **Detalhamento por rede** e o estado explícito de integração pendente ao escolher Kwai/Shopee Vídeo/Telegram/WhatsApp. Nenhuma consulta é enviada a endpoints ainda não suportados. Teste de contrato ampliado.
