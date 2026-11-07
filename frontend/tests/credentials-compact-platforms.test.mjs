@@ -33,7 +33,7 @@ test("lojas futuras e Telegram/WhatsApp aparecem como informativos sem persistê
   }
   assert.match(page, /FUTURE_CREDENTIAL_PLATFORMS\.map/)
   assert.match(page, /<StatusBadge tone="warning">Em breve<\/StatusBadge>/)
-  const future = page.slice(page.indexOf("function FutureCredentialCard"), page.indexOf("// ── Card do Threads"))
+  const future = page.slice(page.indexOf("function FutureCredentialCard"), page.indexOf("// Shopee Vídeo: OAuth"))
   assert.doesNotMatch(future, /useMutation|credentialsApi|TextInput/)
 })
 
