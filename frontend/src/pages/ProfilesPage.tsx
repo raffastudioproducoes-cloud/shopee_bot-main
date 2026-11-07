@@ -4,7 +4,11 @@ import { useAuthStore } from "../stores/authStore"
 import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
 import { profilesApi, type Profile, type ProfileInput } from "../api/profiles"
 import { useActivateProfile, useProfiles } from "../hooks/useProfiles"
-import { PlanSummary, UpgradeInfo } from "../components/plans/PlanSummary"
+import { PlanBadge } from "../components/plans/PlanSummary"
+import { ResourceQuotaBar } from "../components/plans/ProductQuotaBar"
+import { usePlanUsage } from "../hooks/usePlanUsage"
+import { router } from "../router"
+import { AccountIdentityForm } from "../components/profiles/AccountIdentityForm"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { StatusMessage } from "../components/StatusMessage"
@@ -18,6 +22,7 @@ const errMsg = (err: unknown, fallback: string) => (err instanceof Error && err.
 export function ProfilesPage() {
   const queryClient = useQueryClient()
   const userId = useAuthStore((state) => state.user?.id)
+  const planQuery = usePlanUsage()
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null)
   const [deletingProfile, setDeletingProfile] = useState<Profile | null>(null)
@@ -117,8 +122,15 @@ export function ProfilesPage() {
         </div>
       </div>
 
-      <PlanSummary resources={["profiles"]} />
-      {atLimit && quota && <UpgradeInfo feature="Perfis adicionais" />}
+      <div className="profiles-compact-plan" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <PlanBadge />
+        <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+          <ResourceQuotaBar plan={planQuery.data} resource="profiles" loading={planQuery.isPending} error={planQuery.isError}
+            onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })} />
+        </div>
+      </div>
+
+      <AccountIdentityForm />
 
       {feedback && (
         <StatusMessage kind={feedback.kind} onDismiss={() => setFeedback(null)}>

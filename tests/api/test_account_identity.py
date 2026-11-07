@@ -1,0 +1,92 @@
+"""CPF protegido, leitura por conta e pré-condições futuras do gateway."""
+import pytest
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+
+from api.account_identity import cpf_record, normalize_cpf, purchase_readiness
+from api.main import app
+from api.routers import users as users_router
+from api.routers.auth import get_current_user_id
+
+
+def test_validates_cpf_and_stores_only_ciphertext_and_hmac():
+    assert normalize_cpf("529.982.247-25") == "52998224725"
+    with pytest.raises(HTTPException):
+        normalize_cpf("111.111.111-11")
+    with pytest.raises(HTTPException):
+        normalize_cpf("529.982.247-26")
+    record = cpf_record("529.982.247-25")
+    assert "52998224725" not in str(record)
+    assert len(record["cpf_fingerprint"]) == 64
+    assert cpf_record("52998224725")["cpf_fingerprint"] == record["cpf_fingerprint"]
+    assert cpf_record("52998224725")["cpf_ciphertext"] != record["cpf_ciphertext"]
+
+
+def test_purchase_requirements_only_four_mandatory():
+    user = {"email": "user@example.com"}
+    row = {"full_name": "Cliente Teste", "cpf_ciphertext": "encrypted", "mobile_phone": None}
+    assert purchase_readiness(user, row) == {"ready": False, "missing": ["Celular"]}
+    row["mobile_phone"] = "21999998888"
+    assert purchase_readiness(user, row) == {"ready": True, "missing": []}
+    assert purchase_readiness({"email": None}, None)["missing"] == [
+        "Nome e sobrenome", "CPF", "E-mail", "Celular",
+    ]
+
+
+def test_identity_api_requires_session():
+    app.dependency_overrides.clear()
+    client = TestClient(app)
+    assert client.get("/users/me/identity").status_code == 401
+    assert client.put("/users/me/identity", json={"full_name": "Cliente Teste"}).status_code == 401
+
+
+def test_account_identity_ownership_and_no_raw_cpf(monkeypatch, fake_db):
+    db = fake_db({
+        "users": [
+            {"id": "mine", "email": "mine@example.com"},
+            {"id": "other", "email": "other@example.com"},
+        ],
+        "account_billing_identity": [{"user_id": "other", "full_name": "Outra Pessoa",
+                                      "cpf_ciphertext": "secret-other", "mobile_phone": "21977777777"}],
+    })
+    monkeypatch.setattr(users_router, "get_supabase", lambda: db)
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: "mine"
+    try:
+        client = TestClient(app)
+        before = client.get("/users/me/identity")
+        assert before.status_code == 200
+        assert before.json()["purchase_readiness"]["ready"] is False
+        assert "other@example.com" not in before.text
+        created = client.put("/users/me/identity", json={
+            "full_name": "Cliente Teste", "cpf": "52998224725", "mobile_phone": "(21) 99999-8888",
+            "age": 29, "cep": "23000-000", "user_id": "other",
+        })
+        assert created.status_code == 200
+        assert created.json()["purchase_readiness"] == {"ready": True, "missing": []}
+        assert client.get("/users/me/purchase-readiness").json() == {"ready": True, "missing": []}
+        assert created.json()["cpf_registered"] is True
+        assert "52998224725" not in created.text
+        saved = db.tables["account_billing_identity"][-1]
+        assert saved["user_id"] == "mine"
+        assert saved["cpf_ciphertext"] != "52998224725"
+        assert saved["mobile_phone"] == "21999998888"
+        assert saved["cep"] == "23000000"
+        assert db.tables["account_billing_identity"][0]["user_id"] == "other"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_identity_api_rejects_invalid_cpf_before_write(monkeypatch, fake_db):
+    db = fake_db({"users": [{"id": "mine", "email": "mine@example.com"}], "account_billing_identity": []})
+    monkeypatch.setattr(users_router, "get_supabase", lambda: db)
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: "mine"
+    try:
+        response = TestClient(app).put("/users/me/identity", json={
+            "full_name": "Cliente Teste", "cpf": "11111111111",
+        })
+        assert response.status_code == 422
+        assert db.tables["account_billing_identity"] == []
+    finally:
+        app.dependency_overrides.clear()

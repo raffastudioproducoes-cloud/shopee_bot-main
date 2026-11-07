@@ -9,6 +9,7 @@ import hashlib
 import logging
 import re
 import secrets
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from urllib.parse import urlencode
@@ -21,6 +22,7 @@ from pydantic import BaseModel, Field
 from supabase import create_client
 
 from ..config import settings
+from ..account_identity import cpf_record, normalize_full_name
 from ..database import get_supabase
 from .auth import (
     _check_login_rate_limit, _create_token, _validate_password_length,
@@ -85,7 +87,13 @@ def _issue_session(response: Response, user: dict):
     response.set_cookie("access_token", token, max_age=86400, **COOKIE_OPTS)
 
 
-def _create_local_account(username: str, email: str, auth_id: str) -> dict:
+def _generated_username(full_name: str) -> str:
+    clean = unicodedata.normalize("NFKD", full_name).encode("ascii", "ignore").decode()
+    stem = re.sub(r"[^a-z0-9]", "", clean.lower().split()[0])[:24] or "usuario"
+    return f"{stem}.{secrets.token_hex(4)}"
+
+
+def _create_local_account(username: str, email: str, auth_id: str, identity: dict | None = None) -> dict:
     _validate_username(username)
     db = get_supabase()
     if _local_user(auth_id):
@@ -98,6 +106,10 @@ def _create_local_account(username: str, email: str, auth_id: str) -> dict:
     existing = db.table("users").select("id").eq("username", username).limit(1).execute()
     if existing.data:
         raise HTTPException(409, "Nome de usuário já existe.")
+    if identity and db.table("account_billing_identity").select("user_id").eq(
+        "cpf_fingerprint", identity["cpf_fingerprint"]
+    ).limit(1).execute().data:
+        raise HTTPException(409, "Documento já associado a outra conta.")
     now = datetime.now(timezone.utc).isoformat()
     result = db.table("users").insert({
         "username": username, "email": email, "password": None, "access": "USER",
@@ -107,12 +119,22 @@ def _create_local_account(username: str, email: str, auth_id: str) -> dict:
     if not result.data:
         raise HTTPException(503, "Não foi possível concluir o cadastro.")
     user = result.data[0]
+    if identity:
+        try:
+            db.table("account_billing_identity").insert({"user_id": user["id"], **identity}).execute()
+        except Exception:
+            # O banco protege exclusão de usuários fora do finalizador GDPR.
+            # Não tentar delete compensatório proibido. Falha fecha o futuro
+            # checkout por purchase_readiness=False; titular corrige no perfil.
+            logger.warning("Não foi possível provisionar identidade cadastral", exc_info=False)
     provision_new_user(db, user)
     return user
 
 
 class EmailRegistration(BaseModel):
-    username: str = Field(min_length=3, max_length=64)
+    username: str | None = Field(default=None, min_length=3, max_length=64)
+    full_name: str = Field(min_length=5, max_length=150)
+    cpf: str = Field(min_length=11, max_length=18, repr=False)
     email: str = Field(min_length=5, max_length=254)
     password: str
     confirm_password: str
@@ -135,7 +157,9 @@ class PasswordRecoveryComplete(BaseModel):
 
 
 class CompleteGoogle(BaseModel):
-    username: str = Field(min_length=3, max_length=64)
+    username: str | None = Field(default=None, min_length=3, max_length=64)
+    full_name: str = Field(min_length=5, max_length=150)
+    cpf: str = Field(min_length=11, max_length=18, repr=False)
     accepted_terms_version: str
 
 
@@ -164,14 +188,17 @@ async def register_email(body: EmailRegistration, request: Request, response: Re
     _check_login_rate_limit(f"supabase-register:{client_ip(request)}")
     if body.accepted_terms_version != TERMS_VERSION:
         raise HTTPException(422, "Aceite os Termos de Uso vigentes.")
-    _validate_username(body.username)
+    full_name = normalize_full_name(body.full_name)
+    cpf_identity = cpf_record(body.cpf)
+    username = body.username or _generated_username(full_name)
+    _validate_username(username)
     _validate_password_length(body.password)
     if body.password != body.confirm_password:
         raise HTTPException(422, "As senhas não coincidem.")
 
     email = _normalized_email(body.email)
     db = get_supabase()
-    if db.table("users").select("id").eq("username", body.username).limit(1).execute().data:
+    if db.table("users").select("id").eq("username", username).limit(1).execute().data:
         raise HTTPException(409, "Nome de usuário já existe.")
 
     # A verificação pertence ao Supabase Auth; a aplicação não aprova o
@@ -195,7 +222,9 @@ async def register_email(body: EmailRegistration, request: Request, response: Re
             db.table("pending_auth_registrations").insert({
                 "auth_user_id": str(result.user.id),
                 "email": email,
-                "username": body.username,
+                "username": username,
+                "full_name": full_name,
+                **cpf_identity,
                 "legal_terms_version": TERMS_VERSION,
                 "legal_terms_accepted_at": datetime.now(timezone.utc).isoformat(),
             }).execute()
@@ -233,12 +262,15 @@ async def login_email(body: EmailLogin, request: Request, response: Response):
     if not user:
         db = get_supabase()
         row = (db.table("pending_auth_registrations")
-               .select("auth_user_id,email,username,legal_terms_version")
+               .select("auth_user_id,email,username,legal_terms_version,full_name,cpf_ciphertext,cpf_fingerprint")
                .eq("auth_user_id", auth_id).maybe_single().execute())
         pending = row.data if row else None
         if not pending or _normalized_email(pending["email"]) != email or pending["legal_terms_version"] != TERMS_VERSION:
             raise HTTPException(403, "Cadastro ainda não concluído. Contate o suporte.")
-        user = _create_local_account(pending["username"], email, auth_id)
+        identity = None
+        if pending.get("full_name") and pending.get("cpf_ciphertext") and pending.get("cpf_fingerprint"):
+            identity = {key: pending[key] for key in ("full_name", "cpf_ciphertext", "cpf_fingerprint")}
+        user = _create_local_account(pending["username"], email, auth_id, identity)
         db.table("pending_auth_registrations").delete().eq("auth_user_id", auth_id).execute()
 
     _issue_session(response, user)
@@ -427,7 +459,10 @@ async def google_complete(body: CompleteGoogle, request: Request, response: Resp
     google_user = _verify_google_token(payload["supabase_token"])
     if str(google_user.id) != payload["sub"]:
         raise HTTPException(401, "Identidade inválida.")
-    user = _create_local_account(body.username, _normalized_email(google_user.email), str(google_user.id))
+    full_name = normalize_full_name(body.full_name)
+    identity = {"full_name": full_name, **cpf_record(body.cpf)}
+    username = body.username or _generated_username(full_name)
+    user = _create_local_account(username, _normalized_email(google_user.email), str(google_user.id), identity)
     _issue_session(response, user)
     response.delete_cookie("sb_google_pending", path="/")
     return {"id": user["id"], "username": user["username"], "access": "USER"}

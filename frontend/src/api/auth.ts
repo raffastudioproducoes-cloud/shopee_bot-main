@@ -44,9 +44,9 @@ export const authApi = {
     return result.msg
   },
 
-  async completeGoogle(username: string): Promise<RegisterResponse> {
+  async completeGoogle(fullName: string, cpf: string): Promise<RegisterResponse> {
     return api.post<RegisterResponse>('/auth/supabase/google/complete', {
-      username, accepted_terms_version: '2026-10-31',
+      full_name: fullName, cpf, accepted_terms_version: '2026-10-31',
     })
   },
 
@@ -100,9 +100,9 @@ export const authApi = {
     return data.msg
   },
 
-  async register(username: string, email: string, password: string, confirmPassword: string): Promise<RegistrationPendingResponse> {
+  async register(fullName: string, cpf: string, email: string, password: string, confirmPassword: string): Promise<RegistrationPendingResponse> {
     return api.post<RegistrationPendingResponse>('/auth/supabase/register', {
-      username, email, password, confirm_password: confirmPassword,
+      full_name: fullName, cpf, email, password, confirm_password: confirmPassword,
       accepted_terms_version: '2026-10-31',
     })
   },

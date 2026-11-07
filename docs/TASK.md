@@ -1193,3 +1193,12 @@ Status: não iniciado.
 ### F4E-2B1 — contrato inerte de dispatch (PR #233; PRE-DEPLOY)
 
 Contrato isolado e ainda não integrado ao executor: `CampaignDispatchIdentity` valida somente formato em memória; não comprova vínculo, posse ou imutabilidade persistida. `require_campaign_dispatch_authorization` sempre recusa, independentemente de flags. Não altera fluxo legado, não autoriza campanha e não protege o executor central de produção atual. Sem criação de jobs/posts/reservas, SQL, migrations, configuração ou chamadas externas. Antes de qualquer execução: identidade verificável e protegida entre reserva, ocorrência, job e post; guardas transacionais no claim e imediatamente antes da chamada externa; compatibilidade nos dois ambientes; proteção de mídia e revisão do acesso service_role. CI/revisão/deploy não confirmados neste registro. `VERSION=3.0.0`.
+
+# 07/11/2026 — Dados cadastrais para contratação (MINOR candidata 3.5.0)
+
+- [x] Retirar `PlanSummary` grande de `/profiles`; manter etiqueta + cota de perfis + CTA somente quando aplicável.
+- [x] Preparar cadastro: nome completo, CPF, e-mail e senha; Google confirma nome/CPF e delega login ao provedor.
+- [x] Adicionar formulário de dados da conta (celular obrigatório na futura compra, idade/e-mail alternativo/telefone/endereço/CEP opcionais), CPF cifrado e gate de prontidão no servidor.
+- [ ] CI, migration 093 no Supabase único, RLS/GRANTS, deploy Render staging e QA; registrar evidências após execução.
+- [ ] Revisar política de retenção de pendências e fluxo de comprovação do e-mail alternativo antes de gateway; **não existe checkout**.
+- [ ] Não promover `main` sem aprovação de Rafa. Ver [contrato](CADASTRO-IDENTIDADE-PLANOS-20261107.md).

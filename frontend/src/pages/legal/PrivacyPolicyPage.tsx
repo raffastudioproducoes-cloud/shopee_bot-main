@@ -13,7 +13,7 @@ import { LegalLayout } from './LegalLayout'
 
 export function PrivacyPolicyPage() {
   return (
-    <LegalLayout title="Política de Privacidade" updatedAt="31 de outubro de 2026">
+    <LegalLayout title="Política de Privacidade" updatedAt="7 de novembro de 2026">
       <h2>1. Quem somos</h2>
       <p>
         O Auto Orbital é um painel de automação que ajuda o usuário a publicar conteúdo em
@@ -31,10 +31,17 @@ export function PrivacyPolicyPage() {
       </p>
       <ul>
         <li>
-          <strong>Dados de cadastro:</strong> nome de usuário e senha. A senha nunca é
-          armazenada em texto claro — é convertida em hash irreversível (bcrypt) antes de ser
-          gravada, e não pode ser recuperada por nós em caso de esquecimento (só redefinida).
+          <strong>Dados de cadastro e identificação:</strong> nome completo, CPF, e-mail e
+          credencial de acesso. No cadastro por e-mail, a senha é gerenciada pelo Supabase Auth;
+          no login Google, pelo próprio provedor. Contas legadas podem ter hash de senha
+          bcrypt, nunca senha em texto claro. CPF é cifrado no banco e a interface não
+          devolve sua numeração completa.
         </li>
+        <li><strong>Dados complementares da conta:</strong> celular necessário para contratar
+          planos futuramente; idade, e-mail alternativo, telefone, endereço e CEP são
+          opcionais no perfil cadastral. São vinculados à conta, separados dos perfis
+          sociais. E-mail alternativo não está habilitado para recuperação até ter
+          verificação própria.</li>
         <li>
           <strong>Tokens de acesso (OAuth) das redes sociais</strong> que o usuário conectar
           (Threads, Facebook, Instagram, TikTok e X, quando disponível no plano): armazenados
@@ -86,8 +93,9 @@ export function PrivacyPolicyPage() {
         </li>
       </ul>
       <p>
-        Não coletamos dados de pagamento ou de cartão — o Auto Orbital não processa cobranças
-        nem transações financeiras diretamente.
+        Não coletamos dados de cartão nem processamos cobranças nesta versão. O cadastro
+        de identificação prepara o vínculo futuro entre titular, plano e período contratado;
+        nenhum pagamento é gerado pelo preenchimento dos dados.
       </p>
 
       <h2>2.1 Dados técnicos do dispositivo e GPS opcional</h2>
