@@ -1,11 +1,12 @@
-## 07/11/2026 — Diagnóstico ADMIN compacto (branch → staging, candidata 3.5.0)
+## 07/11/2026 — Diagnóstico ADMIN compacto (staging LIVE, candidata 3.5.0)
 
 - [x] Escopo: IA/Shopee em ordem alfabética, cards recolhíveis com logos reais e duas colunas no desktop; manter todos os controles globais existentes ao expandir.
 - [x] Área inferior substitui formulários sociais de override por estados resumidos com logos, última verificação e um único botão de testar todas. Rotas e tokens legados preservados, sem exclusão.
 - [x] Endpoint `POST /admin/credentials/test-all` autentica ADMIN, limita uma chamada por lote, testa só IA ativa, Shopee global e redes do próprio perfil conectado, ignora ausentes; atualiza checagens existentes e gera logs sem segredos no Render e na Central administrativa (gravação best effort).
-- [x] Testes API focados e suíte integral local PASS (1.271/1.271). Build TypeScript/Vite PASS. Testes de UI/CSP sob validação na CI.
-- [ ] PR, CI, merge e deploy **somente staging**, com SHA evidenciado. **Não promover main até Rafa aprovar.** QA visual autenticado e execução externa do botão permanecem gates independentes.
-- **Documentação:** [contrato técnico](ADMIN-DIAGNOSTICO-CONEXOES-20261107.md) e [plano](superpowers/plans/2026-11-07-admin-diagnostico-compacto.md); `VERSION=3.4.0` permanece, candidata MINOR 3.5.0. Banco compartilhado, `pg_cron` (2), `pg_net`, publicações e produção intocados.
+- [x] Testes API focados e suíte integral local PASS (1.271/1.271), build TypeScript/Vite e Node/CSP PASS; CI #1067 confirmou lint, API, frontend e banco descartável.
+- [x] [PR #322](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/322), [CI #1067](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42363907682) SUCCESS (API, frontend e PostgreSQL isolado), merge **staging** `8345cc74c2ba31f58e70fd0a074ef77485aa5f2b`, Render `dep-dbnfq30473hc739jbs30` LIVE, `/health` + `/api/health/ready` OK; QA autenticado desktop observou cards e formulários recolhíveis sem alterar chaves. **Main intacta.**
+- [ ] Após homologação de Rafa, executar o único botão autenticado e conferir logs reais do lote/custos de chamadas, além de viewport mobile; **não promover main até nova autorização**.
+- **Documentação:** [contrato técnico](ADMIN-DIAGNOSTICO-CONEXOES-20261107.md), [design QA](DESIGN-QA-ADMIN-DIAGNOSTICO-20261107.md) e [plano](superpowers/plans/2026-11-07-admin-diagnostico-compacto.md); `VERSION=3.4.0` permanece, candidata MINOR 3.5.0. Banco compartilhado, `pg_cron` (2), `pg_net`, publicações e produção intocados.
 - **Gatilho SMTP:** sem nova evidência verificável de domínio próprio registrado/configurado; manter configuração atual.
 
 ## 07/11/2026 — Credenciais compactas em abas (somente staging, candidata 3.5.0)

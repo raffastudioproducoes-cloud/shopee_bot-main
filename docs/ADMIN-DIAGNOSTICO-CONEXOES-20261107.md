@@ -1,6 +1,15 @@
 # Diagnóstico ADMIN: cartões compactos e verificação consolidada
 
-Data: 07/11/2026 · Estado: **branch de homologação → staging** · Versão oficial: `3.4.0` · Candidata funcional: `3.5.0` (MINOR compatível).
+Data: 07/11/2026 · Estado: **staging LIVE e QA visual autenticado concluído** · Versão oficial: `3.4.0` · Candidata funcional: `3.5.0` (MINOR compatível).
+
+## Implantação verificada (07/11/2026)
+
+- [PR #322](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/322) aprovada pela [CI #1067](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42363907682), três jobs `success`: API Python/lint, Frontend TypeScript/build/Node e PostgreSQL descartável. O job `Staging externo` da PR ficou `skipped` por configuração do workflow; a checagem real foi feita após o deploy.
+- Merge **somente `staging`** `8345cc74c2ba31f58e70fd0a074ef77485aa5f2b`; Render `dep-dbnfq30473hc739jbs30` **LIVE**, mesmo commit.
+- Smoke remoto: [`/health`](https://shopee-bot-staging.onrender.com/health) e [`/api/health/ready`](https://shopee-bot-staging.onrender.com/api/health/ready) responderam `{"status":"ok"}`.
+- Browser ADMIN autenticado em [`/admin/credentials`](https://shopee-bot-staging.onrender.com/admin/credentials): verificados os dois cards globais na mesma linha, logos carregadas, resumo de status, expansão/recolhimento independente, campos globais preservados, seis status sociais compactos e botão único habilitado. Não foram inseridos nem revelados tokens.
+- **Pendente de homologação funcional externa:** o botão consolidado não foi acionado com as credenciais reais nesta sessão; portanto, não se afirma que houve novas chamadas pagas a provedores nem novos eventos reais do lote no banco/Render. O contrato e a auditoria foram cobertos por testes automatizados. Layout mobile validado por CSS e build, sem captura visual real de viewport móvel.
+- `main` e produção não foram alteradas; Rafa decidirá a promoção depois da homologação.
 
 ## Pedido e comportamento
 
@@ -35,7 +44,7 @@ Cada entrada retorna `{state: 'ok'|'error'|'skipped', status_text, checked_at}`;
 - API: novos testes `tests/api/test_admin_credential_batch.py` cobrem autorização, limite único, seis redes sem ligação, IA/Shopee globais, erro de uma rede sem interromper lote, ausência de segredo no payload/log e falta de configuração. `tests/api/test_admin_privacy.py` cobre rótulos permitidos dos eventos.
 - `tests/api/test_profile_scope_logs_audit.py` comprova a exceção auditável `force=True` com logging global desligado. **1.271/1.271** testes em `tests/api` passaram localmente em 07/11/2026.
 - Frontend: `admin-diagnostics-compact.test.mjs`, contratos atualizados para o botão único, manutenção do CRUD global e remoção visual de override; `npm run build` verifica TypeScript/CSS/Vite.
-- Browser: revisão visual em ADMIN autenticado da **staging** ocorre após deploy do código. Testes automatizados e health HTTP não equivalem a validação visual da tela.
+- Browser: revisão visual autenticada na **staging LIVE** realizada (desktop, cards fechados/abertos e estado real consultado). Teste externo do botão e inspeção do log resultante permanecem para homologação funcional.
 - Ações externas e logs reais só devem ser declarados confirmados após executar o botão autenticado na **staging** e observar `request_logs`/Render, sem colar credenciais no chat.
 
 ## Versionamento e promoção

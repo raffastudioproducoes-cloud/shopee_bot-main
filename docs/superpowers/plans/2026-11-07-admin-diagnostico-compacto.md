@@ -53,4 +53,6 @@
 
 - [x] Documentar contrato, segurança, exceção auditada ao logging geral e limites de teste autenticado.
 - [x] Reler documentação editada e reavaliar gatilhos de TASK.
-- [ ] Commit em branch isolada, PR para staging, CI, merge staging e verificação Render/health; não promover main.
+- [x] Commit em branch isolada, PR #322 para staging, CI #1067 SUCCESS, merge staging `8345cc7`, Render `dep-dbnfq30473hc739jbs30` LIVE e health/readiness OK; não promover main.
+- [x] QA visual desktop autenticado: ambos os acordeões, logos, salvamento global preservado e seis status compactos observados em staging LIVE.
+- [ ] Homologação funcional externa do botão em uma conta ADMIN, com custos/cotas de fornecedores autorizados; confirmar logs reais após executar. QA visual de viewport mobile permanece manual.
