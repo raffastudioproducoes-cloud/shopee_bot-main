@@ -57,10 +57,6 @@
 /* frontend/src/components/posts/MediaTray.tsx */
 :is(#root, body) .csp-s-0028 { display: flex; justify-content: space-between; }
 /* frontend/src/components/posts/NetworkPicker.tsx */
-:is(#root, body) .csp-s-0029 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-/* frontend/src/components/posts/NetworkPicker.tsx */
-:is(#root, body) .csp-s-0030 { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr)); gap: 8px; }
-/* frontend/src/components/posts/NetworkPicker.tsx */
 :is(#root, body) .csp-s-0031 { border: 1px solid var(--border-hairline); border-radius: var(--r-md); background: var(--surface-inset); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
 /* frontend/src/components/posts/NetworkPicker.tsx */
 :is(#root, body) .csp-s-0032 { display: flex; flex-wrap: wrap; gap: 6px 14px; }
