@@ -96,9 +96,9 @@ def test_generated_stylesheet_covers_all_static_csp_classes():
     referenced = set()
     for component in style_root.rglob("*.tsx"):
         referenced.update(re.findall(r"className=\"((?:csp-s-)\d{4})\"", component.read_text(encoding="utf-8")))
-    # Limite de referência após 14 seletores órfãos de Analytics/Produtos removidos.
-    # O contrato forte continua: nenhum estilo ausente e nenhuma classe morta.
-    assert len(declared) >= 380
+    # Após remover mais 2 classes órfãs do seletor de redes (0029 e 0030),
+    # o contrato forte permanece: nenhum estilo ausente nem classe morta.
+    assert len(declared) >= 378
     assert declared == referenced, "Cada classe CSP estatica deve existir no CSS e ser usada no JSX"
 
 
