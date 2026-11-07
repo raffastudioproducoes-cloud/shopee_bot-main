@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { AdminAiCredentialCard } from '../components/credentials/AdminAiCredentialCard'
 import { AdminShopeeCredentialCard } from '../components/credentials/AdminShopeeCredentialCard'
+import { AdminShopeeVideoCredentialCard } from '../components/credentials/AdminShopeeVideoCredentialCard'
 import { ApiError } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import { credentialsApi, type AdminTestAllResult, type CredentialStatusWithLight, type SimpleNetwork } from '../api/credentials'
@@ -23,6 +24,7 @@ function StatusCard({ platform, status, result }: {
   const checkedAt = planned ? null : result?.checked_at || status?.checked_at
   const tone = state === 'ok' ? 'mint' : 'neutral'
   const images = CREDENTIAL_BRAND_LOGOS[platform.key] ?? []
+  const plannedLabel = platform.key === 'shopee-video' ? 'OAuth em homologação' : 'Em breve'
   return (
     <div className="admin-credential-status-card" data-state={state || 'disconnected'}>
       <span className={`credential-brand credential-brand--${platform.key}`} aria-hidden="true">
@@ -32,7 +34,7 @@ function StatusCard({ platform, status, result }: {
         <strong>{platform.title}</strong>
         {checkedAt && <small>Último teste: {new Date(checkedAt).toLocaleString('pt-BR')}</small>}
       </div>
-      <Badge tone={tone}>{planned ? 'Em breve' : state === 'ok' ? 'Funcionando' : result?.state === 'error' ? result.status_text : status?.status_text || 'Desconectado'}</Badge>
+      <Badge tone={tone}>{planned ? plannedLabel : state === 'ok' ? 'Funcionando' : result?.state === 'error' ? result.status_text : status?.status_text || 'Desconectado'}</Badge>
     </div>
   )
 }
@@ -82,6 +84,7 @@ export default function AdminCredentialsPage() {
       <div className="admin-platform-grid" aria-label="Credenciais globais da plataforma">
         <AdminAiCredentialCard setBanner={setBanner} onAuthError={onAuthError} />
         <AdminShopeeCredentialCard setBanner={setBanner} onAuthError={onAuthError} />
+        <AdminShopeeVideoCredentialCard setBanner={setBanner} onAuthError={onAuthError} />
       </div>
 
       <Panel surface="dark" className="admin-diagnostic-results" padding={18}>

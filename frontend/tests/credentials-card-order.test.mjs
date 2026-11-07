@@ -28,15 +28,17 @@ test("os oito cards das redes integram o agrupamento, sem chave IA na página co
   assert.match(source, /credentials-card-grid csp-named-card-grid/)
 })
 
-test("Shopee Vídeo é card informativo, recolhível e sem conexão fictícia", () => {
-  const start = source.indexOf("function ShopeeVideoCredentialCard()")
+test("Shopee Vídeo oferece OAuth de criador com consentimento e publicação inativa", () => {
+  const start = source.indexOf("function ShopeeVideoCredentialCard(")
   const end = source.indexOf("// ── Card do Threads", start)
   assert.ok(start > 0 && end > start)
   const card = source.slice(start, end)
   assert.match(card, /<CredPanel id="Shopee Vídeo">/)
   assert.match(card, /<CredHeader[^]*?title="Shopee Vídeo"/)
-  assert.match(card, /Aguardando aprovação/)
-  assert.match(card, /Shopee Afiliados[^]*?não autorizam a publicação de vídeos/)
-  assert.match(card, /<Button type="button" variant="primary" disabled>\s*Conectar Shopee Vídeo/)
-  assert.doesNotMatch(card, /credentialsApi|useMutation|authorize|appId|secret/i)
+  assert.match(card, /shopeeVideoApi\.authorize/)
+  assert.match(card, /shopeeVideoApi\.refresh/)
+  assert.match(card, /shopeeVideoApi\.disconnect/)
+  assert.match(card, /<OAuthConsentModal network="shopee-video"/)
+  assert.match(card, /publicação de vídeos[^]*?indisponível/)
+  assert.doesNotMatch(card, /partner_key|appId|secret/i)
 })

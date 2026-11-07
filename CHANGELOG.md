@@ -5,6 +5,15 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — OAuth Shopee Vídeo para afiliados (MINOR candidata 3.5.0, 07/11/2026)
+
+- Categoria oficial `Shopee Video Management` também atende criadores afiliados; integração isolada da Affiliate GraphQL com consentimento `auth_type=user`, assinatura HMAC-SHA256, troca e renovação de tokens, cookie de `state` assinado e proteção por perfil.
+- ADMIN pode configurar Partner ID/Key global com criptografia e isolamento por ambiente; usuário autoriza e desconecta somente a própria conta. Migration 091 aditiva com RLS e tokens cifrados.
+- `POST /shopee-video/preview` valida metadados e vínculos de produtos do perfil sem enviar conteúdo. Publicação real e jobs continuam **desativados** até validação do upload multipart, consentimento e homologação da Shopee. Sem mudança nos cron/filas existentes, Supabase em produção ou `main` nesta branch.
+- Callback deve ser cadastrado em Shopee e configurado via `SHOPEE_VIDEO_CALLBACK_URL` específico de cada host. `VERSION=3.4.0` preservada até aprovação de release.
+- Contrato de rollout, documentação oficial e critérios de homologação: [SHOPEE-VIDEO-OAUTH-AFILIADOS-20261107](docs/SHOPEE-VIDEO-OAUTH-AFILIADOS-20261107.md).
+
+
 ### Docs — Motivo da rejeição Shopee, perfil verificado e pausa (07/11/2026)
 
 - Acrescentadas evidências do console: notificação de perfil **aprovado em 03/11/2026**, `My Tasks` com **0** obrigatórias/recomendadas em andamento e rejeição `Penetration Test Report` **Case ID 1750** (04/11), porque era somente revisão de código/documento, sem testes ativos nem screenshots/requests/saídas dos achados R-01...R-07.

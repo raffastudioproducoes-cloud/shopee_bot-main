@@ -18,14 +18,15 @@ import { Icon } from "../components/ui/Icon"
 import { Modal } from "../components/ui/Modal"
 import { isNetworkDisabled } from "../lib/networkLimits"
 import { groupCredentialCards } from "../lib/credentialSections"
+import { shopeeVideoApi, type ShopeeVideoStatus } from "../api/shopeeVideo"
 import { CREDENTIAL_BRAND_LOGOS, FUTURE_CREDENTIAL_PLATFORMS, type CredentialTab } from "../lib/credentialPlatforms"
 
 // Nenhum card USER recebe App ID/Secret. Shopee é ID de afiliado; redes
-// sociais usam OAuth, e Kwai/Shopee Vídeo são cartões informativos.
+// sociais usam OAuth. Shopee Vídeo usa OAuth de criador afiliado.
 
 // Grade de 2 colunas que colapsa pra 1 em telas estreitas (mesmo efeito do
 // antigo `grid-cols-1 sm:grid-cols-2`, sem depender de breakpoint Tailwind).
-type OAuthNetwork = "threads" | "x" | "facebook" | "tiktok" | "instagram"
+type OAuthNetwork = "threads" | "x" | "facebook" | "tiktok" | "instagram" | "shopee-video"
 
 const OAUTH_CONSENT: Record<OAuthNetwork, { label: string; details: string }> = {
   threads: { label: "Threads", details: "sua identidade no Threads e autorização para publicar posts em seu nome" },
@@ -33,6 +34,7 @@ const OAUTH_CONSENT: Record<OAuthNetwork, { label: string; details: string }> = 
   facebook: { label: "Facebook", details: "a Página que você administra e autorização para publicar nela em seu nome" },
   tiktok: { label: "TikTok", details: "sua identidade no TikTok e autorização para publicar conteúdo em seu nome" },
   instagram: { label: "Instagram", details: "sua conta Business/Creator e autorização para publicar conteúdo em seu nome" },
+  "shopee-video": { label: "Shopee Vídeo", details: "sua conta de criador afiliado e autorização para gerenciar vídeos e produtos vinculados" },
 }
 
 function OAuthConsentModal({
@@ -211,6 +213,23 @@ export function CredentialsPage() {
     queryKey: ["shopee", "affiliate"],
     queryFn: shopeeAffiliateApi.status,
   })
+  const { data: shopeeVideoStatus } = useQuery({
+    queryKey: ["shopee-video", "status"], queryFn: shopeeVideoApi.status,
+  })
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const result = params.get("shopee_video")
+    if (!result) return
+    setActiveTab("social")
+    setBanner(result === "success"
+      ? { ok: true, text: "Shopee Vídeo autorizada para este perfil." }
+      : { ok: false, text: "Não foi possível autorizar Shopee Vídeo. Tente novamente." })
+    params.delete("shopee_video")
+    const query = params.toString()
+    window.history.replaceState(null, "", window.location.pathname + (query ? `?${query}` : ""))
+    void queryClient.invalidateQueries({ queryKey: ["shopee-video", "status"] })
+  }, [queryClient])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -362,8 +381,9 @@ export function CredentialsPage() {
       key: "shopee-video",
       title: "Shopee Vídeo",
       category: "social",
-      connected: false, // Bloqueada até aprovação oficial específica.
-      element: <ShopeeVideoCredentialCard key="shopee-video" />,
+      connected: Boolean(shopeeVideoStatus?.connected),
+      element: <ShopeeVideoCredentialCard key="shopee-video" status={shopeeVideoStatus}
+        onAuthError={onAuthError} setBanner={setBanner} />,
     },
     {
       key: "threads",
@@ -579,10 +599,35 @@ function KwaiComingSoonCredentialCard() {
   )
 }
 
-// Shopee Vídeo exige autorização oficial (Open Platform/Video Management),
-// distinta da API Shopee Afiliados já configurada no card "Shopee".
-// Este card é apenas informativo: não armazena segredo nem chama OAuth/endpoint.
-function ShopeeVideoCredentialCard() {
+// Shopee Vídeo: OAuth auth_type=user, separado da Affiliate GraphQL.
+function ShopeeVideoCredentialCard({ status, onAuthError, setBanner }: {
+  status?: ShopeeVideoStatus
+  onAuthError: (error: Error) => void
+  setBanner: (value: { ok: boolean; text: string } | null) => void
+}) {
+  const [consentOpen, setConsentOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const authorize = useMutation({
+    mutationFn: shopeeVideoApi.authorize,
+    onSuccess: ({ url }) => { window.location.assign(url) },
+    onError: onAuthError,
+  })
+  const disconnect = useMutation({
+    mutationFn: shopeeVideoApi.disconnect,
+    onSuccess: () => {
+      setBanner({ ok: true, text: "Conta Shopee Vídeo desconectada deste perfil no Auto Orbital." })
+      void queryClient.invalidateQueries({ queryKey: ["shopee-video", "status"] })
+    },
+    onError: onAuthError,
+  })
+  const refresh = useMutation({
+    mutationFn: shopeeVideoApi.refresh,
+    onSuccess: () => {
+      setBanner({ ok: true, text: "A autorização Shopee Vídeo foi renovada." })
+      void queryClient.invalidateQueries({ queryKey: ["shopee-video", "status"] })
+    },
+    onError: onAuthError,
+  })
   return (
     <CredPanel id="Shopee Vídeo">
       <CredHeader
@@ -590,21 +635,35 @@ function ShopeeVideoCredentialCard() {
         brand="shopee-video"
         trailing={
           <div className="csp-s-0201">
-            <ConnectionLight state="yellow" title="Aguardando aprovação oficial da Shopee" />
-            <StatusBadge tone="warning" icon="clock-3">Em breve</StatusBadge>
+            <ConnectionLight state={status?.connected ? "green" : "yellow"}
+              title={status?.connected ? "OAuth autorizado" : "Autorização ainda não concluída"} />
+            <StatusBadge tone={status?.connected ? "positive" : "warning"}>
+              {status?.connected ? "Autorizado" : status?.configured ? "Pronto para conectar" : "Configuração pendente"}
+            </StatusBadge>
           </div>
         }
       />
       <div className="csp-s-0202">
         <CredentialHelp><p className="csp-s-0203">
-            Aguardando aprovação oficial da Shopee.
-            A conexão para publicar no Shopee Vídeo depende da aprovação oficial
-            do acesso Shopee Video Management. As credenciais da Shopee Afiliados
-            não autorizam a publicação de vídeos.
+            Conecte sua conta de criador afiliado pelo OAuth oficial da Shopee.
+            A autorização vale somente para este perfil. A publicação de vídeos
+            reais permanece indisponível até a homologação do fluxo completo.
         </p></CredentialHelp>
-        <Button type="button" variant="primary" disabled>
-          Conectar Shopee Vídeo
+        {status?.connected && <p role="status">
+          Autorização recebida{status.token_valid ? ", token vigente" : ", token expirado"}.
+          {status.sandbox ? " Ambiente de testes." : " Ambiente oficial."}
+        </p>}
+        {status?.connected && !status.token_valid && <Button type="button" variant="secondary"
+          loading={refresh.isPending} disabled={refresh.isPending}
+          onClick={() => refresh.mutate()}>Renovar acesso</Button>}
+        {status?.connected && <Button type="button" variant="ghost" disabled={disconnect.isPending}
+          onClick={() => disconnect.mutate()}>Desconectar deste perfil</Button>}
+        <Button type="button" variant="primary" disabled={!status?.configured || authorize.isPending}
+          onClick={() => setConsentOpen(true)}>
+          {status?.connected ? "Reconectar Shopee Vídeo" : "Conectar Shopee Vídeo"}
         </Button>
+        <OAuthConsentModal network="shopee-video" open={consentOpen} busy={authorize.isPending}
+          onClose={() => setConsentOpen(false)} onContinue={() => authorize.mutate()} />
       </div>
     </CredPanel>
   )
