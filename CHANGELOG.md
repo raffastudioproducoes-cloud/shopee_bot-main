@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — Preservação das nove redes no filtro e detalhamento de Análises (PATCH da candidata 3.5.0, 07/11/2026)
+
+- Corrigida regressão detectada na QA autenticada após PR #337: restauradas as nove opções em **Rede**, as nove linhas informativas em **Detalhamento por rede** e o estado explícito de integração pendente ao escolher Kwai/Shopee Vídeo/Telegram/WhatsApp. Nenhuma consulta é enviada a endpoints ainda não suportados. Teste de contrato ampliado.
+
 ### Added / Changed — Análises diversas e limite de 10 atualizações (MINOR candidata 3.5.0, 07/11/2026)
 
 - Página **Análise de redes** reorganizada com seis KPIs distintos e seis painéis (linha temporal, comparação por rede, composição de engajamento, dias da semana, ranking de posts e matriz das nove integrações). Dados só de posts confirmados pelo Auto Orbital; ausência de insight exibida como indisponível, nunca zero inventado.
