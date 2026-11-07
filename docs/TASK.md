@@ -3,7 +3,7 @@
 - [x] A partir do catálogo de `/credentials`, incluir no diagnóstico ADMIN os 12 cards de lojas futuras e 3 canais sociais informativos (Shopee Vídeo, Telegram, WhatsApp); manter 6 estados sociais reais e 2 cards globais superiores.
 - [x] Mostrar as seções Lojas/Redes em ordem alfabética PT-BR, com logos locais e selo honesto **Em breve** para integrações ainda não disponíveis. Nenhum campo de token novo ou teste externo para placeholders.
 - [x] Helper de catálogo testado com entradas reais, frontend TypeScript/Vite compilado e teste incorporado ao Actions. Sem backend, schema, API, tokens, jobs ou alterações em banco compartilhado.
-- [ ] PR, Actions, deploy Render e QA visual em **staging**; registrar SHAs. `main` não deve ser promovida sem aprovação expressa de Rafa.
+- [x] [PR #324](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/324), [Actions #1071](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42365513913) (API, Frontend e PostgreSQL isolado **SUCCESS**), merge staging `2b1c0a33483cc273d4e576bfe61563c1b6e655bd`, Render `dep-dbng4t7avr4c73adujfg` **LIVE** e QA visual ADMIN autenticada: 12 lojas, 9 sociais, logos e estados informativos exibidos corretamente. O QA detectou baixo contraste em 3 logos, corrigido em um follow-up visual. `main` não deve ser promovida sem aprovação expressa de Rafa.
 - **Referência:** [contrato do diagnóstico](ADMIN-DIAGNOSTICO-CONEXOES-20261107.md), `VERSION=3.4.0` atual e candidata `3.5.0` MINOR. Gatilho SMTP não acionado: sem evidência de domínio próprio novo registrado/configurado.
 
 ## 07/11/2026 — Diagnóstico ADMIN compacto (staging LIVE, candidata 3.5.0)

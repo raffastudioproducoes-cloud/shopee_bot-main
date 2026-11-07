@@ -1,6 +1,6 @@
 # Design QA — Diagnóstico ADMIN compacto (07/11/2026)
 
-> **Atualização de catálogo em staging:** o ADMIN agora apresenta os 12 cartões de lojas futuras e 9 redes/canais (6 status reais + Shopee Vídeo, Telegram e WhatsApp), com seção própria, logos e selo `Em breve` para opções não implementadas. Conferir a nova distribuição visual após a CI/deploy da atualização; a evidência abaixo é do layout anterior, com 6 cards sociais.
+> **QA autenticado da atualização de catálogo (07/11/2026):** [PR #324](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/324), CI #1071 SUCCESS, Render `dep-dbng4t7avr4c73adujfg` LIVE. Desktop real em `/admin/credentials`: dois painéis globais recolhíveis; seção **Lojas — 12 integrações planejadas** e seção **Redes sociais — 9 plataformas**, todas em ordem alfabética, com estados `Em breve` nos 15 placeholders. Os seis indicadores sociais existentes continuam exibindo estados reais. Detectado problema leve de contraste em três logos, corrigido na revisão visual posterior. O botão de teste não foi acionado com chaves reais. Evidência abaixo é do layout **anterior** ao catálogo expandido.
 
 Escopo: `/admin/credentials` em `staging`, Render `dep-dbnfq30473hc739jbs30` LIVE, app commit `8345cc74c2ba31f58e70fd0a074ef77485aa5f2b`.
 

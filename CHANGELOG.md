@@ -9,6 +9,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 - Abaixo da gestão global de IA/Shopee, o diagnóstico agrupa Lojas e Redes sociais e reaproveita todos os 14 placeholders já presentes em `/credentials`, mais os seis status sociais reais e Shopee Vídeo, totalizando 21 cards pequenos no painel de status.
 - Lojas e redes futuras exibem logos locais e estado "Em breve"; não são consideradas conectadas, nem entram no teste geral ou geram chamadas a fornecedores. A UI deriva do catálogo único de plataformas futuras.
+- Ajustes de contraste para logos de Mercado Livre/Pró Spin no tema escuro e preenchimento explícito no SVG da Lomadee para evitar dependência de variável CSS não disponível em imagens externas.
 - Nenhum endpoint, credencial, armazenamento, scheduler, cron, `pg_net` ou produção alterados. `VERSION=3.4.0` preservada, candidata MINOR `3.5.0` após homologação.
 
 ### Changed — Diagnóstico ADMIN compacto e teste consolidado (MINOR candidata 3.5.0, 07/11/2026)
