@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Docs — Motivo da rejeição Shopee, perfil verificado e pausa (07/11/2026)
+
+- Acrescentadas evidências do console: notificação de perfil **aprovado em 03/11/2026**, `My Tasks` com **0** obrigatórias/recomendadas em andamento e rejeição `Penetration Test Report` **Case ID 1750** (04/11), porque era somente revisão de código/documento, sem testes ativos nem screenshots/requests/saídas dos achados R-01...R-07.
+- Atualizado [roteiro de cadastro](docs/SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md), TASK, Guia Mestre e Vault. Guardada **mensagem pronta de suporte, não enviada**, perguntando aplicabilidade do pentest a afiliado BR e modo de regularização. A pedido de Rafa, execução externa **em espera**.
+- Somente docs; nenhuma modificação em conta Shopee, ticket, app, serviço, dados, cron, `pg_net`, segredos, `main` ou `VERSION=3.4.0`.
+
 ### Docs — Regularização do cadastro Shopee Open Platform (07/11/2026)
 
 - Organizada a sequência definida por Rafa: **rejeitado primeiro** (`Penetration Test Report`, motivo não exibido nas capturas), **pendentes depois** (declaração, capturas, URL e conta de teste não enviados), **app por último** (lista atualmente vazia).
