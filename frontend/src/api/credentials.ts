@@ -32,9 +32,18 @@ export interface TestConnectionResult {
   checked_at: string
 }
 
+export interface AdminTestAllResult {
+  tested: number
+  skipped: number
+  results: Record<string, { state: 'ok' | 'error' | 'skipped'; status_text: string; checked_at: string | null }>
+}
+
 export const credentialsApi = {
   async listAdminStatus(): Promise<Record<SimpleNetwork | 'threads', Pick<CredentialStatusWithLight, 'connected' | 'light' | 'state' | 'status_text' | 'checked_at'>>> {
     return api.get('/admin/credentials/status')
+  },
+  async testAllAdminConnections(): Promise<AdminTestAllResult> {
+    return api.post('/admin/credentials/test-all', undefined)
   },
   async list(): Promise<CredentialsStatusMap> {
     return api.get<CredentialsStatusMap>('/credentials')

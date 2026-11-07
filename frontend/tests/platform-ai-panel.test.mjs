@@ -10,13 +10,15 @@ test("a página comum não exibe nenhum formulário de chave de IA, mesmo para A
   assert.match(page, /groupCredentialCards/)
 })
 
-test("painel administrativo preserva gestão completa da IA", () => {
+test("painel administrativo preserva gestão da IA e delega o teste ao botão geral", () => {
   const page = file("../src/pages/AdminCredentialsPage.tsx")
   const panel = file("../src/components/credentials/AdminAiCredentialCard.tsx")
   assert.match(page, /AdminAiCredentialCard/)
-  for (const action of ["save", "delete", "test", "activate"]) {
+  for (const action of ["save", "delete", "activate"]) {
     assert.match(panel, new RegExp(`adminAiCredentialsApi\\.${action}\\(`))
   }
+  assert.match(page, /testAllAdminConnections/)
+  assert.doesNotMatch(panel, /adminAiCredentialsApi\.test\(/)
   assert.match(panel, /AI_PROVIDERS/)
   assert.match(panel, /Chave de API/)
   assert.match(panel, /Modelo \(opcional\)/)

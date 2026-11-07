@@ -27,6 +27,8 @@
 
 > **Auto Orbital — F4C1 concluída em staging (03/11/2026):** PR #215 squash-merge apenas em staging SHA `397f0f760570c7aa39a1756f6a9e05deaf205d2f`, CI #717 verde, migration 073 autorizada e aplicada (Supabase `20261103175106`, `public.migrations` id=68), Render `dep-dbl20fss728c739c6kag` LIVE, `/health` e `/api/health/ready` = `{"status":"ok"}`. Sem post externo nem promoção `main`/produção; `VERSION=3.0.0`. Cotas protegidas por RPC; F4C2 campanhas/automação é etapa posterior. Ver [contrato F4](docs/PLANOS-F4-POLITICAS-E-FASES-20261103.md) e `CHANGELOG.md`.
 
+> **07/11/2026 — diagnóstico de credenciais ADMIN (candidato staging):** painéis IA/Shopee recolhíveis e compactos, logos e grade social somente de status; único botão de teste auditável, sem formulário de overrides na tela. [Contrato e limites](docs/ADMIN-DIAGNOSTICO-CONEXOES-20261107.md). `VERSION=3.4.0` mantida; main não autorizada nesta tarefa.
+
 > **07/11/2026 — proposta em staging:** a próxima versão da Shopee Afiliados usa App ID/Secret global de ADMIN e ID de afiliado individual por conta; gera links `an_redir` sem reutilizar links do administrador. Migração 090 aditiva e homologação de comissão antes de produção. Veja [contrato Shopee](docs/SHOPEE-API-GLOBAL-ID-AFILIADO-20261107.md). `VERSION=3.4.0` permanece vigente até aprovação da release 3.5.0.
 
 > **Entrada obrigatória para agentes e IAs:** leia primeiro [AGENTS.md](AGENTS.md) e o [Guia Mestre de Contexto](docs/GUIA-MESTRE-IA.md) — propósito, localização do Vault, arquitetura, módulos, fluxos, APIs, segurança, RLS, custos, limites e método de verificação. Documentos históricos não substituem o código implantado.

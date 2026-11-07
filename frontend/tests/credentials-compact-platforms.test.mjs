@@ -20,10 +20,11 @@ test("abas lojas e redes sociais, com card compacto e ajuda expansível", () => 
   assert.match(page, /key: "shopee",\s*title: "Shopee",\s*category: "stores"/)
 })
 
-test("botão testar conexão sai da página comum e continua no painel ADMIN", () => {
+test("botão testar conexão sai da página comum e vira teste único no diagnóstico ADMIN", () => {
   assert.doesNotMatch(page, /credentialsApi\.testConnection|Testar conexão"\}/)
-  assert.match(admin, /credentialsApi\.testConnection/)
-  assert.match(admin, /Testar conexão/)
+  assert.match(admin, /credentialsApi\.testAllAdminConnections/)
+  assert.match(admin, /Testar todas as conexões/)
+  assert.doesNotMatch(admin, /credentialsApi\.testConnection/)
 })
 
 test("lojas futuras e Telegram/WhatsApp aparecem como informativos sem persistência fictícia", () => {

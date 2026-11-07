@@ -156,6 +156,11 @@ async def remove_platform_shopee(admin: int = Depends(_require_admin)):
 @router.post("/admin/shopee/test")
 async def test_platform_shopee(admin: int = Depends(_require_admin)):
     _check_test_rate_limit(admin)
+    return await _execute_platform_shopee_test(admin)
+
+
+async def _execute_platform_shopee_test(admin: int) -> dict:
+    """Verifica a API global sem duplicar o limite do diagnóstico agregado."""
     app_id, secret = resolve_platform_shopee_key()
     try:
         ok = await validate_shopee_credential(app_id, secret)

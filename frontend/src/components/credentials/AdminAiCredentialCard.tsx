@@ -5,12 +5,12 @@ import { adminAiCredentialsApi, AI_PROVIDERS, type AiProvider } from "../../api/
 import { formDraftKey, clearFormDraft } from "../../lib/formDraftStorage"
 import { useAutosavedDraft } from "../../hooks/useAutosavedDraft"
 import { useAuthStore } from "../../stores/authStore"
-import { Panel } from "../ui/Panel"
 import { Button } from "../ui/Button"
 import { Select } from "../ui/Select"
 import { TextInput } from "../ui/TextInput"
 import { StatusBadge } from "../ui/StatusBadge"
 import { ConnectionLight } from "../ui/ConnectionLight"
+import { Icon } from "../ui/Icon"
 
 type Banner = { ok: boolean; text: string } | null
 
@@ -64,14 +64,6 @@ export function AdminAiCredentialCard({
     },
     onError: onAuthError,
   })
-  const testMutation = useMutation({
-    mutationFn: () => adminAiCredentialsApi.test(provider),
-    onSuccess: (result) => {
-      setBanner({ ok: result.light === "green", text: `${details.label}: ${result.message}` })
-      refresh()
-    },
-    onError: onAuthError,
-  })
   const activateMutation = useMutation({
     mutationFn: () => adminAiCredentialsApi.activate(provider),
     onSuccess: () => {
@@ -82,13 +74,21 @@ export function AdminAiCredentialCard({
   })
 
   return (
-    <Panel surface="dark" className="cred-card">
-      <div className="csp-s-0192">
-        <div className="csp-s-0193">
-          <h2 className="csp-s-0194">Inteligência Artificial — serviço da plataforma</h2>
-          {data?.active && <StatusBadge tone="positive">Em uso: {AI_PROVIDERS.find(item => item.key === data.active)?.label}</StatusBadge>}
-        </div>
-      </div>
+    <details className="admin-platform-card">
+      <summary className="admin-platform-card__header csp-s-0192">
+        <span className="credential-brand credential-brand--gemini" aria-hidden="true">
+          <img src="/brand-logos/gemini.svg" alt="" />
+        </span>
+        <span className="admin-platform-card__heading">
+          <h2 className="csp-s-0194">Inteligência Artificial</h2>
+          <small>Serviço compartilhado</small>
+        </span>
+        <StatusBadge tone={data?.active ? 'positive' : 'neutral'}>
+          {data?.active ? `Em uso: ${AI_PROVIDERS.find(item => item.key === data.active)?.label}` : 'Não configurada'}
+        </StatusBadge>
+        <Icon name="chevron-down" size={18} className="admin-platform-card__chevron" />
+      </summary>
+      <div className="admin-platform-card__body">
       <p className="csp-s-0211">
         Esta chave é compartilhada por todos os usuários. O consumo é cobrado na conta da plataforma.
         Configure limites de gastos e cotas no provedor. Nenhum cliente terá acesso ao segredo.
@@ -143,10 +143,6 @@ export function AdminAiCredentialCard({
           <div className="csp-s-0213">
             {status?.connected && (
               <>
-                <Button type="button" variant="ghost" disabled={testMutation.isPending || status?.state === "testing"}
-                  onClick={() => testMutation.mutate()}>
-                  {testMutation.isPending || status.state === "testing" ? "Testando…" : "Testar conexão"}
-                </Button>
                 {data?.active !== provider && (
                   <Button type="button" variant="secondary" disabled={activateMutation.isPending}
                     onClick={() => activateMutation.mutate()}>
@@ -165,6 +161,7 @@ export function AdminAiCredentialCard({
           </div>
         </form>
       )}
-    </Panel>
+      </div>
+    </details>
   )
 }

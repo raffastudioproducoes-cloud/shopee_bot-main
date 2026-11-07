@@ -1424,6 +1424,11 @@ async def test_credential(network: str, user_id: int = Depends(get_current_user_
     credencial (escopo user_id/perfil em _test_payload — nunca a de outro),
     com rate limit pra não gastar chamada real à toa."""
     _check_test_rate_limit(user_id)
+    return await _execute_credential_test(network, user_id, profile_id)
+
+
+async def _execute_credential_test(network: str, user_id, profile_id: str | None) -> dict:
+    """Valida uma única credencial do dono e registra a luz; limitador na rota chamadora."""
     payload = _test_payload(network, user_id, profile_id)
     if payload is None:
         raise HTTPException(status_code=400, detail="Nenhuma credencial salva para esta rede.")

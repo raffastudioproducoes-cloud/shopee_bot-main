@@ -60,8 +60,46 @@
 .admin-user-details { display: grid; gap: 4px; color: var(--text-muted); font: var(--text-role-label); margin: 0; }
 .admin-user-actions { display: flex; gap: 6px; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 4px; border-top: 1px solid var(--border-hairline); }
 .admin-user-actions > div { display: flex; flex: 0 0 auto; }
-.admin-connection-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; }
-.admin-connection-results > div { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; min-width: 0; }
+/* Diagnóstico ADMIN: cards de serviço independentes e resultados sem formulários sociais. */
+.admin-diagnostic-page { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.admin-diagnostic-page > h1 { margin: 0; }
+.admin-diagnostic-page > p.csp-s-0166 { margin: -6px 0 0; }
+.admin-diagnostic-banner { margin: 0; padding: 9px 12px; border-radius: var(--r-md); font-size: 12px; background: var(--surface-inset); }
+.admin-diagnostic-banner.is-success { color: var(--positive-ink); }
+.admin-diagnostic-banner.is-error { color: var(--negative-ink); }
+.admin-platform-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.admin-platform-card { min-width: 0; border: 1px solid var(--border-card); border-radius: var(--r-lg); background: var(--surface-card); box-shadow: var(--shadow-card); overflow: hidden; }
+#root .admin-platform-card > summary.admin-platform-card__header { display: flex; flex-direction: row; gap: 10px; align-items: center; padding: 13px 14px; min-height: 76px; list-style: none; cursor: pointer; }
+.admin-platform-card > summary::-webkit-details-marker { display: none; }
+.admin-platform-card > summary:hover { background: rgba(255,255,255,.035); }
+.admin-platform-card > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -3px; }
+.admin-platform-card__heading { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+#root .admin-platform-card__heading h2 { margin: 0; font-size: 14px; color: var(--text-display); line-height: 1.3; }
+.admin-platform-card__heading small { color: var(--text-muted); font-size: 11px; }
+.admin-platform-card__chevron { flex: none; color: var(--text-muted); transition: transform .15s ease; }
+.admin-platform-card[open] .admin-platform-card__chevron { transform: rotate(180deg); }
+.admin-platform-card__body { display: flex; flex-direction: column; gap: 10px; padding: 0 14px 14px; border-top: 1px solid var(--border-hairline); }
+.admin-platform-card__body > p { margin: 12px 0 0 !important; font-size: 12px; line-height: 1.55; }
+.admin-platform-card__body form { display: flex; flex-direction: column; gap: 11px; min-width: 0; }
+.admin-platform-card__body .csp-named-field-grid { grid-template-columns: minmax(0, 1fr); }
+.admin-platform-card__body .csp-s-0213 { flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.admin-diagnostic-results { min-width: 0; }
+.admin-diagnostic-results__heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.admin-diagnostic-results__heading h2 { margin: 0; color: var(--text-display); font-size: 16px; }
+.admin-diagnostic-results__heading p { margin: 4px 0 0; color: var(--text-muted); font-size: 12px; }
+.admin-diagnostic-results__heading button { flex: none; }
+.admin-connection-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.admin-credential-status-card { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 68px; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-inset); border: 1px solid var(--border-hairline); }
+.admin-credential-status-card .credential-brand { width: 35px; height: 35px; border-radius: 9px; }
+.admin-credential-status-card .credential-brand img { max-width: 30px; max-height: 29px; }
+.admin-credential-status-card__text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.admin-credential-status-card__text strong { color: var(--text-display); font-size: 12px; }
+.admin-credential-status-card__text small { color: var(--text-muted); font-size: 10px; }
+.admin-credential-status-card > span:last-child { flex: none; font-size: 10px; white-space: normal; text-align: center; max-width: 48%; }
+.admin-diagnostic-results__footer { margin: 14px 0 0; color: var(--text-muted); font-size: 11px; }
+@media (max-width: 1200px) { .admin-platform-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 650px) { .admin-connection-results { grid-template-columns: minmax(0, 1fr); } .admin-diagnostic-results__heading button { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .admin-platform-card__chevron { transition: none; } }
 .admin-dialog { animation: admin-dialog-reveal var(--dur-slow) var(--ease-standard) both; }
 .admin-skip { position: fixed; top: -100px; left: 24px; z-index: 100; padding: 12px; border-radius: var(--r-md); color: var(--text-display); background: var(--surface-elevated); }
 .admin-skip:focus { top: 12px; }
