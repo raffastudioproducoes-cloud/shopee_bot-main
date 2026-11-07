@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — Regressões de contratos Python após retorno do Actions (07/11/2026)
+
+- A CI real da PR #304 identificou **9 falhas em 1.264 testes de API** (run #1026), em testes historicamente acoplados a comportamentos removidos/atualizados: edição de preço Shopee, retorno do UPDATE e limpeza da mídia antes da exclusão; consulta geral de insights de Página Facebook; rejeição de contagens ambíguas de um post Threads.
+- Contratos de teste alinhados à regra atual de produto: **preço importado é imutável** (422), nome/copy podem ser editados, exclusão remove mídia e gera auditoria; métricas de Análises só vêm de posts realmente publicados, com identidade de job e ID externo, sem métrica geral de Página. Respostas inválidas não são convertidas em zero.
+- Branch de correção `fix/ci-contratos-api-20261107` destinada primeiro a `staging`. Mudança de testes, documentação e remoção de CSS sem uso; `VERSION=3.2.0` mantida, release candidata `3.3.0` continua MINOR. Nenhuma rota, lógica de backend, banco, produção ou cron foi modificada.
+- Gate CSP: removidos 14 seletores gerados sem referência após as mudanças em Analytics/Produtos; o teste agora exige correspondência exata entre classes JSX e regras CSS, com limite mínimo histórico reajustado. Testes de segurança web **27/27 PASS** localmente; esta limpeza CSS não altera classes utilizadas.
+- Validação local completa: **API 1.264/1.264**, scheduler **208 PASS + 1 XFAIL**, banco **4/4**, SemVer **5/5** e web/CSP **27/27**, com Python 3.12 e dependências de teste instaladas; GitHub ainda deve confirmar Python 3.13.
+
 ### Fixed — Analytics por publicação (staging, 05/11/2026)
 
 - Impedida a coleta de visualizações gerais de perfil Threads, Páginas Facebook e alcance de conta Instagram para a tela de Análises. As métricas só são agregadas de jobs `succeeded` com ID externo, usando fonte oficial **individual da publicação** e deduplicando `(network,external_id)`; o histórico e os KPIs de envios permanecem preservados.

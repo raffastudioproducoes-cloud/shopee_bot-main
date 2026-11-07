@@ -1,11 +1,11 @@
-"""Facebook Page Insights: scoped token, real counts (including zero), safe failures."""
+"""Contrato atual: análises do Facebook só usam cache de posts confirmados.
 
-from unittest.mock import MagicMock
+Métricas gerais de Página, tokens e endpoints de /{page}/insights não
+participam do probe; isso evita atribuir visualizações da Página a um post.
+"""
 
-import httpx
 from fastapi.testclient import TestClient
 
-from api import database as database_module
 from api.main import app
 from api.routers import social_analytics
 from api.routers.auth import get_current_user_id
@@ -13,109 +13,77 @@ from api.routers.credentials import _require_admin
 from api.routers.profiles import get_current_profile_id
 
 
-def _client(monkeypatch, handler, credential=None):
+def _client(monkeypatch, jobs, insights):
     app.dependency_overrides.clear()
     app.dependency_overrides[get_current_user_id] = lambda: 42
     app.dependency_overrides[_require_admin] = lambda: 42
     app.dependency_overrides[get_current_profile_id] = lambda: "profile-a"
     seen = []
-
-    query = MagicMock()
-    query.select.return_value = query
-    query.eq.side_effect = lambda key, value: (seen.append((key, value)), query)[1]
-    query.maybe_single.return_value = query
-    query.execute.return_value = MagicMock(data=credential if credential is not None else {
-        "page_id": "1511578648694753", "page_access_token": "encrypted"
-    })
-    fake = MagicMock()
-    fake.table.return_value = query
-    monkeypatch.setattr(database_module, "get_supabase", lambda: fake)
-    monkeypatch.setattr(social_analytics, "decrypt", lambda _: "private-page-token")
     monkeypatch.setattr(social_analytics, "_check_test_rate_limit", lambda _: None)
-
-    class Client(httpx.AsyncClient):
-        def __init__(self, **kwargs):
-            super().__init__(transport=httpx.MockTransport(handler), **kwargs)
-
-    monkeypatch.setattr(social_analytics.httpx, "AsyncClient", Client)
-    return TestClient(app), seen, fake
+    monkeypatch.setattr(social_analytics, "published_jobs", lambda *args: (
+        seen.append(args), jobs
+    )[1])
+    monkeypatch.setattr(social_analytics, "indexed_insights", lambda *args: insights)
+    return TestClient(app), seen
 
 
-def test_facebook_insights_returns_real_daily_numbers_including_zero(monkeypatch):
-    def handler(request):
-        assert request.method == "GET"
-        assert request.url.path.endswith("/1511578648694753/insights")
-        assert request.headers["Authorization"] == "Bearer private-page-token"
-        assert request.url.params["metric"] == "page_media_view"
-        assert request.url.params["period"] == "day"
-        assert request.url.params["since"] and request.url.params["until"]
-        return httpx.Response(200, json={
-            "data": [{
-                "name": "page_media_view",
-                "period": "day",
-                "values": [
-                    {"value": 0, "end_time": "2026-10-28T07:00:00+0000"},
-                    {"value": 5, "end_time": "2026-10-29T07:00:00+0000"},
-                ],
-            }],
-            "paging": {"next": "https://example.invalid?access_token=private-page-token"},
-        })
-
-    client, seen, fake = _client(monkeypatch, handler)
+def test_facebook_probe_reads_only_cached_post_insights_including_zero(monkeypatch):
+    client, seen = _client(monkeypatch, [
+        {"id": "job-fb", "network": "facebook", "external_id": "222"},
+    ], {
+        "job-fb": {"network": "facebook", "external_id": "222", "state": "ok", "views": 0},
+    })
     try:
         response = client.post("/analytics/probe/facebook?days=30")
         assert response.status_code == 200
-        data = response.json()
-        assert data == {
-            "network": "facebook", "state": "ok", "metric": "page_media_view",
-            "result_count": 1, "days_requested": 30, "days_returned": 2,
-            "total_views": 5, "daily_values": [
-                {"period_end": "2026-10-28", "value": 0},
-                {"period_end": "2026-10-29", "value": 5},
-            ],
+        assert response.json() == {
+            "network": "facebook", "state": "ok", "post_count": 1,
+            "metric": "views", "total_views": 0,
         }
-        assert ("user_id", 42) in seen
-        assert ("profile_id", "profile-a") in seen
-        assert fake.table.call_args.args == ("facebook_credentials",)
-        assert "private-page-token" not in str(data)
-        assert "1511578648694753" not in str(data)
+        assert seen == [(42, "profile-a", 30, "facebook")]
+        assert "page_id" not in str(response.json())
+        assert "access_token" not in str(response.json())
     finally:
         app.dependency_overrides.clear()
 
 
-def test_facebook_insights_empty_is_not_a_zero(monkeypatch):
-    client, _, _ = _client(monkeypatch, lambda _: httpx.Response(200, json={"data": []}))
+def test_facebook_probe_without_confirmed_posts_does_not_invent_zero(monkeypatch):
+    client, _ = _client(monkeypatch, [], {})
     try:
         data = client.post("/analytics/probe/facebook?days=7").json()
-        assert data["state"] == "no_data"
-        assert data["total_views"] is None
-        assert data["daily_values"] == []
-        assert data["days_returned"] == 0
+        assert data == {"network": "facebook", "state": "no_posts", "post_count": 0}
+        assert "total_views" not in data
     finally:
         app.dependency_overrides.clear()
 
 
-def test_facebook_insights_rejects_unverified_counts(monkeypatch):
-    client, _, _ = _client(monkeypatch, lambda _: httpx.Response(200, json={"data": [
-        {"name": "page_media_view", "values": [{"value": "fake", "end_time": "2026-10-28T07:00:00+0000"}]}
-    ]}))
+def test_facebook_probe_rejects_unverified_post_identity(monkeypatch):
+    client, _ = _client(monkeypatch, [
+        {"id": "job-fb", "network": "facebook", "external_id": "222"},
+    ], {
+        "job-fb": {"external_id": "other-post", "state": "ok", "views": 99999},
+    })
     try:
         data = client.post("/analytics/probe/facebook").json()
-        assert data == {"network": "facebook", "state": "invalid_response"}
+        assert data == {"network": "facebook", "state": "not_collected", "post_count": 1}
         assert client.post("/analytics/probe/facebook?days=365").status_code == 422
     finally:
         app.dependency_overrides.clear()
 
 
-def test_facebook_insights_permissions_failure_does_not_expose_token(monkeypatch):
-    client, _, _ = _client(monkeypatch, lambda _: httpx.Response(
-        403, json={"error": {"message": "private-page-token", "code": 10}}
-    ))
+def test_facebook_probe_reports_cache_failure_without_exposing_tokens(monkeypatch):
+    client, _ = _client(monkeypatch, [
+        {"id": "job-fb", "network": "facebook", "external_id": "222"},
+    ], {
+        "job-fb": {"external_id": "222", "state": "permission_required",
+                   "views": None, "access_token": "private-page-token"},
+    })
     try:
         data = client.post("/analytics/probe/facebook").json()
-        assert data["state"] == "api_error"
-        assert data["http_status"] == 403
-        assert data["error_code"] == 10
+        assert data == {
+            "network": "facebook", "state": "permission_required",
+            "post_count": 1, "metric": "views", "total_views": None,
+        }
         assert "private-page-token" not in str(data)
     finally:
         app.dependency_overrides.clear()
