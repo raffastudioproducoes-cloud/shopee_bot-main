@@ -35,7 +35,7 @@
 
 # ARCHITECTURE — Shopee Auto Vendas
 
-> **07/11/2026 — IA de plataforma, staging LIVE, release 3.4.0 autorizada:** `api/routers/platform_ai.py` centraliza provedor e segredo Fernet, separados por `current_environment()` para `staging`/`production` no mesmo Supabase. Migração 089 aplicada: `platform_ai_credentials` + `platform_ai_settings`, RLS deny-all, acesso `service_role` e cópia da chave ADMIN existente cifrada; `POST /posts/generate-copy` ignora provedor solicitado pelo cliente. Somente `/admin/ai` gerencia/valida chave, e `/ai/status` autenticado retorna disponibilidade. Rotas legadas `/credentials/ai` não aceitam gerenciamento. Contrato, riscos, testes e rollout em [IA-PLATAFORMA-ADMIN-20261107](IA-PLATAFORMA-ADMIN-20261107.md). Staging passou CI #1043; `main` recebe 3.4.0 apenas após promoção com SemVer e deploy comprovados.
+> **07/11/2026 — IA de plataforma LIVE em produção 3.4.0:** `api/routers/platform_ai.py` centraliza provedor e segredo Fernet, separados por `current_environment()` no Supabase compartilhado. Migração 089 aplicada: `platform_ai_credentials` + `platform_ai_settings`, RLS deny-all, acesso `service_role` e cópia cifrada da chave ADMIN; `POST /posts/generate-copy` ignora provedor do cliente. Somente `/admin/ai` gerencia/valida chave, `/ai/status` autenticado retorna disponibilidade e `/credentials/ai` rejeita gestão legada. PR #314 CI #1049/SemVer #4 SUCCESS, main `4ca125f`, Render produção LIVE e saúde OK. Contrato, riscos, testes e rollout em [IA-PLATAFORMA-ADMIN-20261107](IA-PLATAFORMA-ADMIN-20261107.md). QA autenticado não comprovado.
 
 > Documento canônico vivo. Cenário A (projeto existente). Toda afirmação técnica abaixo foi
 > verificada lendo o código real do repositório em 2026-09-29. Itens sem evidência direta
