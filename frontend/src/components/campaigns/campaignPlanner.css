@@ -74,9 +74,9 @@
 .campaign-network-help { font:var(--text-role-small)!important; line-height:1.55!important; margin:0 0 12px!important; }
 .campaign-network-options { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:10px 0 16px; }
 .campaign-network-option { display:flex; gap:10px; align-items:center; min-width:0; padding:11px 12px; border:1px solid var(--border-hairline); border-radius:var(--r-md); background:var(--surface-inset); color:var(--text-body); cursor:pointer; }
-.campaign-network-option.is-disabled { opacity:.4; filter:grayscale(1); cursor:not-allowed; }
+.campaign-network-option.is-disabled { opacity:.58; filter:grayscale(1); cursor:not-allowed; }
 .campaign-network-option input { width:18px; height:18px; flex:none; accent-color:var(--accent); cursor:inherit; }
-.campaign-network-option img { width:24px; height:24px; flex:none; object-fit:contain; }
+.campaign-network-option img { width:24px; height:24px; flex:none; object-fit:contain; filter:invert(1); }
 .campaign-network-option-content { display:flex; flex-direction:column; min-width:0; gap:3px; font:var(--text-role-small); }
 .campaign-network-option-content small { color:var(--text-muted); font:var(--text-role-small); }
 .campaign-network-option:focus-within { outline:2px solid var(--mint-400); outline-offset:2px; }
