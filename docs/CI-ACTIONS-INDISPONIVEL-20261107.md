@@ -1,5 +1,7 @@
 # Protocolo temporário — GitHub Actions indisponível (07/11/2026)
 
+**Rastreamento central:** [issue #305 — HOLD do Actions](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/issues/305) (aberta; os gates ainda não foram restabelecidos).
+
 **Decisão do proprietário:** Rafa autorizou continuar implementando, corrigindo e atualizando o Auto Orbital em **branches isoladas**, com versionamento e registro de cada tarefa, enquanto o GitHub Actions não estiver disponível. **Nenhum merge em `staging`/`main` nem promoção/deploy de código ficará autorizado pela simples existência de testes locais.** A validação pendente será concluída quando o Actions voltar a executar os gates.
 
 ## 1. Fotografia verificável, não suposição de saúde atual
@@ -73,4 +75,4 @@ O PR #198 é WIP histórico e **não** deve ser incorporado por inferência. Nen
 
 Supabase/Postgres único entre os ambientes; migrações apenas aditivas/retrocompatíveis mediante autorização própria; sem pausar produção. Preservar `pg_cron` + `pg_net` do mecanismo de wake. Não reenviar jobs `unknown` sem conciliação. Não habilitar Shopee Vídeo antes de aprovação específica de Video Management. Não alegar testes reais de postagem/pagamento ou capacidade de produção sem evidência. Condição de SMTP/domínio próprio continua sujeita à verificação documental do `TASK.md`.
 
-**Referências:** [AGENTS](../AGENTS.md), [RULES](RULES.md), [Guia Mestre](GUIA-MESTRE-IA.md), [CHANGELOG](../CHANGELOG.md), [release candidata](RELEASE-3.3.0-20261105.md) (ainda somente na branch do PR #303), [Vault TASK](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/TASK.md).
+**Referências:** [AGENTS](../AGENTS.md), [RULES](RULES.md), [Guia Mestre](GUIA-MESTRE-IA.md), [CHANGELOG](../CHANGELOG.md), [release candidata](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/blob/release/3.3.0-20261105/docs/RELEASE-3.3.0-20261105.md) (ainda somente na branch do PR #303), [Vault TASK](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/docs/auto-orbital-ci-indisponivel-20261107/Projetos/ShopeeAutoVendas/TASK.md).
