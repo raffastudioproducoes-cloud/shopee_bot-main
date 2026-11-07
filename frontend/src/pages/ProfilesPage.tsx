@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
 import { profilesApi, type Profile, type ProfileInput } from "../api/profiles"
@@ -105,6 +105,35 @@ export function ProfilesPage() {
     onError: (err) => setFeedback({ kind: "error", text: errMsg(err, "Não foi possível enviar a foto.") }),
   })
 
+  const principalProfile = profiles.find(profile => profile.kind === "principal")
+  const secondaryProfiles = profiles.filter(profile => profile.kind !== "principal")
+  const profileCard = (profile: Profile, details?: ReactNode) => (
+    <ProfileCard
+      key={profile.id}
+      profile={profile}
+      active={profile.id === activeProfile?.id}
+      activating={activateMutation.isPending && activateMutation.variables === profile.id}
+      onActivate={() => handleActivate(profile)}
+      onEdit={() => {
+        updateProfileMutation.reset()
+        setEditingProfile(profile)
+      }}
+      onDelete={() => {
+        deleteProfileMutation.reset()
+        setDeletingProfile(profile)
+      }}
+      onAvatarFile={(file) => uploadAvatarMutation.mutate({ id: profile.id, file })}
+    >{details}</ProfileCard>
+  )
+
+  const primaryDetails = <>
+    <div className="profiles-primary-card__quota">
+      <ResourceQuotaBar plan={planQuery.data} resource="profiles" loading={planQuery.isPending} error={planQuery.isError}
+        onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })} />
+    </div>
+    <AccountIdentityForm />
+  </>
+
   return (
     <div className="csp-s-0372">
       <div className="csp-s-0373">
@@ -134,13 +163,6 @@ export function ProfilesPage() {
         </div>
       </div>
 
-      <div className="profiles-compact-plan" style={{ maxWidth: 700 }}>
-        <ResourceQuotaBar plan={planQuery.data} resource="profiles" loading={planQuery.isPending} error={planQuery.isError}
-          onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })} />
-      </div>
-
-      <AccountIdentityForm />
-
       {feedback && (
         <StatusMessage kind={feedback.kind} onDismiss={() => setFeedback(null)}>
           {feedback.text}
@@ -148,12 +170,16 @@ export function ProfilesPage() {
       )}
 
       {profilesLoading ? (
-        <SkeletonRegion><div
-          className="profiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}
-        >
-          {[0, 1, 2].map((i) => (
-            <Panel key={i} style={{ height: 162, padding: 16, display: "flex", alignItems: "center", flexDirection: "column", gap: 12 }}><SkeletonAvatar size={64} /><Skeleton width="70%" height={20} /></Panel>
-          ))}
+        <SkeletonRegion><div className="profiles-cards">
+          <Panel padding={24}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}><SkeletonAvatar size={88} /><Skeleton width="35%" height={24} /></div>
+            <div style={{ marginTop: 24 }}><Skeleton width="100%" height={240} /></div>
+          </Panel>
+          <div className="profiles-grid">
+            {[0, 1].map((i) => (
+              <Panel key={i} style={{ height: 162, padding: 16, display: "flex", alignItems: "center", flexDirection: "column", gap: 12 }}><SkeletonAvatar size={64} /><Skeleton width="70%" height={20} /></Panel>
+            ))}
+          </div>
         </div></SkeletonRegion>
       ) : profilesError ? (
         <Panel style={{ padding: 24, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
@@ -165,25 +191,17 @@ export function ProfilesPage() {
           </Button>
         </Panel>
       ) : (
-        <div className="profiles-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
-          {profiles.map((profile) => (
-            <ProfileCard
-              key={profile.id}
-              profile={profile}
-              active={profile.id === activeProfile?.id}
-              activating={activateMutation.isPending && activateMutation.variables === profile.id}
-              onActivate={() => handleActivate(profile)}
-              onEdit={() => {
-                updateProfileMutation.reset()
-                setEditingProfile(profile)
-              }}
-              onDelete={() => {
-                deleteProfileMutation.reset()
-                setDeletingProfile(profile)
-              }}
-              onAvatarFile={(file) => uploadAvatarMutation.mutate({ id: profile.id, file })}
-            />
-          ))}
+        <div className="profiles-cards">
+          {principalProfile
+            ? profileCard(principalProfile, primaryDetails)
+            : <Panel className="profiles-primary-card__fallback">
+                <h2>Conta principal</h2>
+                <p role="status">O perfil principal não foi encontrado. Seus dados da conta continuam disponíveis.</p>
+                {primaryDetails}
+              </Panel>}
+          {secondaryProfiles.length > 0 && <div className="profiles-grid">
+            {secondaryProfiles.map(profile => profileCard(profile))}
+          </div>}
         </div>
       )}
 

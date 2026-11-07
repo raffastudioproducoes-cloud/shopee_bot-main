@@ -1206,6 +1206,15 @@ Contrato isolado e ainda não integrado ao executor: `CampaignDispatchIdentity` 
 ## 07/11/2026 — Perfis somente com nome/foto (ajuste UX, candidata 3.5.0)
 
 - [x] Remover a tag junto à cota de `/profiles`; preservar cota e upgrade condicional.
-- [x] Cards sem email/telefone/endereço, tags de plano/função e status textual; seleção pelo card, foto/nome visíveis e menu contextual para gerenciar.
+- [x] Identificação dos cards sem e-mail/telefone/endereço, tags de plano/função e status textual; seleção pelo card, foto/nome visíveis e menu contextual para gerenciar (formulário do titular passa ao card principal no ajuste subsequente).
 - [x] Modal novo/editar com nome e foto opcional, upload sem criação duplicada; API aceita `email=NULL` e preserva campos legados quando a edição altera só nome.
-- [ ] Testes completos, PR/CI/staging/Render, QA visual autenticada e registro no Vault; `main` sob aprovação expressa. Nenhuma migration ou cron adicional.
+- [x] PR [#343](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/343) integrada somente a `staging` (`0477e2d`), CI #1122 verde, Render `dep-dbnpu18ae00c7391lp10` LIVE; 1.290 testes API, 45 frontend selecionados e 17 CSP, build OK; Vault registrado.
+- [ ] QA visual autenticada de `/profiles` por Rafa; `main` sob aprovação expressa. Nenhuma migration ou cron adicional.
+
+## 07/11/2026 — Dados da conta dentro do card principal (ajuste UX)
+
+- [x] Retirar formulário cadastral isolado da página; card principal reúne foto/nome, cota/upgrade condicional e todos os campos cadastrais do titular com edição direta.
+- [x] Preservar cards secundários compactos somente com foto/nome e ações em menu. Identidade do titular continua escopada à conta; CPF protegido; e-mail de acesso requer verificação própria para ser alterado (fluxo ainda indisponível).
+- [x] Sem migration, alteração de Supabase, gateway, cron ou serviço; registrar como PATCH acumulado na candidata 3.5.0 e manter `VERSION=3.4.0`.
+- [x] Build TypeScript/Vite, 46 testes frontend selecionados, 1.290 testes API e 17 testes CSP locais aprovados; documentação e contrato visual atualizados.
+- [ ] PR, CI, deploy Render staging, registro final no Vault e homologação visual; `main` somente após aprovação de Rafa.

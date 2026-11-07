@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import type { Profile } from "../../api/profiles"
 import { Panel } from "../ui/Panel"
 import { Button } from "../ui/Button"
@@ -8,6 +8,8 @@ import "./profileCard.css"
 
 interface ProfileCardProps {
   profile: Profile
+  /** Somente o perfil principal recebe os campos cadastrais da conta. */
+  children?: ReactNode
   active: boolean
   activating: boolean
   onActivate: () => void
@@ -16,11 +18,12 @@ interface ProfileCardProps {
   onAvatarFile: (file: File) => void
 }
 
-/** A identidade visual é apenas nome/foto; gestão fica num menu discreto. */
-export function ProfileCard({ profile, active, activating, onActivate, onEdit, onDelete, onAvatarFile }: ProfileCardProps) {
+/** Perfis secundários usam nome/foto; o principal também abriga o cadastro do titular. */
+export function ProfileCard({ profile, children, active, activating, onActivate, onEdit, onDelete, onAvatarFile }: ProfileCardProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const isPrincipal = profile.kind === "principal"
 
   useEffect(() => {
     if (!menuOpen) return
@@ -39,16 +42,23 @@ export function ProfileCard({ profile, active, activating, onActivate, onEdit, o
   }, [menuOpen])
 
   return (
-    <Panel className="profile-card profile-card--minimal" surface={active ? "glass" : "dark"} overflowHidden={false}
+    <Panel className={`profile-card ${isPrincipal ? "profile-card--principal" : "profile-card--minimal"}`}
+      surface={active ? "glass" : "dark"} overflowHidden={false}
+      padding={isPrincipal ? 24 : "16px 48px 16px 16px"}
       style={{ outline: active ? "2px solid var(--accent)" : undefined, outlineOffset: -2,
-        padding: "16px 48px 16px 16px", zIndex: menuOpen ? 5 : undefined }}>
-      <button type="button" className="profile-card__select" disabled={active || activating}
-        aria-label={active ? `Perfil ${profile.nome} em uso` : `Ativar perfil ${profile.nome}`}
-        aria-current={active ? "true" : undefined} aria-busy={activating}
-        onClick={onActivate}>
-        <Avatar name={profile.nome} src={profile.avatar_url} size={96} radius="var(--r-lg)" />
-        <span className="profile-card__name">{profile.nome}</span>
-      </button>
+        zIndex: menuOpen ? 5 : undefined }}>
+      <div className="profile-card__top">
+        <button type="button" className="profile-card__select" disabled={active || activating}
+          aria-label={active ? `Perfil ${profile.nome} em uso` : `Ativar perfil ${profile.nome}`}
+          aria-current={active ? "true" : undefined} aria-busy={activating}
+          onClick={onActivate}>
+          <Avatar name={profile.nome} src={profile.avatar_url} size={isPrincipal ? 88 : 96} radius="var(--r-lg)" />
+          <span className="profile-card__name">
+            {isPrincipal && <span className="profile-card__kind">Perfil principal da conta</span>}
+            {profile.nome}
+          </span>
+        </button>
+      </div>
 
       <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp"
         aria-label={`Escolher foto de ${profile.nome}`} className="profile-card__file"
@@ -76,6 +86,7 @@ export function ProfileCard({ profile, active, activating, onActivate, onEdit, o
           }}>Excluir perfil</Button>}
         </div>}
       </div>
+      {isPrincipal && children && <div className="profile-card__details">{children}</div>}
     </Panel>
   )
 }

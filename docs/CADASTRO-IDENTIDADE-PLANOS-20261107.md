@@ -10,8 +10,9 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
 - `/profiles`: substitui o banner grande por cota compacta de perfis e
   `Melhorar plano` apenas para Free/Pro (não para Premium/ADMIN). Após revisão,
   removida também a etiqueta do plano desta área; não afeta a TopBar global.
-- Na própria página, formulário **Dados cadastrais da conta**, independente de
-  `public.profiles`: nome/sobrenome, CPF, e-mail de acesso, celular, idade, e-mail
+- **Dentro do card do perfil principal** (foto e nome), formulário **Dados cadastrais da conta**,
+  com dados de titular armazenados separadamente de `public.profiles`: nome/sobrenome,
+  CPF, e-mail de acesso, celular, idade, e-mail
   alternativo de recuperação, telefone, endereço (logradouro, número,
   complemento, bairro, cidade, UF) e CEP.
 - Nome completo, CPF, e-mail e senha são pedidos no cadastro por e-mail; o
@@ -23,6 +24,12 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
 - E-mail principal é herdado da autenticação, somente leitura; mudanças devem
   seguir fluxo de verificação separado. E-mail alternativo ainda **não recebe**
   links de redefinição: precisará provar propriedade antes de habilitar isso.
+- A página organiza a conta em **cards**, não apresenta formulário cadastral
+  isolado acima dos perfis: o card principal ocupa a largura disponível, traz
+  foto/nome, cota/upgrade condicional e a grade editável de dados do titular.
+  Os demais cards continuam compactos, só com foto e nome; seu menu permite
+  editar apenas nome/foto. Se o registro de perfil principal estiver temporariamente
+  ausente da lista, um card de contingência mantém acesso ao cadastro da conta.
 
 ## Dados, isolamento e LGPD
 
@@ -63,8 +70,10 @@ entra na versão **MINOR candidata 3.5.0**, sujeita à homologação e aprovaç�
 
 ## Simplificação dos perfis sociais (07/11/2026)
 
-- Cards exibem somente imagem e nome. Clique/toque no card para ativar; menu
-  discreto permite alterar foto, editar nome e, quando permitido, excluir.
+- **Somente os cards secundários** exibem exclusivamente imagem e nome. O
+  card principal também reúne todos os dados cadastrais da conta titular.
+  Clique/toque na área da identidade para ativar; menu discreto permite alterar
+  foto, editar nome e, quando permitido, excluir.
   Perfil ativo fica distinguido pela borda, sem tag de status; função e plano
   continuam no backend, mas não são repetidos no cartão.
 - Formulário de perfil pede **nome** e **foto opcional** (JPEG/PNG/WebP até
