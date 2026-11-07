@@ -18,6 +18,16 @@ Data: 07/11/2026 · Estado: **staging LIVE e QA visual autenticado concluído** 
 - A seção inferior **Estado das conexões** mostra Facebook, Instagram, Kwai, Threads, TikTok e X, com logo local, nome, estado real e último teste. **Não existem mais campos de override social na página.** Rotas e credenciais legadas de override ADMIN são preservadas no backend, apenas sem formulário nesta interface (compatibilidade, sem exclusão dos dados).
 - **Um único botão** “Testar todas as conexões” executa `POST /admin/credentials/test-all`, bloqueado durante a requisição. Exibe contagens, resultado por rede e atualiza IA/Shopee/status das redes.
 
+### Extensão do catálogo visual — 07/11/2026 (staging)
+
+- Mantidos os dois painéis globais superiores de **IA** e **Shopee**; a API Shopee global já representa a loja Shopee, sem criar uma segunda credencial fictícia.
+- Em **Estado das conexões**, adicionadas seções distintas **Lojas** e **Redes sociais**, mantendo cards compactos, logos e ordem alfabética PT-BR dentro de cada seção.
+- **12 lojas planejadas:** AliExpress, Amazon, Americanas, Magazine Luiza, Mercado Livre, Natura e Avon, Pró Spin, Rede Awin, Rede Lomadee, Rede Rakuten, SHEIN e TerabyteShop.
+- **9 canais sociais:** Facebook, Instagram, Kwai, Shopee Vídeo, Telegram, Threads, TikTok, WhatsApp e X. Os três novos cards informativos são Shopee Vídeo, Telegram e WhatsApp.
+- O catálogo do ADMIN usa `buildAdminDiagnosticSections()` e `FUTURE_CREDENTIAL_PLATFORMS` já compartilhado com a página comum; novos placeholders catalogados passam a aparecer no ADMIN automaticamente.
+- Plataformas ainda não implantadas exibem **"Em breve"**: sem indicadores fictícios de conexão, sem formulários e sem testes ou chamadas de API. O botão existente continua limitado às **oito integrações reais já previstas** (IA, Shopee global e seis sociais). Nenhuma mudança de contrato backend, credencial salva, migrations, `pg_cron` ou `pg_net`.
+- Suíte Node de catálogo verifica as 21 entradas abaixo dos painéis globais (12 lojas + 9 sociais), agrupamento, ordem e disponibilidade. QA visual deve ser repetido após o novo deploy. Estado: **aguardando CI e Render da atualização visual**, promoção a `main` continua proibida sem autorização.
+
 ## Contrato do teste
 
 `POST /admin/credentials/test-all` exige sessão **ADMIN** (dependência de rota) e perfil atual. Conta uma tentativa no rate limit existente (`6/min` por ADMIN). A ação valida, com concorrência máxima 3:

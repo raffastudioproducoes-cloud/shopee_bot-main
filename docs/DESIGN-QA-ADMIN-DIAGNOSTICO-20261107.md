@@ -1,5 +1,7 @@
 # Design QA — Diagnóstico ADMIN compacto (07/11/2026)
 
+> **Atualização de catálogo em staging:** o ADMIN agora apresenta os 12 cartões de lojas futuras e 9 redes/canais (6 status reais + Shopee Vídeo, Telegram e WhatsApp), com seção própria, logos e selo `Em breve` para opções não implementadas. Conferir a nova distribuição visual após a CI/deploy da atualização; a evidência abaixo é do layout anterior, com 6 cards sociais.
+
 Escopo: `/admin/credentials` em `staging`, Render `dep-dbnfq30473hc739jbs30` LIVE, app commit `8345cc74c2ba31f58e70fd0a074ef77485aa5f2b`.
 
 | Critério | Evidência | Resultado |
