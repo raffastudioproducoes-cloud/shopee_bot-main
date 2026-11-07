@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { formDraftKey } from '../lib/formDraftStorage'
 import { useAutosavedDraft } from '../hooks/useAutosavedDraft'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import { useProfileStore } from '../stores/profileStore'
 import { profilesApi } from '../api/profiles'
@@ -10,10 +10,9 @@ import { Select } from '../components/ui/Select'
 import { PageSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
 import { AnalyticsVisuals, type AnalyticsTimeline } from '../components/AnalyticsVisuals'
-import { ANALYTICS_NETWORKS, ANALYTICS_RECORDED_NAMES, hasRecordedAnalytics, type AnalyticsRecordedNetwork } from '../lib/analyticsNetworks'
-import '../styles/analytics-panels.css'
+import { buildAdminDiagnosticSections } from '../lib/credentialPlatforms'
 
-type Network = AnalyticsRecordedNetwork
+type Network = 'threads' | 'facebook' | 'instagram' | 'tiktok' | 'x'
 type Row = {
   network: Network
   succeeded: number
@@ -24,6 +23,8 @@ type Row = {
   comments: number | null
   reposts: number | null
   clicks: number | null
+  posts_with_insights?: number
+  posts_with_external_id?: number
   insights_status: string
 }
 type Summary = {
@@ -34,7 +35,8 @@ type Summary = {
   provider_states?: Record<string, string>
   auto_refresh_hours?: number
 }
-type RefreshResult = { state: string; provider_states?: Record<string, string> }
+type RefreshQuota = { unlimited: boolean; used: number; remaining: number | null; limit: number | null; reset_at: string }
+type RefreshResult = { state: string; updated_profiles?: number; quota?: RefreshQuota }
 type ProbeResult = {
   network: string
   state: string
@@ -59,79 +61,8 @@ type PostMetric = {
 }
 type PostsResult = { posts: PostMetric[]; total_posts: number; truncated: boolean }
 
-const names = ANALYTICS_RECORDED_NAMES
-
-const metricColumns = [
-  { key: 'succeeded', label: 'Envios concluídos' },
-  { key: 'failed', label: 'Falhas' },
-  { key: 'unknown', label: 'Sem confirmação' },
-  { key: 'views', label: 'Visualizações' },
-  { key: 'likes', label: 'Curtidas' },
-  { key: 'comments', label: 'Comentários' },
-  { key: 'reposts', label: 'Reposts' },
-  { key: 'clicks', label: 'Cliques' },
-] as const
-
-function AnalyticsDetailTable({ rows, selectedProfile, selectedNetwork }: {
-  rows: Row[]
-  selectedProfile: string
-  selectedNetwork: string
-}) {
-  const recordedRows = new Map(rows.map((row) => [row.network, row]))
-  const platforms = ANALYTICS_NETWORKS.filter((item) => selectedNetwork === 'all' || item.key === selectedNetwork)
-  const getRow = (key: string) => hasRecordedAnalytics(key) ? recordedRows.get(key) : undefined
-  const showMetric = (value: number | null | undefined, detail: string) => value == null
-    ? <span title={detail}>—</span>
-    : value.toLocaleString('pt-BR')
-
-  return <>
-    <div className="analytics-table-heading">
-      <h2>Detalhamento por rede</h2>
-      <p>{selectedProfile === 'all'
-        ? 'Resultados das publicações de todos os perfis da conta'
-        : 'Resultados das publicações do perfil selecionado'}</p>
-    </div>
-    <div className="analytics-desktop-table" style={{ overflowX: 'auto' }}>
-      <table className="csp-s-0172">
-        <thead><tr><th scope="col" className="csp-s-0173">Rede</th>{metricColumns.map(({ label }) => (
-          <th key={label} scope="col" className="csp-s-0173">{label}</th>
-        ))}</tr></thead>
-        <tbody>{platforms.map((platform) => {
-          const row = getRow(platform.key)
-          return <tr key={platform.key}>
-            <th scope="row" className="csp-s-0174">
-              {platform.title}
-              <small className={`analytics-detail-status analytics-detail-status--${platform.tone}`} title={platform.detail}>{platform.label}</small>
-            </th>
-            {metricColumns.map(({ key }) => {
-              const value = row?.[key]
-              return <td key={key} style={{ padding: '12px 10px', borderBottom: '1px solid var(--border-card)', color: value == null ? 'var(--text-muted)' : undefined }}>
-                {showMetric(value, platform.detail)}
-              </td>
-            })}
-          </tr>
-        })}</tbody>
-      </table>
-    </div>
-    <section className="analytics-mobile-list" aria-label="Indicadores por rede social">
-      {platforms.map((platform) => {
-        const row = getRow(platform.key)
-        return <article className="analytics-mobile-card" key={platform.key}>
-          <h2>{platform.title}</h2>
-          <small className={`analytics-detail-status analytics-detail-status--${platform.tone}`} title={platform.detail}>{platform.label}</small>
-          <dl>{metricColumns.map(({ key, label }) => (
-            <div key={key}>
-              <dt>{label}</dt>
-              <dd>{showMetric(row?.[key], platform.detail)}</dd>
-            </div>
-          ))}</dl>
-        </article>
-      })}
-    </section>
-    <div className="analytics-detail-note">
-      <p className="csp-s-0175">Um traço indica dados indisponíveis, não zero. As redes sem integração aparecem para consulta de cobertura, sem simular envios ou métricas.</p>
-    </div>
-  </>
+const names: Record<Network, string> = {
+  threads: 'Threads', facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', x: 'X',
 }
 
 export default function AnalyticsPage() {
@@ -150,6 +81,12 @@ export default function AnalyticsPage() {
     queryKey: ['analytics-profiles', userId],
     queryFn: profilesApi.list,
     enabled: Boolean(userId),
+  })
+  const { data: refreshQuota, isLoading: quotaLoading, isError: quotaError } = useQuery({
+    queryKey: ['analytics-refresh-quota', userId],
+    queryFn: () => api.get<RefreshQuota>('/analytics/refresh/quota'),
+    enabled: Boolean(userId),
+    refetchOnWindowFocus: true,
   })
   // Keep the existing saved period/network filters per operational profile.
   // The viewing selector never calls setActiveProfileId or /profiles/.../activate.
@@ -176,12 +113,10 @@ export default function AnalyticsPage() {
   const canQuerySelection = selectedProfile === 'all'
     || Boolean(profiles?.some((item) => item.id === selectedProfile))
   const waitingForProfileList = selectedProfile !== 'all' && !profiles && !profilesError
-  const filterAvailable = network === 'all' || hasRecordedAnalytics(network)
-  const pendingPlatform = filterAvailable ? null : ANALYTICS_NETWORKS.find((item) => item.key === network)
   const { data, isLoading, error } = useQuery({
     queryKey: ['analytics-summary', userId, selectedProfile, days, network],
     queryFn: () => api.get<Summary>(`/analytics/summary?days=${days}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`),
-    enabled: Boolean(userId) && canQuerySelection && filterAvailable,
+    enabled: Boolean(userId) && canQuerySelection,
     refetchInterval: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
   })
@@ -189,7 +124,7 @@ export default function AnalyticsPage() {
   const { data: timeline, isLoading: timelineLoading, isError: timelineError } = useQuery({
     queryKey: ['analytics-timeline', userId, selectedProfile, days, network],
     queryFn: () => api.get<AnalyticsTimeline>(`/analytics/timeline?days=${days}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`),
-    enabled: Boolean(userId) && canQuerySelection && filterAvailable,
+    enabled: Boolean(userId) && canQuerySelection,
     retry: 1,
     refetchInterval: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -197,15 +132,16 @@ export default function AnalyticsPage() {
   const { data: postsData, isLoading: postsLoading, isError: postsError } = useQuery({
     queryKey: ['analytics-posts', userId, selectedProfile, days, network],
     queryFn: () => api.get<PostsResult>(`/analytics/posts?days=${days}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`),
-    enabled: Boolean(userId) && canQuerySelection && filterAvailable,
+    enabled: Boolean(userId) && canQuerySelection,
     refetchInterval: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
   })
 
   const rows = data?.networks ?? []
+  const quotaReached = !refreshQuota?.unlimited && refreshQuota?.remaining === 0
 
   async function refreshAll() {
-    if (selectedProfile === 'all' || refreshing || !filterAvailable) return
+    if (refreshing || !refreshQuota || quotaReached) return
     setRefreshing(true)
     setRefreshMessage(null)
     try {
@@ -216,17 +152,23 @@ export default function AnalyticsPage() {
         queryClient.invalidateQueries({ queryKey: ['analytics-summary', userId, selectedProfile] }),
         queryClient.invalidateQueries({ queryKey: ['analytics-timeline', userId, selectedProfile] }),
         queryClient.invalidateQueries({ queryKey: ['analytics-posts', userId, selectedProfile] }),
+        queryClient.invalidateQueries({ queryKey: ['analytics-refresh-quota', userId] }),
       ])
       setRefreshMessage({
         scope: profileScope,
         message: result.state === 'updated'
-          ? 'Consulta concluída. Dados que a API não disponibilizou continuam com traço.'
+          ? `Consulta concluída para ${result.updated_profiles ?? 1} perfil(is). Métricas indisponíveis continuam com traço.`
           : result.state === 'recent'
-            ? 'A atualização já está em andamento ou foi solicitada há menos de 5 minutos.'
+            ? 'A coleta já está em andamento ou foi solicitada há menos de 5 minutos. A cota não foi consumida.'
             : 'Não foi possível iniciar a atualização agora.',
       })
-    } catch {
-      setRefreshMessage({ scope: profileScope, message: 'Falha ao atualizar. Tente novamente em alguns minutos.' })
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 429) {
+        await queryClient.invalidateQueries({ queryKey: ['analytics-refresh-quota', userId] })
+      }
+      setRefreshMessage({ scope: profileScope, message: error instanceof ApiError && error.status === 429
+        ? 'Limite diário atingido. Novas atualizações serão liberadas à meia-noite (Brasília).'
+        : 'Falha ao atualizar. Tente novamente em alguns minutos.' })
     } finally {
       setRefreshing(false)
     }
@@ -269,13 +211,22 @@ export default function AnalyticsPage() {
           { value: '7', label: '7 dias' }, { value: '30', label: '30 dias' }, { value: '90', label: '90 dias' },
         ]} />
         <Select label="Rede" value={network} onChange={(event) => setNetwork(event.target.value)} width={190} options={[
-          { value: 'all', label: 'Todas' }, ...ANALYTICS_NETWORKS.map((item) => ({ value: item.key, label: item.title })),
+          { value: 'all', label: 'Todas' }, ...buildAdminDiagnosticSections().social
+            .filter((item) => item.key in names)
+            .map((item) => ({ value: item.key, label: item.title })),
         ]} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'flex-end' }}>
-          <Button variant="secondary" size="sm" loading={refreshing} disabled={refreshing || selectedProfile === 'all' || !filterAvailable} onClick={refreshAll}>
+          <Button variant="secondary" size="sm" loading={refreshing}
+            disabled={refreshing || quotaLoading || quotaError || !refreshQuota || quotaReached || waitingForProfileList} onClick={refreshAll}>
             Atualizar informações
           </Button>
-          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Automático a cada 24 horas</span>
+          <span role="status" style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+            {quotaError ? 'Não foi possível consultar a cota'
+              : quotaLoading || !refreshQuota ? 'Consultando limite diário...'
+                : refreshQuota.unlimited ? 'ADMIN: atualizações ilimitadas'
+                  : `${refreshQuota.remaining} de ${refreshQuota.limit} atualizações restantes hoje`}
+            {' · '}Automático a cada 24 horas
+          </span>
         </div>
       </div>
       {profilesError && <p role="alert" style={{ color: 'var(--negative)', margin: '12px 0 0' }}>
@@ -283,7 +234,7 @@ export default function AnalyticsPage() {
       </p>}
       {selectedProfile === 'all' && <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '12px 0 0' }}>
         Os totais incluem o histórico dos perfis arquivados. Métricas são somadas apenas de publicações
-        confirmadas do Auto Orbital, sem duplicar IDs externos. Selecione um perfil para solicitar nova coleta.
+        confirmadas do Auto Orbital, sem duplicar IDs externos. A atualização geral coleta os perfis da conta, sem alterar o perfil ativo.
       </p>}
 
       {refreshMessage?.scope === profileScope && <p role="status" style={{ color: 'var(--text-muted)', margin: '12px 0 0' }}>
@@ -293,25 +244,63 @@ export default function AnalyticsPage() {
         Última consulta às redes: {new Date(data.last_completed_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })} (Brasília).
       </p>}
 
-      {!filterAvailable ? (
-        <>
-          <section className="analytics-platform-pending" role="status">
-            <h2>{pendingPlatform?.title ?? 'Rede selecionada'} — análises indisponíveis</h2>
-            <p>{pendingPlatform?.detail ?? 'Esta rede ainda não possui integração de métricas.'}</p>
-            <p>Não há coleta externa habilitada para esta rede. Os dados não são apresentados como zero e nenhuma consulta à API da plataforma é realizada.</p>
-          </section>
-          <AnalyticsDetailTable rows={[]} selectedProfile={selectedProfile} selectedNetwork={network} />
-        </>
-      ) : isLoading || waitingForProfileList ? <PageSkeleton variant="table" heading={false} /> : error ? (
-        <>
-          <p role="alert" className="csp-s-0171">Não foi possível carregar as análises.</p>
-          <AnalyticsDetailTable rows={[]} selectedProfile={selectedProfile} selectedNetwork={network} />
-        </>
+      {isLoading || waitingForProfileList ? <PageSkeleton variant="table" heading={false} /> : error ? (
+        <p role="alert" className="csp-s-0171">Não foi possível carregar as análises.</p>
       ) : (
         <>
-          <AnalyticsVisuals rows={rows} days={Number(days)} timeline={timeline}
+          <AnalyticsVisuals rows={rows} days={Number(days)} timeline={timeline} posts={postsData?.posts}
+            postsLoading={postsLoading} postsError={postsError}
             timelineLoading={timelineLoading} timelineError={timelineError} />
-          <AnalyticsDetailTable rows={rows} selectedProfile={selectedProfile} selectedNetwork={network} />
+          <div className="analytics-table-heading">
+            <h2>Detalhamento por rede</h2>
+            <p>{selectedProfile === 'all'
+              ? 'Resultados das publicações de todos os perfis da conta'
+              : 'Resultados das publicações do perfil selecionado'}</p>
+          </div>
+          <div className="analytics-desktop-table" style={{ overflowX: 'auto' }}>
+            <table className="csp-s-0172">
+              <thead><tr>{['Rede', 'Envios concluídos', 'Falhas', 'Sem confirmação', 'Visualizações', 'Curtidas', 'Comentários', 'Reposts', 'Cliques'].map((label) => (
+                <th key={label} scope="col" className="csp-s-0173">{label}</th>
+              ))}</tr></thead>
+              <tbody>{rows.map((row) => (
+                <tr key={row.network}>
+                  <th scope="row" className="csp-s-0174">{names[row.network]}</th>
+                  {[row.succeeded, row.failed, row.unknown, row.views, row.likes, row.comments, row.reposts, row.clicks].map((value, index) => (
+                    <td key={index} style={{ padding: '12px 10px', borderBottom: '1px solid var(--border-card)', color: value === null ? 'var(--text-muted)' : undefined }}>
+                      {value === null ? <span title="Dados da plataforma ainda indisponíveis">—</span> : value.toLocaleString('pt-BR')}
+                    </td>
+                  ))}
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+          <section className="analytics-mobile-list" aria-label="Indicadores por rede social">
+            {rows.length === 0 && <p className="csp-s-0175">Nenhum resultado disponível para este período.</p>}
+            {rows.map((row) => (
+              <article className="analytics-mobile-card" key={row.network}>
+                <h2>{names[row.network]}</h2>
+                <dl>
+                  {([
+                    ['Envios concluídos', row.succeeded],
+                    ['Falhas', row.failed],
+                    ['Sem confirmação', row.unknown],
+                    ['Visualizações', row.views],
+                    ['Curtidas', row.likes],
+                    ['Comentários', row.comments],
+                    ['Reposts', row.reposts],
+                    ['Cliques', row.clicks],
+                  ] as const).map(([label, value]) => (
+                    <div key={label}>
+                      <dt>{label}</dt>
+                      <dd>{value === null
+                        ? <span title="Dados da plataforma ainda indisponíveis">—</span>
+                        : value.toLocaleString('pt-BR')}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </article>
+            ))}
+          </section>
           <div className="analytics-table-heading">
             <h2>Desempenho por publicação</h2>
             <p>Posts enviados pelo Auto Orbital e confirmados pela rede, ordenados por visualizações disponíveis.</p>
@@ -343,7 +332,8 @@ export default function AnalyticsPage() {
             os insights exibidos são os <strong>totais acumulados de cada post</strong> até a última coleta, não as visualizações ocorridas apenas no intervalo.
             Nunca usamos visualizações gerais do perfil ou da Página. A consulta automática usa o agendamento existente a cada 24 horas; uma consulta manual por perfil pode ser solicitada após 5 minutos.
             Traço significa métrica indisponível, não zero. Facebook e Instagram exigem contas conectadas e uma integração de insights por post validada;
-            X e TikTok permanecem indisponíveis para métricas nesta etapa; Kwai, Shopee Vídeo, Telegram e WhatsApp ainda não possuem coleta integrada.
+            X e TikTok permanecem indisponíveis para métricas nesta etapa. A atualização manual permite até 10 consultas diárias por conta,
+            em qualquer plano, com reset à meia-noite de Brasília; ADMIN tem uso ilimitado. Aguardar 5 minutos entre coletas do mesmo perfil.
           </p>
           {isAdmin && <div className="analytics-probe-actions" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
             {(['threads', 'facebook', 'instagram'] as const).map((name) => (
