@@ -178,18 +178,6 @@
 :is(#root, body) .csp-s-0090 { color: var(--negative-ink); }
 /* frontend/src/components/profiles/LocationPermissionNotice.tsx */
 :is(#root, body) .csp-s-0091 { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0092 { position: relative; width: 96px; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0093 { display: none; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0094 { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0095 { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0096 { display: flex; gap: 6px; flex-wrap: wrap; }
-/* frontend/src/components/profiles/ProfileCard.tsx */
-:is(#root, body) .csp-s-0097 { display: flex; align-items: center; gap: 4px; margin-top: auto; padding-top: 8px; }
 /* frontend/src/components/profiles/ProfileFormModal.tsx */
 :is(#root, body) .csp-s-0098 { display: flex; flex-direction: column; gap: 16px; }
 /* frontend/src/components/profiles/ProfileFormModal.tsx */

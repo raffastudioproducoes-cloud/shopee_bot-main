@@ -96,10 +96,9 @@ def test_generated_stylesheet_covers_all_static_csp_classes():
     referenced = set()
     for component in style_root.rglob("*.tsx"):
         referenced.update(re.findall(r"className=\"((?:csp-s-)\d{4})\"", component.read_text(encoding="utf-8")))
-    # O dashboard de Análises deixou de renderizar duas tabelas redundantes,
-    # eliminando as classes 0172–0175. O contrato continua exigindo paridade
-    # exata: nenhum estilo ausente nem classe morta no CSS gerado.
-    assert len(declared) >= 374
+    # As seis classes 0092–0097 de dados duplicados em cards de perfil foram
+    # eliminadas. Continua exigida paridade exata sem classes órfãs no CSS.
+    assert len(declared) >= 368
     assert declared == referenced, "Cada classe CSP estatica deve existir no CSS e ser usada no JSX"
 
 

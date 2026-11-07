@@ -49,14 +49,16 @@ def _active_profile_query(query):
 
 class ProfileCreate(BaseModel):
     nome: str
-    email: str
+    # Contatos da conta vivem em account_billing_identity; campos legados
+    # continuam aceitos para não quebrar clientes antigos em produção.
+    email: str | None = None
     telefone: str | None = None
     endereco: str | None = None
 
 
 class ProfileUpdate(BaseModel):
     nome: str
-    email: str
+    email: str | None = None
     telefone: str | None = None
     endereco: str | None = None
 
@@ -122,7 +124,8 @@ async def list_profiles(user_id: str = Depends(get_current_user_id)):
     result = await run_in_threadpool(
         _retry_readonly_auth_query,
         lambda: _active_profile_query(
-            supabase.table("profiles").select("*").eq("user_id", user_id)
+            # A lista de cards não precisa reenviar dados legados de contato.
+            supabase.table("profiles").select("id,user_id,kind,plan_tier,nome,avatar_url").eq("user_id", user_id)
         ).execute(),
     )
     return result.data
@@ -384,7 +387,7 @@ async def create_profile(body: ProfileCreate, user_id: str = Depends(get_current
         result = supabase.rpc("insert_profile_with_plan_quota", {
             "p_user_id": user_id,
             "p_nome": body.nome.strip(),
-            "p_email": body.email.strip(),
+            "p_email": body.email.strip() if body.email else None,
             "p_telefone": body.telefone.strip() if body.telefone else None,
             "p_endereco": body.endereco.strip() if body.endereco else None,
         }).execute()
@@ -406,14 +409,15 @@ async def update_profile(
     profile_id: str, body: ProfileUpdate, user_id: str = Depends(get_current_user_id)
 ):
     _get_own_profile_or_404(profile_id, user_id)
+    updates = {"nome": body.nome.strip()}
+    for field in ("email", "telefone", "endereco"):
+        # Edição só do nome NÃO apaga dados legados do perfil.
+        if field in body.model_fields_set:
+            value = getattr(body, field)
+            updates[field] = value.strip() if value else None
     result = (
         supabase.table("profiles")
-        .update({
-            "nome": body.nome.strip(),
-            "email": body.email.strip(),
-            "telefone": body.telefone.strip() if body.telefone else None,
-            "endereco": body.endereco.strip() if body.endereco else None,
-        })
+        .update(updates)
         .eq("id", profile_id)
         .eq("user_id", user_id)
         .execute()
