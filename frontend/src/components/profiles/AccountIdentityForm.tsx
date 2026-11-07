@@ -5,6 +5,7 @@ import { accountIdentityApi, type AccountIdentity, type AccountIdentitySave } fr
 import { formatCpf, validCpf } from "../../lib/cpf"
 import { Button } from "../ui/Button"
 import { TextInput } from "../ui/TextInput"
+import { PhoneInput } from "./PhoneInput"
 import "./accountIdentityForm.css"
 
 type FormFields = {
@@ -99,10 +100,10 @@ export function AccountIdentityForm() {
           {cpfProblem && <small role="alert" className="account-identity__error">CPF inválido.</small>}
         </div>
         <TextInput label="E-mail de acesso * (confirmado no cadastro)" type="email" disabled value={data?.email ?? "Aguardando consulta"} />
-        <TextInput label="Celular * para contratar plano" type="tel" inputMode="tel" autoComplete="tel" maxLength={24} value={form.mobile_phone} onChange={e => change("mobile_phone", e.target.value)} placeholder="(21) 99999-9999" />
+        <PhoneInput label="Celular * para contratar plano" mobile value={form.mobile_phone} onChange={value => change("mobile_phone", value)} disabled={!data} />
         <TextInput label="Data de nascimento (opcional)" type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.birth_date} onChange={e => change("birth_date", e.target.value)} />
         <TextInput label="E-mail alternativo de recuperação (opcional)" type="email" maxLength={254} autoComplete="off" value={form.recovery_email} onChange={e => change("recovery_email", e.target.value)} />
-        <TextInput label="Telefone de contato (opcional)" type="tel" maxLength={24} value={form.contact_phone} onChange={e => change("contact_phone", e.target.value)} />
+        <PhoneInput label="Telefone de contato (opcional)" value={form.contact_phone} onChange={value => change("contact_phone", value)} disabled={!data} />
         <TextInput label="CEP (opcional)" inputMode="numeric" maxLength={10} autoComplete="postal-code" value={form.cep} onChange={e => change("cep", e.target.value)} />
         <TextInput label="Endereço — rua/avenida (opcional)" autoComplete="address-line1" maxLength={180} value={form.address_line} onChange={e => change("address_line", e.target.value)} />
         <TextInput label="Número (opcional)" maxLength={25} value={form.address_number} onChange={e => change("address_number", e.target.value)} />

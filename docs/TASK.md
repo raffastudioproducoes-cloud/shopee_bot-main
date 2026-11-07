@@ -1230,4 +1230,11 @@ Contrato isolado e ainda não integrado ao executor: `CampaignDispatchIdentity` 
 - [x] Mover cota, título e mensagens informativas para **acima** do card principal, mantendo dentro do card o formulário editável e feedback de salvar; não alterar perfis secundários ou grade responsiva.
 - [x] Testar API, componentes, frontend build e registrar migration aditiva 094/documentação; sem gateway, crons, produção ou `main`.
 - [x] Migration 094 aplicada ao Supabase único: `birth_date DATE NULL` confirmada, RLS habilitado e `anon`/`authenticated` sem leitura da tabela.
-- [ ] Concluir CI/merge/deploy LIVE somente em `staging`, confirmar QA autenticada; `VERSION=3.4.0` permanece.
+- [x] [PR #348](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/348), [CI #1132](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42423023915) SUCCESS, merge staging `3be514019649606b20aa45111869c41d5a644217` e Render `dep-dbnqqitg1s2s73fsipo0` LIVE; saúde 200. QA autenticada ainda pendente; `VERSION=3.4.0` permanece.
+
+## 07/11/2026 — Máscara de telefone e seletor de DDI em ambos os campos do titular (MINOR candidata 3.5.0)
+
+- [x] Adicionar seletor de país/DDI e máscara no Celular e no Telefone de contato em `/profiles`, acessíveis por teclado, com default Brasil e variantes internacionais.
+- [x] Gravar novos valores em E.164 (`+DDI+número`); aceitar números brasileiros legados sem prefixo, mantendo validação nacional e escopo da conta. Sem alterar tabela ou histórico.
+- [x] Cobrir formatação progressiva, normalização, rejeição inválida e PUT autenticado nos testes específicos; manter documentação, changelog e Guia atualizados.
+- [ ] CI, merge e Render LIVE somente em `staging`; confirmar QA autenticada desktop/mobile. `main`, dois crons, gateway e `VERSION=3.4.0` intocados.

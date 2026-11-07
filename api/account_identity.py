@@ -48,12 +48,28 @@ def cpf_record(value: str) -> dict[str, str]:
 def normalize_phone(value: str | None, *, mobile: bool = False) -> str | None:
     if not value or not value.strip():
         return None
+    if value.strip().startswith("+"):
+        # E.164 (DDI + número nacional), até 15 dígitos. A validação específica
+        # de linha móvel no Brasil permanece; para outros países é estrutural.
+        if not re.fullmatch(r"\+[\d\s().-]+", value.strip()):
+            raise HTTPException(422, "Telefone internacional inválido.")
+        international = re.sub(r"\D", "", value)
+        if not 8 <= len(international) <= 15 or international.startswith("0"):
+            raise HTTPException(422, "Telefone internacional deve incluir DDI e número válido.")
+        if international.startswith("55"):
+            national = international[2:]
+            _validate_brazilian_phone(national, mobile=mobile)
+        return "+" + international
     digits = re.sub(r"\D", "", value)
+    _validate_brazilian_phone(digits, mobile=mobile)
+    return digits
+
+
+def _validate_brazilian_phone(digits: str, *, mobile: bool) -> None:
     if len(digits) not in ((11,) if mobile else (10, 11)) or digits[0] == "0" or digits[1] == "0":
         raise HTTPException(422, "Informe um telefone brasileiro com DDD válido.")
     if mobile and digits[2] != "9":
         raise HTTPException(422, "Celular deve ter DDD e nove dígitos, começando por 9.")
-    return digits
 
 
 def normalize_cep(value: str | None) -> str | None:

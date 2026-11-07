@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — Máscaras telefônicas com seleção de DDI (MINOR candidata 3.5.0, 07/11/2026)
+
+- `/profiles`, apenas no formulário do titular: **Celular** e **Telefone de contato** passam a ter seletor acessível de país/DDI ao lado do número, com máscaras progressivas por país (Brasil, EUA/Canadá, Portugal e outros DDIs disponíveis) em desktop e celular.
+- Novo valor de telefone usa formato internacional `+DDI+número` (E.164); a API normaliza e valida comprimento e mantém validação brasileira de DDD/nono dígito. Números brasileiros legados sem `+55` continuam aceitos e exibidos com máscara nacional, sem migração destrutiva.
+- Catálogo local de DDIs sem serviço externo ou dependência nova; trocar de país limpa o número para evitar associar por engano um telefone de outro país. Sem alteração de outros campos, perfis secundários, Supabase, gateway, cron ou `main`. `VERSION=3.4.0` permanece até release aprovada.
+
 ### Changed — Data de nascimento, CPF formatado e avisos acima do perfil (PATCH da candidata 3.5.0, 07/11/2026)
 
 - `/profiles`: o campo opcional **Idade** virou **Data de nascimento**, com calendário nativo para dia, mês e ano e persistência de data exata; a coluna legada `age` permanece para compatibilidade, sem fabricar uma data para idades anteriores.
