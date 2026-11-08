@@ -19,6 +19,7 @@ class FakeStorage:
     def __init__(self):
         self.assets = {VIDEO["storage_key"]: b"pretend-sanitized-video"}
         self.uploads = []
+        self.storage = self  # Supabase expõe .storage.from_(bucket).
 
     def from_(self, name):
         assert name == "post-media"
