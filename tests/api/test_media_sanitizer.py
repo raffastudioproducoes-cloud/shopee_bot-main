@@ -3,7 +3,7 @@ from io import BytesIO
 import pytest
 from PIL import Image
 
-from api.media_sanitizer import MediaSanitizerError, sanitize_media_upload
+from api.media_sanitizer import MediaSanitizerError, sanitize_media_upload, validate_video_before_reencoding
 
 
 def _image_bytes(fmt: str, mode: str = "RGB", color: str = "red", **save_kwargs):
@@ -285,6 +285,34 @@ def test_video_with_disallowed_top_level_box_is_rejected(kind):
     with pytest.raises(MediaSanitizerError, match="vídeo") as info:
         sanitize_media_upload(raw, filename="a.mp4", content_type="video/mp4")
     assert kind.decode() not in str(info.value)
+
+
+def test_top_level_uuid_only_allowed_in_bounded_preflight_for_reencoding():
+    # Caixa uuid + usertype (16 bytes), comum em exportadores de MP4.
+    raw = _FTYP + _box(b"uuid", b"google-video-meta" + b"m" * 32) + _box(b"moov", b"") + _box(b"mdat", b"")
+
+    with pytest.raises(MediaSanitizerError, match="estrutura não permitida"):
+        sanitize_media_upload(raw, filename="a.mp4", content_type="video/mp4")
+    validate_video_before_reencoding(raw, max_bytes=50 * 1024 * 1024)
+
+
+@pytest.mark.parametrize("extra", [
+    _box(b"uuid", b"X" * (1024 * 1024)),  # uuid acima do orçamento
+    _box(b"uuid", b"tiny"),             # sem usertype completo
+    _box(b"meta", b"X" * 32),          # caixa não aprovada continua recusada
+])
+def test_preflight_rejects_unsafe_top_level_boxes(extra):
+    raw = _FTYP + extra + _box(b"moov", b"") + _box(b"mdat", b"")
+    with pytest.raises(MediaSanitizerError, match="estrutura não permitida"):
+        validate_video_before_reencoding(raw, max_bytes=50 * 1024 * 1024)
+
+
+def test_preflight_rejects_missing_movie_structure_and_nested_uuid():
+    with pytest.raises(MediaSanitizerError, match="estruturas essenciais"):
+        validate_video_before_reencoding(_FTYP + _box(b"mdat", b""), max_bytes=1024)
+    raw = _FTYP + _box(b"moov", _box(b"uuid", b"X" * 32)) + _box(b"mdat")
+    with pytest.raises(MediaSanitizerError, match="estrutura não permitida"):
+        validate_video_before_reencoding(raw, max_bytes=1024)
 
 
 @pytest.mark.parametrize("kind", [b"moov", b"mdat", b"moof", b"mfra", b"sidx", b"styp", b"free", b"skip", b"wide"])

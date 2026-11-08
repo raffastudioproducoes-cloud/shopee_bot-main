@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed / Changed — MP4 válido e progresso real de mídia (08/11/2026, PATCH candidata 3.6.1; somente staging)
+
+- Corrige rejeição de MP4 H.264/AAC com caixa estrutural `uuid` de topo limitada no preflight; vídeos são obrigatoriamente reconstruídos via FFmpeg e sanitizados novamente com a allowlist estrita antes de armazenar, sem aceitar a caixa opaca na saída.
+- Centraliza upload de vídeos/imagens em Produtos e Posts num pipeline seguro, preservando limites e validações de extensão/MIME.
+- Editor de Produtos apresenta sombra e skeleton de mídia, miniaturas com fallback e círculo com porcentagem real de bytes enviados; após 100%, exibe processamento sem simular progresso do servidor, com suporte mobile e movimento reduzido.
+- Adiciona testes de regressão API e frontend. [Contrato técnico e matriz de aceite](docs/UPLOAD-MP4-PROGRESSO-20261108.md). `VERSION=3.6.0` preservada; `main` só será alterada após homologação e nova autorização de Rafa.
+
 ### Docs — Reconciliação da release 3.6.0 depois do deploy de produção (08/11/2026; sem novo bump)
 
 - Após merge e saúde da produção, atualizados README, AGENTS, Guia Mestre, regras, arquitetura, produto, UX, TASK, contrato e Vault para refletir o estado real 3.6.0 e preservar limites de QA. Registro [RELEASE-3.6.0-20261108](docs/RELEASE-3.6.0-20261108.md). Somente documentação; `VERSION=3.6.0` permanece.

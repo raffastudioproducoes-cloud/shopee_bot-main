@@ -3,6 +3,8 @@
 Usa apenas fakes já existentes; não cria ambiente Supabase de teste.
 """
 import asyncio
+import shutil
+import subprocess
 from io import BytesIO
 from types import SimpleNamespace
 from contextlib import nullcontext
@@ -164,6 +166,32 @@ def test_media_upload_is_private_scoped_and_persistent(fake_db, monkeypatch):
     assert row["status"] == "ready"
     assert len(db.storage.uploads) == 1
     assert result.json()["preview_url"].startswith("https://")
+
+
+def test_google_style_mp4_upload_is_reencoded_before_private_storage(fake_db, monkeypatch, tmp_path):
+    ffmpeg = shutil.which("ffmpeg")
+    assert ffmpeg and shutil.which("ffprobe")
+    video_path = tmp_path / "original.mp4"
+    subprocess.run(
+        [ffmpeg, "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=blue:s=48x48:d=0.5",
+         "-metadata", "comment=DO_NOT_STORE_ORIGINAL", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(video_path)],
+        timeout=15, check=True,
+    )
+    uuid_payload = b"UNTRUSTED_GOOGLE_METADATA" + b"X" * 64
+    uuid_box = (len(uuid_payload) + 8).to_bytes(4, "big") + b"uuid" + uuid_payload
+    raw = video_path.read_bytes() + uuid_box
+
+    client, db = _client(fake_db, monkeypatch)
+    result = client.post("/products/7/media", files={"file": ("video.mp4", raw, "video/mp4")})
+    assert result.status_code == 201, result.text
+    assert result.json()["media_type"] == "VIDEO"
+    assert len(db.storage.uploads) == 1
+    key, stored, options = db.storage.uploads[0]
+    assert key.endswith(".mp4")
+    assert options["content-type"] == "video/mp4"
+    assert stored != raw
+    assert b"UNTRUSTED_GOOGLE_METADATA" not in stored
+    assert b"DO_NOT_STORE_ORIGINAL" not in stored
 
 
 def test_media_limits_for_each_type(fake_db, monkeypatch):
