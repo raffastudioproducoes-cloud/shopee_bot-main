@@ -1,3 +1,13 @@
+## 08/11/2026 — Release PATCH 3.6.2 autorizada por Rafa (promoção em andamento)
+
+- [x] Rafa comunicou que os testes da staging passaram e **autorizou merge main, versionamento e documentação** da correção 502/cronômetro.
+- [x] Classificação SemVer **PATCH** da candidata `3.6.1 → 3.6.2`; `VERSION` e seção datada no CHANGELOG preparados para PR de staging.
+- [ ] PR staging da release, CI, Render staging LIVE e login mostrando 3.6.2.
+- [ ] PR staging→main com CI/SemVer, Render produção LIVE no SHA e health/readiness/logs.
+- [ ] Fechamento documental após produção: Projeto e Vault, SHAs e QA real versus limitações.
+
+[Plano de release](RELEASE-3.6.2-20261108.md). Não alterar Supabase, cron, gateway, publicadores, custos nem parar produção.
+
 ## 08/11/2026 — HTTP 502 e cronômetro do upload (PATCH candidata 3.6.2; staging)
 
 - [x] Identificada incompatibilidade de 30 s no proxy com FFmpeg até 90 s + inspeções/Storage. Captura 502 é evidência do sintoma, mas falta log da requisição individual.
