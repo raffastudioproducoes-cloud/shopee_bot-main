@@ -1,4 +1,13 @@
-## 08/11/2026 — Produtos → posts/campanhas e download de foto (STAGING LIVE; HOMOLOGAÇÃO AUTENTICADA PENDENTE)
+## 08/11/2026 — Release 3.6.0: PROMOVIDA E VALIDADA EM PRODUÇÃO; QA AUTENTICADA PENDENTE
+
+- [x] **Autorização e SemVer:** Rafa liberou merge de staging para main após testes; incremento MINOR `3.5.0→3.6.0`, VERSION/CHANGELOG, [PR #356](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/356) CI #1148 SUCCESS, staging SHA `91926bbf2d9de2dc187225d000dc391cee021659`, CI push #1149 SUCCESS, Render staging `dep-dbocuv942hec73d9lqng` LIVE e saúde OK.
+- [x] **Promoção:** [PR #357](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/357), CI #1150 e gate SemVer #8 SUCCESS, merge normal `main` `699e81bd18e2b12fc3824f914045627a45844cc2`. CI push #1151 SUCCESS; Render produção `dep-dbod0q7b9u1s73dhci7g` **LIVE** no SHA exato; navegador confirmou `/health`, `/api/health/ready` = `{"status":"ok"}` e tela de login na versão 3.6.0. Arquivos das branches iguais no gate pós-promoção, versão 3.6.0 em ambas.
+- [x] **Testes de código:** 1.300 API, 208 scheduler + 1 xfail esperado, nove banco, 27 web/CSP, 96 frontend CI, 18 contratos específicos, build Vite, cinco SemVer e verificação de diff PASS. Segurança HTTP e ZAP passivo de staging SUCCESS. A suíte ampla opcional legada mantém 23 falhas/235 fora dos testes obrigatórios: não classificadas como aprovação.
+- [x] **Escopo protegido:** nenhuma DDL, migration, alteração RLS, `pg_cron`, `pg_net`, scheduler, mídia publicada, OAuth, custos ou gateway na 3.6.0; logs detalhados da produção e estado atual do cron **não foram reinspecionados** nesta rodada.
+- [ ] **QA autenticada pós-release:** download Shopee real, herança e edição nas três modalidades de publicação, IA por item e concorrência, rascunhos antigos, mobile/desktop. **Sem postagem externa real** e sem confundir CI/health com validação de IA/CDN.
+- [x] Documentação de fechamento em [RELEASE-3.6.0-20261108.md](RELEASE-3.6.0-20261108.md); Guia Mestre, arquitetura, regras, PRD, design, README, changelog e Vault sincronizados após confirmação de deploy.
+
+## 08/11/2026 — Produtos → posts/campanhas e download de foto (HISTÓRICO DA ETAPA STAGING)
 
 - [x] Corrigir seleção aninhada de listas para incluir `products.description`; herdar cópia padrão no snapshot de nova campanha.
 - [x] Herança da descrição salva em Produtos em Criar POST (agora e recorrente), mantendo texto manual/IA local separado.
@@ -7,7 +16,7 @@
 - [x] PR [#354](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/354) integrado **somente em staging** no SHA `dd83a36c5062d9d8db377110ba6c5980f594962e`; [CI #1144](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42514522631) SUCCESS: API, frontend/build, PostgreSQL de teste verde (teste externo não executado pelo job).
 - [x] Render `shopee-bot-staging` deploy `dep-dbocnrp42hec73d9crm0` **LIVE** no SHA do PR; `/health` e `/api/health/ready` observados no navegador retornando `{"status":"ok"}`. Backend inicia normalmente, migration 087–094 já aplicada e ignorada, scheduler preservado.
 - [ ] QA **autenticada** desktop/mobile: baixar imagem original, verificar herança de descrição em novo post agora/recorrente/campanha, geração IA local, restauração de texto e rascunho legado. Página `/products` exige login; sem sessão autenticada não foi possível validar visualmente esses fluxos. **Não publicar posts reais** no teste.
-- [ ] Rafa homologar a staging e dar autorização explícita antes de abrir merge na `main`. `VERSION=3.5.0` por enquanto; MINOR 3.6.0 candidata quando autorizada. Documentação Projeto/Vault permanece rastreada neste acompanhamento.
+- [x] **Aprovação posterior obtida:** Rafa autorizou expressamente a promoção à `main` em 08/11/2026; a versão passou de 3.5.0 para 3.6.0 conforme seção de fechamento acima. A ausência de QA autenticada permanece pendente separadamente.
 - Contrato, segurança, limites e roteiro de aceitação: [PRODUTOS-DESCRICOES-CAMPANHAS-20261108.md](PRODUTOS-DESCRICOES-CAMPANHAS-20261108.md). Galeria adicional privada não é importada automaticamente em posts/campanhas nesta tarefa.
 
 ## 07/11/2026 — Fechamento de produção 3.5.0 (CONCLUÍDO) e plano de segurança (ANÁLISE CONCLUÍDA, MITIGAÇÃO PENDENTE)
