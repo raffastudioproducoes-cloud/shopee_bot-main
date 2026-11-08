@@ -57,6 +57,23 @@
 .product-media-upload-stage__details strong { font-size: 14px; color: var(--text-display); }
 .product-media-upload-stage__details span { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
 .product-media-upload-stage__details small { font-size: 11px; line-height: 1.5; color: var(--text-faint); }
+.product-media-upload-stage__details .product-media-upload-stage__elapsed {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: fit-content;
+  padding: 5px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--surface-inset);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.product-media-upload-stage__elapsed b { color: var(--text-display); font-size: 13px; }
+.product-media-upload-stage__details .product-media-upload-stage__error { color: #fb7185; }
+.product-media-upload-stage--success .product-media-upload-stage__ring .value { stroke: #83dfad; }
+.product-media-upload-stage--error .product-media-upload-stage__ring .value { stroke: #fb7185; }
 
 .product-media-card__visual {
   position: relative;

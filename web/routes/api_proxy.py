@@ -11,14 +11,18 @@ JWT/cookie de sessão e não usa Flask-WTF).
 """
 
 import os
+import re
 from urllib.parse import urlparse
 
 import requests
-from flask import Blueprint, Response, request
+from flask import Blueprint, Response, current_app, request
 from shopee_bot.web.helpers import cors_origins
 
 API_INTERNAL_URL = os.environ.get("API_INTERNAL_URL", "http://127.0.0.1:8001")
 _TIMEOUT = 30
+# A transcodificação segura pode levar até 90 s, além de ffprobe e Storage.
+# Este prazo maior vale SOMENTE para upload da galeria de Produtos.
+_PRODUCT_MEDIA_TIMEOUT = (5, 180)  # conexão, leitura/resposta do FastAPI
 
 # headers que não devem ser repassados 1:1 entre Flask e o FastAPI
 # interno — hop-by-hop ou recalculados pelo lado que recebe
@@ -53,6 +57,9 @@ def proxy(subpath):
     }
     if request.remote_addr:
         headers["X-Forwarded-For"] = request.remote_addr
+    is_product_media_upload = request.method == "POST" and bool(
+        re.fullmatch(r"products/\d+/media", subpath)
+    )
     try:
         # ponytail: get_data() carrega o corpo inteiro em memória; ok
         # porque Flask já limita isso via MAX_CONTENT_LENGTH (mesmo
@@ -64,10 +71,27 @@ def proxy(subpath):
             params=request.args,
             headers=headers,
             data=request.get_data(),
-            timeout=_TIMEOUT,
+            timeout=_PRODUCT_MEDIA_TIMEOUT if is_product_media_upload else _TIMEOUT,
             allow_redirects=False,
         )
+    except requests.Timeout:
+        current_app.logger.warning(
+            "Timeout no proxy interno: escopo=%s",
+            "product-media-upload" if is_product_media_upload else "api-general",
+        )
+        if is_product_media_upload:
+            return {
+                "error": (
+                    "O processamento da mídia demorou além do limite de resposta. "
+                    "Confira a galeria do produto antes de reenviar o arquivo."
+                )
+            }, 504
+        return {"error": "API interna não respondeu a tempo"}, 504
     except requests.RequestException:
+        current_app.logger.warning(
+            "Falha de conexão no proxy interno: escopo=%s",
+            "product-media-upload" if is_product_media_upload else "api-general",
+        )
         return {"error": "API interna indisponível"}, 502
 
     response_headers = [
