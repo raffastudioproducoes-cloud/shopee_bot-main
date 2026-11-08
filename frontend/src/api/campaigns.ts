@@ -43,6 +43,7 @@ export interface CampaignDraftItemPayload {
   networks: Array<'threads' | 'x' | 'facebook' | 'instagram' | 'tiktok'>
   network_copies: Partial<Record<'threads' | 'x' | 'facebook' | 'instagram' | 'tiktok', string>>
   use_shopee_image: boolean
+  product_media_ids: string[]
 }
 
 export interface CampaignDraftSaveRequest {

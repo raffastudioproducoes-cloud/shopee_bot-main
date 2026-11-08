@@ -9,6 +9,7 @@ export interface CampaignItemSnapshot {
   networks: PostNetwork[]
   networkCopies: Partial<Record<PostNetwork, string>>
   useShopeeImage: boolean
+  selectedProductMediaIds: string[]
 }
 
 type SnapshotProduct = Pick<Product, "id" | "name" | "description" | "image" | "commission_link">
@@ -34,6 +35,7 @@ export function createCampaignSnapshot(product: SnapshotProduct): CampaignItemSn
     networks: [],
     networkCopies: {},
     useShopeeImage: Boolean(product.image),
+    selectedProductMediaIds: [],
   }
 }
 
@@ -63,6 +65,10 @@ export function reconcileCampaignSnapshots(
       networkCopies,
       useShopeeImage: Boolean(product.image) &&
         (typeof raw.useShopeeImage === "boolean" ? raw.useShopeeImage : base.useShopeeImage),
+      selectedProductMediaIds: Array.isArray(raw.selectedProductMediaIds)
+        ? [...new Set(raw.selectedProductMediaIds.filter((id): id is string =>
+            typeof id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)))].slice(0, 7)
+        : [],
     }
   }
   return result

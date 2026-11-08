@@ -1,3 +1,9 @@
+## 08/11/2026 — Mídias permanentes em campanhas e posters MP4 (autorizado; staging pendente)
+
+- [x] Rafa aprovou o desenho e pediu que o painel de upload suma após sucesso, com animação discreta durante processamento; [x] miniatura real JPEG para vídeo legado e novo em Produtos/Campanhas; [x] seletor de foto Shopee/adicionais/ambos/nenhum, sem upload na edição da campanha; [x] snapshots por produto, validação no backend e cópias privadas na ativação mantendo anexos antigos.
+- [x] Testes frontend Node CI completos **102/102 PASS**, build Vite/TypeScript PASS, backend `py_compile` PASS, extração de frame FFmpeg verificada. [ ] Testes pytest API (ambiente local sem dependências; validar na CI GitHub); [ ] PR CI e staging Render LIVE; [ ] QA Android autenticada de Rafa; [ ] após autorização específica, MINOR 3.7.0/main/documentação final.
+- [Contrato e riscos](CAMPANHA-MIDIAS-PRODUTO-20261108.md). Versão oficial e produção **3.6.2** mantidas; Supabase/crons/segredos/publicação externa não modificados.
+
 ## 08/11/2026 — Release PATCH 3.6.2 publicada e validada em produção
 
 - [x] Rafa informou que a correção passou na staging e autorizou PATCH/main, mantendo CI/SemVer/deploy como portões obrigatórios.

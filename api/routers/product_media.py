@@ -10,6 +10,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi.responses import Response
 from starlette.concurrency import run_in_threadpool
 
 from .auth import get_current_user_id
@@ -18,6 +19,7 @@ from ..media_sanitizer import MediaSanitizerError
 from ..media_upload_pipeline import prepare_media_upload
 from ..profiles import scope_account
 from ..storage_capacity import storage_upload_reservation
+from ..video_processor import generate_video_thumbnail
 
 router = APIRouter(prefix="/products", tags=["product-media"])
 logger = logging.getLogger(__name__)
@@ -63,7 +65,49 @@ def _signed_asset(row: dict[str, Any]) -> dict[str, Any]:
         "size_bytes": row["size_bytes"],
         "slot": row["slot"],
         "preview_url": url,
+        "thumbnail_url": f"/api/products/{row['product_id']}/media/{row['id']}/thumbnail" if row["media_type"] == "VIDEO" else None,
     }
+
+
+@router.get("/{product_id}/media/{asset_id}/thumbnail")
+async def product_video_thumbnail(
+    product_id: int, asset_id: uuid.UUID, user_id: str = Depends(get_current_user_id),
+):
+    """Private, on-demand poster with a deterministic Storage cache for legacy MP4s.
+
+    The first request creates a derived JPG; all later reads download only the small
+    cached poster. Existing videos get a thumbnail without re-uploading or migration.
+    """
+    row = _owned_asset(user_id, product_id, str(asset_id))
+    if row["media_type"] != "VIDEO" or row["status"] != "ready":
+        raise HTTPException(status_code=404, detail="Vídeo não disponível neste produto.")
+    video_key = row["storage_key"]
+    if not video_key.startswith(f"products/{user_id}/{product_id}/") or not video_key.endswith(".mp4"):
+        raise HTTPException(status_code=409, detail="Referência de vídeo inválida.")
+    thumb_key = video_key[:-4] + ".poster.jpg"
+    storage = supabase.storage.from_(BUCKET)
+    try:
+        thumbnail = await run_in_threadpool(storage.download, thumb_key)
+    except Exception:
+        try:
+            video = await run_in_threadpool(storage.download, video_key)
+            thumbnail = await run_in_threadpool(generate_video_thumbnail, video)
+        except Exception:
+            logger.warning("Não foi possível gerar miniatura para mídia privada", exc_info=True)
+            raise HTTPException(status_code=502, detail="Miniatura temporariamente indisponível.") from None
+        try:
+            with storage_upload_reservation(len(thumbnail)):
+                await run_in_threadpool(
+                    storage.upload, thumb_key, thumbnail,
+                    {"content-type": "image/jpeg", "upsert": "false"},
+                )
+        except Exception:
+            # Corrida de dois dispositivos ou limite de capacidade: devolver os
+            # bytes já gerados, sem falhar na visualização nem revelar Storage.
+            logger.info("Cache privado de miniatura não foi gravado")
+    return Response(content=thumbnail, media_type="image/jpeg", headers={
+        "Cache-Control": "private, max-age=900", "X-Content-Type-Options": "nosniff",
+    })
 
 
 @router.get("/{product_id}/media")
@@ -163,7 +207,10 @@ async def delete_product_media(
 ):
     row = _owned_asset(user_id, product_id, str(asset_id))
     try:
-        supabase.storage.from_(BUCKET).remove([row["storage_key"]])
+        keys = [row["storage_key"]]
+        if row["media_type"] == "VIDEO" and row["storage_key"].endswith(".mp4"):
+            keys.append(row["storage_key"][:-4] + ".poster.jpg")
+        supabase.storage.from_(BUCKET).remove(keys)
     except Exception:
         logger.warning("Falha ao remover mídia privada", exc_info=True)
         raise HTTPException(status_code=502, detail="Falha ao remover arquivo. Tente novamente.") from None
@@ -176,11 +223,14 @@ async def delete_product_media(
 def remove_product_media_files(user_id: str, product_id: int) -> None:
     """Remove objetos físicos antes do DELETE do produto. FK faz cascade dos metadados."""
     rows = scope_account(
-        supabase.table("product_media").select("storage_key").eq("product_id", product_id), user_id,
+        supabase.table("product_media").select("storage_key, media_type").eq("product_id", product_id), user_id,
     ).execute().data or []
     if rows:
         try:
-            supabase.storage.from_(BUCKET).remove([row["storage_key"] for row in rows])
+            keys = [row["storage_key"] for row in rows]
+            keys.extend(row["storage_key"][:-4] + ".poster.jpg" for row in rows
+                        if row["media_type"] == "VIDEO" and row["storage_key"].endswith(".mp4"))
+            supabase.storage.from_(BUCKET).remove(keys)
         except Exception:
             logger.warning("Exclusão de produto bloqueada: não foi possível limpar Storage", exc_info=True)
             raise HTTPException(status_code=502, detail="Não foi possível limpar as mídias do produto.")
