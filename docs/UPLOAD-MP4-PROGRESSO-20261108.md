@@ -1,5 +1,7 @@
 # Auto Orbital — MP4 Google e progresso de upload de Produtos (08/11/2026)
 
+> **Situação atual:** após homologação expressa de Rafa em staging, o lote foi publicado como **PATCH 3.6.1 em produção**, [PR #363](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/363) com CI #1162 e gate SemVer #10 SUCCESS; Render produção `dep-dboe4uvb9u1s73dinre0` LIVE, health/readiness OK e UI 3.6.1. O registro histórico da etapa staging abaixo permanece válido para a data da implantação inicial. [Release e limites](RELEASE-3.6.1-20261108.md) · [Vault doc 47](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/47-Release-Auto-Orbital-3-6-1-2026-11-08.md).
+
 ## Origem da ocorrência e diagnóstico reproduzido
 
 - Rafa enviou um MP4 de 3.901.039 bytes gravado/exportado por ferramenta Google em 08/11 e a captura da UI de **Produtos → Editar → Imagens e vídeos do produto** mostrou `Mídia inválida: vídeo inválido: estrutura não permitida`.
@@ -20,7 +22,7 @@
 - Arquivo máximo de 50 MiB; duração/dimensões e rejeição de formatos não MP4 permanecem. Sem CORS relaxado, URL de origem arbitrária, persistência de metadados opacos, bypass de usuário/conta, bucket novo, migration, schema, RLS, cron, pg_net, gateway ou publicação real.
 - Percentual não estima processamento remoto; servidores podem levar segundos após 100% e a UI explica esse estado. Numa conexão que não informa total de bytes, o anel permanece no último percentual real (não inventa progresso).
 - Mídias existentes são preservadas. O vídeo reenviado terá bytes diferentes, porque a reconstrução retira metadados e reencoda. A aceitação de novas mídias ainda depende de autorização de conta e limites do produto.
-- **SemVer:** correção de compatibilidade/UX de fluxo existente = **PATCH candidata 3.6.1** sobre `VERSION=3.6.0` vigente. Não modificar a `main` nem anunciar 3.6.1 liberada antes de Rafa homologar staging, aprovar promoção e executar gate de release.
+- **SemVer:** correção de compatibilidade/UX de fluxo existente = **PATCH 3.6.1**, promovida a `main` **somente após** Rafa homologar staging, autorizar expressamente a promoção e passar o gate SemVer. Regra histórica cumprida em [PR #363](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/363); `VERSION=3.6.1` vigente.
 
 ## Testes e aceite
 
@@ -29,7 +31,8 @@
 - Backend: testes de preflight estrito/relaxado com uuid (topo, aninhado, tamanho e caixas proibidas), reencodificação, MIME/extensão falsa e rota de Produtos com Supabase fake. Teste separado com o **MP4 real enviado** confirma saída reconstruída de 1.272.047 bytes.
 - Frontend: novo contrato Node/CI para XHR, progresso acumulado, anel acessível, skeleton/sombra e movimento reduzido; regressões de carrossel, miniaturas e Produto mantidas. `npm run build` valida TypeScript/Vite.
 - [x] [PR #360](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/360) mergeada **apenas em staging** `1489aea4649be85a25eb1571a6baf0575ff8348d`, [CI #1156](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42520959009) SUCCESS (API+lint, frontend+build e PostgreSQL descartável). Testes locais: **1.308 API PASS**, **99 frontend PASS**, `npm run build` PASS, vídeo real reproduziu sanitização de 3.901.039→1.272.047 bytes. Render staging `dep-dbodr38473hc73ah2u00` **LIVE**, vinculado ao SHA exato; `/health` retorna `status:ok`, `/api/health/ready` inicialmente deu indisponibilidade transitória durante a troca de instância, e em novo teste retornou `status:ok`. Login público exibiu versão **3.6.0**. Sem QA autenticada na galeria nem upload externo real.
-- [ ] Rafa confirmar com login a mesma amostra MP4 em Android/desktop, porcentagem de transferência, estado de processamento, reprodução da miniatura e confirmação de persistência; testar imagem e falhas de rede. Teste externo de upload autenticado não executado pelo agente.
-- [ ] Somente depois de autorização explícita criar release PATCH 3.6.1 e PR `staging → main`, com novo CI/SemVer e confirmação de deploy. Preservar produção 3.6.0 até essa decisão.
+- [x] **Rafa confirmou que o MP4 passou a funcionar na staging e que o download da imagem Shopee funciona perfeitamente**, aprovando a entrega. A autorização veio do proprietário; o agente não usou suas credenciais para upload autenticado em produção.
+- [ ] Testes opcionais adicionais: falhas de rede, cancelamento, carregamento sob conexão lenta e matriz mobile/desktop com múltiplos vídeos. O percentual real e a transcodificação possuem testes automatizados, sem afirmar que todas as condições reais de rede foram exercitadas.
+- [x] Somente depois de autorização explícita foi criada a release PATCH 3.6.1 e [PR `staging → main` #363](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/363), CI/SemVer verdes e deploy produção LIVE, `/health`, prontidão e UI 3.6.1 confirmados.
 
 Fonte da regra anterior: [Segurança de mídia de posts](POST-MEDIA-SECURITY.md); [Contrato de Produtos](PRODUTOS-DESCRICOES-CAMPANHAS-20261108.md); [Regras e ambiente](RULES.md).
