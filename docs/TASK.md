@@ -1,3 +1,17 @@
+## 08/11/2026 — HTTP 502 e cronômetro do upload (PATCH candidata 3.6.2; staging)
+
+- [x] Identificada incompatibilidade de 30 s no proxy com FFmpeg até 90 s + inspeções/Storage. Captura 502 é evidência do sintoma, mas falta log da requisição individual.
+- [x] Deadline `(5,180)` só em `POST /api/products/{id}/media`, timeout 504 com texto claro, 502 para conexão, erros do proxy normalizados e logs sem dados sensíveis.
+- [x] Anel permanece medindo bytes reais; cronômetro real de processamento, avisos 0/15/30/60/120 s e resultado no mesmo painel, atualização de galeria após erro sem replay.
+- [x] Testes isolados da rota Flask 4 cenários PASS; 4/4 Node específicos PASS; compilação TypeScript e Vite PASS.
+- [x] Pytest web isolado com `--confcutdir=tests/web`: 10/10 PASS; lote frontend oficial de mídia 33/33 PASS. O comando inicial sem `--confcutdir` tentou usar banco local inexistente; não é falha das rotas. CI web passa a executar `test_api_proxy.py`.
+- [ ] CI completo, deploy staging LIVE e saúde/logs.
+- [ ] QA autenticada de Rafa no Android e desktop; lote, espera >30 s, tratamento de erro e galeria.
+- [ ] Aceite explícito do proprietário antes de `VERSION=3.6.2` e PR `staging → main`.
+- [ ] Espelho no Vault após validação staging.
+
+[Contrato e matriz de QA](UPLOAD-502-TEMPO-PROCESSAMENTO-20261108.md). Sem Supabase, cron, schema, gateway, publicação ou produção.
+
 ## 08/11/2026 — Release PATCH 3.6.1 PUBLICADA E VALIDADA EM PRODUÇÃO
 
 - [x] Rafa homologou upload do MP4 e download da imagem Shopee na staging e autorizou o merge para `main`, incremento PATCH e documentos atualizados.

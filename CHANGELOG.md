@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed / Changed — proxy de upload e status temporal (PATCH candidata 3.6.2; staging)
+
+- Corrige a janela incompatível do proxy Flask (30 s) com processamento seguro de MP4 por FFmpeg (até 90 s, além de inspeções e Storage). `POST /api/products/{id}/media` passa a ter timeout restrito de conexão/leitura `(5 s, 180 s)`; demais APIs continuam em 30 s, sem alterar limites ou validações da mídia.
+- Timeout agora produz HTTP 504 explicativo com orientação de conferir a galeria; 502 fica para indisponibilidade real da API interna. `formatApiError` exibe o campo `{error}` do proxy; logs segregam o escopo sem vazar dados sensíveis.
+- Painel sombreado de upload de Produto exibe cronômetro real após a transferência e avisos em 15/30/60/120 s, mantendo porcentagem real dos bytes, status terminal de sucesso/falha e botão para recarregar a galeria após erro, sem reenvio automático. Testes de regressão Python/frontend adicionados.
+- **Decisão SemVer:** PATCH candidata `3.6.1 → 3.6.2`; `VERSION=3.6.1` até homologação de staging e autorização expressa para main. Causa do 502 individual é provável, não comprovada por log individual. [Contrato, limites e matriz de QA](docs/UPLOAD-502-TEMPO-PROCESSAMENTO-20261108.md). Sem banco, Supabase, cron, gateway, publicação ou `main` nesta fase.
+
 ## [3.6.1] - 2026-11-08
 
 ### Fixed / Changed — MP4 válido e progresso real de mídia (PATCH 3.6.0 → 3.6.1; homologada por Rafa)

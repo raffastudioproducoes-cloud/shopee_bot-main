@@ -79,3 +79,36 @@ def test_proxy_returns_502_when_upstream_unreachable(client):
 
     assert res.status_code == 502
     assert res.get_json()["error"]
+
+
+def test_product_media_post_waits_for_ffmpeg_and_storage_without_widening_other_routes(client):
+    with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
+        mock_req.return_value = _FakeUpstreamResponse()
+        media = client.post("/api/products/42/media", data=b"mp4")
+        regular = client.post("/api/posts/42/media", data=b"mp4")
+        other = client.get("/api/products/42/media")
+
+    assert media.status_code == regular.status_code == other.status_code == 200
+    assert mock_req.call_args_list[0].kwargs["timeout"] == (5, 180)
+    assert mock_req.call_args_list[1].kwargs["timeout"] == 30
+    assert mock_req.call_args_list[2].kwargs["timeout"] == 30
+
+
+def test_product_media_timeout_returns_actionable_504(client):
+    with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
+        mock_req.side_effect = requests.ReadTimeout("internal host and credentials")
+        res = client.post("/api/products/42/media", data=b"mp4")
+
+    assert res.status_code == 504
+    assert "galeria" in res.get_json()["error"]
+    assert "credentials" not in res.get_data(as_text=True)
+
+
+def test_regular_api_timeout_still_uses_short_deadline(client):
+    with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
+        mock_req.side_effect = requests.ReadTimeout("upstream")
+        res = client.get("/api/health")
+
+    assert res.status_code == 504
+    assert "não respondeu" in res.get_json()["error"]
+    assert mock_req.call_args.kwargs["timeout"] == 30

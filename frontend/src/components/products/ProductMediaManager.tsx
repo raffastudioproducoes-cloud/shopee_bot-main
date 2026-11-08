@@ -1,11 +1,26 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { productsApi, type ProductMedia } from "../../api/products"
 import { Button } from "../ui/Button"
 import "./productMediaManager.css"
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024
 const RING_CIRCUMFERENCE = 2 * Math.PI * 40
+type UploadPhase = "idle" | "sending" | "processing" | "success" | "error"
+
+function formatDuration(seconds: number): string {
+  const minutes = Math.floor(seconds / 60)
+  const remainder = String(seconds % 60).padStart(2, "0")
+  return `${String(minutes).padStart(2, "0")}:${remainder}`
+}
+
+function processingNotice(seconds: number): string {
+  if (seconds >= 120) return "O servidor ainda não confirmou a gravação. Se houver falha, confira a galeria antes de tentar novamente."
+  if (seconds >= 60) return "O processamento está levando mais tempo que o habitual. Mantenha esta janela aberta."
+  if (seconds >= 30) return "O servidor continua validando e preparando a mídia. Aguarde a confirmação."
+  if (seconds >= 15) return "Arquivo recebido. A resposta do servidor ainda está pendente."
+  return "Transferência concluída; aguardando validação, processamento e gravação segura."
+}
 
 function MediaThumbnail({ item }: { item: ProductMedia }) {
   const [ready, setReady] = useState(false)
@@ -32,7 +47,9 @@ export function ProductMediaManager({ productId }: { productId: number }) {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [activeFile, setActiveFile] = useState("")
-  const [processing, setProcessing] = useState(false)
+  const [phase, setPhase] = useState<UploadPhase>("idle")
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
+  const [processingSeconds, setProcessingSeconds] = useState(0)
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
@@ -47,6 +64,19 @@ export function ProductMediaManager({ productId }: { productId: number }) {
   const images = items.filter((item) => item.media_type === "IMAGE")
   const videos = items.filter((item) => item.media_type === "VIDEO")
 
+  useEffect(() => {
+    if (phase !== "processing" || processingStartedAt === null) return
+    const updateElapsed = () => setProcessingSeconds(Math.max(0, Math.floor((Date.now() - processingStartedAt) / 1000)))
+    updateElapsed()
+    const interval = window.setInterval(updateElapsed, 1000)
+    return () => window.clearInterval(interval)
+  }, [phase, processingStartedAt])
+
+  const uploadNotice = phase === "processing" ? processingNotice(processingSeconds)
+    : phase === "sending" ? "Porcentagem real dos bytes enviados. A validação no servidor acontece depois."
+      : phase === "success" ? "Mídia confirmada e salva na galeria do produto."
+        : "A gravação não foi confirmada. Confira a galeria antes de reenviar, caso a transferência tenha terminado."
+
   const handleUpload = async (files: FileList | null) => {
     if (!files?.length || uploading) return
     const selected = Array.from(files)
@@ -55,14 +85,20 @@ export function ProductMediaManager({ productId }: { productId: number }) {
     setMessage("")
     setUploading(true)
     setUploadProgress(0)
-    setProcessing(false)
+    setPhase("sending")
+    setProcessingStartedAt(null)
+    setProcessingSeconds(0)
+    let transferredCurrentFile = false
     try {
       let imageCount = images.length
       let videoCount = videos.length
       let sentBytes = 0
       for (const [index, file] of selected.entries()) {
         setActiveFile(`${index + 1}/${selected.length} · ${file.name}`)
-        setProcessing(false)
+        transferredCurrentFile = false
+        setPhase("sending")
+        setProcessingStartedAt(null)
+        setProcessingSeconds(0)
         const isVideo = file.type === "video/mp4" || file.name.toLowerCase().endsWith(".mp4")
         const isImage = /^(image\/(jpeg|png|gif|webp))$/.test(file.type)
         if (!isVideo && !isImage) throw new Error("Aceitamos imagens JPG/PNG/GIF/WebP e vídeos MP4.")
@@ -74,7 +110,12 @@ export function ProductMediaManager({ productId }: { productId: number }) {
         await productsApi.uploadMedia(productId, file, (loaded, total) => {
           const fraction = Math.min(1, Math.max(0, loaded / total))
           setUploadProgress(Math.min(100, Math.round(100 * (sentBytes + file.size * fraction) / totalBytes)))
-        }, () => setProcessing(true))
+        }, () => {
+          transferredCurrentFile = true
+          setProcessingStartedAt(Date.now())
+          setProcessingSeconds(0)
+          setPhase("processing")
+        })
         sentBytes += file.size
         setUploadProgress(Math.min(100, Math.round(100 * sentBytes / totalBytes)))
         if (isVideo) videoCount++
@@ -82,12 +123,13 @@ export function ProductMediaManager({ productId }: { productId: number }) {
         await queryClient.invalidateQueries({ queryKey })
       }
       setMessage("Mídia salva no produto. Ela permanece disponível quando você voltar.")
+      setPhase("success")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível enviar a mídia.")
+      setPhase("error")
+      if (!transferredCurrentFile) setProcessingStartedAt(null)
     } finally {
       setUploading(false)
-      setActiveFile("")
-      setProcessing(false)
       if (inputRef.current) inputRef.current.value = ""
       await queryClient.invalidateQueries({ queryKey })
     }
@@ -98,6 +140,7 @@ export function ProductMediaManager({ productId }: { productId: number }) {
     setRemovingId(item.id)
     setError("")
     setMessage("")
+    setPhase("idle")
     try {
       await productsApi.deleteMedia(productId, item.id)
       await queryClient.invalidateQueries({ queryKey })
@@ -139,10 +182,10 @@ export function ProductMediaManager({ productId }: { productId: number }) {
       <p style={{ color: "var(--text-muted)", fontSize: 12, margin: "0 0 8px" }}>
         JPG, PNG, GIF, WebP ou MP4, até 50 MB por arquivo. O envio salva os arquivos imediatamente.
       </p>
-      {uploading && (
-        <div className="product-media-upload-stage" aria-live="polite">
+      {phase !== "idle" && (
+        <div className={`product-media-upload-stage product-media-upload-stage--${phase}`}>
           <div className="product-media-upload-stage__preview">
-            <span className="product-media-upload-stage__skeleton" aria-hidden="true" />
+            {(phase === "sending" || phase === "processing") && <span className="product-media-upload-stage__skeleton" aria-hidden="true" />}
             <div className="product-media-upload-stage__ring" role="progressbar"
               aria-label="Porcentagem de transferência de imagens e vídeos"
               aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadProgress}>
@@ -156,18 +199,26 @@ export function ProductMediaManager({ productId }: { productId: number }) {
             </div>
           </div>
           <div className="product-media-upload-stage__details">
-            <strong>{processing ? "Transferido; processando mídia…" : "Enviando imagem ou vídeo…"}</strong>
+            <strong role="status" aria-live="polite">{phase === "processing" ? "Transferido; processando mídia…"
+              : phase === "sending" ? "Enviando imagem ou vídeo…"
+                : phase === "success" ? "Upload concluído com sucesso" : "Falha no envio ou processamento"}</strong>
             <span>{activeFile}</span>
-            <small>{processing
-              ? "O envio terminou para este arquivo. Aguarde a validação e a gravação segura."
-              : "Porcentagem real dos bytes transferidos. A validação no servidor acontece depois."}</small>
+            {processingStartedAt !== null && <span className="product-media-upload-stage__elapsed" aria-live="off">
+              Tempo de processamento: <b>{formatDuration(processingSeconds)}</b>
+            </span>}
+            <small role="status" aria-live="polite">{uploadNotice}</small>
+            {phase === "error" && error && <small role="alert" className="product-media-upload-stage__error">{error}</small>}
+            {phase === "error" && <Button type="button" variant="ghost" size="sm" icon="refresh-cw"
+              loading={mediaQuery.isFetching} onClick={() => { void queryClient.invalidateQueries({ queryKey }) }}>
+              Atualizar galeria para conferir
+            </Button>}
           </div>
         </div>
       )}
       {mediaQuery.isLoading && <p style={{ fontSize: 13 }}>Carregando galeria…</p>}
       {mediaQuery.isError && <p role="alert" style={{ color: "#fb7185", fontSize: 13 }}>Falha ao abrir a galeria.</p>}
-      {error && <p role="alert" style={{ color: "#fb7185", fontSize: 13 }}>{error}</p>}
-      {message && <p role="status" style={{ color: "#83dfad", fontSize: 13 }}>{message}</p>}
+      {error && phase !== "error" && <p role="alert" style={{ color: "#fb7185", fontSize: 13 }}>{error}</p>}
+      {message && phase !== "success" && <p role="status" style={{ color: "#83dfad", fontSize: 13 }}>{message}</p>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 10, marginTop: 10 }}>
         {items.map((item) => (
           <div key={item.id} style={{ minWidth: 0, padding: 8, borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden" }}>
