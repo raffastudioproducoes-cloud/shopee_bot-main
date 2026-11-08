@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added / Changed — reutilização de mídias de Produto em campanhas (MINOR candidata 3.7.0)
+
+- Editor de Produtos: barra indeterminada sutil durante processamento do servidor, mantendo anel de bytes reais e cronômetro; cartão de progresso some com transição após sucesso e preserva erro até ação explícita.
+- Vídeos de Produto passam a possuir miniatura JPEG real, privada, sob demanda e reutilizável em Produtos e Campanhas, com cache para MP4 já existentes e fallback visual legível.
+- Campanhas: substitui upload de arquivos na preparação do item por seleção individual de imagem Shopee e fotos/vídeos salvos em Produtos (qualquer combinação, inclusive sem mídia nas redes compatíveis). A escolha é persistida no rascunho independente do Produto.
+- Backend valida UUIDs, conta/produto/status, copia selecionados para o Storage isolado da campanha antes do snapshot atômico de ativação, preserva anexos legados e cópias de reservas ativas. Sem nova migration, cron, gateway, serviço ou publicação externa.
+- Decisão SemVer: **MINOR candidata 3.7.0**, pois acrescenta comportamento compatível de mídia em campanhas; `VERSION=3.6.2` permanece oficial em `main` até homologação staging e aprovação expressa de Rafa. [Contrato técnico](docs/CAMPANHA-MIDIAS-PRODUTO-20261108.md).
+
 ## [3.6.2] - 2026-11-08
 
 ### Fixed / Changed — proxy de upload e status temporal (PATCH 3.6.1 → 3.6.2; aprovada por Rafa)
