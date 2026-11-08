@@ -1,4 +1,14 @@
-## 08/11/2026 — Release PATCH 3.6.2 autorizada por Rafa (promoção em andamento)
+## 08/11/2026 — Release PATCH 3.6.2 publicada e validada em produção
+
+- [x] Rafa informou que a correção passou na staging e autorizou PATCH/main, mantendo CI/SemVer/deploy como portões obrigatórios.
+- [x] PR release [#368](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/368), CI #1172 SUCCESS, staging `13d74a0f`, Render `dep-dbofjam8bjmc73b6gkrg` LIVE/health/ready/login 200, `VERSION=3.6.2`.
+- [x] PR produção [#369](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/369), CI #1174 + SemVer #12 SUCCESS, main `bf558c644d6f42b28baccf766eff0825e17a1d17`; Render `dep-dbofl50ae00c739m8bq0` LIVE no SHA, health/ready/login HTTP 200, HTML versão 3.6.2; logs sem requests 5xx novos, apenas SIGTERM do worker antigo.
+- [x] GitHub staging/main sem diferença de arquivos e ambos `VERSION=3.6.2`; nenhum DDL/cron/gateway/Storage/RLS/post real alterado.
+- [ ] Consolidar esta evidência no Projeto (PR documental) e espelhar no Vault pós-release; o QA autenticado em produção não foi repetido pelo agente.
+
+[Registro com provas e limites](RELEASE-3.6.2-20261108.md). Versão 3.6.2 é produção, não apenas candidata.
+
+## 08/11/2026 — Release PATCH 3.6.2 autorizada por Rafa (promoção em andamento; registro histórico)
 
 - [x] Rafa comunicou que os testes da staging passaram e **autorizou merge main, versionamento e documentação** da correção 502/cronômetro.
 - [x] Classificação SemVer **PATCH** da candidata `3.6.1 → 3.6.2`; `VERSION` e seção datada no CHANGELOG preparados para PR de staging.

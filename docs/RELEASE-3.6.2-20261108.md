@@ -1,6 +1,6 @@
 # Auto Orbital — release PATCH 3.6.2 (08/11/2026)
 
-**Estado inicial deste registro:** release autorizada por Rafa, promoção em andamento. Não interpretar a preparação como implantação concluída em produção.
+**Estado verificado:** release PATCH 3.6.2 aprovada por Rafa e publicada na `main` `bf558c644d6f42b28baccf766eff0825e17a1d17`, Render produção `dep-dbofl50ae00c739m8bq0` **LIVE no SHA exato**. `/health` e `/api/health/ready` retornaram `{"status":"ok"}`/HTTP 200, `/login` HTTP 200 e o HTML público contém a versão **3.6.2**. A janela de logs depois do deploy não mostrou novos requests 5xx; houve apenas SIGTERM esperado do worker antigo durante substituição.
 
 ## Autorização e versionamento
 
@@ -23,13 +23,14 @@
 - Testes locais da correção: **1.308 API**, **34 web**, **33 frontend da área**, **5 SemVer**, build TypeScript/Vite PASS. A execução exploratória da suíte estática total frontend teve falhas históricas fora da seleção oficial de CI, sem atribuição comprovada a este patch.
 - Vault pré-release: [registro 48](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/48-Correcao-502-Upload-Tempo-Processamento-2026-11-08.md) e PRs #87/#88.
 
-## Portões da promoção — preencher com fatos verificáveis
+## Portões da promoção — resultados verificados
 
-- [ ] PR de release para `staging`, CI íntegro e gate SemVer unitário; bump `VERSION=3.6.2` confirmado no GitHub.
-- [ ] Render staging LIVE no commit da release, `/health`, `/api/health/ready`, `/login` e versão 3.6.2 verificados.
-- [ ] PR `staging → main` com CI e **gate SemVer de main** SUCCESS, sem conflitos.
-- [ ] Render produção LIVE no commit efetivo de `main` após o merge, saúde e prontidão HTTP 200, login exibindo 3.6.2, sem novo erro relacionado ao deploy nos logs.
-- [ ] Documentação pós-merge Projeto/Vault: decisões, SHAs, CI, deploy, limites, pendências e links reconciliados.
+- [x] [PR de release para staging #368](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/368), [CI #1172](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42531022247) **SUCCESS** (API, frontend, PostgreSQL) e teste local SemVer 5/5 PASS. Merge staging `13d74a0f871223eea8ef8ea80ec17cdcceeb671f`; `VERSION=3.6.2` confirmado no GitHub.
+- [x] Render staging `dep-dbofjam8bjmc73b6gkrg` **LIVE** no SHA `13d74a0`; `/health`, `/api/health/ready` `status:ok` e `/login` HTTP 200. Sem novo request 5xx observado; SIGTERM do worker substituído esperado.
+- [x] [PR `staging → main` #369](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/369), [CI #1174](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42531343986) **SUCCESS**, incluindo HTTP staging externo, API, frontend, PostgreSQL; [gate SemVer #12](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42531343998) **SUCCESS**. Merge `main` `bf558c644d6f42b28baccf766eff0825e17a1d17`, sem conflitos.
+- [x] Render produção `dep-dbofl50ae00c739m8bq0` **LIVE** no SHA `bf558c6` (08/11/2026, 22:42 UTC); `/health` e `/api/health/ready` HTTP 200 `status:ok`, `/login` HTTP 200 e HTML mostrando 3.6.2. Logs sem requests 5xx novos na janela observada, apenas `SIGTERM` normal do processo antigo às 22:42:32 UTC.
+- [x] Comparação pós-release: GitHub `VERSION=3.6.2` em `staging` e `main`, **zero diferença de arquivos** entre branches, mesmo com histórico de commits distinto.
+- [ ] Sincronização documental pós-release: Projeto nesta PR documental e espelho Vault (README, Guia Mestre, TASK e release específica) após confirmação do deploy. Não confundir commit documental com nova correção operacional.
 
 ## Limites de validação e observabilidade
 
