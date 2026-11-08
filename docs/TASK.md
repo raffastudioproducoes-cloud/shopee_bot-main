@@ -1,10 +1,10 @@
-## 08/11/2026 — Release PATCH 3.6.1 autorizada por Rafa (EM PROMOÇÃO)
+## 08/11/2026 — Release PATCH 3.6.1 PUBLICADA E VALIDADA EM PRODUÇÃO
 
 - [x] Rafa homologou upload do MP4 e download da imagem Shopee na staging e autorizou o merge para `main`, incremento PATCH e documentos atualizados.
 - [x] Classificação SemVer: correção de compatibilidade/UX existente = `3.6.0 → 3.6.1`, sem DDL/RLS/cron/gateway nem publicações externas.
-- [ ] Bump `VERSION`, `CHANGELOG.md` e [contrato de release](RELEASE-3.6.1-20261108.md) integrados em staging com CI, deploy Render LIVE e versão 3.6.1 verificada.
-- [ ] PR `staging → main` com CI/SemVer SUCCESS; deploy produção LIVE no SHA, saúde, prontidão e UI 3.6.1 validadas.
-- [ ] Fechamento documental pós-produção no Projeto e Vault, incluindo trilha completa de decisões, CI, SHAs, testes e riscos residuais.
+- [x] `VERSION`, `CHANGELOG.md` e [contrato de release](RELEASE-3.6.1-20261108.md) em [PR #362](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/362), CI #1160 SUCCESS, staging `0d794a98`, Render `dep-dboe38e8bjmc73b4pek0` LIVE, endpoints OK, UI 3.6.1.
+- [x] [PR #363](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/363) com CI #1162 + SemVer #10 SUCCESS; merge main `982a58351bec2cdc42a80ad0aff728e02ae7f648`; Render produção `dep-dboe4uvb9u1s73dinre0` LIVE no SHA; `/health`/`/api/health/ready` OK e UI mostra 3.6.1. Paridade de arquivos main/staging comprovada.
+- [x] Vault [PR #85](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/85), documento [47](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/47-Release-Auto-Orbital-3-6-1-2026-11-08.md), TASK, README e Guia Mestre. Fechamento deste PR documental no Projeto registra decisões, CI, SHAs, testes, ressalvas e infraestrutura preservada.
 
 ## 08/11/2026 — MP4 de Produtos e experiência de upload (PATCH 3.6.1 candidata; STAGING)
 
@@ -14,9 +14,9 @@
 - [x] API completa: 1.308 testes PASS; frontend: 99 testes PASS; TypeScript/build PASS; vídeo real processado e sanitizado.
 - [x] **PR #360 → staging**: CI [#1156](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42520959009) (API, frontend, PostgreSQL descartável) SUCCESS; merge `1489aea4649be85a25eb1571a6baf0575ff8348d`; Render `dep-dbodr38473hc73ah2u00` LIVE no SHA correto; `/health` e `/api/health/ready` `status:ok` após período de troca de instância. Login público confirma 3.6.0. **QA autenticada/mobile ainda pendente**.
 - [x] Documentação Vault: [PR #84](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/84), merge `6d0354d46b1763b613f0237a6ff8a2b76837d5ed`, documento [46](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/46-MP4-Upload-Progresso-2026-11-08.md), TASK, README e Guia Mestre sincronizados.
-- [ ] Merge para `main` e incremento SemVer PATCH **somente depois de nova aprovação de Rafa**.
+- [x] Merge para `main` e incremento SemVer PATCH **após aprovação expressa de Rafa** — realizado em [PR #363](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/363), deploy produção LIVE e saúde OK.
 
-[Contrato técnico, segurança e testes](UPLOAD-MP4-PROGRESSO-20261108.md). Versão publicada permanece `3.6.0` enquanto esta mudança é somente de staging.
+[Contrato técnico, segurança e testes](UPLOAD-MP4-PROGRESSO-20261108.md). **Nota histórica:** esta etapa começou em staging 3.6.0 e foi promovida à produção com a versão 3.6.1 após autorização e gates verdes; ver [release](RELEASE-3.6.1-20261108.md).
 
 ## 08/11/2026 — Release 3.6.0: PROMOVIDA E VALIDADA EM PRODUÇÃO; QA AUTENTICADA PENDENTE
 
