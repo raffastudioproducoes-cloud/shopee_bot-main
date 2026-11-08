@@ -4,8 +4,8 @@
 - [x] Corrigir preflight de forma limitada, reencodar e ressanitizar estritamente; reutilizar pipeline em Produtos e Posts sem ampliar formatos/limites de upload.
 - [x] Interface com sombra, skeleton, progresso circular medido de 0–100% na transferência, estado de processamento à parte, miniatura acessível/fallback e responsividade.
 - [x] API completa: 1.308 testes PASS; frontend: 99 testes PASS; TypeScript/build PASS; vídeo real processado e sanitizado.
-- [ ] PR para staging, CI remoto verde e deploy/smoke de staging; QA autenticada/mobile a confirmar.
-- [ ] Documentação Vault sincronizada com resultados definitivos de staging.
+- [x] **PR #360 → staging**: CI [#1156](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42520959009) (API, frontend, PostgreSQL descartável) SUCCESS; merge `1489aea4649be85a25eb1571a6baf0575ff8348d`; Render `dep-dbodr38473hc73ah2u00` LIVE no SHA correto; `/health` e `/api/health/ready` `status:ok` após período de troca de instância. Login público confirma 3.6.0. **QA autenticada/mobile ainda pendente**.
+- [x] Documentação Vault: [PR #84](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/84), merge `6d0354d46b1763b613f0237a6ff8a2b76837d5ed`, documento [46](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/46-MP4-Upload-Progresso-2026-11-08.md), TASK, README e Guia Mestre sincronizados.
 - [ ] Merge para `main` e incremento SemVer PATCH **somente depois de nova aprovação de Rafa**.
 
 [Contrato técnico, segurança e testes](UPLOAD-MP4-PROGRESSO-20261108.md). Versão publicada permanece `3.6.0` enquanto esta mudança é somente de staging.

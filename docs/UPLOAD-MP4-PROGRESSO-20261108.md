@@ -24,9 +24,11 @@
 
 ## Testes e aceite
 
+**Espelho documental no Vault:** [documento 46](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/46-MP4-Upload-Progresso-2026-11-08.md), [PR #84](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/84) merge `6d0354d46b1763b613f0237a6ff8a2b76837d5ed`, com TASK, README e Guia Mestre atualizados após deploy staging. Documentação não autoriza produção.
+
 - Backend: testes de preflight estrito/relaxado com uuid (topo, aninhado, tamanho e caixas proibidas), reencodificação, MIME/extensão falsa e rota de Produtos com Supabase fake. Teste separado com o **MP4 real enviado** confirma saída reconstruída de 1.272.047 bytes.
 - Frontend: novo contrato Node/CI para XHR, progresso acumulado, anel acessível, skeleton/sombra e movimento reduzido; regressões de carrossel, miniaturas e Produto mantidas. `npm run build` valida TypeScript/Vite.
-- [ ] PR em staging, CI e deploy Render LIVE com health/readiness OK; preencher SHAs/links reais após validação.
+- [x] [PR #360](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/360) mergeada **apenas em staging** `1489aea4649be85a25eb1571a6baf0575ff8348d`, [CI #1156](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42520959009) SUCCESS (API+lint, frontend+build e PostgreSQL descartável). Testes locais: **1.308 API PASS**, **99 frontend PASS**, `npm run build` PASS, vídeo real reproduziu sanitização de 3.901.039→1.272.047 bytes. Render staging `dep-dbodr38473hc73ah2u00` **LIVE**, vinculado ao SHA exato; `/health` retorna `status:ok`, `/api/health/ready` inicialmente deu indisponibilidade transitória durante a troca de instância, e em novo teste retornou `status:ok`. Login público exibiu versão **3.6.0**. Sem QA autenticada na galeria nem upload externo real.
 - [ ] Rafa confirmar com login a mesma amostra MP4 em Android/desktop, porcentagem de transferência, estado de processamento, reprodução da miniatura e confirmação de persistência; testar imagem e falhas de rede. Teste externo de upload autenticado não executado pelo agente.
 - [ ] Somente depois de autorização explícita criar release PATCH 3.6.1 e PR `staging → main`, com novo CI/SemVer e confirmação de deploy. Preservar produção 3.6.0 até essa decisão.
 
