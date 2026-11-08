@@ -52,6 +52,14 @@ export interface ProductsResponse {
 }
 
 export const productsApi = {
+  /** Download com cookie httpOnly, mesmo quando o backend usa origem distinta. */
+  async downloadImage(id: number): Promise<{ blob: Blob; filename: string }> {
+    const { blob, mimeType } = await api.download(`/products/${id}/image/download`)
+    const extension = mimeType === 'image/png' ? '.png'
+      : mimeType === 'image/webp' ? '.webp'
+      : mimeType === 'image/gif' ? '.gif' : '.jpg'
+    return { blob, filename: `shopee-produto-${id}${extension}` }
+  },
   async list(params?: {
     search?: string
     category?: string

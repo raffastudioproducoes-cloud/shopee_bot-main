@@ -1,3 +1,13 @@
+## 08/11/2026 — Produtos → posts/campanhas e download de foto (IMPLEMENTADO LOCALMENTE; STAGING E HOMOLOGAÇÃO PENDENTES)
+
+- [x] Corrigir seleção aninhada de listas para incluir `products.description`; herdar cópia padrão no snapshot de nova campanha.
+- [x] Herança da descrição salva em Produtos em Criar POST (agora e recorrente), mantendo texto manual/IA local separado.
+- [x] IA por item da campanha, usando provedor global, e ação de restaurar descrição-base sem alterar catálogo; proteção contra resultado assíncrono obsoleto.
+- [x] Download seguro da imagem principal Shopee a partir de Produtos, com escopo de conta, limitação e sanitização.
+- [ ] Publicar branch/PR para **staging**, validar CI verde, SHA do merge e deploy Render LIVE com endpoints de saúde; realizar QA autenticado de fluxo de edição/download desktop/mobile. **Não publicar posts reais** no teste.
+- [ ] Documentar evidências finais em Projeto e Vault e apresentar a Rafa para aprovação explícita antes de abrir merge na `main`. `VERSION=3.5.0` por enquanto; MINOR 3.6.0 candidata quando autorizada.
+- Contrato, segurança, limites e roteiro de aceitação: [PRODUTOS-DESCRICOES-CAMPANHAS-20261108.md](PRODUTOS-DESCRICOES-CAMPANHAS-20261108.md). Galeria adicional privada não é importada automaticamente em posts/campanhas nesta tarefa.
+
 ## 07/11/2026 — Fechamento de produção 3.5.0 (CONCLUÍDO) e plano de segurança (ANÁLISE CONCLUÍDA, MITIGAÇÃO PENDENTE)
 
 - **Produção confirmada antes da documentação:** PR #350 CI #1136 SUCCESS, staging `4970f780` Render `dep-dbnr8dqvcj2c738oi1lg` LIVE; PR #351 CI #1138 e SemVer #6 SUCCESS, `main` `435c80afc0b9f37e6439198a538b1d956155c601`, Render `dep-dbnr9vq9lscs73ccndpg` LIVE, `/health` e `/api/health/ready` HTTP 200, sem erro de aplicação observado após startup do novo worker. `VERSION=3.5.0`, branches sem diff de arquivos no gate. Supabase conserva os dois `pg_cron` (`*/12`, `*/2`) ativos; migrações 090–094 já presentes e não reaplicadas. [Documento de release](RELEASE-3.5.0-20261107.md).

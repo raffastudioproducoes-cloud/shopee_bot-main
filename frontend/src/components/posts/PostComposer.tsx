@@ -22,6 +22,7 @@ import { PostLivePreview } from "./PostLivePreview"
 import { planMediaComposition } from "../../lib/mediaComposition"
 import { filterPicked, pickLimits, pickNotice } from "../../lib/mediaAdapt"
 import { moveItem } from "../../lib/mediaTray"
+import { inheritProductCopy } from "../../lib/productCopy"
 import {
   NetworkLimitsPanel,
   NetworkPicker,
@@ -132,6 +133,8 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
   const [aiAutoContinuation, setAiAutoContinuation] = useState(false)
   const [aiAdjustmentNotice, setAiAdjustmentNotice] = useState<string | null>(null)
   const aiProductRef = useRef<number | null>(null)
+  const inheritedCopyRef = useRef<string | null>(null)
+  const prefetchedProductRef = useRef<number | null>(null)
   const [pickMessage, setPickMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Redes que já deram certo no último envio saem da seleção: reenviar só
@@ -202,7 +205,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
   })
   const products = productPages.data?.pages.flatMap((page) => page.data) ?? []
   const lists = listPages.data?.pages.flatMap((page) => page.data) ?? []
-  const productIndex = new Map<number, Pick<Product, "id" | "name" | "image">>()
+  const productIndex = new Map<number, Pick<Product, "id" | "name" | "description" | "image">>()
   for (const original of post?.products ?? []) productIndex.set(original.id, original)
   for (const list of lists) {
     for (const product of list.products ?? []) productIndex.set(product.id, product)
@@ -212,6 +215,31 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     const product = productIndex.get(id)
     return product ? [product] : []
   })
+  const selectedProductId = selectedProducts[0]?.id ?? null
+  const selectedProductDescription = selectedProducts[0]?.description ?? null
+  useEffect(() => {
+    inheritedCopyRef.current = null
+    prefetchedProductRef.current = null
+  }, [postDraftKey])
+
+  useEffect(() => {
+    if (post || selectedProductId === null) {
+      prefetchedProductRef.current = null
+      return
+    }
+    if (prefetchedProductRef.current === selectedProductId) return
+    const before = texts[0] ?? ""
+    const next = inheritProductCopy(before, inheritedCopyRef.current, selectedProductDescription)
+    if (next !== before) {
+      setTexts((current) => (current[0] ?? "") === before ? [next, ...current.slice(1)] : current)
+      setVariantTexts({})
+      setAiAutoContinuation(false)
+      inheritedCopyRef.current = next
+    } else {
+      inheritedCopyRef.current = before === (selectedProductDescription?.trim() ?? "") ? before : null
+    }
+    prefetchedProductRef.current = selectedProductId
+  }, [post, selectedProductId, selectedProductDescription])
   const importablePhotos = !post && useShopeeImages ? selectedProducts.filter((p) => !!p.image) : []
   // Serviço de IA da plataforma: nenhuma chave por usuário ou perfil.
   const { data: aiStatus } = useQuery({

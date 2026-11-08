@@ -11,7 +11,7 @@ export interface CampaignItemSnapshot {
   useShopeeImage: boolean
 }
 
-type SnapshotProduct = Pick<Product, "id" | "name" | "image" | "commission_link">
+type SnapshotProduct = Pick<Product, "id" | "name" | "description" | "image" | "commission_link">
 type SnapshotMap = Record<number, CampaignItemSnapshot>
 const NETWORKS: readonly PostNetwork[] = ["threads", "x", "facebook", "instagram", "tiktok"]
 const MAX_TEXT = 10000
@@ -29,7 +29,7 @@ function textOr(value: unknown, fallback: string, max = MAX_TEXT): string {
 export function createCampaignSnapshot(product: SnapshotProduct): CampaignItemSnapshot {
   return {
     title: product.name,
-    copy: "",
+    copy: product.description?.trim() ?? "",
     affiliateLink: product.commission_link ?? "",
     networks: [],
     networkCopies: {},

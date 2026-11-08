@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added / Fixed — Descrição do catálogo em posts/campanhas e download da imagem Shopee (MINOR candidata 3.6.0, 08/11/2026)
+
+- Produtos: botão para baixar a imagem principal Shopee diretamente do card expandido, com rota autenticada e escopo de conta, validação estrita do CDN, sanitização, limite de tamanho, quota distribuída e erro apresentado na interface.
+- Listas: a API inclui `description` dos produtos vinculados. Uma nova campanha inicia a cópia de cada item com a descrição realmente salva em Produtos; rascunhos previamente editados mantêm suas próprias cópias.
+- Criar POST: publicação imediata e recorrente herdam a descrição do produto escolhido, salvo quando já há texto próprio. Edição manual e IA na publicação não mudam `products.description`.
+- Campanhas: geração de descrição IA por produto/persona e botão explícito para restaurar a descrição do catálogo, sem gravar no produto-base e sem sobrescrever edição concorrente durante a geração.
+- Sem migration, mudança de RLS, scheduler, `pg_cron`, `pg_net`, chaves ou publicação real. Documentação em [contrato de herança](docs/PRODUTOS-DESCRICOES-CAMPANHAS-20261108.md). `VERSION=3.5.0` preservada até aprovação de release.
+
 ### Docs — Fechamento confirmado 3.5.0 e checklist recorrente de segurança (07/11/2026)
 
 - Após CI/SemVer, staging e `main` foram validadas em Render LIVE na versão 3.5.0; evidências documentadas em `docs/RELEASE-3.5.0-20261107.md`, sem nova alteração operacional.

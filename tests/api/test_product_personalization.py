@@ -93,6 +93,66 @@ def _client(fake_db, monkeypatch, medias=None):
     return TestClient(app), db
 
 
+def test_shopee_image_download_returns_sanitized_attachment_without_storage_write(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+
+    async def trusted_image(url):
+        assert url == "https://cf.shopee.com.br/img"
+        return bytearray(_jpeg() + b"<script>not-image-content</script>")
+
+    monkeypatch.setattr(products_module, "_download_shopee_image", trusted_image)
+    response = client.get("/products/7/image/download")
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("image/jpeg")
+    assert response.headers["content-disposition"] == 'attachment; filename="shopee-produto-7.jpg"'
+    assert response.headers["cache-control"] == "private, no-store"
+    assert response.content.startswith(b"\xff\xd8\xff")
+    assert b"<script>" not in response.content
+    assert db.storage.uploads == []
+
+
+def test_shopee_image_download_never_fetches_foreign_or_missing_product(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+
+    async def forbidden_image(_url):
+        raise AssertionError("Não deve consultar origem de outro usuário ou sem foto")
+
+    monkeypatch.setattr(products_module, "_download_shopee_image", forbidden_image)
+    db.tables["products"][0]["user_id"] = 99
+    assert client.get("/products/7/image/download").status_code == 404
+    db.tables["products"][0]["user_id"] = 42
+    db.tables["products"][0]["image"] = None
+    assert client.get("/products/7/image/download").status_code == 404
+
+
+def test_shopee_image_download_rejects_non_image_bytes(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+
+    async def invalid_image(_url):
+        return bytearray("<html>não é foto</html>".encode("utf-8"))
+
+    monkeypatch.setattr(products_module, "_download_shopee_image", invalid_image)
+    assert client.get("/products/7/image/download").status_code == 415
+    assert db.storage.uploads == []
+
+
+def test_shopee_image_download_requires_session():
+    app.dependency_overrides.clear()
+    assert TestClient(app).get("/products/7/image/download").status_code == 401
+
+
+def test_shopee_image_download_respects_distributed_rate_limit(fake_db, monkeypatch):
+    client, _db = _client(fake_db, monkeypatch)
+    monkeypatch.setattr(products_module.rate_limit_store, "distributed_enabled", lambda: True)
+    monkeypatch.setattr(products_module.rate_limit_store, "allow_window", lambda *args: False)
+
+    async def forbidden_fetch(_url):
+        raise AssertionError("A cota é validada antes de buscar no CDN")
+
+    monkeypatch.setattr(products_module, "_download_shopee_image", forbidden_fetch)
+    assert client.get("/products/7/image/download").status_code == 429
+
+
 def test_media_upload_is_private_scoped_and_persistent(fake_db, monkeypatch):
     client, db = _client(fake_db, monkeypatch)
     result = client.post("/products/7/media", files={"file": ("foto.jpg", _jpeg(), "image/jpeg")})
