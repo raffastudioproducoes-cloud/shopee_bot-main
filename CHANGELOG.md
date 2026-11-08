@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Docs — Reconciliação da release 3.6.0 depois do deploy de produção (08/11/2026; sem novo bump)
+
+- Após merge e saúde da produção, atualizados README, AGENTS, Guia Mestre, regras, arquitetura, produto, UX, TASK, contrato e Vault para refletir o estado real 3.6.0 e preservar limites de QA. Registro [RELEASE-3.6.0-20261108](docs/RELEASE-3.6.0-20261108.md). Somente documentação; `VERSION=3.6.0` permanece.
+
 ## [3.6.0] - 2026-11-08
 
 ### Added / Fixed — Descrição do catálogo em posts/campanhas e download da imagem Shopee (MINOR, 08/11/2026)
@@ -15,6 +19,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Campanhas: geração de descrição IA por produto/persona e botão explícito para restaurar a descrição do catálogo, sem gravar no produto-base e sem sobrescrever edição concorrente durante a geração.
 - Sem migration, mudança de RLS, scheduler, `pg_cron`, `pg_net`, chaves ou publicação real. Documentação em [contrato de herança](docs/PRODUTOS-DESCRICOES-CAMPANHAS-20261108.md). Release compatível **3.5.0 → 3.6.0**, aprovada por Rafa para promoção à produção em 08/11/2026; versionamento formalizado primeiro na `staging`.
 - **Evidência staging 08/11:** [PR #354](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/354), [CI #1144 SUCCESS](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42514522631), merge `dd83a36c`, Render `dep-dbocnrp42hec73d9crm0` LIVE, `/health` e `/api/health/ready` OK. QA autenticada de Produto/Post/Campanha ainda pendente; `main` intocada.
+- **Promoção posterior autorizada 08/11:** PR #356 CI #1148 SUCCESS e staging `91926bbf` LIVE; [PR #357](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/357) CI #1150 e SemVer #8 SUCCESS → `main` SHA `699e81bd18e2b12fc3824f914045627a45844cc2`, CI push #1151 SUCCESS, Render produção `dep-dbod0q7b9u1s73dhci7g` LIVE; health/ready OK e login 3.6.0. A nota de `main intocada` da linha anterior descreve a etapa anterior do processo, não o estado atual. [Fechamento](docs/RELEASE-3.6.0-20261108.md).
 
 ### Docs — Fechamento confirmado 3.5.0 e checklist recorrente de segurança (07/11/2026)
 
