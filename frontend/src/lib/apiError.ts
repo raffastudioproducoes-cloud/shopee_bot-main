@@ -1,7 +1,7 @@
 /** Normaliza o corpo de erro da API (FastAPI) num texto legível em pt-BR.
  *
  * Formatos tratados: `detail` string; `detail` lista de erros de validação
- * 422 do Pydantic (`{loc, msg, type}`); objetos `{message}` / `{detail}`.
+ * 422 do Pydantic (`{loc, msg, type}`); objetos `{message}` / `{detail}` / `{error}`.
  * Nunca devolve "[object Object]". */
 
 const FIELD_LABELS: Record<string, string> = {
@@ -65,6 +65,7 @@ export function formatApiError(body: unknown, status?: number): string {
     const obj = body as Record<string, unknown>
     if ("detail" in obj) return formatApiError(obj.detail, status)
     if (typeof obj.message === "string" && obj.message) return obj.message
+    if (typeof obj.error === "string" && obj.error) return obj.error
   }
   return fallback
 }
