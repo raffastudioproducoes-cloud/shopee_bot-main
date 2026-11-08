@@ -1,3 +1,15 @@
+## 08/11/2026 — MP4 de Produtos e experiência de upload (PATCH 3.6.1 candidata; STAGING)
+
+- [x] Diagnosticar MP4 fornecido: H.264/AAC válido, 3,9 MB, caixa `uuid` de topo recusada pela allowlist de armazenamento antes de FFmpeg.
+- [x] Corrigir preflight de forma limitada, reencodar e ressanitizar estritamente; reutilizar pipeline em Produtos e Posts sem ampliar formatos/limites de upload.
+- [x] Interface com sombra, skeleton, progresso circular medido de 0–100% na transferência, estado de processamento à parte, miniatura acessível/fallback e responsividade.
+- [x] API completa: 1.308 testes PASS; frontend: 99 testes PASS; TypeScript/build PASS; vídeo real processado e sanitizado.
+- [ ] PR para staging, CI remoto verde e deploy/smoke de staging; QA autenticada/mobile a confirmar.
+- [ ] Documentação Vault sincronizada com resultados definitivos de staging.
+- [ ] Merge para `main` e incremento SemVer PATCH **somente depois de nova aprovação de Rafa**.
+
+[Contrato técnico, segurança e testes](UPLOAD-MP4-PROGRESSO-20261108.md). Versão publicada permanece `3.6.0` enquanto esta mudança é somente de staging.
+
 ## 08/11/2026 — Release 3.6.0: PROMOVIDA E VALIDADA EM PRODUÇÃO; QA AUTENTICADA PENDENTE
 
 - [x] **Autorização e SemVer:** Rafa liberou merge de staging para main após testes; incremento MINOR `3.5.0→3.6.0`, VERSION/CHANGELOG, [PR #356](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/356) CI #1148 SUCCESS, staging SHA `91926bbf2d9de2dc187225d000dc391cee021659`, CI push #1149 SUCCESS, Render staging `dep-dbocuv942hec73d9lqng` LIVE e saúde OK.

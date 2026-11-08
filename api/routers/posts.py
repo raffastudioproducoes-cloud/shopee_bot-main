@@ -28,7 +28,6 @@ fluxo do usuário. Kwai fica de fora do mapa, sem API pública confirmada.
 import logging
 import uuid
 from PIL import Image
-from dataclasses import replace
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
 import re
@@ -52,11 +51,11 @@ from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail, is_network_disabled
 from ..media_composition import plan_network_composition
 from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload, detect_media_type
+from ..media_upload_pipeline import prepare_media_upload
 from ..shopee_images import (
     SHOPEE_IMAGE_HOSTS, MAX_PRODUCT_IMAGE_BYTES,
     _check_shopee_image_url, _download_shopee_image,
 )
-from ..video_processor import process_video_upload
 from .. import x_oauth
 from ..text_variants import generate_variants, generate_thread_replies, generate_short_product_description, MAX_THREAD_PARTS
 from ..internal_client import (
@@ -182,15 +181,12 @@ async def _sanitize_upload(file: UploadFile, content: bytes | bytearray):
     """Valida e reconstrói mídia antes do Storage; falha sem eco do conteúdo."""
     try:
         media = await run_in_threadpool(
-            sanitize_media_upload,
+            prepare_media_upload,
             content,
             filename=file.filename,
             content_type=file.content_type,
             max_bytes=MAX_MEDIA_BYTES,
         )
-        if media.media_type == "VIDEO":
-            clean = await run_in_threadpool(process_video_upload, media.content, max_bytes=MAX_MEDIA_BYTES)
-            media = replace(media, content=clean)
         return media
     except MediaSanitizerError as exc:
         logger.info(

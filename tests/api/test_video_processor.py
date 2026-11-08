@@ -6,6 +6,7 @@ import subprocess
 import pytest
 
 from api.media_sanitizer import MediaSanitizerError
+from api.media_upload_pipeline import prepare_media_upload
 from api.video_processor import process_video_upload
 
 
@@ -28,6 +29,35 @@ def test_video_is_reencoded_without_input_metadata(short_video):
     assert clean != short_video
     assert b"PRIVATE_TEST_MARKER" not in clean
     assert clean[4:8] == b"ftyp"
+
+
+def test_google_style_uuid_video_is_rebuilt_before_strict_storage_validation(short_video):
+    extra = b"GOOGLE_MP4_PRIVATE_METADATA" + b"X" * 64
+    uuid_box = (8 + len(extra)).to_bytes(4, "big") + b"uuid" + extra
+    # Anexar após as caixas existentes evita invalidar offsets internos de mdat.
+    imported = short_video + uuid_box
+
+    media = prepare_media_upload(
+        imported, filename="celular.mp4", content_type="video/mp4", max_bytes=50 * 1024 * 1024,
+    )
+    assert media.media_type == "VIDEO"
+    assert media.content != imported
+    assert b"GOOGLE_MP4_PRIVATE_METADATA" not in media.content
+    assert b"PRIVATE_TEST_MARKER" not in media.content
+    assert media.content[4:8] == b"ftyp"
+
+
+def test_video_upload_checks_mime_and_extension_before_transcoding(short_video, monkeypatch):
+    from api import media_upload_pipeline
+
+    def should_not_decode(*args, **kwargs):
+        raise AssertionError("não executar ffmpeg com MIME/extensão falsos")
+
+    monkeypatch.setattr(media_upload_pipeline, "process_video_upload", should_not_decode)
+    with pytest.raises(MediaSanitizerError, match="tipo informado"):
+        prepare_media_upload(short_video, filename="video.mp4", content_type="image/jpeg", max_bytes=50 * 1024 * 1024)
+    with pytest.raises(MediaSanitizerError, match="extensão"):
+        prepare_media_upload(short_video, filename="video.mov", content_type="video/mp4", max_bytes=50 * 1024 * 1024)
 
 
 def test_structural_mp4_without_decodable_video_fails_closed():
