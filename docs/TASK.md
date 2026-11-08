@@ -1,7 +1,7 @@
-## 08/11/2026 — Mídias permanentes em campanhas e posters MP4 (autorizado; staging pendente)
+## 08/11/2026 — Mídias permanentes em campanhas e posters MP4 (staging LIVE; QA de Rafa pendente)
 
 - [x] Rafa aprovou o desenho e pediu que o painel de upload suma após sucesso, com animação discreta durante processamento; [x] miniatura real JPEG para vídeo legado e novo em Produtos/Campanhas; [x] seletor de foto Shopee/adicionais/ambos/nenhum, sem upload na edição da campanha; [x] snapshots por produto, validação no backend e cópias privadas na ativação mantendo anexos antigos.
-- [x] Testes frontend Node CI completos **102/102 PASS**, build Vite/TypeScript PASS, backend `py_compile` PASS, extração de frame FFmpeg verificada. [ ] Testes pytest API (ambiente local sem dependências; validar na CI GitHub); [ ] PR CI e staging Render LIVE; [ ] QA Android autenticada de Rafa; [ ] após autorização específica, MINOR 3.7.0/main/documentação final.
+- [x] Testes frontend Node CI completos **102/102 PASS**, build Vite/TypeScript PASS, backend `py_compile` PASS, extração de frame FFmpeg verificada. [x] Pytest API **1.314 PASS** (CI #1181; primeira CI #1180 detectou mock de Storage incompleto, corrigido); [x] PR [#372](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/372) → staging `755fb84`; [x] Render `dep-dbognenb9u1s73dle02g` **LIVE**, `/health`, `/ready`, `/login` HTTP 200, poster privado sem sessão HTTP 401 e sem request 5xx na janela observada; [ ] QA Android autenticada de Rafa; [ ] após autorização específica, MINOR 3.7.0/main/documentação final.
 - [Contrato e riscos](CAMPANHA-MIDIAS-PRODUTO-20261108.md). Versão oficial e produção **3.6.2** mantidas; Supabase/crons/segredos/publicação externa não modificados.
 
 ## 08/11/2026 — Release PATCH 3.6.2 publicada e validada em produção
