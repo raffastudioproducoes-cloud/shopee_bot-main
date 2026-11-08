@@ -31,7 +31,10 @@ Rafa autorizou implementar e testar **somente em staging**; a promoção para `m
 ## Evidências e gates
 
 - Testes unitários locais específicos de backend e frontend, `npm run build` e regressões do CI executados antes de PR.
-- **A preencher após integração:** PR → staging, CI GitHub, SHA do merge, deploy Render staging LIVE, `/health`, `/api/health/ready`, QA funcional autenticado, pendências.
+- **GitHub:** [PR #354](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/354) mesclado somente em staging, commit `dd83a36c5062d9d8db377110ba6c5980f594962e`, [CI #1144](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42514522631) SUCCESS (API + frontend + PostgreSQL de teste; teste externo foi skipped).
+- **Local:** 1.300/1.300 API, 208 scheduler + 1 xfail esperado, 9 banco, 27 web/CSP, 96 contratos obrigatórios frontend, 18 contratos direcionados, build Vite/TypeScript e `git diff --check` sem falhas. O executor local precisou de suporte socks5 em razão do proxy; não houve mudança em requirements do projeto.
+- **Render:** `dep-dbocnrp42hec73d9crm0` LIVE em `shopee-bot-staging`, SHA igual ao merge. Rotas públicas `/health` e `/api/health/ready` responderam `{ "status": "ok" }` no navegador; logs exibiram startup concluído do Uvicorn, nenhuma migration nova e scheduler existente inicializado.
+- **Homologação restante:** não há sessão autenticada no navegador de teste; `/products` redirecionou corretamente a `/login`. Rafa deve testar visualmente os fluxos listados abaixo, sem publicações reais, antes de autorizar `main`. Não afirmar integração de IA com provedor externo nem download de CDN real sem esses testes.
 - Versão vigente: `3.5.0`; funcionalidade compatível candidata à próxima **MINOR 3.6.0** somente quando houver release aprovada. Em staging, registrar no `[Não lançado]` e não mudar `VERSION`.
 
 ## Matriz mínima de aceitação manual

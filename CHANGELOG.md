@@ -12,6 +12,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Criar POST: publicação imediata e recorrente herdam a descrição do produto escolhido, salvo quando já há texto próprio. Edição manual e IA na publicação não mudam `products.description`.
 - Campanhas: geração de descrição IA por produto/persona e botão explícito para restaurar a descrição do catálogo, sem gravar no produto-base e sem sobrescrever edição concorrente durante a geração.
 - Sem migration, mudança de RLS, scheduler, `pg_cron`, `pg_net`, chaves ou publicação real. Documentação em [contrato de herança](docs/PRODUTOS-DESCRICOES-CAMPANHAS-20261108.md). `VERSION=3.5.0` preservada até aprovação de release.
+- **Evidência staging 08/11:** [PR #354](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/354), [CI #1144 SUCCESS](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42514522631), merge `dd83a36c`, Render `dep-dbocnrp42hec73d9crm0` LIVE, `/health` e `/api/health/ready` OK. QA autenticada de Produto/Post/Campanha ainda pendente; `main` intocada.
 
 ### Docs — Fechamento confirmado 3.5.0 e checklist recorrente de segurança (07/11/2026)
 

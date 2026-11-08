@@ -1,11 +1,13 @@
-## 08/11/2026 — Produtos → posts/campanhas e download de foto (IMPLEMENTADO LOCALMENTE; STAGING E HOMOLOGAÇÃO PENDENTES)
+## 08/11/2026 — Produtos → posts/campanhas e download de foto (STAGING LIVE; HOMOLOGAÇÃO AUTENTICADA PENDENTE)
 
 - [x] Corrigir seleção aninhada de listas para incluir `products.description`; herdar cópia padrão no snapshot de nova campanha.
 - [x] Herança da descrição salva em Produtos em Criar POST (agora e recorrente), mantendo texto manual/IA local separado.
 - [x] IA por item da campanha, usando provedor global, e ação de restaurar descrição-base sem alterar catálogo; proteção contra resultado assíncrono obsoleto.
 - [x] Download seguro da imagem principal Shopee a partir de Produtos, com escopo de conta, limitação e sanitização.
-- [ ] Publicar branch/PR para **staging**, validar CI verde, SHA do merge e deploy Render LIVE com endpoints de saúde; realizar QA autenticado de fluxo de edição/download desktop/mobile. **Não publicar posts reais** no teste.
-- [ ] Documentar evidências finais em Projeto e Vault e apresentar a Rafa para aprovação explícita antes de abrir merge na `main`. `VERSION=3.5.0` por enquanto; MINOR 3.6.0 candidata quando autorizada.
+- [x] PR [#354](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/354) integrado **somente em staging** no SHA `dd83a36c5062d9d8db377110ba6c5980f594962e`; [CI #1144](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42514522631) SUCCESS: API, frontend/build, PostgreSQL de teste verde (teste externo não executado pelo job).
+- [x] Render `shopee-bot-staging` deploy `dep-dbocnrp42hec73d9crm0` **LIVE** no SHA do PR; `/health` e `/api/health/ready` observados no navegador retornando `{"status":"ok"}`. Backend inicia normalmente, migration 087–094 já aplicada e ignorada, scheduler preservado.
+- [ ] QA **autenticada** desktop/mobile: baixar imagem original, verificar herança de descrição em novo post agora/recorrente/campanha, geração IA local, restauração de texto e rascunho legado. Página `/products` exige login; sem sessão autenticada não foi possível validar visualmente esses fluxos. **Não publicar posts reais** no teste.
+- [ ] Rafa homologar a staging e dar autorização explícita antes de abrir merge na `main`. `VERSION=3.5.0` por enquanto; MINOR 3.6.0 candidata quando autorizada. Documentação Projeto/Vault permanece rastreada neste acompanhamento.
 - Contrato, segurança, limites e roteiro de aceitação: [PRODUTOS-DESCRICOES-CAMPANHAS-20261108.md](PRODUTOS-DESCRICOES-CAMPANHAS-20261108.md). Galeria adicional privada não é importada automaticamente em posts/campanhas nesta tarefa.
 
 ## 07/11/2026 — Fechamento de produção 3.5.0 (CONCLUÍDO) e plano de segurança (ANÁLISE CONCLUÍDA, MITIGAÇÃO PENDENTE)
