@@ -2,13 +2,37 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRef, useState } from "react"
 import { productsApi, type ProductMedia } from "../../api/products"
 import { Button } from "../ui/Button"
+import "./productMediaManager.css"
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024
+const RING_CIRCUMFERENCE = 2 * Math.PI * 40
+
+function MediaThumbnail({ item }: { item: ProductMedia }) {
+  const [ready, setReady] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  return (
+    <div className="product-media-card__visual">
+      {!ready && !failed && <span className="product-media-card__skeleton" aria-label="Carregando pré-visualização" />}
+      {failed ? <span className="product-media-card__fallback">Prévia indisponível</span> : item.media_type === "VIDEO" ? (
+        <video src={item.preview_url} controls preload="metadata"
+          onLoadedMetadata={() => setReady(true)} onLoadedData={() => setReady(true)}
+          onError={() => setFailed(true)} />
+      ) : (
+        <img src={item.preview_url} alt={item.file_name} loading="lazy"
+          onLoad={() => setReady(true)} onError={() => setFailed(true)} />
+      )}
+    </div>
+  )
+}
 
 export function ProductMediaManager({ productId }: { productId: number }) {
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [activeFile, setActiveFile] = useState("")
+  const [processing, setProcessing] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
@@ -25,21 +49,34 @@ export function ProductMediaManager({ productId }: { productId: number }) {
 
   const handleUpload = async (files: FileList | null) => {
     if (!files?.length || uploading) return
+    const selected = Array.from(files)
+    const totalBytes = Math.max(1, selected.reduce((sum, file) => sum + file.size, 0))
     setError("")
     setMessage("")
     setUploading(true)
+    setUploadProgress(0)
+    setProcessing(false)
     try {
       let imageCount = images.length
       let videoCount = videos.length
-      for (const file of Array.from(files)) {
+      let sentBytes = 0
+      for (const [index, file] of selected.entries()) {
+        setActiveFile(`${index + 1}/${selected.length} · ${file.name}`)
+        setProcessing(false)
         const isVideo = file.type === "video/mp4" || file.name.toLowerCase().endsWith(".mp4")
         const isImage = /^(image\/(jpeg|png|gif|webp))$/.test(file.type)
         if (!isVideo && !isImage) throw new Error("Aceitamos imagens JPG/PNG/GIF/WebP e vídeos MP4.")
+        if (!file.size) throw new Error("O arquivo está vazio.")
         if (file.size > MAX_FILE_BYTES) throw new Error("Cada arquivo deve ter até 50 MB.")
         if (isVideo ? videoCount >= 2 : imageCount >= 5) {
           throw new Error(isVideo ? "O limite de 2 vídeos foi atingido." : "O limite de 5 imagens foi atingido.")
         }
-        await productsApi.uploadMedia(productId, file)
+        await productsApi.uploadMedia(productId, file, (loaded, total) => {
+          const fraction = Math.min(1, Math.max(0, loaded / total))
+          setUploadProgress(Math.min(100, Math.round(100 * (sentBytes + file.size * fraction) / totalBytes)))
+        }, () => setProcessing(true))
+        sentBytes += file.size
+        setUploadProgress(Math.min(100, Math.round(100 * sentBytes / totalBytes)))
         if (isVideo) videoCount++
         else imageCount++
         await queryClient.invalidateQueries({ queryKey })
@@ -49,6 +86,8 @@ export function ProductMediaManager({ productId }: { productId: number }) {
       setError(err instanceof Error ? err.message : "Não foi possível enviar a mídia.")
     } finally {
       setUploading(false)
+      setActiveFile("")
+      setProcessing(false)
       if (inputRef.current) inputRef.current.value = ""
       await queryClient.invalidateQueries({ queryKey })
     }
@@ -100,7 +139,31 @@ export function ProductMediaManager({ productId }: { productId: number }) {
       <p style={{ color: "var(--text-muted)", fontSize: 12, margin: "0 0 8px" }}>
         JPG, PNG, GIF, WebP ou MP4, até 50 MB por arquivo. O envio salva os arquivos imediatamente.
       </p>
-      {uploading && <p aria-live="polite" style={{ fontSize: 13 }}>Enviando e validando mídia…</p>}
+      {uploading && (
+        <div className="product-media-upload-stage" aria-live="polite">
+          <div className="product-media-upload-stage__preview">
+            <span className="product-media-upload-stage__skeleton" aria-hidden="true" />
+            <div className="product-media-upload-stage__ring" role="progressbar"
+              aria-label="Porcentagem de transferência de imagens e vídeos"
+              aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadProgress}>
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <circle className="track" cx="50" cy="50" r="40" />
+                <circle className="value" cx="50" cy="50" r="40"
+                  strokeDasharray={RING_CIRCUMFERENCE}
+                  strokeDashoffset={RING_CIRCUMFERENCE * (1 - uploadProgress / 100)} />
+              </svg>
+              <strong>{uploadProgress}%</strong>
+            </div>
+          </div>
+          <div className="product-media-upload-stage__details">
+            <strong>{processing ? "Transferido; processando mídia…" : "Enviando imagem ou vídeo…"}</strong>
+            <span>{activeFile}</span>
+            <small>{processing
+              ? "O envio terminou para este arquivo. Aguarde a validação e a gravação segura."
+              : "Porcentagem real dos bytes transferidos. A validação no servidor acontece depois."}</small>
+          </div>
+        </div>
+      )}
       {mediaQuery.isLoading && <p style={{ fontSize: 13 }}>Carregando galeria…</p>}
       {mediaQuery.isError && <p role="alert" style={{ color: "#fb7185", fontSize: 13 }}>Falha ao abrir a galeria.</p>}
       {error && <p role="alert" style={{ color: "#fb7185", fontSize: 13 }}>{error}</p>}
@@ -108,11 +171,7 @@ export function ProductMediaManager({ productId }: { productId: number }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 10, marginTop: 10 }}>
         {items.map((item) => (
           <div key={item.id} style={{ minWidth: 0, padding: 8, borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden" }}>
-            {item.media_type === "VIDEO" ? (
-              <video src={item.preview_url} controls preload="metadata" style={{ width: "100%", height: 76, objectFit: "cover", borderRadius: 8 }} />
-            ) : (
-              <img src={item.preview_url} alt={item.file_name} loading="lazy" style={{ width: "100%", height: 76, objectFit: "cover", borderRadius: 8 }} />
-            )}
+            <MediaThumbnail item={item} />
             <div title={item.file_name} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 5, fontSize: 11 }}>{item.file_name}</div>
             <button type="button" disabled={uploading || removingId === item.id} onClick={() => { void handleRemove(item) }}
               aria-label={`Remover ${item.file_name}`}

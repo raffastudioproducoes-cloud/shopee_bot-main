@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import uuid
-from dataclasses import replace
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
@@ -15,10 +14,10 @@ from starlette.concurrency import run_in_threadpool
 
 from .auth import get_current_user_id
 from ..database import supabase
-from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload
+from ..media_sanitizer import MediaSanitizerError
+from ..media_upload_pipeline import prepare_media_upload
 from ..profiles import scope_account
 from ..storage_capacity import storage_upload_reservation
-from ..video_processor import process_video_upload
 
 router = APIRouter(prefix="/products", tags=["product-media"])
 logger = logging.getLogger(__name__)
@@ -95,12 +94,9 @@ async def upload_product_media(
 
     try:
         media = await run_in_threadpool(
-            sanitize_media_upload, content,
+            prepare_media_upload, content,
             filename=file.filename, content_type=file.content_type, max_bytes=MAX_UPLOAD,
         )
-        if media.media_type == "VIDEO":
-            video = await run_in_threadpool(process_video_upload, media.content, max_bytes=MAX_UPLOAD)
-            media = replace(media, content=video)
     except MediaSanitizerError as exc:
         raise HTTPException(status_code=exc.status_code, detail=f"Mídia inválida: {exc}") from None
 

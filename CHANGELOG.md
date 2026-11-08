@@ -5,6 +5,16 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.6.1] - 2026-11-08
+
+### Fixed / Changed — MP4 válido e progresso real de mídia (PATCH 3.6.0 → 3.6.1; homologada por Rafa)
+
+- Corrige rejeição de MP4 H.264/AAC com caixa estrutural `uuid` de topo limitada no preflight; vídeos são obrigatoriamente reconstruídos via FFmpeg e sanitizados novamente com a allowlist estrita antes de armazenar, sem aceitar a caixa opaca na saída.
+- Centraliza upload de vídeos/imagens em Produtos e Posts num pipeline seguro, preservando limites e validações de extensão/MIME.
+- Editor de Produtos apresenta sombra e skeleton de mídia, miniaturas com fallback e círculo com porcentagem real de bytes enviados; após 100%, exibe processamento sem simular progresso do servidor, com suporte mobile e movimento reduzido.
+- Adiciona testes de regressão API e frontend. [Contrato técnico e matriz de aceite](docs/UPLOAD-MP4-PROGRESSO-20261108.md). Rafa **homologou na staging** o upload do MP4 e confirmou o download da imagem da Shopee funcionando, autorizando expressamente o PATCH e a promoção à `main` em 08/11/2026.
+- Evidência da implementação em staging: [PR #360](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/360) CI #1156 SUCCESS, merge `1489aea4649be85a25eb1571a6baf0575ff8348d`, Render staging `dep-dbodr38473hc73ah2u00` LIVE, endpoints saudáveis; [Vault PR #84](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/84) documentou a etapa. A nova versão PATCH está registrada antes da promoção e será verificada com CI/SemVer/deploy de produção. Nenhuma migration, cron, gateway ou postagem externa.
+
 ### Docs — Reconciliação da release 3.6.0 depois do deploy de produção (08/11/2026; sem novo bump)
 
 - Após merge e saúde da produção, atualizados README, AGENTS, Guia Mestre, regras, arquitetura, produto, UX, TASK, contrato e Vault para refletir o estado real 3.6.0 e preservar limites de QA. Registro [RELEASE-3.6.0-20261108](docs/RELEASE-3.6.0-20261108.md). Somente documentação; `VERSION=3.6.0` permanece.

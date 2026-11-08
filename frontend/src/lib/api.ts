@@ -104,4 +104,40 @@ export const api = {
     }
     return response.json()
   },
+  /** XHR apenas onde há progresso real de bytes; mesmos cookies e limites do upload fetch. */
+  uploadWithProgress: <T>(
+    endpoint: string,
+    file: File,
+    onProgress: (loaded: number, total: number) => void,
+    onTransferred?: () => void,
+  ): Promise<T> => new Promise<T>((resolve, reject) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${API_BASE}${endpoint}`)
+    xhr.withCredentials = true
+    xhr.timeout = 5 * 60 * 1000
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress(event.loaded, event.total)
+    }
+    xhr.upload.onload = () => onTransferred?.()
+    xhr.onerror = () => reject(new ApiError(0, 'A conexão falhou durante o envio. Tente novamente.'))
+    xhr.onabort = () => reject(new ApiError(0, 'Envio cancelado.'))
+    xhr.ontimeout = () => reject(new ApiError(0, 'O envio demorou demais. Tente novamente.'))
+    xhr.onload = () => {
+      let body: unknown = null
+      try { body = JSON.parse(xhr.responseText) } catch { /* resposta não JSON */ }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        if (xhr.status === 403 && endpoint.startsWith('/admin')) void onAdminForbidden()
+        reject(new ApiError(xhr.status, formatApiError(body, xhr.status)))
+        return
+      }
+      if (body === null) {
+        reject(new ApiError(xhr.status, 'O servidor respondeu sem dados válidos.'))
+        return
+      }
+      resolve(body as T)
+    }
+    xhr.send(formData) // sem Content-Type manual: browser gera o boundary multipart
+  }),
 }

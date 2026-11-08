@@ -100,7 +100,12 @@ export const productsApi = {
     return api.get<{ items: ProductMedia[] }>(`/products/${id}/media`)
   },
 
-  async uploadMedia(id: number, file: File): Promise<ProductMedia> {
+  async uploadMedia(
+    id: number, file: File,
+    onProgress?: (loaded: number, total: number) => void,
+    onTransferred?: () => void,
+  ): Promise<ProductMedia> {
+    if (onProgress) return api.uploadWithProgress<ProductMedia>(`/products/${id}/media`, file, onProgress, onTransferred)
     return api.upload<ProductMedia>(`/products/${id}/media`, file)
   },
 

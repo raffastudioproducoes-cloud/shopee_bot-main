@@ -252,6 +252,8 @@ def _looks_like_ftyp(content: bytes) -> bool:
 _ALLOWED_TOP_BOXES = frozenset(
     {b"ftyp", b"moov", b"mdat", b"moof", b"mfra", b"sidx", b"styp", b"free", b"skip", b"wide"}
 )
+_MAX_TRANSCODE_UUID_BYTES = 1024 * 1024
+_MAX_TRANSCODE_UUID_BOXES = 4
 _MAX_FTYP_SIZE = 256
 # Marcas principais de ftyp que identificam outros formatos (HEIF/AVIF imagem,
 # RAW da Canon, audio M4A...) e nao video MP4 -- evitam confusao de tipo.
@@ -264,7 +266,18 @@ _NON_VIDEO_BRANDS = frozenset({
 _NESTED_CHECKED = (b"moov", b"trak")
 
 
-def _validate_video_boxes(content: bytes, *, max_bytes: int | None = None) -> None:
+def validate_video_before_reencoding(content: bytes | bytearray, *, max_bytes: int) -> None:
+    """Preflight para um MP4 que será SEMPRE reconstruído antes de ir ao Storage.
+
+    Alguns exportadores (ex.: Google) geram `uuid` no topo. A permissão é
+    restrita a este preflight: o sanitizador final continua rejeitando `uuid`.
+    """
+    _validate_video_boxes(content, max_bytes=max_bytes, allow_top_level_uuid=True)
+
+
+def _validate_video_boxes(
+    content: bytes | bytearray, *, max_bytes: int | None = None, allow_top_level_uuid: bool = False,
+) -> None:
     if max_bytes is not None and len(content) > max_bytes:
         raise MediaSanitizerError("vídeo excede o tamanho máximo")
     if not _looks_like_ftyp(content):
@@ -275,13 +288,25 @@ def _validate_video_boxes(content: bytes, *, max_bytes: int | None = None) -> No
         raise MediaSanitizerError("vídeo inválido: estrutura inconsistente") from exc
     if not boxes or boxes[0][2] != b"ftyp":
         raise MediaSanitizerError("vídeo inválido: caixa ftyp deve ser a primeira")
-    if any(kind not in _ALLOWED_TOP_BOXES for _, _, kind in boxes):
+    if any(kind not in _ALLOWED_TOP_BOXES and not (allow_top_level_uuid and kind == b"uuid")
+           for _, _, kind in boxes):
         raise MediaSanitizerError("vídeo inválido: estrutura não permitida")
+    if allow_top_level_uuid:
+        opaque = [size for _, size, kind in boxes if kind == b"uuid"]
+        # UUID tem cabeçalho de 8 bytes + usertype de 16 bytes. Limitar
+        # quantidade/tamanho protege o processamento de metadados arbitrários.
+        if (len(opaque) > _MAX_TRANSCODE_UUID_BOXES or
+                sum(opaque) > _MAX_TRANSCODE_UUID_BYTES or any(size < 24 for size in opaque)):
+            raise MediaSanitizerError("vídeo inválido: estrutura não permitida")
+        if not {b"moov", b"mdat"}.issubset({kind for _, _, kind in boxes}):
+            raise MediaSanitizerError("vídeo inválido: estruturas essenciais ausentes")
     _validate_ftyp(content, boxes[0][1])
     if bytes(content[8:12]) in _NON_VIDEO_BRANDS:
         raise MediaSanitizerError("vídeo inválido: marca ftyp não é de vídeo MP4", status_code=415)
     try:
         _reject_nested_uuid(content, boxes, depth=0)
+    except MediaSanitizerError:
+        raise
     except ValueError as exc:
         raise MediaSanitizerError("vídeo inválido: estrutura inconsistente") from exc
 
