@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef, useState } from "react"
 import { productsApi, type ProductMedia } from "../../api/products"
 import { Button } from "../ui/Button"
+import { ProductMediaVisual } from "./ProductMediaVisual"
 import "./productMediaManager.css"
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024
@@ -22,25 +23,6 @@ function processingNotice(seconds: number): string {
   return "Transferência concluída; aguardando validação, processamento e gravação segura."
 }
 
-function MediaThumbnail({ item }: { item: ProductMedia }) {
-  const [ready, setReady] = useState(false)
-  const [failed, setFailed] = useState(false)
-
-  return (
-    <div className="product-media-card__visual">
-      {!ready && !failed && <span className="product-media-card__skeleton" aria-label="Carregando pré-visualização" />}
-      {failed ? <span className="product-media-card__fallback">Prévia indisponível</span> : item.media_type === "VIDEO" ? (
-        <video src={item.preview_url} controls preload="metadata"
-          onLoadedMetadata={() => setReady(true)} onLoadedData={() => setReady(true)}
-          onError={() => setFailed(true)} />
-      ) : (
-        <img src={item.preview_url} alt={item.file_name} loading="lazy"
-          onLoad={() => setReady(true)} onError={() => setFailed(true)} />
-      )}
-    </div>
-  )
-}
-
 export function ProductMediaManager({ productId }: { productId: number }) {
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -51,6 +33,7 @@ export function ProductMediaManager({ productId }: { productId: number }) {
   const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
   const [processingSeconds, setProcessingSeconds] = useState(0)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [playingId, setPlayingId] = useState<string | null>(null)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
 
@@ -71,6 +54,12 @@ export function ProductMediaManager({ productId }: { productId: number }) {
     const interval = window.setInterval(updateElapsed, 1000)
     return () => window.clearInterval(interval)
   }, [phase, processingStartedAt])
+
+  useEffect(() => {
+    if (phase !== "success") return
+    const timeout = window.setTimeout(() => setPhase("idle"), 2400)
+    return () => window.clearTimeout(timeout)
+  }, [phase])
 
   const uploadNotice = phase === "processing" ? processingNotice(processingSeconds)
     : phase === "sending" ? "Porcentagem real dos bytes enviados. A validação no servidor acontece depois."
@@ -206,6 +195,11 @@ export function ProductMediaManager({ productId }: { productId: number }) {
             {processingStartedAt !== null && <span className="product-media-upload-stage__elapsed" aria-live="off">
               Tempo de processamento: <b>{formatDuration(processingSeconds)}</b>
             </span>}
+            {phase === "processing" && (
+              <div className="product-media-upload-stage__processing-track" aria-label="Processamento em andamento">
+                <span />
+              </div>
+            )}
             <small role="status" aria-live="polite">{uploadNotice}</small>
             {phase === "error" && error && <small role="alert" className="product-media-upload-stage__error">{error}</small>}
             {phase === "error" && <Button type="button" variant="ghost" size="sm" icon="refresh-cw"
@@ -222,7 +216,16 @@ export function ProductMediaManager({ productId }: { productId: number }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 10, marginTop: 10 }}>
         {items.map((item) => (
           <div key={item.id} style={{ minWidth: 0, padding: 8, borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden" }}>
-            <MediaThumbnail item={item} />
+            {playingId === item.id && item.media_type === "VIDEO" ? (
+              <div className="product-media-card__visual">
+                <video src={item.preview_url} controls autoPlay playsInline preload="metadata" />
+                <button type="button" className="product-media-card__close" aria-label="Fechar vídeo"
+                  onClick={() => setPlayingId(null)}>×</button>
+              </div>
+            ) : (
+              <ProductMediaVisual item={item} className="product-media-card__visual"
+                onPlay={item.media_type === "VIDEO" ? () => setPlayingId(item.id) : undefined} />
+            )}
             <div title={item.file_name} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 5, fontSize: 11 }}>{item.file_name}</div>
             <button type="button" disabled={uploading || removingId === item.id} onClick={() => { void handleRemove(item) }}
               aria-label={`Remover ${item.file_name}`}
