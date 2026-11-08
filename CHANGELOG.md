@@ -11,6 +11,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Centraliza upload de vídeos/imagens em Produtos e Posts num pipeline seguro, preservando limites e validações de extensão/MIME.
 - Editor de Produtos apresenta sombra e skeleton de mídia, miniaturas com fallback e círculo com porcentagem real de bytes enviados; após 100%, exibe processamento sem simular progresso do servidor, com suporte mobile e movimento reduzido.
 - Adiciona testes de regressão API e frontend. [Contrato técnico e matriz de aceite](docs/UPLOAD-MP4-PROGRESSO-20261108.md). `VERSION=3.6.0` preservada; `main` só será alterada após homologação e nova autorização de Rafa.
+- Evidência da integração apenas na staging: [PR #360](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/360) CI #1156 SUCCESS, merge `1489aea4649be85a25eb1571a6baf0575ff8348d`, Render staging `dep-dbodr38473hc73ah2u00` LIVE, endpoints públicos saudáveis; [Vault PR #84](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/84) documentou a etapa. **Upload autenticado real na UI permanece pendente.** Sem bump no deploy staging nem promoção a main.
 
 ### Docs — Reconciliação da release 3.6.0 depois do deploy de produção (08/11/2026; sem novo bump)
 
