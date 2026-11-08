@@ -4,8 +4,8 @@ import { useAuthStore } from "../../stores/authStore"
 import { useProfileStore } from "../../stores/profileStore"
 import { listsApi, type Product } from "../../api/lists"
 import { campaignsApi, type CampaignPreviewRequest, type CampaignDraftSaveRequest, type CampaignDraftRecord } from "../../api/campaigns"
-import { credentialsApi } from "../../api/credentials"
-import type { PostNetwork } from "../../api/posts"
+import { credentialsApi, platformAiApi } from "../../api/credentials"
+import { postsApi, type PostNetwork } from "../../api/posts"
 import { NETWORK_RULES } from "../../lib/networkLimits"
 import { NetworkPicker, PICKER_NETWORKS, type NetworkState } from "../posts/NetworkPicker"
 import { reconcileCampaignSnapshots, patchCampaignSnapshot, type CampaignItemSnapshot } from "../../lib/campaignSnapshots"
@@ -15,6 +15,7 @@ import { usePlanUsage } from "../../hooks/usePlanUsage"
 import { campaignUiCaps } from "../../lib/planPresentation"
 import { TextInput } from "../ui/TextInput"
 import { Button } from "../ui/Button"
+import { AiCopyControls } from "../posts/AiCopyControls"
 import "./campaignPlanner.css"
 
 const weekdays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
@@ -75,6 +76,7 @@ export function CampaignPlanner({ credentials }: {
   const profileId = useProfileStore((state) => state.activeProfileId)
   const [draft, setDraft] = useState<CampaignDraft>(initialDraft)
   const [editingProductId, setEditingProductId] = useState<number | null>(null)
+  const [aiPersonas, setAiPersonas] = useState<Record<number, string>>({})
   const [savedDraftId, setSavedDraftId] = useState<string | null>(null)
   const [savedRevision, setSavedRevision] = useState<number | null>(null)
   const [remoteSelection, setRemoteSelection] = useState("")
@@ -119,6 +121,12 @@ export function CampaignPlanner({ credentials }: {
   const selectedList = lists.find((list) => list.id === draft.listId)
     ?? (listOverride?.id === draft.listId ? listOverride : undefined)
   const products = selectedList?.products ?? []
+  const aiStatusQuery = useQuery({
+    queryKey: ["platform", "ai", "status"],
+    queryFn: () => platformAiApi.status(),
+    enabled: Boolean(profileId && canEditCampaign),
+    staleTime: 60_000,
+  })
   const snapshots = useMemo(
     () => reconcileCampaignSnapshots(products, draft.itemSnapshots),
     [products, draft.itemSnapshots],
@@ -346,6 +354,19 @@ export function CampaignPlanner({ credentials }: {
     })
   }
 
+  const generateCampaignCopy = useMutation({
+    mutationFn: ({ id, persona }: { id: number; persona: string; oldCopy: string; listId: number | null; draftId: string | null }) =>
+      postsApi.generateCopy(id, persona, [], { descriptionOnly: true }),
+    onSuccess: (result, request) => {
+      setDraft((current) => {
+        if (current.listId !== request.listId || savedDraftId !== request.draftId) return current
+        const currentSnapshots = reconcileCampaignSnapshots(products, current.itemSnapshots)
+        if (!currentSnapshots[request.id] || currentSnapshots[request.id].copy !== request.oldCopy) return current
+        return { ...current, itemSnapshots: patchCampaignSnapshot(currentSnapshots, request.id, { copy: result.text }) }
+      })
+    },
+  })
+
   const moveProduct = (at: number, direction: -1 | 1) => {
     setDraft((current) => {
       const next = [...current.itemIds]
@@ -457,6 +478,29 @@ export function CampaignPlanner({ credentials }: {
                             maxLength={10000} rows={4} value={snapshot.copy}
                             onChange={(e) => updateSnapshot(id, { copy: e.target.value })}
                             placeholder="Escreva a mensagem para este produto." />
+                          <div className="campaign-ai-controls">
+                            <AiCopyControls
+                              persona={aiPersonas[id] ?? "casual"}
+                              onPersonaChange={(persona) => setAiPersonas((current) => ({ ...current, [id]: persona }))}
+                              onGenerate={() => generateCampaignCopy.mutate({
+                                id, persona: aiPersonas[id] ?? "casual", oldCopy: snapshot.copy,
+                                listId: draft.listId, draftId: savedDraftId,
+                              })}
+                              hasAiKey={aiStatusQuery.data?.available === true}
+                              disabled={!canEditCampaign || generateCampaignCopy.isPending}
+                              isPending={generateCampaignCopy.isPending && generateCampaignCopy.variables?.id === id}
+                            />
+                            {product.description?.trim() && snapshot.copy !== product.description.trim() && (
+                              <button type="button" className="campaign-use-product-copy"
+                                onClick={() => updateSnapshot(id, { copy: product.description!.trim() })}>
+                                Usar descrição salva em Produtos
+                              </button>
+                            )}
+                          </div>
+                          {generateCampaignCopy.isError && generateCampaignCopy.variables?.id === id && (
+                            <p className="campaign-error" role="alert">Não foi possível gerar o texto: {generateCampaignCopy.error.message}</p>
+                          )}
+                          <small className="campaign-item-hint">O texto gerado ou editado vale só para esta campanha; a descrição em Produtos permanece intacta.</small>
                           <label className="campaign-field-label" htmlFor={`campaign-link-${id}`}>Link de afiliado</label>
                           <input className="campaign-select" id={`campaign-link-${id}`} type="url" maxLength={2048}
                             value={snapshot.affiliateLink} onChange={(e) => updateSnapshot(id, { affiliateLink: e.target.value })}

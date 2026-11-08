@@ -53,7 +53,7 @@ test("foto da Shopee e arquivos de PC/celular coexistem no editor", async () => 
   assert.match(composer, /multiple=\{!post\}/)
   assert.match(composer, /Mídia \(imagem\/vídeo\)/)
   assert.match(composer, /importablePhotos/)
-  assert.match(productsApi, /\/shopee-gallery-probe/)
+  assert.match(productsApi, /\/products\/\$\{id\}\/image\/download/)
   assert.match(create, /postsApi\.importProductImageDraft/)
   assert.match(create, /postsApi\.uploadDraftMedia/)
 
@@ -72,4 +72,16 @@ test("campanha salva snapshots no servidor sem acionar posts ou scheduler", asyn
   assert.match(planner, /campaignsApi\.getDraft/)
   assert.match(api, /\x27\/campaigns\/drafts\x27/)
   assert.doesNotMatch(planner, /postsApi\.create|schedulePost|publishPost/)
+})
+
+test("campanha gera copy pela IA existente e altera somente o snapshot do item", async () => {
+  const [planner, snapshot] = await Promise.all([
+    src("components/campaigns/CampaignPlanner.tsx"),
+    src("lib/campaignSnapshots.ts"),
+  ])
+  assert.match(planner, /postsApi\.generateCopy\(id, persona, \[\], \{ descriptionOnly: true \}\)/)
+  assert.match(planner, /patchCampaignSnapshot\(currentSnapshots, request\.id, \{ copy: result\.text \}\)/)
+  assert.match(planner, /Usar descrição salva em Produtos/)
+  assert.match(snapshot, /copy: product\.description\?\.trim\(\) \?\? ""/)
+  assert.doesNotMatch(planner, /productsApi\.update/)
 })

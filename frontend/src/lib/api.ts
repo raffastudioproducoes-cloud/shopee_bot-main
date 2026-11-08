@@ -81,6 +81,14 @@ export const api = {
     request<T>(endpoint, { method: 'PUT', body: JSON.stringify(data) }),
   delete: <T>(endpoint: string, data?: unknown) =>
     request<T>(endpoint, { method: 'DELETE', ...(data !== undefined && { body: JSON.stringify(data) }) }),
+  download: async (endpoint: string): Promise<{ blob: Blob; mimeType: string }> => {
+    const response = await fetch(`${API_BASE}${endpoint}`, { method: 'GET', credentials: 'include' })
+    if (!response.ok) {
+      const error = await response.json().catch(() => null)
+      throw new ApiError(response.status, formatApiError(error, response.status))
+    }
+    return { blob: await response.blob(), mimeType: response.headers.get('content-type')?.split(';')[0] ?? '' }
+  },
   // multipart: sem Content-Type manual — o browser define com o boundary certo
   upload: async <T>(endpoint: string, file: File): Promise<T> => {
     const formData = new FormData()

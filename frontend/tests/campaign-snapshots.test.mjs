@@ -12,15 +12,15 @@ async function loadSnapshots() {
 }
 
 const products = [
-  { id: 11, name: "Bolsa", image: "https://images.test/11.jpg", commission_link: "https://s.test/a" },
-  { id: 12, name: "Tênis", image: null, commission_link: null },
+  { id: 11, name: "Bolsa", description: "Descrição salva na ficha do produto", image: "https://images.test/11.jpg", commission_link: "https://s.test/a" },
+  { id: 12, name: "Tênis", description: null, image: null, commission_link: null },
 ]
 
 test("snapshot pertence ao produto e é independente da lista de origem", async () => {
   const { createCampaignSnapshot, patchCampaignSnapshot } = await loadSnapshots()
   const first = createCampaignSnapshot(products[0])
   assert.deepEqual(first, {
-    title: "Bolsa", copy: "", affiliateLink: "https://s.test/a", networks: [],
+    title: "Bolsa", copy: "Descrição salva na ficha do produto", affiliateLink: "https://s.test/a", networks: [],
     networkCopies: {}, useShopeeImage: true,
   })
   const saved = { 11: first, 12: createCampaignSnapshot(products[1]) }
@@ -31,6 +31,24 @@ test("snapshot pertence ao produto e é independente da lista de origem", async 
   assert.equal(saved[11].title, "Bolsa")
   assert.equal(products[0].name, "Bolsa")
   assert.equal(changed[12].useShopeeImage, false)
+  assert.equal(products[0].description, "Descrição salva na ficha do produto")
+})
+
+test("nova campanha herda descrição atual, mas rascunho existente preserva sua própria edição", async () => {
+  const { reconcileCampaignSnapshots } = await loadSnapshots()
+  const updatedProducts = [{ ...products[0], description: "Nova descrição editada em Produtos" }]
+  const fresh = reconcileCampaignSnapshots(updatedProducts, {})
+  assert.equal(fresh[11].copy, "Nova descrição editada em Produtos")
+
+  const customized = reconcileCampaignSnapshots(updatedProducts, {
+    11: { ...fresh[11], copy: "Copy exclusiva da campanha A" },
+  })
+  const cleared = reconcileCampaignSnapshots(updatedProducts, {
+    11: { ...fresh[11], copy: "" },
+  })
+  assert.equal(customized[11].copy, "Copy exclusiva da campanha A")
+  assert.equal(cleared[11].copy, "")
+  assert.equal(updatedProducts[0].description, "Nova descrição editada em Produtos")
 })
 
 test("restauração preserva campo apagado e isola IDs da lista atual", async () => {
