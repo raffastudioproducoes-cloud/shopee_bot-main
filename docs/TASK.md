@@ -1,3 +1,11 @@
+## 08/11/2026 — Release PATCH 3.6.1 autorizada por Rafa (EM PROMOÇÃO)
+
+- [x] Rafa homologou upload do MP4 e download da imagem Shopee na staging e autorizou o merge para `main`, incremento PATCH e documentos atualizados.
+- [x] Classificação SemVer: correção de compatibilidade/UX existente = `3.6.0 → 3.6.1`, sem DDL/RLS/cron/gateway nem publicações externas.
+- [ ] Bump `VERSION`, `CHANGELOG.md` e [contrato de release](RELEASE-3.6.1-20261108.md) integrados em staging com CI, deploy Render LIVE e versão 3.6.1 verificada.
+- [ ] PR `staging → main` com CI/SemVer SUCCESS; deploy produção LIVE no SHA, saúde, prontidão e UI 3.6.1 validadas.
+- [ ] Fechamento documental pós-produção no Projeto e Vault, incluindo trilha completa de decisões, CI, SHAs, testes e riscos residuais.
+
 ## 08/11/2026 — MP4 de Produtos e experiência de upload (PATCH 3.6.1 candidata; STAGING)
 
 - [x] Diagnosticar MP4 fornecido: H.264/AAC válido, 3,9 MB, caixa `uuid` de topo recusada pela allowlist de armazenamento antes de FFmpeg.
