@@ -1,4 +1,6 @@
-# Auto Orbital — release PATCH 3.6.1 (08/11/2026)
+# Auto Orbital — release PATCH 3.6.1 em produção (08/11/2026)
+
+**Estado verificado:** `main` atualizada e Render produção **LIVE** no SHA `982a58351bec2cdc42a80ad0aff728e02ae7f648`. `VERSION=3.6.1` no GitHub e no login público; endpoints `/health` e `/api/health/ready` retornaram `{"status":"ok"}`. Homologação autenticada de mídia relatada por Rafa na staging. Não houve postagem externa de teste.
 
 ## Autorização e SemVer
 
@@ -21,17 +23,17 @@
 - Testes locais da implementação: **1.308 API PASS**, **99 frontend PASS**, TypeScript/build PASS; MP4 real 3.901.039→1.272.047 bytes, sanitizado; arquivos originais não incluídos no Git.
 - [Vault #46](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/46-MP4-Upload-Progresso-2026-11-08.md), integrado via [PR #84](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/84).
 
-## Portões desta release (preencher somente com resultados observados)
+## Portões desta release — resultados observados
 
-- [ ] PR release `3.6.1` para staging, CI verde, merge SHA e Render staging LIVE, saúde e versão 3.6.1 conferidas.
-- [ ] PR `staging → main` com CI e workflow SemVer verdes; merge SHA registrado.
-- [ ] Deploy Render produção LIVE no SHA exato; `/health`, `/api/health/ready` e interface mostram versão 3.6.1.
-- [ ] Atualização final pós-produção em TASK, Guia Mestre, arquitetura/regras, changelog e Vault; comprovar estado e registrar riscos/limites restantes.
+- [x] [PR release #362](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/362), [CI #1160](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42522365231) SUCCESS; merge staging `0d794a98d07455896366b226a3d642890eb10c7e`. Render staging `dep-dboe38e8bjmc73b4pek0` **LIVE** no SHA exato; `/health`, `/api/health/ready` `status:ok`; login mostra **3.6.1**.
+- [x] [PR `staging → main` #363](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/363), [CI #1162](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42522674144) SUCCESS e [SemVer #10](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42522674051) SUCCESS; merge `main` `982a58351bec2cdc42a80ad0aff728e02ae7f648`. Histórico diverge por merges documentais, mas **zero diferença de arquivos** entre `main` e `staging` no gate pós-promoção.
+- [x] Render produção `shopee-bot` deploy `dep-dboe4uvb9u1s73dinre0` **LIVE** no commit `982a58351bec2cdc42a80ad0aff728e02ae7f648`. Navegador: `/health` e `/api/health/ready` `{"status":"ok"}`; login e splash exibem **3.6.1**. Logs de nível erro consultados a partir do deploy retornaram vazios. Métricas HTTP p95 ainda sem amostras suficientes no intervalo.
+- [x] Documentação final espelhada no Vault: [PR #85](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/pull/85) merge `2241e9ecedd45c9666da653a36d94524f42e650a`; [documento 47](https://github.com/raffastudioproducoes-cloud/RaffaStudio-Vault/blob/main/Projetos/ShopeeAutoVendas/47-Release-Auto-Orbital-3-6-1-2026-11-08.md), TASK, README e Guia Mestre. Este fechamento atualiza os arquivos gerais do Projeto para refletir o estado real de produção.
 
 ## Restrições e risco residual
 
 - Sem alterações em Supabase, RLS, DDL, migrations, scheduler, `pg_cron`, `pg_net`, gateway, integração com redes ou postagem real. Não manipular segredos.
 - A validação end-to-end autenticada de Rafa foi **relatada pelo proprietário**; não há coleta de seu login nem teste de postagem externa pelo agente. Manter monitoramento de erros 4xx/5xx no endpoint de mídia após publicação.
-- Problema de saúde transitória observado na troca anterior de instância Render foi resolvido no segundo teste; confirmar prontidão após cada novo deploy.
+- Problema de saúde transitória observado em um rollout anterior foi resolvido no segundo teste; os deploys staging e produção da release 3.6.1 tiveram prontidão pública confirmada após ficarem LIVE.
 
 **Referência técnica:** [UPLOAD-MP4-PROGRESSO-20261108.md](UPLOAD-MP4-PROGRESSO-20261108.md).
