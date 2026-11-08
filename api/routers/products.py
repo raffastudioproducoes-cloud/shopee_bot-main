@@ -7,6 +7,8 @@ import logging
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
+from starlette.concurrency import run_in_threadpool
 
 from api.product_search import product_search_filter
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -16,6 +18,9 @@ from .auth import get_current_user_id
 from ..audit_trail import record_audit_event
 from ..database import supabase
 from ..network_limits import NETWORK_RULES, text_length
+from .. import rate_limit_store
+from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload, detect_media_type
+from ..shopee_images import _download_shopee_image, MAX_PRODUCT_IMAGE_BYTES
 from ..profiles import scope_account
 from ..shopee_affiliate_links import canonical_product_url, build_affiliate_link, personalize_product
 from .platform_shopee import get_affiliate_id
@@ -236,6 +241,59 @@ async def get_product(
 ):
     """Retorna um produto específico."""
     return _get(user_id, product_id)
+
+
+@router.get("/{product_id}/image/download")
+async def download_product_shopee_image(
+    product_id: int,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Entrega a imagem principal do produto como arquivo, sem gravar no Storage.
+
+    A URL é lida da linha pertencente à conta. O downloader só acessa CDNs
+    Shopee permitidos, e a imagem é validada/sanitizada antes da resposta.
+    """
+    result = scope_account(
+        supabase.table("products").select("id,image").eq("id", product_id),
+        user_id,
+    ).maybe_single().execute()
+    product = result.data if result else None
+    if not product:
+        raise HTTPException(status_code=404, detail="Produto não encontrado nesta conta.")
+    if not product.get("image"):
+        raise HTTPException(status_code=404, detail="Produto sem imagem Shopee cadastrada.")
+
+    if rate_limit_store.distributed_enabled() and not rate_limit_store.allow_window(
+        "product-image-download", str(user_id), 30, 60,
+    ):
+        raise HTTPException(status_code=429, detail="Muitos downloads de imagem. Aguarde um minuto.")
+
+    content = await _download_shopee_image(product["image"])
+    try:
+        detected = detect_media_type(content)
+        if detected.media_type != "IMAGE":
+            raise MediaSanitizerError("O arquivo não é uma imagem.")
+        media = await run_in_threadpool(
+            sanitize_media_upload, content,
+            filename=f"shopee-{product_id}{detected.extension}",
+            content_type=detected.mime_type,
+            max_bytes=MAX_PRODUCT_IMAGE_BYTES,
+        )
+    except MediaSanitizerError:
+        raise HTTPException(status_code=415, detail="Imagem Shopee inválida ou incompatível.") from None
+
+    if len(media.content) > MAX_PRODUCT_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Imagem sanitizada excede 8 MB.")
+
+    return Response(
+        content=media.content,
+        media_type=media.mime_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="shopee-produto-{product_id}{media.extension}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.put("/{product_id}")

@@ -13,6 +13,7 @@ export interface Product {
   id: number
   product_id: string
   name: string
+  description?: string | null
   image: string | null
   price_min: number | string | null
   price_max: number | string | null

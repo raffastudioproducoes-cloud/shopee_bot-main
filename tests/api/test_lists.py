@@ -63,6 +63,19 @@ def test_missing_list_sdk_returns_none_not_500(monkeypatch):
     assert error.value.status_code == 404
 
 
+def test_list_product_projection_includes_saved_description(monkeypatch):
+    query = _query_mock(MagicMock(data=[{"products": {
+        "id": 7, "name": "Bolsa", "description": "Texto personalizado em Produtos",
+    }}]))
+    db = _make_fake_supabase({"product_lists_products": query})
+    monkeypatch.setattr(lists_router, "supabase", db)
+
+    products = lists_router._get_list_products(3)
+    assert products[0]["description"] == "Texto personalizado em Produtos"
+    select_fields = query.select.call_args.args[0]
+    assert "products(id, product_id, name, description, image" in select_fields
+
+
 class TestListProductsSync:
     def test_put_accepts_product_from_another_profile_of_same_account(
         self, auth_client, fake_db, profile_cookie, monkeypatch

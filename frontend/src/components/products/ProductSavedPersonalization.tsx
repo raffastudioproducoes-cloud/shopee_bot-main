@@ -7,11 +7,14 @@ import { Modal } from "../ui/Modal"
 interface ProductSavedPersonalizationProps {
   productId: number
   description: string | null | undefined
+  shopeeImage: string | null | undefined
 }
 
 /** Visualização somente leitura, montada apenas quando o card do produto é expandido. */
-export function ProductSavedPersonalization({ productId, description }: ProductSavedPersonalizationProps) {
+export function ProductSavedPersonalization({ productId, description, shopeeImage }: ProductSavedPersonalizationProps) {
   const [selected, setSelected] = useState<ProductMedia | null>(null)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
   const [carouselStart, setCarouselStart] = useState(0)
   const [visibleCount, setVisibleCount] = useState(3)
   const mediaContainerRef = useRef<HTMLDivElement>(null)
@@ -45,6 +48,38 @@ export function ProductSavedPersonalization({ productId, description }: ProductS
 
   return (
     <section aria-label="Personalização salva do produto" style={{ minWidth: 0 }}>
+      {shopeeImage && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16, padding: 12, border: "1px solid var(--border)", borderRadius: 12 }}>
+          <img src={shopeeImage} alt="Imagem principal do produto na Shopee" loading="lazy"
+            style={{ width: 76, height: 76, objectFit: "contain", borderRadius: 9, background: "var(--surface, #0d1420)" }} />
+          <div style={{ display: "grid", gap: 6, flex: "1 1 150px" }}>
+            <strong style={{ fontSize: 13 }}>Imagem original da Shopee</strong>
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Baixe a imagem para usar como referência na edição.</span>
+          </div>
+          <button type="button" disabled={downloading} onClick={async () => {
+            setDownloading(true)
+            setDownloadError(null)
+            try {
+              const { blob, filename } = await productsApi.downloadImage(productId)
+              const blobUrl = URL.createObjectURL(blob)
+              const link = document.createElement("a")
+              link.href = blobUrl
+              link.download = filename
+              document.body.appendChild(link)
+              link.click()
+              link.remove()
+              window.setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000)
+            } catch (error) {
+              setDownloadError(error instanceof Error ? error.message : "Não foi possível baixar a imagem.")
+            } finally {
+              setDownloading(false)
+            }
+          }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 12px", border: "1px solid var(--border)", borderRadius: 10, color: "var(--text-primary)", background: "transparent", fontSize: 13, fontWeight: 600, cursor: downloading ? "wait" : "pointer" }}>
+            <Icon name="download" size={16} /> {downloading ? "Baixando..." : "Baixar imagem"}
+          </button>
+          {downloadError && <p role="alert" style={{ width: "100%", margin: 0, color: "var(--danger, #db3545)", fontSize: 12 }}>{downloadError}</p>}
+        </div>
+      )}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600 }}>
           <Icon name="image" size={16} /> Imagens e vídeos adicionais

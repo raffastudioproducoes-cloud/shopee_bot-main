@@ -20,6 +20,13 @@ test("a prévia usa a descrição persistida e mídia autenticada do produto", (
   assert.doesNotMatch(source.preview, /uploadMedia|deleteMedia|productsApi\.update/)
 })
 
+test("download da imagem Shopee utiliza rota autenticada e não substitui mídia salva", () => {
+  assert.match(source.page, /shopeeImage=\{product\.image\}/)
+  assert.match(source.preview, /productsApi\.downloadImage\(productId\)/)
+  assert.match(source.preview, /Baixar imagem/)
+  assert.doesNotMatch(source.preview, /fetch\(shopeeImage\)|uploadMedia\(productId/)
+})
+
 test("mídia só é buscada quando o card é expandido e existe estado de erro/vazio", () => {
   assert.match(source.card, /expandedHeader\?: ReactNode/)
   assert.match(source.card, /\{open \? \([\s\S]*\{expandedHeader \? \(/)

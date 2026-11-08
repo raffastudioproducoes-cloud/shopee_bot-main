@@ -26,14 +26,13 @@ fluxo do usuário. Kwai fica de fora do mapa, sem API pública confirmada.
 """
 
 import logging
-import httpx
 import uuid
 from PIL import Image
 from dataclasses import replace
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
 import re
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Literal
 
@@ -53,6 +52,10 @@ from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail, is_network_disabled
 from ..media_composition import plan_network_composition
 from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload, detect_media_type
+from ..shopee_images import (
+    SHOPEE_IMAGE_HOSTS, MAX_PRODUCT_IMAGE_BYTES,
+    _check_shopee_image_url, _download_shopee_image,
+)
 from ..video_processor import process_video_upload
 from .. import x_oauth
 from ..text_variants import generate_variants, generate_thread_replies, generate_short_product_description, MAX_THREAD_PARTS
@@ -1724,67 +1727,6 @@ def _store_sanitized_draft(media, user_id: int, profile_id: str) -> dict:
             logger.warning("Falha ao desfazer upload de rascunho", exc_info=True)
         raise HTTPException(status_code=500, detail="Não foi possível preparar a mídia.")
     return _draft_response(updated.data[0])
-
-
-# Only registered Shopee image CDNs: product.image may be user-editable,
-# therefore never fetch arbitrary URLs or follow redirects to arbitrary hosts.
-SHOPEE_IMAGE_HOSTS = frozenset({
-    "cf.shopee.com.br",
-    "down-br.img.susercontent.com",
-    "img.susercontent.com",
-})
-MAX_PRODUCT_IMAGE_BYTES = 8 * 1024 * 1024
-
-
-def _check_shopee_image_url(raw: str) -> str:
-    try:
-        parsed = urlparse(raw)
-        host = (parsed.hostname or "").lower()
-        valid = (parsed.scheme == "https" and
-                 (host in SHOPEE_IMAGE_HOSTS or host.endswith(".img.susercontent.com")) and
-                 parsed.username is None and parsed.password is None and
-                 parsed.port in (None, 443))
-    except (ValueError, TypeError):
-        valid = False
-    if not valid:
-        raise HTTPException(status_code=400, detail="Origem da imagem Shopee não autorizada.")
-    return raw
-
-
-async def _download_shopee_image(raw_url: str) -> bytearray:
-    """Bounded download; redirects are revalidated to avoid SSRF."""
-    url = _check_shopee_image_url(raw_url)
-    async with httpx.AsyncClient(timeout=httpx.Timeout(12, connect=4), follow_redirects=False) as client:
-        for _ in range(3):
-            try:
-                async with client.stream("GET", url, headers={"Accept": "image/jpeg,image/png,image/webp"}) as response:
-                    if response.status_code in (301, 302, 303, 307, 308):
-                        location = response.headers.get("location")
-                        if not location:
-                            raise HTTPException(status_code=502, detail="Imagem Shopee indisponível.")
-                        url = _check_shopee_image_url(urljoin(url, location))
-                        continue
-                    if response.status_code != 200:
-                        raise HTTPException(status_code=502, detail="Imagem Shopee indisponível.")
-                    declared = response.headers.get("content-type", "").split(";", 1)[0].lower()
-                    if declared and not declared.startswith("image/") and declared != "application/octet-stream":
-                        raise HTTPException(status_code=415, detail="O produto não possui uma imagem compatível.")
-                    try:
-                        declared_size = int(response.headers.get("content-length", "0") or 0)
-                    except ValueError:
-                        raise HTTPException(status_code=502, detail="Resposta inválida do servidor de imagens.") from None
-                    if declared_size > MAX_PRODUCT_IMAGE_BYTES:
-                        raise HTTPException(status_code=413, detail="Imagem Shopee excede 8 MB.")
-                    content = bytearray()
-                    async for chunk in response.aiter_bytes(256 * 1024):
-                        content.extend(chunk)
-                        if len(content) > MAX_PRODUCT_IMAGE_BYTES:
-                            raise HTTPException(status_code=413, detail="Imagem Shopee excede 8 MB.")
-                    return content
-            except httpx.HTTPError as exc:
-                logger.warning("Falha ao importar imagem do CDN Shopee (%s)", type(exc).__name__)
-                raise HTTPException(status_code=502, detail="Não foi possível acessar a foto Shopee. Envie o arquivo manualmente.") from None
-    raise HTTPException(status_code=502, detail="Redirecionamentos excessivos na imagem Shopee.")
 
 
 def _normalize_shopee_photo_as_jpeg(media, product_id: int):

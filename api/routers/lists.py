@@ -71,7 +71,7 @@ def _get_list_products(list_id: int) -> list[dict]:
     result = (
         supabase.table("product_lists_products")
         .select(
-            "*, products(id, product_id, name, image, price_min, price_max, commission, commission_link, original_link)"
+            "*, products(id, product_id, name, description, image, price_min, price_max, commission, commission_link, original_link)"
         )
         .eq("product_list_id", list_id)
         .execute()
