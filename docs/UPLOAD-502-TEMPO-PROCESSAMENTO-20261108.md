@@ -1,7 +1,7 @@
 # Auto Orbital — diagnóstico HTTP 502 e cronômetro de processamento de mídia
 
 **Data:** 08/11/2026 · **Área:** Produtos → Editar → Imagens e vídeos do produto  
-**Classificação:** correção compatível, **PATCH candidata 3.6.2** · **Ambiente autorizado:** staging; `main` exige novo aceite de Rafa.  
+**Classificação:** correção compatível, **PATCH candidata 3.6.2** · **Ambiente:** staging **LIVE**; `main` exige novo aceite de Rafa.
 **Versão oficial enquanto não houver aceite:** `VERSION=3.6.1`.
 
 ## Ocorrência e análise causal
@@ -26,7 +26,9 @@
 - [x] `npm run build`: TypeScript + Vite PASS.
 - [x] `python -m pytest tests/web/test_api_proxy.py tests/web/test_api_proxy_csrf.py --confcutdir=tests/web -q`: **10/10 PASS**, utilizando a fixture isolada em `tests/web/conftest.py` (não requer PostgreSQL). O primeiro comando sem `--confcutdir` carregou a fixture legada da raiz que exige Postgres indisponível e falhou na inicialização; corrigida a invocação, os testes passaram.
 - [x] Lote frontend utilizado no CI que inclui o teste de mídia: **33/33 PASS**. Suite total `node --test tests/*.test.mjs` foi testada exploratoriamente e contém falhas preexistentes fora do filtro de CI (sem relação comprovada com este patch); não ocultar essa limitação.
-- [ ] CI e deploy **staging** LIVE no SHA novo, health/readiness e inspeção de logs.
+- [x] API isolada integral `python -m pytest tests/api --confcutdir=tests/api -q`: **1.308/1.308 PASS**; testes web da etapa CI: **34/34 PASS**; gate SemVer: **5/5 PASS**.
+- [x] [PR de app #366](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/366) para **staging**, commit de código `cbf81558`; [CI #1168](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42526353791) **SUCCESS** nas três etapas obrigatórias (API Python, frontend, PostgreSQL descartável); workflow de estágio externo ignorado no contexto de PR, conforme configuração.
+- [x] Merge **exclusivo staging** `33d73d97572ce0ee736d535f1cbfe35a11bb3314`; Render staging deploy `dep-dboep9qvcj2c739apqug` **LIVE** no commit correto. HTTP 200 em `/health`, `/api/health/ready` (`{"status":"ok"}`) e `/login`; consulta a logs após troca não mostrou request 5xx novo. `SIGTERM` de worker **antigo** durante substituição observado e esperado, não é falha do novo deploy.
 - [ ] QA autenticada de Rafa no Android: MP4, espera superior a 30 s, timer, status, gravação, erro controlado e ação de atualizar galeria. Testar também lote com dois arquivos e responsividade desktop.
 - [ ] **Aprovação expressa de Rafa** antes de atualizar `VERSION` para 3.6.2 e criar PR de promoção para `main`.
 

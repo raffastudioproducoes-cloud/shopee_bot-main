@@ -5,7 +5,7 @@
 - [x] Anel permanece medindo bytes reais; cronômetro real de processamento, avisos 0/15/30/60/120 s e resultado no mesmo painel, atualização de galeria após erro sem replay.
 - [x] Testes isolados da rota Flask 4 cenários PASS; 4/4 Node específicos PASS; compilação TypeScript e Vite PASS.
 - [x] Pytest web isolado com `--confcutdir=tests/web`: 10/10 PASS; lote frontend oficial de mídia 33/33 PASS. O comando inicial sem `--confcutdir` tentou usar banco local inexistente; não é falha das rotas. CI web passa a executar `test_api_proxy.py`.
-- [ ] CI completo, deploy staging LIVE e saúde/logs.
+- [x] [PR #366](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/366), CI #1168 SUCCESS (API, frontend, PostgreSQL); merge staging `33d73d97572ce0ee736d535f1cbfe35a11bb3314`, Render `dep-dboep9qvcj2c739apqug` LIVE, `/health`, `/api/health/ready`, `/login` HTTP 200; logs sem novos request 5xx, SIGTERM esperado do processo anterior. API local 1.308/1.308 PASS, web 34/34 e SemVer 5/5.
 - [ ] QA autenticada de Rafa no Android e desktop; lote, espera >30 s, tratamento de erro e galeria.
 - [ ] Aceite explícito do proprietário antes de `VERSION=3.6.2` e PR `staging → main`.
 - [ ] Espelho no Vault após validação staging.

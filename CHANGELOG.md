@@ -11,6 +11,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Timeout agora produz HTTP 504 explicativo com orientação de conferir a galeria; 502 fica para indisponibilidade real da API interna. `formatApiError` exibe o campo `{error}` do proxy; logs segregam o escopo sem vazar dados sensíveis.
 - Painel sombreado de upload de Produto exibe cronômetro real após a transferência e avisos em 15/30/60/120 s, mantendo porcentagem real dos bytes, status terminal de sucesso/falha e botão para recarregar a galeria após erro, sem reenvio automático. Testes de regressão Python/frontend adicionados.
 - **Decisão SemVer:** PATCH candidata `3.6.1 → 3.6.2`; `VERSION=3.6.1` até homologação de staging e autorização expressa para main. Causa do 502 individual é provável, não comprovada por log individual. [Contrato, limites e matriz de QA](docs/UPLOAD-502-TEMPO-PROCESSAMENTO-20261108.md). Sem banco, Supabase, cron, gateway, publicação ou `main` nesta fase.
+- Evidência de implantação exclusiva de **staging**: [PR #366](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/366), [CI #1168](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42526353791) SUCCESS; merge `33d73d97572ce0ee736d535f1cbfe35a11bb3314`; Render `dep-dboep9qvcj2c739apqug` LIVE no SHA; saúde/prontidão/login HTTP 200, logs sem novo HTTP 5xx observado. Testes locais 1.308 API, 34 web, 33 lote frontend, 5 SemVer, build PASS. QA autenticada no Android e autorização para produção pendentes.
 
 ## [3.6.1] - 2026-11-08
 
