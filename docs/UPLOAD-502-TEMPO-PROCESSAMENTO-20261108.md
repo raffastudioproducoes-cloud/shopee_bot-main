@@ -2,6 +2,8 @@
 
 > **Autorização posterior (08/11/2026):** Rafa informou que os testes da staging passaram e autorizou **PATCH 3.6.2 e merge para main**. O registro abaixo preserva o estado da fase de homologação; a release só estará em produção após os portões de CI/SemVer e Render LIVE. [Acompanhamento da promoção](RELEASE-3.6.2-20261108.md).
 
+> **Fechamento verificado (08/11/2026):** os portões foram cumpridos: PR #368 staging/CI #1172 SUCCESS e PR #369 main/CI #1174 + SemVer #12 SUCCESS; `main` `bf558c644d6f42b28baccf766eff0825e17a1d17`, Render produção `dep-dbofl50ae00c739m8bq0` LIVE, health/readiness/login HTTP 200 e HTML público 3.6.2. A validação autenticada relatada pelo proprietário não foi repetida pelo agente em produção. [Registro de release](RELEASE-3.6.2-20261108.md).
+
 **Data:** 08/11/2026 · **Área:** Produtos → Editar → Imagens e vídeos do produto  
 **Classificação:** correção compatível, **PATCH candidata 3.6.2** · **Ambiente:** staging **LIVE**; `main` exige novo aceite de Rafa.
 **Versão oficial enquanto não houver aceite:** `VERSION=3.6.1`.
