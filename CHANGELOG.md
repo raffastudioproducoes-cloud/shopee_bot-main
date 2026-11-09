@@ -5,7 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
-## [3.12.1] - 2026-11-09
+## [3.12.0] - 2026-11-09
+
+Release MINOR em um passo SemVer a partir da 3.11.0 (produção), consolidando os builds internos 3.11.1, 3.12.0 e 3.12.1 da staging: limpeza de posts ao cancelar campanha e exclusão de posts de campanha (migration 097), tags de plano com identidade visual (Administrador em rubi, Premium, Pro e Free), animações e UX do lote 4 (transição de página, menu com pílula, anel de caracteres, "Faltam N passos" na campanha), apresentação pública com produtos reais do catálogo de exemplo e Pro destacado na tabela de planos. Os números 3.11.1 e 3.12.1 existiram só na staging.
+
+### Build interno da staging 3.12.1
 
 ### Changed — apresentação pública com produtos reais e tabela de planos
 
@@ -13,7 +17,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Tabela de planos da apresentação:** o Pro ganha o mesmo destaque da tabela das configurações (faixa na coluna, selo "Recomendado" e as etiquetas de plano `PlanTag`), e as 3 colunas passam a caber no celular.
 - Testes: `frontend/tests/presentation-page.test.mjs` (+2).
 
-## [3.12.0] - 2026-11-09
+### Build interno da staging 3.12.0
 
 ### Added — tags de plano e animações/UX, lote 4
 
@@ -26,7 +30,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Campanha: "Faltam N passos"** com barra de 3 etapas acima do botão de ativar ("Tudo pronto para ativar." quando completo).
 - Testes: `frontend/tests/plan-tags.test.mjs` (3, no CI) e `frontend/tests/motion-ux.test.mjs` (13).
 
-## [3.11.1] - 2026-11-09
+### Build interno da staging 3.11.1
 
 ### Fixed — apagar posts de campanha e cancelar campanha
 
