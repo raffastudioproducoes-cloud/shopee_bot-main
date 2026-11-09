@@ -135,6 +135,7 @@ jobs:
 
       - run: npm ci
 
+      # Mantém os contratos de calendário/weekday e acesso ao plano no gate frontend.
       - name: Contratos de rotas, login e piloto visual da landing
         run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs tests/posts-composer.test.mjs tests/form-drafts.test.mjs tests/campaign-snapshots.test.mjs tests/campaign-networks-checkboxes.test.mjs tests/campaign-schedule.test.mjs tests/plan-access.test.mjs tests/account-identity.test.mjs tests/profiles-identity-only.test.mjs
 
