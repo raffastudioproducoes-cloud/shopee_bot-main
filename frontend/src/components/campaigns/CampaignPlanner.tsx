@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { useAuthStore } from "../../stores/authStore"
 import { useProfileStore } from "../../stores/profileStore"
@@ -110,6 +110,7 @@ export function CampaignPlanner({ credentials }: {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
   const [historyOffset, setHistoryOffset] = useState(0)
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null)
+  const currentSaveSignatureRef = useRef("")
   const draftKey = formDraftKey(userId, "campaign-preview", profileId)
 
   useAutosavedDraft<CampaignDraft>(draftKey, draft, (saved) => {
@@ -197,16 +198,19 @@ export function CampaignPlanner({ credentials }: {
     retry: false,
   })
   const activateMutation = useMutation({
-    mutationFn: ({ id, revision }: { id: string; revision: number }) =>
+    mutationFn: ({ id, revision }: { id: string; revision: number; signature: string }) =>
       campaignsApi.activateDraft(id, revision),
-    onSuccess: (record) => {
+    onSuccess: (record, variables) => {
       setSelectedCampaignId(record.id)
-      setDraft(initialDraft())
-      setSavedDraftId(null)
-      setSavedRevision(null)
-      setRemoteSelection("")
-      setLastSavedSignature(null)
-      setListOverride(null)
+      // Não apague alterações feitas enquanto a ativação estava pendente.
+      if (currentSaveSignatureRef.current === variables.signature) {
+        setDraft(initialDraft())
+        setSavedDraftId(null)
+        setSavedRevision(null)
+        setRemoteSelection("")
+        setLastSavedSignature(null)
+        setListOverride(null)
+      }
       void activeQuery.refetch()
       void draftsQuery.refetch()
       void planQuery.refetch()
@@ -322,8 +326,18 @@ export function CampaignPlanner({ credentials }: {
       : (draft.startDate || draft.endDate) && !payload ? previewBlockReason ?? "Revise o período e a frequência."
       : null)
 
+  const retryingPreparation = Boolean(savedDraftId && activeQuery.data?.data.some(
+    (campaign) => campaign.draft_id === savedDraftId && campaign.lifecycle === "preparing",
+  ))
+  const paidPeriodConfirmed = Boolean(plan?.is_admin || (
+    plan?.campaign_paid_through && Date.parse(plan.campaign_paid_through) > Date.now()
+  ))
+  const preparationRetryAllowed = retryingPreparation
+    && plan?.active_campaigns_usage_status === "available"
+    && paidPeriodConfirmed
+
   const activationBlockReason = campaignAccessBlockReason
-    ?? (!plan?.activation_available
+    ?? (!plan?.activation_available && !preparationRetryAllowed
       ? plan?.active_campaigns_usage_status === "unavailable"
         ? "Não foi possível consultar a cota de campanhas ativas."
         : !plan?.is_admin && (!plan?.campaign_paid_through
@@ -337,6 +351,7 @@ export function CampaignPlanner({ credentials }: {
       : activateMutation.isPending ? "Ativando campanha."
       : null)
   const saveSignature = saveInput ? JSON.stringify(saveInput) : ""
+  currentSaveSignatureRef.current = saveSignature
   const saveMutation = useMutation({
     mutationFn: async ({ data, id, revision }: {
       data: CampaignDraftSaveRequest; id: string | null; revision: number | null;
@@ -356,7 +371,7 @@ export function CampaignPlanner({ credentials }: {
       setLegacyNetworkNotice(false)
       void draftsQuery.refetch()
       if (variables.activateAfterSave) {
-        activateMutation.mutate({ id: saved.id, revision: saved.revision })
+        activateMutation.mutate({ id: saved.id, revision: saved.revision, signature: variables.signature })
       }
     },
   })
@@ -923,13 +938,13 @@ export function CampaignPlanner({ credentials }: {
         </div>
         <div className="campaign-actions">
           <Button variant="primary" icon="send"
-            disabled={Boolean(activationBlockReason) || !plan?.activation_available || !payload || !saveInput ||
+            disabled={Boolean(activationBlockReason) || (!plan?.activation_available && !preparationRetryAllowed) || !payload || !saveInput ||
               saveMutation.isPending || activateMutation.isPending || mediaDelete.isPending}
             loading={saveMutation.isPending || activateMutation.isPending}
             onClick={() => {
-              if (!plan?.activation_available || !payload || !saveInput) return
+              if ((!plan?.activation_available && !preparationRetryAllowed) || !payload || !saveInput) return
               if (savedDraftId && savedRevision !== null && lastSavedSignature === saveSignature) {
-                activateMutation.mutate({ id: savedDraftId, revision: savedRevision })
+                activateMutation.mutate({ id: savedDraftId, revision: savedRevision, signature: saveSignature })
               } else {
                 saveMutation.mutate({
                   data: saveInput, id: savedDraftId, revision: savedRevision,
