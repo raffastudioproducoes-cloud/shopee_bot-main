@@ -35,14 +35,20 @@ export function PlanComparison() {
           <thead>
             <tr>
               <th scope="col">Recurso</th>
-              {plans.map((plan) => <th key={plan.key} scope="col">{plan.key}</th>)}
+              {plans.map((plan) => (
+                <th key={plan.key} scope="col" className={plan.key === "Pro" ? "plan-comparison__rec" : undefined}>
+                  {plan.key}
+                  {plan.key === "Pro" ? <span className="plan-comparison__badge">Recomendado</span> : null}
+                  {plan.key === currentPlan ? <span className="plan-comparison__you">Seu plano</span> : null}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.field}>
                 <th scope="row">{row.name}</th>
-                {plans.map((plan) => <td key={plan.key}>{plan[row.field]}</td>)}
+                {plans.map((plan) => <td key={plan.key} className={plan.key === "Pro" ? "plan-comparison__rec" : undefined}>{plan[row.field]}</td>)}
               </tr>
             ))}
           </tbody>

@@ -1,5 +1,6 @@
 import { useToastStore } from "../../stores/toastStore"
 import { Icon } from "./Icon"
+import "./postLoginSplash.css"
 
 /** Pilha de avisos no canto (não bloqueia a tela). Sucesso/progresso usam
  * role="status" (aria-live polite); erro usa role="alert" e só some ao fechar. */
@@ -14,6 +15,7 @@ export function Toaster() {
         return (
           <div
             key={t.id}
+            className="toast-in"
             role={isError ? "alert" : "status"}
             aria-live={isError ? "assertive" : "polite"}
             style={{
@@ -44,7 +46,7 @@ export function Toaster() {
                 aria-label="Fechar aviso"
                 className="csp-s-0160"
               >
-                ×
+                <Icon name="x" size={16} />
               </button>
             ) : null}
           </div>

@@ -5,6 +5,90 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.11.0] - 2026-11-09
+
+Release MINOR que leva à produção, em um passo SemVer a partir da 3.10.1, tudo o que foi validado na staging nos builds internos 3.10.2 a 3.14.0 (listados abaixo): correção da página Posts (conexão morta com o banco), desempenho (índice, listagem em lote, cache), preços Pro R$ 59,90 e Premium R$ 109,90, nova apresentação pública, exclusão de posts de campanha, animações e UX (lotes 1 a 3) e fonte Mona Sans hospedada. Os números 3.10.2 a 3.14.0 existiram apenas como versão da staging; a produção passa de 3.10.1 direto para 3.11.0.
+
+### Build interno da staging 3.14.0
+
+### Changed — lote 3 de UX (pendências do guia de UX, seção 7 do roadmap)
+
+- **Fonte Mona Sans hospedada no próprio site:** antes era pedida a `cdn.jsdelivr.net`, bloqueada pela política de segurança (CSP só permite fontes do próprio site), então o site usava fontes de reserva. Agora `/fonts/` serve a variável (normal e itálico, só latim, ~80 kB) do pacote `@fontsource-variable/mona-sans` 5.3.0, licença SIL OFL 1.1 incluída em `/fonts/OFL-LICENSE.txt`. Cache de 1 dia.
+- **Avisos:** o fechar passou de caractere "×" para o ícone da biblioteca.
+- **Dashboard:** os 4 cards agora levam à página correspondente (Produtos, Posts, Listas, Automação), acessíveis por teclado (Tab + Enter/Espaço) em vez de só decorativos.
+- Testes: `frontend/tests/motion-ux.test.mjs` (+2) e `tests/web/test_spa.py` (+1).
+
+### Build interno da staging 3.13.0
+
+### Added — animações e UX, lote 2 (roadmap: B2, C1, D1 e lei de Von Restorff em Planos)
+
+- **Segurar para confirmar (C1):** a confirmação destrutiva de Perfis e Backup agora usa um botão que enche enquanto se segura (700 ms) com mouse ou toque. Teclado (Enter/Espaço) e leitor de tela confirmam direto, sem depender de segurar.
+- **Avisos (D1):** entrada suave dos toasts.
+- **Erro de login (B2):** o aviso balança de leve uma vez.
+- **Planos (Von Restorff):** na comparação de planos só o Pro fica destacado, com um único selo "Recomendado", e o plano atual da conta ganha o marcador "Seu plano".
+- **Ajuste guiado pelas boas práticas do Impeccable (modo "Operate", app de trabalho):** a splash pós-login caiu de 1,6 s para 1,2 s e as animações passaram a usar a curva de desaceleração `cubic-bezier(0.16, 1, 0.3, 1)` (sem bounce), com durações de 150–500 ms.
+- Tudo respeita `prefers-reduced-motion`; sem biblioteca nova. Testes em `frontend/tests/motion-ux.test.mjs`.
+
+### Build interno da staging 3.12.1
+
+### Changed — apagar posts de campanha pela página Posts
+
+- A exclusão (`DELETE /posts/{id}`) deixou de recusar posts de origem "campanha" (antes: "Esta publicação pertence a uma campanha"). Pedido do dono do produto: apagar qualquer post, não importa de onde veio.
+- Para não deixar a campanha apontando para um post inexistente, a vaga correspondente vira `cancelled` antes da exclusão. Se o envio daquele post está em andamento (`running`), a exclusão responde 409 e pede para tentar em instantes, em vez de interromper a publicação no meio.
+- Edição, reprogramação e demais ações de campanha continuam bloqueadas pela regra de origem.
+- Testes: `tests/api/test_profile_scope_posts.py` (2 novos).
+
+### Build interno da staging 3.12.0
+
+### Added — animações e UX, lote 1 (roadmap `docs/ROADMAP-ANIMACOES-UI.md`: A1, A3, C3)
+
+- **Entrada pós-login (A1):** tela rápida com a logo e círculo que se abre revelando o painel (1,2 s). Aparece **uma vez por sessão**, não bloqueia cliques (toque/tecla encerra), fica fora do admin e é desligada com `prefers-reduced-motion`. O painel carrega por baixo: nenhuma requisição espera a animação.
+- **Contagem nos cards do dashboard (A3):** números inteiros contam de 0 ao valor real em 0,7 s, só na primeira exibição de cada card na sessão; sem movimento reduzido. Valor com erro/"—" aparece como vem.
+- **Cascata dos cards (lei de Doherty/feedback):** os 4 cards do dashboard entram em sequência de 70 ms.
+- **Copiar e-mail (C3):** o botão vira "Copiado!" com ✓ por 2 s e trata falha da área de transferência.
+- Sem biblioteca nova: CSS + React; tokens existentes. Testes: `frontend/tests/motion-ux.test.mjs`.
+
+### Build interno da staging 3.11.2
+
+### Fixed — página de Posts dava "Não foi possível carregar o histórico" (causa real)
+
+- **Causa (log da staging):** `httpx.WriteError: [Errno 32] Broken pipe`. A conexão HTTP/2 compartilhada com o Supabase morria (ociosidade, instância do Render que dormiu e acordou) e a primeira consulta falhava com 500. A versão anterior (3.10.2/3.11.0), que enriquecia os posts em paralelo, piorava: várias consultas simultâneas batiam na mesma conexão quebrada e todas falhavam juntas.
+- **Correção para a API inteira:** o cliente do banco repete **uma vez** a chamada quando a conexão morreu: `WriteError`/`ConnectError` (o pedido nem saiu: seguro para qualquer método) e `ReadError`/`RemoteProtocolError` só em leituras (GET/HEAD). Gravações nunca são repetidas depois de enviadas. A listagem de Posts já não usa paralelismo desde a 3.11.1 (consultas em lote, uma sequência curta por requisição).
+- Testes: `tests/api/test_database_resilience.py` (repete uma vez; não esconde a segunda falha; não repete gravação após erro de leitura).
+
+### Changed — valores dos planos na apresentação
+
+- Seção **Valores**: Free **Grátis**, Pro **R$ 59,90** e Premium **R$ 109,90**, por mês, marcados como "valor de referência" (informados por Rafa em 09/11/2026; a contratação ainda não foi aberta). O teste da página aceita somente esses dois valores em reais.
+
+### Build interno da staging 3.11.1
+
+### Changed — entrega de dados mais rápida e com menos requisições
+
+- **Posts em lote:** a listagem busca threads, agendas, produtos, mídias, fila e eventos com `IN (...)` por blocos de 15 posts (~20 consultas por página de 30, antes ~270). Resultado idêntico ao da versão individual, provado por `tests/api/test_posts_list_batch.py` (equivalência, número de consultas, contas/perfis alheios).
+- **Atualização automática de Posts:** 30 s só enquanto há envio em andamento ou nova tentativa; 5 min se só existem posts agendados; nada se não há agenda. Antes recarregava todas as páginas a cada 30 s para sempre.
+- **Cache de arquivos:** `/assets/*` (nome com hash) por 1 ano e imutável; vídeos e imagens públicas por 1 dia; `index.html` e `sw.js` continuam sem cache.
+- **Imagens sob demanda** nas listas de produtos e catálogo.
+- **Migração 096** (somente `CREATE INDEX IF NOT EXISTS`): índices compostos para a listagem de Posts e 8 chaves estrangeiras sem índice apontadas pelo linter do Supabase. Contrato em `tests/database/test_096_performance_indexes.py`.
+- Análise e próximos passos (cache de autenticação, retenção de logs, preparação para vários servidores): `docs/DESEMPENHO-ENTREGA-DE-DADOS-20261109.md`.
+
+### Build interno da staging 3.11.0
+
+### Added — nova apresentação do site (página inicial `/` e `/presentation`)
+
+- A página pública foi substituída pela versão criada no Lovable ("Scroll Motion World"), com **todas as seções**: abertura com órbita, O desafio, O acúmulo, A virada, O produto em ação (5 etapas pelo scroll), O que muda na rotina, A próxima órbita, Confiança e perguntas, **Planos e limites**, **Valores** (comparativo Free/Pro/Premium) e fechamento.
+- Animações guiadas pelo scroll com a biblioteca `motion`; respeitam "reduzir movimento" do aparelho. A página é carregada sob demanda (`React.lazy`): quem entra direto no painel não baixa esse código.
+- Limites dos planos conferidos com a migração 072 (`plan_limits`); **nenhum preço em reais** (Pro e Premium seguem como "valor em definição"). Botões "Entrar" levam a `/login` dentro do app; o rodapé mantém Termos e Privacidade.
+- Cores e fontes isoladas (prefixo `ao-`), sem alterar o restante do app. Verificado sob a CSP de produção (`style-src-attr 'none'`): sem violações da biblioteca.
+- Testes: `frontend/tests/presentation-page.test.mjs` (seções, âncoras, rodapé legal, login, movimento reduzido, limites iguais à migração, sem preço inventado), incluído na CI.
+
+### Build interno da staging 3.10.2
+
+### Fixed — página de Posts não carregava (tempo esgotado)
+
+- **Causa:** a listagem buscava 90 posts por vez e, para cada um, fazia cerca de 9 consultas ao banco **uma depois da outra** (mais de 800 por página), além de rodar o cliente síncrono do Supabase dentro de uma rota assíncrona, o que travava a API inteira. Com a conta de Rafa (903 posts) a página passava do limite de 30 s do proxy e ficava carregando até dar erro.
+- **Correção:** os posts da página são enriquecidos **em paralelo** (até 8 ao mesmo tempo) fora do loop de eventos; o tamanho da página buscada cai de 90 para 30 (a tela continua mostrando 15 por página e a busca continua carregando o restante). Um aviso vai para o log se a listagem passar de 5 s. Mesma resposta da API, mesma ordem.
+- Testes: `tests/api/test_posts_list_concurrency.py` (barreira que só fecha se a listagem for paralela; limite de concorrência). Próximo passo, em separado: reduzir as consultas por post com buscas em lote.
+
 ## [3.10.1] - 2026-11-09
 
 ### Security — achado S-01 concluído: matriz A/B por rota

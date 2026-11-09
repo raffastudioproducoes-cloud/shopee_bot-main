@@ -9,7 +9,7 @@ const paginationSource = readFileSync(new URL('../src/lib/postHistoryPagination.
 const { outputText } = ts.transpileModule(paginationSource, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
 })
-const { POSTS_PER_PAGE, POSTS_FETCH_LIMIT, paginatePostHistory, canAdvancePostHistory } =
+const { POSTS_PER_PAGE, POSTS_FETCH_LIMIT, paginatePostHistory, canAdvancePostHistory, postsRefreshInterval } =
   await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
 
 const posts = Array.from({ length: 37 }, (_, index) => ({ id: 37 - index }))
@@ -65,4 +65,13 @@ test('PostsPage usa a busca contextual existente antes de paginar, com navegaç�
   assert.match(page, /setHistoryPage\(1\), \[searchQuery, activeProfileId\]/)
   assert.match(page, /fetchNextPage\(\)\.then\(/)
   assert.doesNotMatch(page, /Carregar mais posts/)
+})
+
+test('lista de Posts só consulta a cada 30 s com envio em andamento; agendados esperam 5 min; sem agenda não consulta', () => {
+  assert.equal(postsRefreshInterval([]), false)
+  assert.equal(postsRefreshInterval([{ scheduled: false, last_result: { status: 'published' } }]), false)
+  assert.equal(postsRefreshInterval([{ scheduled: true, last_result: null }]), 5 * 60_000)
+  assert.equal(postsRefreshInterval(Array.from({ length: 450 }, () => ({ scheduled: true }))), 5 * 60_000)
+  assert.equal(postsRefreshInterval([{ scheduled: true }, { scheduled: true, last_result: { status: 'running' } }]), 30_000)
+  assert.equal(postsRefreshInterval([{ last_result: { status: 'retry_pending' } }]), 30_000)
 })

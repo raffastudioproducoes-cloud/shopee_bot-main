@@ -15,6 +15,7 @@ import { ActiveProfileChip } from '../components/profiles/ActiveProfileChip'
 import { LocationPermissionNotice } from '../components/profiles/LocationPermissionNotice'
 import { Icon } from '../components/ui/Icon'
 import { AppFooter } from '../components/layout/AppFooter'
+import { PostLoginSplash } from '../components/ui/PostLoginSplash'
 import { PageSkeleton } from '../components/ui/Skeleton'
 import { PlanBadge } from "../components/plans/PlanSummary"
 import { StatusMessage } from '../components/StatusMessage'
@@ -145,6 +146,7 @@ export function PanelPage() {
 
   return (
     <div className="app-shell">
+      {user?.access !== 'ADMIN' && <PostLoginSplash />}
       <LocationPermissionNotice />
       <SideRail
         id="app-nav"

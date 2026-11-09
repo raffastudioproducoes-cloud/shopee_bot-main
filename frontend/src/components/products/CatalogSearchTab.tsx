@@ -47,7 +47,7 @@ interface CatalogCardProps {
 function CatalogThumb({ image, size }: { image: string | null; size: number }) {
   const box = { width: size, height: size, borderRadius: "var(--r-md)", background: "var(--surface-inset)", flexShrink: 0 } as const
   return image ? (
-    <img src={image} alt="" style={{ ...box, objectFit: "cover" }} />
+    <img src={image} alt="" loading="lazy" decoding="async" style={{ ...box, objectFit: "cover" }} />
   ) : (
     <span style={{ ...box, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
       <Icon name="package" size={Math.round(size * 0.4)} />

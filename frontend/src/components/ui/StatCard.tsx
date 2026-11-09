@@ -3,6 +3,7 @@ import type { CSSProperties, MouseEvent } from "react"
 import { TokenBadge } from "./TokenBadge"
 import { DeltaChip } from "./DeltaChip"
 import { Sparkline } from "./Sparkline"
+import { useCountUp } from "../../lib/motion"
 
 /**
  * Dark coin card for the dashboard's top strip — badge, name, sparkline, price, delta.
@@ -45,10 +46,19 @@ export function StatCard({
   style,
 }: StatCardProps) {
   const [hot, setHot] = useState(false)
+  // Valores inteiros contam de 0 até o número real (1ª exibição na sessão); outros textos aparecem como vêm.
+  const isInteger = /^\d+$/.test(price)
+  const counted = useCountUp(isInteger ? Number(price) : 0, name)
+  const shown = isInteger ? String(counted) : price
   return (
     <div
       className={className}
       onClick={onClick}
+      role={onClick ? "link" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(e as unknown as MouseEvent<HTMLDivElement>) }
+      } : undefined}
       onMouseEnter={() => setHot(true)}
       onMouseLeave={() => setHot(false)}
       style={{
@@ -78,7 +88,7 @@ export function StatCard({
       <span
         className="csp-s-0141"
       >
-        {price}
+        {shown}
       </span>
       {delta ? <DeltaChip value={delta} size="sm" style={{ alignSelf: "flex-start" }} /> : null}
     </div>

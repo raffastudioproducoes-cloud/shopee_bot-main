@@ -3,6 +3,8 @@ import { useDashboard } from '../hooks/useDashboard'
 import { StatCard } from '../components/ui/StatCard'
 import { Panel, PanelHeader } from '../components/ui/Panel'
 import { Button } from '../components/ui/Button'
+import '../components/ui/postLoginSplash.css'
+import type { CSSProperties } from 'react'
 import { Skeleton, SkeletonCard, SkeletonRegion } from '../components/ui/Skeleton'
 
 function count(value: number | undefined) {
@@ -47,10 +49,10 @@ export default function DashboardPage() {
       </div>
 
       <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 'var(--gap-grid)' }}>
-        <StatCard name="Produtos Cadastrados" icon="briefcase" price={count(stats.products_count)} showSparkline={false} />
-        <StatCard name="Postagens Criadas" icon="file-text" price={count(stats.posts_count)} showSparkline={false} />
-        <StatCard name="Listas de Produtos" icon="sliders-horizontal" price={count(stats.lists_count)} showSparkline={false} />
-        <StatCard name="Agendamentos" icon="circle-dot" price={count(stats.scheduled_posts)} showSparkline={false} />
+        <StatCard className="ao-reveal" style={{ "--i": 0 } as CSSProperties} onClick={() => navigate({ to: '/products' })} name="Produtos Cadastrados" icon="briefcase" price={count(stats.products_count)} showSparkline={false} />
+        <StatCard className="ao-reveal" style={{ "--i": 1 } as CSSProperties} onClick={() => navigate({ to: '/posts' })} name="Postagens Criadas" icon="file-text" price={count(stats.posts_count)} showSparkline={false} />
+        <StatCard className="ao-reveal" style={{ "--i": 2 } as CSSProperties} onClick={() => navigate({ to: '/lists' })} name="Listas de Produtos" icon="sliders-horizontal" price={count(stats.lists_count)} showSparkline={false} />
+        <StatCard className="ao-reveal" style={{ "--i": 3 } as CSSProperties} onClick={() => navigate({ to: '/automacao-posts' })} name="Agendamentos" icon="circle-dot" price={count(stats.scheduled_posts)} showSparkline={false} />
       </div>
 
       <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>

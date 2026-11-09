@@ -26,6 +26,7 @@ fluxo do usuário. Kwai fica de fora do mapa, sem API pública confirmada.
 """
 
 import logging
+import time
 import uuid
 from PIL import Image
 from io import BytesIO
@@ -927,6 +928,23 @@ def _require_legacy_post_origin(post: dict) -> None:
         raise HTTPException(status_code=409, detail="Esta publicação pertence a uma campanha. Use os controles da campanha.")
 
 
+def _cancel_campaign_slot_before_delete(post_id: int) -> None:
+    """Excluir um post de campanha é permitido (pedido do dono do produto), mas a vaga da campanha
+    não pode ficar "planejada" apontando para um post que deixou de existir: ela vira 'cancelled'.
+    Um envio em andamento não é interrompido no meio: nesse caso a exclusão espera terminar."""
+    slots = (
+        supabase.table("campaign_network_slots_f4e").select("id, state")
+        .eq("post_id", post_id).execute().data or []
+    )
+    if any(slot.get("state") == "running" for slot in slots):
+        raise HTTPException(status_code=409, detail="Este post está sendo publicado agora. Tente apagar em alguns instantes.")
+    for slot in slots:
+        if slot.get("state") == "planned":
+            supabase.table("campaign_network_slots_f4e").update(
+                {"state": "cancelled", "finished_at": datetime.now(timezone.utc).isoformat()}
+            ).eq("id", slot["id"]).execute()
+
+
 def _ensure_post_editable(user_id: int, post_id: int, profile_id: str | None, post: dict) -> None:
     """Proíbe edições que alterariam uma publicação já programada ou enviada."""
     _require_legacy_post_origin(post)
@@ -968,6 +986,11 @@ def _get_last_publish_result(
     except Exception:
         logger.warning("Falha ao ler resultado de publicação do post %s", post_id, exc_info=True)
 
+    return _resolve_last_publish_result(job, activity)
+
+
+def _resolve_last_publish_result(job: dict | None, activity: dict | None) -> dict | None:
+    """Regra única (sem acesso ao banco) usada pela consulta individual e pela listagem em lote."""
     if job:
         published_parts = _legacy_container_error_parts(activity, job)
         if published_parts is not None:
@@ -1399,6 +1422,193 @@ async def generate_copy(
     }
 
 
+# --- Listagem em lote -------------------------------------------------------------
+# A listagem não pode consultar o banco post a post (~9 consultas por post). Estas funções buscam
+# tudo da página com `IN (...)` e montam o mesmo resultado das funções individuais acima
+# (a equivalência é testada em tests/api/test_posts_list_batch.py).
+_LIST_ID_CHUNK = 15
+_LIST_ROW_LIMIT = 1000
+
+
+def _id_chunks(ids: list[int], size: int = _LIST_ID_CHUNK):
+    for start in range(0, len(ids), size):
+        yield ids[start:start + size]
+
+
+def _batch_schedule_entries(user_id: int, ids: list[int]) -> dict[int, list[dict]]:
+    fields = ("id", "trigger", "run_date", "time", "day_of_week", "days_of_week", "start_date")
+    grouped: dict[int, list[dict]] = {}
+    for chunk in _id_chunks(ids):
+        rows = (
+            supabase.table("schedulers").select(",".join(("post_id",) + fields))
+            .eq("user_id", user_id).in_("post_id", chunk).limit(_LIST_ROW_LIMIT).execute().data or []
+        )
+        for row in rows:
+            grouped.setdefault(row["post_id"], []).append({field: row.get(field) for field in fields})
+    return {
+        post_id: sorted(entries, key=lambda row: (
+            str(row.get("run_date") or ""), str(row.get("time") or ""), str(row.get("id") or ""),
+        )) for post_id, entries in grouped.items()
+    }
+
+
+def _batch_thread_chains(heads: list[dict], user_id: int) -> dict[int, list[dict]]:
+    """Cabeça + partes seguintes de cada thread, uma consulta por nível (normalmente 1 no total).
+
+    Igual a `_get_thread_chain`: cada parte aponta para a anterior (`post_id`) e herda dono e perfil
+    da cabeça. Limitado a 50 partes para nunca entrar em loop com dado corrompido."""
+    chains = {head["id"]: [head] for head in heads}
+    tails = {head["id"]: head for head in heads}  # id da última parte conhecida -> cabeça da thread
+    for _ in range(50):
+        if not tails:
+            break
+        found: dict[int, dict] = {}
+        for chunk in _id_chunks(list(tails)):
+            rows = (
+                supabase.table("posts").select("*")
+                .eq("user_id", user_id).in_("post_id", chunk)
+                .order("id").limit(_LIST_ROW_LIMIT).execute().data or []
+            )
+            for row in rows:
+                head = tails[row["post_id"]]
+                if row["post_id"] in found or row.get("profile_id") != head.get("profile_id"):
+                    continue
+                found[row["post_id"]] = row
+        next_tails: dict[int, dict] = {}
+        for parent_id, row in found.items():
+            head = tails[parent_id]
+            chains[head["id"]].append(row)
+            next_tails[row["id"]] = head
+        tails = next_tails
+    return chains
+
+
+def _batch_relations(table: str, select: str, key: str, ids: list[int]) -> dict[int, list[dict]]:
+    grouped: dict[int, list[dict]] = {}
+    for chunk in _id_chunks(ids):
+        rows = (
+            supabase.table(table).select(f"post_id, {select}")
+            .in_("post_id", chunk).order("display_order").limit(_LIST_ROW_LIMIT).execute().data or []
+        )
+        for row in rows:
+            if row.get(key):
+                grouped.setdefault(row["post_id"], []).append(row[key])
+    return grouped
+
+
+_PRODUCT_FIELDS = "id, product_id, name, image, price_min, price_max, commission"
+_MEDIA_FIELDS = "id, file_name, size, type"
+
+
+def _batch_publish_state(user_id: int, profile_id: str | None, ids: list[int]) -> dict[str, dict[int, dict]]:
+    """Última fila, último evento de publicação, último sucesso na fila e último evento de sucesso."""
+    out: dict[str, dict[int, dict]] = {"job": {}, "job_ok": {}, "activity": {}, "activity_ok": {}}
+    job_fields = "post_id,id,scheduler_id,status,idempotency_key,created_at,started_at,finished_at,last_error,external_id"
+    for chunk in _id_chunks(ids):
+        try:
+            rows = (scope_owner(supabase.table("publish_jobs").select(job_fields), user_id, profile_id)
+                    .in_("post_id", chunk).order("created_at", desc=True).order("id", desc=True)
+                    .limit(_LIST_ROW_LIMIT).execute().data or [])
+            for row in rows:
+                out["job"].setdefault(row["post_id"], row)
+        except Exception:
+            logger.warning("Falha ao consultar a fila dos posts da página", exc_info=True)
+        try:
+            rows = (scope_owner(supabase.table("publish_jobs").select("post_id,finished_at,started_at,created_at"),
+                                user_id, profile_id)
+                    .in_("post_id", chunk).eq("status", "succeeded").order("finished_at", desc=True)
+                    .limit(_LIST_ROW_LIMIT).execute().data or [])
+            for row in rows:
+                out["job_ok"].setdefault(row["post_id"], row)
+        except Exception:
+            logger.warning("Falha ao consultar publicações confirmadas da página", exc_info=True)
+        wanted = [str(i) for i in chunk]
+        for key, ids_filter in (("activity", list(_PUBLISH_ACTIVITY_STATUS)), ("activity_ok", [1])):
+            try:
+                rows = (scope_owner(supabase.table("activities").select("activity_id, metadata, created_at"),
+                                    user_id, profile_id)
+                        .in_("activity_id", ids_filter).in_("metadata->>post_id", wanted)
+                        .order("created_at", desc=True).limit(_LIST_ROW_LIMIT).execute().data or [])
+                for row in rows:
+                    post_id = (row.get("metadata") or {}).get("post_id")
+                    try:
+                        post_id = int(post_id)
+                    except (TypeError, ValueError):
+                        continue
+                    out[key].setdefault(post_id, row)
+            except Exception:
+                logger.warning("Falha ao ler eventos de publicação da página", exc_info=True)
+    return out
+
+
+def _enrich_listed_posts(rows: list[dict], user_id: int, profile_id: str | None, is_admin: bool) -> list[dict]:
+    ids = [row["id"] for row in rows]
+    if not ids:
+        return []
+    schedules = _batch_schedule_entries(user_id, ids)
+    chains = _batch_thread_chains(rows, user_id)
+    products = _batch_relations("posts_products", f"display_order, products({_PRODUCT_FIELDS})", "products", ids)
+    medias = _batch_relations("posts_medias", f"display_order, medias({_MEDIA_FIELDS})", "medias", ids)
+    state = _batch_publish_state(user_id, profile_id, ids)
+    floor = datetime.min.replace(tzinfo=timezone.utc)
+
+    posts: list[dict] = []
+    for item in rows:
+        post_id = item["id"]
+        entries = schedules.get(post_id, [])
+        job = entries[0] if entries else None
+        chain = chains.get(post_id, [item])
+        latest: list[str] = []
+        ok_job = state["job_ok"].get(post_id)
+        if ok_job:
+            latest.append(ok_job.get("finished_at") or ok_job.get("started_at") or ok_job["created_at"])
+        ok_activity = state["activity_ok"].get(post_id)
+        if ok_activity:
+            latest.append(ok_activity["created_at"])
+        latest.sort(key=lambda value: _utc_instant(value) or floor)
+        result = _resolve_last_publish_result(state["job"].get(post_id), state["activity"].get(post_id))
+        posts.append({
+            **item,
+            "texts": [row["text"] for row in chain],
+            "products": products.get(post_id, []),
+            "medias": medias.get(post_id, []),
+            "scheduled": _is_scheduled(job, item),
+            "schedule_trigger": job.get("trigger") if job else None,
+            "schedule_entries": entries,
+            "scheduled_for": job.get("run_date") if job and job.get("trigger") == "date" else None,
+            "parts_count": len(chain),
+            "last_result": _public_publish_result(result, is_admin),
+            "last_published_at": latest[-1] if latest else None,
+        })
+    return posts
+
+
+def _enrich_listed_post(item: dict, user_id: int, profile_id: str | None, is_admin: bool) -> dict:
+    """Versão individual (referência de comportamento): os testes comparam o lote com ela."""
+    schedule_entries = _get_post_schedule_entries(user_id, item["id"])
+    job = schedule_entries[0] if schedule_entries else None
+    chain = _get_thread_chain(item["id"], user_id)
+    return {
+        **item,
+        "texts": [row["text"] for row in chain],
+        "products": _get_post_products(item["id"]),
+        "medias": _get_post_medias(item["id"]),
+        "scheduled": _is_scheduled(job, item),
+        "schedule_trigger": job.get("trigger") if job else None,
+        "schedule_entries": schedule_entries,
+        "scheduled_for": (
+            job.get("run_date")
+            if job and job.get("trigger") == "date"
+            else None
+        ),
+        "parts_count": len(chain),
+        "last_result": _public_publish_result(
+            _get_last_publish_result(user_id, item["id"], profile_id), is_admin
+        ),
+        "last_published_at": _last_successful_post_at(user_id, item["id"], profile_id),
+    }
+
+
 @router.get("")
 async def list_posts(
     user_id: int = Depends(get_current_user_id),
@@ -1407,6 +1617,7 @@ async def list_posts(
     limit: int = Query(20, ge=1, le=100),
 ):
     """Lista posts únicos (post_id IS NULL — sem thread) com paginação por cursor."""
+    started = time.monotonic()
     query = (
         scope_owner(supabase.table("posts").select("*"), user_id, profile_id)
         .is_("post_id", "null")
@@ -1416,39 +1627,20 @@ async def list_posts(
     if cursor:
         query = query.lt("created_at", cursor)
 
-    result = query.execute()
+    # O cliente do Supabase é síncrono: fora do event loop, para não parar a API inteira.
+    result = await run_in_threadpool(query.execute)
+    rows = result.data or []
 
-    posts: list[dict] = []
-    is_admin = _post_admin_access(user_id) if result.data else False
-    for item in result.data:
-        schedule_entries = _get_post_schedule_entries(user_id, item["id"])
-        job = schedule_entries[0] if schedule_entries else None
-        chain = _get_thread_chain(item["id"], user_id)
-
-        posts.append({
-            **item,
-            "texts": [row["text"] for row in chain],
-            "products": _get_post_products(item["id"]),
-            "medias": _get_post_medias(item["id"]),
-            "scheduled": _is_scheduled(job, item),
-            "schedule_trigger": job.get("trigger") if job else None,
-            "schedule_entries": schedule_entries,
-            "scheduled_for": (
-                job.get("run_date")
-                if job and job.get("trigger") == "date"
-                else None
-            ),
-            "parts_count": len(chain),
-            "last_result": _public_publish_result(
-                _get_last_publish_result(user_id, item["id"], profile_id), is_admin
-            ),
-            "last_published_at": _last_successful_post_at(user_id, item["id"], profile_id),
-        })
+    is_admin = await run_in_threadpool(_post_admin_access, user_id) if rows else False
+    posts = await run_in_threadpool(_enrich_listed_posts, rows, user_id, profile_id, is_admin)
 
     next_cursor = None
-    if result.data and len(result.data) == limit:
-        next_cursor = result.data[-1]["created_at"]
+    if rows and len(rows) == limit:
+        next_cursor = rows[-1]["created_at"]
 
+    elapsed = time.monotonic() - started
+    if elapsed > 5:
+        logger.warning("Listagem de posts lenta: %.1fs para %d posts (limit=%d)", elapsed, len(posts), limit)
     return {"data": posts, "next_cursor": next_cursor}
 
 
@@ -2215,7 +2407,8 @@ async def delete_post(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     post = _get_post(user_id, post_id, profile_id)  # ownership check
-    _require_legacy_post_origin(post)
+    if post.get("publication_origin", "legacy") == "campaign":
+        _cancel_campaign_slot_before_delete(post_id)
 
     jobs = supabase.table("schedulers").select("id").eq("post_id", post_id).execute().data or []
     for job in jobs:

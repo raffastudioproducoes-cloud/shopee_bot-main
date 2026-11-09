@@ -1,0 +1,67 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap");
+
+/* Apresentação pública (landing). Cores e fontes ficam isoladas aqui e em `@theme static`
+   no index.css (prefixo `ao-`), para não alterar o restante do aplicativo. */
+.ao-pres {
+  position: relative;
+  overflow-x: clip;
+  min-height: 100vh;
+  background: var(--color-ao-bg);
+  color: var(--color-ao-fg);
+  font-family: "Manrope", var(--font-sans), system-ui, sans-serif;
+}
+html:has(.ao-pres) { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html:has(.ao-pres) { scroll-behavior: auto; } }
+
+@layer base {
+  .ao-pres, .ao-pres * { border-color: var(--color-ao-border); }
+}
+
+.ao-pres a:focus-visible, .ao-pres button:focus-visible, .ao-pres summary:focus-visible {
+  outline: 2px solid var(--color-ao-primary);
+  outline-offset: 3px;
+}
+.ao-pres summary::-webkit-details-marker { display: none; }
+
+.ao-skip {
+  position: absolute; left: 12px; top: -48px; z-index: 60;
+  padding: 10px 14px; border-radius: 10px; background: var(--color-ao-card); color: var(--color-ao-fg);
+}
+.ao-skip:focus { top: 12px; }
+
+.ao-hero-glow {
+  background:
+    radial-gradient(ellipse at 75% 45%, color-mix(in oklab, var(--color-ao-primary) 18%, transparent), transparent 55%),
+    radial-gradient(ellipse at 20% 10%, color-mix(in oklab, var(--color-ao-accent) 12%, transparent), transparent 50%);
+}
+.ao-orbit-ring {
+  border: 1px solid color-mix(in oklab, var(--color-ao-primary) 35%, transparent);
+  box-shadow: 0 0 30px -10px color-mix(in oklab, var(--color-ao-primary) 50%, transparent);
+}
+.ao-planet {
+  background: radial-gradient(circle at 35% 30%, oklch(0.4 0.13 255), var(--color-ao-bg) 75%);
+  box-shadow: 0 0 80px -10px color-mix(in oklab, var(--color-ao-primary) 50%, transparent), inset 0 0 40px color-mix(in oklab, var(--color-ao-primary) 25%, transparent);
+}
+.ao-btn-primary, .ao-btn-ghost {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  border-radius: 0.75rem; padding: 0.9rem 1.5rem; font-weight: 700;
+}
+.ao-btn-primary {
+  background: linear-gradient(135deg, var(--color-ao-primary), oklch(0.65 0.18 250));
+  color: var(--color-ao-on-primary);
+  box-shadow: 0 0 40px -8px color-mix(in oklab, var(--color-ao-primary) 55%, transparent);
+  transition: transform 0.2s;
+}
+.ao-btn-primary:hover { transform: translateY(-2px); }
+.ao-btn-ghost {
+  border: 1px solid var(--color-ao-border);
+  background: color-mix(in oklab, var(--color-ao-card) 60%, transparent);
+  transition: border-color 0.2s;
+}
+.ao-btn-ghost:hover { border-color: var(--color-ao-primary); }
+.ao-btn-ghost--small { padding: 0.5rem 1rem; }
+
+.ao-footer { border-top: 1px solid var(--color-ao-border); padding: 32px 24px; }
+.ao-footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; max-width: 80rem; margin: 0 auto; }
+.ao-footer-inner nav { display: flex; gap: 20px; }
+.ao-footer a:hover { color: var(--color-ao-primary); }

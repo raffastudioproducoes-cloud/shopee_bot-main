@@ -8,7 +8,7 @@ import { NETWORK_RULES } from "../lib/networkLimits"
 import { NetworkLogo } from "../components/posts/NetworkPicker"
 import { useProfileStore } from "../stores/profileStore"
 import { formDraftKey } from "../lib/formDraftStorage"
-import { POSTS_FETCH_LIMIT, POSTS_PER_PAGE, canAdvancePostHistory, paginatePostHistory } from "../lib/postHistoryPagination"
+import { POSTS_FETCH_LIMIT, POSTS_PER_PAGE, canAdvancePostHistory, paginatePostHistory, postsRefreshInterval } from "../lib/postHistoryPagination"
 import { useAutosavedDraft } from "../hooks/useAutosavedDraft"
 import { Panel, PanelHeader, Divider } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
@@ -75,12 +75,7 @@ export function PostsPage() {
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) => postsApi.list({ cursor: pageParam, limit: POSTS_FETCH_LIMIT }),
     getNextPageParam: (page) => page.next_cursor ?? undefined,
-    refetchInterval: (query) => query.state.data?.pages?.some((page) =>
-      page.data.some((post) => post.scheduled && (
-        post.schedule_trigger === "cron" ||
-        !post.last_result?.status || post.last_result.status === "running" || post.last_result.status === "retry_pending"
-      ))
-    ) ? 30_000 : false,
+    refetchInterval: (query) => postsRefreshInterval(query.state.data?.pages?.flatMap((page) => page.data) ?? []),
   })
   const posts = postsPages?.pages.flatMap((page) => page.data) ?? []
   const hasActiveSearch = searchQuery.trim().length > 0
