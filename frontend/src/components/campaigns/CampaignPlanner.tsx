@@ -741,7 +741,8 @@ export function CampaignPlanner({ credentials }: {
             </div>
             {draft.startDate && draft.days.length > 0 && scheduleUsage.planMaxEndDate && (
               <p className={scheduleUsage.exceedsActiveDayLimit || scheduleUsage.exceedsCalendarLimit
-                || scheduleUsage.activeDaysUsed === 0 ? "campaign-warning" : "campaign-status"} role="status">
+                || (Boolean(draft.endDate) && scheduleUsage.activeDaysUsed === 0)
+                ? "campaign-warning" : "campaign-status"} role="status">
                 {draft.endDate
                   ? `Período selecionado: ${scheduleUsage.activeDaysUsed} de ${caps.days} dias de publicação; restam ${scheduleUsage.activeDaysRemaining}.`
                   : `Seu plano permite ${caps.days} dias de publicação nesta frequência.`}
