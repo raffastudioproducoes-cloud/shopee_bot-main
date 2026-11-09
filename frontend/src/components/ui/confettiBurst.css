@@ -1,0 +1,12 @@
+.confetti-burst { position:absolute; left:50%; top:50%; width:0; height:0; pointer-events:none; z-index:5; }
+.confetti-burst i {
+  position:absolute; left:-4px; top:-4px; width:8px; height:12px; border-radius:2px; opacity:0;
+  animation:confetti-fly 1.1s cubic-bezier(.15,.7,.3,1) var(--delay,0ms) forwards;
+}
+.confetti-burst i.is-round { width:8px; height:8px; border-radius:var(--r-pill); }
+@keyframes confetti-fly {
+  0% { opacity:1; transform:translate(0,0) rotate(0) scale(.6); }
+  70% { opacity:1; }
+  100% { opacity:0; transform:translate(var(--dx),calc(var(--dy) + 60px)) rotate(var(--rot)) scale(1); }
+}
+@media (prefers-reduced-motion:reduce) { .confetti-burst { display:none; } }

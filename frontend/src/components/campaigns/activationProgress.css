@@ -1,0 +1,31 @@
+.activation-progress { flex:1 1 100%; min-width:0; box-sizing:border-box; padding:14px 16px; border:1px solid var(--border-card); border-radius:var(--r-md); background:var(--surface-inset); display:grid; gap:12px; animation:activation-in .25s var(--ease-standard) both; }
+.activation-progress--success { border-color:var(--accent); }
+.activation-progress--error { border-color:var(--red-400); }
+.activation-progress__head { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; }
+.activation-progress__head strong { color:var(--text-display); font:var(--text-role-body); }
+.activation-progress__time { color:var(--text-muted); font:var(--text-role-small); font-variant-numeric:tabular-nums; }
+.activation-progress__time b { color:var(--text-body); }
+.activation-progress__track { position:relative; height:8px; overflow:hidden; border-radius:var(--r-pill); background:var(--border-strong); }
+.activation-progress__track span { position:absolute; inset:0 auto 0 0; border-radius:inherit; background:var(--gradient-orbital); }
+.activation-progress__track .is-running { width:40%; animation:activation-slide 1.4s var(--ease-standard) infinite; }
+.activation-progress__track .is-full { width:100%; transition:width .5s var(--ease-standard); }
+.activation-progress__track .is-error { width:100%; background:var(--red-400); opacity:.6; }
+.activation-progress__steps { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.activation-progress__steps li { display:flex; gap:10px; align-items:flex-start; color:var(--text-muted); font:var(--text-role-small); line-height:1.5; }
+.activation-progress__steps li.is-active { color:var(--text-body); }
+.activation-progress__steps li.is-done { color:var(--text-body); }
+.activation-progress__steps li.is-done .activation-progress__icon { color:var(--mint-400); }
+.activation-progress__steps li.is-active .activation-progress__icon { color:var(--accent); }
+.activation-progress__steps li.is-error { color:var(--text-body); }
+.activation-progress__steps li.is-error .activation-progress__icon { color:var(--red-400); }
+.activation-progress__icon { flex:none; width:16px; height:16px; display:grid; place-items:center; margin-top:2px; }
+.activation-progress__icon i { width:8px; height:8px; border-radius:var(--r-pill); border:1px solid var(--border-strong); }
+.activation-progress__hint, .activation-progress__error { margin:0; font:var(--text-role-small); line-height:1.5; color:var(--text-muted); }
+.activation-progress__error { color:var(--text-body); }
+@keyframes activation-slide { 0% { transform:translateX(-100%); } 100% { transform:translateX(260%); } }
+@keyframes activation-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce) { .activation-progress { animation:none; } .activation-progress__track .is-running { animation:none; width:100%; opacity:.5; } }
+
+.activation-progress__icon i.activation-progress__pulse { width:10px; height:10px; border:0; background:var(--accent); animation:activation-pulse 1.1s ease-in-out infinite; }
+@keyframes activation-pulse { 0%,100% { transform:scale(.7); opacity:.6; } 50% { transform:scale(1); opacity:1; box-shadow:0 0 0 5px var(--accent-tint); } }
+@media (prefers-reduced-motion:reduce) { .activation-progress__icon i.activation-progress__pulse { animation:none; } }

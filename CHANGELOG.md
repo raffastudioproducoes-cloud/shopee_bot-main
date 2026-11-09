@@ -19,6 +19,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed/Changed — ativação de campanhas (candidata PATCH, somente staging)
+
+- Dias da semana selecionados no editor de campanhas usam o azul padrão do design system (`--gradient-cta`), em vez do verde.
+- O proxy Flask passa a aguardar até 90 s (conexão 5 s) **somente** em `POST /api/campaigns/drafts/{id}/activate`; as demais rotas seguem em 30 s. Antes, ativações grandes terminavam em "API interna não respondeu a tempo". O 504 dessa rota explica que a ativação pode ter concluído e manda conferir a seção 06.
+- Novo painel de andamento da ativação: etapas reais do cliente, cronômetro, barra indeterminada (sem porcentagem fictícia, pois o servidor não informa a etapa), avisos graduais e mensagem de erro recuperável.
+- Confetti no botão Ativar campanha ao concluir, com cores da marca e desativado por `prefers-reduced-motion`.
+- Sem migration, cron, gateway, segredo ou publicação real.
+
 ## [3.8.0] - 2026-11-08
 
 - Campanhas agora exibem prévia de composição por rede, informando mídias aceitas, arquivos descartados e bloqueios de texto/formato/tamanho/duração/dimensões antes da ativação. A prévia considera anexos legados, lê metadados das mídias salvas e inclui o link afiliado na contagem.
