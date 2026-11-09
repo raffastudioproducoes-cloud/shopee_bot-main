@@ -167,6 +167,7 @@ class CampaignDraftItem(BaseModel):
 
 class CampaignDraftSave(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
     @field_validator("name")
     @classmethod
     def nonempty_name(cls, value):
@@ -182,6 +183,7 @@ class CampaignDraftSave(BaseModel):
 
 class CampaignDraftUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
     @field_validator("name")
     @classmethod
     def nonempty_name(cls, value):
