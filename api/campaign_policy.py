@@ -130,7 +130,10 @@ def validate_campaign_network_volume(policy: CampaignPolicy, schedule, items) ->
         if counts[day] > policy.campaign_posts_per_day:
             raise HTTPException(
                 status_code=403,
-                detail=f"Seu plano permite até {policy.campaign_posts_per_day} publicações por dia de campanha; cada rede conta uma.",
+                detail=(
+                    f"Seu plano permite até {policy.campaign_posts_per_day} publicações por dia de campanha; "
+                    "cada rede conta uma."
+                ),
             )
 
 
@@ -143,30 +146,46 @@ def require_automation_access(policy: CampaignPolicy) -> None:
 def campaign_limits_response(policy: CampaignPolicy, profile_id: str) -> dict:
     """Failures in commercial entitlement/usage readings fail closed."""
     from datetime import datetime, timezone
+
     paid_through = None
     eligible = policy.is_admin
     active_count = None
     try:
-        account = (supabase.table("profiles").select("user_id")
-                   .eq("id",profile_id).single().execute()).data
-        user = (supabase.table("users")
-                .select("campaign_paid_through,campaign_pending_tier,campaign_tier_effective_at")
-                .eq("id",account["user_id"]).single().execute()).data
+        account = (
+            supabase.table("profiles")
+            .select("user_id")
+            .eq("id", profile_id)
+            .single()
+            .execute()
+        ).data
+        user = (
+            supabase.table("users")
+            .select("campaign_paid_through,campaign_pending_tier,campaign_tier_effective_at")
+            .eq("id", account["user_id"])
+            .single()
+            .execute()
+        ).data
         paid_through = user.get("campaign_paid_through")
         if paid_through and not policy.is_admin:
-            paid = datetime.fromisoformat(paid_through.replace("Z","+00:00"))
+            paid = datetime.fromisoformat(paid_through.replace("Z", "+00:00"))
             eligible = paid > datetime.now(timezone.utc) and policy.campaigns_enabled
-        count = (supabase.table("campaign_reservations_f4e")
-                 .select("id",count="exact",head=True)
-                 .eq("profile_id",profile_id).eq("user_id",account["user_id"])
-                 .eq("status","reserved_no_dispatch")
-                 .in_("lifecycle",["preparing","active","paused"]).execute())
+        count = (
+            supabase.table("campaign_reservations_f4e")
+            .select("id", count="exact", head=True)
+            .eq("profile_id", profile_id)
+            .eq("user_id", account["user_id"])
+            .eq("status", "reserved_no_dispatch")
+            .in_("lifecycle", ["preparing", "active", "paused"])
+            .execute()
+        )
         active_count = count.count
     except Exception:
         eligible = policy.is_admin
         active_count = None
+
     quota_available = policy.is_admin or (
-        policy.active_campaigns_limit is not None and active_count is not None
+        policy.active_campaigns_limit is not None
+        and active_count is not None
         and active_count < policy.active_campaigns_limit
     )
     activation_available = eligible and active_count is not None and quota_available
