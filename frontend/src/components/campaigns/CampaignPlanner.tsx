@@ -241,7 +241,9 @@ export function CampaignPlanner({ credentials }: {
         !draft.listId || draft.itemIds.length === 0 || !draft.startDate || !draft.endDate ||
         draft.days.length === 0 || !draft.startTime || !draft.endTime ||
         !Number.isInteger(Number(draft.postsPerDay)) || Number(draft.postsPerDay) < 1 ||
-        Number(draft.postsPerDay) > caps.posts) return null
+        Number(draft.postsPerDay) > caps.posts ||
+        (Number(draft.postsPerDay) > 1 &&
+          timeMinutes(draft.endTime) - timeMinutes(draft.startTime) < Number(draft.postsPerDay) - 1)) return null
     return {
       list_id: draft.listId,
       item_ids: draft.itemIds,
