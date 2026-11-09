@@ -1,3 +1,9 @@
+## 08/11/2026 — Autorizada a release MINOR 3.7.0 (promoção em andamento)
+
+- [x] Rafa autorizou expressamente “Pode mergear com a main. Pode promover!”; [x] staging com funcionalidade + docs e CI #1181/#1183 SUCCESS, Render `708a667` LIVE; [x] incremento SemVer `3.6.2→3.7.0` e changelog datado na branch de release.
+- [ ] CI da PR da release para staging; [ ] Render staging 3.7.0 LIVE + smoke; [ ] PR `staging → main` com CI e gate SemVer verdes; [ ] Render produção no commit mergeado LIVE, HTML 3.7.0, HTTP/segurança e logs; [ ] fechamento documental Projeto/Vault após prova. Sem tocar em migrações, crons, gateway, segredos ou posts reais.
+- [Portões e registro da release](RELEASE-3.7.0-20261108.md). Esta entrada é preparatória, **não comprova produção**.
+
 ## 08/11/2026 — Mídias permanentes em campanhas e posters MP4 (staging LIVE; QA de Rafa pendente)
 
 - [x] Rafa aprovou o desenho e pediu que o painel de upload suma após sucesso, com animação discreta durante processamento; [x] miniatura real JPEG para vídeo legado e novo em Produtos/Campanhas; [x] seletor de foto Shopee/adicionais/ambos/nenhum, sem upload na edição da campanha; [x] snapshots por produto, validação no backend e cópias privadas na ativação mantendo anexos antigos.
