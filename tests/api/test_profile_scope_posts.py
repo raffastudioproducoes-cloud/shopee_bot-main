@@ -181,3 +181,28 @@ def test_legacy_token_without_claim_falls_back_to_principal_profile(real_profile
     c.cookies.update(old_token_without_profile_claim)
     assert [p["id"] for p in c.get("/posts").json()["data"]] == [1]
     app.dependency_overrides.clear()
+
+
+def test_delete_campaign_post_is_allowed_and_cancels_its_slot(make_client, profile_cookie):
+    db, make = make_client
+    db.tables["posts"].append({"id": 3, "user_id": 42, "profile_id": "profile-a", "text": "camp", "post_id": None,
+                               "created_at": "2026-01-03", "publication_origin": "campaign"})
+    db.tables["schedulers"] = []
+    db.tables["posts_medias"] = []
+    db.tables["posts_products"] = []
+    db.tables["campaign_network_slots_f4e"] = [{"id": "s1", "post_id": 3, "state": "planned"}]
+    res = make(profile_cookie("profile-a")).delete("/posts/3")
+    assert res.status_code == 200
+    assert 3 not in {p["id"] for p in db.tables["posts"]}
+    slot = db.tables["campaign_network_slots_f4e"][0]
+    assert slot["state"] == "cancelled" and slot["finished_at"]
+
+
+def test_delete_campaign_post_being_published_is_refused(make_client, profile_cookie):
+    db, make = make_client
+    db.tables["posts"].append({"id": 3, "user_id": 42, "profile_id": "profile-a", "text": "camp", "post_id": None,
+                               "created_at": "2026-01-03", "publication_origin": "campaign"})
+    db.tables["campaign_network_slots_f4e"] = [{"id": "s1", "post_id": 3, "state": "running"}]
+    res = make(profile_cookie("profile-a")).delete("/posts/3")
+    assert res.status_code == 409
+    assert 3 in {p["id"] for p in db.tables["posts"]}

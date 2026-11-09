@@ -5,6 +5,15 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.12.1] - 2026-11-09
+
+### Changed — apagar posts de campanha pela página Posts
+
+- A exclusão (`DELETE /posts/{id}`) deixou de recusar posts de origem "campanha" (antes: "Esta publicação pertence a uma campanha"). Pedido do dono do produto: apagar qualquer post, não importa de onde veio.
+- Para não deixar a campanha apontando para um post inexistente, a vaga correspondente vira `cancelled` antes da exclusão. Se o envio daquele post está em andamento (`running`), a exclusão responde 409 e pede para tentar em instantes, em vez de interromper a publicação no meio.
+- Edição, reprogramação e demais ações de campanha continuam bloqueadas pela regra de origem.
+- Testes: `tests/api/test_profile_scope_posts.py` (2 novos).
+
 ## [3.12.0] - 2026-11-09
 
 ### Added — animações e UX, lote 1 (roadmap `docs/ROADMAP-ANIMACOES-UI.md`: A1, A3, C3)
