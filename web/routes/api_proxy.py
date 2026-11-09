@@ -23,6 +23,11 @@ _TIMEOUT = 30
 # A transcodificação segura pode levar até 90 s, além de ffprobe e Storage.
 # Este prazo maior vale SOMENTE para upload da galeria de Produtos.
 _PRODUCT_MEDIA_TIMEOUT = (5, 180)  # conexão, leitura/resposta do FastAPI
+# A ativação de campanha valida cotas, baixa/copia mídias e testa OAuth por
+# rede; com muitas ocorrências passa de 30 s. Prazo maior SOMENTE para ela,
+# abaixo do limite de borda do Render. A operação é idempotente por rascunho.
+_CAMPAIGN_ACTIVATE_TIMEOUT = (5, 90)
+_CAMPAIGN_ACTIVATE_PATH = re.compile(r"campaigns/drafts/[0-9A-Za-z-]+/activate")
 
 # headers que não devem ser repassados 1:1 entre Flask e o FastAPI
 # interno — hop-by-hop ou recalculados pelo lado que recebe
@@ -60,6 +65,15 @@ def proxy(subpath):
     is_product_media_upload = request.method == "POST" and bool(
         re.fullmatch(r"products/\d+/media", subpath)
     )
+    is_campaign_activation = request.method == "POST" and bool(
+        _CAMPAIGN_ACTIVATE_PATH.fullmatch(subpath)
+    )
+    if is_product_media_upload:
+        upstream_timeout = _PRODUCT_MEDIA_TIMEOUT
+    elif is_campaign_activation:
+        upstream_timeout = _CAMPAIGN_ACTIVATE_TIMEOUT
+    else:
+        upstream_timeout = _TIMEOUT
     try:
         # ponytail: get_data() carrega o corpo inteiro em memória; ok
         # porque Flask já limita isso via MAX_CONTENT_LENGTH (mesmo
@@ -71,14 +85,22 @@ def proxy(subpath):
             params=request.args,
             headers=headers,
             data=request.get_data(),
-            timeout=_PRODUCT_MEDIA_TIMEOUT if is_product_media_upload else _TIMEOUT,
+            timeout=upstream_timeout,
             allow_redirects=False,
         )
     except requests.Timeout:
         current_app.logger.warning(
             "Timeout no proxy interno: escopo=%s",
-            "product-media-upload" if is_product_media_upload else "api-general",
+            "product-media-upload" if is_product_media_upload
+            else "campaign-activation" if is_campaign_activation else "api-general",
         )
+        if is_campaign_activation:
+            return {
+                "error": (
+                    "A ativação demorou além do limite de resposta. Ela pode ter "
+                    "terminado no servidor: confira a seção 06 antes de tentar de novo."
+                )
+            }, 504
         if is_product_media_upload:
             return {
                 "error": (

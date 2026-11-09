@@ -112,3 +112,28 @@ def test_regular_api_timeout_still_uses_short_deadline(client):
     assert res.status_code == 504
     assert "não respondeu" in res.get_json()["error"]
     assert mock_req.call_args.kwargs["timeout"] == 30
+
+
+def test_campaign_activation_has_longer_deadline_only_for_activate_post(client):
+    draft = "3f2b8c1e-0a4d-4c55-9b7e-1d2c3b4a5f60"
+    with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
+        mock_req.return_value = _FakeUpstreamResponse()
+        activate = client.post(f"/api/campaigns/drafts/{draft}/activate", data=b"{}")
+        save = client.post(f"/api/campaigns/drafts/{draft}", data=b"{}")
+        listing = client.get(f"/api/campaigns/drafts/{draft}/activate")
+
+    assert activate.status_code == save.status_code == listing.status_code == 200
+    assert mock_req.call_args_list[0].kwargs["timeout"] == (5, 90)
+    assert mock_req.call_args_list[1].kwargs["timeout"] == 30
+    assert mock_req.call_args_list[2].kwargs["timeout"] == 30
+
+
+def test_campaign_activation_timeout_returns_actionable_504(client):
+    draft = "3f2b8c1e-0a4d-4c55-9b7e-1d2c3b4a5f60"
+    with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
+        mock_req.side_effect = requests.ReadTimeout("internal host and credentials")
+        res = client.post(f"/api/campaigns/drafts/{draft}/activate", data=b"{}")
+
+    assert res.status_code == 504
+    assert "seção 06" in res.get_json()["error"]
+    assert "credentials" not in res.get_data(as_text=True)

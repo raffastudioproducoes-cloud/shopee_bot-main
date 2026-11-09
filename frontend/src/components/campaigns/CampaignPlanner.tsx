@@ -16,6 +16,8 @@ import { campaignUiCaps } from "../../lib/planPresentation"
 import { calculateCampaignScheduleUsage, formatCampaignDate } from "../../lib/campaignSchedule"
 import { TextInput } from "../ui/TextInput"
 import { Button } from "../ui/Button"
+import { ConfettiBurst } from "../ui/ConfettiBurst"
+import { ActivationProgress, type ActivationPhase } from "./ActivationProgress"
 import { AiCopyControls } from "../posts/AiCopyControls"
 import { CampaignProductMediaSelector } from "./CampaignProductMediaSelector"
 import "./campaignPlanner.css"
@@ -197,10 +199,12 @@ export function CampaignPlanner({ credentials }: {
     refetchInterval: 30_000,
     retry: false,
   })
+  const [confettiKey, setConfettiKey] = useState(0)
   const activateMutation = useMutation({
     mutationFn: ({ id, revision }: { id: string; revision: number; signature: string }) =>
       campaignsApi.activateDraft(id, revision),
     onSuccess: (record, variables) => {
+      setConfettiKey((key) => key + 1)
       setSelectedCampaignId(record.id)
       // Não apague alterações feitas enquanto a ativação estava pendente.
       if (currentSaveSignatureRef.current === variables.signature) {
@@ -387,6 +391,14 @@ export function CampaignPlanner({ credentials }: {
       }
     },
   })
+  const savingForActivation = saveMutation.isPending && Boolean(saveMutation.variables?.activateAfterSave)
+  const activationPhase: ActivationPhase = savingForActivation ? "saving"
+    : activateMutation.isPending ? "activating"
+      : activateMutation.isSuccess ? "success"
+        : activateMutation.isError || (saveMutation.isError && Boolean(saveMutation.variables?.activateAfterSave)) ? "error"
+          : "idle"
+  const activationError = activateMutation.isError ? activateMutation.error.message
+    : saveMutation.isError ? saveMutation.error.message : null
   const loadMutation = useMutation({
     mutationFn: async (id: string) => {
       const saved = await campaignsApi.getDraft(id)
@@ -949,6 +961,7 @@ export function CampaignPlanner({ credentials }: {
           <p>Ao ativar, o servidor valida as cotas, retém os arquivos no armazenamento privado e confirma as permissões OAuth. A execução ocorre somente nos horários previstos, com pausa e cancelamento disponíveis.</p>
         </div>
         <div className="campaign-actions">
+          <span className={`campaign-activate-wrap${confettiKey > 0 && activationPhase === "success" ? " is-celebrating" : ""}`}>
           <Button variant="primary" icon="send"
             disabled={Boolean(activationBlockReason) || (!plan?.activation_available && !preparationRetryAllowed) || !payload || !saveInput ||
               saveMutation.isPending || activateMutation.isPending || mediaDelete.isPending}
@@ -966,10 +979,11 @@ export function CampaignPlanner({ credentials }: {
             }}>
             Ativar campanha
           </Button>
+          <ConfettiBurst burstKey={confettiKey} />
+          </span>
           <small>Salvar rascunho manualmente é opcional. Ao ativar, a configuração é registrada internamente para garantir revisão, mídia e idempotência; se a ativação falhar, ela permanece recuperável como rascunho.</small>
           {activationBlockReason && <small role="status">{activationBlockReason}</small>}
-          {activateMutation.isError &&
-            <p className="campaign-error" role="alert">{activateMutation.error.message}</p>}
+          <ActivationProgress phase={activationPhase} errorMessage={activationError} />
           {activateMutation.isSuccess &&
             <p className="campaign-status" role="status">Campanha ativada. Acompanhe os estados abaixo.</p>}
         </div>
