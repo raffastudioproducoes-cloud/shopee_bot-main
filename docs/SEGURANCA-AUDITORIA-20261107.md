@@ -79,4 +79,6 @@
 | --- | --- | --- |
 | S-02 — links fora da Shopee | **Corrigido em staging** (aguarda promoção) | `ProductCreate` valida HTTPS + host Shopee e imagem em CDN Shopee; restore usa o mesmo schema; `safeExternalUrl()` na UI; testes negativos em `tests/api/test_products.py` e `frontend/tests/safe-external-url.test.mjs` |
 | S-06 — token no navegador | **Corrigido em staging** (aguarda promoção) | `authStore` sem `accessToken`, `migrate` limpa legado; `frontend/tests/auth-store-no-token.test.mjs` |
-| S-01, S-03, S-04, S-05 | Pendentes | Ver plano; S-04 e S-05 dependem de decisão/custo de Rafa |
+| S-01 — escopo por conta | **Parcial** (staging) | Helpers de thread de posts exigem `user_id` (`tests/api/test_s01_post_scope.py`); catraca das 52 rotas com ID (`tests/api/test_s01_id_routes_ratchet.py`). **Pendente:** matriz A/B dinâmica por rota, revisão de `SECURITY DEFINER`/grants e estudo de JWT com RLS |
+| S-03 — prompt injection | **Corrigido em staging** (aguarda promoção) | Bloco `<dados>` + regra de dado não confiável; links extras recusados após a geração; `tests/api/test_s03_prompt_injection.py`. Conformidade semântica do modelo não é garantida; segue revisão humana antes de postar |
+| S-04, S-05 | Pendentes | Dependem de decisão/custo de Rafa (Redis distribuído; plano Supabase Pro ou checagem de senha vazada) |

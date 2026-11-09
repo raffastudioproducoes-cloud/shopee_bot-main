@@ -5,6 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Security — auditoria 07/11/2026, achados S-01 (parcial) e S-03
+
+- **S-01 (parcial):** `_get_thread_chain`, `_get_post_by_id_only` e `_delete_thread_cascade` (posts) passam a **exigir `user_id`** e filtram por dono; um post de outra conta responde 404 e nada é apagado. Todos os chamadores (posts e exportação de backup) foram ajustados. Novo `tests/api/test_s01_id_routes_ratchet.py` congela as 52 rotas com ID no caminho: uma rota nova com ID falha o teste até o escopo por conta/perfil ser revisado. **Não substitui** a matriz A/B por rota, ainda pendente.
+- **S-03:** texto de produto/usuário vai ao modelo num bloco `<dados>` JSON de uma linha (`<`/`>` neutralizados), com regra de dado não confiável, nos prompts de variantes por rede, descrição curta e respostas de thread. Depois da geração, qualquer URL além do link de afiliado do dono é recusada (reaplica o reparo determinístico, que agora remove toda URL do texto da IA mesmo sem link do dono). Corpus de injeção em `tests/api/test_s03_prompt_injection.py`.
+
 ### Security — auditoria 07/11/2026, achados S-02 e S-06
 
 - **S-06:** o `authStore` não guarda nem persiste mais `accessToken`; `login(user)` não recebe token. Entradas antigas do `localStorage` são limpas por `version: 1` + `migrate`. A autorização continua sendo o cookie httpOnly validado em `/auth/me`.
