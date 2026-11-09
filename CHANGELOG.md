@@ -5,6 +5,16 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.11.0] - 2026-11-09
+
+### Added — nova apresentação do site (página inicial `/` e `/presentation`)
+
+- A página pública foi substituída pela versão criada no Lovable ("Scroll Motion World"), com **todas as seções**: abertura com órbita, O desafio, O acúmulo, A virada, O produto em ação (5 etapas pelo scroll), O que muda na rotina, A próxima órbita, Confiança e perguntas, **Planos e limites**, **Valores** (comparativo Free/Pro/Premium) e fechamento.
+- Animações guiadas pelo scroll com a biblioteca `motion`; respeitam "reduzir movimento" do aparelho. A página é carregada sob demanda (`React.lazy`): quem entra direto no painel não baixa esse código.
+- Limites dos planos conferidos com a migração 072 (`plan_limits`); **nenhum preço em reais** (Pro e Premium seguem como "valor em definição"). Botões "Entrar" levam a `/login` dentro do app; o rodapé mantém Termos e Privacidade.
+- Cores e fontes isoladas (prefixo `ao-`), sem alterar o restante do app. Verificado sob a CSP de produção (`style-src-attr 'none'`): sem violações da biblioteca.
+- Testes: `frontend/tests/presentation-page.test.mjs` (seções, âncoras, rodapé legal, login, movimento reduzido, limites iguais à migração, sem preço inventado), incluído na CI.
+
 ## [3.10.2] - 2026-11-09
 
 ### Fixed — página de Posts não carregava (tempo esgotado)

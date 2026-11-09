@@ -6,10 +6,12 @@ const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8")
 test("V3 permanece em preview isolado, sem substituir apresentação, login ou rota de cliente", async () => {
   const router = await read("src/router.tsx")
   const landing = await read("src/pages/PresentationPage.tsx")
+  const scenes = await read("src/pages/presentation/Scenes.tsx")
   assert.match(router, /path:\s*["']\/presentation\/pilot["']/)
   assert.match(router, /component:\s*lazyRoute\(OrbitalPilotPage/)
   assert.match(router, /component:\s*PresentationPage/)
-  assert.match(landing, /id="virada"/)
+  assert.match(landing, /lazy\(\(\) => import\("\.\/presentation\/PresentationBody"\)\)/)
+  assert.match(scenes, /id="virada"/)
 })
 
 test("V3 recria universo e horizonte de eventos por Canvas, sem nenhuma imagem ou mídia colada", async () => {

@@ -19,6 +19,22 @@
   --color-primary-light: #EEEAF2;
 }
 
+/* Apresentação pública (pages/presentation): paleta própria, prefixo `ao-`, sem tocar nas cores do app. */
+@theme static {
+  --color-ao-bg: oklch(0.13 0.035 262);
+  --color-ao-fg: oklch(0.97 0.01 250);
+  --color-ao-card: oklch(0.18 0.045 262);
+  --color-ao-muted: oklch(0.25 0.04 262);
+  --color-ao-muted-fg: oklch(0.72 0.03 255);
+  --color-ao-primary: oklch(0.83 0.13 215);
+  --color-ao-on-primary: oklch(0.15 0.04 262);
+  --color-ao-accent: oklch(0.62 0.2 295);
+  --color-ao-border: oklch(0.32 0.05 260);
+  --font-ao-display: "Outfit", "Mona Sans", system-ui, sans-serif;
+  --shadow-ao-glow: 0 0 40px -8px color-mix(in oklab, var(--color-ao-primary) 55%, transparent);
+  --shadow-ao-elegant: 0 20px 50px -20px oklch(0 0 0 / 0.7);
+}
+
 /* ── App shell responsivo ─────────────────────────────────────────────────────
    Mobile (<768px): side rail vira gaveta off-canvas (hambúrguer no TopBar),
    conteúdo ocupa a largura toda. Desktop mantém o trilho fixo. */
