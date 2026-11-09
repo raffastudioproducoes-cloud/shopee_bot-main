@@ -14,6 +14,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Retentativas de uma reserva em preparação permanecem possíveis na cota cheia somente para o mesmo rascunho e com período pago confirmado.
 - Migration 095 mantém a RPC legada sem EXECUTE para service_role e concede execução somente ao wrapper F4E.
 - Versão candidata 3.8.1 em staging; sem promoção para main/produção nesta etapa.
+- CI #1259 SUCCESS no SHA `3a002b341587d432e1ec03c2daa9f10e86ae6a7e`: API 1.332, scheduler 208/1 xfailed, SemVer 9, proxy/segurança 34, frontend build/TypeScript e F4E PostgreSQL descartável; smoke externo staging SKIPPED até implantação.
 
 ## [Não lançado]
 
