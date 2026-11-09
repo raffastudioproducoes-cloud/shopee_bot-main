@@ -36,11 +36,11 @@ test('movimento reduzido desliga contagem, splash e cascata', () => {
   assert.equal((css.match(/@media \(prefers-reduced-motion: reduce\)/g) ?? []).length, 4)
 })
 
-test('splash pós-login: 1 vez por sessão, não bloqueia cliques, some em até 2,5 s e fica fora do admin', () => {
+test('splash pós-login: 1 vez por sessão, não bloqueia cliques, some em até 1,2 s e fica fora do admin', () => {
   const splash = src('components/ui/PostLoginSplash.tsx')
   const css = src('components/ui/postLoginSplash.css')
   assert.match(splash, /sessionStorage\.getItem\(SEEN_KEY\) !== '1'/)
-  assert.match(splash, /SPLASH_MS = 1600/)
+  assert.match(splash, /SPLASH_MS = 1200/)
   assert.match(splash, /pointerdown/)
   assert.match(css, /pointer-events: none/)
   assert.match(src('pages/PanelPage.tsx'), /user\?\.access !== 'ADMIN' && <PostLoginSplash \/>/)
