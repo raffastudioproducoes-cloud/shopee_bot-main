@@ -4,9 +4,9 @@
 - [x] PR documental #386 integrada em staging por squash, SHA `52d8a1a12d9d1c20a0ff8f32072ac250c184b6ab`.
 - [x] Revisão de segurança incorporada à branch da correção: RPC legada explicitamente revogada para service_role; listagem paginada filtra lifecycle antes do limite; falha de consulta retorna 503; formulário preserva alterações concorrentes; retry de preparing condicionado ao mesmo draft, cota consultável e período pago confirmado.
 - [x] `VERSION=3.8.1` e CHANGELOG PATCH preparados na branch de staging.
-- [ ] Reconciliar branch da PR #387 com staging após PR #386; resolver sobreposições documentais sem force-push.
-- [ ] CI completo da nova revisão, incluindo API, frontend, TypeScript/build, F4E PostgreSQL descartável e gate SemVer.
-- [ ] Revisão final da migration 095, ACL da RPC v1/v2 e smoke da branch integrada.
+- [x] Reconciliação concluída: branch da PR #389 criada diretamente de staging após #386; 21 commits à frente, zero atrás, sem force-push.
+- [x] CI #1259 SUCCESS no SHA `3a002b341587d432e1ec03c2daa9f10e86ae6a7e`: API 1.332 passed/9 warnings; scheduler 208 passed/1 xfailed; SemVer 9; proxy/segurança 34/1 warning; frontend tests/TypeScript/build SUCCESS; F4E PostgreSQL descartável SUCCESS.
+- [x] Migration 095 revisada em banco PostgreSQL descartável; ACL v1 negada para service_role e wrapper v2 permitido. Revisão automatizada de código ainda em andamento; sem achados novos publicados até o registro.
 - [ ] Merge somente em staging após CI verde; confirmar Render staging LIVE no SHA exato e migration 095 aplicada no Supabase compartilhado.
 - [ ] Smoke pós-deploy, revisar logs e verificar a UI em fluxo autenticado; não disparar publicações reais.
 - [ ] Sincronizar documentação canônica do Vault e Projeto com SHA, CI, deploy, migration e limites comprovados.
