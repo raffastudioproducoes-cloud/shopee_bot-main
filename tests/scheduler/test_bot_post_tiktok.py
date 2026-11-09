@@ -220,7 +220,7 @@ def test_refresh_failure_marks_reconnect_and_fails_without_secrets(monkeypatch):
     def refresh(ck, cs, rt):
         raise module.TikTokAPI.TikTokAPIError("boom refresh-1 secret-1")
 
-    def post_video(token, path, text):
+    def post_video(token, path, text, before_publish=None):
         raise _expired()
 
     saved, marked, acts = _setup_refresh(monkeypatch, post_video, refresh)
@@ -236,7 +236,7 @@ def test_refresh_failure_marks_reconnect_and_fails_without_secrets(monkeypatch):
 
 
 def test_new_tokens_saved_even_if_retry_fails(monkeypatch):
-    def post_video(token, path, text):
+    def post_video(token, path, text, before_publish=None):
         raise _expired() if token == "user-token-1" else RuntimeError("falha 2")
 
     saved, marked, acts = _setup_refresh(
@@ -253,7 +253,7 @@ def test_non_auth_error_does_not_refresh(monkeypatch):
     def refresh(*a):
         raise AssertionError("não deveria renovar")
 
-    def post_video(token, path, text):
+    def post_video(token, path, text, before_publish=None):
         raise RuntimeError("rede caiu")
 
     _setup_refresh(monkeypatch, post_video, refresh)
@@ -269,7 +269,7 @@ def test_refresh_is_scoped_by_profile(monkeypatch):
     )
     monkeypatch.setattr(
         module.TikTokAPI, "post_video",
-        lambda t, p, x: "ok" if t == "n" else (_ for _ in ()).throw(_expired()),
+        lambda t, p, x, before_publish=None: "ok" if t == "n" else (_ for _ in ()).throw(_expired()),
     )
     monkeypatch.setattr(
         module.TikTokAPI, "refresh_user_token",
