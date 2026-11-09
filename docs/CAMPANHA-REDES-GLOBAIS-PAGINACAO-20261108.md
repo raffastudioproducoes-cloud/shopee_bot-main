@@ -70,3 +70,20 @@ A edição da campanha agora apresenta, dentro do seletor de mídias de cada pro
 A prévia inclui mídias salvas em Produtos e anexos legados do rascunho. O navegador lê dimensões de imagens e duração/dimensões de vídeos pelos URLs assinados da galeria; quando não consegue ler, sinaliza que esses metadados não entraram na prévia. A foto Shopee é baixada pela rota autenticada já existente para obter o tamanho sanitizado real. Na ativação, o backend também baixa/sanitiza a imagem uma única vez e usa os bytes reais na validação por destino antes de reter a cópia privada. O original do Produto não é alterado.
 
 A validação de duração individual do TikTok continua sendo dinâmica: Creator Info é consultado antes do upload externo e o vídeo é bloqueado se exceder o limite retornado para a conta. Nenhum teste dispara publicação externa.
+
+## Fechamento técnico em staging — 08/11/2026 BRT
+
+PR #378, #379 e #381 integradas em `staging`; PR #380 foi fechada sem merge e substituída pela #381 para obter uma execução independente da CI. SHA final `393494720f3d1469838c3384d3677d5810129ca4`; `VERSION=3.8.0`.
+
+A PR #381 completa o preflight do editor de campanhas:
+- preview por rede com o mesmo planejador de composição da publicação única;
+- lista mídias aceitas, descartadas e seus motivos; bloqueia texto fora do limite;
+- inclui link afiliado na contagem;
+- lê dimensões de imagens e duração/dimensões de vídeos salvos;
+- obtém o tamanho sanitizado da foto Shopee pela rota autenticada e o backend reutiliza a mesma cópia sanitizada na validação por destino;
+- mantém os arquivos originais de Produtos intactos;
+- posiciona as abas abaixo da caixa de descrição e antes dos controles de IA.
+
+Validação: CI da PR #381 #42552686633 SUCCESS; CI push staging #42552858249 SUCCESS (1.323 API, 208 scheduler, 9 SemVer, frontend build/tsc, F4E/SQL e segurança). Render staging `dep-dboj8gq9lscs73d3if60` **LIVE** no SHA final. Smoke pós-deploy #42552858259 SUCCESS: health e security headers, CSP estrita, sessão anônima negada e login legado 410; teste autenticado foi SKIP por ausência de credenciais. ZAP #42552858557 SUCCESS: 63 PASS, 0 FAIL e 5 WARN de baixa prioridade para revisão (cache-control, non-storable content, CSP wildcard, modern web app e COEP).
+
+O workflow CD #42552858268 ignorou o hook do GitHub por ausência de `RENDER_STAGING_DEPLOY_HOOK_URL`, mas o Render fez deploy automático (`autoDeploy=yes`). Produção segue 3.7.0; sem merge em `main`, sem publicação externa real e sem alterações de schema/crons/gateway. QA visual/autenticada por Rafa ainda pendente.
