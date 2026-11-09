@@ -1,6 +1,6 @@
 import { useToastStore } from "../../stores/toastStore"
 import { Icon } from "./Icon"
-import "./postLoginSplash.css"
+import "./motion.css"
 
 /** Pilha de avisos no canto (não bloqueia a tela). Sucesso/progresso usam
  * role="status" (aria-live polite); erro usa role="alert" e só some ao fechar. */

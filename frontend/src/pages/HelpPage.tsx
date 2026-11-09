@@ -1,4 +1,4 @@
-import '../components/ui/postLoginSplash.css'
+import '../components/ui/motion.css'
 import { useState } from "react"
 import { Panel, PanelHeader } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"

@@ -1,5 +1,6 @@
 import { usePlanUsage } from "../../hooks/usePlanUsage"
 import { accountPlanLabel } from "../../lib/planPresentation"
+import { PlanTag } from "./PlanTag"
 import "./planComparison.css"
 
 const plans = [
@@ -37,7 +38,7 @@ export function PlanComparison() {
               <th scope="col">Recurso</th>
               {plans.map((plan) => (
                 <th key={plan.key} scope="col" className={plan.key === "Pro" ? "plan-comparison__rec" : undefined}>
-                  {plan.key}
+                  <PlanTag tier={plan.key === "Premium" ? "premium" : plan.key === "Pro" ? "pro" : "free"}>{plan.key}</PlanTag>
                   {plan.key === "Pro" ? <span className="plan-comparison__badge">Recomendado</span> : null}
                   {plan.key === currentPlan ? <span className="plan-comparison__you">Seu plano</span> : null}
                 </th>

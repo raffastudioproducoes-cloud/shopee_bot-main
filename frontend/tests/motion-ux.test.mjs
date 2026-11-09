@@ -29,16 +29,16 @@ test('contagem trata alvo inválido, zero e progresso fora da faixa', () => {
 test('movimento reduzido desliga contagem, splash e cascata', () => {
   const motion = src('lib/motion.ts')
   const splash = src('components/ui/PostLoginSplash.tsx')
-  const css = src('components/ui/postLoginSplash.css')
+  const css = src('components/ui/motion.css')
   assert.match(motion, /prefers-reduced-motion: reduce/)
   assert.match(motion, /prefersReducedMotion\(\) \|\| !Number\.isFinite\(target\)/)
   assert.match(splash, /if \(prefersReducedMotion\(\)\) return false/)
-  assert.equal((css.match(/@media \(prefers-reduced-motion: reduce\)/g) ?? []).length, 4)
+  assert.ok((css.match(/@media \(prefers-reduced-motion: reduce\)/g) ?? []).length >= 4)
 })
 
 test('splash pós-login: 1 vez por sessão, não bloqueia cliques, some em até 1,2 s e fica fora do admin', () => {
   const splash = src('components/ui/PostLoginSplash.tsx')
-  const css = src('components/ui/postLoginSplash.css')
+  const css = src('components/ui/motion.css')
   assert.match(splash, /sessionStorage\.getItem\(SEEN_KEY\) !== '1'/)
   assert.match(splash, /SPLASH_MS = 1200/)
   assert.match(splash, /pointerdown/)
@@ -71,7 +71,7 @@ test('segurar para confirmar: 700 ms para ponteiro, teclado e leitor de tela con
 
 test('avisos e erro de login animam entrada/balanço com movimento reduzido desligado', () => {
   assert.match(src('components/ui/Toaster.tsx'), /className="toast-in"/)
-  assert.match(src('components/ui/postLoginSplash.css'), /\.toast-in \{ animation: none; \}/)
+  assert.match(src('components/ui/motion.css'), /\.toast-in \{ animation: none; \}/)
   const login = src('pages/LoginPage.css')
   assert.match(login, /login-shake/)
   assert.match(login, /prefers-reduced-motion: reduce\) \{ \.csp-login-banner-error \{ animation: none/)
@@ -100,4 +100,28 @@ test('avisos usam ícone da biblioteca e os cards do dashboard levam à lista, c
   assert.match(card, /role=\{onClick \? "link" : undefined\}/)
   assert.match(card, /tabIndex=\{onClick \? 0 : undefined\}/)
   assert.match(card, /e\.key === "Enter" \|\| e\.key === " "/)
+})
+
+test('lote 4: transição de página, pílula do menu, anel de caracteres, brilho do upgrade e foco do login', () => {
+  assert.match(src('pages/PanelPage.tsx'), /<div key=\{location\.pathname\} className="page-enter"><Outlet \/><\/div>/)
+  const rail = src('components/ui/SideRail.tsx')
+  assert.match(rail, /className="app-rail-pill"/)
+  assert.match(rail, /li\[data-active="true"\]/)
+  assert.match(rail, /aria-hidden="true" className="app-rail-pill"/)
+  assert.match(src('components/posts/TextVariantTabs.tsx'), /className=\{`char-ring\$\{bad \? " is-over" : ""\}`\}/)
+  const css = src('components/ui/motion.css')
+  for (const cls of ['.page-enter', '.app-rail-pill', '.char-ring', '.campaign-remaining']) assert.ok(css.includes(cls), cls)
+  assert.match(css, /\.page-enter \{ animation: none; \}/)
+  assert.match(css, /\.app-rail-pill \{ transition: none; \}/)
+  assert.match(src('components/plans/planSummary.css'), /\.plan-info-button:hover::after/)
+  assert.match(src('pages/LoginPage.css'), /\.login-split__form input:focus-visible \{ box-shadow/)
+})
+
+test('campanha mostra quantos passos faltam e vira "Tudo pronto" com os 3 passos feitos', () => {
+  const planner = src('components/campaigns/CampaignPlanner.tsx')
+  assert.match(planner, /escolher a lista e os produtos/)
+  assert.match(planner, /definir período e frequência/)
+  assert.match(planner, /gerar a prévia do calendário/)
+  assert.match(planner, /Tudo pronto para ativar\./)
+  assert.match(planner, /i < 3 - pending\.length/)
 })

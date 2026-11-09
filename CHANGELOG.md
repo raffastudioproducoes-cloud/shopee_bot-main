@@ -5,6 +5,19 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.12.0] - 2026-11-09
+
+### Added — tags de plano e animações/UX, lote 4
+
+- **Tags de plano com identidade própria** (componente `PlanTag`, usado na etiqueta do cabeçalho, no resumo do plano, na tabela de comparação e na apresentação pública): **Administrador** em rubi com variações de carmesim e efeito de brilho (faixa clara + varredura diagonal lenta); **Premium** com o mesmo brilho na paleta da marca (azul-gelo, violeta, lilás) e texto escuro para contraste; **Pro** em azul da marca; **Free** simples e neutro, para a diferença visual atrair o upgrade. Tokens `--plan-ruby-*` e `--plan-crimson` na tabela de cores do site. Movimento reduzido desliga a varredura.
+- **Transição entre páginas** (entrada curta de 220 ms).
+- **Menu lateral** com pílula que desliza até a página atual.
+- **Contador de caracteres em anel** no editor de posts (fica vermelho ao passar do limite).
+- **Brilho diagonal** ao passar o mouse no botão de upgrade (sem loop).
+- **Foco do login** com brilho suave nos campos.
+- **Campanha: "Faltam N passos"** com barra de 3 etapas acima do botão de ativar ("Tudo pronto para ativar." quando completo).
+- Testes: `frontend/tests/plan-tags.test.mjs` (3, no CI) e `frontend/tests/motion-ux.test.mjs` (13).
+
 ## [3.11.1] - 2026-11-09
 
 ### Fixed — apagar posts de campanha e cancelar campanha

@@ -1,5 +1,5 @@
 import { useId, useState } from "react"
-import { Badge } from "../ui/Badge"
+import { PlanTag, planTierOf } from "./PlanTag"
 import { Button } from "../ui/Button"
 import { Panel } from "../ui/Panel"
 import { Skeleton } from "../ui/Skeleton"
@@ -38,9 +38,7 @@ export function PlanBadge() {
   if (!activeProfile || query.isError || !query.data) return null
   const label = accountPlanLabel(query.data)
   if (label === "Plano indisponível") return null
-  return <Badge tone={query.data.is_admin || query.data.plan_tier === "premium" ? "mint" : "neutral"}>
-    {label}
-  </Badge>
+  return <PlanTag tier={planTierOf(query.data)}>{label}</PlanTag>
 }
 
 export function PlanSummary({ resources = ["products", "lists", "profiles", "immediate", "recurring"] }: {
