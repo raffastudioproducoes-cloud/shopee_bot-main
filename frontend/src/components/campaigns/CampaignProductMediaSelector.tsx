@@ -1,16 +1,25 @@
 import { useQuery } from "@tanstack/react-query"
 import { productsApi } from "../../api/products"
+import type { CampaignMediaRecord } from "../../api/campaigns"
+import type { PostNetwork } from "../../api/posts"
+import { planMediaComposition } from "../../lib/mediaComposition"
+import { mediaKind, NETWORK_RULES, type MediaInfo } from "../../lib/networkLimits"
 import { ProductMediaVisual } from "../products/ProductMediaVisual"
 import "./campaignProductMediaSelector.css"
 
 /** A campaign chooses existing product assets; no file input or upload is offered. */
 export function CampaignProductMediaSelector({ productId, shopeeImage, useShopeeImage, selectedIds,
+  networks, texts, affiliateLink, legacyMedia = [],
   onShopeeChange, onSelectedChange, disabled = false,
 }: {
   productId: number
   shopeeImage: string | null
   useShopeeImage: boolean
   selectedIds: string[]
+  networks: PostNetwork[]
+  texts: Partial<Record<PostNetwork, string>>
+  affiliateLink: string
+  legacyMedia?: CampaignMediaRecord[]
   onShopeeChange: (checked: boolean) => void
   onSelectedChange: (ids: string[]) => void
   disabled?: boolean
@@ -21,6 +30,32 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
   })
   const media = mediaQuery.data?.items ?? []
   const missing = selectedIds.filter((id) => !media.some((item) => item.id === id))
+  const selectedMedia: MediaInfo[] = [
+    ...(useShopeeImage && shopeeImage
+      ? [{ name: `shopee-${productId}.jpg`, size: 0, kind: "image" as const }]
+      : []),
+    ...media.filter((item) => selectedIds.includes(item.id)).map((item) => ({
+      name: item.file_name,
+      size: item.size_bytes,
+      kind: item.media_type === "VIDEO" ? "video" as const : mediaKind(item.file_name),
+    })),
+    ...legacyMedia.map((item) => ({
+      name: item.file_name,
+      size: item.size_bytes,
+      kind: item.media_type === "VIDEO" ? "video" as const : mediaKind(item.file_name),
+    })),
+  ]
+  const plans = networks.map((network) => {
+    const body = texts[network] ?? ""
+    const finalText = affiliateLink && !body.includes(affiliateLink)
+      ? [body.trim(), affiliateLink].filter(Boolean).join("\\n")
+      : body
+    return planMediaComposition(network, {
+      texts: [finalText],
+      media: selectedMedia,
+      productCount: 1,
+    })
+  })
   return (
     <div className="campaign-saved-media" aria-label="Mídias para a campanha">
       <strong className="campaign-saved-media__title">Mídias para esta publicação</strong>
@@ -66,6 +101,34 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
           Limpar referências ausentes
         </button>
       </p>}
+      {plans.length > 0 && (
+        <section className="campaign-media-preflight" aria-live="polite" aria-label="Compatibilidade por rede">
+          <strong>Compatibilidade das mídias por rede</strong>
+          {plans.map((plan) => (
+            <div className={`campaign-media-preflight__network${plan.blockedReason ? " is-blocked" : plan.dropped.length || plan.warnings.length ? " has-warning" : ""}`} key={plan.network}>
+              <strong>{NETWORK_RULES[plan.network].label}</strong>
+              {plan.blockedReason
+                ? <p role="alert">Não pode ser publicado: {plan.blockedReason}</p>
+                : <p>{plan.mode === "text_only" ? "Será enviado somente o texto."
+                  : plan.mode === "none" ? "Sem mídia."
+                  : plan.mode === "single_image" ? "Será enviada 1 imagem."
+                  : plan.mode === "carousel" ? `Serão enviadas ${plan.media.length} mídias aceitas.`
+                  : "Será enviado 1 vídeo."}</p>}
+              {plan.dropped.length > 0 && (
+                <ul>
+                  {plan.dropped.map((entry) => (
+                    <li key={entry.item.name}>{entry.item.name}: {entry.reason}</li>
+                  ))}
+                </ul>
+              )}
+              {plan.warnings.filter((warning) => !plan.dropped.some((entry) => warning.includes(entry.reason))).map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </div>
+          ))}
+          <small>Arquivos incompatíveis são excluídos somente da composição desta rede. Os originais em Produtos permanecem intactos. Vídeos de contas TikTok também passam pela validação dinâmica de Creator Info antes do upload externo.</small>
+        </section>
+      )}
       <small>A seleção vale apenas para esta campanha e não modifica a galeria de Produtos.</small>
     </div>
   )
