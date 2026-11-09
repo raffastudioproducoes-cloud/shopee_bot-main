@@ -7,6 +7,8 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [3.7.0] - 2026-11-08
 
+- **Promoção concluída em 08/11/2026:** PR [#374](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/374)/CI #1185 → staging `f34dd11` LIVE, PR [#375](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/375)/CI #1187 + gate SemVer #14 → main `a16f569`, Render produção `dep-dboh27e8bjmc73b7ukfg` LIVE, `/health`/`/ready`/`/login` HTTP 200, HTML 3.7.0, rota privada poster 401, 0 requests 5xx na janela observada; `SIGTERM` antigo esperado. [Evidências](docs/RELEASE-3.7.0-20261108.md).
+
 ### Added / Changed — seleção de mídias de Produtos em campanhas (MINOR 3.6.2 → 3.7.0)
 
 **Autorização de release:** Rafa declarou em 08/11/2026: “Pode mergear com a main. Pode promover!” A etapa de produção depende ainda de CI/SemVer e Render LIVE. [Roteiro formal](docs/RELEASE-3.7.0-20261108.md).
