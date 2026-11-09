@@ -43,7 +43,7 @@ Os squash merges de release deixavam `main` e `staging` com históricos divergen
 - Nenhuma migration nova nesta promoção; nenhuma alteração de RLS, cron, `pg_net`, gateway ou segredo; nenhuma publicação social real foi disparada.
 - O ambiente desta sessão não alcança a URL pública (tentativa de `curl` retornou falha de conexão). **Não registrar `/health`, `/api/health/ready` ou `/login` como HTTP 200.** O que está comprovado é o deploy LIVE no commit e os logs de boot.
 - QA autenticada em produção não foi executada pelo agente; a homologação foi feita por Rafa em staging.
-- **Pendência de decisão (Rafa):** existem duas campanhas ativas idênticas "Primeiro teste real" (450 planejados cada), criadas em staging; como staging e produção compartilham o Supabase, o cancelamento de uma delas é decisão de Rafa. Hipótese não confirmada: a primeira ativação excedeu 30 s no proxy, concluiu no servidor, e a segunda criou outra.
+- **Decisão de Rafa (09/11/2026):** as campanhas ativas permanecem ativas (inclusive as duas "Primeiro teste real", 450 planejados cada) e **staging e produção continuam compartilhando o mesmo Supabase**; não propor separar o banco. Hipótese não confirmada sobre a duplicidade: a primeira ativação excedeu 30 s no proxy, concluiu no servidor, e a segunda criou outra.
 
 ## 6. Próximos passos
 
