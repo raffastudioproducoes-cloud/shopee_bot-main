@@ -96,6 +96,24 @@ def test_pro_counts_only_selected_weekdays_and_rejects_the_sixteenth(monkeypatch
     assert caught.value.status_code == 403
 
 
+def test_period_without_any_selected_weekday_is_rejected(monkeypatch):
+    setup_db(monkeypatch, database("premium"))
+    plan = schedule(1, 1, weekdays=[0])  # 10/11/2026 é terça-feira.
+    with pytest.raises(HTTPException) as caught:
+        campaign_policy.validate_campaign_plan_schedule(
+            campaign_policy.load_campaign_policy("owner", "profile-a"), plan)
+    assert caught.value.status_code == 422
+
+
+def test_invalid_weekday_is_rejected_by_server_policy(monkeypatch):
+    setup_db(monkeypatch, database("premium"))
+    plan = schedule(1, 1, weekdays=[7])
+    with pytest.raises(HTTPException) as caught:
+        campaign_policy.validate_campaign_plan_schedule(
+            campaign_policy.load_campaign_policy("owner", "profile-a"), plan)
+    assert caught.value.status_code == 422
+
+
 def test_premium_example_uses_eighteen_of_thirty_selected_days(monkeypatch):
     setup_db(monkeypatch, database("premium"))
     plan = schedule(
