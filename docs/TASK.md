@@ -1,3 +1,19 @@
+## 09/11/2026 — Campanhas: dias efetivos e ativação direta (PATCH 3.8.1 candidata)
+
+- [x] Autorização de Rafa para aplicar migration 095 por deploy de staging no Supabase compartilhado; produção permanece sem autorização de promoção.
+- [x] PR documental #386 integrada em staging por squash, SHA `52d8a1a12d9d1c20a0ff8f32072ac250c184b6ab`.
+- [x] Revisão de segurança incorporada à branch da correção: RPC legada explicitamente revogada para service_role; listagem paginada filtra lifecycle antes do limite; falha de consulta retorna 503; formulário preserva alterações concorrentes; retry de preparing condicionado ao mesmo draft, cota consultável e período pago confirmado.
+- [x] `VERSION=3.8.1` e CHANGELOG PATCH preparados na branch de staging.
+- [ ] Reconciliar branch da PR #387 com staging após PR #386; resolver sobreposições documentais sem force-push.
+- [ ] CI completo da nova revisão, incluindo API, frontend, TypeScript/build, F4E PostgreSQL descartável e gate SemVer.
+- [ ] Revisão final da migration 095, ACL da RPC v1/v2 e smoke da branch integrada.
+- [ ] Merge somente em staging após CI verde; confirmar Render staging LIVE no SHA exato e migration 095 aplicada no Supabase compartilhado.
+- [ ] Smoke pós-deploy, revisar logs e verificar a UI em fluxo autenticado; não disparar publicações reais.
+- [ ] Sincronizar documentação canônica do Vault e Projeto com SHA, CI, deploy, migration e limites comprovados.
+- [ ] Produção fora do escopo até autorização específica posterior.
+
+[Contrato técnico e matriz de regressão](CAMPANHA-DIAS-EFETIVOS-E-ATIVACAO-20261109.md). Não declarar staging implantada enquanto os portões acima estiverem pendentes.
+
 > **09/11/2026 BRT — AUTO ORBITAL 3.8.0 PUBLICADA EM PRODUÇÃO.** Rafa aprovou expressamente a promoção da staging. PR [#382](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/382) staging → main, CI PR #42554019553 **SUCCESS**, gate SemVer #42554019572 **SUCCESS** (MINOR 3.7.0→3.8.0); merge squash SHA `5a283baf8aafb843cdb6b576836c0b73ae682784`. CI push main #42554207935 **SUCCESS**: API 1.323 PASS, scheduler 208 PASS/1 xfailed, SemVer 9 PASS, web/proxy 34 PASS, frontend TypeScript/build PASS e F4E/PostgreSQL descartável PASS. Render produção serviço shopee-bot (srv-da6vrla6iojc7380a13g), deploy dep-dbojfpcs728c73a9lufg **LIVE no SHA exato**. Render autoDeploy=yes; CD GitHub #42554322842 marcou SUCCESS, mas ignorou o hook ausente RENDER_DEPLOY_HOOK_URL; o deploy automático do Render foi confirmado diretamente. Logs: serviço LIVE, aplicação iniciou, scheduler iniciou; migrações 001–094 já estavam aplicadas e foram ignoradas. Worker antigo recebeu SIGTERM após a inicialização do novo, compatível com a troca de instância. Nenhuma migration nova, alteração de schema, cron, gateway, segredo ou publicação social real nesta release. **Limites:** smoke HTTP externo de health/readiness/login não pôde ser executado pelo ambiente desta sessão; a busca de logs não trouxe requests no intervalo, portanto não afirmar HTTP 200 nem zero 5xx. Rafa aprovou a homologação do staging em 09/11/2026; QA autenticada/visual em produção não foi executada pelo agente e nenhuma publicação social real foi disparada. Alertas observados: Pydantic CampaignDraftItem.copy sombreia atributo de BaseModel; warnings de chave JWT de teste inferior ao recomendado para HS384/HS512 e depreciações do stack devem ser triados em follow-up. Registro completo: [RELEASE-3.8.0-20261109.md](docs/RELEASE-3.8.0-20261109.md).
 
 ## 09/11/2026 — Release MINOR Auto Orbital 3.8.0 concluída em produção
