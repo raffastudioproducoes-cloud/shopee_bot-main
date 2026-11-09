@@ -5,6 +5,16 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.12.0] - 2026-11-09
+
+### Added — animações e UX, lote 1 (roadmap `docs/ROADMAP-ANIMACOES-UI.md`: A1, A3, C3)
+
+- **Entrada pós-login (A1):** tela rápida com a logo e círculo que se abre revelando o painel (1,6 s). Aparece **uma vez por sessão**, não bloqueia cliques (toque/tecla encerra), fica fora do admin e é desligada com `prefers-reduced-motion`. O painel carrega por baixo: nenhuma requisição espera a animação.
+- **Contagem nos cards do dashboard (A3):** números inteiros contam de 0 ao valor real em 0,7 s, só na primeira exibição de cada card na sessão; sem movimento reduzido. Valor com erro/"—" aparece como vem.
+- **Cascata dos cards (lei de Doherty/feedback):** os 4 cards do dashboard entram em sequência de 70 ms.
+- **Copiar e-mail (C3):** o botão vira "Copiado!" com ✓ por 2 s e trata falha da área de transferência.
+- Sem biblioteca nova: CSS + React; tokens existentes. Testes: `frontend/tests/motion-ux.test.mjs`.
+
 ## [3.11.2] - 2026-11-09
 
 ### Fixed — página de Posts dava "Não foi possível carregar o histórico" (causa real)

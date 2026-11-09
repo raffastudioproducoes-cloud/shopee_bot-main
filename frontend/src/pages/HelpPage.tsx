@@ -1,3 +1,4 @@
+import '../components/ui/postLoginSplash.css'
 import { useState } from "react"
 import { Panel, PanelHeader } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
@@ -96,8 +97,12 @@ export function HelpPage() {
   const [faqSearch, setFaqSearch] = useState("")
   const faqFiltered = FAQ_ITEMS.filter(item => `${item.category} ${item.question} ${item.answer}`.toLocaleLowerCase("pt-BR").includes(faqSearch.trim().toLocaleLowerCase("pt-BR")) )
 
+  const [copied, setCopied] = useState(false)
   const copyEmail = () => {
-    navigator.clipboard.writeText(SUPPORT_EMAIL)
+    void navigator.clipboard.writeText(SUPPORT_EMAIL).then(() => {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    }).catch(() => undefined)
   }
 
   return (
@@ -233,8 +238,8 @@ export function HelpPage() {
             </p>
           </div>
           <div className="csp-s-0272">
-            <Button type="button" variant="ghost" icon="link-2" onClick={copyEmail}>
-              Copiar e-mail
+            <Button type="button" variant="ghost" icon={copied ? "check-circle-2" : "link-2"} onClick={copyEmail} className={copied ? "copied-flash" : undefined}>
+              {copied ? "Copiado!" : "Copiar e-mail"}
             </Button>
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
