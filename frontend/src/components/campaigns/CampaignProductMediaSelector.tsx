@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { productsApi } from "../../api/products"
 import type { CampaignMediaRecord } from "../../api/campaigns"
@@ -30,6 +31,60 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
   })
   const media = mediaQuery.data?.items ?? []
   const missing = selectedIds.filter((id) => !media.some((item) => item.id === id))
+  const selectedProductMedia = media.filter((item) => selectedIds.includes(item.id))
+  const selectedKey = selectedIds.join("|")
+  const [mediaMetadata, setMediaMetadata] = useState<Record<string, Partial<MediaInfo>>>({})
+  const [mediaMetadataStatus, setMediaMetadataStatus] = useState<Record<string, "loading" | "ready" | "error">>({})
+  useEffect(() => {
+    if (!selectedProductMedia.length) return
+    let active = true
+    const cleanup: Array<() => void> = []
+    setMediaMetadataStatus((current) => ({
+      ...current,
+      ...Object.fromEntries(selectedProductMedia.map((item) => [item.id, "loading" as const])),
+    }))
+    for (const item of selectedProductMedia) {
+      if (item.media_type === "VIDEO") {
+        const video = document.createElement("video")
+        video.preload = "metadata"
+        video.onloadedmetadata = () => {
+          if (!active) return
+          setMediaMetadata((current) => ({ ...current, [item.id]: {
+            durationSec: video.duration, width: video.videoWidth, height: video.videoHeight,
+          } }))
+          setMediaMetadataStatus((current) => ({ ...current, [item.id]: "ready" }))
+        }
+        video.onerror = () => {
+          if (active) setMediaMetadataStatus((current) => ({ ...current, [item.id]: "error" }))
+        }
+        video.src = item.preview_url
+        cleanup.push(() => { video.onloadedmetadata = null; video.onerror = null; video.removeAttribute("src"); video.load() })
+      } else {
+        const image = new Image()
+        image.onload = () => {
+          if (!active) return
+          setMediaMetadata((current) => ({ ...current, [item.id]: {
+            width: image.naturalWidth, height: image.naturalHeight,
+          } }))
+          setMediaMetadataStatus((current) => ({ ...current, [item.id]: "ready" }))
+        }
+        image.onerror = () => {
+          if (active) setMediaMetadataStatus((current) => ({ ...current, [item.id]: "error" }))
+        }
+        image.src = item.preview_url
+        cleanup.push(() => { image.onload = null; image.onerror = null; image.src = "" })
+      }
+    }
+    return () => {
+      active = false
+      cleanup.forEach((dispose) => dispose())
+    }
+  // The joined ID list keeps the effect stable while the parent re-renders.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaQuery.data?.items, selectedKey])
+  const metadataPending = selectedProductMedia.some((item) =>
+    mediaMetadataStatus[item.id] !== "ready" && mediaMetadataStatus[item.id] !== "error")
+  const metadataErrors = selectedProductMedia.filter((item) => mediaMetadataStatus[item.id] === "error")
   const shopeeImageSizeQuery = useQuery({
     queryKey: ["campaign-shopee-image-size", productId],
     queryFn: () => productsApi.downloadImage(productId),
@@ -45,6 +100,7 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
       name: item.file_name,
       size: item.size_bytes,
       kind: item.media_type === "VIDEO" ? "video" as const : mediaKind(item.file_name),
+      ...mediaMetadata[item.id],
     })),
     ...legacyMedia.map((item) => ({
       name: item.file_name,
@@ -52,7 +108,8 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
       kind: item.media_type === "VIDEO" ? "video" as const : mediaKind(item.file_name),
     })),
   ]
-  const plansReady = mediaQuery.isSuccess && (!useShopeeImage || !shopeeImage || shopeeImageSizeQuery.isSuccess)
+  const plansReady = mediaQuery.isSuccess && !metadataPending &&
+    (!useShopeeImage || !shopeeImage || shopeeImageSizeQuery.isSuccess)
   const plans = networks.map((network) => {
     const body = texts[network] ?? ""
     const finalText = affiliateLink && !body.includes(affiliateLink)
@@ -134,6 +191,8 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
               ))}
             </div>
           ))}
+          {metadataErrors.length > 0 && <p role="status">Não foi possível ler duração/dimensões de: {metadataErrors.map((item) => item.file_name).join(", ")}. Esses metadados não foram considerados na prévia.</p>}
+          {legacyMedia.length > 0 && <p role="status">Anexos legados não possuem prévia de metadados; duração e proporção deles serão revalidadas pelo publicador quando suportado.</p>}
           <small>Arquivos incompatíveis são excluídos somente da composição desta rede. Os originais em Produtos permanecem intactos. Vídeos de contas TikTok também passam pela validação dinâmica de Creator Info antes do upload externo.</small>
         </section>
       )}
