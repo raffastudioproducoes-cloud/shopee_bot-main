@@ -22,7 +22,7 @@ from .network_limits import is_network_disabled
 from .campaign_product_media import synchronize_product_media
 from .database import supabase
 from .storage_capacity import storage_upload_reservation
-from .media_sanitizer import sanitize_media_upload, detect_media_type, MediaSanitizerError
+from .media_sanitizer import sanitize_media_upload, detect_media_type
 from .routers.posts import (
     MEDIA_DRAFT_BUCKET, _download_shopee_image,
     _normalize_shopee_photo_as_jpeg, MAX_PRODUCT_IMAGE_BYTES,
