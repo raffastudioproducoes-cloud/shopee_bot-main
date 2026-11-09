@@ -3,9 +3,9 @@
 **Data:** 09/11/2026  
 **Versão-base:** 3.8.0  
 **Versão candidata:** 3.8.1 (PATCH, staging)  
-**Branch:** `fix/campaign-weekday-quota-optional-activation-20261109`  
-**Destino planejado:** staging  
-**Status:** correções de revisão incorporadas; CI #1259 SUCCESS no SHA `3a002b341587d432e1ec03c2daa9f10e86ae6a7e`; PR #386 sincronizada em staging; PR #389 aberta; migration 095 ainda não aplicada.
+**Branch integrada:** `fix/campaign-weekday-quota-optional-activation-3.8.1-final-20261109`  
+**Destino:** staging  
+**Status:** staging LIVE em 3.8.1; PR #389 integrada por squash SHA `918af14c0e242a2f732bbfe8c8189eab6c869754`; deploy `dep-dbol68ss728c73ab8r30`; migration 095 aplicada e ACL verificada no Supabase compartilhado.
 
 ## 1. Regra de negócio
 
@@ -138,7 +138,7 @@ Não executar publicação real, agendamento externo, upload ou ação na Shopee
 
 A migration 095 será aplicada automaticamente pelo migrador no boot da aplicação quando chegar ao staging. O Supabase é compartilhado com produção; portanto, o merge em staging altera a função SQL compartilhada.
 
-**A migration está apenas no branch e não foi aplicada.** Rafa autorizou expressamente sua aplicação por meio do deploy de staging, mas o portão técnico permanece: só integrar e implantar depois de CI verde, revisão final e reconciliação da branch com a staging atualizada. O Supabase compartilhado significa que a DDL ficará visível à produção assim que o boot do staging aplicar a migration. A função mantém a assinatura anterior e preserva a ACL da migration 076, reforçada por REVOKE explícito na migration 095.
+**A migration 095 foi aplicada** pelo boot do Render staging após autorização expressa de Rafa. O Supabase é compartilhado, portanto a função SQL atualizada também está presente no banco usado pela produção; o backend de produção continua no código 3.8.0. A assinatura da RPC foi mantida, service_role não executa a função v1 diretamente e executa somente o wrapper v2. A migration não alterou tabelas ou dados.
 
 Depois da autorização:
 - CI verde e revisão do diff SQL;
@@ -174,3 +174,17 @@ CI [#1259](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions
 - Staging externo HTTP/rate-limit: SKIPPED porque a branch ainda não foi implantada.
 
 O head final da PR inclui somente um ajuste de comentários no workflow CI após o SHA testado; o código testado no SHA #1259 é o mesmo código da PR atual. Revisão Codex ainda em andamento. A autorização de Rafa cobre aplicação da migration 095 via deploy staging, não a promoção para main.
+
+## 10. Implantação em staging e confirmação da migration — 09/11/2026
+
+- PR [#389](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/389) integrada por squash em `staging`.
+- SHA integrado: `918af14c0e242a2f732bbfe8c8189eab6c869754`.
+- Versão em staging: `3.8.1` (PATCH); `main` e produção permanecem em `3.8.0`.
+- Render staging `shopee-bot-staging` (`srv-daukgs17lnhs738tpl50`) deploy [`dep-dbol68ss728c73ab8r30`](https://dashboard.render.com/web/srv-daukgs17lnhs738tpl50/deploys/dep-dbol68ss728c73ab8r30) **LIVE** no SHA integrado.
+- O boot aplicou a migration 095. Registro em `public.migrations`: `095_campaign_active_weekday_quota.sql`, ID interno 90, timestamp `2026-11-09 05:00:11.28991` UTC.
+- Consulta SQL direta confirmou `public.reserve_campaign_f4e` com owner `postgres`, ACL `{postgres=X/postgres}`, `service_role_can_execute=false` e corpo com contagem por weekdays. Wrapper `reserve_campaign_networks_f4e`: owner `postgres`, EXECUTE para `service_role=true`.
+- Logs confirmam aplicação iniciada e scheduler iniciado. Durante o rolling deploy, a instância nova iniciou antes do encerramento da antiga; o SIGTERM observado correspondeu ao worker antigo. Houve um warning transitório de conexão do proxy interno durante a inicialização.
+- Não houve publicação social real, alteração de credenciais, cron ou gateway.
+- Smoke HTTP externo e QA visual/autenticada não foram concluídos nesta sessão: a ferramenta de navegação não conseguiu acessar os endpoints Render e não houve request log de health/login. Não afirmar HTTP 200 nem ausência absoluta de 5xx.
+
+**Produção:** serviço `shopee-bot` segue no deploy `dep-dbojmmqvcj2c739fjvd0`, SHA `78d2d25c7628f7ebe16036e627bb1753a2d1a6c2`, VERSION 3.8.0. Nenhum deploy/merge para main foi executado. Como o Supabase é compartilhado, somente a função SQL da migration 095 foi atualizada no banco; o código de produção permanece no release anterior e precisa de promoção específica futura.
