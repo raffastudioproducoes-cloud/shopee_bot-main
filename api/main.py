@@ -4,6 +4,7 @@ Consome Supabase existente. Coexiste com Flask durante a migração.
 """
 
 import asyncio
+from contextlib import asynccontextmanager
 import logging
 import time
 
@@ -48,7 +49,19 @@ from .routers.platform_ai import router as platform_ai_router
 from .routers.platform_shopee import router as platform_shopee_router
 from .routers.shopee_video import router as shopee_video_router
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Substitui os antigos @app.on_event("startup"/"shutdown") (deprecados);
+    # o comportamento de startup() e shutdown() permanece o mesmo.
+    await startup()
+    try:
+        yield
+    finally:
+        await shutdown()
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="Auto Orbital API",
     version="0.1.0",
     docs_url=None,
@@ -133,7 +146,6 @@ async def health_ready():
     return {"status": "ok"}
 
 
-@app.on_event("startup")
 async def startup():
     # init_db() nunca pode deixar exceção subir daqui: esse handler roda no
     # subprocesso uvicorn separado (gunicorn.conf.py::on_starting) e, se ele
@@ -154,7 +166,6 @@ async def startup():
     app.state.media_draft_cleanup_task = asyncio.create_task(_cleanup_media_drafts_periodically())
 
 
-@app.on_event("shutdown")
 async def shutdown():
     task = getattr(app.state, "media_draft_cleanup_task", None)
     if task:

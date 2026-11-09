@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — warnings do plano de estabilização (fases 2, 3 e 5)
+
+- **Chave JWT de teste:** `API_SECRET_KEY` de `tests/api/conftest.py` passa de 41 para 70 bytes, eliminando o `InsecureKeyLengthWarning` (HS384/HS512). Só afeta testes.
+- **Pydantic:** `CampaignDraftItem.copy` sombreava `BaseModel.copy`. O atributo Python passa a `copy_text` com `alias="copy"` e `populate_by_name`; os dois pontos que gravam o item usam `model_dump(by_alias=True)`, então o **contrato da API e o JSON persistido continuam com a chave `copy`**.
+- **FastAPI:** `@app.on_event("startup"/"shutdown")` migrado para `lifespan`, com o mesmo comportamento (incluindo subir sem Supabase e cancelar a limpeza periódica).
+- Testes novos: contrato do alias sem warning, e `tests/api/test_lifespan.py`. Resta o aviso de `gotrue` do pacote `supabase` (dependência de terceiros).
+
 ### Security — dependências npm (plano de estabilização, fase 1)
 
 - `npm audit fix` no frontend: `vite` 6.4.3 → 6.4.6 (dependência direta de desenvolvimento) e `seroval` 1.6.7 → 1.8.0 (transitiva do `@tanstack/react-router`). `npm audit`: 2 vulnerabilidades altas → 0. Somente `package-lock.json`; `tsc`, build e testes sem novas falhas em relação à base.
