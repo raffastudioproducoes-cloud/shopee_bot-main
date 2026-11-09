@@ -49,11 +49,11 @@ test("upload multipart autenticado preserva erros FastAPI e notifica transferên
 })
 
 test("sombra, skeleton e prévias respeitam movimento reduzido e estados de erro", () => {
-  assert.match(editor, /<MediaThumbnail item=\{item\}/)
-  assert.match(editor, /onLoadedData=\{\(\) => setReady\(true\)\}/)
-  assert.match(editor, /onError=\{\(\) => setFailed\(true\)\}/)
+  assert.match(editor, /<ProductMediaVisual item=\{item\}/)
+  assert.match(editor, /product-media-upload-stage__processing-track/)
+  assert.match(editor, /window\.setTimeout\(\(\) => setPhase\("idle"\), 2400\)/)
   assert.match(styles, /\.product-media-upload-stage__skeleton/)
-  assert.match(styles, /\.product-media-card__skeleton/)
+  assert.match(styles, /\.product-media-upload-stage__processing-track/)
   assert.match(styles, /box-shadow: var\(--shadow-panel\)/)
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/)
 })

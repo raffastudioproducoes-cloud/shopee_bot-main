@@ -21,7 +21,7 @@ test("snapshot pertence ao produto e é independente da lista de origem", async 
   const first = createCampaignSnapshot(products[0])
   assert.deepEqual(first, {
     title: "Bolsa", copy: "Descrição salva na ficha do produto", affiliateLink: "https://s.test/a", networks: [],
-    networkCopies: {}, useShopeeImage: true,
+    networkCopies: {}, useShopeeImage: true, selectedProductMediaIds: [],
   })
   const saved = { 11: first, 12: createCampaignSnapshot(products[1]) }
   const changed = patchCampaignSnapshot(saved, 11, { title: "Bolsa exclusiva", copy: "Oferta de hoje" })

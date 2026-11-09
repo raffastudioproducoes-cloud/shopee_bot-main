@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useEffect, useRef, useState } from "react"
 import { productsApi, type ProductMedia } from "../../api/products"
 import { Icon } from "../ui/Icon"
+import { ProductMediaVisual } from "./ProductMediaVisual"
 import { Modal } from "../ui/Modal"
 
 interface ProductSavedPersonalizationProps {
@@ -125,14 +126,7 @@ export function ProductSavedPersonalization({ productId, description, shopeeImag
                   title={item.file_name}
                   style={{ minWidth: 0, padding: 6, border: "1px solid var(--border)", background: "var(--surface, #0d1420)", color: "var(--text-secondary)", borderRadius: 11, cursor: "pointer", textAlign: "left" }}
                 >
-                  {item.media_type === "VIDEO" ? (
-                    <div style={{ position: "relative" }}>
-                      <video src={item.preview_url} preload="metadata" muted playsInline style={{ display: "block", width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 7, pointerEvents: "none" }} />
-                      <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "white", pointerEvents: "none" }}><Icon name="eye" size={26} /></span>
-                    </div>
-                  ) : (
-                    <img src={item.preview_url} alt="" loading="lazy" style={{ display: "block", width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: 7 }} />
-                  )}
+                  <ProductMediaVisual item={item} />
                   <span style={{ display: "block", marginTop: 6, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.file_name}</span>
                 </button>
               ))}

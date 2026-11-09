@@ -1,0 +1,14 @@
+.product-media-visual { position:relative; display:grid; place-items:center; overflow:hidden; min-height:76px;
+  border-radius:9px; background:var(--surface-inset); box-shadow:var(--shadow-card), inset 0 0 12px rgba(0,0,0,.35); }
+.product-media-visual img { display:block; width:100%; height:100%; object-fit:cover; }
+.product-media-visual__skeleton { position:absolute; inset:0; background:linear-gradient(110deg, var(--graphite-800) 12%,var(--graphite-700) 42%,var(--graphite-800) 68%);
+  background-size:210% 100%; animation:product-media-visual-shimmer 1.5s linear infinite; }
+.product-media-visual__fallback { display:grid; gap:4px; justify-items:center; color:var(--text-muted); text-align:center; }
+.product-media-visual__fallback small { font-size:10px; }
+.product-media-visual__play { position:absolute; right:5px; bottom:5px; display:grid; place-items:center;
+  min-width:32px; min-height:32px; border-radius:50%; border:1px solid rgba(255,255,255,.55);
+  background:rgba(0,0,0,.74); color:#fff; cursor:pointer; }
+.product-media-visual__play--decorative { pointer-events:none; }
+.product-media-visual__play:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+@keyframes product-media-visual-shimmer { to { background-position-x:-210%; } }
+@media (prefers-reduced-motion: reduce) { .product-media-visual__skeleton { animation:none; } }

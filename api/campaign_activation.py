@@ -19,6 +19,7 @@ from .campaign_policy import (
 )
 from .media_composition import plan_network_composition
 from .network_limits import is_network_disabled
+from .campaign_product_media import synchronize_product_media
 from .database import supabase
 from .storage_capacity import storage_upload_reservation
 from .media_sanitizer import sanitize_media_upload, detect_media_type, MediaSanitizerError
@@ -220,11 +221,24 @@ async def activate(draft_id, expected_revision, user_id, profile_id):
     if any(slot.utc_at <= cutoff for slot in slots):
         raise HTTPException(422, detail="Todos os horários devem estar ao menos 30 minutos no futuro.")
 
+    # Populate the existing private campaign-draft media pipeline from selected
+    # product assets, without uploading again from the browser. The RPC below
+    # then snapshots these same profile-scoped rows atomically as before.
+    request_key = f"activate:{draft_id}:{expected_revision}"
+    existing_reservation = (supabase.table("campaign_reservations_f4e").select("id")
+        .eq("draft_id", str(draft_id)).eq("user_id", str(user_id))
+        .eq("profile_id", str(profile_id)).eq("request_key", request_key)
+        .limit(1).execute()).data or []
+    if not existing_reservation:
+        await asyncio.to_thread(
+            synchronize_product_media, str(draft_id), str(user_id), str(profile_id), draft["items"],
+        )
+
     # This identifier survives a network timeout or browser retry.
     reservation_id = _rpc("reserve_campaign_networks_f4e", {
         "p_user_id": str(user_id), "p_profile_id": str(profile_id),
         "p_draft_id": str(draft_id), "p_revision": expected_revision,
-        "p_request_key": f"activate:{draft_id}:{expected_revision}",
+        "p_request_key": request_key,
         "p_occurrences": [slot.utc_at.strftime("%Y-%m-%dT%H:%M:%SZ") for slot in slots],
     })
     row = (supabase.table("campaign_reservations_f4e").select("*")

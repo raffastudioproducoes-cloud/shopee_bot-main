@@ -16,6 +16,7 @@ import { campaignUiCaps } from "../../lib/planPresentation"
 import { TextInput } from "../ui/TextInput"
 import { Button } from "../ui/Button"
 import { AiCopyControls } from "../posts/AiCopyControls"
+import { CampaignProductMediaSelector } from "./CampaignProductMediaSelector"
 import "./campaignPlanner.css"
 
 const weekdays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
@@ -196,16 +197,6 @@ export function CampaignPlanner({ credentials }: {
     enabled: Boolean(userId && profileId && savedDraftId),
     retry: false,
   })
-  const mediaUpload = useMutation({
-    mutationFn: async ({ productId, files }: { productId: number; files: File[] }) => {
-      if (!canEditCampaign) throw new Error("Campanhas indisponíveis no plano atual.")
-      if (!savedDraftId) throw new Error("Salve a campanha antes de enviar arquivos.")
-      const uploaded = mediaQuery.data?.data.filter((item) => item.product_id === productId).length ?? 0
-      if (uploaded + files.length > 10) throw new Error("Limite de 10 arquivos por produto.")
-      for (const file of files) await campaignsApi.uploadMedia(savedDraftId, productId, file)
-    },
-    onSettled: () => { void mediaQuery.refetch() },
-  })
   const mediaDelete = useMutation({
     mutationFn: (id: string) => campaignsApi.deleteMedia(savedDraftId!, id),
     onSettled: () => { void mediaQuery.refetch() },
@@ -248,6 +239,7 @@ export function CampaignPlanner({ credentials }: {
         networks: snapshots[id].networks,
         network_copies: snapshots[id].networkCopies,
         use_shopee_image: snapshots[id].useShopeeImage,
+        product_media_ids: snapshots[id].selectedProductMediaIds,
       })),
       schedule: payload,
     }
@@ -295,6 +287,7 @@ export function CampaignPlanner({ credentials }: {
         networks: item.networks,
         networkCopies: item.network_copies,
         useShopeeImage: item.use_shopee_image,
+        selectedProductMediaIds: item.product_media_ids ?? [],
       }])) as Record<number, CampaignItemSnapshot>
       setListOverride(source)
       setDraft({
@@ -530,41 +523,29 @@ export function CampaignPlanner({ credentials }: {
                             </div>
                           )}
                           <div className="campaign-media-choice">
-                            {product.image ? (
-                              <label>
-                                <input type="checkbox" checked={snapshot.useShopeeImage}
-                                  onChange={(e) => updateSnapshot(id, { useShopeeImage: e.target.checked })} />
-                                Usar a foto principal da Shopee
-                              </label>
-                            ) : <p>Este produto não tem foto Shopee registrada.</p>}
-                            <div className="campaign-media-upload">
-                              <label className="campaign-field-label" htmlFor={`campaign-media-${id}`}>
-                                Fotos ou vídeos próprios (PC ou celular)
-                              </label>
-                              <input id={`campaign-media-${id}`} className="campaign-upload-input"
-                                type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4"
-                                disabled={!canEditCampaign || !savedDraftId || mediaUpload.isPending || mediaDelete.isPending || deleteDraftMutation.isPending}
-                                onChange={(event) => {
-                                  const files = Array.from(event.currentTarget.files ?? [])
-                                  event.currentTarget.value = ""
-                                  if (files.length) mediaUpload.mutate({ productId: id, files })
-                                }} />
-                              {!savedDraftId && <small>Para anexar arquivos permanentes, <a href="#campaign-finalization">salve o rascunho na etapa 04</a> e depois retorne a este produto.</small>}
-                              <small>Até 10 arquivos por produto, 50 MB por arquivo. O envio não publica posts.</small>
-                              {mediaQuery.data?.data.filter((item) => item.product_id === id).map((item) => (
-                                <div className="campaign-media-file" key={item.id}>
-                                  <span>{item.media_type === "VIDEO" ? "Vídeo" : "Foto"} · {item.file_name}</span>
-                                  <button type="button" disabled={mediaDelete.isPending || mediaUpload.isPending}
-                                    onClick={() => mediaDelete.mutate(item.id)}
-                                    aria-label={`Remover ${item.file_name}`}>Remover</button>
-                                </div>
-                              ))}
-                              {mediaUpload.isPending && <small role="status">Enviando arquivos para armazenamento privado…</small>}
-                              {mediaUpload.isError && <p className="campaign-error" role="alert">{mediaUpload.error.message}</p>}
-                              {mediaDelete.isError && <p className="campaign-error" role="alert">{mediaDelete.error.message}</p>}
-                              {mediaQuery.isError && savedDraftId &&
-                                <p className="campaign-error" role="alert">Não foi possível consultar os anexos salvos.</p>}
-                            </div>
+                            <CampaignProductMediaSelector productId={id} shopeeImage={product.image ?? null}
+                              disabled={!canEditCampaign}
+                              useShopeeImage={snapshot.useShopeeImage}
+                              selectedIds={snapshot.selectedProductMediaIds}
+                              onShopeeChange={(useShopeeImage) => updateSnapshot(id, { useShopeeImage })}
+                              onSelectedChange={(selectedProductMediaIds) => updateSnapshot(id, { selectedProductMediaIds })} />
+                            {mediaQuery.data?.data.some((item) => item.product_id === id) && (
+                              <div className="campaign-media-upload">
+                                <strong>Anexos de campanhas anteriores</strong>
+                                <small>Arquivos antigos já anexados a este rascunho continuam selecionados. Remova-os aqui se desejar publicar sem mídia.</small>
+                                {mediaQuery.data.data.filter((item) => item.product_id === id).map((item) => (
+                                  <div className="campaign-media-file" key={item.id}>
+                                    <span>{item.media_type === "VIDEO" ? "Vídeo" : "Imagem"} · {item.file_name}</span>
+                                    <button type="button" disabled={mediaDelete.isPending}
+                                      onClick={() => mediaDelete.mutate(item.id)}
+                                      aria-label={`Remover anexo antigo ${item.file_name}`}>Remover</button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {mediaDelete.isError && <p className="campaign-error" role="alert">{mediaDelete.error.message}</p>}
+                            {mediaQuery.isError && savedDraftId &&
+                              <p className="campaign-error" role="alert">Não foi possível consultar os anexos antigos.</p>}
                           </div>
                         </div>
                       )}
@@ -722,7 +703,7 @@ export function CampaignPlanner({ credentials }: {
           </Button>
           <Button variant="send" icon="trash-2"
             disabled={!remoteSelection || saveMutation.isPending || loadMutation.isPending ||
-              mediaUpload.isPending || mediaDelete.isPending || deleteDraftMutation.isPending}
+              mediaDelete.isPending || deleteDraftMutation.isPending}
             onClick={() => { setDeleteConfirmationId(remoteSelection); setDeleteFeedback("") }}>
             Excluir
           </Button>
@@ -750,7 +731,7 @@ export function CampaignPlanner({ credentials }: {
           <Button variant="primary" icon="send"
             disabled={!plan?.activation_available || !savedDraftId || savedRevision === null ||
               lastSavedSignature !== saveSignature || !saveInput ||
-              activateMutation.isPending || mediaUpload.isPending || mediaDelete.isPending}
+              activateMutation.isPending || mediaDelete.isPending}
             loading={activateMutation.isPending}
             onClick={() => savedDraftId && savedRevision !== null &&
               activateMutation.mutate({ id: savedDraftId, revision: savedRevision })}>

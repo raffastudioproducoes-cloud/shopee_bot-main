@@ -20,7 +20,7 @@ from .lists import _get_list, _get_list_products
 from ..database import supabase
 from ..storage_capacity import storage_upload_reservation
 from .posts import _read_media_content, _sanitize_upload, MEDIA_DRAFT_BUCKET
-from ..profiles import scope_owner
+from ..profiles import scope_owner, scope_account
 from ..shopee_affiliate_links import canonical_product_url, build_affiliate_link
 from .platform_shopee import get_affiliate_id
 from urllib.parse import urlsplit
@@ -132,6 +132,14 @@ class CampaignDraftItem(BaseModel):
     networks: list[Network] = Field(default_factory=list, max_length=5)
     network_copies: dict[Network, str] = Field(default_factory=dict)
     use_shopee_image: bool = True
+    product_media_ids: list[UUID] = Field(default_factory=list, max_length=7)
+
+    @field_validator("product_media_ids")
+    @classmethod
+    def unique_product_media_ids(cls, value):
+        if len(value) != len(set(value)):
+            raise ValueError("Mídia do produto repetida na campanha.")
+        return value
 
     @field_validator("affiliate_link")
     @classmethod
@@ -192,6 +200,20 @@ def validate_campaign_draft_items(items: list, owned_ids: list[int]) -> None:
     validate_campaign_list_items(ids, owned_ids)
 
 
+def validate_product_media_choices(items: list[CampaignDraftItem], user_id: int) -> None:
+    """Each selected asset must be ready, in this account and in that item."""
+    chosen = {str(media_id): item.product_id for item in items for media_id in item.product_media_ids}
+    if not chosen:
+        return
+    rows = (scope_account(supabase.table("product_media")
+            .select("id, product_id, status").in_("id", list(chosen)), user_id).execute()).data or []
+    found = {str(row["id"]): row for row in rows}
+    if any(media_id not in found or found[media_id]["status"] != "ready"
+           or int(found[media_id]["product_id"]) != product_id
+           for media_id, product_id in chosen.items()):
+        raise HTTPException(status_code=422, detail="Mídia selecionada não pertence ao produto ou não está disponível.")
+
+
 def validate_campaign_draft_schedule(
     schedule: CampaignPreviewRequest | None, list_id: int | None, item_ids: list[int],
 ) -> None:
@@ -229,6 +251,7 @@ async def create_campaign_draft(
     products = _get_list_products(source["id"])
     try:
         validate_campaign_draft_items(body.items, [int(p["id"]) for p in products])
+        validate_product_media_choices(body.items, user_id)
         validate_campaign_draft_schedule(body.schedule, body.list_id, [p.product_id for p in body.items])
         validate_campaign_network_volume(policy, body.schedule, body.items)
     except ValueError as exc:
@@ -349,6 +372,7 @@ async def update_campaign_draft(
     old_items = {int(p["product_id"]): p for p in old["items"]}
     try:
         validate_campaign_draft_items(body.items, list(old_items))
+        validate_product_media_choices(body.items, user_id)
         validate_campaign_draft_schedule(body.schedule, old.get("source_list_id"), [p.product_id for p in body.items])
         validate_campaign_network_volume(policy, body.schedule, body.items)
     except ValueError as exc:

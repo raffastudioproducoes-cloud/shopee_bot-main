@@ -42,6 +42,7 @@ export interface ProductMedia {
   size_bytes: number
   slot: number
   preview_url: string
+  thumbnail_url?: string | null
 }
 
 export interface ProductsResponse {

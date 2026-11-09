@@ -111,3 +111,41 @@ def _process_in_temporary_directory(content: bytes | bytearray, max_bytes: int, 
         clean = output.read_bytes()
         _validate_video_boxes(clean, max_bytes=max_bytes)
         return clean
+
+
+def generate_video_thumbnail(content: bytes, *, max_bytes: int = 2 * 1024 * 1024) -> bytes:
+    """Extract a bounded, metadata-stripped JPEG poster from an already sanitized MP4.
+
+    This is a derived preview only, never used as a publication attachment.
+    """
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg or not content or len(content) > 50 * 1024 * 1024:
+        raise MediaSanitizerError("miniatura de vídeo indisponível", status_code=503)
+    try:
+        with tempfile.TemporaryDirectory(prefix="product-video-poster-") as temporary:
+            directory = Path(temporary)
+            source, output = directory / "video.mp4", directory / "poster.jpg"
+            source.write_bytes(content)
+            command = [
+                ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin", "-xerror",
+                "-threads", "1", "-filter_threads", "1", "-protocol_whitelist", "file",
+                "-i", str(source), "-map", "0:v:0", "-frames:v", "1",
+                "-vf", "scale=360:-2:force_original_aspect_ratio=decrease",
+                "-q:v", "5", "-y", str(output),
+            ]
+            result = subprocess.run(
+                command, cwd=directory, env=_tool_env(directory), stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, timeout=12, check=False,
+            )
+            if result.returncode or not output.exists() or not output.stat().st_size:
+                raise MediaSanitizerError("não foi possível gerar a miniatura do vídeo")
+            from .media_sanitizer import sanitize_media_upload
+            media = sanitize_media_upload(
+                output.read_bytes(), filename="miniatura.jpg", content_type="image/jpeg",
+                max_bytes=max_bytes,
+            )
+            if media.media_type != "IMAGE" or len(media.content) > max_bytes:
+                raise MediaSanitizerError("miniatura do vídeo excedeu o limite")
+            return media.content
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise MediaSanitizerError("miniatura de vídeo indisponível", status_code=503) from exc
