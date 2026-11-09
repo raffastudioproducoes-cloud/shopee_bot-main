@@ -96,3 +96,11 @@ test("prévia e histórico paginam de 10 em 10 e a seção 06 mostra só contado
     assert.deepEqual(counts.map((c) => c.key), ["planned"])
   }
 })
+
+test("seção 06 lista só campanhas abertas e remete as encerradas ao histórico de postagens", async () => {
+  const planner = await readFile(new URL("../src/components/campaigns/CampaignPlanner.tsx", import.meta.url), "utf8")
+  assert.match(planner, /\["preparing", "active", "paused"\]\.includes\(record\.lifecycle\)/)
+  assert.match(planner, /openCampaigns\.map\(\(record\)/)
+  assert.match(planner, /Nenhuma campanha ativa neste perfil/)
+  assert.match(planner, /só no histórico de postagens/)
+})

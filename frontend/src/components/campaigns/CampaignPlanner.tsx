@@ -481,6 +481,10 @@ export function CampaignPlanner({ credentials }: {
   const previewIsCurrent = Boolean(payload && previewMutation.data &&
     JSON.stringify(previewMutation.variables) === JSON.stringify(payload))
   const preview = previewIsCurrent ? previewMutation.data : null
+  // Concluídas e canceladas já aparecem no histórico de postagens: aqui só o que ainda exige ação.
+  const allCampaigns = activeQuery.data?.data ?? []
+  const openCampaigns = allCampaigns.filter((record) => ["preparing", "active", "paused"].includes(record.lifecycle))
+  const closedCampaignCount = allCampaigns.length - openCampaigns.length
   const previewPageCount = campaignPageCount(preview?.slots.length ?? 0)
   const safePreviewPage = clampCampaignPage(previewPage, previewPageCount)
 
@@ -1001,10 +1005,13 @@ export function CampaignPlanner({ credentials }: {
             Não foi possível consultar as campanhas. <button type="button"
               onClick={() => void activeQuery.refetch()}>Tentar novamente</button>
           </p>}
-          {activeQuery.data?.data.length === 0 && <p className="campaign-status">
-            Nenhuma campanha reservada neste perfil.
+          {activeQuery.data && openCampaigns.length === 0 && <p className="campaign-status">
+            Nenhuma campanha ativa neste perfil.
           </p>}
-          {(activeQuery.data?.data ?? []).map((record) => (
+          {closedCampaignCount > 0 && <p className="campaign-status">
+            {closedCampaignCount === 1 ? "1 campanha encerrada fica" : `${closedCampaignCount} campanhas encerradas ficam`} só no histórico de postagens.
+          </p>}
+          {openCampaigns.map((record) => (
             <div className="campaign-product" key={record.id}>
               <strong>{record.name}</strong>
               <p className="campaign-status">
