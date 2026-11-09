@@ -5,6 +5,17 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.13.0] - 2026-11-09
+
+### Added — animações e UX, lote 2 (roadmap: B2, C1, D1 e lei de Von Restorff em Planos)
+
+- **Segurar para confirmar (C1):** a confirmação destrutiva de Perfis e Backup agora usa um botão que enche enquanto se segura (700 ms) com mouse ou toque. Teclado (Enter/Espaço) e leitor de tela confirmam direto, sem depender de segurar.
+- **Avisos (D1):** entrada suave dos toasts.
+- **Erro de login (B2):** o aviso balança de leve uma vez.
+- **Planos (Von Restorff):** na comparação de planos só o Pro fica destacado, com um único selo "Recomendado", e o plano atual da conta ganha o marcador "Seu plano".
+- **Ajuste guiado pelas boas práticas do Impeccable (modo "Operate", app de trabalho):** a splash pós-login caiu de 1,6 s para 1,2 s e as animações passaram a usar a curva de desaceleração `cubic-bezier(0.16, 1, 0.3, 1)` (sem bounce), com durações de 150–500 ms.
+- Tudo respeita `prefers-reduced-motion`; sem biblioteca nova. Testes em `frontend/tests/motion-ux.test.mjs`.
+
 ## [3.12.1] - 2026-11-09
 
 ### Changed — apagar posts de campanha pela página Posts
@@ -18,7 +29,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Added — animações e UX, lote 1 (roadmap `docs/ROADMAP-ANIMACOES-UI.md`: A1, A3, C3)
 
-- **Entrada pós-login (A1):** tela rápida com a logo e círculo que se abre revelando o painel (1,6 s). Aparece **uma vez por sessão**, não bloqueia cliques (toque/tecla encerra), fica fora do admin e é desligada com `prefers-reduced-motion`. O painel carrega por baixo: nenhuma requisição espera a animação.
+- **Entrada pós-login (A1):** tela rápida com a logo e círculo que se abre revelando o painel (1,2 s). Aparece **uma vez por sessão**, não bloqueia cliques (toque/tecla encerra), fica fora do admin e é desligada com `prefers-reduced-motion`. O painel carrega por baixo: nenhuma requisição espera a animação.
 - **Contagem nos cards do dashboard (A3):** números inteiros contam de 0 ao valor real em 0,7 s, só na primeira exibição de cada card na sessão; sem movimento reduzido. Valor com erro/"—" aparece como vem.
 - **Cascata dos cards (lei de Doherty/feedback):** os 4 cards do dashboard entram em sequência de 70 ms.
 - **Copiar e-mail (C3):** o botão vira "Copiado!" com ✓ por 2 s e trata falha da área de transferência.

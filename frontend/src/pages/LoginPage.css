@@ -64,3 +64,8 @@
 
 /* Campo único: aviso discreto para a exceção temporária de suporte Shopee. */
 .login-support-hint { margin: -8px 0 0; font-size: 12px; line-height: 1.45; color: var(--text-muted); }
+
+/* Erro de login: balança de leve uma vez (B2); desligado com movimento reduzido. */
+.csp-login-banner-error { animation: login-shake .4s ease-in-out 1; }
+@keyframes login-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+@media (prefers-reduced-motion: reduce) { .csp-login-banner-error { animation: none; } }

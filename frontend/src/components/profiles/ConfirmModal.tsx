@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { Modal } from "../ui/Modal"
 import { Button } from "../ui/Button"
+import { HoldToConfirmButton } from "../ui/HoldToConfirmButton"
 
 interface ConfirmModalProps {
   title: string
@@ -28,9 +29,7 @@ export function ConfirmModal({ title, confirmLabel, busyLabel, loading, error, o
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="primary" disabled={loading} onClick={onConfirm} style={{ background: "var(--red-300)" }}>
-            {loading ? busyLabel : confirmLabel}
-          </Button>
+          <HoldToConfirmButton label={confirmLabel} busyLabel={busyLabel} loading={loading} onConfirm={onConfirm} />
         </div>
       </div>
     </Modal>

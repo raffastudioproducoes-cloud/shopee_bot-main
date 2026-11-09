@@ -3,7 +3,7 @@ import { prefersReducedMotion } from '../../lib/motion'
 import './postLoginSplash.css'
 
 const SEEN_KEY = 'ao-post-login-splash'
-export const SPLASH_MS = 1600
+export const SPLASH_MS = 1200
 
 /** Decide se a entrada animada aparece: 1 vez por sessão, nunca com movimento reduzido. */
 export function shouldShowPostLoginSplash(): boolean {
@@ -17,7 +17,7 @@ function markSeen() {
 
 /**
  * Tela rápida com a logo logo após o login: o painel já carrega por baixo e o círculo
- * se abre revelando-o. Não bloqueia cliques (pointer-events: none) e some sozinha em ~1,6 s.
+ * se abre revelando-o. Não bloqueia cliques (pointer-events: none) e some sozinha em ~1,2 s.
  */
 export function PostLoginSplash() {
   const [visible, setVisible] = useState(shouldShowPostLoginSplash)

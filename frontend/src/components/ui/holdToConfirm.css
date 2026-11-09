@@ -1,0 +1,15 @@
+.hold-confirm {
+  position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 0 20px; border: 1px solid transparent; border-radius: var(--r-pill, 999px);
+  background: var(--red-300); color: var(--black); cursor: pointer; touch-action: none; user-select: none;
+  font: var(--fw-semibold) var(--fs-body)/1 var(--font-sans);
+}
+.hold-confirm:disabled { opacity: .38; cursor: not-allowed; }
+.hold-confirm:focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
+.hold-confirm__fill {
+  position: absolute; inset: 0; transform: scaleX(0); transform-origin: left; background: rgba(0, 0, 0, .28);
+}
+.hold-confirm.is-holding .hold-confirm__fill { transform: scaleX(1); transition: transform var(--hold-ms) linear; }
+.hold-confirm__text { position: relative; }
+/* Movimento reduzido: sem preenchimento animado; o texto "Continue segurando…" segue como feedback. */
+.hold-confirm.is-static.is-holding .hold-confirm__fill { transition: none; transform: scaleX(.5); }
