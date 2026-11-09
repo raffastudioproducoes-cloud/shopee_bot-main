@@ -26,6 +26,8 @@ test("Publicação única e campanha compartilham a lista compacta das nove rede
   assert.doesNotMatch(planner, /<NetworkPicker selected=\{snapshot\.networks\}/)
   assert.match(planner, /networks: draft\.networks/)
   assert.match(planner, /campaign-description-tabs/)
+  assert.ok(planner.indexOf('className="campaign-textarea"') < planner.indexOf("campaign-description-tabs"))
+  assert.ok(planner.indexOf("campaign-description-tabs") < planner.indexOf("campaign-ai-controls"))
   assert.match(planner, /snapshot\.networkCopies\[activeNetwork\] \|\| snapshot\.copy/)
   assert.match(planner, /snapshot\.affiliateLink/)
   assert.match(planner, /textLength\(NETWORK_RULES\[activeNetwork\], finalText\)/)
@@ -43,4 +45,38 @@ test("estado de credenciais é isolado por perfil ativo", async () => {
   const page = await src("pages/CreatePostPage.tsx")
   assert.match(page, /queryKey: \["credentials", userId, activeProfileId\]/)
   assert.match(page, /enabled: Boolean\(userId && activeProfileId\)/)
+})
+
+
+test("campanha mostra a composição aceita e as mídias descartadas por rede", async () => {
+  const [selector, planner] = await Promise.all([
+    src("components/campaigns/CampaignProductMediaSelector.tsx"),
+    src("components/campaigns/CampaignPlanner.tsx"),
+  ])
+  assert.match(selector, /planMediaComposition/)
+  assert.match(selector, /legacyMedia/)
+  assert.match(selector, /plan\.dropped\.map/)
+  assert.match(selector, /plan\.blockedReason/)
+  assert.match(selector, /aria-live="polite"/)
+  assert.match(selector, /affiliateLink && !body\.includes/)
+  assert.match(selector, /video\.duration/)
+  assert.match(selector, /image\.naturalWidth/)
+  assert.match(selector, /metadataPending/)
+  assert.match(planner, /legacyMedia=\{mediaQuery\.data\?\.data\.filter/)
+  assert.match(planner, /texts=\{Object\.fromEntries/)
+})
+
+test("planejador de composição é compartilhado e bloqueia texto fora do limite", async () => {
+  const [composition, limits, backend] = await Promise.all([
+    src("lib/mediaComposition.ts"),
+    src("lib/networkLimits.ts"),
+    readFile(new URL("../../api/media_composition.py", import.meta.url), "utf8"),
+  ])
+  assert.match(composition, /adaptMedia\(rule, draft\.media\)/)
+  assert.match(composition, /TEXT_ERROR_KEYS/)
+  assert.match(composition, /mode: "blocked"/)
+  assert.match(composition, /blockedReason/)
+  assert.match(limits, /if \(len > rule\.maxChars\)/)
+  assert.match(backend, /plan_network_composition/)
+  assert.match(backend, /Text errors still block/)
 })

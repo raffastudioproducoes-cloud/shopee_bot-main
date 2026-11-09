@@ -515,20 +515,6 @@ export function CampaignPlanner({ credentials }: {
                           <input className="campaign-select" id={`campaign-title-${id}`} maxLength={300}
                             value={snapshot.title} onChange={(e) => updateSnapshot(id, { title: e.target.value })} />
                           <label className="campaign-field-label">Descrição para publicação</label>
-                          {draft.networks.length > 0 ? (
-                            <div className="campaign-description-tabs" role="tablist" aria-label="Descrição por rede social">
-                              {draft.networks.map((network) => (
-                                <button key={network} type="button" role="tab"
-                                  aria-selected={(activeDescriptionNetwork[id] ?? draft.networks[0]) === network}
-                                  className={(activeDescriptionNetwork[id] ?? draft.networks[0]) === network ? "is-active" : ""}
-                                  onClick={() => setActiveDescriptionNetwork((current) => ({ ...current, [id]: network }))}>
-                                  {NETWORK_RULES[network].label}
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="campaign-item-hint">Selecione as redes sociais da campanha para criar descrições individuais. A descrição padrão permanece disponível abaixo.</p>
-                          )}
                           {(() => {
                             const activeNetwork = activeDescriptionNetwork[id] && draft.networks.includes(activeDescriptionNetwork[id])
                               ? activeDescriptionNetwork[id]
@@ -552,6 +538,20 @@ export function CampaignPlanner({ credentials }: {
                                     {used.toLocaleString("pt-BR")} / {limit.toLocaleString("pt-BR")} caracteres conforme a contagem da rede, incluindo o link de afiliado.
                                   </small>
                                 )}
+                          {draft.networks.length > 0 ? (
+                            <div className="campaign-description-tabs" role="tablist" aria-label="Descrição por rede social">
+                              {draft.networks.map((network) => (
+                                <button key={network} type="button" role="tab"
+                                  aria-selected={(activeDescriptionNetwork[id] ?? draft.networks[0]) === network}
+                                  className={(activeDescriptionNetwork[id] ?? draft.networks[0]) === network ? "is-active" : ""}
+                                  onClick={() => setActiveDescriptionNetwork((current) => ({ ...current, [id]: network }))}>
+                                  {NETWORK_RULES[network].label}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="campaign-item-hint">Selecione as redes sociais da campanha para criar descrições individuais. A descrição padrão permanece disponível abaixo.</p>
+                          )}
                                 <div className="campaign-ai-controls">
                                   <AiCopyControls
                                     persona={aiPersonas[id] ?? "casual"}
@@ -590,6 +590,13 @@ export function CampaignPlanner({ credentials }: {
                               disabled={!canEditCampaign}
                               useShopeeImage={snapshot.useShopeeImage}
                               selectedIds={snapshot.selectedProductMediaIds}
+                              networks={draft.networks}
+                              texts={Object.fromEntries(draft.networks.map((network) => [
+                                network,
+                                snapshot.networkCopies[network] || snapshot.copy,
+                              ]))}
+                              affiliateLink={snapshot.affiliateLink}
+                              legacyMedia={mediaQuery.data?.data.filter((item) => item.product_id === id) ?? []}
                               onShopeeChange={(useShopeeImage) => updateSnapshot(id, { useShopeeImage })}
                               onSelectedChange={(selectedProductMediaIds) => updateSnapshot(id, { selectedProductMediaIds })} />
                             {mediaQuery.data?.data.some((item) => item.product_id === id) && (

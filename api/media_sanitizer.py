@@ -9,7 +9,7 @@ from io import BytesIO
 from pathlib import PurePath
 from typing import Literal
 
-from PIL import Image, ImageOps, ImageSequence, UnidentifiedImageError
+from PIL import Image, ImageOps, ImageSequence
 
 logger = logging.getLogger(__name__)
 

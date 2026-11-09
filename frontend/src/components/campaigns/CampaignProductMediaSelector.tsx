@@ -1,16 +1,26 @@
+import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { productsApi } from "../../api/products"
+import type { CampaignMediaRecord } from "../../api/campaigns"
+import type { PostNetwork } from "../../api/posts"
+import { planMediaComposition } from "../../lib/mediaComposition"
+import { mediaKind, NETWORK_RULES, type MediaInfo } from "../../lib/networkLimits"
 import { ProductMediaVisual } from "../products/ProductMediaVisual"
 import "./campaignProductMediaSelector.css"
 
 /** A campaign chooses existing product assets; no file input or upload is offered. */
 export function CampaignProductMediaSelector({ productId, shopeeImage, useShopeeImage, selectedIds,
+  networks, texts, affiliateLink, legacyMedia = [],
   onShopeeChange, onSelectedChange, disabled = false,
 }: {
   productId: number
   shopeeImage: string | null
   useShopeeImage: boolean
   selectedIds: string[]
+  networks: PostNetwork[]
+  texts: Partial<Record<PostNetwork, string>>
+  affiliateLink: string
+  legacyMedia?: CampaignMediaRecord[]
   onShopeeChange: (checked: boolean) => void
   onSelectedChange: (ids: string[]) => void
   disabled?: boolean
@@ -21,6 +31,101 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
   })
   const media = mediaQuery.data?.items ?? []
   const missing = selectedIds.filter((id) => !media.some((item) => item.id === id))
+  const selectedProductMedia = media.filter((item) => selectedIds.includes(item.id))
+  const selectedKey = selectedIds.join("|")
+  const [mediaMetadata, setMediaMetadata] = useState<Record<string, Partial<MediaInfo>>>({})
+  const [mediaMetadataStatus, setMediaMetadataStatus] = useState<Record<string, "loading" | "ready" | "error">>({})
+  useEffect(() => {
+    if (!selectedProductMedia.length) return
+    let active = true
+    const cleanup: Array<() => void> = []
+    setMediaMetadataStatus((current) => ({
+      ...current,
+      ...Object.fromEntries(selectedProductMedia.map((item) => [item.id, "loading" as const])),
+    }))
+    for (const item of selectedProductMedia) {
+      if (item.media_type === "VIDEO") {
+        const video = document.createElement("video")
+        video.preload = "metadata"
+        video.onloadedmetadata = () => {
+          if (!active) return
+          setMediaMetadata((current) => ({ ...current, [item.id]: {
+            durationSec: video.duration, width: video.videoWidth, height: video.videoHeight,
+          } }))
+          setMediaMetadataStatus((current) => ({ ...current, [item.id]: "ready" }))
+        }
+        video.onerror = () => {
+          if (active) setMediaMetadataStatus((current) => ({ ...current, [item.id]: "error" }))
+        }
+        video.src = item.preview_url
+        cleanup.push(() => { video.onloadedmetadata = null; video.onerror = null; video.removeAttribute("src"); video.load() })
+      } else {
+        const image = new Image()
+        image.onload = () => {
+          if (!active) return
+          setMediaMetadata((current) => ({ ...current, [item.id]: {
+            width: image.naturalWidth, height: image.naturalHeight,
+          } }))
+          setMediaMetadataStatus((current) => ({ ...current, [item.id]: "ready" }))
+        }
+        image.onerror = () => {
+          if (active) setMediaMetadataStatus((current) => ({ ...current, [item.id]: "error" }))
+        }
+        image.src = item.preview_url
+        cleanup.push(() => { image.onload = null; image.onerror = null; image.src = "" })
+      }
+    }
+    return () => {
+      active = false
+      cleanup.forEach((dispose) => dispose())
+    }
+  // The joined ID list keeps the effect stable while the parent re-renders.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaQuery.data?.items, selectedKey])
+  const metadataPending = selectedProductMedia.some((item) =>
+    mediaMetadataStatus[item.id] !== "ready" && mediaMetadataStatus[item.id] !== "error")
+  const metadataErrors = selectedProductMedia.filter((item) => mediaMetadataStatus[item.id] === "error")
+  const shopeeImageSizeQuery = useQuery({
+    queryKey: ["campaign-shopee-image-size", productId],
+    queryFn: () => productsApi.downloadImage(productId),
+    enabled: Boolean(useShopeeImage && shopeeImage),
+    staleTime: 4 * 60 * 1000,
+    retry: 1,
+  })
+  const selectedMedia: MediaInfo[] = [
+    ...(useShopeeImage && shopeeImage
+      ? [{ name: `shopee-${productId}.jpg`, size: shopeeImageSizeQuery.data?.blob.size ?? 0, kind: "image" as const }]
+      : []),
+    ...media.filter((item) => selectedIds.includes(item.id)).map((item) => {
+      const metadata = mediaMetadata[item.id]
+      return {
+        name: item.file_name,
+        size: item.size_bytes,
+        kind: item.media_type === "VIDEO" ? "video" as const : mediaKind(item.file_name),
+        ...(metadata?.durationSec != null ? { durationSec: metadata.durationSec } : {}),
+        ...(metadata?.width != null ? { width: metadata.width } : {}),
+        ...(metadata?.height != null ? { height: metadata.height } : {}),
+      }
+    }),
+    ...legacyMedia.map((item) => ({
+      name: item.file_name,
+      size: item.size_bytes,
+      kind: item.media_type === "VIDEO" ? "video" as const : mediaKind(item.file_name),
+    })),
+  ]
+  const plansReady = mediaQuery.isSuccess && !metadataPending &&
+    (!useShopeeImage || !shopeeImage || shopeeImageSizeQuery.isSuccess)
+  const plans = networks.map((network) => {
+    const body = texts[network] ?? ""
+    const finalText = affiliateLink && !body.includes(affiliateLink)
+      ? [body.trim(), affiliateLink].filter(Boolean).join("\n")
+      : body
+    return planMediaComposition(network, {
+      texts: [finalText],
+      media: selectedMedia,
+      productCount: 1,
+    })
+  })
   return (
     <div className="campaign-saved-media" aria-label="Mídias para a campanha">
       <strong className="campaign-saved-media__title">Mídias para esta publicação</strong>
@@ -66,6 +171,36 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
           Limpar referências ausentes
         </button>
       </p>}
+      {plansReady && plans.length > 0 && (
+        <section className="campaign-media-preflight" aria-live="polite" aria-label="Compatibilidade por rede">
+          <strong>Compatibilidade das mídias por rede</strong>
+          {plans.map((plan) => (
+            <div className={`campaign-media-preflight__network${plan.blockedReason ? " is-blocked" : plan.dropped.length || plan.warnings.length ? " has-warning" : ""}`} key={plan.network}>
+              <strong>{NETWORK_RULES[plan.network].label}</strong>
+              {plan.blockedReason
+                ? <p role="alert">Não pode ser publicado: {plan.blockedReason}</p>
+                : <p>{plan.mode === "text_only" ? "Será enviado somente o texto."
+                  : plan.mode === "none" ? "Sem mídia."
+                  : plan.mode === "single_image" ? "Será enviada 1 imagem."
+                  : plan.mode === "carousel" ? `Serão enviadas ${plan.media.length} mídias aceitas.`
+                  : "Será enviado 1 vídeo."}</p>}
+              {plan.dropped.length > 0 && (
+                <ul>
+                  {plan.dropped.map((entry, index) => (
+                    <li key={`${entry.item.name}-${index}`}>{entry.item.name}: {entry.reason}</li>
+                  ))}
+                </ul>
+              )}
+              {plan.warnings.filter((warning) => !plan.dropped.some((entry) => warning.includes(entry.reason))).map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </div>
+          ))}
+          {metadataErrors.length > 0 && <p role="status">Não foi possível ler duração/dimensões de: {metadataErrors.map((item) => item.file_name).join(", ")}. Esses metadados não foram considerados na prévia.</p>}
+          {legacyMedia.length > 0 && <p role="status">Anexos legados não possuem prévia de metadados; duração e proporção deles serão revalidadas pelo publicador quando suportado.</p>}
+          <small>Arquivos incompatíveis são excluídos somente da composição desta rede. Os originais em Produtos permanecem intactos. Vídeos de contas TikTok também passam pela validação dinâmica de Creator Info antes do upload externo.</small>
+        </section>
+      )}
       <small>A seleção vale apenas para esta campanha e não modifica a galeria de Produtos.</small>
     </div>
   )

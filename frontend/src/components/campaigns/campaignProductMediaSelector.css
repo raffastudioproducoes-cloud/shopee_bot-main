@@ -17,3 +17,13 @@
 .campaign-saved-media__asset-check input { min-width:18px; }
 .campaign-saved-media__warning { color:#fb7185!important; }
 .campaign-saved-media__warning button, .campaign-saved-media p button { color:var(--accent); border:none; background:none; text-decoration:underline; cursor:pointer; }
+
+.campaign-media-preflight { display:grid; gap:8px; border-top:1px solid var(--border-hairline); padding-top:10px; }
+.campaign-media-preflight > strong { font-size:13px; color:var(--text-body); }
+.campaign-media-preflight__network { display:grid; gap:4px; padding:9px 10px; border:1px solid var(--border-hairline); border-radius:var(--r-md); }
+.campaign-media-preflight__network > strong { font-size:12px; color:var(--text-body); }
+.campaign-media-preflight__network p, .campaign-media-preflight__network li { margin:0; color:var(--text-muted); font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
+.campaign-media-preflight__network ul { margin:2px 0 0; padding-left:18px; }
+.campaign-media-preflight__network.has-warning { border-color:var(--amber-300); }
+.campaign-media-preflight__network.is-blocked { border-color:var(--negative); }
+.campaign-media-preflight__network.is-blocked p { color:var(--negative); }
