@@ -32,7 +32,7 @@ export function OfferSection() {
           <h2 className="mt-4 font-ao-display text-4xl font-semibold md:text-5xl">
             Escolha a <Highlight>órbita</Highlight> do seu ritmo.
           </h2>
-          <p className="mt-4 text-ao-muted-fg">Comece grátis. Os valores do Pro e do Premium serão anunciados após o estudo de custos.</p>
+          <p className="mt-4 text-ao-muted-fg">Comece grátis. Os valores do Pro e do Premium são de referência e a contratação ainda não foi aberta.</p>
         </Reveal>
 
         {/* Cards de valor: entram em leque, como planetas alinhando na órbita */}
@@ -58,7 +58,7 @@ export function OfferSection() {
                 <h3 className="font-ao-display text-2xl font-semibold">{plan.name}</h3>
                 <p className="text-sm text-ao-muted-fg">{plan.tagline}</p>
                 <motion.p
-                  className={`mt-6 font-ao-display font-semibold ${offer.priceLabel.length > 8 ? "text-2xl" : "text-5xl"} text-ao-fg`}
+                  className={`mt-6 font-ao-display font-semibold text-5xl text-ao-fg`}
                   initial={{ opacity: 0, filter: "blur(10px)" }}
                   whileInView={{ opacity: 1, filter: "blur(0px)" }}
                   viewport={{ once: true }}
@@ -122,7 +122,7 @@ export function OfferSection() {
               </tbody>
             </table>
           </div>
-          <p className="mt-4 text-center text-xs text-ao-muted-fg">Limites oficiais definidos para o lançamento. Valores do Pro e Premium ainda em definição.</p>
+          <p className="mt-4 text-center text-xs text-ao-muted-fg">Limites oficiais definidos para o lançamento. Valores mensais de referência; a contratação ainda não foi aberta.</p>
         </Reveal>
       </div>
     </section>

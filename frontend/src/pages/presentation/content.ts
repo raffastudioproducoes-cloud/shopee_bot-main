@@ -54,7 +54,7 @@ export const faq = [
   { q: "Funciona com qualquer programa de afiliados?", a: "A Shopee é a primeira integração de catálogo. A expansão para outros programas está em estudo e depende de APIs, permissões e viabilidade técnica. O Auto Orbital não promete compatibilidade universal neste momento." },
   { q: "Minha rede social fica protegida?", a: "A conexão das redes compatíveis usa os mecanismos de autorização oferecidos pelos provedores. Cada integração pode solicitar permissões específicas, e a disponibilidade depende da aprovação e das regras de cada rede." },
   { q: "A inteligência artificial já faz tudo sozinha?", a: "Hoje existem recursos de assistência à criação de textos sujeitos à configuração. A coleta, seleção, criação e publicação totalmente autônomas fazem parte da visão em desenvolvimento, ainda não disponível." },
-  { q: "Já posso contratar um plano?", a: "Ainda não. Os planos Free, Pro e Premium e seus limites já estão definidos, mas valores e contratação seguem em definição até o início da comercialização." },
+  { q: "Já posso contratar um plano?", a: "Ainda não. Os planos Free, Pro e Premium e seus limites já estão definidos, e os valores de referência aparecem na seção Valores. A contratação só abre no início da comercialização." },
 ]
 
 /** Converte o progresso do scroll (0–1) no índice de etapa ativa, limitado ao total. */
@@ -93,11 +93,11 @@ export const plans: PlanInfo[] = [
   { id: "premium", name: "Premium", tagline: "Para operar em escala", products: 2000, lists: 100, profiles: 5, postsPerHour: 5, recurringSlots: 5, campaign: { maxDays: 30, postsPerDay: 15, active: 5 }, automation: true },
 ]
 
-/* ---------- Oferta: valores ainda não definidos (nenhum preço inventado) ---------- */
+/* ---------- Oferta ---------- */
 
 export interface PlanOffer {
   id: PlanId
-  /** Texto exibido no lugar do preço. Free é gratuito; Pro/Premium aguardam estudo de custos. */
+  /** Preço exibido. Pro e Premium: valores de referência informados por Rafa em 09/11/2026 (mensal). */
   priceLabel: string
   priceNote: string
   highlight: boolean
@@ -105,8 +105,8 @@ export interface PlanOffer {
 
 export const planOffers: PlanOffer[] = [
   { id: "free", priceLabel: "Grátis", priceNote: "Para começar sem custo", highlight: false },
-  { id: "pro", priceLabel: "Valor em definição", priceNote: "Preço após estudo de custos", highlight: true },
-  { id: "premium", priceLabel: "Valor em definição", priceNote: "Preço após estudo de custos", highlight: false },
+  { id: "pro", priceLabel: "R$ 59,90", priceNote: "por mês · valor de referência", highlight: true },
+  { id: "premium", priceLabel: "R$ 109,90", priceNote: "por mês · valor de referência", highlight: false },
 ]
 
 export type ComparisonValue = string | boolean
