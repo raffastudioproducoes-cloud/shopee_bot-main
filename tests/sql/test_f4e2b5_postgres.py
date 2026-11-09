@@ -76,6 +76,7 @@ class TestCampaignNetworkReservations(unittest.TestCase):
                 "074_f4e1_inert_campaign_reservations.sql",
                 "075_campaign_publication_origin_guards.sql",
                 "076_campaign_network_reservations.sql",
+                "095_campaign_active_weekday_quota.sql",
             ):
                 con.execute((ROOT / name).read_text())
 
@@ -120,6 +121,7 @@ class TestCampaignNetworkReservations(unittest.TestCase):
                     ]), json.dumps({
                         "start_date": str(self.start),
                         "end_date": str(self.start + timedelta(days=14)),
+                        "weekdays": [self.start.weekday()],
                     })),
                 )
 
@@ -132,6 +134,67 @@ class TestCampaignNetworkReservations(unittest.TestCase):
                 (self.user, self.profile, self.drafts[draft_index],
                  key or str(uuid.uuid4()), json.dumps(values)),
             ).fetchone()[0]
+
+    def set_schedule(self, draft_index, end_date, weekdays):
+        schedule = {
+            "start_date": str(self.start),
+            "end_date": str(end_date),
+            "weekdays": list(weekdays),
+        }
+        with self.connect() as con:
+            con.execute(
+                "UPDATE campaign_drafts SET schedule=%s::jsonb WHERE id=%s",
+                (json.dumps(schedule), self.drafts[draft_index]),
+            )
+
+    def occurrences_for_days(self, end_date, weekdays):
+        selected = set(weekdays)
+        values = []
+        for offset in range((end_date - self.start).days + 1):
+            day = self.start + timedelta(days=offset)
+            if day.weekday() in selected:
+                values.append(
+                    (self.instant + timedelta(days=offset)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                )
+        return values
+
+    def test_plan_quota_counts_selected_weekdays_not_calendar_days(self):
+        end_date = self.start + timedelta(days=29)
+        weekdays = [
+            self.start.weekday(),
+            (self.start.weekday() + 1) % 7,
+            (self.start.weekday() + 3) % 7,
+            (self.start.weekday() + 5) % 7,
+        ]
+        self.set_schedule(0, end_date, weekdays)
+        occurrences = self.occurrences_for_days(end_date, weekdays)
+        self.assertGreater(len(occurrences), 15)
+        with self.assertRaises(psycopg.Error):
+            self.reserve(values=occurrences, key="pro-weekday-limit")
+        with self.connect() as con:
+            con.execute(
+                "UPDATE users SET plan_tier='premium',campaign_paid_through=now()+interval '250 days' WHERE id=%s",
+                (self.user,),
+            )
+        self.assertIsInstance(
+            self.reserve(values=occurrences, key="premium-weekday-limit"), uuid.UUID,
+        )
+
+    def test_thirty_active_weekdays_can_span_210_calendar_days(self):
+        end_date = self.start + timedelta(days=209)
+        weekdays = [self.start.weekday()]
+        self.set_schedule(1, end_date, weekdays)
+        occurrences = self.occurrences_for_days(end_date, weekdays)
+        self.assertEqual(len(occurrences), 30)
+        with self.connect() as con:
+            con.execute(
+                "UPDATE users SET plan_tier='premium',campaign_paid_through=now()+interval '250 days' WHERE id=%s",
+                (self.user,),
+            )
+        self.assertIsInstance(
+            self.reserve(draft_index=1, values=occurrences, key="premium-30-active-days"),
+            uuid.UUID,
+        )
 
     def test_network_slots_rotate_per_product_and_idempotency(self):
         a = self.instant.strftime("%Y-%m-%dT%H:%M:%SZ")
