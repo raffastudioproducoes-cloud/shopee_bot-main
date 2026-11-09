@@ -142,3 +142,7 @@
 .campaign-activate-wrap.is-celebrating > button { animation:campaign-activate-pop .45s var(--ease-standard); }
 @keyframes campaign-activate-pop { 0% { transform:scale(1); } 35% { transform:scale(1.07); box-shadow:0 0 0 8px var(--accent-tint); } 100% { transform:scale(1); } }
 @media (prefers-reduced-motion:reduce) { .campaign-activate-wrap.is-celebrating > button { animation:none; } }
+
+.campaign-pagination span { color:var(--text-muted); padding:0 2px; }
+.campaign-counts { display:flex; flex-wrap:wrap; gap:6px 14px; }
+.campaign-counts b { color:var(--text-body); font-variant-numeric:tabular-nums; }
