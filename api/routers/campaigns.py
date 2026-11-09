@@ -167,6 +167,7 @@ class CampaignDraftItem(BaseModel):
 
 class CampaignDraftSave(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
     @field_validator("name")
     @classmethod
     def nonempty_name(cls, value):
@@ -182,6 +183,7 @@ class CampaignDraftSave(BaseModel):
 
 class CampaignDraftUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
     @field_validator("name")
     @classmethod
     def nonempty_name(cls, value):
@@ -289,10 +291,44 @@ async def list_campaign_drafts(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    result = (scope_owner(supabase.table("campaign_drafts").select("*"),
-                          user_id, _draft_profile(profile_id))
-              .order("updated_at", desc=True).limit(30).execute())
-    return {"data": result.data or []}
+    owner_profile = _draft_profile(profile_id)
+    page_size = 100
+    offset = 0
+    recoverable = []
+    while len(recoverable) < 30:
+        page = (scope_owner(supabase.table("campaign_drafts").select("*"),
+                            user_id, owner_profile)
+                .order("updated_at", desc=True)
+                .range(offset, offset + page_size - 1).execute()).data or []
+        if not page:
+            break
+        draft_ids = [str(row["id"]) for row in page if row.get("id")]
+        if draft_ids:
+            try:
+                reservations = (supabase.table("campaign_reservations_f4e")
+                    .select("draft_id,lifecycle")
+                    .eq("user_id", str(user_id)).eq("profile_id", owner_profile)
+                    .in_("draft_id", draft_ids).execute()).data or []
+            except Exception as exc:
+                logger.warning("Falha ao verificar lifecycle de rascunhos (%s)", type(exc).__name__)
+                raise HTTPException(
+                    status_code=503,
+                    detail="Não foi possível confirmar o estado das campanhas. Tente novamente.",
+                ) from None
+            activated_drafts = {
+                str(row["draft_id"]) for row in reservations
+                if row.get("draft_id") and row.get("lifecycle") in
+                ("active", "paused", "cancelled", "completed")
+            }
+            recoverable.extend(
+                row for row in page if str(row.get("id")) not in activated_drafts
+            )
+        else:
+            recoverable.extend(page)
+        if len(page) < page_size:
+            break
+        offset += page_size
+    return {"data": recoverable[:30]}
 
 
 def _get_owned_campaign(draft_id: UUID, user_id: int, profile_id: str):

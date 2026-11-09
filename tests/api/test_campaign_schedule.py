@@ -1,4 +1,4 @@
-"""Contrato do calendário de campanhas: 30 dias, frequência diária e rotação.
+"""Contrato do calendário de campanhas: 30 dias ativos, janela e rotação.
 
 Testes puramente locais: não criam jobs, posts ou chamadas externas.
 """
@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from api.campaign_schedule import plan_campaign_slots
+from api.campaign_schedule import count_campaign_days, plan_campaign_slots
 
 
 def plan(**overrides):
@@ -35,21 +35,27 @@ def test_one_product_per_slot_with_wraparound_and_unique_index():
     ]
 
 
-def test_thirty_days_inclusive_are_allowed_but_thirty_one_rejected():
+def test_210_calendar_days_inclusive_are_allowed_but_211_rejected():
     slots = plan(
         start_date=date(2026, 11, 2),
-        end_date=date(2026, 12, 1),
+        end_date=date(2027, 5, 30),
         weekdays=list(range(7)),
         start_time=time(9),
         end_time=time(9),
         posts_per_day=1,
     )
-    assert len(slots) == 30
-    with pytest.raises(ValueError, match="30 dias"):
+    assert len(slots) == 210
+    with pytest.raises(ValueError, match="210 dias"):
         plan(
             start_date=date(2026, 11, 2),
-            end_date=date(2026, 12, 2),
+            end_date=date(2027, 5, 31),
         )
+
+
+def test_selected_weekday_count_matches_calendar_example():
+    assert count_campaign_days(
+        date(2026, 11, 1), date(2026, 11, 30), [0, 2, 4, 6],
+    ) == 18
 
 
 def test_daily_quantity_is_evenly_spread_including_end_time():

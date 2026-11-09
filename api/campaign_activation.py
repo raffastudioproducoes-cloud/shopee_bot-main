@@ -42,7 +42,23 @@ def _rpc(name: str, args: dict):
     except Exception as exc:
         # Never leak provider tokens, private paths or raw PostgREST exceptions.
         logger.warning("RPC de campanha %s recusada (%s)", name, type(exc).__name__)
-        raise HTTPException(409, detail="A operação da campanha foi recusada. Confira plano, cotas e horário; atualize o painel.") from None
+        reason = str(exc)
+        if "campaign_active_days_exceeded" in reason:
+            raise HTTPException(403, detail="O limite de dias de publicação do plano foi atingido.") from None
+        if "campaign_window_exceeded" in reason:
+            raise HTTPException(422, detail="O intervalo ultrapassa o limite de 210 dias corridos.") from None
+        if "invalid_campaign_weekdays" in reason:
+            raise HTTPException(422, detail="Selecione dias da semana válidos.") from None
+        if "campaign_quota_exceeded" in reason:
+            raise HTTPException(403, detail="O limite de campanhas ativas do plano foi atingido.") from None
+        if "paid_period_not_confirmed" in reason or "campaign_outside_paid_period" in reason:
+            raise HTTPException(403, detail="O período pago não cobre todos os horários selecionados.") from None
+        if "campaign_day_slots_exceeded" in reason:
+            raise HTTPException(403, detail="A quantidade diária de postagens excede o limite do plano.") from None
+        raise HTTPException(
+            status_code=409,
+            detail="A operação da campanha foi recusada. Confira plano, cotas e horário; atualize o painel.",
+        ) from None
 
 
 def owned_reservation(reservation_id, user_id, profile_id):
