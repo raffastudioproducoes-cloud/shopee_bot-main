@@ -96,12 +96,17 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
     ...(useShopeeImage && shopeeImage
       ? [{ name: `shopee-${productId}.jpg`, size: shopeeImageSizeQuery.data?.blob.size ?? 0, kind: "image" as const }]
       : []),
-    ...media.filter((item) => selectedIds.includes(item.id)).map((item) => ({
-      name: item.file_name,
-      size: item.size_bytes,
-      kind: item.media_type === "VIDEO" ? "video" as const : mediaKind(item.file_name),
-      ...mediaMetadata[item.id],
-    })),
+    ...media.filter((item) => selectedIds.includes(item.id)).map((item) => {
+      const metadata = mediaMetadata[item.id]
+      return {
+        name: item.file_name,
+        size: item.size_bytes,
+        kind: item.media_type === "VIDEO" ? "video" as const : mediaKind(item.file_name),
+        ...(metadata?.durationSec != null ? { durationSec: metadata.durationSec } : {}),
+        ...(metadata?.width != null ? { width: metadata.width } : {}),
+        ...(metadata?.height != null ? { height: metadata.height } : {}),
+      }
+    }),
     ...legacyMedia.map((item) => ({
       name: item.file_name,
       size: item.size_bytes,
