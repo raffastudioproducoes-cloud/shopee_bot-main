@@ -87,3 +87,41 @@ def test_post_video_blocks_unavailable_privacy_option(monkeypatch, tmp_path):
     monkeypatch.setattr(api, "_init_video_post", lambda *a: (_ for _ in ()).throw(AssertionError("upload não deve iniciar")))
     with pytest.raises(api.TikTokAPIError, match="privacidade"):
         api.post_video("token", str(video), "caption")
+
+
+def test_init_video_post_honors_creator_interaction_restrictions(monkeypatch):
+    captured = {}
+
+    class Response:
+        status_code = 200
+        text = ""
+        def json(self):
+            return {"data": {"publish_id": "pub", "upload_url": "https://upload.test"}}
+
+    def fake_retry(func, url, **kwargs):
+        captured.update(kwargs["json"])
+        return Response()
+
+    monkeypatch.setattr(api, "retry_with_backoff", fake_retry)
+    api._init_video_post(
+        "token", 1024, "caption", "SELF_ONLY",
+        {"duet_disabled": True, "comment_disabled": False, "stitch_disabled": True},
+    )
+    info = captured["post_info"]
+    assert info["disable_duet"] is True
+    assert info["disable_comment"] is False
+    assert info["disable_stitch"] is True
+
+
+def test_post_video_blocks_when_creator_cannot_post(monkeypatch, tmp_path):
+    video = tmp_path / "video.mp4"
+    video.write_bytes(b"123")
+    monkeypatch.setattr(api, "get_creator_info", lambda token: {
+        "creator_can_post": False,
+        "max_video_post_duration_sec": 180,
+        "privacy_level_options": ["SELF_ONLY"],
+    })
+    monkeypatch.setattr(api, "_video_duration_seconds", lambda path: 60.0)
+    monkeypatch.setattr(api, "_init_video_post", lambda *a: (_ for _ in ()).throw(AssertionError("upload não deve iniciar")))
+    with pytest.raises(api.TikTokAPIError, match="não pode publicar"):
+        api.post_video("token", str(video), "caption")
