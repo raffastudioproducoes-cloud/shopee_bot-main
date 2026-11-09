@@ -169,6 +169,7 @@ class _FakeTable:
         self._single = False
         self._count = False
         self._limit = None
+        self._range = None
 
     def select(self, *_a, count=None, **_kw):
         self._count = bool(count)
@@ -219,7 +220,8 @@ class _FakeTable:
     def order(self, *_a, **_kw):
         return self
 
-    def range(self, *_a, **_kw):
+    def range(self, start, end):
+        self._range = (start, end)
         return self
 
     def ilike(self, *_a, **_kw):
@@ -255,6 +257,9 @@ class _FakeTable:
                 self._rows.remove(r)
             return MagicMock(data=[dict(r) for r in matched])
         data = [dict(r) for r in matched]
+        if self._range is not None:
+            start, end = self._range
+            data = data[start:end + 1]
         if self._limit is not None:
             data = data[: self._limit]
         if self._single:
