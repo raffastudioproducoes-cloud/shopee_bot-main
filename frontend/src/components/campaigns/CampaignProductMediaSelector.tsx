@@ -48,7 +48,7 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
   const plans = networks.map((network) => {
     const body = texts[network] ?? ""
     const finalText = affiliateLink && !body.includes(affiliateLink)
-      ? [body.trim(), affiliateLink].filter(Boolean).join("\\n")
+      ? [body.trim(), affiliateLink].filter(Boolean).join("\n")
       : body
     return planMediaComposition(network, {
       texts: [finalText],
@@ -101,7 +101,7 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
           Limpar referências ausentes
         </button>
       </p>}
-      {plans.length > 0 && (
+      {mediaQuery.isSuccess && plans.length > 0 && (
         <section className="campaign-media-preflight" aria-live="polite" aria-label="Compatibilidade por rede">
           <strong>Compatibilidade das mídias por rede</strong>
           {plans.map((plan) => (
