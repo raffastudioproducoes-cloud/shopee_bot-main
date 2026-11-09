@@ -14,6 +14,7 @@ export interface PlanUsage {
   campaigns_enabled: boolean
   active_campaigns_limit: number | null
   active_campaigns_count: number | null
+  active_campaigns_usage_status: "available" | "unavailable"
   campaign_days: number
   absolute_campaign_days: number
   campaign_posts_per_day: number | null
