@@ -928,21 +928,22 @@ def _require_legacy_post_origin(post: dict) -> None:
         raise HTTPException(status_code=409, detail="Esta publicação pertence a uma campanha. Use os controles da campanha.")
 
 
-def _cancel_campaign_slot_before_delete(post_id: int) -> None:
-    """Excluir um post de campanha é permitido (pedido do dono do produto), mas a vaga da campanha
-    não pode ficar "planejada" apontando para um post que deixou de existir: ela vira 'cancelled'.
-    Um envio em andamento não é interrompido no meio: nesse caso a exclusão espera terminar."""
-    slots = (
-        supabase.table("campaign_network_slots_f4e").select("id, state")
-        .eq("post_id", post_id).execute().data or []
-    )
-    if any(slot.get("state") == "running" for slot in slots):
-        raise HTTPException(status_code=409, detail="Este post está sendo publicado agora. Tente apagar em alguns instantes.")
-    for slot in slots:
-        if slot.get("state") == "planned":
-            supabase.table("campaign_network_slots_f4e").update(
-                {"state": "cancelled", "finished_at": datetime.now(timezone.utc).isoformat()}
-            ).eq("id", slot["id"]).execute()
+def _purge_campaign_post(user_id: int, profile_id: str | None, post_id: int) -> None:
+    """Apaga um post de campanha que nunca rodou. A trava `campaign_job_immutable` do banco impede o
+    DELETE direto (a vaga ainda aponta para o job), então a função do banco remove a vaga e depois o
+    post. Em envio ou já executado, o banco recusa e a API responde 409 sem apagar nada."""
+    try:
+        supabase.rpc("purge_campaign_posts_f4e", {
+            "p_user_id": str(user_id), "p_profile_id": profile_id, "p_post_ids": [post_id],
+        }).execute()
+    except Exception as exc:
+        reason = str(exc)
+        if "campaign_post_running" in reason:
+            raise HTTPException(status_code=409, detail="Este post está sendo publicado agora. Tente apagar em alguns instantes.") from None
+        if "campaign_post_has_history" in reason:
+            raise HTTPException(status_code=409, detail="Este post de campanha já foi executado e fica no histórico da campanha.") from None
+        logger.warning("Falha ao apagar post de campanha %s (%s)", post_id, type(exc).__name__)
+        raise HTTPException(status_code=500, detail="Não foi possível apagar o post agora.") from None
 
 
 def _ensure_post_editable(user_id: int, post_id: int, profile_id: str | None, post: dict) -> None:
@@ -2408,7 +2409,9 @@ async def delete_post(
 ):
     post = _get_post(user_id, post_id, profile_id)  # ownership check
     if post.get("publication_origin", "legacy") == "campaign":
-        _cancel_campaign_slot_before_delete(post_id)
+        # Agendador de campanha vive só no banco (despachante central), sem job no APScheduler.
+        _purge_campaign_post(user_id, post.get("profile_id") or profile_id, post_id)
+        return {"msg": "Post removido"}
 
     jobs = supabase.table("schedulers").select("id").eq("post_id", post_id).execute().data or []
     for job in jobs:
