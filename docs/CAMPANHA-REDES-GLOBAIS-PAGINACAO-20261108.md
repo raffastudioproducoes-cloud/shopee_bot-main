@@ -49,3 +49,16 @@ TikTok: API oficial suporta PHOTO, mas o fluxo do Auto Orbital permanece somente
 10. Nenhum teste dispara publicação real.
 
 CI e testes do projeto devem validar o branch antes de merge. QA visual/autenticada em staging permanece necessária. Não houve promoção para produção.
+
+## Complemento 09/11/2026 — auditoria e correção do publicador TikTok
+
+A inspeção do publicador antigo encontrou dois problemas: o upload enviava o arquivo inteiro em um único bloco, embora a API exija chunking para arquivos maiores; e o publicador não consultava o limite individual de duração da conta.
+
+Correção preparada em branch separada:
+- consulta Creator Info antes de iniciar o upload;
+- exige que SELF_ONLY esteja entre as opções de privacidade da conta;
+- mede a duração real com ffprobe e bloqueia vídeo acima de max_video_post_duration_sec;
+- divide o arquivo em chunks sequenciais de até 64 MB, com Content-Range e resposta 206 para blocos intermediários, aceitando até 4 GB;
+- não envia o arquivo inteiro para memória.
+
+A capacidade PHOTO permanece fora do escopo ativo: API oferece PHOTO, mas o aplicativo ainda não implementa o fluxo de consentimento/privacidade e URL verificada.

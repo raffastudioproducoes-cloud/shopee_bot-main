@@ -95,17 +95,17 @@ export const NETWORK_HELP: Record<PostNetwork, NetworkHelp> = {
   },
   tiktok: {
     facts: [
-      { label: "Posts por dia (API)", value: "cerca de 15 por conta de criador (varia por criador)" },
-      { label: "Vídeo", value: "Somente MP4 neste app; H.264 recomendado; 23 a 60 fps" },
+      { label: "Cota diária", value: "A API aplica limites por criador/aplicativo; não há um número universal fixo publicado", unconfirmed: true },
+      { label: "Vídeo", value: "MP4/WebM/MOV; H.264 recomendado; 23–60 fps; 360–4096 px; até 4 GB; duração máxima consultada em Creator Info por conta" },
       { label: "Fotos (API)", value: "A API aceita JPEG/WebP até 20 MB; este app ainda publica somente vídeos" },
       { label: "Legenda de vídeo", value: "Até 2.200 unidades UTF-16 na implementação atual" },
       { label: "Foto (API)", value: "Título até 90 e descrição até 4.000 unidades UTF-16; exige fluxo PHOTO, Creator Info, escolha de privacidade e domínio verificado para PULL_FROM_URL" },
     ],
     tips: [
-      "App sem auditoria do TikTok: todo conteúdo fica privado (só você vê) e no máximo 5 usuários postam por dia. Para postar público, o app precisa ser auditado.",
-      "A duração máxima real depende da conta do criador e pode ser menor que 10 min.",
+      "O app ainda não tem auditoria de Direct Post: a publicação fica restrita a SELF_ONLY. O TikTok limita a até 5 compartilhamentos pendentes por criador em uma janela de 24 horas; isso não é um limite de cinco usuários.",
+      "O endpoint aceita até 10 min, mas a duração permitida depende da conta (3, 5 ou 10 min). O Auto Orbital consulta Creator Info antes do envio e bloqueia vídeos acima do limite retornado.",
       "A API também aceita posts de fotos, mas o Auto Orbital ainda não implementa o fluxo PHOTO; não selecione fotos esperando que o app as publique no TikTok.",
-      "O app usa 10 min (600 s), o limite do envio de vídeo por upload.",
+      "O upload usa chunks sequenciais de até 64 MB, conforme a Media Transfer Guide; arquivos acima do teto de 4 GB são bloqueados.",
     ],
     sources: [
       { label: "TikTok — Direct Post (referência)", url: "https://developers.tiktok.com/doc/content-posting-api-reference-direct-post" },
