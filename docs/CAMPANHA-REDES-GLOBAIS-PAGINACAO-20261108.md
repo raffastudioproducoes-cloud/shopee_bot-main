@@ -62,3 +62,11 @@ Correção preparada em branch separada:
 - não envia o arquivo inteiro para memória.
 
 A capacidade PHOTO permanece fora do escopo ativo: API oferece PHOTO, mas o aplicativo ainda não implementa o fluxo de consentimento/privacidade e URL verificada.
+
+## Complemento 09/11/2026 — prévia de composição por rede
+
+A edição da campanha agora apresenta, dentro do seletor de mídias de cada produto, uma prévia para cada rede selecionada. Ela usa o mesmo planejador de composição da publicação única e mostra o modo de envio, mídias descartadas e o motivo (formato, tipo, quantidade ou tamanho), além de bloquear textos acima do limite sem truncá-los. O link afiliado entra na contagem.
+
+A prévia inclui mídias salvas em Produtos e anexos legados do rascunho. A foto Shopee é baixada pela rota autenticada já existente para obter o tamanho sanitizado real. Na ativação, o backend também baixa/sanitiza a imagem uma única vez e usa os bytes reais na validação por destino antes de reter a cópia privada. O original do Produto não é alterado.
+
+A validação de duração individual do TikTok continua sendo dinâmica: Creator Info é consultado antes do upload externo e o vídeo é bloqueado se exceder o limite retornado para a conta. Nenhum teste dispara publicação externa.
