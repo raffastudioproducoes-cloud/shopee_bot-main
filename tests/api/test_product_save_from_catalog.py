@@ -51,7 +51,7 @@ CATALOG_PAYLOAD = {
     "original_link": "https://shopee.com.br/product/1/23456789012",
     "commission_link": "https://s.shopee.com.br/abc",
     "commission": 6.0001,
-    "image": "https://img/1.jpg",
+    "image": "https://down-br.img.susercontent.com/file/1.jpg",
     "price_min": 49.99,
     "price_max": 49.99,
 }

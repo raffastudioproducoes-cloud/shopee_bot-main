@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Security — auditoria 07/11/2026, achados S-02 e S-06
+
+- **S-06:** o `authStore` não guarda nem persiste mais `accessToken`; `login(user)` não recebe token. Entradas antigas do `localStorage` são limpas por `version: 1` + `migrate`. A autorização continua sendo o cookie httpOnly validado em `/auth/me`.
+- **S-02:** `ProductCreate` passa a exigir, para `original_link` e `commission_link`, HTTPS em host Shopee (`shopee.com.br`, `www.`, `s.shopee.com.br`, `shope.ee`), sem credenciais, porta atípica ou esquema `javascript:`/`data:`; `image` só aceita domínios de imagem da Shopee. Retorna 422. O **restore de backup** usa o mesmo schema e passa a recusar (422, com o nome do campo) produtos com link fora da Shopee. Na interface, `safeExternalUrl()`/`safeImageUrl()` são a segunda barreira dos links clicáveis.
+- Mudança de comportamento: o formulário manual de produto deixa de aceitar links e imagens de outros domínios.
+
 ### Changed — peso do bundle inicial (plano de estabilização, fase 4)
 
 - Páginas secundárias e pesadas passam a carregar sob demanda (`lazy` + `lazyRoute`, com o skeleton existente): Ajuda, Configurações, Automação de posts, Credenciais, Criar Post (editor de campanhas), Termos, Privacidade e Dados coletados.

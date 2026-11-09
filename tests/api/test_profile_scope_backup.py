@@ -15,7 +15,7 @@ def env(fake_db, monkeypatch):
     app.dependency_overrides[get_current_user_id] = lambda: 42
     db = fake_db({
         "products": [
-            {"id": 1, "user_id": 42, "product_id": "111", "name": "Compartilhado", "original_link": "https://example.invalid/original", "commission_link": "https://example.invalid/commission"},
+            {"id": 1, "user_id": 42, "product_id": "111", "name": "Compartilhado", "original_link": "https://shopee.com.br/produto-original", "commission_link": "https://s.shopee.com.br/comissao"},
         ],
         "product_lists": [
             {"id": 1, "user_id": 42, "profile_id": "profile-a", "name": "Lista A"},
@@ -79,7 +79,7 @@ def test_restore_into_matching_profile_keeps_isolated_data_scoped(env, profile_c
 def test_restore_legacy_catalog_only_backup_is_accepted(env, profile_cookie):
     db, client = env
     payload = {
-        "products": [{"id": 9, "product_id": "999", "name": "Antigo", "original_link": "https://example.invalid/original", "commission_link": "https://example.invalid/commission"}],
+        "products": [{"id": 9, "product_id": "999", "name": "Antigo", "original_link": "https://shopee.com.br/produto-original", "commission_link": "https://s.shopee.com.br/comissao"}],
         "product_lists": [], "posts": [], "exported_at": "2026-01-01T00:00:00+00:00",
     }
     payload["checksum"] = users_module._checksum({k: v for k, v in payload.items()})
@@ -108,7 +108,7 @@ def test_restore_legacy_backup_without_marker_rejects_isolated_content(env, prof
 def test_restore_catalog_updates_shared_product_without_copying_per_profile(env, profile_cookie):
     db, client = env
     payload = {
-        "products": [{"id": 1, "product_id": "111", "name": "Copia em B", "original_link": "https://example.invalid/original", "commission_link": "https://example.invalid/commission"}],
+        "products": [{"id": 1, "product_id": "111", "name": "Copia em B", "original_link": "https://shopee.com.br/produto-original", "commission_link": "https://s.shopee.com.br/comissao"}],
         "product_lists": [], "posts": [], "exported_at": "2026-01-01T00:00:00+00:00",
     }
     payload["checksum"] = users_module._checksum(dict(payload))
@@ -121,7 +121,7 @@ def test_restore_catalog_updates_shared_product_without_copying_per_profile(env,
 def test_restore_updates_existing_product_of_same_profile_instead_of_duplicating(env, profile_cookie):
     db, client = env
     payload = {
-        "products": [{"id": 1, "product_id": "111", "name": "Renomeado", "original_link": "https://example.invalid/original", "commission_link": "https://example.invalid/commission"}],
+        "products": [{"id": 1, "product_id": "111", "name": "Renomeado", "original_link": "https://shopee.com.br/produto-original", "commission_link": "https://s.shopee.com.br/comissao"}],
         "product_lists": [], "posts": [], "exported_at": "2026-01-01T00:00:00+00:00",
     }
     payload["checksum"] = users_module._checksum(dict(payload))
@@ -133,7 +133,7 @@ def test_restore_updates_existing_product_of_same_profile_instead_of_duplicating
 def test_restore_shared_catalog_without_profile_is_allowed(env, old_token_without_profile_claim):
     db, client = env
     payload = {
-        "products": [{"id": 9, "product_id": "999", "name": "Sem perfil", "original_link": "https://example.invalid/original", "commission_link": "https://example.invalid/commission"}],
+        "products": [{"id": 9, "product_id": "999", "name": "Sem perfil", "original_link": "https://shopee.com.br/produto-original", "commission_link": "https://s.shopee.com.br/comissao"}],
         "product_lists": [], "posts": [], "exported_at": "2026-01-01T00:00:00+00:00",
     }
     payload["checksum"] = users_module._checksum(dict(payload))

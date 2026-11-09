@@ -71,3 +71,12 @@
 - `auth_leaked_password_protection` não deve motivar upgrade financeiro unilateral: [documentação oficial Supabase](https://supabase.com/docs/guides/auth/password-security).
 
 **Fontes primárias para as recomendações:** [RLS e service role](https://supabase.com/docs/guides/database/postgres/row-level-security), [chaves Supabase](https://supabase.com/docs/guides/getting-started/api-keys), [Vite env](https://vite.dev/guide/env-and-mode), [OWASP API1:2023](https://api-security.owasp.org/editions/2023/en/0xa1-broken-object-level-authorization/), [OWASP Authorization](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html), [OWASP Prompt Injection](https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html).
+
+
+## Status das mitigações (atualizado em 09/11/2026)
+
+| Achado | Estado | Evidência |
+| --- | --- | --- |
+| S-02 — links fora da Shopee | **Corrigido em staging** (aguarda promoção) | `ProductCreate` valida HTTPS + host Shopee e imagem em CDN Shopee; restore usa o mesmo schema; `safeExternalUrl()` na UI; testes negativos em `tests/api/test_products.py` e `frontend/tests/safe-external-url.test.mjs` |
+| S-06 — token no navegador | **Corrigido em staging** (aguarda promoção) | `authStore` sem `accessToken`, `migrate` limpa legado; `frontend/tests/auth-store-no-token.test.mjs` |
+| S-01, S-03, S-04, S-05 | Pendentes | Ver plano; S-04 e S-05 dependem de decisão/custo de Rafa |
