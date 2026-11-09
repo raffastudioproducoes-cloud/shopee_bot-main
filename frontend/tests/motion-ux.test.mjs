@@ -82,3 +82,22 @@ test('Planos: só um plano recomendado, com um único selo, e o plano atual marc
   assert.equal((plans.match(/Recomendado/g) ?? []).length, 1)
   assert.match(plans, /plan\.key === currentPlan/)
 })
+
+test('fonte Mona Sans hospedada no próprio site (a CSP bloqueava o CDN) com licença OFL junto', () => {
+  const css = src('styles/tokens/fonts.css')
+  assert.doesNotMatch(css, /https?:\/\//)
+  assert.match(css, /url\("\/fonts\/mona-sans-latin-wght-normal\.woff2"\)/)
+  assert.match(css, /url\("\/fonts\/mona-sans-latin-wght-italic\.woff2"\)/)
+  const lic = readFileSync(new URL('../public/fonts/OFL-LICENSE.txt', import.meta.url), 'utf8')
+  assert.match(lic, /SIL Open Font License/)
+})
+
+test('avisos usam ícone da biblioteca e os cards do dashboard levam à lista, com teclado', () => {
+  assert.match(src('components/ui/Toaster.tsx'), /<Icon name="x" size=\{16\} \/>/)
+  const dash = src('pages/DashboardPage.tsx')
+  for (const to of ['/products', '/posts', '/lists', '/automacao-posts']) assert.ok(dash.includes(`navigate({ to: '${to}' })} name=`))
+  const card = src('components/ui/StatCard.tsx')
+  assert.match(card, /role=\{onClick \? "link" : undefined\}/)
+  assert.match(card, /tabIndex=\{onClick \? 0 : undefined\}/)
+  assert.match(card, /e\.key === "Enter" \|\| e\.key === " "/)
+})

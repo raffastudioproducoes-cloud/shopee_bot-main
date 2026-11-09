@@ -5,6 +5,15 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.14.0] - 2026-11-09
+
+### Changed — lote 3 de UX (pendências do guia de UX, seção 7 do roadmap)
+
+- **Fonte Mona Sans hospedada no próprio site:** antes era pedida a `cdn.jsdelivr.net`, bloqueada pela política de segurança (CSP só permite fontes do próprio site), então o site usava fontes de reserva. Agora `/fonts/` serve a variável (normal e itálico, só latim, ~80 kB) do pacote `@fontsource-variable/mona-sans` 5.3.0, licença SIL OFL 1.1 incluída em `/fonts/OFL-LICENSE.txt`. Cache de 1 dia.
+- **Avisos:** o fechar passou de caractere "×" para o ícone da biblioteca.
+- **Dashboard:** os 4 cards agora levam à página correspondente (Produtos, Posts, Listas, Automação), acessíveis por teclado (Tab + Enter/Espaço) em vez de só decorativos.
+- Testes: `frontend/tests/motion-ux.test.mjs` (+2) e `tests/web/test_spa.py` (+1).
+
 ## [3.13.0] - 2026-11-09
 
 ### Added — animações e UX, lote 2 (roadmap: B2, C1, D1 e lei de Von Restorff em Planos)

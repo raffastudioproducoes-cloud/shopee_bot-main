@@ -1,9 +1,9 @@
 /* Mona Sans — the single typeface of the Afilion / MiT system.
-   Variable weight 200–900. Served from the Fontsource CDN mirror of
-   github/mona-sans (SIL OFL 1.1). No local binaries were supplied with
-   the source material; see readme.md → "Fonts". */
-@font-face{font-family:"Mona Sans";font-style:normal;font-weight:200 900;font-display:swap;src:url("https://cdn.jsdelivr.net/fontsource/fonts/mona-sans:vf@latest/latin-wght-normal.woff2") format("woff2-variations")}
-@font-face{font-family:"Mona Sans";font-style:italic;font-weight:200 900;font-display:swap;src:url("https://cdn.jsdelivr.net/fontsource/fonts/mona-sans:vf@latest/latin-wght-italic.woff2") format("woff2-variations")}
+   Variable weight 200–900. Hospedada no próprio site (public/fonts, pacote
+   @fontsource-variable/mona-sans 5.3.0, SIL OFL 1.1: licença em /fonts/OFL-LICENSE.txt). A CSP só
+   permite fontes de 'self' e fonts.gstatic.com, então o CDN externo era bloqueado. */
+@font-face{font-family:"Mona Sans";font-style:normal;font-weight:200 900;font-display:swap;src:url("/fonts/mona-sans-latin-wght-normal.woff2") format("woff2-variations")}
+@font-face{font-family:"Mona Sans";font-style:italic;font-weight:200 900;font-display:swap;src:url("/fonts/mona-sans-latin-wght-italic.woff2") format("woff2-variations")}
 :root{
   --font-sans:"Mona Sans","SF Pro Display",-apple-system,"Segoe UI",system-ui,sans-serif; /* @kind font */
   --font-display:"Mona Sans","SF Pro Display",-apple-system,system-ui,sans-serif; /* @kind font */

@@ -49,10 +49,10 @@ export default function DashboardPage() {
       </div>
 
       <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 'var(--gap-grid)' }}>
-        <StatCard className="ao-reveal" style={{ "--i": 0 } as CSSProperties} name="Produtos Cadastrados" icon="briefcase" price={count(stats.products_count)} showSparkline={false} />
-        <StatCard className="ao-reveal" style={{ "--i": 1 } as CSSProperties} name="Postagens Criadas" icon="file-text" price={count(stats.posts_count)} showSparkline={false} />
-        <StatCard className="ao-reveal" style={{ "--i": 2 } as CSSProperties} name="Listas de Produtos" icon="sliders-horizontal" price={count(stats.lists_count)} showSparkline={false} />
-        <StatCard className="ao-reveal" style={{ "--i": 3 } as CSSProperties} name="Agendamentos" icon="circle-dot" price={count(stats.scheduled_posts)} showSparkline={false} />
+        <StatCard className="ao-reveal" style={{ "--i": 0 } as CSSProperties} onClick={() => navigate({ to: '/products' })} name="Produtos Cadastrados" icon="briefcase" price={count(stats.products_count)} showSparkline={false} />
+        <StatCard className="ao-reveal" style={{ "--i": 1 } as CSSProperties} onClick={() => navigate({ to: '/posts' })} name="Postagens Criadas" icon="file-text" price={count(stats.posts_count)} showSparkline={false} />
+        <StatCard className="ao-reveal" style={{ "--i": 2 } as CSSProperties} onClick={() => navigate({ to: '/lists' })} name="Listas de Produtos" icon="sliders-horizontal" price={count(stats.lists_count)} showSparkline={false} />
+        <StatCard className="ao-reveal" style={{ "--i": 3 } as CSSProperties} onClick={() => navigate({ to: '/automacao-posts' })} name="Agendamentos" icon="circle-dot" price={count(stats.scheduled_posts)} showSparkline={false} />
       </div>
 
       <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 'var(--gap-grid)' }}>
