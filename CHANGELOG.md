@@ -5,6 +5,17 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.10.1] - 2026-11-09
+
+### Security — achado S-01 concluído: matriz A/B por rota
+
+- Novo `tests/api/test_s01_ab_matrix.py` (87 casos): para cada rota com ID no caminho, a conta A chama o ID de um recurso da conta B contra um Supabase em memória que **aplica os filtros de verdade**. Exige 403/404, nenhuma linha de B alterada e, como controle, que o dono (B) alcance o handler. Rotas `/admin/*` exigem 403 para usuário comum; `/credentials/{rede|provedor}` não recebem ID de outra conta (cobertas por `test_credential_ownership.py`). Um teste falha se uma rota do inventário ficar sem caso. Verificado por mutação: remover o filtro de dono de `/products/{id}` derruba o teste.
+- Resultado da matriz: **nenhum vazamento de dados** entre contas nas rotas revisadas.
+
+### Fixed — recurso de outra conta (ou inexistente) respondia 500
+
+- `.single()` sem linha (PGRST116, "0 rows") levantava erro do PostgREST e a API respondia **500** em `GET/PUT/DELETE /products/{id}`, `GET/PUT/DELETE /posts/{id}` e rotas derivadas. Agora um handler global responde **404** ("Recurso não encontrado"), igual a "não existe", sem diferenciar de recurso alheio. Outros erros do banco (inclusive "mais de uma linha") continuam 500 e a mensagem do banco não é devolvida. Teste: `tests/api/test_postgrest_no_rows_404.py`.
+
 ## [3.10.0] - 2026-11-09
 
 > Estabilização e segurança pós-3.9.0 (plano de estabilização do Vault, achados S-01 a S-06 da auditoria de 07/11). Sem migration, cron, gateway ou segredo novos.

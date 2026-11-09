@@ -5,9 +5,9 @@ no caminho. Se uma rota com `{parametro}` for criada ou removida, o teste falha 
 mexeu a revisar o escopo por conta/perfil (`scope_owner`/`scope_account`/`user_id` explícito) e a
 atualizar esta lista no mesmo PR.
 
-O que NÃO faz: não prova que cada rota nega A -> B. A matriz dinâmica com contas fictícias A/B
-por rota continua pendente (ver docs/SEGURANCA-AUDITORIA-20261107.md, "Status das mitigações").
-Já verificado por teste: helpers de thread de posts (tests/api/test_s01_post_scope.py).
+A prova de que cada rota nega A -> B está em tests/api/test_s01_ab_matrix.py (matriz dinâmica com
+contas fictícias A/B; ela exige que toda rota deste inventário tenha caso de teste).
+Helpers de thread de posts: tests/api/test_s01_post_scope.py.
 """
 import re
 
