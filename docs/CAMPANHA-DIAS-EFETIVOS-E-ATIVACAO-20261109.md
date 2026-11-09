@@ -4,7 +4,7 @@
 **Versão-base:** 3.8.0  
 **Branch:** `fix/campaign-weekday-quota-optional-activation-20261109`  
 **Destino planejado:** staging  
-**Status:** implementação preparada; CI/revisão pendentes; migration ainda não aplicada.
+**Status:** implementação preparada; CI #1252 SUCCESS; revisão e autorização de staging pendentes; migration ainda não aplicada.
 
 ## 1. Regra de negócio
 
