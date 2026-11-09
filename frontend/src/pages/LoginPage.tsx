@@ -98,7 +98,7 @@ export default function LoginPage() {
       }
       const user = await authApi.me()
       clearAdminVisitingSite()
-      login('', user)
+      login(user)
       navigate({ to: user.access === 'ADMIN' ? '/admin/overview' : '/app' })
     } catch (err: unknown) {
       if (err instanceof Error && 'status' in err) {
@@ -279,7 +279,7 @@ export default function LoginPage() {
           onSuccess={async () => {
             const user = await authApi.me()
             clearAdminVisitingSite()
-            login('', user)
+            login(user)
             setGoogleSetupOpen(false)
             navigate({ to: user.access === 'ADMIN' ? '/admin/overview' : '/app' })
           }}
