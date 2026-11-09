@@ -19,3 +19,9 @@
 .plan-comparison tbody tr:last-child th, .plan-comparison tbody tr:last-child td { border-bottom: 0; }
 .plan-comparison__note { margin-top: 15px; }
 @media (max-width: 600px) { .plan-comparison { padding: 18px 12px; } }
+
+/* Lei de Von Restorff: um único plano destacado, com um único selo. */
+.plan-comparison .plan-comparison__rec { background: rgba(119, 222, 172, .07); }
+.plan-comparison thead th.plan-comparison__rec { border-top: 2px solid rgba(119, 222, 172, .6); }
+.plan-comparison__badge, .plan-comparison__you { display: block; margin-top: 4px; font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--text-secondary, #b1b7c5); }
+.plan-comparison__badge { color: #98e5bd; }

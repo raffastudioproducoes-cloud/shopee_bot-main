@@ -5,6 +5,16 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.13.0] - 2026-11-09
+
+### Added — animações e UX, lote 2 (roadmap: B2, C1, D1 e lei de Von Restorff em Planos)
+
+- **Segurar para confirmar (C1):** a confirmação destrutiva de Perfis e Backup agora usa um botão que enche enquanto se segura (700 ms) com mouse ou toque. Teclado (Enter/Espaço) e leitor de tela confirmam direto, sem depender de segurar.
+- **Avisos (D1):** entrada suave dos toasts.
+- **Erro de login (B2):** o aviso balança de leve uma vez.
+- **Planos (Von Restorff):** na comparação de planos só o Pro fica destacado, com um único selo "Recomendado", e o plano atual da conta ganha o marcador "Seu plano".
+- Tudo respeita `prefers-reduced-motion`; sem biblioteca nova. Testes em `frontend/tests/motion-ux.test.mjs`.
+
 ## [3.12.1] - 2026-11-09
 
 ### Changed — apagar posts de campanha pela página Posts

@@ -33,7 +33,7 @@ test('movimento reduzido desliga contagem, splash e cascata', () => {
   assert.match(motion, /prefers-reduced-motion: reduce/)
   assert.match(motion, /prefersReducedMotion\(\) \|\| !Number\.isFinite\(target\)/)
   assert.match(splash, /if \(prefersReducedMotion\(\)\) return false/)
-  assert.equal((css.match(/@media \(prefers-reduced-motion: reduce\)/g) ?? []).length, 3)
+  assert.equal((css.match(/@media \(prefers-reduced-motion: reduce\)/g) ?? []).length, 4)
 })
 
 test('splash pós-login: 1 vez por sessão, não bloqueia cliques, some em até 2,5 s e fica fora do admin', () => {
@@ -57,4 +57,28 @@ test('copiar e-mail confirma com "Copiado!"', () => {
   const help = src('pages/HelpPage.tsx')
   assert.match(help, /"Copiado!"/)
   assert.match(help, /\.catch\(\(\) => undefined\)/)
+})
+
+test('segurar para confirmar: 700 ms para ponteiro, teclado e leitor de tela confirmam direto', () => {
+  const btn = src('components/ui/HoldToConfirmButton.tsx')
+  assert.match(btn, /HOLD_MS = 700/)
+  assert.match(btn, /event\.key !== "Enter" && event\.key !== " "/)
+  assert.match(btn, /event\.detail === 0/)
+  assert.match(btn, /onPointerLeave=\{cancel\}/)
+  assert.match(src('components/profiles/ConfirmModal.tsx'), /<HoldToConfirmButton/)
+  assert.match(src('components/ui/holdToConfirm.css'), /is-static/)
+})
+
+test('avisos e erro de login animam entrada/balanço com movimento reduzido desligado', () => {
+  assert.match(src('components/ui/Toaster.tsx'), /className="toast-in"/)
+  assert.match(src('components/ui/postLoginSplash.css'), /\.toast-in \{ animation: none; \}/)
+  const login = src('pages/LoginPage.css')
+  assert.match(login, /login-shake/)
+  assert.match(login, /prefers-reduced-motion: reduce\) \{ \.csp-login-banner-error \{ animation: none/)
+})
+
+test('Planos: só um plano recomendado, com um único selo, e o plano atual marcado', () => {
+  const plans = src('components/plans/PlanComparison.tsx')
+  assert.equal((plans.match(/Recomendado/g) ?? []).length, 1)
+  assert.match(plans, /plan\.key === currentPlan/)
 })
