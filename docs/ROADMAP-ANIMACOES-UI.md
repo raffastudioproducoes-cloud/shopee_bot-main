@@ -75,3 +75,19 @@ Ordem sugerida: **1)** A1+A3 (entrada pós-login), **2)** B1–B3, C1, C3, D1, *
 ## 6. Decisão pendente de Rafa
 
 Escolher o primeiro lote (sugestão: A1+A3, B1–B3, C1, C3, D1) e aprovar a ideia da splash apenas na primeira entrada da sessão.
+
+## 7. Guia de execução (boas práticas do Impeccable, aplicadas à mão)
+
+> Decisão de Rafa em 09/11/2026: **não** rodar a ferramenta Impeccable (binário nativo bloqueado pelo ambiente); usar o método dela como guia. Fonte: `skill/SKILL.src.md` e `skill/reference/{craft-floor,mode-operate,animate,polish}.md` do repositório `pbakaus/impeccable` (lidos em 09/11/2026; resumo nosso, pode ter mudado depois).
+
+**Modo do Auto Orbital:** *Operate* (app/dashboard) nas telas logadas e *Persuade* na apresentação pública. Em Operate: transições rápidas, **sem coreografia no carregamento**, controles padrão, a expressão visual nunca esconde tarefa ou estado.
+
+**Movimento (animate):** 100–150 ms feedback; 150–300 ms estado; 300–500 ms layout/overlay; 500–800 ms só entrada focal. Saída mais rápida que a entrada. Curva `cubic-bezier(0.16, 1, 0.3, 1)`; sem bounce/elastic por reflexo. Animar `transform` e `opacity`, nunca `width/height/top/left`. Stagger só em listas, com atraso total limitado. Todo movimento tem caminho `prefers-reduced-motion` (menos movimento, não zero feedback). Testar interrupção e uso repetido.
+
+**Piso de qualidade (craft-floor), para cada PR de UI:** contraste ≥ 4,5:1 (texto grande ≥ 3:1) em todos os estados; sombra com deslocamento e desfoque; grupos próximos e separação generosa; corpo de texto 65–75 caracteres; **um** momento animado intencional por tela; estados completos (hover, foco visível, desabilitado, carregando, erro, vazio); texto do produto: controle nomeia a ação, erro diz o problema e como resolver.
+
+**A evitar (padrões de "visual genérico de IA"):** cards repetidos iguais como estrutura; número grande + rótulo pequeno como único recurso; rótulo acima do título (kicker); texto com gradiente; vidro/blur decorativo; borda lateral colorida > 1 px; emoji/glifo como ícone; modal para tarefa que não exige interrupção; cards aninhados.
+
+**Polimento (polish), na ordem:** 1) tarefa bloqueada, perda de dados, estado enganoso; 2) loading/vazio/erro/sucesso/permissão; 3) fluxo, hierarquia, responsividade, desvio do design system; 4) inconsistência visual e de movimento; 5) limpeza. Corrigir na causa, no token/componente compartilhado.
+
+**Pendências derivadas (candidatas ao lote 3):** (a) dashboard usa o padrão "número grande + rótulo" nos 4 cards: avaliar dar função (link para a lista filtrada) e histórico; (b) botão "×" dos avisos usa glifo de texto: trocar por ícone da biblioteca; (c) corpo de texto das páginas legais/FAQ com medida ≤ 75 caracteres; (d) auditar contraste de textos secundários nos temas escuros; (e) fonte Mona Sans bloqueada pela CSP (jsdelivr): hospedar localmente.
