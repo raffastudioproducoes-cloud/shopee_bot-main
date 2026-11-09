@@ -318,7 +318,7 @@ export function CampaignPlanner({ credentials }: {
         : !plan?.is_admin && (!plan?.campaign_paid_through
           || Date.parse(plan.campaign_paid_through) <= Date.now())
           ? "O período pago da campanha não está confirmado ou já terminou."
-          : "A ativação está indisponível pela política de cotas do plano."
+          : plan?.message ?? "A ativação está indisponível pela política de cotas do plano."
       : !payload ? previewBlockReason ?? "Revise o período e a frequência."
       : !saveInput ? saveBlockReason ?? "Complete os dados da campanha."
       : scheduleUsage.paidPeriodHasNoEligibleDay
