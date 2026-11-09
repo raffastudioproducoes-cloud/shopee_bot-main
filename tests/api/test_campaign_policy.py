@@ -418,3 +418,42 @@ def test_activation_is_available_below_active_campaign_quota(monkeypatch):
         user_id="owner", profile_id="profile-a"))
     assert result["active_campaigns_count"] == 4
     assert result["activation_available"] is True
+
+
+def test_draft_list_filters_reservations_before_limit_and_keeps_older_drafts(monkeypatch):
+    db = database()
+    drafts = db.tables["campaign_drafts"]
+    drafts.clear()
+    for index in range(35):
+        drafts.append({
+            "id": f"draft-{index}", "user_id": "owner", "profile_id": "profile-a",
+            "status": "draft", "revision": 1, "updated_at": f"2026-11-{30-index:02d}",
+            "items": [item()],
+        })
+    db.tables["campaign_reservations_f4e"] = [
+        {"draft_id": f"draft-{index}", "user_id": "owner", "profile_id": "profile-a",
+         "lifecycle": "active"}
+        for index in range(30)
+    ]
+    setup_db(monkeypatch, db)
+    result = asyncio.run(campaigns.list_campaign_drafts(user_id="owner", profile_id="profile-a"))
+    assert [row["id"] for row in result["data"]] == [
+        f"draft-{index}" for index in range(30, 35)
+    ]
+
+
+def test_draft_list_fails_closed_when_reservation_state_is_unavailable(monkeypatch):
+    db = database()
+    original_table = db.table
+
+    def unavailable_reservations(name):
+        if name == "campaign_reservations_f4e":
+            raise RuntimeError("simulated lifecycle lookup failure")
+        return original_table(name)
+
+    monkeypatch.setattr(db, "table", unavailable_reservations)
+    setup_db(monkeypatch, db)
+    with pytest.raises(HTTPException) as caught:
+        asyncio.run(campaigns.list_campaign_drafts(user_id="owner", profile_id="profile-a"))
+    assert caught.value.status_code == 503
+    assert "confirmar o estado" in caught.value.detail
