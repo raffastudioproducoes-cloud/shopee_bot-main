@@ -109,6 +109,7 @@ export const NETWORK_HELP: Record<PostNetwork, NetworkHelp> = {
     ],
     sources: [
       { label: "TikTok — Direct Post (referência)", url: "https://developers.tiktok.com/docs/en/content-posting-api-get-started" },
+      { label: "TikTok — Creator Info", url: "https://developers.tiktok.com/docs/en/content-posting-api-reference-query-creator-info" },
       { label: "TikTok — Guia de envio de mídia", url: "https://developers.tiktok.com/docs/en/content-posting-api-media-transfer-guide" },
       { label: "TikTok — Diretrizes de publicação", url: "https://developers.tiktok.com/docs/en/content-sharing-guidelines" },
       { label: "TikTok — Primeiros passos", url: "https://developers.tiktok.com/doc/content-posting-api-get-started" },
