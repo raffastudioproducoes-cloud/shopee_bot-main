@@ -321,7 +321,7 @@ export function CampaignPlanner({ credentials }: {
           : "A ativação está indisponível pela política de cotas do plano."
       : !payload ? previewBlockReason ?? "Revise o período e a frequência."
       : !saveInput ? saveBlockReason ?? "Complete os dados da campanha."
-      : plan?.campaign_paid_through && scheduleUsage.planMaxEndDate && !scheduleUsage.maxEndDate
+      : scheduleUsage.paidPeriodHasNoEligibleDay
         ? "O período pago termina antes do primeiro dia de publicação selecionado."
       : activateMutation.isPending ? "Ativando campanha."
       : null)
@@ -745,9 +745,11 @@ export function CampaignPlanner({ credentials }: {
                 {draft.endDate
                   ? `Período selecionado: ${scheduleUsage.activeDaysUsed} de ${caps.days} dias de publicação; restam ${scheduleUsage.activeDaysRemaining}.`
                   : `Seu plano permite ${caps.days} dias de publicação nesta frequência.`}
-                {scheduleUsage.maxEndDate
-                  ? ` Mantendo os dias marcados, a data-limite é ${formatCampaignDate(scheduleUsage.maxEndDate)} às ${scheduleUsage.lastPostingTime}.`
-                  : " O período pago não cobre o próximo horário programado."}
+                {scheduleUsage.paidPeriodHasNoEligibleDay
+                  ? " O período pago termina antes do primeiro dia de publicação selecionado."
+                  : scheduleUsage.maxEndDate
+                    ? ` Mantendo os dias marcados, a data-limite é ${formatCampaignDate(scheduleUsage.maxEndDate)} às ${scheduleUsage.lastPostingTime}.`
+                    : ""}
                 {scheduleUsage.paidPeriodShortensWindow ? " O período pago reduz o limite calculado pela frequência." : ""}
               </p>
             )}
@@ -903,7 +905,7 @@ export function CampaignPlanner({ credentials }: {
         </div>
         <div className="campaign-actions">
           <Button variant="primary" icon="send"
-            disabled={!plan?.activation_available || !payload || !saveInput ||
+            disabled={Boolean(activationBlockReason) || !plan?.activation_available || !payload || !saveInput ||
               saveMutation.isPending || activateMutation.isPending || mediaDelete.isPending}
             loading={saveMutation.isPending || activateMutation.isPending}
             onClick={() => {
