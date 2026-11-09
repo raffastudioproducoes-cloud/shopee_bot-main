@@ -87,3 +87,13 @@ A PR #381 completa o preflight do editor de campanhas:
 Validação: CI da PR #381 #42552686633 SUCCESS; CI push staging #42552858249 SUCCESS (1.323 API, 208 scheduler, 9 SemVer, frontend build/tsc, F4E/SQL e segurança). Render staging `dep-dboj8gq9lscs73d3if60` **LIVE** no SHA final. Smoke pós-deploy #42552858259 SUCCESS: health e security headers, CSP estrita, sessão anônima negada e login legado 410; teste autenticado foi SKIP por ausência de credenciais. ZAP #42552858557 SUCCESS: 63 PASS, 0 FAIL e 5 WARN de baixa prioridade para revisão (cache-control, non-storable content, CSP wildcard, modern web app e COEP).
 
 O workflow CD #42552858268 ignorou o hook do GitHub por ausência de `RENDER_STAGING_DEPLOY_HOOK_URL`, mas o Render fez deploy automático (`autoDeploy=yes`). Produção segue 3.7.0; sem merge em `main`, sem publicação externa real e sem alterações de schema/crons/gateway. QA visual/autenticada por Rafa ainda pendente.
+
+## Promoção da 3.8.0 para produção — 09/11/2026 BRT
+
+Rafa aprovou a promoção após homologação em staging. PR [#382](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/382) integrada por squash em main, SHA `5a283baf8aafb843cdb6b576836c0b73ae682784`. VERSION=3.8.0, classificação MINOR 3.7.0→3.8.0. CI da PR #42554019553 e SemVer #42554019572 SUCCESS; CI push main #42554207935 SUCCESS: 1.323 API, 208 scheduler (1 xfailed), 9 SemVer, 34 web/proxy, frontend TypeScript/build e F4E/PostgreSQL.
+
+Render produção shopee-bot (srv-da6vrla6iojc7380a13g) deploy `dep-dbojfpcs728c73a9lufg` **LIVE no SHA de merge**. O serviço tem autoDeploy=yes; CD GitHub #42554322842 terminou SUCCESS, mas ignorou o hook `RENDER_DEPLOY_HOOK_URL` ausente. O deploy foi confirmado diretamente no Render. Logs indicam aplicação e scheduler iniciados e migrações 001–094 já aplicadas; nenhuma migration nova, mudança de schema, cron, gateway, segredo ou postagem real.
+
+**Limites de verificação:** não foi possível executar smoke HTTP externo health/readiness/login nesta sessão; não afirmar 200 nem ausência de 5xx. O intervalo consultado não retornou registros de request. QA autenticada/visual e publicação social real permanecem pendentes. CI registrou warning Pydantic de `CampaignDraftItem.copy` sombreando `BaseModel`, além de warnings de chave JWT usada nos testes e depreciações; manter follow-up técnico.
+
+Registro consolidado: [RELEASE-3.8.0-20261109.md](RELEASE-3.8.0-20261109.md).
