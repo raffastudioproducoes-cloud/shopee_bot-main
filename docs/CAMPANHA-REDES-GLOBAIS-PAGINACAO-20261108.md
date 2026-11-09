@@ -2,6 +2,8 @@
 
 Versão-alvo: 3.8.0
 Data: 08/11/2026
+
+> Complemento 09/11/2026: regras de consumo de dias efetivos do plano, limite dinâmico por weekdays e ativação sem salvamento manual estão documentadas em [CAMPANHA-DIAS-EFETIVOS-E-ATIVACAO-20261109.md](CAMPANHA-DIAS-EFETIVOS-E-ATIVACAO-20261109.md). A migration 095 permanece pendente de aprovação para staging.
 Branch: feat/campaign-global-networks-paged-adaptation
 Base: staging 3.7.0
 
