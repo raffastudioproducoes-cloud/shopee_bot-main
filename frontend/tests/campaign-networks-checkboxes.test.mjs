@@ -26,6 +26,8 @@ test("Publicação única e campanha compartilham a lista compacta das nove rede
   assert.doesNotMatch(planner, /<NetworkPicker selected=\{snapshot\.networks\}/)
   assert.match(planner, /networks: draft\.networks/)
   assert.match(planner, /campaign-description-tabs/)
+  assert.ok(planner.indexOf('className="campaign-textarea"') < planner.indexOf("campaign-description-tabs"))
+  assert.ok(planner.indexOf("campaign-description-tabs") < planner.indexOf("campaign-ai-controls"))
   assert.match(planner, /snapshot\.networkCopies\[activeNetwork\] \|\| snapshot\.copy/)
   assert.match(planner, /snapshot\.affiliateLink/)
   assert.match(planner, /textLength\(NETWORK_RULES\[activeNetwork\], finalText\)/)
