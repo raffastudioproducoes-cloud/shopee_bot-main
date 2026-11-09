@@ -31,6 +31,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 - A prévia do calendário e o histórico por rede passam a mostrar 10 itens por página, com páginas numeradas (janela com reticências). O histórico busca só a página atual (`limit=10`) e calcula o total de páginas pelos contadores da campanha.
 - Os contadores de cada campanha mostram apenas valores maiores que zero, em vez de seis contadores fixos.
+- A seção 06 lista somente campanhas em preparação, ativas ou pausadas; concluídas e canceladas deixam de ser listadas ali (seguem no histórico de postagens) e aparece um aviso com a quantidade.
 - Sem alteração de backend, migration, cron, gateway, segredo ou publicação real.
 
 ## [3.8.0] - 2026-11-08
