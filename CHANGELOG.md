@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.12.1] - 2026-11-09
+
+### Changed — apresentação pública com produtos reais e tabela de planos
+
+- **Produtos reais nas animações:** o Hero (cards flutuantes), a cena do caos (o "seu produto") e a demonstração em 5 etapas (busca, listas, editor com contador, agenda e histórico) passam a usar 8 produtos do catálogo do dono (conta `rafastudio`): nome curto, preço e imagem. Dados **estáticos** em `demoProducts.ts`: a página pública não consulta o banco; sem link de afiliado, comissão nem dado de outra conta. Imagens com carregamento tardio e **reserva** (bloco com a inicial) se o CDN falhar. Os rótulos agora dizem que são produtos reais de um catálogo de exemplo, com horários e status ilustrativos.
+- **Tabela de planos da apresentação:** o Pro ganha o mesmo destaque da tabela das configurações (faixa na coluna, selo "Recomendado" e as etiquetas de plano `PlanTag`), e as 3 colunas passam a caber no celular.
+- Testes: `frontend/tests/presentation-page.test.mjs` (+2).
+
 ## [3.12.0] - 2026-11-09
 
 ### Added — tags de plano e animações/UX, lote 4

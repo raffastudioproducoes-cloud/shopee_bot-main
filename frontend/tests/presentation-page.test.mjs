@@ -68,3 +68,28 @@ test("limites dos planos são os da migração 072 e os preços são os informad
   assert.match(content, /id: "premium", priceLabel: "R\$ 109,90"/)
   assert.match(content, /id: "free", priceLabel: "Grátis"/)
 })
+
+test('produtos reais de exemplo: dados estáticos, sem link de afiliado, preço só formatado em tela e reserva de imagem', async () => {
+  const demo = await read(`${dir}demoProducts.ts`)
+  assert.ok((demo.match(/image: `\$\{CDN\}/g) ?? []).length >= 8, 'pelo menos 8 produtos reais')
+  assert.doesNotMatch(demo, /shope\.ee|s\.shopee\.com|affiliate|commission|original_link/i, 'sem link de afiliado nem comissão')
+  assert.doesNotMatch(demo, /\bR\$\s?\d/, 'preço guardado como número; o formato vem de toLocaleString')
+  assert.match(demo, /const CDN = "https:\/\/cf\.shopee\.com\.br\/file\/"/)
+  const shared = await read(`${dir}shared.tsx`)
+  assert.match(shared, /onError=\{\(\) => setFailed\(true\)\}/)
+  assert.match(shared, /referrerPolicy="no-referrer"/)
+  for (const f of ['Hero', 'Scenes', 'ProductDemo']) {
+    const src = await read(`${dir}${f}.tsx`)
+    assert.match(src, /demoProducts|ProductThumb/, `${f} usa os produtos de exemplo`)
+  }
+  const scenes = await read(`${dir}Scenes.tsx`)
+  assert.match(scenes, /produtos reais de um catálogo de exemplo/, 'rótulo honesto: exemplo e status ilustrativos')
+  assert.doesNotMatch(scenes, /sem dados reais/)
+})
+
+test('tabela de planos da apresentação destaca só o Pro (selo e faixa), como a tabela das configurações', async () => {
+  const offer = await read(`${dir}Offer.tsx`)
+  assert.equal((offer.match(/Recomendado/g) ?? []).length, 1)
+  assert.match(offer, /highlight=\{plan\.id === "pro"\}/)
+  assert.match(offer, /<PlanTag tier=\{plan\.id\}>\{plan\.name\}<\/PlanTag>/)
+})

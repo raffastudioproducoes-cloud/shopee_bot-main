@@ -1,7 +1,8 @@
 import { motion, useTransform } from "motion/react"
 import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, History, Search, Sparkles } from "lucide-react"
 import { useRef } from "react"
-import { LoginLink, useSceneProgress } from "./shared"
+import { demoProducts, formatDemoPrice } from "./demoProducts"
+import { LoginLink, ProductThumb, useSceneProgress } from "./shared"
 
 const titleLines: { text: string; accent?: boolean }[][] = [
   [{ text: "As" }, { text: "oportunidades" }],
@@ -16,6 +17,11 @@ const orbitBadges = [
   { label: "Preparar", Icon: Sparkles, className: "right-[4%] top-[8%]" },
   { label: "Planejar", Icon: CalendarDays, className: "right-[0%] bottom-[14%]" },
   { label: "Acompanhar", Icon: History, className: "left-[4%] bottom-[8%]" },
+]
+
+const heroProducts = [
+  { index: 1, className: "-left-6 top-[44%]" },
+  { index: 2, className: "-right-4 top-[58%]" },
 ]
 
 export function Hero() {
@@ -81,6 +87,24 @@ export function Hero() {
             <span className="text-xs font-semibold tracking-[0.4em] text-ao-primary">AUTO</span>
             <span className="font-ao-display text-3xl font-bold md:text-4xl">ORBITAL</span>
           </div>
+          {heroProducts.map(({ index, className }, i) => {
+            const product = demoProducts[index]!
+            return (
+              <motion.div
+                key={product.id}
+                className={`absolute ${className} hidden w-56 items-center gap-3 rounded-2xl border border-ao-border bg-ao-card/90 p-2.5 shadow-ao-elegant backdrop-blur lg:flex`}
+                initial={{ opacity: 0, scale: 0.7, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: [0, -10, 0] }}
+                transition={{ delay: 1.1 + i * 0.2, opacity: { duration: 0.6 }, scale: { duration: 0.6 }, y: { repeat: Infinity, duration: 5 + i, ease: "easeInOut" } }}
+              >
+                <ProductThumb src={product.image} name={product.name} className="h-12 w-12" />
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-semibold">{product.name}</span>
+                  <span className="block text-[11px] text-ao-muted-fg">{formatDemoPrice(product)}</span>
+                </span>
+              </motion.div>
+            )
+          })}
           {orbitBadges.map(({ label, Icon, className }, i) => (
             <motion.div
               key={label}
