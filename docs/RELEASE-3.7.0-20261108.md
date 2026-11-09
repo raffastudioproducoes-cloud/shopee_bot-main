@@ -1,7 +1,7 @@
 # Auto Orbital — release MINOR 3.7.0 (08/11/2026)
 
 **Autorização:** Rafa, após receber a staging LIVE, concedeu em 08/11/2026: “Pode mergear com a main. Pode promover!”  
-**Estado deste registro inicial:** versão preparada para `staging`, **release de produção ainda condicionada a CI/SemVer e Render LIVE**. Não declarar `main` promovida antes de evidências verificadas.
+**Estado final verificado:** release **3.7.0 publicada em produção** via [PR #375](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/375), merge `a16f569ca8ebbbbb834bc7b909abe85407dafc3c`, Render produção `dep-dboh27e8bjmc73b7ukfg` **LIVE no SHA exato**. Smoke `/health`, `/ready`, `/login` HTTP 200, HTML público 3.7.0, endpoint privado de poster HTTP 401 sem sessão; nenhum request 5xx novo observado na janela. O único log `ERROR` foi `SIGTERM` do worker antigo durante a substituição, esperado.
 
 ## Escopo homologado
 
@@ -30,12 +30,12 @@ Implementação técnica [PR #372](https://github.com/raffastudioproducoes-cloud
 
 ## Gate de publicação
 
-- [ ] PR release de `release/auto-orbital-3-7-0-20261108` para `staging`: CI verde (API, frontend, SQL), `VERSION=3.7.0` e `CHANGELOG`.
-- [ ] Render de `staging` com **commit exato** da release e estado `live` (não apenas trigger).
-- [ ] Smoke `/health`, `/ready` e `/login` 200; página HTML com 3.7.0.
-- [ ] PR `staging → main`: CI e gate SemVer **SUCCESS**, revisar diff para descartar alterações fora do escopo. Resolver conflitos preservando histórico e controles.
-- [ ] Merge `main` após gates, Render produção **live no SHA exato**, smoke HTTP, verificação HTML `3.7.0`, logs sem novos 5xx observados.
-- [ ] Registrar SHAs/PRs/execuções/Render, decisões e limitações no Projeto e no Vault somente após a confirmação real.
+- [x] [PR release #374](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/374) → staging; [CI #1185](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42538815651) SUCCESS, API/frontend/SQL, `VERSION=3.7.0` e `CHANGELOG` datado.
+- [x] Staging commit `f34dd11a01c75e030cac38fdd082d152c22c9cf7` Render `dep-dboh06o473hc73akd7bg` **LIVE no SHA exato**.
+- [x] Smoke staging `/health`, `/ready`, `/login` HTTP 200, HTML 3.7.0, poster privado 401, sem requests 5xx observados.
+- [x] [PR #375](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/375): [CI #1187](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42539226330) **SUCCESS** (incluindo staging externo), [SemVer #14](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42539226352) **SUCCESS**, 35 arquivos do lote revisados sem escopo extra, merge `main` `a16f569ca8ebbbbb834bc7b909abe85407dafc3c`. Nenhum conflito encontrado.
+- [x] Render produção `dep-dboh27e8bjmc73b7ukfg` **LIVE** no merge SHA `a16f569ca8ebbbbb834bc7b909abe85407dafc3c`; `/health`/`/ready`/`/login` HTTP 200, HTML 3.7.0, poster privado sem login 401, requests 5xx observados = 0. `SIGTERM` do worker anterior esperado.
+- [x] Evidências e decisões lançadas neste documento e nos documentos gerais; integração ao Vault será registrada em PR próprio após o fechamento documental do Projeto.
 
 ## Segurança, restrições e rollback
 
@@ -48,4 +48,6 @@ Implementação técnica [PR #372](https://github.com/raffastudioproducoes-cloud
 
 ## Fechamento operacional
 
-*Preencher somente com IDs e resultados observados após a promoção; não inventar CI, deploy ou status.*
+**Cadeia verificável:** autorização Rafa → PR #374/CI #1185 → staging `f34dd11`/Render `dep-dboh06o473hc73akd7bg` LIVE → PR #375/CI #1187 + SemVer #14 → main `a16f569`/Render `dep-dboh27e8bjmc73b7ukfg` LIVE → smoke 200/401/HTML 3.7.0 e logs sem novos 5xx. A comparação de arquivos entre `staging` e `main` no momento do merge não retornou diferenças. Nenhuma nova SQL, RLS, cron, gateway, post externo ou segredo foi aplicada; só o deploy da aplicação.
+
+**Limite de verificação:** o agente não executou fluxo autenticado Android em produção nem disparou publicação social; o aceite é a autorização de Rafa e as provas automáticas/HTTP/Render registradas. A geração do primeiro poster legado e cópias de grandes campanhas devem continuar monitoradas em uso real.
