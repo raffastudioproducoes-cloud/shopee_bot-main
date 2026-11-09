@@ -133,9 +133,9 @@ export const campaignsApi = {
   getActive(id: string): Promise<CampaignReservation> {
     return api.get<CampaignReservation>(`/campaigns/active/${encodeURIComponent(id)}`)
   },
-  getHistory(id: string, offset = 0): Promise<{ data: CampaignHistoryRow[], has_more: boolean }> {
+  getHistory(id: string, offset = 0, limit = 10): Promise<{ data: CampaignHistoryRow[], has_more: boolean }> {
     return api.get<{ data: CampaignHistoryRow[], has_more: boolean }>(
-      `/campaigns/active/${encodeURIComponent(id)}/history?offset=${offset}`)
+      `/campaigns/active/${encodeURIComponent(id)}/history?offset=${offset}&limit=${limit}`)
   },
   changeState(id: string, action: 'pause' | 'resume' | 'cancel'): Promise<CampaignReservation> {
     return api.post<CampaignReservation>(

@@ -3,6 +3,14 @@ import test from "node:test"
 import { readFile } from "node:fs/promises"
 import ts from "typescript"
 
+async function loadPagination() {
+  const source = await readFile(new URL("../src/lib/campaignPagination.ts", import.meta.url), "utf8")
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext },
+  })
+  return import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`)
+}
+
 async function loadSchedule() {
   const source = await readFile(new URL("../src/lib/campaignSchedule.ts", import.meta.url), "utf8")
   const { outputText } = ts.transpileModule(source, {
@@ -66,4 +74,25 @@ test("ativação mostra progresso real com cronômetro e confetti respeitando o 
   assert.match(confetti, /prefers-reduced-motion/)
   assert.doesNotMatch(confetti, /#[0-9a-fA-F]{3,6}/)
   assert.match(confettiCss, /prefers-reduced-motion:reduce/)
+})
+
+test("prévia e histórico paginam de 10 em 10 e a seção 06 mostra só contadores relevantes", async () => {
+  const lib = await loadPagination()
+  const planner = await readFile(new URL("../src/components/campaigns/CampaignPlanner.tsx", import.meta.url), "utf8")
+  const api = await readFile(new URL("../src/api/campaigns.ts", import.meta.url), "utf8")
+  assert.match(planner, /<CampaignPagination label="Páginas do histórico"/)
+  assert.match(planner, /<CampaignPagination label="Páginas da prévia"/)
+  assert.match(planner, /relevantProgressCounts\(record\.progress\)/)
+  assert.doesNotMatch(planner, /Anteriores|Próximas|offset\+100/)
+  assert.match(api, /offset=\$\{offset\}&limit=\$\{limit\}/)
+  {
+    assert.equal(lib.CAMPAIGN_PAGE_SIZE, 10)
+    assert.equal(lib.campaignPageCount(450), 45)
+    assert.equal(lib.campaignPageCount(0), 1)
+    assert.deepEqual(lib.campaignPageWindow(1, 45), [1, 2, "…", 45])
+    assert.deepEqual(lib.campaignPageWindow(20, 45), [1, "…", 19, 20, 21, "…", 45])
+    assert.deepEqual(lib.campaignPageWindow(3, 4), [1, 2, 3, 4])
+    const counts = lib.relevantProgressCounts({ total: 450, planned: 450, running: 0, succeeded: 0, failed: 0, unknown: 0, cancelled: 0 })
+    assert.deepEqual(counts.map((c) => c.key), ["planned"])
+  }
 })

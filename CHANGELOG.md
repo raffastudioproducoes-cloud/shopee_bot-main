@@ -27,6 +27,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Confetti no botão Ativar campanha ao concluir, com cores da marca e desativado por `prefers-reduced-motion`.
 - Sem migration, cron, gateway, segredo ou publicação real.
 
+### Changed — seção 06 e prévia de campanhas (candidata PATCH, somente staging)
+
+- A prévia do calendário e o histórico por rede passam a mostrar 10 itens por página, com páginas numeradas (janela com reticências). O histórico busca só a página atual (`limit=10`) e calcula o total de páginas pelos contadores da campanha.
+- Os contadores de cada campanha mostram apenas valores maiores que zero, em vez de seis contadores fixos.
+- Sem alteração de backend, migration, cron, gateway, segredo ou publicação real.
+
 ## [3.8.0] - 2026-11-08
 
 - Campanhas agora exibem prévia de composição por rede, informando mídias aceitas, arquivos descartados e bloqueios de texto/formato/tamanho/duração/dimensões antes da ativação. A prévia considera anexos legados, lê metadados das mídias salvas e inclui o link afiliado na contagem.

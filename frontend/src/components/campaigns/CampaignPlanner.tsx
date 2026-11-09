@@ -16,6 +16,8 @@ import { campaignUiCaps } from "../../lib/planPresentation"
 import { calculateCampaignScheduleUsage, formatCampaignDate } from "../../lib/campaignSchedule"
 import { TextInput } from "../ui/TextInput"
 import { Button } from "../ui/Button"
+import { CampaignPagination } from "./CampaignPagination"
+import { CAMPAIGN_PAGE_SIZE, campaignPageCount, clampCampaignPage, relevantProgressCounts } from "../../lib/campaignPagination"
 import { ConfettiBurst } from "../ui/ConfettiBurst"
 import { ActivationProgress, type ActivationPhase } from "./ActivationProgress"
 import { AiCopyControls } from "../posts/AiCopyControls"
@@ -110,7 +112,8 @@ export function CampaignPlanner({ credentials }: {
   const [listOverride, setListOverride] = useState<Awaited<ReturnType<typeof listsApi.get>> | null>(null)
   const [lastSavedSignature, setLastSavedSignature] = useState<string | null>(null)
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
-  const [historyOffset, setHistoryOffset] = useState(0)
+  const [historyPage, setHistoryPage] = useState(1)
+  const [previewPage, setPreviewPage] = useState(1)
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null)
   const currentSaveSignatureRef = useRef("")
   const draftKey = formDraftKey(userId, "campaign-preview", profileId)
@@ -173,7 +176,7 @@ export function CampaignPlanner({ credentials }: {
     }
     return states
   }, [credentials])
-  const previewMutation = useMutation({ mutationFn: campaignsApi.preview })
+  const previewMutation = useMutation({ mutationFn: campaignsApi.preview, onSuccess: () => setPreviewPage(1) })
   const productPageCount = Math.max(1, Math.ceil(draft.itemIds.length / 10))
   const safeProductPage = Math.min(productPage, productPageCount)
   const productPageStart = (safeProductPage - 1) * 10
@@ -193,8 +196,8 @@ export function CampaignPlanner({ credentials }: {
     refetchInterval: 30_000,
   })
   const historyQuery = useQuery({
-    queryKey: ["campaign-history", userId, profileId, selectedCampaignId, historyOffset],
-    queryFn: () => campaignsApi.getHistory(selectedCampaignId!,historyOffset),
+    queryKey: ["campaign-history", userId, profileId, selectedCampaignId, historyPage],
+    queryFn: () => campaignsApi.getHistory(selectedCampaignId!, (historyPage - 1) * CAMPAIGN_PAGE_SIZE, CAMPAIGN_PAGE_SIZE),
     enabled: Boolean(userId && profileId && selectedCampaignId),
     refetchInterval: 30_000,
     retry: false,
@@ -478,6 +481,8 @@ export function CampaignPlanner({ credentials }: {
   const previewIsCurrent = Boolean(payload && previewMutation.data &&
     JSON.stringify(previewMutation.variables) === JSON.stringify(payload))
   const preview = previewIsCurrent ? previewMutation.data : null
+  const previewPageCount = campaignPageCount(preview?.slots.length ?? 0)
+  const safePreviewPage = clampCampaignPage(previewPage, previewPageCount)
 
   const update = <K extends keyof CampaignDraft,>(field: K, value: CampaignDraft[K]) => {
     setDraft((current) => ({ ...current, [field]: value }))
@@ -875,7 +880,7 @@ export function CampaignPlanner({ credentials }: {
                 <p className="campaign-warning">Nenhum horário combina com os dias selecionados.</p>
               )}
               <ol className="campaign-slots">
-                {preview.slots.map((slot) => (
+                {preview.slots.slice((safePreviewPage - 1) * CAMPAIGN_PAGE_SIZE, safePreviewPage * CAMPAIGN_PAGE_SIZE).map((slot) => (
                   <li key={slot.sequence}>
                     <span className="campaign-slot-number">{slot.sequence}</span>
                     <span><strong>{productName(products, slot.product_id, snapshots)}</strong>
@@ -884,6 +889,8 @@ export function CampaignPlanner({ credentials }: {
                   </li>
                 ))}
               </ol>
+              <CampaignPagination label="Páginas da prévia" page={safePreviewPage}
+                pageCount={previewPageCount} onChange={setPreviewPage} />
               {preview.truncated && <p className="campaign-status">Mostrando os primeiros 60 de {preview.slot_count} horários.</p>}
               <p className="campaign-safety-note">{preview.message}</p>
               <p className="campaign-safety-note">A prévia calcula horários e rotação; rascunhos dos itens ainda não serão enviados.</p>
@@ -1005,15 +1012,15 @@ export function CampaignPlanner({ credentials }: {
                   cancelled:"Cancelada",completed:"Concluída"} as const)[record.lifecycle]}
                 {record.pause_reason === "paid_period_expired" ? " · período pago encerrado" : ""}
               </p>
-              <p className="campaign-status">
+              <p className="campaign-status campaign-counts">
                 {record.progress
-                  ? [record.progress.succeeded + " concluídos",record.progress.planned + " planejados",
-                      record.progress.running + " em execução",record.progress.failed + " falhas",
-                      record.progress.unknown + " incertos",record.progress.cancelled + " cancelados"].join(" · ")
+                  ? relevantProgressCounts(record.progress).map((item) => (
+                    <span key={item.key}><b>{item.value}</b> {item.label}</span>
+                  ))
                   : "Contagem indisponível"}
               </p>
               <div className="campaign-actions">
-                <Button variant="secondary" onClick={() => { setHistoryOffset(0); setSelectedCampaignId(
+                <Button variant="secondary" onClick={() => { setHistoryPage(1); setSelectedCampaignId(
                   selectedCampaignId === record.id ? null : record.id) }}>
                   {selectedCampaignId === record.id ? "Fechar histórico" : "Ver histórico por rede"}
                 </Button>
@@ -1055,12 +1062,9 @@ export function CampaignPlanner({ credentials }: {
                       </li>
                     ))}
                   </ol>
-                  <div className="campaign-actions">
-                    <Button variant="secondary" disabled={historyOffset === 0}
-                      onClick={() => setHistoryOffset((offset) => Math.max(0,offset-100))}>Anteriores</Button>
-                    <Button variant="secondary" disabled={!historyQuery.data?.has_more}
-                      onClick={() => setHistoryOffset((offset) => offset+100)}>Próximas</Button>
-                  </div>
+                  <CampaignPagination label="Páginas do histórico" page={historyPage}
+                    pageCount={campaignPageCount(record.progress?.total ?? 0)}
+                    onChange={(page) => setHistoryPage(clampCampaignPage(page, campaignPageCount(record.progress?.total ?? 0)))} />
                 </div>
               )}
             </div>
