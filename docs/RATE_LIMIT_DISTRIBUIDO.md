@@ -1,5 +1,9 @@
 # Rate limiting distribuído (Redis/Render Key Value)
 
+## Atualização 09/11/2026 — limitador único (S-04)
+
+Os limites por usuário/IP da API passam por `api/rate_limiter.py`: busca de catálogo (20/min), "Testar conexão" (6/min), callbacks Meta e, via `rate_limit_store`, a autenticação. Com `RATELIMIT_STORAGE_URI` a contagem é atômica e compartilhada entre workers e instâncias; sem ela vale a janela em memória, agora com trava (concorrência) e número máximo de chaves, **correta só com uma instância**. A inicialização registra o modo ativo (sem a URI). **Produção ainda não tem Key Value configurado** (só a staging); configurá-lo depende de autorização de Rafa por custo.
+
 ## Garantias e comportamento
 
 - Flask-Limiter: teto global **200/h e 50/min por IP** compartilhado entre workers quando `RATELIMIT_STORAGE_URI` aponta para Redis.

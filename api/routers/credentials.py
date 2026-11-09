@@ -29,6 +29,7 @@ from .auth import get_current_user_id
 from .profiles import get_current_profile_id
 from ..profiles import scope_account, scope_owner
 from ..audit_log import log_action
+from ..rate_limiter import check_window
 from .. import threads_oauth
 from .. import instagram_oauth
 from .. import facebook_oauth
@@ -1400,20 +1401,19 @@ def _start_autotest(network: str, user_id, profile_id: str | None) -> None:
         logger.warning("autotest %s: não iniciou: %s", network, type(e).__name__)
 
 
-# ponytail: rate limit em memória de processo (mesmo padrão de
-# catalog.py/auth.py) — 1 worker hoje; Redis se virar multi-instância.
+# Rate limit do "Testar conexão" por usuário (api/rate_limiter.py: Redis atômico quando
+# configurado; senão memória com trava e chaves limitadas).
 _TEST_RATE_LIMIT_ATTEMPTS = 6
 _TEST_RATE_LIMIT_WINDOW_SECONDS = 60
 _test_attempts: dict = {}
 
 
 def _check_test_rate_limit(user_id) -> None:
-    now = time.monotonic()
-    attempts = [t for t in _test_attempts.get(user_id, []) if now - t < _TEST_RATE_LIMIT_WINDOW_SECONDS]
-    if len(attempts) >= _TEST_RATE_LIMIT_ATTEMPTS:
-        _test_attempts[user_id] = attempts
-        raise HTTPException(status_code=429, detail="Muitos testes em pouco tempo. Aguarde um minuto.")
-    _test_attempts[user_id] = attempts + [now]
+    check_window(
+        "credential-test", user_id,
+        attempts=_TEST_RATE_LIMIT_ATTEMPTS, window_seconds=_TEST_RATE_LIMIT_WINDOW_SECONDS,
+        state=_test_attempts, detail="Muitos testes em pouco tempo. Aguarde um minuto.",
+    )
 
 
 @router.post("/{network}/test")
