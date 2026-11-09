@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+- Campanhas: o limite de `campaign_days` passa a contar somente os weekdays selecionados, com teto físico de 210 dias corridos, 30 dias efetivos e 450 horários; a data final é calculada pela frequência e pelo período pago.
+- Editor de campanhas: weekdays selecionados recebem contraste forte e a etapa de período informa dias efetivos usados/restantes e data/hora-limite.
+- Ativação de campanha não exige clique manual em “Salvar rascunho”: o servidor registra snapshot interno para revisão/idempotência e preserva recuperação em falha; o rascunho manual permanece opcional.
+- Prévia, rascunho e ativação exibem motivos conhecidos de bloqueio; a elegibilidade de ativação considera período pago, leitura da cota e limite de campanhas ativas.
+- Implementação em branch de correção; migration 095 ainda não aplicada. Staging depende de CI, revisão e autorização expressa para o banco Supabase compartilhado. [Contrato técnico](docs/CAMPANHA-DIAS-EFETIVOS-E-ATIVACAO-20261109.md).
+
 - Campanhas agora exibem prévia de composição por rede, informando mídias aceitas, arquivos descartados e bloqueios de texto/formato/tamanho/duração/dimensões antes da ativação. A prévia considera anexos legados, lê metadados das mídias salvas e inclui o link afiliado na contagem.
 - As abas das redes ficam logo abaixo da caixa de descrição e antes dos controles de geração inteligente, mantendo a edição da variante ativa no mesmo campo.
 - A ativação de campanhas baixa e sanitiza a imagem Shopee selecionada uma única vez antes do planejamento, usando o tamanho real para aplicar limites específicos por rede; o arquivo original do produto permanece intacto.
