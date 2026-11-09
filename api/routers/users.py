@@ -311,7 +311,7 @@ def _collect_backup_data(user_id: str, profile_id: str | None = None) -> dict[st
             .is_("post_id", "null").execute()
         )
         for item in posts_result.data or []:
-            chain = _get_thread_chain(item["id"])
+            chain = _get_thread_chain(item["id"], user_id)
             posts.append({
                 "network": item.get("network"),
                 "texts": [row["text"] for row in chain],

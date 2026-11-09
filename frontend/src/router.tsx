@@ -85,7 +85,7 @@ const landingRoute = createRoute({
 
     const authStore = useAuthStore.getState()
     if (!authStore.isAuthenticated || authStore.user?.id !== user.id) {
-      authStore.login("", user)
+      authStore.login(user)
     } else {
       authStore.setUser(user)
     }

@@ -1,3 +1,4 @@
+import { safeExternalUrl, safeImageUrl } from "../lib/safeExternalUrl"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useCallback, useEffect } from "react"
 import { useSearch } from "@tanstack/react-router"
@@ -403,12 +404,12 @@ export function ProductsPage() {
                   content: (
                     <div className="csp-s-0361">
                       {product.original_link ? (
-                        <a href={product.original_link} target="_blank" rel="noreferrer" className="csp-s-0362">
+                        <a href={safeExternalUrl(product.original_link)} target="_blank" rel="noreferrer" className="csp-s-0362">
                           {product.original_link}
                         </a>
                       ) : null}
                       {product.commission_link ? (
-                        <a href={product.commission_link} target="_blank" rel="noreferrer" className="csp-s-0363">
+                        <a href={safeExternalUrl(product.commission_link)} target="_blank" rel="noreferrer" className="csp-s-0363">
                           {product.commission_link}
                         </a>
                       ) : null}
@@ -482,7 +483,7 @@ export function ProductsPage() {
               <div style={{ marginTop: 18, padding: 12, border: "1px solid var(--border)", borderRadius: 12 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Imagem original da Shopee (preservada)</div>
                 {form.image ? (
-                  <a href={form.image} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-secondary)", fontSize: 12, overflowWrap: "anywhere" }}>{form.image}</a>
+                  <a href={safeImageUrl(form.image)} target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-secondary)", fontSize: 12, overflowWrap: "anywhere" }}>{form.image}</a>
                 ) : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Este produto não possui imagem original.</span>}
                 <p style={{ margin: "8px 0 0", color: "var(--text-muted)", fontSize: 12 }}>ID, links, preços e comissão são protegidos e não podem ser editados.</p>
               </div>

@@ -92,7 +92,7 @@ export function PanelPage() {
 
         // Também evita manter o perfil de outra conta quando o cookie mudou.
         if (!isAuthenticated || user?.id !== userData.id) {
-          login('', userData)
+          login(userData)
           return
         }
 

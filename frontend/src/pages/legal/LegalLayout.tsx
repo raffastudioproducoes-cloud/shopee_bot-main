@@ -28,7 +28,7 @@ export function LegalLayout({ title, updatedAt, children }: LegalLayoutProps) {
     try {
       const user = await authApi.me()
       const auth = useAuthStore.getState()
-      if (!auth.isAuthenticated) auth.login('', user)
+      if (!auth.isAuthenticated) auth.login(user)
       else auth.setUser(user)
       const home = user.access === 'ADMIN' && !isAdminVisitingSite() ? '/admin/overview' : '/'
       await navigate({ to: home })

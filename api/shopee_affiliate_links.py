@@ -17,6 +17,31 @@ def valid_affiliate_id(value: str | None) -> bool:
     return bool(value and _AFFILIATE_ID.fullmatch(value))
 
 
+# shope.ee é o encurtador oficial da Shopee; fica fora de _SHOP_HOSTS porque
+# canonical_product_url exige URL de produto, não link curto.
+_SHORT_HOSTS = frozenset({"shope.ee"})
+
+
+def is_safe_shopee_link(value: str | None) -> bool:
+    """HTTPS, host Shopee (inclui redirecionadores), sem credenciais nem porta atípica.
+
+    Rejeita esquemas como javascript:/data:, URL sem host e destinos externos.
+    Não consulta a rede (proteção contra SSRF).
+    """
+    if not value or len(value) > 2048 or value != value.strip():
+        return False
+    try:
+        url = urlsplit(value)
+        host = (url.hostname or "").lower()
+        return (url.scheme == "https"
+                and host in (_REDIRECT_HOSTS | _SHORT_HOSTS)
+                and url.username is None and url.password is None
+                and url.port in (None, 443)
+                and bool(url.path) and url.path != "/")
+    except (ValueError, TypeError):
+        return False
+
+
 def canonical_product_url(value: str | None) -> str | None:
     """Somente HTTPS Shopee Brasil; remove tracking prévio, fragmento e auth.
 

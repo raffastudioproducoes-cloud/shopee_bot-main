@@ -623,9 +623,9 @@ def test_delete_thread_cascade_removes_durable_media_of_consumed_draft(fake_db, 
             {"id": "a", "storage_bucket": "post-media", "storage_key": "drafts/42/profile-a/offer.jpg", "status": "consumed"},
         ],
     })
-    monkeypatch.setattr(posts_module, "_get_thread_chain", lambda head_id: [{"id": head_id}])
+    monkeypatch.setattr(posts_module, "_get_thread_chain", lambda head_id, user_id: [{"id": head_id}])
 
-    posts_module._delete_thread_cascade(7)
+    posts_module._delete_thread_cascade(7, 1)
 
     assert db.storage.removed == [("post-media", ["drafts/42/profile-a/offer.jpg"])]
     assert db.tables["medias"] == []
@@ -641,9 +641,9 @@ def test_delete_thread_cascade_keeps_durable_media_shared_with_another_post(fake
         "medias": [{"id": 5, "file_path": STORAGE_PATH}],
         "posts": [{"id": 7}],
     })
-    monkeypatch.setattr(posts_module, "_get_thread_chain", lambda head_id: [{"id": head_id}])
+    monkeypatch.setattr(posts_module, "_get_thread_chain", lambda head_id, user_id: [{"id": head_id}])
 
-    posts_module._delete_thread_cascade(7)
+    posts_module._delete_thread_cascade(7, 1)
 
     assert db.storage.removed == []
     assert len(db.tables["medias"]) == 1
