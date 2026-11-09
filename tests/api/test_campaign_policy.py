@@ -366,3 +366,34 @@ def test_campaign_quota_migration_counts_weekdays_without_changing_existing_tabl
     assert "campaign_active_days_exceeded" in sql
     assert "210" in sql and "450" in sql
     assert "DROP TABLE" not in sql
+
+
+def test_activation_is_disabled_when_active_campaign_quota_is_full(monkeypatch):
+    db = database("premium")
+    db.tables["users"][0]["campaign_paid_through"] = "2099-01-01T00:00:00+00:00"
+    db.tables["campaign_reservations_f4e"] = [
+        dict(id=f"reservation-{index}", user_id="owner", profile_id="profile-a",
+             status="reserved_no_dispatch", lifecycle="active")
+        for index in range(5)
+    ]
+    setup_db(monkeypatch, db)
+    result = asyncio.run(campaigns.get_campaign_limits(
+        user_id="owner", profile_id="profile-a"))
+    assert result["active_campaigns_count"] == 5
+    assert result["activation_available"] is False
+    assert result["message"] == "Limite de campanhas ativas do plano atingido."
+
+
+def test_activation_is_available_below_active_campaign_quota(monkeypatch):
+    db = database("premium")
+    db.tables["users"][0]["campaign_paid_through"] = "2099-01-01T00:00:00+00:00"
+    db.tables["campaign_reservations_f4e"] = [
+        dict(id=f"reservation-{index}", user_id="owner", profile_id="profile-a",
+             status="reserved_no_dispatch", lifecycle="active")
+        for index in range(4)
+    ]
+    setup_db(monkeypatch, db)
+    result = asyncio.run(campaigns.get_campaign_limits(
+        user_id="owner", profile_id="profile-a"))
+    assert result["active_campaigns_count"] == 4
+    assert result["activation_available"] is True
