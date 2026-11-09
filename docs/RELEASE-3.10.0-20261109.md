@@ -1,4 +1,4 @@
-# Auto Orbital 3.10.0 — Release MINOR (rascunho: promoção em andamento, ainda não confirmada em produção)
+# Auto Orbital 3.10.0 — Release MINOR (em produção, 2026-11-09)
 
 **Data:** 09/11/2026 (BRT)
 **Autorização:** Rafa autorizou expressamente o merge na `main` depois do merge na `staging` ("faça o merge na main completo de tudo que for necessário para o funcionamento da produção").
@@ -35,4 +35,11 @@ Sem migration, cron, `pg_net`, gateway ou segredo novos.
 
 ## 4. Portões e evidências
 
-_(preencher após o deploy de produção)_
+Evidências de produção (2026-11-09, UTC):
+
+- Promoção staging→main: PR #403, merge commit `a9c433e` às 17:48:50.
+- CI na `main` (push, run 1293): sucesso.
+- Render produção: deploy `dep-dbp0f1e1egvs73ejj580` **live** às 17:49:45 (commit `a9c433e`).
+- Logs de boot: migrações já aplicadas (ignoradas), scheduler iniciado, `Application startup complete`; modo de rate limit logado como "em memória (uma instância)". O único `ERROR` é o SIGTERM da instância antiga durante a troca do deploy (esperado).
+- CD (`deploy`, run 187): sucesso — o verificador confirmou "Versão 3.10.0" na URL pública de produção.
+- Limite conhecido: produção segue com rate limit em memória (sem Key Value); ver `docs/RATE_LIMIT_DISTRIBUIDO.md`.
