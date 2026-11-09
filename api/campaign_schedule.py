@@ -11,6 +11,9 @@ from typing import Sequence
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
+MAX_CAMPAIGN_CALENDAR_DAYS = 210
+
+
 @dataclass(frozen=True)
 class CampaignSlot:
     """Ocorrência prevista; índice estável dentro de uma sequência gerada."""
@@ -37,8 +40,8 @@ def plan_campaign_slots(
     Dias da semana seguem Python: segunda=0 ... domingo=6.
     Distribui 1 a 15 publicações por dia uniformemente na janela local;
     uma publicação usa o horário inicial. Isso é prévia, não envio real.
-    O máximo absoluto são 30 dias corridos INCLUSIVOS; limites menores
-    por plano e intervalos mínimos de cada rede são validados pelo serviço.
+    O máximo absoluto é de 210 dias corridos INCLUSIVOS. O limite comercial
+    conta somente os dias da semana selecionados e é validado pela política.
     `start_occurrence_index` permite continuar uma sequência sem reiniciá-la
     depois de uma revisão que afeta somente ocorrências futuras.
     """
@@ -47,8 +50,8 @@ def plan_campaign_slots(
     total_days = (end_date - start_date).days + 1
     if total_days < 1:
         raise ValueError("A data final não pode anteceder a inicial.")
-    if total_days > 30:
-        raise ValueError("O período não pode ultrapassar 30 dias inclusivos.")
+    if total_days > MAX_CAMPAIGN_CALENDAR_DAYS:
+        raise ValueError("O período não pode ultrapassar 210 dias corridos inclusivos.")
     if not weekdays:
         raise ValueError("Selecione ao menos um dos dias da semana.")
     if any(type(day) is not int or not 0 <= day <= 6 for day in weekdays):
@@ -112,3 +115,23 @@ def plan_campaign_slots(
         current_day += timedelta(days=1)
 
     return result
+
+
+def count_campaign_days(start_date: date, end_date: date, weekdays: Sequence[int]) -> int:
+    """Conta dias civis inclusivos que correspondem aos weekdays selecionados.
+
+    Segunda=0 ... domingo=6, como em datetime.date.weekday(). Dias sem
+    publicação selecionada não consomem o limite comercial do plano.
+    """
+    if not isinstance(start_date, date) or not isinstance(end_date, date):
+        raise ValueError("Datas de início e fim inválidas.")
+    if end_date < start_date:
+        raise ValueError("A data final não pode anteceder a inicial.")
+    if not weekdays or any(type(day) is not int or not 0 <= day <= 6 for day in weekdays):
+        raise ValueError("Selecione ao menos um dia da semana válido.")
+    selected_weekdays = set(weekdays)
+    total_days = (end_date - start_date).days + 1
+    return sum(
+        1 for offset in range(total_days)
+        if (start_date + timedelta(days=offset)).weekday() in selected_weekdays
+    )
