@@ -22,6 +22,7 @@ export interface PlanUsage {
   automation_available: boolean
   activation_available: boolean
   campaign_paid_through?: string | null
+  message: string
   resources: Record<PlanResource, ResourceUsage>
 }
 export const planUsageApi = { get: () => api.get<PlanUsage>("/profiles/usage") }
