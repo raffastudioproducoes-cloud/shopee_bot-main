@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 
 from .database import supabase
-from .campaign_schedule import plan_campaign_slots
+from .campaign_schedule import count_campaign_days, plan_campaign_slots, MAX_CAMPAIGN_CALENDAR_DAYS
 
 
 @dataclass(frozen=True)
@@ -81,16 +81,27 @@ def require_campaign_access(policy: CampaignPolicy) -> None:
 
 
 def validate_campaign_plan_schedule(policy: CampaignPolicy, schedule) -> None:
-    """Valida período inclusivo; o planejador mantém segurança e teto físico."""
+    """Valida dias efetivos de publicação e mantém teto físico do calendário."""
     require_campaign_access(policy)
     if schedule is None:
         return
-    days = (schedule.end_date - schedule.start_date).days + 1
-    if days < 1 or days > 30:
-        raise HTTPException(status_code=422, detail="O período deve ter de 1 a 30 dias inclusivos.")
-    if days > policy.campaign_days:
+    calendar_days = (schedule.end_date - schedule.start_date).days + 1
+    if calendar_days < 1 or calendar_days > MAX_CAMPAIGN_CALENDAR_DAYS:
         raise HTTPException(
-            status_code=403, detail=f"Seu plano permite até {policy.campaign_days} dias inclusivos por campanha.",
+            status_code=422, detail="O intervalo deve ter de 1 a 210 dias corridos inclusivos.",
+        )
+    try:
+        active_days = count_campaign_days(schedule.start_date, schedule.end_date, schedule.weekdays)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if active_days < 1:
+        raise HTTPException(status_code=422, detail="Nenhum dia selecionado ocorre no período informado.")
+    if active_days > 30:
+        raise HTTPException(status_code=422, detail="O limite absoluto é de 30 dias efetivos de publicação.")
+    if active_days > policy.campaign_days:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Seu plano permite até {policy.campaign_days} dias de publicação nos dias da semana selecionados.",
         )
     if not policy.is_admin and schedule.posts_per_day > policy.campaign_posts_per_day:
         raise HTTPException(
