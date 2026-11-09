@@ -101,9 +101,30 @@ def _media_sources(reservation: dict):
     return media
 
 
-def _validate_plans(reservation):
+async def _prepare_shopee_sources(sources):
+    """Download and sanitize selected Shopee photos once so each network's byte limit is real."""
+    for source in sources:
+        if not source.get("from_shopee"):
+            continue
+        content = await _download_shopee_image(source["source_image"])
+        detected = detect_media_type(content)
+        if detected.media_type != "IMAGE":
+            raise HTTPException(415, detail="A foto Shopee não é uma imagem.")
+        media = await asyncio.to_thread(
+            sanitize_media_upload, content,
+            filename="shopee-" + str(source["product_id"]) + ".jpg",
+            content_type=detected.mime_type, max_bytes=MAX_PRODUCT_IMAGE_BYTES,
+        )
+        media = await asyncio.to_thread(_normalize_shopee_photo_as_jpeg, media, source["product_id"])
+        source["prepared_media"] = media
+        source["size"] = len(media.content)
+        source["type"] = "IMAGE"
+    return sources
+
+
+def _validate_plans(reservation, sources=None):
     draft = reservation["draft_snapshot"]
-    sources = _media_sources(reservation)
+    sources = sources if sources is not None else _media_sources(reservation)
     selected_networks = set()
     compat = {source["source_id"]: set() for source in sources}
     for item in draft["items"]:
@@ -142,16 +163,18 @@ async def _copy_locked_asset(reservation, source, networks):
     size = source["size"]
     try:
         if source["from_shopee"]:
-            content = await _download_shopee_image(source["source_image"])
-            detected = detect_media_type(content)
-            if detected.media_type != "IMAGE":
-                raise HTTPException(415, detail="A foto Shopee não é uma imagem.")
-            media = await asyncio.to_thread(
-                sanitize_media_upload, content,
-                filename="shopee-" + str(source["product_id"]) + detected.extension,
-                content_type=detected.mime_type, max_bytes=MAX_PRODUCT_IMAGE_BYTES,
-            )
-            media = await asyncio.to_thread(_normalize_shopee_photo_as_jpeg, media, source["product_id"])
+            media = source.get("prepared_media")
+            if media is None:
+                content = await _download_shopee_image(source["source_image"])
+                detected = detect_media_type(content)
+                if detected.media_type != "IMAGE":
+                    raise HTTPException(415, detail="A foto Shopee não é uma imagem.")
+                media = await asyncio.to_thread(
+                    sanitize_media_upload, content,
+                    filename="shopee-" + str(source["product_id"]) + detected.extension,
+                    content_type=detected.mime_type, max_bytes=MAX_PRODUCT_IMAGE_BYTES,
+                )
+                media = await asyncio.to_thread(_normalize_shopee_photo_as_jpeg, media, source["product_id"])
             size = len(media.content)
             with storage_upload_reservation(size):
                 supabase.storage.from_(MEDIA_DRAFT_BUCKET).upload(
@@ -249,7 +272,9 @@ async def activate(draft_id, expected_revision, user_id, profile_id):
     if row["lifecycle"] != "preparing":
         raise HTTPException(409, detail="Campanha não está mais em preparação.")
 
-    sources, compat, networks = _validate_plans(row)
+    sources = _media_sources(row)
+    await _prepare_shopee_sources(sources)
+    sources, compat, networks = _validate_plans(row, sources)
     existing = (supabase.table("campaign_reservation_assets_f4e")
         .select("source_id").eq("reservation_id", str(reservation_id)).execute()).data or []
     done = {r["source_id"] for r in existing}
