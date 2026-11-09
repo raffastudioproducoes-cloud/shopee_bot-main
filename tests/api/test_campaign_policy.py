@@ -384,6 +384,9 @@ def test_campaign_quota_migration_counts_weekdays_without_changing_existing_tabl
     assert "campaign_active_days_exceeded" in sql
     assert "210" in sql and "450" in sql
     assert "DROP TABLE" not in sql
+    # Preserve the ACL established by migration 076: direct service_role
+    # execution is revoked; callers must use reserve_campaign_networks_f4e.
+    assert "GRANT EXECUTE ON FUNCTION public.reserve_campaign_f4e" not in sql
 
 
 def test_activation_is_disabled_when_active_campaign_quota_is_full(monkeypatch):
