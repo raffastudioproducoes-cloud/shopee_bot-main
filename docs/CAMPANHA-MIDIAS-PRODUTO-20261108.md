@@ -1,8 +1,8 @@
 # Auto Orbital — seleção de mídias de Produtos nas campanhas e miniaturas MP4
 
 **Data:** 08/11/2026 · **Escopo:** Produtos → Editar; Criar Post → Campanha → Preparar produto  
-**Estado:** [PR #372](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/372) integrada à **staging**, [CI #1181](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42537281662) **SUCCESS**, Render **LIVE** no SHA `755fb84ad9c7fa5cb063ac71d2fab5a07c6926a8` (deploy `dep-dbognenb9u1s73dle02g`). QA autenticada de Rafa ainda pendente. **Main não autorizada.**  
-**SemVer:** `3.6.2` é a versão vigente. Funcionalidade compatível MINOR, **candidata 3.7.0**, somente após aceite de staging e autorização posterior de release. `VERSION` não muda nesta fase.
+**Estado:** [PR #372](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/372) integrada à **staging**, [CI #1181](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42537281662) **SUCCESS**, Render **LIVE** no SHA `755fb84ad9c7fa5cb063ac71d2fab5a07c6926a8` (deploy `dep-dbognenb9u1s73dle02g`). Autorização de promoção da main concedida por Rafa em 08/11/2026; ainda requer CI/SemVer e Render de produção LIVE. **Não há publicação comprovada neste ponto.**  
+**SemVer:** release MINOR **3.7.0 autorizada**, bump de `VERSION` preparado em staging; promoção para main condicionada ao gate SemVer e à verificação da produção. [Roteiro](RELEASE-3.7.0-20261108.md).
 
 ## Decisão do proprietário e requisitos
 

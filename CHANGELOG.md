@@ -5,15 +5,19 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
-### Added / Changed — reutilização de mídias de Produto em campanhas (MINOR candidata 3.7.0)
+## [3.7.0] - 2026-11-08
 
-> Homologação em **staging**: [PR #372](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/372), [CI #1181 SUCCESS](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42537281662) (1.314 API + frontend/SQL), merge `755fb84`, Render `dep-dbognenb9u1s73dle02g` LIVE; health/readiness/login 200, poster privado sem sessão 401 e sem 5xx observado. **Main/produção permanecem 3.6.2; aguardar QA e autorização de Rafa para a release MINOR.**
+### Added / Changed — seleção de mídias de Produtos em campanhas (MINOR 3.6.2 → 3.7.0)
+
+**Autorização de release:** Rafa declarou em 08/11/2026: “Pode mergear com a main. Pode promover!” A etapa de produção depende ainda de CI/SemVer e Render LIVE. [Roteiro formal](docs/RELEASE-3.7.0-20261108.md).
+
+> Homologação anterior em **staging**: [PR #372](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/372), [CI #1181 SUCCESS](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42537281662) (1.314 API + frontend/SQL), merge `755fb84`, Render `dep-dbognenb9u1s73dle02g` LIVE; health/readiness/login 200, poster privado sem sessão 401 e sem 5xx observado. A versão de produção permanecia 3.6.2 nesta evidência histórica; autorização de promoção concedida posteriormente.
 
 - Editor de Produtos: barra indeterminada sutil durante processamento do servidor, mantendo anel de bytes reais e cronômetro; cartão de progresso some com transição após sucesso e preserva erro até ação explícita.
 - Vídeos de Produto passam a possuir miniatura JPEG real, privada, sob demanda e reutilizável em Produtos e Campanhas, com cache para MP4 já existentes e fallback visual legível.
 - Campanhas: substitui upload de arquivos na preparação do item por seleção individual de imagem Shopee e fotos/vídeos salvos em Produtos (qualquer combinação, inclusive sem mídia nas redes compatíveis). A escolha é persistida no rascunho independente do Produto.
 - Backend valida UUIDs, conta/produto/status, copia selecionados para o Storage isolado da campanha antes do snapshot atômico de ativação, preserva anexos legados e cópias de reservas ativas. Sem nova migration, cron, gateway, serviço ou publicação externa.
-- Decisão SemVer: **MINOR candidata 3.7.0**, pois acrescenta comportamento compatível de mídia em campanhas; `VERSION=3.6.2` permanece oficial em `main` até homologação staging e aprovação expressa de Rafa. [Contrato técnico](docs/CAMPANHA-MIDIAS-PRODUTO-20261108.md).
+- Decisão SemVer: **MINOR 3.7.0 aprovada por Rafa**, pois acrescenta comportamento compatível de mídia em campanhas; `VERSION=3.7.0` preparado em `staging` para promoção condicionada a CI/SemVer e Render LIVE. [Contrato técnico](docs/CAMPANHA-MIDIAS-PRODUTO-20261108.md).
 
 ## [3.6.2] - 2026-11-08
 
