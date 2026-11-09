@@ -10,21 +10,22 @@ import { PanelPage } from "./pages/PanelPage"
 import { ProductsPage } from "./pages/ProductsPage"
 import { ListasPage } from "./pages/ListasPage"
 import { PostsPage } from "./pages/PostsPage"
-import { CreatePostPage } from "./pages/CreatePostPage"
-import { PostsAutomationPage } from "./pages/PostsAutomationPage"
-import { CredentialsPage } from "./pages/CredentialsPage"
 import { ProfilesPage } from "./pages/ProfilesPage"
-import { HelpPage } from "./pages/HelpPage"
-import { SettingsPage } from "./pages/SettingsPage"
-import { TermsPage } from "./pages/legal/TermsPage"
-import { PrivacyPolicyPage } from "./pages/legal/PrivacyPolicyPage"
-import { DataCollectedPage } from "./pages/legal/DataCollectedPage"
 import { PageSkeleton, type PageSkeletonVariant } from "./components/ui/Skeleton"
 import { OrbitalLoader } from "./components/ui/OrbitalLoader"
 import { AdminLayout } from "./pages/AdminLayout"
 import { isAdminVisitingSite } from "./lib/adminSiteFlag"
 import { creationSearch } from "./lib/creationIntent"
 
+// Páginas secundárias e pesadas carregam sob demanda (peso do bundle inicial).
+const HelpPage = lazy(() => import("./pages/HelpPage").then((m) => ({ default: m.HelpPage })))
+const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })))
+const PostsAutomationPage = lazy(() => import("./pages/PostsAutomationPage").then((m) => ({ default: m.PostsAutomationPage })))
+const CredentialsPage = lazy(() => import("./pages/CredentialsPage").then((m) => ({ default: m.CredentialsPage })))
+const CreatePostPage = lazy(() => import("./pages/CreatePostPage").then((m) => ({ default: m.CreatePostPage })))
+const TermsPage = lazy(() => import("./pages/legal/TermsPage").then((m) => ({ default: m.TermsPage })))
+const PrivacyPolicyPage = lazy(() => import("./pages/legal/PrivacyPolicyPage").then((m) => ({ default: m.PrivacyPolicyPage })))
+const DataCollectedPage = lazy(() => import("./pages/legal/DataCollectedPage").then((m) => ({ default: m.DataCollectedPage })))
 const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"))
 const UsersPage = lazy(() => import("./pages/UsersPage"))
 const LogsPage = lazy(() => import("./pages/LogsPage"))
@@ -130,19 +131,19 @@ const legacyPresentationRoute = createRoute({
 const termsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/termos",
-  component: TermsPage,
+  component: lazyRoute(TermsPage, "detail"),
 })
 
 const dataCollectedRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dados-coletados',
-  component: DataCollectedPage,
+  component: lazyRoute(DataCollectedPage, "detail"),
 })
 
 const privacyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/privacidade",
-  component: PrivacyPolicyPage,
+  component: lazyRoute(PrivacyPolicyPage, "detail"),
 })
 
 // Layout route (no URL segment): renders the sidebar shell around every
@@ -188,13 +189,13 @@ const postsRoute = createRoute({
 const createPostRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/posts/criar",
-  component: CreatePostPage,
+  component: lazyRoute(CreatePostPage, "detail"),
 })
 
 const postsAutomationRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/automacao-posts",
-  component: PostsAutomationPage,
+  component: lazyRoute(PostsAutomationPage, "detail"),
 })
 
 const analyticsRoute = createRoute({
@@ -206,7 +207,7 @@ const analyticsRoute = createRoute({
 const credentialsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/credentials",
-  component: CredentialsPage,
+  component: lazyRoute(CredentialsPage, "detail"),
 })
 
 const profilesRoute = createRoute({
@@ -251,13 +252,13 @@ const adminCredentialsRoute = createRoute({
 const helpRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/ajuda",
-  component: HelpPage,
+  component: lazyRoute(HelpPage, "detail"),
 })
 
 const settingsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/settings",
-  component: SettingsPage,
+  component: lazyRoute(SettingsPage, "detail"),
 })
 
 const routeTree = rootRoute.addChildren([
