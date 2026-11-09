@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — peso do bundle inicial (plano de estabilização, fase 4)
+
+- Páginas secundárias e pesadas passam a carregar sob demanda (`lazy` + `lazyRoute`, com o skeleton existente): Ajuda, Configurações, Automação de posts, Credenciais, Criar Post (editor de campanhas), Termos, Privacidade e Dados coletados.
+- Bundle principal: **785,8 kB → 576,1 kB** brutos e **237,9 kB → 175,6 kB** comprimidos (gzip), cerca de −26%. O aviso de 500 kB do Vite permanece; o restante é dependência compartilhada e páginas de entrada (login, landing, painel, produtos, listas, posts).
+- Teste de rota de Criar Post ajustado para aceitar `lazyRoute(CreatePostPage, ...)` mantendo a verificação de que a rota usa `CreatePostPage`. Sem mudança de backend, migration, cron ou segredo.
+
 ### Fixed — warnings do plano de estabilização (fases 2, 3 e 5)
 
 - **Chave JWT de teste:** `API_SECRET_KEY` de `tests/api/conftest.py` passa de 41 para 70 bytes, eliminando o `InsecureKeyLengthWarning` (HS384/HS512). Só afeta testes.
