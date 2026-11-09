@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.11.1] - 2026-11-09
+
+### Fixed — apagar posts de campanha e cancelar campanha
+
+- **Apagar post de campanha (corrige a 3.12.1 interna):** no banco real a trava `campaign_job_immutable` recusa apagar o post enquanto a vaga da campanha aponta para o job (provado em PostgreSQL com as migrations reais). Nova função `purge_campaign_posts_f4e` (migration 097) remove a vaga e depois o post (agendador, job, mídia e produto saem por CASCADE). Post em envio responde 409 ("tente em instantes") e post já executado responde 409 ("fica no histórico da campanha"): vagas succeeded/failed/unknown permanecem, porque contam na cota diária do plano.
+- **Cancelar campanha** agora apaga os posts que nunca rodaram (`purge_cancelled_campaign_f4e`), em vez de deixá-los no histórico de Posts (era o motivo dos 450 posts da campanha cancelada). A reserva cancelada e o que já foi publicado ou falhou continuam no histórico. Se a limpeza falhar, o cancelamento não é desfeito.
+- Testes: `tests/sql/test_f4e2b7_postgres.py` (6, contra PostgreSQL), `tests/api/test_campaign_cancel_purge.py` (4) e `tests/api/test_profile_scope_posts.py` (4 de campanha).
+
 ## [3.11.0] - 2026-11-09
 
 Release MINOR que leva à produção, em um passo SemVer a partir da 3.10.1, tudo o que foi validado na staging nos builds internos 3.10.2 a 3.14.0 (listados abaixo): correção da página Posts (conexão morta com o banco), desempenho (índice, listagem em lote, cache), preços Pro R$ 59,90 e Premium R$ 109,90, nova apresentação pública, exclusão de posts de campanha, animações e UX (lotes 1 a 3) e fonte Mona Sans hospedada. Os números 3.10.2 a 3.14.0 existiram apenas como versão da staging; a produção passa de 3.10.1 direto para 3.11.0.

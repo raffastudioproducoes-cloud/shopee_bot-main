@@ -183,26 +183,59 @@ def test_legacy_token_without_claim_falls_back_to_principal_profile(real_profile
     app.dependency_overrides.clear()
 
 
-def test_delete_campaign_post_is_allowed_and_cancels_its_slot(make_client, profile_cookie):
-    db, make = make_client
+class _RpcRecorder:
+    """Substitui `supabase.rpc` para registrar a chamada sem tocar no banco."""
+    def __init__(self, error=None):
+        self.calls, self.error = [], error
+
+    def __call__(self, name, args):
+        self.calls.append((name, args))
+        recorder = self
+
+        class _Exec:
+            def execute(self):
+                if recorder.error:
+                    raise recorder.error
+                return type("R", (), {"data": 1})()
+        return _Exec()
+
+
+def _campaign_post(db):
     db.tables["posts"].append({"id": 3, "user_id": 42, "profile_id": "profile-a", "text": "camp", "post_id": None,
                                "created_at": "2026-01-03", "publication_origin": "campaign"})
-    db.tables["schedulers"] = []
-    db.tables["posts_medias"] = []
-    db.tables["posts_products"] = []
-    db.tables["campaign_network_slots_f4e"] = [{"id": "s1", "post_id": 3, "state": "planned"}]
+
+
+def test_delete_campaign_post_uses_the_purge_function_not_a_plain_delete(make_client, profile_cookie, monkeypatch):
+    db, make = make_client
+    _campaign_post(db)
+    rpc = _RpcRecorder()
+    monkeypatch.setattr(db, "rpc", rpc, raising=False)
     res = make(profile_cookie("profile-a")).delete("/posts/3")
     assert res.status_code == 200
-    assert 3 not in {p["id"] for p in db.tables["posts"]}
-    slot = db.tables["campaign_network_slots_f4e"][0]
-    assert slot["state"] == "cancelled" and slot["finished_at"]
+    assert rpc.calls == [("purge_campaign_posts_f4e", {"p_user_id": "42", "p_profile_id": "profile-a", "p_post_ids": [3]})]
 
 
-def test_delete_campaign_post_being_published_is_refused(make_client, profile_cookie):
+def test_delete_campaign_post_being_published_is_refused_with_409(make_client, profile_cookie, monkeypatch):
     db, make = make_client
-    db.tables["posts"].append({"id": 3, "user_id": 42, "profile_id": "profile-a", "text": "camp", "post_id": None,
-                               "created_at": "2026-01-03", "publication_origin": "campaign"})
-    db.tables["campaign_network_slots_f4e"] = [{"id": "s1", "post_id": 3, "state": "running"}]
+    _campaign_post(db)
+    monkeypatch.setattr(db, "rpc", _RpcRecorder(Exception("campaign_post_running")), raising=False)
     res = make(profile_cookie("profile-a")).delete("/posts/3")
-    assert res.status_code == 409
-    assert 3 in {p["id"] for p in db.tables["posts"]}
+    assert res.status_code == 409 and "sendo publicado" in res.json()["detail"]
+
+
+def test_delete_campaign_post_with_history_is_refused_with_409(make_client, profile_cookie, monkeypatch):
+    db, make = make_client
+    _campaign_post(db)
+    monkeypatch.setattr(db, "rpc", _RpcRecorder(Exception("campaign_post_has_history")), raising=False)
+    res = make(profile_cookie("profile-a")).delete("/posts/3")
+    assert res.status_code == 409 and "histórico" in res.json()["detail"]
+
+
+def test_delete_campaign_post_of_other_profile_is_404_and_never_reaches_the_database(make_client, profile_cookie, monkeypatch):
+    db, make = make_client
+    _campaign_post(db)
+    db.tables["posts"][-1]["profile_id"] = "profile-b"
+    rpc = _RpcRecorder()
+    monkeypatch.setattr(db, "rpc", rpc, raising=False)
+    assert make(profile_cookie("profile-a")).delete("/posts/3").status_code == 404
+    assert rpc.calls == []
