@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.10.2] - 2026-11-09
+
+### Fixed — página de Posts não carregava (tempo esgotado)
+
+- **Causa:** a listagem buscava 90 posts por vez e, para cada um, fazia cerca de 9 consultas ao banco **uma depois da outra** (mais de 800 por página), além de rodar o cliente síncrono do Supabase dentro de uma rota assíncrona, o que travava a API inteira. Com a conta de Rafa (903 posts) a página passava do limite de 30 s do proxy e ficava carregando até dar erro.
+- **Correção:** os posts da página são enriquecidos **em paralelo** (até 8 ao mesmo tempo) fora do loop de eventos; o tamanho da página buscada cai de 90 para 30 (a tela continua mostrando 15 por página e a busca continua carregando o restante). Um aviso vai para o log se a listagem passar de 5 s. Mesma resposta da API, mesma ordem.
+- Testes: `tests/api/test_posts_list_concurrency.py` (barreira que só fecha se a listagem for paralela; limite de concorrência). Próximo passo, em separado: reduzir as consultas por post com buscas em lote.
+
 ## [3.10.1] - 2026-11-09
 
 ### Security — achado S-01 concluído: matriz A/B por rota
