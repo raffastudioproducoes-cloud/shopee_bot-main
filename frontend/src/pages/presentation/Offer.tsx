@@ -5,14 +5,14 @@ import { buildComparison, planOffers, plans, type ComparisonValue } from "./cont
 import { Eyebrow, Highlight, LoginLink, Reveal } from "./shared"
 
 /** Célula da comparação: valor aparece com "pulso"; booleanos viram check/traço. */
-function Cell({ value, delay }: { value: ComparisonValue; delay: number }) {
+function Cell({ value, delay, highlight = false }: { value: ComparisonValue; delay: number; highlight?: boolean }) {
   const content =
     value === true ? <Check className="mx-auto h-4 w-4 text-ao-primary" aria-label="Incluído" /> :
     value === false ? <Minus className="mx-auto h-4 w-4 text-ao-muted-fg/50" aria-label="Não incluído" /> :
     <span className="text-ao-fg">{value}</span>
   return (
     <motion.td
-      className="px-3 py-3 text-center text-sm"
+      className={`px-1 py-3 text-center text-xs md:px-3 md:text-sm ${highlight ? "bg-ao-primary/[0.07]" : ""}`}
       initial={{ opacity: 0, scale: 0.6 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true, margin: "-10% 0px" }}
@@ -97,12 +97,15 @@ export function OfferSection() {
         {/* Card comparativo: valores pulsam linha a linha, revelando a escala entre planos */}
         <Reveal className="mt-20">
           <div className="overflow-x-auto rounded-3xl border border-ao-border bg-ao-card/60 p-2 backdrop-blur">
-            <table className="w-full min-w-[560px] border-collapse">
+            <table className="w-full min-w-[320px] border-collapse md:min-w-[560px]">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-[0.2em] text-ao-muted-fg">
-                  <th className="px-4 py-4">Diferença entre planos</th>
+                  <th className="w-[28%] px-2 py-4 text-[10px] md:w-auto md:px-4 md:text-xs">Diferença entre planos</th>
                   {plans.map((plan) => (
-                    <th key={plan.id} className={`px-3 py-4 text-center ${plan.id === "pro" ? "text-ao-primary" : ""}`}>{plan.name}</th>
+                    <th key={plan.id} className={`px-1 py-4 text-center tracking-normal md:px-3 ${plan.id === "pro" ? "border-t-2 border-ao-primary/60 bg-ao-primary/[0.07]" : ""}`}>
+                      <PlanTag tier={plan.id}>{plan.name}</PlanTag>
+                      {plan.id === "pro" ? <span className="mt-1.5 block text-[11px] font-semibold normal-case tracking-normal text-ao-primary">Recomendado</span> : null}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -114,9 +117,9 @@ export function OfferSection() {
                     initial={{ backgroundColor: "rgba(0,0,0,0)" }}
                     whileHover={{ backgroundColor: "color-mix(in oklab, var(--color-ao-primary) 8%, transparent)" }}
                   >
-                    <td className="px-4 py-3 text-sm text-ao-muted-fg">{row.label}</td>
+                    <td className="px-2 py-3 text-xs text-ao-muted-fg md:px-4 md:text-sm">{row.label}</td>
                     {plans.map((plan, planIndex) => (
-                      <Cell key={plan.id} value={row.values[plan.id]} delay={rowIndex * 0.08 + planIndex * 0.12} />
+                      <Cell key={plan.id} value={row.values[plan.id]} delay={rowIndex * 0.08 + planIndex * 0.12} highlight={plan.id === "pro"} />
                     ))}
                   </motion.tr>
                 ))}
