@@ -7,6 +7,8 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [3.9.0] - 2026-11-09
 
+> Publicada em produção em 09/11/2026 (Render `dep-dbov227avr4c73bvifjg` LIVE no commit `f3edf13`). Registro: `docs/RELEASE-3.9.0-20261109.md`.
+
 > Inclui a PATCH 3.8.1 (dias efetivos e ativação direta), que existiu somente em staging, e o lote de melhorias de campanhas homologado por Rafa em staging.
 
 ### Fixed/Changed — ativação de campanhas
