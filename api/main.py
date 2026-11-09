@@ -12,6 +12,7 @@ import time
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from postgrest.exceptions import APIError
 from starlette.concurrency import run_in_threadpool
 
 from .config import settings
@@ -83,6 +84,21 @@ app.add_middleware(
 
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
+
+
+@app.exception_handler(APIError)
+async def _postgrest_no_rows_as_404(request, exc: APIError):
+    """`.single()` sem linha vira 404 (não 500).
+
+    O PostgREST responde PGRST116 quando `.single()` não acha nenhuma linha. Isso acontece
+    de propósito quando o filtro de dono (S-01) esconde o recurso de outra conta; a resposta
+    correta é a mesma de "não existe", sem vazar a diferença. Qualquer outro erro do banco
+    (inclusive "mais de uma linha") continua sendo 500.
+    """
+    if getattr(exc, "code", None) == "PGRST116" and "0 rows" in str(getattr(exc, "details", "") or ""):
+        return JSONResponse(status_code=404, content={"detail": "Recurso não encontrado"})
+    logger.error("Erro do banco (%s): %s", getattr(exc, "code", None), getattr(exc, "message", ""))
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 # Routers
 app.include_router(auth_router)
