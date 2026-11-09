@@ -640,7 +640,7 @@ def _rollback_plan(
                 supabase.table("posts_medias").delete().eq("media_id", media["id"]).execute()
                 supabase.table("medias").delete().eq("id", media["id"]).execute()
             _release_draft(draft_id, user_id, profile_id)
-        _delete_thread_cascade(head_id)
+        _delete_thread_cascade(head_id, user_id)
     except Exception:
         logger.error("Falha ao desfazer post %s após erro no lote", head_id, exc_info=True)
 
@@ -1167,7 +1167,7 @@ def retry_unknown_post(
         )
 
     _check_network_rules(
-        "threads", [row.get("text") or "" for row in _get_thread_chain(post_id)],
+        "threads", [row.get("text") or "" for row in _get_thread_chain(post_id, user_id)],
         _get_post_medias(post_id), len(_get_post_products(post_id)),
         check_required_media=True,
     )
@@ -1201,12 +1201,15 @@ def retry_unknown_post(
 
 
 
-def _get_thread_chain(head_id: int) -> list[dict]:
+def _get_thread_chain(head_id: int, user_id: int) -> list[dict]:
     """Head primeiro, depois cada parte seguinte (post_id aponta pra
     parte ANTERIOR — ver docstring do módulo). Bounded por MAX_PARTS
-    pra nunca entrar em loop infinito se o dado estiver corrompido."""
+    pra nunca entrar em loop infinito se o dado estiver corrompido.
+
+    S-01: `user_id` é obrigatório; um head de outra conta responde 404 mesmo
+    que um chamador futuro esqueça a verificação de dono."""
     MAX_PARTS = 50
-    chain = [_get_post_by_id_only(head_id)]
+    chain = [_get_post_by_id_only(head_id, user_id)]
     owner = chain[0]["user_id"]
     profile = chain[0].get("profile_id")
     current_id = head_id
@@ -1224,8 +1227,11 @@ def _get_thread_chain(head_id: int) -> list[dict]:
     return chain
 
 
-def _get_post_by_id_only(post_id: int) -> dict:
-    result = supabase.table("posts").select("*").eq("id", post_id).single().execute()
+def _get_post_by_id_only(post_id: int, user_id: int) -> dict:
+    result = (
+        supabase.table("posts").select("*")
+        .eq("id", post_id).eq("user_id", user_id).single().execute()
+    )
     if not result.data:
         raise HTTPException(status_code=404, detail="Post não encontrado")
     return result.data
@@ -1270,11 +1276,11 @@ def _create_thread(
     return head
 
 
-def _delete_thread_cascade(head_id: int) -> None:
+def _delete_thread_cascade(head_id: int, user_id: int) -> None:
     """Apaga a thread inteira (head + partes) + associações de produto
     e mídia (arquivo em disco + linhas). Usado no DELETE e pra desfazer
     a criação se o agendamento falhar."""
-    chain = _get_thread_chain(head_id)
+    chain = _get_thread_chain(head_id, user_id)
 
     media_rows = (
         supabase.table("posts_medias")
@@ -1417,7 +1423,7 @@ async def list_posts(
     for item in result.data:
         schedule_entries = _get_post_schedule_entries(user_id, item["id"])
         job = schedule_entries[0] if schedule_entries else None
-        chain = _get_thread_chain(item["id"])
+        chain = _get_thread_chain(item["id"], user_id)
 
         posts.append({
             **item,
@@ -1479,10 +1485,10 @@ async def create_post(
         )
         await _create_schedule_jobs(user_id, head["id"], NETWORK_FUNC_MAP[body.network], body.schedule, profile_id)
     except HTTPException:
-        _delete_thread_cascade(head["id"])
+        _delete_thread_cascade(head["id"], user_id)
         raise
     except InternalApiError:
-        _delete_thread_cascade(head["id"])
+        _delete_thread_cascade(head["id"], user_id)
         raise HTTPException(
             status_code=502,
             detail="Não foi possível agendar a publicação agora. Post não foi criado.",
@@ -1819,7 +1825,7 @@ async def get_post(
     post = _get_post(user_id, post_id, profile_id)
     schedule_entries = _get_post_schedule_entries(user_id, post_id)
     job = schedule_entries[0] if schedule_entries else None
-    chain = _get_thread_chain(post_id)
+    chain = _get_thread_chain(post_id, user_id)
     is_admin = _post_admin_access(user_id)
     return {
         **post,
@@ -2018,7 +2024,7 @@ async def update_post(
         _get_post_medias(post_id), len(body.product_ids),
     )
 
-    chain = _get_thread_chain(post_id)
+    chain = _get_thread_chain(post_id, user_id)
     for row in reversed(chain[1:]):
         supabase.table("posts").delete().eq("id", row["id"]).execute()
 
@@ -2159,7 +2165,7 @@ async def publish_post_now(
     _require_legacy_post_origin(post)  # ownership check
     _check_network_rules(
         post.get("network") or "threads",
-        [row.get("text") or "" for row in _get_thread_chain(post_id)],
+        [row.get("text") or "" for row in _get_thread_chain(post_id, user_id)],
         _get_post_medias(post_id), len(_get_post_products(post_id)),
         check_required_media=True,
     )
@@ -2221,5 +2227,5 @@ async def delete_post(
                 detail="Não foi possível remover o agendamento agora. Post não foi removido.",
             )
 
-    _delete_thread_cascade(post_id)
+    _delete_thread_cascade(post_id, user_id)
     return {"msg": "Post removido"}
