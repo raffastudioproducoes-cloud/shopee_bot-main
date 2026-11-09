@@ -483,7 +483,7 @@ export function CampaignPlanner({ credentials }: {
                   const snapshot = snapshots[id]
                   if (!product || !snapshot) return null
                   const editing = editingProductId === id
-                  const prepared = Boolean(snapshot.copy.trim() && draft.networks.length)
+                  const prepared = Boolean((snapshot.copy.trim() || Object.values(snapshot.networkCopies).some((text) => text.trim())) && draft.networks.length)
                   return (
                     <li key={id} className="campaign-product">
                       <div className="campaign-product-row">
