@@ -65,7 +65,7 @@ test("planejador de composição é compartilhado e bloqueia texto fora do limit
   const [composition, limits, backend] = await Promise.all([
     src("lib/mediaComposition.ts"),
     src("lib/networkLimits.ts"),
-    readFile(new URL("../../../api/media_composition.py", import.meta.url), "utf8"),
+    readFile(new URL("../../api/media_composition.py", import.meta.url), "utf8"),
   ])
   assert.match(composition, /adaptMedia\(rule, draft\.media\)/)
   assert.match(composition, /TEXT_ERROR_KEYS/)
