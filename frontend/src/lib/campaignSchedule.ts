@@ -121,6 +121,7 @@ export interface CampaignScheduleUsage {
   exceedsActiveDayLimit: boolean
   exceedsCalendarLimit: boolean
   paidPeriodShortensWindow: boolean
+  paidPeriodHasNoEligibleDay: boolean
 }
 
 export function calculateCampaignScheduleUsage(args: {
@@ -139,9 +140,11 @@ export function calculateCampaignScheduleUsage(args: {
   const planMaxEndDate = maxEndDateForSelectedWeekdays(
     args.startDate, args.weekdays, args.activeDayLimit,
   )
-  const maxEndDate = paidPeriodMaxDate(
+  const paidMaxEndDate = paidPeriodMaxDate(
     args.startDate, args.weekdays, planMaxEndDate, lastPostingTime, args.paidThrough,
   )
+  const paidPeriodHasNoEligibleDay = Boolean(args.paidThrough && planMaxEndDate && !paidMaxEndDate)
+  const maxEndDate = paidMaxEndDate ?? planMaxEndDate
   return {
     calendarDays,
     activeDaysUsed,
@@ -151,7 +154,8 @@ export function calculateCampaignScheduleUsage(args: {
     lastPostingTime,
     exceedsActiveDayLimit: activeDaysUsed > args.activeDayLimit,
     exceedsCalendarLimit: calendarDays > MAX_CALENDAR_DAYS,
-    paidPeriodShortensWindow: Boolean(planMaxEndDate && maxEndDate && maxEndDate < planMaxEndDate),
+    paidPeriodShortensWindow: Boolean(paidMaxEndDate && planMaxEndDate && paidMaxEndDate < planMaxEndDate),
+    paidPeriodHasNoEligibleDay,
   }
 }
 
