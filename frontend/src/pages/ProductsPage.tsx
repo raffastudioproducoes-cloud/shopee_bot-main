@@ -371,6 +371,8 @@ export function ProductsPage() {
                   <img
                     src={product.image}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className="csp-s-0359"
                   />
                 ) : (

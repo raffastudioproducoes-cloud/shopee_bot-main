@@ -5,6 +5,17 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.11.1] - 2026-11-09
+
+### Changed — entrega de dados mais rápida e com menos requisições
+
+- **Posts em lote:** a listagem busca threads, agendas, produtos, mídias, fila e eventos com `IN (...)` por blocos de 15 posts (~20 consultas por página de 30, antes ~270). Resultado idêntico ao da versão individual, provado por `tests/api/test_posts_list_batch.py` (equivalência, número de consultas, contas/perfis alheios).
+- **Atualização automática de Posts:** 30 s só enquanto há envio em andamento ou nova tentativa; 5 min se só existem posts agendados; nada se não há agenda. Antes recarregava todas as páginas a cada 30 s para sempre.
+- **Cache de arquivos:** `/assets/*` (nome com hash) por 1 ano e imutável; vídeos e imagens públicas por 1 dia; `index.html` e `sw.js` continuam sem cache.
+- **Imagens sob demanda** nas listas de produtos e catálogo.
+- **Migração 096** (somente `CREATE INDEX IF NOT EXISTS`): índices compostos para a listagem de Posts e 8 chaves estrangeiras sem índice apontadas pelo linter do Supabase. Contrato em `tests/database/test_096_performance_indexes.py`.
+- Análise e próximos passos (cache de autenticação, retenção de logs, preparação para vários servidores): `docs/DESEMPENHO-ENTREGA-DE-DADOS-20261109.md`.
+
 ## [3.11.0] - 2026-11-09
 
 ### Added — nova apresentação do site (página inicial `/` e `/presentation`)

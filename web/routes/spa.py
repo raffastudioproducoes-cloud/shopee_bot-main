@@ -48,11 +48,20 @@ _ASSETS_DIR = _DIST_DIR / "assets"
 _RESERVED_PREFIXES = ("api/", "static/", "panel/", "auth/", "internal/")
 
 
+# Arquivos com hash no nome (assets/) nunca mudam; vídeos, marcas e ícones de public/ mudam raramente.
+_IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
+_PUBLIC_FILE_CACHE = "public, max-age=86400"
+
+
 @spa_bp.get("/assets/<path:filename>")
 def spa_assets(filename):
     if not _ASSETS_DIR.is_dir():
         abort(404)
-    return send_from_directory(_ASSETS_DIR, filename)
+    response = send_from_directory(_ASSETS_DIR, filename)
+    # O Vite grava o hash do conteúdo no nome do arquivo: cada versão tem nome novo, então o
+    # navegador pode guardar por 1 ano sem perguntar de novo (menos uma requisição por arquivo).
+    response.headers["Cache-Control"] = _IMMUTABLE_CACHE
+    return response
 
 
 @spa_bp.get("/", defaults={"path": ""})
@@ -68,7 +77,9 @@ def spa_catch_all(path):
     if path and path != "index.html" and (_DIST_DIR / path).is_file():
         if path == "sw.js":
             return _html_or_worker_response(_DIST_DIR, path)
-        return send_from_directory(_DIST_DIR, path)
+        response = send_from_directory(_DIST_DIR, path)
+        response.headers["Cache-Control"] = _PUBLIC_FILE_CACHE
+        return response
 
     index_file = _DIST_DIR / "index.html"
     if not index_file.is_file():
