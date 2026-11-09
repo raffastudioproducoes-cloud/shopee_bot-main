@@ -418,7 +418,7 @@ def _wait_publish_complete(user_access_token, publish_id, timeout_s=120):
     )
 
 
-def post_video(user_access_token, video_path, text, privacy_level="SELF_ONLY"):
+def post_video(user_access_token, video_path, text, privacy_level="SELF_ONLY", before_publish=None):
     """Valida Creator Info e publica um vídeo com upload em chunks."""
     video_size = os.path.getsize(video_path)
     _upload_chunk_plan(video_size)
@@ -439,6 +439,8 @@ def post_video(user_access_token, video_path, text, privacy_level="SELF_ONLY"):
         raise TikTokAPIError(
             "A opção de privacidade solicitada não está disponível para esta conta TikTok."
         )
+    if before_publish:
+        before_publish()
     publish_id, upload_url = _init_video_post(
         user_access_token, video_size, text, privacy_level, creator
     )
