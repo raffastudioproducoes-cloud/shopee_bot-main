@@ -5,7 +5,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [3.8.1] - 2026-11-09
 
-### Fixed — período e ativação de campanhas (PATCH candidata para staging)
+### Fixed — período e ativação de campanhas (PATCH 3.8.1 em staging)
 
 - O limite de dias do plano conta somente os weekdays selecionados, com janela máxima de 210 dias corridos, 30 dias efetivos e 450 horários.
 - O editor destaca os dias selecionados e informa saldo efetivo e data/hora-limite.
@@ -13,8 +13,9 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - A listagem de rascunhos filtra lifecycle antes do limite e falha fechada se não conseguir confirmar o estado das reservas.
 - Retentativas de uma reserva em preparação permanecem possíveis na cota cheia somente para o mesmo rascunho e com período pago confirmado.
 - Migration 095 mantém a RPC legada sem EXECUTE para service_role e concede execução somente ao wrapper F4E.
-- Versão candidata 3.8.1 em staging; sem promoção para main/produção nesta etapa.
-- CI #1259 SUCCESS no SHA `3a002b341587d432e1ec03c2daa9f10e86ae6a7e`: API 1.332, scheduler 208/1 xfailed, SemVer 9, proxy/segurança 34, frontend build/TypeScript e F4E PostgreSQL descartável; smoke externo staging SKIPPED até implantação.
+- PATCH 3.8.1 integrada e LIVE em staging no SHA `918af14c0e242a2f732bbfe8c8189eab6c869754`; migration 095 aplicada no Supabase compartilhado. Produção permanece em 3.8.0 até autorização específica.
+- CI #1259 SUCCESS no SHA `3a002b341587d432e1ec03c2daa9f10e86ae6a7e`: API 1.332, scheduler 208/1 xfailed, SemVer 9, proxy/segurança 34, frontend build/TypeScript e F4E PostgreSQL descartável; smoke externo foi SKIPPED antes do deploy.
+- Render staging deploy `dep-dbol68ss728c73ab8r30` LIVE no SHA de merge; migration 095 confirmada em `public.migrations` às 05:00:11 UTC. Smoke HTTP externo/QA autenticada ainda não comprovados.
 
 ## [Não lançado]
 

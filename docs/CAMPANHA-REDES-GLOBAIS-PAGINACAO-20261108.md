@@ -3,7 +3,7 @@
 Versão-alvo: 3.8.0
 Data: 08/11/2026
 
-> Complemento 09/11/2026: consumo de dias efetivos por weekdays, limite dinâmico e ativação sem salvamento manual estão documentados em [CAMPANHA-DIAS-EFETIVOS-E-ATIVACAO-20261109.md](CAMPANHA-DIAS-EFETIVOS-E-ATIVACAO-20261109.md). Migration 095 autorizada para staging, ainda não aplicada; implantação depende de CI e revisão final.
+> Complemento 09/11/2026: consumo de dias efetivos por weekdays, limite dinâmico e ativação sem salvamento manual estão documentados em [CAMPANHA-DIAS-EFETIVOS-E-ATIVACAO-20261109.md](CAMPANHA-DIAS-EFETIVOS-E-ATIVACAO-20261109.md). Migration 095 autorizada e aplicada no Supabase compartilhado pelo deploy de staging 3.8.1 (`dep-dbol68ss728c73ab8r30`, SHA `918af14c0e242a2f732bbfe8c8189eab6c869754`). Produção segue em 3.8.0 sem deploy de código.
 Branch: feat/campaign-global-networks-paged-adaptation
 Base: staging 3.7.0
 
