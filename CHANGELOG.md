@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Security — dependências npm (plano de estabilização, fase 1)
+
+- `npm audit fix` no frontend: `vite` 6.4.3 → 6.4.6 (dependência direta de desenvolvimento) e `seroval` 1.6.7 → 1.8.0 (transitiva do `@tanstack/react-router`). `npm audit`: 2 vulnerabilidades altas → 0. Somente `package-lock.json`; `tsc`, build e testes sem novas falhas em relação à base.
+
 ## [3.9.0] - 2026-11-09
 
 > Publicada em produção em 09/11/2026 (Render `dep-dbov227avr4c73bvifjg` LIVE no commit `f3edf13`). Registro: `docs/RELEASE-3.9.0-20261109.md`.
