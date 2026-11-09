@@ -71,9 +71,13 @@ def plan_campaign_slots(
         raise ValueError("Informe horários locais sem fuso; o fuso é configurado separadamente.")
     if end_time < start_time:
         raise ValueError("A hora final deve ser posterior ou igual à inicial.")
-    window_minutes = (datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time)).total_seconds() / 60
+    window_minutes = (
+        datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time)
+    ).total_seconds() / 60
     if posts_per_day > 1 and window_minutes < posts_per_day - 1:
-        raise ValueError("A janela diária é curta para essa quantidade; amplie o horário ou reduza as postagens por dia.")
+        raise ValueError(
+            "A janela diária é curta para essa quantidade; amplie o horário ou reduza as postagens por dia."
+        )
     try:
         local_timezone = ZoneInfo(timezone)
     except (ZoneInfoNotFoundError, TypeError, ValueError) as exc:
