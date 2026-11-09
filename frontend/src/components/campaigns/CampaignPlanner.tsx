@@ -475,6 +475,7 @@ export function CampaignPlanner({ credentials }: {
             {listsResponse?.next_cursor && <p className="campaign-status">Exibindo as 100 listas mais recentes.</p>}
             {selectedList && products.length === 0 && <p className="campaign-status">Esta lista não tem produtos. Adicione produtos em Listas.</p>}
             {selectedList && draft.itemIds.length > 0 && (
+              <>
               <ol className="campaign-products">
                 {visibleProductIds.map((id, pageIndex) => {
                   const index = productPageStart + pageIndex
@@ -625,6 +626,7 @@ export function CampaignPlanner({ credentials }: {
                     onClick={() => setProductPage((page) => Math.min(productPageCount, page + 1))}>→</button>
                 </nav>
               )}
+              </>
             )}
           </section>
 
