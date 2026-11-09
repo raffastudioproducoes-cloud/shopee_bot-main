@@ -7,6 +7,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 - Campanhas agora exibem prévia de composição por rede, informando mídias aceitas, arquivos descartados e bloqueios de texto/formato/tamanho antes da ativação. A prévia considera anexos legados e inclui o link afiliado na contagem.
 - A ativação de campanhas baixa e sanitiza a imagem Shopee selecionada uma única vez antes do planejamento, usando o tamanho real para aplicar limites específicos por rede; o arquivo original do produto permanece intacto.
+- Remove imports sem uso apontados pelo lint durante a validação da correção.
 
 ## [3.8.0] - 2026-11-08
 
