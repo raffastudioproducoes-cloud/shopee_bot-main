@@ -108,9 +108,9 @@ export const NETWORK_HELP: Record<PostNetwork, NetworkHelp> = {
       "O upload usa chunks sequenciais de até 64 MB, conforme a Media Transfer Guide; arquivos acima do teto de 4 GB são bloqueados.",
     ],
     sources: [
-      { label: "TikTok — Direct Post (referência)", url: "https://developers.tiktok.com/doc/content-posting-api-reference-direct-post" },
-      { label: "TikTok — Guia de envio de mídia", url: "https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide" },
-      { label: "TikTok — Diretrizes de publicação", url: "https://developers.tiktok.com/doc/content-sharing-guidelines" },
+      { label: "TikTok — Direct Post (referência)", url: "https://developers.tiktok.com/docs/en/content-posting-api-get-started" },
+      { label: "TikTok — Guia de envio de mídia", url: "https://developers.tiktok.com/docs/en/content-posting-api-media-transfer-guide" },
+      { label: "TikTok — Diretrizes de publicação", url: "https://developers.tiktok.com/docs/en/content-sharing-guidelines" },
       { label: "TikTok — Primeiros passos", url: "https://developers.tiktok.com/doc/content-posting-api-get-started" },
     ],
   },
