@@ -163,6 +163,19 @@ def campaign_limits_response(policy: CampaignPolicy, profile_id: str) -> dict:
     except Exception:
         eligible = policy.is_admin
         active_count = None
+    quota_available = policy.is_admin or (
+        policy.active_campaigns_limit is not None and active_count is not None
+        and active_count < policy.active_campaigns_limit
+    )
+    activation_available = eligible and active_count is not None and quota_available
+    if active_count is None:
+        message = "Não foi possível consultar a capacidade de campanhas ativas."
+    elif not eligible:
+        message = "Ativação exige período pago confirmado e capacidade disponível."
+    elif not quota_available:
+        message = "Limite de campanhas ativas do plano atingido."
+    else:
+        message = "Ativação permitida, sujeita à revisão de mídia, OAuth e cotas."
     return {
         "profile_id": profile_id,
         "plan_tier": policy.tier,
@@ -176,9 +189,7 @@ def campaign_limits_response(policy: CampaignPolicy, profile_id: str) -> dict:
         "absolute_campaign_days": 30,
         "automation_entitled": policy.automation_enabled,
         "automation_available": eligible and policy.automation_enabled,
-        "activation_available": eligible and active_count is not None,
+        "activation_available": activation_available,
         "campaign_paid_through": paid_through,
-        "message": ("Ativação permitida, sujeita à revisão de mídia, OAuth e cotas."
-                    if eligible and active_count is not None
-                    else "Ativação exige período pago confirmado e capacidade disponível."),
+        "message": message,
     }
