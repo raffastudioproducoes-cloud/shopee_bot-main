@@ -40,7 +40,7 @@ test("movimento respeita 'reduzir movimento' e a página é carregada sob demand
   assert.match(page, /lazy\(\(\) => import\("\.\/presentation\/PresentationBody"\)\)/)
 })
 
-test("limites dos planos são os da migração 072 e nenhum preço em reais é inventado", async () => {
+test("limites dos planos são os da migração 072 e os preços são os informados por Rafa", async () => {
   const sql = await read("../database/migrations/072_plan_limits_and_atomic_catalog_quotas.sql")
   const rows = Object.fromEntries(
     [...sql.matchAll(/\('(free|pro|premium)',(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(true|false)\)/g)]
@@ -61,5 +61,10 @@ test("limites dos planos são os da migração 072 e nenhum preço em reais é i
     if (days === 0) assert.ok(line.includes("campaign: null"), `${id}: campanha`)
     else assert.ok(line.includes(`campaign: { maxDays: ${days}, postsPerDay: ${postsPerDay}, active: ${activeCampaigns} }`), `${id}: campanha`)
   }
-  assert.doesNotMatch(content, /R\$\s?\d/, "preço em reais inventado")
+  // Valores de referência informados por Rafa em 09/11/2026: Pro R$ 59,90 e Premium R$ 109,90 por mês.
+  const prices = [...content.matchAll(/R\$\s?\d+(?:,\d{2})?/g)].map((m) => m[0])
+  assert.deepEqual(prices.sort(), ["R$ 109,90", "R$ 59,90"], "só os dois valores informados podem aparecer")
+  assert.match(content, /id: "pro", priceLabel: "R\$ 59,90"/)
+  assert.match(content, /id: "premium", priceLabel: "R\$ 109,90"/)
+  assert.match(content, /id: "free", priceLabel: "Grátis"/)
 })

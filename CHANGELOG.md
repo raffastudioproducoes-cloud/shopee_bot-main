@@ -5,6 +5,18 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.11.2] - 2026-11-09
+
+### Fixed — página de Posts dava "Não foi possível carregar o histórico" (causa real)
+
+- **Causa (log da staging):** `httpx.WriteError: [Errno 32] Broken pipe`. A conexão HTTP/2 compartilhada com o Supabase morria (ociosidade, instância do Render que dormiu e acordou) e a primeira consulta falhava com 500. A versão anterior (3.10.2/3.11.0), que enriquecia os posts em paralelo, piorava: várias consultas simultâneas batiam na mesma conexão quebrada e todas falhavam juntas.
+- **Correção para a API inteira:** o cliente do banco repete **uma vez** a chamada quando a conexão morreu: `WriteError`/`ConnectError` (o pedido nem saiu: seguro para qualquer método) e `ReadError`/`RemoteProtocolError` só em leituras (GET/HEAD). Gravações nunca são repetidas depois de enviadas. A listagem de Posts já não usa paralelismo desde a 3.11.1 (consultas em lote, uma sequência curta por requisição).
+- Testes: `tests/api/test_database_resilience.py` (repete uma vez; não esconde a segunda falha; não repete gravação após erro de leitura).
+
+### Changed — valores dos planos na apresentação
+
+- Seção **Valores**: Free **Grátis**, Pro **R$ 59,90** e Premium **R$ 109,90**, por mês, marcados como "valor de referência" (informados por Rafa em 09/11/2026; a contratação ainda não foi aberta). O teste da página aceita somente esses dois valores em reais.
+
 ## [3.11.1] - 2026-11-09
 
 ### Changed — entrega de dados mais rápida e com menos requisições

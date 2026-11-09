@@ -175,7 +175,7 @@ export function PlansScene() {
             <div className="sm:col-span-2"><CampaignsCard plan={plan} /></div>
             <AutomationCard plan={plan} />
           </div>
-          <p className="mt-5 text-xs text-ao-muted-fg">Limites definidos para o lançamento. Valores e contratação ainda em definição — o Auto Orbital ainda não iniciou a comercialização. As regras de cada rede social continuam valendo acima de qualquer plano.</p>
+          <p className="mt-5 text-xs text-ao-muted-fg">Limites definidos para o lançamento. Os valores de referência estão na seção Valores — o Auto Orbital ainda não iniciou a comercialização. As regras de cada rede social continuam valendo acima de qualquer plano.</p>
         </div>
       </div>
     </section>
