@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.10.0] - 2026-11-09
+
+> Estabilização e segurança pós-3.9.0 (plano de estabilização do Vault, achados S-01 a S-06 da auditoria de 07/11). Sem migration, cron, gateway ou segredo novos.
+
 ### Changed — CD verifica o deploy em vez de depender de hook (plano de estabilização, fase 6)
 
 - `cd.yml` (produção) não tenta mais disparar deploy por hook: o Render já faz deploy automático (`autoDeploy=yes`) e um hook junto dele implantaria duas vezes. Depois do CI verde na `main`, o job `deploy` roda `scripts/verify_deploy.py`, que consulta a página pública até aparecer `Versão X.Y.Z` (a do arquivo `VERSION` do commit testado) e **falha** em 15 min se não aparecer, em vez de terminar verde sem fazer nada.
