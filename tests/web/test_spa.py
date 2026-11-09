@@ -164,3 +164,14 @@ def test_service_worker_and_html_remain_uncached(spa_app):
     client = spa_app.test_client()
     for path in ("/sw.js", "/", "/index.html"):
         assert client.get(path).headers["Cache-Control"] == "no-store, no-cache, must-revalidate"
+
+
+def test_self_hosted_font_is_served_as_a_file_not_as_html(spa_app, tmp_path):
+    fonts = tmp_path / "dist" / "fonts"
+    fonts.mkdir(parents=True, exist_ok=True)
+    (fonts / "mona-sans-latin-wght-normal.woff2").write_bytes(b"wOF2-test")
+    response = spa_app.test_client().get("/fonts/mona-sans-latin-wght-normal.woff2")
+    assert response.status_code == 200
+    assert response.data == b"wOF2-test"
+    assert "text/html" not in response.headers["Content-Type"]
+    assert response.headers["Cache-Control"] == "public, max-age=86400"

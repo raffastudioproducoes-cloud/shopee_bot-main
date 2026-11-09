@@ -46,7 +46,7 @@ export function Toaster() {
                 aria-label="Fechar aviso"
                 className="csp-s-0160"
               >
-                ×
+                <Icon name="x" size={16} />
               </button>
             ) : null}
           </div>
