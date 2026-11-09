@@ -1,13 +1,12 @@
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-import pytest
 
 from api import campaign_activation
 
 
-@pytest.mark.asyncio
-async def test_shopee_image_is_sanitized_once_and_network_size_limit_uses_real_bytes(monkeypatch):
+def test_shopee_image_is_sanitized_once_and_network_size_limit_uses_real_bytes(monkeypatch):
     content = b"source-image"
     normalized = SimpleNamespace(
         content=b"x" * (4 * 1024 * 1024 + 1),
@@ -30,7 +29,7 @@ async def test_shopee_image_is_sanitized_once_and_network_size_limit_uses_real_b
         "source_image": "https://images.example.invalid/product.jpg",
         "from_shopee": True,
     }]
-    await campaign_activation._prepare_shopee_sources(sources)
+    asyncio.run(campaign_activation._prepare_shopee_sources(sources))
 
     assert sources[0]["size"] == 4 * 1024 * 1024 + 1
     assert sources[0]["prepared_media"] is normalized
