@@ -318,15 +318,16 @@ def _video_duration_seconds(video_path):
         ) from exc
 
 
-def _init_video_post(user_access_token, video_size, text, privacy_level):
+def _init_video_post(user_access_token, video_size, text, privacy_level, creator_info=None):
     chunk_size, total_chunks = _upload_chunk_plan(video_size)
+    creator_info = creator_info or {}
     payload = {
         "post_info": {
             "title": text or "",
             "privacy_level": privacy_level,
-            "disable_duet": False,
-            "disable_comment": False,
-            "disable_stitch": False,
+            "disable_duet": bool(creator_info.get("duet_disabled")),
+            "disable_comment": bool(creator_info.get("comment_disabled")),
+            "disable_stitch": bool(creator_info.get("stitch_disabled")),
         },
         "source_info": {
             "source": "FILE_UPLOAD",
@@ -422,6 +423,10 @@ def post_video(user_access_token, video_path, text, privacy_level="SELF_ONLY"):
     video_size = os.path.getsize(video_path)
     _upload_chunk_plan(video_size)
     creator = get_creator_info(user_access_token)
+    if creator.get("creator_can_post") is False:
+        raise TikTokAPIError(
+            "Esta conta TikTok não pode publicar no momento. Tente novamente mais tarde."
+        )
     max_duration = int(creator["max_video_post_duration_sec"])
     duration = _video_duration_seconds(video_path)
     if duration > max_duration:
@@ -435,7 +440,7 @@ def post_video(user_access_token, video_path, text, privacy_level="SELF_ONLY"):
             "A opção de privacidade solicitada não está disponível para esta conta TikTok."
         )
     publish_id, upload_url = _init_video_post(
-        user_access_token, video_size, text, privacy_level
+        user_access_token, video_size, text, privacy_level, creator
     )
     _upload_video_file(upload_url, video_path)
     _wait_publish_complete(user_access_token, publish_id)
