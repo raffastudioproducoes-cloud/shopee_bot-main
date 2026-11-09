@@ -79,7 +79,7 @@ function paidThroughLocal(value: string): { date: string; time: string } | null 
     second: "2-digit",
     hourCycle: "h23",
   }).formatToParts(instant)
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value ?? ""
+  const part = (type: string) => parts.find((entry) => entry.type === type)?.value ?? ""
   return {
     date: `${part("year")}-${part("month")}-${part("day")}`,
     time: `${part("hour")}:${part("minute")}:${part("second")}`,
