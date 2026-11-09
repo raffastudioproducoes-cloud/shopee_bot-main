@@ -1,3 +1,8 @@
+## 08/11/2026 — Release MINOR Auto Orbital 3.7.0 concluída em produção
+
+- [x] Aceite e autorização expressa de Rafa; [x] release staging PR #374/CI #1185 SUCCESS, SHA `f34dd11`, Render `dep-dboh06o473hc73akd7bg` LIVE; [x] PR main #375/CI #1187 e gate SemVer #14 SUCCESS; [x] merge main `a16f569ca8ebbbbb834bc7b909abe85407dafc3c`, Render produção `dep-dboh27e8bjmc73b7ukfg` LIVE no SHA; [x] HTTP health/ready/login 200, HTML 3.7.0, poster sem login 401, nenhum request 5xx novo observado; SIGTERM antigo esperado. [x] VERSION 3.7.0; [x] main/staging sem diferença de arquivos no merge; sem DDL, cron, gateway, segredo ou post externo.
+- [ ] Fechar docs Projeto/Vault por PR; [ ] acompanhamento de latência de poster legado em uso real e QA autenticada na produção (não realizada pelo agente). [Registro técnico, decisão SemVer e limites](RELEASE-3.7.0-20261108.md).
+
 ## 08/11/2026 — Autorizada a release MINOR 3.7.0 (promoção em andamento)
 
 - [x] Rafa autorizou expressamente “Pode mergear com a main. Pode promover!”; [x] staging com funcionalidade + docs e CI #1181/#1183 SUCCESS, Render `708a667` LIVE; [x] incremento SemVer `3.6.2→3.7.0` e changelog datado na branch de release.
