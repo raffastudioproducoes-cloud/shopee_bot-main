@@ -56,6 +56,11 @@ function legacyPostsPerDay(start: string, end: string, intervalMinutes: number |
   return Math.min(15, Math.max(1, Math.floor(span / intervalMinutes) + 1))
 }
 
+function timeMinutes(value: string): number {
+  const [hours, minutes] = value.split(":").map(Number)
+  return hours * 60 + minutes
+}
+
 function formatLocal(iso: string): string {
   return new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo", weekday: "short", day: "2-digit",
@@ -287,6 +292,7 @@ export function CampaignPlanner({ credentials }: {
       : draft.itemIds.length === 0 ? "Selecione os produtos da campanha."
       : !draft.startDate || !draft.endDate ? "Informe a data inicial e a data final."
       : draft.days.length === 0 ? "Selecione ao menos um dia da semana."
+      : scheduleUsage.calendarDays < 1 ? "A data final deve ser igual ou posterior à data inicial."
       : scheduleUsage.calendarDays > 210 ? "O intervalo não pode ultrapassar 210 dias corridos."
       : scheduleUsage.activeDaysUsed === 0 ? "Nenhum dos dias da semana selecionados ocorre neste período."
       : scheduleUsage.exceedsActiveDayLimit ? `O período usa ${scheduleUsage.activeDaysUsed} dias de publicação, acima do limite de ${caps.days}.`
@@ -296,6 +302,9 @@ export function CampaignPlanner({ credentials }: {
       : draft.endTime < draft.startTime ? "O horário final deve ser igual ou posterior ao horário inicial."
       : !Number.isInteger(Number(draft.postsPerDay)) || Number(draft.postsPerDay) < 1
         || Number(draft.postsPerDay) > caps.posts ? `Ajuste a quantidade diária ao limite de ${caps.posts} do plano.`
+      : Number(draft.postsPerDay) > 1
+        && timeMinutes(draft.endTime) - timeMinutes(draft.startTime) < Number(draft.postsPerDay) - 1
+        ? "A janela diária é curta para essa quantidade de postagens. Amplie o horário ou reduza a frequência."
       : null)
 
   const saveBlockReason = campaignAccessBlockReason
@@ -721,7 +730,13 @@ export function CampaignPlanner({ credentials }: {
             <p>Limite do plano: {caps.days || "indisponível"} dias de publicação. Só contam os dias da semana selecionados; o intervalo pode alcançar até 210 dias corridos. Horário de Brasília.</p>
             <div className="campaign-pair">
               <TextInput label="Data inicial" type="date" value={draft.startDate}
-                onChange={(event) => update("startDate", event.target.value)} />
+                onChange={(event) => {
+                 const value = event.target.value
+                 setDraft((current) => ({
+                   ...current, startDate: value,
+                   endDate: current.endDate && current.endDate < value ? "" : current.endDate,
+                 }))
+               }} />
               <TextInput label="Data final" type="date" value={draft.endDate}
                 min={draft.startDate || undefined}
                 max={scheduleUsage.maxEndDate}
