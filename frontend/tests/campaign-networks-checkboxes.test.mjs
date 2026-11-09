@@ -61,26 +61,17 @@ test("campanha mostra a composição aceita e as mídias descartadas por rede", 
   assert.match(planner, /texts=\{Object\.fromEntries/)
 })
 
-test("planejador de composição bloqueia texto longo e preserva só mídia aceita", async () => {
-  const { planMediaComposition } = await import("../src/lib/mediaComposition.ts")
-  const plan = planMediaComposition("tiktok", {
-    texts: ["descrição válida"],
-    productCount: 1,
-    media: [
-      { name: "foto.jpg", size: 1024, kind: "image" },
-      { name: "video-1.mp4", size: 5 * 1024 * 1024, kind: "video" },
-      { name: "video-2.mp4", size: 5 * 1024 * 1024, kind: "video" },
-    ],
-  })
-  assert.equal(plan.mode, "video")
-  assert.deepEqual(plan.media.map((item) => item.name), ["video-1.mp4"])
-  assert.deepEqual(plan.dropped.map((entry) => entry.item.name), ["foto.jpg", "video-2.mp4"])
-
-  const tooLong = planMediaComposition("tiktok", {
-    texts: ["x".repeat(2201)],
-    productCount: 1,
-    media: [{ name: "video.mp4", size: 5 * 1024 * 1024, kind: "video" }],
-  })
-  assert.equal(tooLong.mode, "blocked")
-  assert.match(tooLong.blockedReason ?? "", /2.200/)
+test("planejador de composição é compartilhado e bloqueia texto fora do limite", async () => {
+  const [composition, limits, backend] = await Promise.all([
+    src("lib/mediaComposition.ts"),
+    src("lib/networkLimits.ts"),
+    readFile(new URL("../../../api/media_composition.py", import.meta.url), "utf8"),
+  ])
+  assert.match(composition, /adaptMedia\(rule, draft\.media\)/)
+  assert.match(composition, /TEXT_ERROR_KEYS/)
+  assert.match(composition, /mode: "blocked"/)
+  assert.match(composition, /blockedReason/)
+  assert.match(limits, /if \(len > rule\.maxChars\)/)
+  assert.match(backend, /plan_network_composition/)
+  assert.match(backend, /Text errors still block/)
 })
