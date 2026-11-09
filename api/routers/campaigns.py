@@ -289,10 +289,24 @@ async def list_campaign_drafts(
     user_id: int = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
+    owner_profile = _draft_profile(profile_id)
     result = (scope_owner(supabase.table("campaign_drafts").select("*"),
-                          user_id, _draft_profile(profile_id))
+                          user_id, owner_profile)
               .order("updated_at", desc=True).limit(30).execute())
-    return {"data": result.data or []}
+    rows = result.data or []
+    draft_ids = [str(row["id"]) for row in rows if row.get("id")]
+    if draft_ids:
+        reservations = (supabase.table("campaign_reservations_f4e")
+            .select("draft_id,lifecycle")
+            .eq("user_id", str(user_id)).eq("profile_id", owner_profile)
+            .in_("draft_id", draft_ids).execute()).data or []
+        activated_drafts = {
+            str(row["draft_id"]) for row in reservations
+            if row.get("draft_id") and row.get("lifecycle") in
+            ("active", "paused", "cancelled", "completed")
+        }
+        rows = [row for row in rows if str(row.get("id")) not in activated_drafts]
+    return {"data": rows}
 
 
 def _get_owned_campaign(draft_id: UUID, user_id: int, profile_id: str):
