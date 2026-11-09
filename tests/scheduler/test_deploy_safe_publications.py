@@ -181,8 +181,19 @@ def test_provider_publishers_mark_boundary_before_network_calls():
     ]
     for filename in publishers:
         source = (ROOT / "scheduler" / filename).read_text(encoding="utf-8")
-        assert "mark_external_delivery()" in source
+        if filename == "bot_post_tiktok.py":
+            # TikTok consulta Creator Info e valida duração antes de marcar
+            # a fronteira de publicação; o callback é chamado só antes do init.
+            assert "before_publish=mark_external_delivery" in source
+        else:
+            assert "mark_external_delivery()" in source
         assert "from shopee_bot.scheduler.publication_context import mark_external_delivery" in source
+
+    tiktok_api = (ROOT / "apis" / "tiktok.py").read_text(encoding="utf-8")
+    post_function = tiktok_api[tiktok_api.index("def post_video("):]
+    assert "if before_publish:" in post_function
+    assert "before_publish()" in post_function
+    assert post_function.index("before_publish()") < post_function.index("_init_video_post(")
 
 
 def test_legacy_worker_cannot_be_misclassified_as_recoverable(monkeypatch):

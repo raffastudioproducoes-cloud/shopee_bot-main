@@ -159,6 +159,26 @@ export function NetworkLimitsHelp() {
         {PICKER_NETWORKS.map((n) => (
           <NetworkCard key={n} n={n} />
         ))}
+        <section aria-labelledby="limits-shopee-video" style={{ ...cardStyle, minWidth: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+          <h3 id="limits-shopee-video" style={{ margin: 0, font: strong, color: "var(--text-body)" }}>Shopee Vídeo</h3>
+          <p style={{ margin: 0, font: body, color: "var(--text-muted)" }}>
+            A Shopee Vídeo é publicada pelo aplicativo Shopee. O Auto Orbital ainda não possui integração de upload/publicação para esse destino; por isso ela não aparece como opção de envio nas campanhas ou na publicação única.
+          </p>
+          <table className="csp-s-0015"><tbody>
+            <tr className="csp-named-row-border"><th scope="row" className="csp-named-th-cell">Duração</th><td className="csp-named-td-cell">De 3 a 60 segundos. A Shopee recomenda vídeos de até 30 segundos.</td></tr>
+            <tr className="csp-named-row-border"><th scope="row" className="csp-named-th-cell">Produtos</th><td className="csp-named-td-cell">Até 6 produtos vinculados diretamente ao vídeo.</td></tr>
+            <tr className="csp-named-row-border"><th scope="row" className="csp-named-th-cell">Comissão</th><td className="csp-named-td-cell">A Central informa 3% de comissão para vendas diretas atribuídas. O produto precisa ser vinculado no vídeo; link na legenda ou nos comentários não substitui o vínculo. A atribuição considera carrinho em até 24 horas após o clique e compra em até 7 dias.</td></tr>
+            <tr className="csp-named-row-border"><th scope="row" className="csp-named-th-cell">Publicação</th><td className="csp-named-td-cell">Somente pelo aplicativo Shopee, conforme a Central de Ajuda consultada.</td></tr>
+          </tbody></table>
+          <p style={{ margin: 0, font: small, color: "var(--text-muted)" }}>
+            As fontes consultadas não publicam especificação completa de codec, resolução, proporção, tamanho máximo do arquivo ou limite de caracteres da legenda. Esses campos não serão inventados nem usados como validação automática.
+          </p>
+          <ul style={{ margin: 0, paddingLeft: 18, font: small }}>
+            <li><a href="https://help.shopee.com.br/portal/10/article/171162-Principais-dúvidas-sobre-Shopee-Video" target="_blank" rel="noopener noreferrer">Principais dúvidas sobre Shopee Vídeo</a></li>
+            <li><a href="https://help.shopee.com.br/portal/10/article/165030" target="_blank" rel="noopener noreferrer">Como criar e editar vídeos na Shopee Vídeo</a></li>
+            <li><a href="https://help.shopee.com.br/portal/10/article/165032" target="_blank" rel="noopener noreferrer">Como adicionar produtos na Shopee Vídeo</a></li>
+          </ul>
+        </section>
         <section aria-labelledby="limits-kwai" style={{ ...cardStyle, minWidth: 0 }}>
           <h3 id="limits-kwai" style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, font: strong, color: "var(--text-body)" }}>
             <NetworkLogo network="kwai" />
