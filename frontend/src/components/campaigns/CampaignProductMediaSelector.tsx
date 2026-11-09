@@ -109,7 +109,7 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
           Limpar referências ausentes
         </button>
       </p>}
-      {mediaQuery.isSuccess && plans.length > 0 && (
+      {plansReady && plans.length > 0 && (
         <section className="campaign-media-preflight" aria-live="polite" aria-label="Compatibilidade por rede">
           <strong>Compatibilidade das mídias por rede</strong>
           {plans.map((plan) => (
