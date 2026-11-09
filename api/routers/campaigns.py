@@ -296,10 +296,14 @@ async def list_campaign_drafts(
     rows = result.data or []
     draft_ids = [str(row["id"]) for row in rows if row.get("id")]
     if draft_ids:
-        reservations = (supabase.table("campaign_reservations_f4e")
-            .select("draft_id,lifecycle")
-            .eq("user_id", str(user_id)).eq("profile_id", owner_profile)
-            .in_("draft_id", draft_ids).execute()).data or []
+        try:
+            reservations = (supabase.table("campaign_reservations_f4e")
+                .select("draft_id,lifecycle")
+                .eq("user_id", str(user_id)).eq("profile_id", owner_profile)
+                .in_("draft_id", draft_ids).execute()).data or []
+        except Exception as exc:
+            logger.warning("Falha ao filtrar rascunhos já ativados (%s)", type(exc).__name__)
+            reservations = []
         activated_drafts = {
             str(row["draft_id"]) for row in reservations
             if row.get("draft_id") and row.get("lifecycle") in
