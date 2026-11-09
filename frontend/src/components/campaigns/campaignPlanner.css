@@ -16,9 +16,9 @@
 .campaign-triple { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .campaign-weekdays { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; }
 .campaign-weekdays label { position:relative; display:flex; justify-content:center; align-items:center; min-height:44px; padding:4px; border-radius:var(--r-sm); border:1px solid var(--border-hairline); background:var(--surface-inset); color:var(--text-muted); cursor:pointer; font:var(--text-role-small); }
-.campaign-weekdays label.is-on { border-color:var(--border-strong); color:var(--text-body); background:rgba(255,255,255,.10); }
+.campaign-weekdays label.is-on { border:1px solid var(--accent); color:var(--black); background:var(--gradient-cta); font-weight:700; box-shadow:0 0 0 1px var(--accent-tint); }
 .campaign-weekdays input { position:absolute; opacity:0; inset:0; width:100%; margin:0; cursor:pointer; }
-.campaign-weekdays label:focus-within { outline:2px solid var(--mint-400); outline-offset:2px; }
+.campaign-weekdays label:focus-within { outline:2px solid var(--accent); outline-offset:2px; }
 .campaign-products, .campaign-slots { list-style:none; margin:16px 0 0; padding:0; }
 .campaign-product { display:flex; align-items:center; gap:12px; padding:10px 0; min-width:0; border-bottom:1px solid var(--border-hairline); }
 .campaign-product-index, .campaign-slot-number { display:grid; place-items:center; flex:none; height:30px; min-width:30px; padding:0 6px; border-radius:var(--r-sm); background:var(--surface-inset); color:var(--text-muted); font:var(--text-role-small); }
@@ -136,3 +136,13 @@
 .campaign-pagination button.is-active { border-color:var(--accent); color:var(--accent); }
 .campaign-pagination button:disabled { opacity:.35; cursor:default; }
 .campaign-description-tabs button:focus-visible, .campaign-pagination button:focus-visible { outline:2px solid var(--mint-400); outline-offset:2px; }
+
+/* Botão Ativar: apoio ao confetti e feedback de sucesso. */
+.campaign-activate-wrap { position:relative; display:inline-flex; }
+.campaign-activate-wrap.is-celebrating > button { animation:campaign-activate-pop .45s var(--ease-standard); }
+@keyframes campaign-activate-pop { 0% { transform:scale(1); } 35% { transform:scale(1.07); box-shadow:0 0 0 8px var(--accent-tint); } 100% { transform:scale(1); } }
+@media (prefers-reduced-motion:reduce) { .campaign-activate-wrap.is-celebrating > button { animation:none; } }
+
+.campaign-pagination span { color:var(--text-muted); padding:0 2px; }
+.campaign-counts { display:flex; flex-wrap:wrap; gap:6px 14px; }
+.campaign-counts b { color:var(--text-body); font-variant-numeric:tabular-nums; }

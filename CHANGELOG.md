@@ -5,6 +5,39 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.9.0] - 2026-11-09
+
+> Inclui a PATCH 3.8.1 (dias efetivos e ativação direta), que existiu somente em staging, e o lote de melhorias de campanhas homologado por Rafa em staging.
+
+### Fixed/Changed — ativação de campanhas
+
+- Dias da semana selecionados no editor de campanhas usam o azul padrão do design system (`--gradient-cta`), em vez do verde.
+- O proxy Flask passa a aguardar até 90 s (conexão 5 s) **somente** em `POST /api/campaigns/drafts/{id}/activate`; as demais rotas seguem em 30 s. Antes, ativações grandes terminavam em "API interna não respondeu a tempo". O 504 dessa rota explica que a ativação pode ter concluído e manda conferir a seção 06.
+- Novo painel de andamento da ativação: etapas reais do cliente, cronômetro, barra indeterminada (sem porcentagem fictícia, pois o servidor não informa a etapa), avisos graduais e mensagem de erro recuperável.
+- Confetti no botão Ativar campanha ao concluir, com cores da marca e desativado por `prefers-reduced-motion`.
+- Sem migration, cron, gateway, segredo ou publicação real.
+
+### Changed — seção 06 e prévia de campanhas
+
+- A prévia do calendário e o histórico por rede passam a mostrar 10 itens por página, com páginas numeradas (janela com reticências). O histórico busca só a página atual (`limit=10`) e calcula o total de páginas pelos contadores da campanha.
+- Os contadores de cada campanha mostram apenas valores maiores que zero, em vez de seis contadores fixos.
+- A seção 06 lista somente campanhas em preparação, ativas ou pausadas; concluídas e canceladas deixam de ser listadas ali (seguem no histórico de postagens) e aparece um aviso com a quantidade.
+- Sem alteração de backend, migration, cron, gateway, segredo ou publicação real.
+
+## [3.8.1] - 2026-11-09
+
+### Fixed — período e ativação de campanhas (PATCH 3.8.1 em staging)
+
+- O limite de dias do plano conta somente os weekdays selecionados, com janela máxima de 210 dias corridos, 30 dias efetivos e 450 horários.
+- O editor destaca os dias selecionados e informa saldo efetivo e data/hora-limite.
+- Salvar rascunho manualmente é opcional; a ativação registra o snapshot internamente e preserva alterações feitas enquanto a requisição está pendente.
+- A listagem de rascunhos filtra lifecycle antes do limite e falha fechada se não conseguir confirmar o estado das reservas.
+- Retentativas de uma reserva em preparação permanecem possíveis na cota cheia somente para o mesmo rascunho e com período pago confirmado.
+- Migration 095 mantém a RPC legada sem EXECUTE para service_role e concede execução somente ao wrapper F4E.
+- PATCH 3.8.1 integrada e LIVE em staging no SHA `918af14c0e242a2f732bbfe8c8189eab6c869754`; migration 095 aplicada no Supabase compartilhado. Produção permanece em 3.8.0 até autorização específica.
+- CI #1259 SUCCESS no SHA `3a002b341587d432e1ec03c2daa9f10e86ae6a7e`: API 1.332, scheduler 208/1 xfailed, SemVer 9, proxy/segurança 34, frontend build/TypeScript e F4E PostgreSQL descartável; smoke externo foi SKIPPED antes do deploy.
+- Render staging deploy `dep-dbol68ss728c73ab8r30` LIVE no SHA de merge; migration 095 confirmada em `public.migrations` às 05:00:11 UTC. Smoke HTTP externo/QA autenticada ainda não comprovados.
+
 ## [3.8.0] - 2026-11-08
 
 - Campanhas agora exibem prévia de composição por rede, informando mídias aceitas, arquivos descartados e bloqueios de texto/formato/tamanho/duração/dimensões antes da ativação. A prévia considera anexos legados, lê metadados das mídias salvas e inclui o link afiliado na contagem.

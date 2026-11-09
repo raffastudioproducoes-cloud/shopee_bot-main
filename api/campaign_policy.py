@@ -9,7 +9,9 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 
 from .database import supabase
-from .campaign_schedule import plan_campaign_slots
+from .campaign_schedule import (
+    MAX_CAMPAIGN_CALENDAR_DAYS, count_campaign_days, plan_campaign_slots,
+)
 
 
 @dataclass(frozen=True)
@@ -81,16 +83,27 @@ def require_campaign_access(policy: CampaignPolicy) -> None:
 
 
 def validate_campaign_plan_schedule(policy: CampaignPolicy, schedule) -> None:
-    """Valida período inclusivo; o planejador mantém segurança e teto físico."""
+    """Valida dias efetivos de publicação e mantém teto físico do calendário."""
     require_campaign_access(policy)
     if schedule is None:
         return
-    days = (schedule.end_date - schedule.start_date).days + 1
-    if days < 1 or days > 30:
-        raise HTTPException(status_code=422, detail="O período deve ter de 1 a 30 dias inclusivos.")
-    if days > policy.campaign_days:
+    calendar_days = (schedule.end_date - schedule.start_date).days + 1
+    if calendar_days < 1 or calendar_days > MAX_CAMPAIGN_CALENDAR_DAYS:
         raise HTTPException(
-            status_code=403, detail=f"Seu plano permite até {policy.campaign_days} dias inclusivos por campanha.",
+            status_code=422, detail="O intervalo deve ter de 1 a 210 dias corridos inclusivos.",
+        )
+    try:
+        active_days = count_campaign_days(schedule.start_date, schedule.end_date, schedule.weekdays)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if active_days < 1:
+        raise HTTPException(status_code=422, detail="Nenhum dia selecionado ocorre no período informado.")
+    if active_days > 30:
+        raise HTTPException(status_code=422, detail="O limite absoluto é de 30 dias efetivos de publicação.")
+    if active_days > policy.campaign_days:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Seu plano permite até {policy.campaign_days} dias de publicação nos dias da semana selecionados.",
         )
     if not policy.is_admin and schedule.posts_per_day > policy.campaign_posts_per_day:
         raise HTTPException(
@@ -117,7 +130,10 @@ def validate_campaign_network_volume(policy: CampaignPolicy, schedule, items) ->
         if counts[day] > policy.campaign_posts_per_day:
             raise HTTPException(
                 status_code=403,
-                detail=f"Seu plano permite até {policy.campaign_posts_per_day} publicações por dia de campanha; cada rede conta uma.",
+                detail=(
+                    f"Seu plano permite até {policy.campaign_posts_per_day} publicações por dia de campanha; "
+                    "cada rede conta uma."
+                ),
             )
 
 
@@ -130,28 +146,57 @@ def require_automation_access(policy: CampaignPolicy) -> None:
 def campaign_limits_response(policy: CampaignPolicy, profile_id: str) -> dict:
     """Failures in commercial entitlement/usage readings fail closed."""
     from datetime import datetime, timezone
+
     paid_through = None
     eligible = policy.is_admin
     active_count = None
     try:
-        account = (supabase.table("profiles").select("user_id")
-                   .eq("id",profile_id).single().execute()).data
-        user = (supabase.table("users")
-                .select("campaign_paid_through,campaign_pending_tier,campaign_tier_effective_at")
-                .eq("id",account["user_id"]).single().execute()).data
+        account = (
+            supabase.table("profiles")
+            .select("user_id")
+            .eq("id", profile_id)
+            .single()
+            .execute()
+        ).data
+        user = (
+            supabase.table("users")
+            .select("campaign_paid_through,campaign_pending_tier,campaign_tier_effective_at")
+            .eq("id", account["user_id"])
+            .single()
+            .execute()
+        ).data
         paid_through = user.get("campaign_paid_through")
         if paid_through and not policy.is_admin:
-            paid = datetime.fromisoformat(paid_through.replace("Z","+00:00"))
+            paid = datetime.fromisoformat(paid_through.replace("Z", "+00:00"))
             eligible = paid > datetime.now(timezone.utc) and policy.campaigns_enabled
-        count = (supabase.table("campaign_reservations_f4e")
-                 .select("id",count="exact",head=True)
-                 .eq("profile_id",profile_id).eq("user_id",account["user_id"])
-                 .eq("status","reserved_no_dispatch")
-                 .in_("lifecycle",["preparing","active","paused"]).execute())
+        count = (
+            supabase.table("campaign_reservations_f4e")
+            .select("id", count="exact", head=True)
+            .eq("profile_id", profile_id)
+            .eq("user_id", account["user_id"])
+            .eq("status", "reserved_no_dispatch")
+            .in_("lifecycle", ["preparing", "active", "paused"])
+            .execute()
+        )
         active_count = count.count
     except Exception:
         eligible = policy.is_admin
         active_count = None
+
+    quota_available = policy.is_admin or (
+        policy.active_campaigns_limit is not None
+        and active_count is not None
+        and active_count < policy.active_campaigns_limit
+    )
+    activation_available = eligible and active_count is not None and quota_available
+    if active_count is None:
+        message = "Não foi possível consultar a capacidade de campanhas ativas."
+    elif not eligible:
+        message = "Ativação exige período pago confirmado e capacidade disponível."
+    elif not quota_available:
+        message = "Limite de campanhas ativas do plano atingido."
+    else:
+        message = "Ativação permitida, sujeita à revisão de mídia, OAuth e cotas."
     return {
         "profile_id": profile_id,
         "plan_tier": policy.tier,
@@ -165,9 +210,7 @@ def campaign_limits_response(policy: CampaignPolicy, profile_id: str) -> dict:
         "absolute_campaign_days": 30,
         "automation_entitled": policy.automation_enabled,
         "automation_available": eligible and policy.automation_enabled,
-        "activation_available": eligible and active_count is not None,
+        "activation_available": activation_available,
         "campaign_paid_through": paid_through,
-        "message": ("Ativação permitida, sujeita à revisão de mídia, OAuth e cotas."
-                    if eligible and active_count is not None
-                    else "Ativação exige período pago confirmado e capacidade disponível."),
+        "message": message,
     }
