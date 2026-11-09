@@ -215,6 +215,12 @@ export function CampaignPlanner({ credentials }: {
       void draftsQuery.refetch()
       void planQuery.refetch()
     },
+    onError: () => {
+      // Uma reserva pode ter sido criada antes de uma falha no preflight.
+      // Atualiza lifecycle/cota para permitir retry idempotente do mesmo draft.
+      void activeQuery.refetch()
+      void planQuery.refetch()
+    },
   })
   const lifecycleMutation = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "pause" | "resume" | "cancel" }) =>
@@ -332,7 +338,13 @@ export function CampaignPlanner({ credentials }: {
   const paidPeriodConfirmed = Boolean(plan?.is_admin || (
     plan?.campaign_paid_through && Date.parse(plan.campaign_paid_through) > Date.now()
   ))
+  const atActiveCampaignLimit = plan?.active_campaigns_count !== undefined
+    && plan.active_campaigns_count !== null
+    && plan?.active_campaigns_limit !== undefined
+    && plan.active_campaigns_limit !== null
+    && plan.active_campaigns_count >= plan.active_campaigns_limit
   const preparationRetryAllowed = retryingPreparation
+    && atActiveCampaignLimit
     && plan?.active_campaigns_usage_status === "available"
     && paidPeriodConfirmed
 
