@@ -928,6 +928,23 @@ def _require_legacy_post_origin(post: dict) -> None:
         raise HTTPException(status_code=409, detail="Esta publicação pertence a uma campanha. Use os controles da campanha.")
 
 
+def _cancel_campaign_slot_before_delete(post_id: int) -> None:
+    """Excluir um post de campanha é permitido (pedido do dono do produto), mas a vaga da campanha
+    não pode ficar "planejada" apontando para um post que deixou de existir: ela vira 'cancelled'.
+    Um envio em andamento não é interrompido no meio: nesse caso a exclusão espera terminar."""
+    slots = (
+        supabase.table("campaign_network_slots_f4e").select("id, state")
+        .eq("post_id", post_id).execute().data or []
+    )
+    if any(slot.get("state") == "running" for slot in slots):
+        raise HTTPException(status_code=409, detail="Este post está sendo publicado agora. Tente apagar em alguns instantes.")
+    for slot in slots:
+        if slot.get("state") == "planned":
+            supabase.table("campaign_network_slots_f4e").update(
+                {"state": "cancelled", "finished_at": datetime.now(timezone.utc).isoformat()}
+            ).eq("id", slot["id"]).execute()
+
+
 def _ensure_post_editable(user_id: int, post_id: int, profile_id: str | None, post: dict) -> None:
     """Proíbe edições que alterariam uma publicação já programada ou enviada."""
     _require_legacy_post_origin(post)
@@ -2390,7 +2407,8 @@ async def delete_post(
     profile_id: str | None = Depends(get_current_profile_id),
 ):
     post = _get_post(user_id, post_id, profile_id)  # ownership check
-    _require_legacy_post_origin(post)
+    if post.get("publication_origin", "legacy") == "campaign":
+        _cancel_campaign_slot_before_delete(post_id)
 
     jobs = supabase.table("schedulers").select("id").eq("post_id", post_id).execute().data or []
     for job in jobs:
