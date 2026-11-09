@@ -107,6 +107,8 @@ test("campanha bloqueia somente novas mutações; leitura e exclusão permanecem
   assert.match(source, /scheduleUsage\.calendarDays > 210/)
   assert.match(source, /campaignAccessBlockReason/)
   assert.match(source, /preparationRetryAllowed/)
+  assert.match(source, /active_campaigns_count >= plan\.active_campaigns_limit/)
+  assert.match(source, /onError: \(\) =>/)
   assert.match(source, /currentSaveSignatureRef\.current === variables\.signature/)
   assert.match(source, /campaignsApi.getDraft\(id\)/)
   assert.match(source, /campaignsApi.deleteDraft\(id, revision\)/)
