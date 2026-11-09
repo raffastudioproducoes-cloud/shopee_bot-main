@@ -138,9 +138,7 @@ BEGIN
   RETURN v_id;
 END; $$;
 
-REVOKE ALL ON FUNCTION public.reserve_campaign_f4e(uuid,uuid,uuid,integer,text,jsonb)
-  FROM PUBLIC,anon,authenticated,service_role;
-GRANT EXECUTE ON FUNCTION public.reserve_campaign_f4e(uuid,uuid,uuid,integer,text,jsonb)
-  TO service_role;
+-- CREATE OR REPLACE preserves the existing ACL. In particular, migration 076
+-- revoked direct service_role execution; calls remain through the SECURITY DEFINER wrapper.
 
 COMMIT;
