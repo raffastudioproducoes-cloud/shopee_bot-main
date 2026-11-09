@@ -231,7 +231,7 @@ export function CampaignPlanner({ credentials }: {
 
 
   const saveInput = useMemo<CampaignDraftSaveRequest | null>(() => {
-    if (!canEditCampaign || ((draft.startDate || draft.endDate) && !payload) ||
+    if (!canEditCampaign || !draft.networks.length || ((draft.startDate || draft.endDate) && !payload) ||
         !selectedList || !draft.name.trim() || draft.name.trim().length > 120 || !draft.listId || !draft.itemIds.length ||
         draft.itemIds.length !== products.length ||
         new Set(draft.itemIds).size !== products.length ||
@@ -365,15 +365,15 @@ export function CampaignPlanner({ credentials }: {
   }
 
   const generateCampaignCopy = useMutation({
-    mutationFn: ({ id, persona }: { id: number; persona: string; oldCopy: string; network: PostNetwork | null; listId: number | null; draftId: string | null }) =>
-      postsApi.generateCopy(id, persona, [], { descriptionOnly: true }),
+    mutationFn: ({ id, persona, network }: { id: number; persona: string; oldCopy: string; network: PostNetwork | null; listId: number | null; draftId: string | null }) =>
+      postsApi.generateCopy(id, persona, network ? [network] : [], { descriptionOnly: true }),
     onSuccess: (result, request) => {
       setDraft((current) => {
         if (current.listId !== request.listId || savedDraftId !== request.draftId) return current
         const currentSnapshots = reconcileCampaignSnapshots(products, current.itemSnapshots)
         const snapshot = currentSnapshots[request.id]
         if (!snapshot) return current
-        const currentText = request.network ? (snapshot.networkCopies[request.network] ?? snapshot.copy) : snapshot.copy
+        const currentText = request.network ? (snapshot.networkCopies[request.network] || snapshot.copy) : snapshot.copy
         if (currentText !== request.oldCopy) return current
         const changes = request.network
           ? { networkCopies: { ...snapshot.networkCopies, [request.network]: result.text } }
@@ -532,7 +532,7 @@ export function CampaignPlanner({ credentials }: {
                             const activeNetwork = activeDescriptionNetwork[id] && draft.networks.includes(activeDescriptionNetwork[id])
                               ? activeDescriptionNetwork[id]
                               : draft.networks[0] ?? null
-                            const value = activeNetwork ? (snapshot.networkCopies[activeNetwork] ?? snapshot.copy) : snapshot.copy
+                            const value = activeNetwork ? (snapshot.networkCopies[activeNetwork] || snapshot.copy) : snapshot.copy
                             const limit = activeNetwork ? NETWORK_RULES[activeNetwork].maxChars : 10000
                             const used = activeNetwork ? textLength(NETWORK_RULES[activeNetwork], value) : value.length
                             return (
