@@ -293,6 +293,7 @@ export function CampaignPlanner({ credentials }: {
       : scheduleUsage.maxEndDate && draft.endDate > scheduleUsage.maxEndDate
         ? `A frequência escolhida permite data final até ${formatCampaignDate(scheduleUsage.maxEndDate)}.`
       : !draft.startTime || !draft.endTime ? "Informe os horários inicial e final."
+      : draft.endTime < draft.startTime ? "O horário final deve ser igual ou posterior ao horário inicial."
       : !Number.isInteger(Number(draft.postsPerDay)) || Number(draft.postsPerDay) < 1
         || Number(draft.postsPerDay) > caps.posts ? `Ajuste a quantidade diária ao limite de ${caps.posts} do plano.`
       : null)
@@ -320,7 +321,8 @@ export function CampaignPlanner({ credentials }: {
           : "A ativação está indisponível pela política de cotas do plano."
       : !payload ? previewBlockReason ?? "Revise o período e a frequência."
       : !saveInput ? saveBlockReason ?? "Complete os dados da campanha."
-      : saveMutation.isPending ? "Preparando a campanha para ativação."
+      : plan?.campaign_paid_through && scheduleUsage.planMaxEndDate && !scheduleUsage.maxEndDate
+        ? "O período pago termina antes do primeiro dia de publicação selecionado."
       : activateMutation.isPending ? "Ativando campanha."
       : null)
   const saveSignature = saveInput ? JSON.stringify(saveInput) : ""
