@@ -13,6 +13,7 @@ import { formDraftKey } from "../../lib/formDraftStorage"
 import { useAutosavedDraft } from "../../hooks/useAutosavedDraft"
 import { usePlanUsage } from "../../hooks/usePlanUsage"
 import { campaignUiCaps } from "../../lib/planPresentation"
+import { calculateCampaignScheduleUsage, formatCampaignDate } from "../../lib/campaignSchedule"
 import { TextInput } from "../ui/TextInput"
 import { Button } from "../ui/Button"
 import { AiCopyControls } from "../posts/AiCopyControls"
@@ -77,6 +78,17 @@ export function CampaignPlanner({ credentials }: {
   const userId = useAuthStore((state) => state.user?.id)
   const profileId = useProfileStore((state) => state.activeProfileId)
   const [draft, setDraft] = useState<CampaignDraft>(initialDraft)
+  const scheduleUsage = useMemo(() => calculateCampaignScheduleUsage({
+    startDate: draft.startDate,
+    endDate: draft.endDate,
+    weekdays: draft.days,
+    activeDayLimit: caps.days,
+    startTime: draft.startTime,
+    endTime: draft.endTime,
+    postsPerDay: Number(draft.postsPerDay),
+    paidThrough: plan?.campaign_paid_through,
+  }), [draft.startDate, draft.endDate, draft.days, draft.startTime, draft.endTime,
+    draft.postsPerDay, caps.days, plan?.campaign_paid_through])
   const [editingProductId, setEditingProductId] = useState<number | null>(null)
   const [productPage, setProductPage] = useState(1)
   const [activeDescriptionNetwork, setActiveDescriptionNetwork] = useState<Record<number, PostNetwork>>({})
@@ -184,7 +196,14 @@ export function CampaignPlanner({ credentials }: {
       campaignsApi.activateDraft(id, revision),
     onSuccess: (record) => {
       setSelectedCampaignId(record.id)
+      setDraft(initialDraft())
+      setSavedDraftId(null)
+      setSavedRevision(null)
+      setRemoteSelection("")
+      setLastSavedSignature(null)
+      setListOverride(null)
       void activeQuery.refetch()
+      void draftsQuery.refetch()
       void planQuery.refetch()
     },
   })
@@ -211,8 +230,9 @@ export function CampaignPlanner({ credentials }: {
   })
 
   const payload = useMemo<CampaignPreviewRequest | null>(() => {
-    const inclusiveDays = (Date.parse(draft.endDate) - Date.parse(draft.startDate)) / 86400000 + 1
-    if (!canEditCampaign || !Number.isFinite(inclusiveDays) || inclusiveDays < 1 || inclusiveDays > caps.days ||
+    if (!canEditCampaign || scheduleUsage.calendarDays < 1 || scheduleUsage.calendarDays > 210 ||
+        scheduleUsage.activeDaysUsed < 1 || scheduleUsage.exceedsActiveDayLimit ||
+        (scheduleUsage.maxEndDate && draft.endDate > scheduleUsage.maxEndDate) ||
         !draft.listId || draft.itemIds.length === 0 || !draft.startDate || !draft.endDate ||
         draft.days.length === 0 || !draft.startTime || !draft.endTime ||
         !Number.isInteger(Number(draft.postsPerDay)) || Number(draft.postsPerDay) < 1 ||
@@ -227,7 +247,7 @@ export function CampaignPlanner({ credentials }: {
       end_time: draft.endTime,
       posts_per_day: Number(draft.postsPerDay),
     }
-  }, [draft, canEditCampaign, caps.days, caps.posts])
+  }, [draft, canEditCampaign, caps.posts, scheduleUsage])
 
 
   const saveInput = useMemo<CampaignDraftSaveRequest | null>(() => {
@@ -252,10 +272,62 @@ export function CampaignPlanner({ credentials }: {
       schedule: payload,
     }
   }, [selectedList, products, draft.name, draft.listId, draft.itemIds, draft.networks, snapshots, payload, canEditCampaign])
+
+  const campaignAccessBlockReason = planQuery.isLoading
+    ? "Consultando os limites e permissões do plano."
+    : planQuery.isError
+      ? "Não foi possível consultar o plano. Tente novamente; nenhuma ação foi liberada."
+      : !canEditCampaign
+        ? `Campanhas não estão habilitadas no plano ${plan?.plan_tier ?? "atual"}.`
+        : null
+
+  const previewBlockReason = campaignAccessBlockReason
+    ?? (!draft.listId ? "Selecione uma lista de produtos."
+      : !selectedList ? "A lista selecionada não está disponível."
+      : draft.itemIds.length === 0 ? "Selecione os produtos da campanha."
+      : !draft.startDate || !draft.endDate ? "Informe a data inicial e a data final."
+      : draft.days.length === 0 ? "Selecione ao menos um dia da semana."
+      : scheduleUsage.calendarDays > 210 ? "O intervalo não pode ultrapassar 210 dias corridos."
+      : scheduleUsage.activeDaysUsed === 0 ? "Nenhum dos dias da semana selecionados ocorre neste período."
+      : scheduleUsage.exceedsActiveDayLimit ? `O período usa ${scheduleUsage.activeDaysUsed} dias de publicação, acima do limite de ${caps.days}.`
+      : scheduleUsage.maxEndDate && draft.endDate > scheduleUsage.maxEndDate
+        ? `A frequência escolhida permite data final até ${formatCampaignDate(scheduleUsage.maxEndDate)}.`
+      : !draft.startTime || !draft.endTime ? "Informe os horários inicial e final."
+      : !Number.isInteger(Number(draft.postsPerDay)) || Number(draft.postsPerDay) < 1
+        || Number(draft.postsPerDay) > caps.posts ? `Ajuste a quantidade diária ao limite de ${caps.posts} do plano.`
+      : null)
+
+  const saveBlockReason = campaignAccessBlockReason
+    ?? (!draft.name.trim() ? "Informe o nome da campanha."
+      : draft.name.trim().length > 120 ? "O nome da campanha deve ter até 120 caracteres."
+      : !draft.listId || !selectedList ? "Selecione uma lista válida."
+      : !draft.itemIds.length ? "Selecione os produtos da campanha."
+      : !draft.networks.length ? "Selecione ao menos uma rede social."
+      : draft.itemIds.length !== products.length
+        || new Set(draft.itemIds).size !== products.length
+        || !draft.itemIds.every((id) => products.some((product) => product.id === id))
+        ? "A lista de produtos mudou. Recarregue a lista antes de salvar."
+      : (draft.startDate || draft.endDate) && !payload ? previewBlockReason ?? "Revise o período e a frequência."
+      : null)
+
+  const activationBlockReason = campaignAccessBlockReason
+    ?? (!plan?.activation_available
+      ? plan?.active_campaigns_usage_status === "unavailable"
+        ? "Não foi possível consultar a cota de campanhas ativas."
+        : !plan?.is_admin && (!plan?.campaign_paid_through
+          || Date.parse(plan.campaign_paid_through) <= Date.now())
+          ? "O período pago da campanha não está confirmado ou já terminou."
+          : "A ativação está indisponível pela política de cotas do plano."
+      : !payload ? previewBlockReason ?? "Revise o período e a frequência."
+      : !saveInput ? saveBlockReason ?? "Complete os dados da campanha."
+      : saveMutation.isPending ? "Preparando a campanha para ativação."
+      : activateMutation.isPending ? "Ativando campanha."
+      : null)
   const saveSignature = saveInput ? JSON.stringify(saveInput) : ""
   const saveMutation = useMutation({
     mutationFn: async ({ data, id, revision }: {
-      data: CampaignDraftSaveRequest; id: string | null; revision: number | null; signature: string
+      data: CampaignDraftSaveRequest; id: string | null; revision: number | null;
+      signature: string; activateAfterSave?: boolean
     }) => {
       if (!canEditCampaign) throw new Error("Campanhas indisponíveis no plano atual.")
       return id && revision !== null
@@ -270,6 +342,9 @@ export function CampaignPlanner({ credentials }: {
       setLegacyScheduleNotice(false)
       setLegacyNetworkNotice(false)
       void draftsQuery.refetch()
+      if (variables.activateAfterSave) {
+        activateMutation.mutate({ id: saved.id, revision: saved.revision })
+      }
     },
   })
   const loadMutation = useMutation({
@@ -402,12 +477,10 @@ export function CampaignPlanner({ credentials }: {
         </div>
       </div>
 
-      {(planQuery.isError || (plan && !canEditCampaign)) && (
+      {(planQuery.isLoading || campaignAccessBlockReason) && (
         <p className="campaign-context-notice" role="status">
-          {planQuery.isError
-            ? "Não foi possível confirmar as permissões. Consulte novamente; rascunhos existentes continuam acessíveis."
-            : "Campanhas não incluídas no plano atual. Você ainda pode consultar e excluir rascunhos existentes."}
-          {planQuery.isError && <Button variant="secondary" onClick={() => void planQuery.refetch()}>Tentar novamente</Button>}
+          {campaignAccessBlockReason ?? "Consultando os limites do plano."}
+          {planQuery.isError && <Button variant="secondary" onClick={() => void planQuery.refetch()}>Consultar novamente</Button>}
         </p>
       )}
       <div className="campaign-grid">
@@ -643,14 +716,13 @@ export function CampaignPlanner({ credentials }: {
 
           <section className="campaign-section">
             <h3>02. Período e frequência</h3>
-            <p>Limite do plano: {caps.days || "indisponível"} dias corridos, incluindo o primeiro e o último dia. Horário de Brasília.</p>
+            <p>Limite do plano: {caps.days || "indisponível"} dias de publicação. Só contam os dias da semana selecionados; o intervalo pode alcançar até 210 dias corridos. Horário de Brasília.</p>
             <div className="campaign-pair">
               <TextInput label="Data inicial" type="date" value={draft.startDate}
                 onChange={(event) => update("startDate", event.target.value)} />
               <TextInput label="Data final" type="date" value={draft.endDate}
                 min={draft.startDate || undefined}
-                max={draft.startDate && caps.days > 0 && Number.isFinite(Date.parse(draft.startDate))
-                  ? new Date(Date.parse(draft.startDate) + (caps.days - 1) * 86400000).toISOString().slice(0, 10) : undefined}
+                max={scheduleUsage.maxEndDate}
                 onChange={(event) => update("endDate", event.target.value)} />
             </div>
             <span className="campaign-field-label">Dias da semana</span>
@@ -665,6 +737,21 @@ export function CampaignPlanner({ credentials }: {
                 </label>
               ))}
             </div>
+            {draft.startDate && draft.days.length > 0 && scheduleUsage.planMaxEndDate && (
+              <p className={scheduleUsage.exceedsActiveDayLimit || scheduleUsage.exceedsCalendarLimit
+                || scheduleUsage.activeDaysUsed === 0 ? "campaign-warning" : "campaign-status"} role="status">
+                {draft.endDate
+                  ? `Período selecionado: ${scheduleUsage.activeDaysUsed} de ${caps.days} dias de publicação; restam ${scheduleUsage.activeDaysRemaining}.`
+                  : `Seu plano permite ${caps.days} dias de publicação nesta frequência.`}
+                {scheduleUsage.maxEndDate
+                  ? ` Mantendo os dias marcados, a data-limite é ${formatCampaignDate(scheduleUsage.maxEndDate)} às ${scheduleUsage.lastPostingTime}.`
+                  : " O período pago não cobre o próximo horário programado."}
+                {scheduleUsage.paidPeriodShortensWindow ? " O período pago reduz o limite calculado pela frequência." : ""}
+              </p>
+            )}
+            {scheduleUsage.exceedsCalendarLimit && (
+              <p className="campaign-warning" role="alert">O intervalo ultrapassa o teto de 210 dias corridos.</p>
+            )}
             <div className="campaign-triple">
               <TextInput label="Início" type="time" value={draft.startTime}
                 onChange={(event) => update("startTime", event.target.value)} />
@@ -693,7 +780,7 @@ export function CampaignPlanner({ credentials }: {
               onClick={() => canEditCampaign && payload && previewMutation.mutate(payload)}>
               Calcular prévia
             </Button>
-            <p>Esta ação somente consulta o planejamento. Não envia nada às redes sociais.</p>
+            <p>{previewBlockReason ?? "Esta ação somente consulta o planejamento. Não envia nada às redes sociais."}</p>
           </div>
         </div>
 
@@ -756,6 +843,7 @@ export function CampaignPlanner({ credentials }: {
             })}>
             {savedDraftId ? "Atualizar rascunho" : "Salvar rascunho"}
           </Button>
+          {!saveInput && saveBlockReason && <p className="campaign-status" role="status">{saveBlockReason}</p>}
           {lastSavedSignature === saveSignature && savedDraftId &&
             <p className="campaign-status" role="status">Rascunho salvo no servidor.</p>}
           {saveMutation.isError &&
@@ -813,22 +901,24 @@ export function CampaignPlanner({ credentials }: {
         </div>
         <div className="campaign-actions">
           <Button variant="primary" icon="send"
-            disabled={!plan?.activation_available || !savedDraftId || savedRevision === null ||
-              lastSavedSignature !== saveSignature || !saveInput ||
-              activateMutation.isPending || mediaDelete.isPending}
-            loading={activateMutation.isPending}
-            onClick={() => savedDraftId && savedRevision !== null &&
-              activateMutation.mutate({ id: savedDraftId, revision: savedRevision })}>
-            Ativar campanha salva
+            disabled={!plan?.activation_available || !payload || !saveInput ||
+              saveMutation.isPending || activateMutation.isPending || mediaDelete.isPending}
+            loading={saveMutation.isPending || activateMutation.isPending}
+            onClick={() => {
+              if (!plan?.activation_available || !payload || !saveInput) return
+              if (savedDraftId && savedRevision !== null && lastSavedSignature === saveSignature) {
+                activateMutation.mutate({ id: savedDraftId, revision: savedRevision })
+              } else {
+                saveMutation.mutate({
+                  data: saveInput, id: savedDraftId, revision: savedRevision,
+                  signature: saveSignature, activateAfterSave: true,
+                })
+              }
+            }}>
+            Ativar campanha
           </Button>
-          <small>Ativar reserva vagas e prepara posts para os horários escolhidos. A rede só recebe o conteúdo no horário autorizado.</small>
-          {plan && !plan.activation_available && (
-            <small role="status">Ativação indisponível neste momento. {plan.campaign_paid_through
-              ? `Período autorizado até ${new Date(plan.campaign_paid_through).toLocaleString("pt-BR")}.`
-              : plan.is_admin ? "Verifique as condições operacionais." : "Sem período contratado confirmado."}</small>
-          )}
-          {savedDraftId && lastSavedSignature !== saveSignature &&
-            <small role="status">Salve as alterações atuais antes de ativar.</small>}
+          <small>Salvar rascunho manualmente é opcional. Ao ativar, a configuração é registrada internamente para garantir revisão, mídia e idempotência; se a ativação falhar, ela permanece recuperável como rascunho.</small>
+          {activationBlockReason && <small role="status">{activationBlockReason}</small>}
           {activateMutation.isError &&
             <p className="campaign-error" role="alert">{activateMutation.error.message}</p>}
           {activateMutation.isSuccess &&
