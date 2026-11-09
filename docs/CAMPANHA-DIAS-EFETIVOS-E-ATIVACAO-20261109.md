@@ -2,9 +2,10 @@
 
 **Data:** 09/11/2026  
 **Versão-base:** 3.8.0  
+**Versão candidata:** 3.8.1 (PATCH, staging)  
 **Branch:** `fix/campaign-weekday-quota-optional-activation-20261109`  
 **Destino planejado:** staging  
-**Status:** implementação preparada; CI #1252 SUCCESS; revisão e autorização de staging pendentes; migration ainda não aplicada.
+**Status:** correções de revisão incorporadas na branch; CI de regressão pendente; PR #386 sincronizada em staging; migration 095 ainda não aplicada.
 
 ## 1. Regra de negócio
 
@@ -106,10 +107,13 @@ O botão manual “Salvar rascunho” continua independente e opcional.
 - `frontend/src/components/campaigns/campaignPlanner.css` — contraste do weekday selecionado.
 - `frontend/src/api/planUsage.ts` — contrato tipado do estado de cota e mensagem de ativação.
 - `api/campaign_schedule.py` — teto físico de 210 dias e contador de dias efetivos.
-- `api/campaign_policy.py` — validação comercial por weekday e bloqueio quando a cota ativa está cheia.
-- `api/routers/campaigns.py` — não listar como rascunhos campanhas já ativadas; preservar listagem se a consulta complementar falhar.
+- `api/campaign_policy.py` — validação comercial por weekday e bloqueio de novas campanhas quando a cota ativa está cheia; retry da mesma preparação é permitido somente após confirmação do lifecycle, da consulta de uso e do período pago.
+- `api/routers/campaigns.py` — paginação por lotes, filtro de lifecycle antes do limite de 30 e resposta HTTP 503 se a consulta de reservas falhar (fail closed).
 - `database/migrations/095_campaign_active_weekday_quota.sql` — atualização da guarda atômica da reserva.
-- `tests/api/test_campaign_schedule.py` e `tests/api/test_campaign_policy.py` — regressões de calendário, plano, SQL e cota ativa.
+- `tests/api/test_campaign_schedule.py` e `tests/api/test_campaign_policy.py` — regressões de calendário, plano, SQL, cota ativa, paginação e fail-closed.
+- `tests/api/conftest.py` — paginação realista por `.range()` no FakeDB.
+- `tests/sql/test_f4e2b5_postgres.py` — valida que service_role não executa a RPC legada e executa o wrapper autorizado.
+- `frontend/tests/plan-access.test.mjs` — protege o retry da mesma preparação e a preservação de edições durante ativação.
 - `frontend/tests/campaign-schedule.test.mjs` — exemplo 18/30, data 21/12 e contrato de ativação opcional.
 
 ## 6. Validação necessária
@@ -122,6 +126,11 @@ Testes direcionados:
 5. Cota de campanhas ativas cheia bloqueia ativação; abaixo da cota permite.
 6. Frontend: weekday ativo em alto contraste e ativação sem clique manual de salvar.
 7. TypeScript/Vite, testes frontend e CI obrigatória da PR.
+8. Listagem com mais de 30 snapshots, com os primeiros 30 já ativados, deve devolver os snapshots recuperáveis mais antigos.
+9. Falha na leitura de lifecycle deve responder 503 sem expor snapshot como editável.
+10. Ativação concorrente com edição do formulário não pode apagar as alterações novas.
+11. Retentativa de `preparing` deve ser permitida na cota cheia apenas para o mesmo draft; campanha nova continua bloqueada.
+12. ACL PostgreSQL: `service_role` sem EXECUTE na RPC v1 e com EXECUTE no wrapper v2.
 
 Não executar publicação real, agendamento externo, upload ou ação na Shopee durante testes.
 
@@ -129,7 +138,7 @@ Não executar publicação real, agendamento externo, upload ou ação na Shopee
 
 A migration 095 será aplicada automaticamente pelo migrador no boot da aplicação quando chegar ao staging. O Supabase é compartilhado com produção; portanto, o merge em staging altera a função SQL compartilhada.
 
-**A migration está apenas no branch e não foi aplicada.** Não integrar a PR em staging nem disparar deploy com essa migration até autorização expressa de Rafa. A substituição mantém compatibilidade com o backend atual da main, que continuará impondo seu limite antigo até futura promoção.
+**A migration está apenas no branch e não foi aplicada.** Rafa autorizou expressamente sua aplicação por meio do deploy de staging, mas o portão técnico permanece: só integrar e implantar depois de CI verde, revisão final e reconciliação da branch com a staging atualizada. O Supabase compartilhado significa que a DDL ficará visível à produção assim que o boot do staging aplicar a migration. A função mantém a assinatura anterior e preserva a ACL da migration 076, reforçada por REVOKE explícito na migration 095.
 
 Depois da autorização:
 - CI verde e revisão do diff SQL;
@@ -138,3 +147,15 @@ Depois da autorização:
 - confirmar Render staging LIVE no SHA correto;
 - smoke básico e homologação de Rafa;
 - produção somente após autorização separada.
+
+## 8. Revisão de segurança e robustez — 09/11/2026
+
+A revisão automatizada identificou cinco pontos. Foram incorporadas correções para:
+
+- ACL da RPC legada: a migration 095 agora executa REVOKE explícito de EXECUTE para PUBLIC, anon, authenticated e service_role na função v1; concede EXECUTE apenas ao wrapper reserve_campaign_networks_f4e para service_role. O teste PostgreSQL verifica os dois lados da permissão.
+- Listagem de rascunhos: consulta paginada em blocos de 100; remove lifecycle active/paused/cancelled/completed antes de limitar a 30 itens recuperáveis.
+- Falha de leitura de reservas: responde HTTP 503 e não apresenta estado incerto como rascunho editável.
+- Preservação de edição: o formulário só é limpo se a assinatura atual ainda corresponder ao snapshot efetivamente ativado.
+- Retentativa: quando o mesmo draft possui reserva preparing, a UI permite retry na cota cheia somente se a leitura de uso está disponível e o período pago permanece confirmado. Novas campanhas seguem bloqueadas.
+
+**Validação dessas correções ainda pendente.** Não declarar os findings encerrados até CI, SQL descartável e nova revisão confirmarem o comportamento. Migration 095 não aplicada; staging e produção ainda não receberam esta implementação.
