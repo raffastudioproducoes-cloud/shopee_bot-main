@@ -5,7 +5,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
-- Campanhas agora exibem prévia de composição por rede, informando mídias aceitas, arquivos descartados e bloqueios de texto/formato/tamanho antes da ativação. A prévia considera anexos legados e inclui o link afiliado na contagem.
+- Campanhas agora exibem prévia de composição por rede, informando mídias aceitas, arquivos descartados e bloqueios de texto/formato/tamanho/duração/dimensões antes da ativação. A prévia considera anexos legados, lê metadados das mídias salvas e inclui o link afiliado na contagem.
 - As abas das redes ficam logo abaixo da caixa de descrição e antes dos controles de geração inteligente, mantendo a edição da variante ativa no mesmo campo.
 - A ativação de campanhas baixa e sanitiza a imagem Shopee selecionada uma única vez antes do planejamento, usando o tamanho real para aplicar limites específicos por rede; o arquivo original do produto permanece intacto.
 - Remove imports sem uso apontados pelo lint durante a validação da correção.
