@@ -590,6 +590,13 @@ export function CampaignPlanner({ credentials }: {
                               disabled={!canEditCampaign}
                               useShopeeImage={snapshot.useShopeeImage}
                               selectedIds={snapshot.selectedProductMediaIds}
+                              networks={draft.networks}
+                              texts={Object.fromEntries(draft.networks.map((network) => [
+                                network,
+                                snapshot.networkCopies[network] || snapshot.copy,
+                              ]))}
+                              affiliateLink={snapshot.affiliateLink}
+                              legacyMedia={mediaQuery.data?.data.filter((item) => item.product_id === id) ?? []}
                               onShopeeChange={(useShopeeImage) => updateSnapshot(id, { useShopeeImage })}
                               onSelectedChange={(selectedProductMediaIds) => updateSnapshot(id, { selectedProductMediaIds })} />
                             {mediaQuery.data?.data.some((item) => item.product_id === id) && (
