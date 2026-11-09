@@ -310,11 +310,20 @@ def test_product_creation_rejects_unsafe_links_s02(auth_client, field, value):
     "https://shopee.com.br/produto-i.1.2",
     "https://www.shopee.com.br/produto-i.1.2",
     "https://s.shopee.com.br/AbC123",
-    "https://shope.ee/AbC123",
 ])
 def test_safe_shopee_link_accepts_official_hosts(value):
     from api.shopee_affiliate_links import is_safe_shopee_link
     assert is_safe_shopee_link(value)
+
+
+@pytest.mark.parametrize("value", [
+    "https://shope.ee/AbC123",
+    "https://shp.ee/AbC123",
+])
+def test_unconfirmed_short_domains_are_not_trusted(value):
+    """shope.ee/shp.ee: titularidade não confirmada em fonte oficial; só entram após confirmação."""
+    from api.shopee_affiliate_links import is_safe_shopee_link
+    assert not is_safe_shopee_link(value)
 
 
 def test_shopee_image_url_predicate():

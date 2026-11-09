@@ -64,7 +64,7 @@ class ProductCreate(_ProductFields):
     def _shopee_https_link(cls, value: str) -> str:
         # S-02: nenhum destino externo, esquema perigoso ou credencial embutida entra no banco.
         if not is_safe_shopee_link(value):
-            raise ValueError("Informe um link HTTPS da Shopee (shopee.com.br, s.shopee.com.br ou shope.ee).")
+            raise ValueError("Informe um link HTTPS da Shopee (shopee.com.br, www.shopee.com.br ou s.shopee.com.br).")
         return value
 
     @field_validator("image")
