@@ -55,7 +55,10 @@ def _rpc(name: str, args: dict):
             raise HTTPException(403, detail="O período pago não cobre todos os horários selecionados.") from None
         if "campaign_day_slots_exceeded" in reason:
             raise HTTPException(403, detail="A quantidade diária de postagens excede o limite do plano.") from None
-        raise HTTPException(409, detail="A operação da campanha foi recusada. Confira plano, cotas e horário; atualize o painel.") from None
+        raise HTTPException(
+            status_code=409,
+            detail="A operação da campanha foi recusada. Confira plano, cotas e horário; atualize o painel.",
+        ) from None
 
 
 def owned_reservation(reservation_id, user_id, profile_id):
