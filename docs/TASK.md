@@ -1,3 +1,21 @@
+## 09/11/2026 — Campanhas: dias efetivos e ativação direta (PATCH 3.8.1 candidata)
+
+- [x] Autorização de Rafa para aplicar migration 095 por deploy de staging no Supabase compartilhado; produção permanece sem autorização de promoção.
+- [x] PR documental #386 integrada em staging por squash, SHA `52d8a1a12d9d1c20a0ff8f32072ac250c184b6ab`.
+- [x] Revisão de segurança incorporada à branch da correção: RPC legada explicitamente revogada para service_role; listagem paginada filtra lifecycle antes do limite; falha de consulta retorna 503; formulário preserva alterações concorrentes; retry de preparing condicionado ao mesmo draft, cota consultável e período pago confirmado.
+- [x] `VERSION=3.8.1` e CHANGELOG PATCH preparados na branch de staging.
+- [ ] Reconciliar branch da PR #387 com staging após PR #386; resolver sobreposições documentais sem force-push.
+- [ ] CI completo da nova revisão, incluindo API, frontend, TypeScript/build, F4E PostgreSQL descartável e gate SemVer.
+- [ ] Revisão final da migration 095, ACL da RPC v1/v2 e smoke da branch integrada.
+- [ ] Merge somente em staging após CI verde; confirmar Render staging LIVE no SHA exato e migration 095 aplicada no Supabase compartilhado.
+- [ ] Smoke pós-deploy, revisar logs e verificar a UI em fluxo autenticado; não disparar publicações reais.
+- [ ] Sincronizar documentação canônica do Vault e Projeto com SHA, CI, deploy, migration e limites comprovados.
+- [ ] Produção fora do escopo até autorização específica posterior.
+
+[Contrato técnico e matriz de regressão](CAMPANHA-DIAS-EFETIVOS-E-ATIVACAO-20261109.md). Não declarar staging implantada enquanto os portões acima estiverem pendentes.
+
+---
+
 > **09/11/2026 BRT — CORREÇÃO DO EDITOR DE CAMPANHAS EM BRANCH; NÃO IMPLANTADA.** Branch `fix/campaign-weekday-quota-optional-activation-20261109`. A implementação conta somente weekdays selecionados no limite do plano, permite até 210 dias corridos/30 dias efetivos/450 horários, calcula saldo e data/hora final, melhora contraste do seletor, explica bloqueios de prévia/rascunho/ativação, torna o salvamento manual opcional e impede ativação quando a cota ativa está cheia. Migration `095_campaign_active_weekday_quota.sql` substitui a validação atômica do Supabase; está apenas no branch, não aplicada. **CI #1252 SUCCESS; revisão e autorização da migration compartilhada pendentes.** PR #386 também está aberta para staging e sobrepõe CHANGELOG.md, docs/TASK.md e o documento de redes globais; reconciliar antes de integrar #387. Não mergear/deployar em staging sem autorização expressa da migration. Nenhuma publicação real ou alteração em produção.
 > [Contrato técnico e testes previstos](CAMPANHA-DIAS-EFETIVOS-E-ATIVACAO-20261109.md).
 
