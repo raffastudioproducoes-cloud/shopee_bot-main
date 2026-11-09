@@ -109,7 +109,7 @@ def test_bot_post_tiktok_with_video_calls_post_video_and_logs_success(monkeypatc
 
     calls = {}
 
-    def fake_post_video(user_access_token, video_path, text):
+    def fake_post_video(user_access_token, video_path, text, before_publish=None):
         calls["args"] = (user_access_token, video_path, text)
         return "publish-1"
 
@@ -198,7 +198,7 @@ def _expired():
 def test_expired_token_refreshes_saves_and_retries_once(monkeypatch):
     tokens_used = []
 
-    def post_video(token, path, text):
+    def post_video(token, path, text, before_publish=None):
         tokens_used.append(token)
         if token == "user-token-1":
             raise _expired()
