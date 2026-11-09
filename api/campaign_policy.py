@@ -9,7 +9,9 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 
 from .database import supabase
-from .campaign_schedule import count_campaign_days, plan_campaign_slots, MAX_CAMPAIGN_CALENDAR_DAYS
+from .campaign_schedule import (
+    MAX_CAMPAIGN_CALENDAR_DAYS, count_campaign_days, plan_campaign_slots,
+)
 
 
 @dataclass(frozen=True)
