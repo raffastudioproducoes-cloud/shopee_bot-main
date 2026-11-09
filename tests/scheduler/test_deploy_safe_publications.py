@@ -190,9 +190,10 @@ def test_provider_publishers_mark_boundary_before_network_calls():
         assert "from shopee_bot.scheduler.publication_context import mark_external_delivery" in source
 
     tiktok_api = (ROOT / "apis" / "tiktok.py").read_text(encoding="utf-8")
-    assert "if before_publish:" in tiktok_api
-    assert "before_publish()" in tiktok_api
-    assert tiktok_api.index("before_publish()") < tiktok_api.index("_init_video_post(")
+    post_function = tiktok_api[tiktok_api.index("def post_video("):]
+    assert "if before_publish:" in post_function
+    assert "before_publish()" in post_function
+    assert post_function.index("before_publish()") < post_function.index("_init_video_post(")
 
 
 def test_legacy_worker_cannot_be_misclassified_as_recoverable(monkeypatch):
