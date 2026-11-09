@@ -74,8 +74,10 @@ BEGIN
   v_start := (v_draft->'schedule'->>'start_date')::date;
   v_end := (v_draft->'schedule'->>'end_date')::date;
   v_weekdays := v_draft->'schedule'->'weekdays';
-  IF jsonb_typeof(v_weekdays) IS DISTINCT FROM 'array'
-     OR jsonb_array_length(v_weekdays) NOT BETWEEN 1 AND 7 THEN
+  IF jsonb_typeof(v_weekdays) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'invalid_campaign_weekdays' USING ERRCODE='P0001';
+  END IF;
+  IF jsonb_array_length(v_weekdays) NOT BETWEEN 1 AND 7 THEN
     RAISE EXCEPTION 'invalid_campaign_weekdays' USING ERRCODE='P0001';
   END IF;
   IF EXISTS (
