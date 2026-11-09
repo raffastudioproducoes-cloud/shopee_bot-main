@@ -7,7 +7,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..campaign_schedule import plan_campaign_slots
 from ..campaign_policy import (
@@ -125,9 +125,13 @@ Network = Literal["threads", "x", "facebook", "instagram", "tiktok"]
 
 
 class CampaignDraftItem(BaseModel):
+    # `copy` é o nome do contrato (API e JSON persistido) e sombreia BaseModel.copy;
+    # o atributo Python é `copy_text` e o nome externo segue por alias.
+    model_config = ConfigDict(populate_by_name=True)
+
     product_id: int = Field(gt=0)
     title: str = Field(max_length=300)
-    copy: str = Field(max_length=10000)
+    copy_text: str = Field(alias="copy", max_length=10000)
     affiliate_link: str = Field(default="", max_length=2048)
     networks: list[Network] = Field(default_factory=list, max_length=5)
     network_copies: dict[Network, str] = Field(default_factory=dict)
@@ -263,7 +267,7 @@ async def create_campaign_draft(
         canonical_product_url(p.get("original_link")) for p in products) else None
     items = []
     for item in body.items:
-        saved = item.model_dump(mode="json")
+        saved = item.model_dump(mode="json", by_alias=True)
         saved["source_image"] = by_id[item.product_id].get("image")
         saved["use_shopee_image"] = bool(saved["source_image"]) and item.use_shopee_image
         product = by_id[item.product_id]
@@ -417,7 +421,7 @@ async def update_campaign_draft(
         canonical_product_url(p.get("source_original_link")) for p in old_items.values()) else None
     items = []
     for item in body.items:
-        saved = item.model_dump(mode="json")
+        saved = item.model_dump(mode="json", by_alias=True)
         previous = old_items[item.product_id]
         saved["source_image"] = previous.get("source_image")
         saved["use_shopee_image"] = bool(saved["source_image"]) and item.use_shopee_image
