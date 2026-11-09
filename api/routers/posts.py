@@ -25,7 +25,9 @@ e Instagram têm caminho de imagem; X ainda precisa de upload de mídia e acesso
 fluxo do usuário. Kwai fica de fora do mapa, sem API pública confirmada.
 """
 
+import asyncio
 import logging
+import time
 import uuid
 from PIL import Image
 from io import BytesIO
@@ -1399,6 +1401,37 @@ async def generate_copy(
     }
 
 
+# Quantos posts da página são enriquecidos ao mesmo tempo. Cada post faz ~9 consultas
+# ao banco; em série, uma página de 90 posts passava de 800 idas ao banco (>30 s, o limite
+# do proxy) e ainda travava o event loop porque o cliente do Supabase é síncrono.
+_LIST_ENRICH_CONCURRENCY = 8
+
+
+def _enrich_listed_post(item: dict, user_id: int, profile_id: str | None, is_admin: bool) -> dict:
+    schedule_entries = _get_post_schedule_entries(user_id, item["id"])
+    job = schedule_entries[0] if schedule_entries else None
+    chain = _get_thread_chain(item["id"], user_id)
+    return {
+        **item,
+        "texts": [row["text"] for row in chain],
+        "products": _get_post_products(item["id"]),
+        "medias": _get_post_medias(item["id"]),
+        "scheduled": _is_scheduled(job, item),
+        "schedule_trigger": job.get("trigger") if job else None,
+        "schedule_entries": schedule_entries,
+        "scheduled_for": (
+            job.get("run_date")
+            if job and job.get("trigger") == "date"
+            else None
+        ),
+        "parts_count": len(chain),
+        "last_result": _public_publish_result(
+            _get_last_publish_result(user_id, item["id"], profile_id), is_admin
+        ),
+        "last_published_at": _last_successful_post_at(user_id, item["id"], profile_id),
+    }
+
+
 @router.get("")
 async def list_posts(
     user_id: int = Depends(get_current_user_id),
@@ -1407,6 +1440,7 @@ async def list_posts(
     limit: int = Query(20, ge=1, le=100),
 ):
     """Lista posts únicos (post_id IS NULL — sem thread) com paginação por cursor."""
+    started = time.monotonic()
     query = (
         scope_owner(supabase.table("posts").select("*"), user_id, profile_id)
         .is_("post_id", "null")
@@ -1416,39 +1450,26 @@ async def list_posts(
     if cursor:
         query = query.lt("created_at", cursor)
 
-    result = query.execute()
+    # O cliente do Supabase é síncrono: fora do event loop, para não parar a API inteira.
+    result = await run_in_threadpool(query.execute)
+    rows = result.data or []
 
-    posts: list[dict] = []
-    is_admin = _post_admin_access(user_id) if result.data else False
-    for item in result.data:
-        schedule_entries = _get_post_schedule_entries(user_id, item["id"])
-        job = schedule_entries[0] if schedule_entries else None
-        chain = _get_thread_chain(item["id"], user_id)
+    is_admin = await run_in_threadpool(_post_admin_access, user_id) if rows else False
+    gate = asyncio.Semaphore(_LIST_ENRICH_CONCURRENCY)
 
-        posts.append({
-            **item,
-            "texts": [row["text"] for row in chain],
-            "products": _get_post_products(item["id"]),
-            "medias": _get_post_medias(item["id"]),
-            "scheduled": _is_scheduled(job, item),
-            "schedule_trigger": job.get("trigger") if job else None,
-            "schedule_entries": schedule_entries,
-            "scheduled_for": (
-                job.get("run_date")
-                if job and job.get("trigger") == "date"
-                else None
-            ),
-            "parts_count": len(chain),
-            "last_result": _public_publish_result(
-                _get_last_publish_result(user_id, item["id"], profile_id), is_admin
-            ),
-            "last_published_at": _last_successful_post_at(user_id, item["id"], profile_id),
-        })
+    async def enrich(item: dict) -> dict:
+        async with gate:
+            return await run_in_threadpool(_enrich_listed_post, item, user_id, profile_id, is_admin)
+
+    posts = list(await asyncio.gather(*(enrich(item) for item in rows)))
 
     next_cursor = None
-    if result.data and len(result.data) == limit:
-        next_cursor = result.data[-1]["created_at"]
+    if rows and len(rows) == limit:
+        next_cursor = rows[-1]["created_at"]
 
+    elapsed = time.monotonic() - started
+    if elapsed > 5:
+        logger.warning("Listagem de posts lenta: %.1fs para %d posts (limit=%d)", elapsed, len(posts), limit)
     return {"data": posts, "next_cursor": next_cursor}
 
 

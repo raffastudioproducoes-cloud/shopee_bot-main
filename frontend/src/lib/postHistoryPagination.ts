@@ -2,7 +2,7 @@
 export const POSTS_PER_PAGE = 15
 
 /** Lote múltiplo de 15: navegação em cache sem páginas incompletas artificiais. */
-export const POSTS_FETCH_LIMIT = 90
+export const POSTS_FETCH_LIMIT = 30
 
 /** Pagina somente resultados do perfil ativo já recebidos da API. */
 export function paginatePostHistory<T>(items: readonly T[], requestedPage: number) {
