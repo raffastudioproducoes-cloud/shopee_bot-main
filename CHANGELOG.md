@@ -5,7 +5,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
-## [3.14.0] - 2026-11-09
+## [3.11.0] - 2026-11-09
+
+Release MINOR que leva à produção, em um passo SemVer a partir da 3.10.1, tudo o que foi validado na staging nos builds internos 3.10.2 a 3.14.0 (listados abaixo): correção da página Posts (conexão morta com o banco), desempenho (índice, listagem em lote, cache), preços Pro R$ 59,90 e Premium R$ 109,90, nova apresentação pública, exclusão de posts de campanha, animações e UX (lotes 1 a 3) e fonte Mona Sans hospedada. Os números 3.10.2 a 3.14.0 existiram apenas como versão da staging; a produção passa de 3.10.1 direto para 3.11.0.
+
+### Build interno da staging 3.14.0
 
 ### Changed — lote 3 de UX (pendências do guia de UX, seção 7 do roadmap)
 
@@ -14,7 +18,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Dashboard:** os 4 cards agora levam à página correspondente (Produtos, Posts, Listas, Automação), acessíveis por teclado (Tab + Enter/Espaço) em vez de só decorativos.
 - Testes: `frontend/tests/motion-ux.test.mjs` (+2) e `tests/web/test_spa.py` (+1).
 
-## [3.13.0] - 2026-11-09
+### Build interno da staging 3.13.0
 
 ### Added — animações e UX, lote 2 (roadmap: B2, C1, D1 e lei de Von Restorff em Planos)
 
@@ -25,7 +29,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Ajuste guiado pelas boas práticas do Impeccable (modo "Operate", app de trabalho):** a splash pós-login caiu de 1,6 s para 1,2 s e as animações passaram a usar a curva de desaceleração `cubic-bezier(0.16, 1, 0.3, 1)` (sem bounce), com durações de 150–500 ms.
 - Tudo respeita `prefers-reduced-motion`; sem biblioteca nova. Testes em `frontend/tests/motion-ux.test.mjs`.
 
-## [3.12.1] - 2026-11-09
+### Build interno da staging 3.12.1
 
 ### Changed — apagar posts de campanha pela página Posts
 
@@ -34,7 +38,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Edição, reprogramação e demais ações de campanha continuam bloqueadas pela regra de origem.
 - Testes: `tests/api/test_profile_scope_posts.py` (2 novos).
 
-## [3.12.0] - 2026-11-09
+### Build interno da staging 3.12.0
 
 ### Added — animações e UX, lote 1 (roadmap `docs/ROADMAP-ANIMACOES-UI.md`: A1, A3, C3)
 
@@ -44,7 +48,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Copiar e-mail (C3):** o botão vira "Copiado!" com ✓ por 2 s e trata falha da área de transferência.
 - Sem biblioteca nova: CSS + React; tokens existentes. Testes: `frontend/tests/motion-ux.test.mjs`.
 
-## [3.11.2] - 2026-11-09
+### Build interno da staging 3.11.2
 
 ### Fixed — página de Posts dava "Não foi possível carregar o histórico" (causa real)
 
@@ -56,7 +60,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 - Seção **Valores**: Free **Grátis**, Pro **R$ 59,90** e Premium **R$ 109,90**, por mês, marcados como "valor de referência" (informados por Rafa em 09/11/2026; a contratação ainda não foi aberta). O teste da página aceita somente esses dois valores em reais.
 
-## [3.11.1] - 2026-11-09
+### Build interno da staging 3.11.1
 
 ### Changed — entrega de dados mais rápida e com menos requisições
 
@@ -67,7 +71,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Migração 096** (somente `CREATE INDEX IF NOT EXISTS`): índices compostos para a listagem de Posts e 8 chaves estrangeiras sem índice apontadas pelo linter do Supabase. Contrato em `tests/database/test_096_performance_indexes.py`.
 - Análise e próximos passos (cache de autenticação, retenção de logs, preparação para vários servidores): `docs/DESEMPENHO-ENTREGA-DE-DADOS-20261109.md`.
 
-## [3.11.0] - 2026-11-09
+### Build interno da staging 3.11.0
 
 ### Added — nova apresentação do site (página inicial `/` e `/presentation`)
 
@@ -77,7 +81,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Cores e fontes isoladas (prefixo `ao-`), sem alterar o restante do app. Verificado sob a CSP de produção (`style-src-attr 'none'`): sem violações da biblioteca.
 - Testes: `frontend/tests/presentation-page.test.mjs` (seções, âncoras, rodapé legal, login, movimento reduzido, limites iguais à migração, sem preço inventado), incluído na CI.
 
-## [3.10.2] - 2026-11-09
+### Build interno da staging 3.10.2
 
 ### Fixed — página de Posts não carregava (tempo esgotado)
 
