@@ -144,3 +144,23 @@ def test_social_assets_are_files_not_spa_fallback(spa_app, tmp_path):
     assert response.status_code == 200
     assert response.content_type == "image/png"
     assert response.data.startswith(bytes.fromhex("89504e47"))
+
+
+def test_hashed_assets_are_cached_for_a_year_and_public_files_for_a_day(spa_app, tmp_path):
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(exist_ok=True)
+    (dist / "assets" / "index-AbC123.js").write_text("console.log(1)")
+    client = spa_app.test_client()
+
+    asset = client.get("/assets/index-AbC123.js")
+    assert asset.status_code == 200
+    assert asset.headers["Cache-Control"] == "public, max-age=31536000, immutable"
+
+    video = client.get("/videos/teste.mp4")
+    assert video.headers["Cache-Control"] == "public, max-age=86400"
+
+
+def test_service_worker_and_html_remain_uncached(spa_app):
+    client = spa_app.test_client()
+    for path in ("/sw.js", "/", "/index.html"):
+        assert client.get(path).headers["Cache-Control"] == "no-store, no-cache, must-revalidate"
