@@ -124,8 +124,8 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
                   : "Será enviado 1 vídeo."}</p>}
               {plan.dropped.length > 0 && (
                 <ul>
-                  {plan.dropped.map((entry) => (
-                    <li key={entry.item.name}>{entry.item.name}: {entry.reason}</li>
+                  {plan.dropped.map((entry, index) => (
+                    <li key={`${entry.item.name}-${index}`}>{entry.item.name}: {entry.reason}</li>
                   ))}
                 </ul>
               )}
