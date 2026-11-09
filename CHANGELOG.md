@@ -3,6 +3,18 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [3.8.1] - 2026-11-09
+
+### Fixed — período e ativação de campanhas (PATCH candidata para staging)
+
+- O limite de dias do plano conta somente os weekdays selecionados, com janela máxima de 210 dias corridos, 30 dias efetivos e 450 horários.
+- O editor destaca os dias selecionados e informa saldo efetivo e data/hora-limite.
+- Salvar rascunho manualmente é opcional; a ativação registra o snapshot internamente e preserva alterações feitas enquanto a requisição está pendente.
+- A listagem de rascunhos filtra lifecycle antes do limite e falha fechada se não conseguir confirmar o estado das reservas.
+- Retentativas de uma reserva em preparação permanecem possíveis na cota cheia somente para o mesmo rascunho e com período pago confirmado.
+- Migration 095 mantém a RPC legada sem EXECUTE para service_role e concede execução somente ao wrapper F4E.
+- Versão candidata 3.8.1 em staging; sem promoção para main/produção nesta etapa.
+
 ## [Não lançado]
 
 ## [3.8.0] - 2026-11-08
