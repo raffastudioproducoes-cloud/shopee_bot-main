@@ -1,8 +1,8 @@
 # Auto Orbital — seleção de mídias de Produtos nas campanhas e miniaturas MP4
 
 **Data:** 08/11/2026 · **Escopo:** Produtos → Editar; Criar Post → Campanha → Preparar produto  
-**Estado:** [PR #372](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/372) integrada à **staging**, [CI #1181](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42537281662) **SUCCESS**, Render **LIVE** no SHA `755fb84ad9c7fa5cb063ac71d2fab5a07c6926a8` (deploy `dep-dbognenb9u1s73dle02g`). Autorização de promoção da main concedida por Rafa em 08/11/2026; ainda requer CI/SemVer e Render de produção LIVE. **Não há publicação comprovada neste ponto.**  
-**SemVer:** release MINOR **3.7.0 autorizada**, bump de `VERSION` preparado em staging; promoção para main condicionada ao gate SemVer e à verificação da produção. [Roteiro](RELEASE-3.7.0-20261108.md).
+**Estado:** [PR #372](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/372) integrada à **staging**, [CI #1181](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42537281662) **SUCCESS**, Render **LIVE** no SHA `755fb84ad9c7fa5cb063ac71d2fab5a07c6926a8` (deploy `dep-dbognenb9u1s73dle02g`). **Release 3.7.0 em produção verificada**: PR #375/CI #1187 + SemVer #14 SUCCESS, merge `a16f569`, Render `dep-dboh27e8bjmc73b7ukfg` LIVE; health/ready/login 200 e HTML 3.7.0, poster privado sem sessão 401, 0 requests 5xx no intervalo observado. QA autenticada em produção não foi repetida pelo agente.  
+**SemVer:** release MINOR **3.7.0 publicada em main**, `VERSION=3.7.0`, gate SemVer #14 aprovado, Render produção LIVE no SHA do merge. [Roteiro](RELEASE-3.7.0-20261108.md).
 
 ## Decisão do proprietário e requisitos
 
@@ -48,6 +48,6 @@ Rafa aprovou, em 08/11, o plano de reutilização de mídias com dois complement
 - [x] Staging: PR #372 squash merge `755fb84`, CI #1181 **SUCCESS**, Render `dep-dbognenb9u1s73dle02g` **LIVE** no commit exato; HTTP `/health`, `/ready`, `/login` **200**, endpoint de poster privado **401** sem login; nenhum request **5xx** no período de observação de logs pós-deploy. `main` intacta.
 - [ ] QA autenticada de Rafa no Android: foto Shopee isolada, fotos/vídeos do produto, ambos, nenhum; vídeo legado com poster; salvar/reabrir rascunho; processamento maior que 30 s; plano bloqueado; exclusão antes de ativar.
 - [ ] Verificar reserva/materialização apenas em alvo de teste autorizado, sem postagem externa involuntária.
-- [ ] Somente **após** aceite de Rafa: preparar versão MINOR, gate SemVer, PR staging→main, produção LIVE, registro de SHA/CI/Render e documentação final Projeto/Vault.
+- [x] Rafa autorizou a promoção MINOR 3.7.0; CI #1187 e SemVer #14 PASS, PR #375 mergeada a main, Render produção LIVE/HTTP 200/HTML 3.7.0. [Detalhes](RELEASE-3.7.0-20261108.md). [ ] QA autenticada em produção e observação de latência real continuam recomendadas.
 
 **Observação:** o endpoint de miniatura é uma leitura HTTP que pode criar cache derivado privado no primeiro acesso; não é upload do usuário nem publicação. Verificar latência e volume sob uso real antes de propor otimização assíncrona.
