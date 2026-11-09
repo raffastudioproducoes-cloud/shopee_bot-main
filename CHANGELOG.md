@@ -5,12 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.8.0] - 2026-11-08
+
 - Campanhas agora exibem prévia de composição por rede, informando mídias aceitas, arquivos descartados e bloqueios de texto/formato/tamanho/duração/dimensões antes da ativação. A prévia considera anexos legados, lê metadados das mídias salvas e inclui o link afiliado na contagem.
 - As abas das redes ficam logo abaixo da caixa de descrição e antes dos controles de geração inteligente, mantendo a edição da variante ativa no mesmo campo.
 - A ativação de campanhas baixa e sanitiza a imagem Shopee selecionada uma única vez antes do planejamento, usando o tamanho real para aplicar limites específicos por rede; o arquivo original do produto permanece intacto.
 - Remove imports sem uso apontados pelo lint durante a validação da correção.
-
-## [3.8.0] - 2026-11-08
 
 ### Added / Changed — redes globais e editor paginado de campanhas
 
@@ -28,6 +28,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - CI e testes automatizados devem validar o branch antes de merge em staging.
 - VERSION passa de 3.7.0 para 3.8.0 (MINOR).
 - Não promover para main/produção sem homologação e autorização específica.
+
+### Promoção para produção — 09/11/2026
+
+- Rafa aprovou a promoção; PR [#382](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/382) staging → main, CI #42554019553 e gate SemVer #42554019572 SUCCESS. MINOR 3.7.0→3.8.0.
+- Merge squash `5a283baf8aafb843cdb6b576836c0b73ae682784`; CI main #42554207935 SUCCESS (1.323 API, 208 scheduler/1 xfailed, 9 SemVer, 34 web, frontend build/tsc, F4E/PostgreSQL).
+- Render produção `dep-dbojfpcs728c73a9lufg` LIVE no SHA exato. CD #42554322842 ignorou o hook ausente `RENDER_DEPLOY_HOOK_URL`; Render `autoDeploy=yes` realizou o deploy e o estado LIVE foi confirmado diretamente.
+- Logs confirmam startup da aplicação e scheduler; migrações 001–094 já aplicadas. Sem migration nova, cron, gateway, segredo ou postagem real.
+- Limites: smoke HTTP externo não executado nesta sessão; Rafa aprovou staging; QA autenticada em produção e publicação real não foram executadas pelo agente. Warnings Pydantic/JWT/depreciações registrados para triagem. Ver [registro completo](docs/RELEASE-3.8.0-20261109.md).
 
 ## [3.7.0] - 2026-11-08
 
