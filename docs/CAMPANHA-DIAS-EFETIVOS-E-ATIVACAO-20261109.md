@@ -5,7 +5,7 @@
 **Versão candidata:** 3.8.1 (PATCH, staging)  
 **Branch:** `fix/campaign-weekday-quota-optional-activation-20261109`  
 **Destino planejado:** staging  
-**Status:** correções de revisão incorporadas na branch; CI de regressão pendente; PR #386 sincronizada em staging; migration 095 ainda não aplicada.
+**Status:** correções de revisão incorporadas; CI #1259 SUCCESS no SHA `3a002b341587d432e1ec03c2daa9f10e86ae6a7e`; PR #386 sincronizada em staging; PR #389 aberta; migration 095 ainda não aplicada.
 
 ## 1. Regra de negócio
 
@@ -158,4 +158,19 @@ A revisão automatizada identificou cinco pontos. Foram incorporadas correções
 - Preservação de edição: o formulário só é limpo se a assinatura atual ainda corresponder ao snapshot efetivamente ativado.
 - Retentativa: quando o mesmo draft possui reserva preparing, a UI permite retry na cota cheia somente se a leitura de uso está disponível e o período pago permanece confirmado. Novas campanhas seguem bloqueadas.
 
-**Validação dessas correções ainda pendente.** Não declarar os findings encerrados até CI, SQL descartável e nova revisão confirmarem o comportamento. Migration 095 não aplicada; staging e produção ainda não receberam esta implementação.
+**Validação automatizada:** CI #1259 SUCCESS (API 1.332/9 warnings; scheduler 208/1 xfailed; SemVer 9; proxy 34/1 warning; frontend tests/TypeScript/build; F4E PostgreSQL descartável). Os testes direcionados de listagem, fail-closed, assinatura de formulário e ACL passaram. Smoke externo foi SKIPPED porque a branch não está implantada. Revisão Codex da PR #389 ainda está em andamento. Migration 095 não aplicada; staging e produção ainda não receberam esta implementação.
+
+## 9. CI da revisão e branch reconciliada — 09/11/2026
+
+PR ativa: [#389](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/389), branch `fix/campaign-weekday-quota-optional-activation-3.8.1-final-20261109`. Base: `staging` SHA `52d8a1a12d9d1c20a0ff8f32072ac250c184b6ab`; branch comparada com 21 commits à frente e zero atrás. PRs #387 e #388 foram fechadas como substituídas, sem merge.
+
+CI [#1259](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42564476394) SUCCESS no SHA `3a002b341587d432e1ec03c2daa9f10e86ae6a7e`:
+- API Python: 1.332 passed, 9 warnings; lint bloqueante e sintaxe SUCCESS.
+- Scheduler: 208 passed, 1 xfailed.
+- SemVer: 9 passed.
+- Proxy/segurança: 34 passed, 1 warning.
+- Frontend: contratos Node, TypeScript e Vite build SUCCESS.
+- F4E PostgreSQL descartável: job SUCCESS; migration 095 aplicada apenas ao banco efêmero, incluindo ACL.
+- Staging externo HTTP/rate-limit: SKIPPED porque a branch ainda não foi implantada.
+
+O head final da PR inclui somente um ajuste de comentários no workflow CI após o SHA testado; o código testado no SHA #1259 é o mesmo código da PR atual. Revisão Codex ainda em andamento. A autorização de Rafa cobre aplicação da migration 095 via deploy staging, não a promoção para main.
