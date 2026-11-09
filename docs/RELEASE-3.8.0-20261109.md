@@ -73,4 +73,4 @@ Não houve necessidade de rollback. Se surgir regressão, seguir a política do 
 
 ## 7. Resultado
 
-**Auto Orbital 3.8.0 foi integrada em main e implantada LIVE no Render de produção.** A validação de CI, SemVer, staging externo e estado LIVE do deploy estão comprovados. Smoke HTTP externo e QA autenticada/visual não foram executados nesta sessão e permanecem explicitamente pendentes.
+**Auto Orbital 3.8.0 foi integrada em main e implantada LIVE no Render de produção.** A validação de CI, SemVer, staging externo e estado LIVE do deploy estão comprovados. Rafa aprovou a homologação em staging. Smoke HTTP externo e QA autenticada/visual em produção não foram executados nesta sessão e permanecem explicitamente pendentes.

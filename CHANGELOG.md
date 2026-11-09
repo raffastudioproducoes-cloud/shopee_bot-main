@@ -35,7 +35,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Merge squash `5a283baf8aafb843cdb6b576836c0b73ae682784`; CI main #42554207935 SUCCESS (1.323 API, 208 scheduler/1 xfailed, 9 SemVer, 34 web, frontend build/tsc, F4E/PostgreSQL).
 - Render produção `dep-dbojfpcs728c73a9lufg` LIVE no SHA exato. CD #42554322842 ignorou o hook ausente `RENDER_DEPLOY_HOOK_URL`; Render `autoDeploy=yes` realizou o deploy e o estado LIVE foi confirmado diretamente.
 - Logs confirmam startup da aplicação e scheduler; migrações 001–094 já aplicadas. Sem migration nova, cron, gateway, segredo ou postagem real.
-- Limites: smoke HTTP externo não executado nesta sessão; QA autenticada/visual e publicação real pendentes. Warnings Pydantic/JWT/depreciações registrados para triagem. Ver [registro completo](docs/RELEASE-3.8.0-20261109.md).
+- Limites: smoke HTTP externo não executado nesta sessão; Rafa aprovou staging; QA autenticada em produção e publicação real não foram executadas pelo agente. Warnings Pydantic/JWT/depreciações registrados para triagem. Ver [registro completo](docs/RELEASE-3.8.0-20261109.md).
 
 ## [3.7.0] - 2026-11-08
 
