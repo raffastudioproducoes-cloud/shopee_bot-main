@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from "react"
 import type { CSSProperties } from "react"
 import { Icon } from "./Icon"
 import { IconButton } from "./IconButton"
@@ -44,6 +45,18 @@ export function SideRail({
   style,
 }: SideRailProps) {
   const active = value ?? items[0]?.value
+  // Pílula que desliza até o item da página atual (E1). Mede o <li> ativo; se não achar, fica escondida.
+  const listRef = useRef<HTMLUListElement>(null)
+  const [pill, setPill] = useState<{ y: number; h: number } | null>(null)
+  useLayoutEffect(() => {
+    const measure = () => {
+      const li = listRef.current?.querySelector<HTMLElement>('li[data-active="true"]')
+      setPill(li && li.offsetHeight > 0 ? { y: li.offsetTop, h: li.offsetHeight } : null)
+    }
+    measure()
+    window.addEventListener("resize", measure)
+    return () => window.removeEventListener("resize", measure)
+  }, [active, items.length, open])
   return (
     <nav
       id={id}
@@ -73,11 +86,13 @@ export function SideRail({
           </span>
         )}
       </span>
-      <ul className="csp-s-0136">
+      <div style={{ position: "relative", width: "100%" }}>
+      {pill ? <span aria-hidden="true" className="app-rail-pill" style={{ transform: `translateY(${pill.y}px)`, height: pill.h }} /> : null}
+      <ul className="csp-s-0136" ref={listRef} style={{ position: "relative" }}>
         {items.map((it) => {
           const on = it.value === active
           return (
-            <li key={it.value}>
+            <li key={it.value} data-active={on ? "true" : undefined}>
               <button
                 type="button"
                 className="app-rail-item"
@@ -116,6 +131,7 @@ export function SideRail({
           )
         })}
       </ul>
+      </div>
       {support ? (
         <IconButton icon="message-square" label="Support" tone="rail" size={34} onClick={onSupport} style={{ marginTop: "auto" }} />
       ) : null}

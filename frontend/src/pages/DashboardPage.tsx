@@ -3,7 +3,7 @@ import { useDashboard } from '../hooks/useDashboard'
 import { StatCard } from '../components/ui/StatCard'
 import { Panel, PanelHeader } from '../components/ui/Panel'
 import { Button } from '../components/ui/Button'
-import '../components/ui/postLoginSplash.css'
+import '../components/ui/motion.css'
 import type { CSSProperties } from 'react'
 import { Skeleton, SkeletonCard, SkeletonRegion } from '../components/ui/Skeleton'
 

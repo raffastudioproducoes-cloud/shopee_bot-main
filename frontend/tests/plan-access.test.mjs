@@ -76,7 +76,8 @@ test("resumo renderiza escopo, consumo ausente, erro 503 e CTA sem checkout", as
   let query = { data: plan(), isError: false, isPending: false, refetch() {} }
   const box = (tag) => ({ children }) => React.createElement(tag, null, children)
   const mod = await moduleAt("components/plans/PlanSummary.tsx", {
-    "../ui/Badge": { Badge: box("span") }, "../ui/Button": { Button: box("button") },
+    "./PlanTag": { PlanTag: ({ children }) => React.createElement("span", null, children), planTierOf: () => "free" },
+    "../ui/Button": { Button: box("button") },
     "../ui/Panel": { Panel: box("section") }, "../ui/Skeleton": { Skeleton: box("div") },
     "../../hooks/usePlanUsage": { usePlanUsage: () => query },
     "../../hooks/useProfiles": { useProfiles: () => ({ activeProfile: { id: "a" } }) },

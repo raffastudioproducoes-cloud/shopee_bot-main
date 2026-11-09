@@ -1,0 +1,38 @@
+/* Tokens da tabela de cores do site (também em styles/tokens/colors.css). */
+.plan-tag {
+  --tag-ruby-deep: var(--plan-ruby-deep, #5c0018); --tag-ruby: var(--plan-ruby, #9b0b2e); --tag-ruby-bright: var(--plan-ruby-bright, #e0153f); --tag-crimson: var(--plan-crimson, #b3002d);
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-flex; align-items: center; padding: 6px 14px; border-radius: var(--r-pill, 999px);
+  border: 1px solid transparent; font: 600 14px/1.1 var(--font-sans); white-space: nowrap;
+}
+/* Free: simples, sem brilho. */
+.plan-tag--free { background: var(--coal-700, #2a3142); color: var(--text-body, #eeeaf2); font-weight: 500; }
+/* Pro: azul da marca, sem efeito. */
+.plan-tag--pro { background: linear-gradient(135deg, var(--brand-deep-blue, #102B9B), var(--brand-electric-blue, #1A5BE1)); color: #fff; }
+/* Brilho (gloss): faixa clara na metade de cima + varredura diagonal lenta. */
+.plan-tag--admin::before, .plan-tag--premium::before {
+  content: ""; position: absolute; inset: 0 0 50% 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,.04));
+}
+.plan-tag--admin::after, .plan-tag--premium::after {
+  content: ""; position: absolute; top: -20%; bottom: -20%; left: -60%; width: 40%; z-index: -1; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent);
+  transform: skewX(-18deg); animation: plan-tag-sheen 5.5s cubic-bezier(.16, 1, .3, 1) infinite;
+}
+/* Admin: rubi com variações de carmesim. */
+.plan-tag--admin {
+  background: linear-gradient(115deg, var(--tag-ruby-deep) 0%, var(--tag-ruby) 22%, var(--tag-ruby-bright) 48%, var(--tag-crimson) 70%, #7a0020 100%);
+  color: #fff; text-shadow: 0 1px 1px rgba(60, 0, 15, .65);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.55), inset 0 -2px 3px rgba(40,0,10,.45), 0 4px 14px rgba(224,21,63,.4);
+}
+/* Premium: paleta da marca (azul-gelo, violeta, lilás) com o mesmo brilho; texto escuro para contraste. */
+.plan-tag--premium {
+  background: linear-gradient(115deg, var(--brand-ice-blue, #5D99F8) 0%, var(--brand-orbital-violet, #936CF2) 40%, var(--brand-soft-lilac, #D4ABE9) 68%, var(--brand-ice-blue, #5D99F8) 100%);
+  color: var(--brand-event-horizon, #010719);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.6), inset 0 -2px 3px rgba(9,25,89,.3), 0 4px 14px rgba(147,108,242,.4);
+}
+/* Na etiqueta do cabeçalho (só a faixa de baixo aparece): sombras próprias do cabeçalho prevalecem. */
+.plan-topbar-account .plan-topbar-tag > span.plan-tag--admin { box-shadow: inset 0 1px 1px rgba(255,255,255,.55), inset 0 -2px 3px rgba(40,0,10,.45), 0 6px 16px rgba(224,21,63,.4); }
+.plan-topbar-account .plan-topbar-tag > span.plan-tag--premium { box-shadow: inset 0 1px 1px rgba(255,255,255,.6), inset 0 -2px 3px rgba(9,25,89,.3), 0 6px 16px rgba(147,108,242,.4); }
+@keyframes plan-tag-sheen { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+@media (prefers-reduced-motion: reduce) { .plan-tag--admin::after, .plan-tag--premium::after { animation: none; display: none; } }

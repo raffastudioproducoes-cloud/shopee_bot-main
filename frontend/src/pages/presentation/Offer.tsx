@@ -1,5 +1,6 @@
 import { motion } from "motion/react"
 import { Check, Minus, Sparkles } from "lucide-react"
+import { PlanTag } from "../../components/plans/PlanTag"
 import { buildComparison, planOffers, plans, type ComparisonValue } from "./content"
 import { Eyebrow, Highlight, LoginLink, Reveal } from "./shared"
 
@@ -55,7 +56,7 @@ export function OfferSection() {
                     <Sparkles className="h-3 w-3" /> Mais equilibrado
                   </span>
                 )}
-                <h3 className="font-ao-display text-2xl font-semibold">{plan.name}</h3>
+                <h3 className="font-ao-display text-2xl font-semibold"><PlanTag tier={plan.id}>{plan.name}</PlanTag></h3>
                 <p className="text-sm text-ao-muted-fg">{plan.tagline}</p>
                 <motion.p
                   className={`mt-6 font-ao-display font-semibold text-5xl text-ao-fg`}

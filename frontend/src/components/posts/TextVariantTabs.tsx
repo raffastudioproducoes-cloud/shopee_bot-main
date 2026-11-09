@@ -1,6 +1,6 @@
 // Abas de descrição por rede: uma versão editável para cada rede marcada.
 // A IA preenche todas com um clique. Setas/Home/End navegam entre as abas.
-import { useId, useRef, useState, type KeyboardEvent } from "react"
+import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react"
 import { NETWORK_RULES, textLength, type Issue, type TextVariantPlan } from "../../lib/networkLimits"
 import { Textarea } from "../ui/Textarea"
 import { NetworkLogo } from "./NetworkPicker"
@@ -114,6 +114,8 @@ export function TextVariantTabs({ plans, values, onChange, issues }: Props) {
             ))}
           </span>
           <span style={{ font: caption, fontVariantNumeric: "tabular-nums", color: bad ? "var(--negative)" : "var(--text-muted)" }}>
+            <span aria-hidden="true" className={`char-ring${bad ? " is-over" : ""}`}
+              style={{ "--p": Math.min(1, plan.maxChars > 0 ? used / plan.maxChars : 0) } as CSSProperties} />
             {used.toLocaleString("pt-BR")}/{plan.maxChars.toLocaleString("pt-BR")} caracteres
           </span>
         </div>
