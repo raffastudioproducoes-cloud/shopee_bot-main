@@ -1,7 +1,7 @@
 # Auto Orbital — seleção de mídias de Produtos nas campanhas e miniaturas MP4
 
 **Data:** 08/11/2026 · **Escopo:** Produtos → Editar; Criar Post → Campanha → Preparar produto  
-**Estado:** implementação em branch de trabalho; staging e CI exigidos antes de homologação. **Main não autorizada.**  
+**Estado:** [PR #372](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/372) integrada à **staging**, [CI #1181](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42537281662) **SUCCESS**, Render **LIVE** no SHA `755fb84ad9c7fa5cb063ac71d2fab5a07c6926a8` (deploy `dep-dbognenb9u1s73dle02g`). QA autenticada de Rafa ainda pendente. **Main não autorizada.**  
 **SemVer:** `3.6.2` é a versão vigente. Funcionalidade compatível MINOR, **candidata 3.7.0**, somente após aceite de staging e autorização posterior de release. `VERSION` não muda nesta fase.
 
 ## Decisão do proprietário e requisitos
@@ -44,8 +44,8 @@ Rafa aprovou, em 08/11, o plano de reutilização de mídias com dois complement
 
 - [x] Build TypeScript/Vite e testes de contrato React/Node (resultado exato registrado na TASK).
 - [x] `python -m py_compile` para backend modificado; sintaxe aprovada (não substitui pytest).
-- [ ] Testes pytest de ownership, idempotência, cópia privada, fallback de poster e ativação em CI (ambiente local de execução não possui dependências Python; nenhum sucesso inventado).
-- [ ] Staging: PR, CI verde, Render LIVE/health/readiness, sem alterar `main`.
+- [x] Testes pytest de ownership, idempotência, cópia privada, fallback de poster e ativação: **1.314 testes da API PASS** na CI #1181 (o primeiro run #1180 falhou somente no mock novo de Storage, corrigido e revalidado). Testes Python locais não disponíveis por ausência de dependências.
+- [x] Staging: PR #372 squash merge `755fb84`, CI #1181 **SUCCESS**, Render `dep-dbognenb9u1s73dle02g` **LIVE** no commit exato; HTTP `/health`, `/ready`, `/login` **200**, endpoint de poster privado **401** sem login; nenhum request **5xx** no período de observação de logs pós-deploy. `main` intacta.
 - [ ] QA autenticada de Rafa no Android: foto Shopee isolada, fotos/vídeos do produto, ambos, nenhum; vídeo legado com poster; salvar/reabrir rascunho; processamento maior que 30 s; plano bloqueado; exclusão antes de ativar.
 - [ ] Verificar reserva/materialização apenas em alvo de teste autorizado, sem postagem externa involuntária.
 - [ ] Somente **após** aceite de Rafa: preparar versão MINOR, gate SemVer, PR staging→main, produção LIVE, registro de SHA/CI/Render e documentação final Projeto/Vault.
