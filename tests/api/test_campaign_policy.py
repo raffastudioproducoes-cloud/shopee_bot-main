@@ -40,11 +40,12 @@ def item():
     return dict(product_id=12, title="Oferta", copy="", networks=["threads"])
 
 
-def schedule(days=15, posts=3):
-    start = date(2026, 11, 10)
+def schedule(days=15, posts=3, weekdays=None, start=None):
+    start = start or date(2026, 11, 10)
     return campaigns.CampaignPreviewRequest(
         list_id=11, item_ids=[12], start_date=start,
-        end_date=start + timedelta(days=days - 1), weekdays=list(range(7)),
+        end_date=start + timedelta(days=days - 1),
+        weekdays=list(range(7)) if weekdays is None else weekdays,
         start_time=time(9), end_time=time(18), posts_per_day=posts)
 
 
@@ -83,15 +84,36 @@ def test_admin_bypasses_commercial_caps_not_absolute_safety(monkeypatch):
     assert caught.value.status_code == 422
 
 
-@pytest.mark.parametrize("tier,days,posts", [("pro", 16, 3), ("pro", 15, 4)])
-def test_pro_rejects_excess_even_with_few_selected_weekdays(monkeypatch, tier, days, posts):
-    setup_db(monkeypatch, database(tier))
-    plan = schedule(days, posts)
-    plan.weekdays = [1]
+def test_pro_counts_only_selected_weekdays_and_rejects_the_sixteenth(monkeypatch):
+    setup_db(monkeypatch, database("pro"))
+    policy = campaign_policy.load_campaign_policy("owner", "profile-a")
+    # 99 calendar days contain exactly 15 Tuesdays from the Tuesday start.
+    campaign_policy.validate_campaign_plan_schedule(
+        policy, schedule(99, 3, weekdays=[1]))
     with pytest.raises(HTTPException) as caught:
         campaign_policy.validate_campaign_plan_schedule(
-            campaign_policy.load_campaign_policy("owner", "profile-a"), plan)
+            policy, schedule(106, 3, weekdays=[1]))
     assert caught.value.status_code == 403
+
+
+def test_premium_example_uses_eighteen_of_thirty_selected_days(monkeypatch):
+    setup_db(monkeypatch, database("premium"))
+    plan = schedule(
+        30, 3, weekdays=[0, 2, 4, 6], start=date(2026, 11, 1))
+    campaign_policy.validate_campaign_plan_schedule(
+        campaign_policy.load_campaign_policy("owner", "profile-a"), plan)
+
+
+def test_thirty_selected_weekdays_can_span_more_than_thirty_calendar_days(monkeypatch):
+    setup_db(monkeypatch, database("premium"))
+    plan = schedule(204, 1, weekdays=[1])
+    campaign_policy.validate_campaign_plan_schedule(
+        campaign_policy.load_campaign_policy("owner", "profile-a"), plan)
+    with pytest.raises(HTTPException) as caught:
+        campaign_policy.validate_campaign_plan_schedule(
+            campaign_policy.load_campaign_policy("owner", "profile-a"),
+            schedule(211, 1, weekdays=[1]))
+    assert caught.value.status_code == 422
 
 
 @pytest.mark.parametrize("tier,days,posts", [("pro", 15, 3), ("premium", 30, 15)])
@@ -332,3 +354,15 @@ def test_daily_network_volume_follows_product_rotation_not_global_sum(monkeypatc
     with pytest.raises(HTTPException) as caught:
         campaign_policy.validate_campaign_network_volume(policy, plan, prepared)
     assert caught.value.status_code == 403
+
+
+def test_campaign_quota_migration_counts_weekdays_without_changing_existing_tables():
+    from pathlib import Path
+
+    sql = (Path(__file__).resolve().parents[2] /
+           "database/migrations/095_campaign_active_weekday_quota.sql").read_text()
+    assert "CREATE OR REPLACE FUNCTION public.reserve_campaign_f4e" in sql
+    assert "generate_series" in sql
+    assert "campaign_active_days_exceeded" in sql
+    assert "210" in sql and "450" in sql
+    assert "DROP TABLE" not in sql
