@@ -30,9 +30,16 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
   })
   const media = mediaQuery.data?.items ?? []
   const missing = selectedIds.filter((id) => !media.some((item) => item.id === id))
+  const shopeeImageSizeQuery = useQuery({
+    queryKey: ["campaign-shopee-image-size", productId],
+    queryFn: () => productsApi.downloadImage(productId),
+    enabled: Boolean(useShopeeImage && shopeeImage),
+    staleTime: 4 * 60 * 1000,
+    retry: 1,
+  })
   const selectedMedia: MediaInfo[] = [
     ...(useShopeeImage && shopeeImage
-      ? [{ name: `shopee-${productId}.jpg`, size: 0, kind: "image" as const }]
+      ? [{ name: `shopee-${productId}.jpg`, size: shopeeImageSizeQuery.data?.blob.size ?? 0, kind: "image" as const }]
       : []),
     ...media.filter((item) => selectedIds.includes(item.id)).map((item) => ({
       name: item.file_name,
@@ -45,6 +52,7 @@ export function CampaignProductMediaSelector({ productId, shopeeImage, useShopee
       kind: item.media_type === "VIDEO" ? "video" as const : mediaKind(item.file_name),
     })),
   ]
+  const plansReady = mediaQuery.isSuccess && (!useShopeeImage || !shopeeImage || shopeeImageSizeQuery.isSuccess)
   const plans = networks.map((network) => {
     const body = texts[network] ?? ""
     const finalText = affiliateLink && !body.includes(affiliateLink)
