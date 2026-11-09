@@ -44,3 +44,43 @@ test("estado de credenciais é isolado por perfil ativo", async () => {
   assert.match(page, /queryKey: \["credentials", userId, activeProfileId\]/)
   assert.match(page, /enabled: Boolean\(userId && activeProfileId\)/)
 })
+
+
+test("campanha mostra a composição aceita e as mídias descartadas por rede", async () => {
+  const [selector, planner] = await Promise.all([
+    src("components/campaigns/CampaignProductMediaSelector.tsx"),
+    src("components/campaigns/CampaignPlanner.tsx"),
+  ])
+  assert.match(selector, /planMediaComposition/)
+  assert.match(selector, /legacyMedia/)
+  assert.match(selector, /plan\.dropped\.map/)
+  assert.match(selector, /plan\.blockedReason/)
+  assert.match(selector, /aria-live="polite"/)
+  assert.match(selector, /affiliateLink && !body\.includes/)
+  assert.match(planner, /legacyMedia=\{mediaQuery\.data\?\.data\.filter/)
+  assert.match(planner, /texts=\{Object\.fromEntries/)
+})
+
+test("planejador de composição bloqueia texto longo e preserva só mídia aceita", async () => {
+  const { planMediaComposition } = await import("../src/lib/mediaComposition.ts")
+  const plan = planMediaComposition("tiktok", {
+    texts: ["descrição válida"],
+    productCount: 1,
+    media: [
+      { name: "foto.jpg", size: 1024, kind: "image" },
+      { name: "video-1.mp4", size: 5 * 1024 * 1024, kind: "video" },
+      { name: "video-2.mp4", size: 5 * 1024 * 1024, kind: "video" },
+    ],
+  })
+  assert.equal(plan.mode, "video")
+  assert.deepEqual(plan.media.map((item) => item.name), ["video-1.mp4"])
+  assert.deepEqual(plan.dropped.map((entry) => entry.item.name), ["foto.jpg", "video-2.mp4"])
+
+  const tooLong = planMediaComposition("tiktok", {
+    texts: ["x".repeat(2201)],
+    productCount: 1,
+    media: [{ name: "video.mp4", size: 5 * 1024 * 1024, kind: "video" }],
+  })
+  assert.equal(tooLong.mode, "blocked")
+  assert.match(tooLong.blockedReason ?? "", /2.200/)
+})
