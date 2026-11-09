@@ -13,12 +13,13 @@ async function load() {
 
 test("safeExternalUrl aceita só HTTPS em hosts Shopee e recusa o resto (S-02)", async () => {
   const { safeExternalUrl } = await load()
-  for (const ok of ["https://shopee.com.br/p-i.1.2", "https://www.shopee.com.br/p-i.1.2", "https://s.shopee.com.br/AbC", "https://shope.ee/AbC"]) {
+  for (const ok of ["https://shopee.com.br/p-i.1.2", "https://www.shopee.com.br/p-i.1.2", "https://s.shopee.com.br/AbC"]) {
     assert.ok(safeExternalUrl(ok), ok)
   }
   for (const bad of [null, undefined, "", "javascript:alert(1)", "data:text/html,x", "http://shopee.com.br/p",
     "https://evil.example/p", "https://shopee.com.br.evil.example/p", "https://u:p@shopee.com.br/p",
-    "https://shopee.com.br:8443/p", "https://s.shopee.com.br", " https://shopee.com.br/p", "//shopee.com.br/p"]) {
+    "https://shopee.com.br:8443/p", "https://s.shopee.com.br",
+    "https://shope.ee/AbC", "https://shp.ee/AbC", " https://shopee.com.br/p", "//shopee.com.br/p"]) {
     assert.equal(safeExternalUrl(bad), undefined, String(bad))
   }
 })

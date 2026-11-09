@@ -97,3 +97,30 @@ def acquire_cooldown(kind: str, identity: str, seconds: int) -> bool:
         ))
 
     return _safe_call(run)
+
+
+def ping() -> bool:
+    """True se o Redis configurado responde. Nunca registra nem devolve a URI."""
+    def run():
+        return bool(_redis_for_url(_storage_uri()).ping())
+
+    return _safe_call(run)
+
+
+def describe_mode(workers: int = 1) -> tuple[str, str]:
+    """(nível de log, mensagem) do modo de rate limit, para o diagnóstico de inicialização.
+
+    Informa apenas presença e saúde do armazenamento compartilhado, nunca a URI/segredo.
+    """
+    if distributed_enabled():
+        try:
+            ping()
+        except HTTPException:
+            return ("warning", "Rate limit distribuído configurado, mas o armazenamento não respondeu: "
+                               "operações protegidas serão negadas com 503 até a conexão voltar.")
+        return ("info", "Rate limit distribuído (Redis/Valkey) ativo e acessível.")
+    if workers > 1:
+        return ("warning", f"Rate limit em memória com {workers} workers: os limites NÃO são compartilhados. "
+                           "Defina RATELIMIT_STORAGE_URI.")
+    return ("info", "Rate limit em memória (uma instância). Defina RATELIMIT_STORAGE_URI antes de escalar "
+                    "workers ou instâncias.")

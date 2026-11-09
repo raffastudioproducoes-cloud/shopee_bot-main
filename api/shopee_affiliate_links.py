@@ -17,9 +17,9 @@ def valid_affiliate_id(value: str | None) -> bool:
     return bool(value and _AFFILIATE_ID.fullmatch(value))
 
 
-# shope.ee é o encurtador oficial da Shopee; fica fora de _SHOP_HOSTS porque
-# canonical_product_url exige URL de produto, não link curto.
-_SHORT_HOSTS = frozenset({"shope.ee"})
+# Domínios fora da lista (ex.: shope.ee, shp.ee) NÃO são aceitos: a titularidade deles não foi
+# confirmada em fonte oficial da Shopee e a Central de Ajuda os cita junto de encurtadores de
+# terceiros. Para aceitar um novo domínio, confirme a titularidade e inclua-o em _REDIRECT_HOSTS.
 
 
 def is_safe_shopee_link(value: str | None) -> bool:
@@ -34,7 +34,7 @@ def is_safe_shopee_link(value: str | None) -> bool:
         url = urlsplit(value)
         host = (url.hostname or "").lower()
         return (url.scheme == "https"
-                and host in (_REDIRECT_HOSTS | _SHORT_HOSTS)
+                and host in _REDIRECT_HOSTS
                 and url.username is None and url.password is None
                 and url.port in (None, 443)
                 and bool(url.path) and url.path != "/")

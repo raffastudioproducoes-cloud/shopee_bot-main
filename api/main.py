@@ -4,6 +4,7 @@ Consome Supabase existente. Coexiste com Flask durante a migração.
 """
 
 import asyncio
+import os
 from contextlib import asynccontextmanager
 import logging
 import time
@@ -14,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 
 from .config import settings
+from . import rate_limit_store
 from .database import get_supabase, init_db
 from .middleware import AccessLogRedactor, RequestIDMiddleware, RequestLoggingMiddleware
 from .routers.posts import cleanup_expired_media_drafts
@@ -146,7 +148,17 @@ async def health_ready():
     return {"status": "ok"}
 
 
+def _log_rate_limit_mode() -> None:
+    try:
+        workers = int(os.environ.get("WEB_CONCURRENCY", "1") or 1)
+    except ValueError:
+        workers = 1
+    level, message = rate_limit_store.describe_mode(workers)
+    getattr(logger, level)(message)
+
+
 async def startup():
+    _log_rate_limit_mode()
     # init_db() nunca pode deixar exceção subir daqui: esse handler roda no
     # subprocesso uvicorn separado (gunicorn.conf.py::on_starting) e, se ele
     # morrer com o processo inteiro (sys.exit no lifespan), o gunicorn.conf.py

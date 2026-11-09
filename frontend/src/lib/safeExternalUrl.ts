@@ -2,7 +2,7 @@
  * Segunda barreira (S-02): o backend já recusa destinos externos na criação, mas dados
  * antigos ou adulterados não podem virar link clicável. Retorna undefined se não for seguro.
  */
-const LINK_HOSTS = new Set(["shopee.com.br", "www.shopee.com.br", "s.shopee.com.br", "shope.ee"])
+const LINK_HOSTS = new Set(["shopee.com.br", "www.shopee.com.br", "s.shopee.com.br"])
 const IMAGE_HOSTS = new Set(["cf.shopee.com.br", "down-br.img.susercontent.com", "img.susercontent.com"])
 
 function parseHttps(value: string | null | undefined): URL | null {

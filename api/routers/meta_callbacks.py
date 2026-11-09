@@ -21,6 +21,7 @@ from ..audit_log import log_action
 from ..audit_trail import record_audit_event
 from ..config import settings
 from ..database import supabase
+from ..rate_limiter import check_window
 from .auth import client_ip
 
 logger = logging.getLogger("uvicorn.error")
@@ -99,19 +100,12 @@ def _remember_replay(key: tuple, response: dict) -> None:
 
 
 def _check_memory_rate_limit(key: str, *, limit: int, window_seconds: int) -> None:
-    now = time.time()
-    cutoff = now - window_seconds
-    for existing_key in list(_rate_attempts):
-        _rate_attempts[existing_key] = [ts for ts in _rate_attempts[existing_key] if ts >= cutoff]
-        if not _rate_attempts[existing_key]:
-            del _rate_attempts[existing_key]
-    while len(_rate_attempts) >= _RATE_MAX_KEYS:
-        oldest = min(_rate_attempts, key=lambda item: _rate_attempts[item][-1])
-        del _rate_attempts[oldest]
-    attempts = _rate_attempts.setdefault(key, [])
-    if len(attempts) >= limit:
-        raise HTTPException(status_code=429, detail="Muitas tentativas. Aguarde antes de tentar novamente.")
-    attempts.append(now)
+    # Nome histórico: agora é Redis atômico quando configurado, senão memória com trava.
+    check_window(
+        "meta-callback", key, attempts=limit, window_seconds=window_seconds,
+        state=_rate_attempts, max_keys=_RATE_MAX_KEYS,
+        detail="Muitas tentativas. Aguarde antes de tentar novamente.", clock=time.time,
+    )
 
 
 def _record_invalid_signature(request: Request) -> None:
