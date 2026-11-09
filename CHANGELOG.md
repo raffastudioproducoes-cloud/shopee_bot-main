@@ -5,6 +5,24 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.8.0] - 2026-11-08
+
+### Added / Changed — redes globais e editor paginado de campanhas
+
+- Seleção de redes sociais movida para uma única lista na configuração da campanha, imediatamente abaixo do nome e antes da lista de produtos. Mantida a lista existente de canais de postagem, sem lojas, modais ou novos ícones.
+- Editor de cada produto passou a usar abas de texto no mesmo espaço, uma por rede selecionada; cada aba mantém seu próprio texto e inicia com a descrição padrão do produto quando ainda não existe variante.
+- Geração de IA atua sobre a aba/rede ativa. Textos, título, link e seleção de mídia continuam restritos ao rascunho da campanha; o cadastro original em Produtos não é alterado.
+- Lista de produtos limitada a 10 itens por página, com numeração e navegação anterior/próxima, sem limitar a quantidade total da campanha.
+- Rascunhos antigos com seleções diferentes por produto são restaurados de forma conservadora: somente as redes comuns são pré-selecionadas e uma advertência pede revisão antes de salvar. A seleção global é persistida no contrato existente repetindo o mesmo conjunto de redes nos itens, sem migração destrutiva de banco.
+- Ajuda/FAQ atualizadas com Shopee Vídeo e com a distinção entre capacidade oficial da API TikTok e o fluxo PHOTO ainda não implementado no Auto Orbital.
+- Auditoria da publicação única: o planejador determinístico já cria uma composição por rede, mantém a ordem das mídias aceitas, reporta mídias descartadas e bloqueia erros de texto antes do envio; o backend repete a validação. Sem alterar o motor de publicação ou executar posts reais.
+
+### Validation / release gate
+
+- CI e testes automatizados devem validar o branch antes de merge em staging.
+- VERSION passa de 3.7.0 para 3.8.0 (MINOR).
+- Não promover para main/produção sem homologação e autorização específica.
+
 ## [3.7.0] - 2026-11-08
 
 - **Promoção concluída em 08/11/2026:** PR [#374](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/374)/CI #1185 → staging `f34dd11` LIVE, PR [#375](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/375)/CI #1187 + gate SemVer #14 → main `a16f569`, Render produção `dep-dboh27e8bjmc73b7ukfg` LIVE, `/health`/`/ready`/`/login` HTTP 200, HTML 3.7.0, rota privada poster 401, 0 requests 5xx na janela observada; `SIGTERM` antigo esperado. [Evidências](docs/RELEASE-3.7.0-20261108.md).

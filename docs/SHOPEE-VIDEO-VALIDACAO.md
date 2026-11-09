@@ -1,3 +1,34 @@
+## 08/11/2026 — regras oficiais de Shopee Vídeo para a ajuda
+
+A Central de Ajuda da Shopee Brasil informa:
+- Duração mínima de 3 segundos e máxima de 60 segundos.
+- Recomendação editorial de vídeos de até 30 segundos.
+- Até 6 produtos vinculados diretamente ao vídeo.
+- Para a comissão aplicável, o produto deve ser associado ao vídeo no fluxo de publicação. Link na descrição ou nos comentários não substitui esse vínculo.
+- A publicação descrita pela Shopee é realizada no aplicativo Shopee.
+
+Fontes oficiais:
+- https://help.shopee.com.br/portal/10/article/171162-Principais-dúvidas-sobre-Shopee-Video
+- https://help.shopee.com.br/portal/10/article/165030
+- https://help.shopee.com.br/portal/10/article/165032
+
+Limitações de evidência: as fontes acima não publicam especificação completa de codec, resolução, proporção, tamanho máximo do arquivo ou limite de caracteres da legenda. Não inventar esses limites.
+
+Estado do Auto Orbital: a integração de upload/publicação para o feed Shopee Vídeo permanece não habilitada. O conteúdo da Ajuda é informativo e não deve criar uma opção de postagem ativa.
+
+## 08/11/2026 — TikTok PHOTO: capacidade oficial versus suporte do aplicativo
+
+A API oficial do TikTok documenta posts PHOTO. O endpoint exige fluxo específico, Creator Info e apresentação/obediência às opções de privacidade; para PULL_FROM_URL, é necessário domínio ou prefixo verificado. A documentação de foto informa título até 90 e descrição até 4.000 unidades UTF-16, e JPEG/WebP até 20 MB.
+
+Fontes oficiais:
+- https://developers.tiktok.com/docs/en/content-posting-api-reference-photo-post
+- https://developers.tiktok.com/docs/en/content-posting-api-get-started
+- https://developers.tiktok.com/docs/en/content-sharing-guidelines
+
+O Auto Orbital permanece com publicação TikTok somente de vídeo até que o fluxo PHOTO completo seja implementado e validado. A ajuda deve separar limites oficiais da API e formatos efetivamente publicados pelo aplicativo.
+
+---
+
 # Validação Shopee Open Platform e integração Shopee Vídeo
 
 > **07/11/2026 — CADASTRO SHOPEE (NOVA PRIORIDADE DE RAFA):** a integração de vídeos fica **pausada** enquanto regularizamos a conta na ordem: **(1) Penetration Test Report Rejected**, motivo ainda desconhecido; **(2) Supporting Documents Information Pending Upload** (declaração, capturas, URL e conta de teste faltantes); **(3) App List vazia**, criar app somente após esclarecimento do serviço correto. Capturas do portal fundamentam esses status, **não comprovam** obrigatoriedade universal de pentest para afiliado brasileiro. Não reenviar relatório técnico como pentest independente nem contratar teste sem confirmar exigência e autorização do proprietário. [Inventário, mensagem de suporte e checklist por etapa](SHOPEE-OPEN-PLATFORM-CADASTRO-20261107.md). Nenhuma escrita na conta Shopee executada.

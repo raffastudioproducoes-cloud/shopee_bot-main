@@ -127,3 +127,12 @@
 .campaign-delete-actions { display:flex; flex-wrap:wrap; gap:10px; }
 @media (max-width:520px) { .campaign-delete-actions > button { flex:1 1 100%; } }
 
+
+.campaign-description-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 12px; }
+.campaign-description-tabs button { min-height:40px; padding:8px 14px; border:1px solid var(--border-hairline); border-radius:var(--r-sm); background:var(--surface-inset); color:var(--text-muted); font:var(--text-role-small); cursor:pointer; }
+.campaign-description-tabs button.is-active { border-color:var(--accent); color:var(--accent); background:rgba(39,156,245,.10); }
+.campaign-pagination { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:8px; padding:16px 0 4px; }
+.campaign-pagination button { min-width:40px; min-height:40px; padding:0 10px; border:1px solid var(--border-hairline); border-radius:var(--r-sm); background:var(--surface-inset); color:var(--text-body); cursor:pointer; }
+.campaign-pagination button.is-active { border-color:var(--accent); color:var(--accent); }
+.campaign-pagination button:disabled { opacity:.35; cursor:default; }
+.campaign-description-tabs button:focus-visible, .campaign-pagination button:focus-visible { outline:2px solid var(--mint-400); outline-offset:2px; }

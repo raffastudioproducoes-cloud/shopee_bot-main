@@ -6,7 +6,7 @@ import { listsApi, type Product } from "../../api/lists"
 import { campaignsApi, type CampaignPreviewRequest, type CampaignDraftSaveRequest, type CampaignDraftRecord } from "../../api/campaigns"
 import { credentialsApi, platformAiApi } from "../../api/credentials"
 import { postsApi, type PostNetwork } from "../../api/posts"
-import { NETWORK_RULES } from "../../lib/networkLimits"
+import { NETWORK_RULES, textLength } from "../../lib/networkLimits"
 import { NetworkPicker, PICKER_NETWORKS, type NetworkState } from "../posts/NetworkPicker"
 import { reconcileCampaignSnapshots, patchCampaignSnapshot, type CampaignItemSnapshot } from "../../lib/campaignSnapshots"
 import { formDraftKey } from "../../lib/formDraftStorage"
@@ -32,13 +32,14 @@ interface CampaignDraft {
   endTime: string
   postsPerDay: string
   itemSnapshots: Record<number, CampaignItemSnapshot>
+  networks: PostNetwork[]
 }
 
 function initialDraft(): CampaignDraft {
   return {
     name: "", listId: null, itemIds: [], startDate: "", endDate: "",
     days: [0, 1, 2, 3, 4], startTime: "09:00", endTime: "18:00",
-    postsPerDay: "1", itemSnapshots: {},
+    postsPerDay: "1", itemSnapshots: {}, networks: [],
   }
 }
 
@@ -77,6 +78,9 @@ export function CampaignPlanner({ credentials }: {
   const profileId = useProfileStore((state) => state.activeProfileId)
   const [draft, setDraft] = useState<CampaignDraft>(initialDraft)
   const [editingProductId, setEditingProductId] = useState<number | null>(null)
+  const [productPage, setProductPage] = useState(1)
+  const [activeDescriptionNetwork, setActiveDescriptionNetwork] = useState<Record<number, PostNetwork>>({})
+  const [legacyNetworkNotice, setLegacyNetworkNotice] = useState(false)
   const [aiPersonas, setAiPersonas] = useState<Record<number, string>>({})
   const [savedDraftId, setSavedDraftId] = useState<string | null>(null)
   const [savedRevision, setSavedRevision] = useState<number | null>(null)
@@ -150,6 +154,10 @@ export function CampaignPlanner({ credentials }: {
     return states
   }, [credentials])
   const previewMutation = useMutation({ mutationFn: campaignsApi.preview })
+  const productPageCount = Math.max(1, Math.ceil(draft.itemIds.length / 10))
+  const safeProductPage = Math.min(productPage, productPageCount)
+  const productPageStart = (safeProductPage - 1) * 10
+  const visibleProductIds = draft.itemIds.slice(productPageStart, productPageStart + 10)
   const draftsQuery = useQuery({
     queryKey: ["campaign-drafts", userId, profileId],
     queryFn: campaignsApi.listDrafts,
@@ -223,7 +231,7 @@ export function CampaignPlanner({ credentials }: {
 
 
   const saveInput = useMemo<CampaignDraftSaveRequest | null>(() => {
-    if (!canEditCampaign || ((draft.startDate || draft.endDate) && !payload) ||
+    if (!canEditCampaign || !draft.networks.length || ((draft.startDate || draft.endDate) && !payload) ||
         !selectedList || !draft.name.trim() || draft.name.trim().length > 120 || !draft.listId || !draft.itemIds.length ||
         draft.itemIds.length !== products.length ||
         new Set(draft.itemIds).size !== products.length ||
@@ -236,14 +244,14 @@ export function CampaignPlanner({ credentials }: {
         title: snapshots[id].title,
         copy: snapshots[id].copy,
         affiliate_link: snapshots[id].affiliateLink,
-        networks: snapshots[id].networks,
+        networks: draft.networks,
         network_copies: snapshots[id].networkCopies,
         use_shopee_image: snapshots[id].useShopeeImage,
         product_media_ids: snapshots[id].selectedProductMediaIds,
       })),
       schedule: payload,
     }
-  }, [selectedList, products, draft.name, draft.listId, draft.itemIds, snapshots, payload, canEditCampaign])
+  }, [selectedList, products, draft.name, draft.listId, draft.itemIds, draft.networks, snapshots, payload, canEditCampaign])
   const saveSignature = saveInput ? JSON.stringify(saveInput) : ""
   const saveMutation = useMutation({
     mutationFn: async ({ data, id, revision }: {
@@ -260,6 +268,7 @@ export function CampaignPlanner({ credentials }: {
       setRemoteSelection(saved.id)
       setLastSavedSignature(variables.signature)
       setLegacyScheduleNotice(false)
+      setLegacyNetworkNotice(false)
       void draftsQuery.refetch()
     },
   })
@@ -289,12 +298,20 @@ export function CampaignPlanner({ credentials }: {
         useShopeeImage: item.use_shopee_image,
         selectedProductMediaIds: item.product_media_ids ?? [],
       }])) as Record<number, CampaignItemSnapshot>
+      const legacyNetworkSets = saved.items.map((item) => [...new Set(item.networks)].sort().join("|"))
+      const legacyNetworkNotice = new Set(legacyNetworkSets).size > 1
+      const globalNetworks = saved.items.length
+        ? PICKER_NETWORKS.filter((network) => saved.items.every((item) => item.networks.includes(network)))
+        : []
+      setLegacyNetworkNotice(legacyNetworkNotice)
+      setProductPage(1)
       setListOverride(source)
       setDraft({
         name: saved.campaign_name || saved.source_list_name,
         listId: saved.source_list_id,
         itemIds: saved.items.map((item) => item.product_id),
         itemSnapshots: restored,
+        networks: globalNetworks,
         startDate: schedule?.start_date ?? "",
         endDate: schedule?.end_date ?? "",
         days: schedule?.weekdays ?? [0, 1, 2, 3, 4],
@@ -348,14 +365,20 @@ export function CampaignPlanner({ credentials }: {
   }
 
   const generateCampaignCopy = useMutation({
-    mutationFn: ({ id, persona }: { id: number; persona: string; oldCopy: string; listId: number | null; draftId: string | null }) =>
-      postsApi.generateCopy(id, persona, [], { descriptionOnly: true }),
+    mutationFn: ({ id, persona, network }: { id: number; persona: string; oldCopy: string; network: PostNetwork | null; listId: number | null; draftId: string | null }) =>
+      postsApi.generateCopy(id, persona, network ? [network] : [], { descriptionOnly: true }),
     onSuccess: (result, request) => {
       setDraft((current) => {
         if (current.listId !== request.listId || savedDraftId !== request.draftId) return current
         const currentSnapshots = reconcileCampaignSnapshots(products, current.itemSnapshots)
-        if (!currentSnapshots[request.id] || currentSnapshots[request.id].copy !== request.oldCopy) return current
-        return { ...current, itemSnapshots: patchCampaignSnapshot(currentSnapshots, request.id, { copy: result.text }) }
+        const snapshot = currentSnapshots[request.id]
+        if (!snapshot) return current
+        const currentText = request.network ? (snapshot.networkCopies[request.network] || snapshot.copy) : snapshot.copy
+        if (currentText !== request.oldCopy) return current
+        const changes = request.network
+          ? { networkCopies: { ...snapshot.networkCopies, [request.network]: result.text } }
+          : { copy: result.text }
+        return { ...current, itemSnapshots: patchCampaignSnapshot(currentSnapshots, request.id, changes) }
       })
     },
   })
@@ -391,11 +414,31 @@ export function CampaignPlanner({ credentials }: {
         <div className="campaign-controls">
           <section className="campaign-section">
             <h3>01. Produtos</h3>
-            <p>Dê um nome à campanha, escolha a lista, ajuste a ordem e prepare cada produto.</p>
+            <p>Dê um nome à campanha, escolha as redes e a lista, ajuste a ordem e prepare cada produto.</p>
             <label className="campaign-field-label" htmlFor="campaign-name">Nome da campanha</label>
             <input id="campaign-name" className="campaign-select" type="text" maxLength={120}
               value={draft.name} onChange={(event) => update("name", event.target.value)}
               placeholder="Ex.: Ofertas da semana de novembro" />
+            <span className="campaign-field-label">Redes sociais da campanha <small>(marque uma ou mais)</small></span>
+            <NetworkPicker selected={draft.networks} states={networkStates}
+              onToggle={(network) => {
+                const networks = draft.networks.includes(network)
+                  ? draft.networks.filter((entry) => entry !== network)
+                  : [...draft.networks, network]
+                update("networks", networks)
+                setActiveDescriptionNetwork((current) => {
+                  const next = { ...current }
+                  for (const [key, active] of Object.entries(next)) {
+                    if (!networks.includes(active)) delete next[Number(key)]
+                  }
+                  return next
+                })
+              }} />
+            {legacyNetworkNotice && (
+              <p className="campaign-warning" role="status">
+                Este rascunho antigo tinha redes diferentes por produto. Para evitar ativar redes que antes não estavam habilitadas em todos os itens, foram selecionadas somente as redes comuns. Revise a seleção antes de salvar.
+              </p>
+            )}
             <label className="campaign-field-label" htmlFor="campaign-list">Lista de produtos</label>
             <select
               id="campaign-list"
@@ -408,6 +451,9 @@ export function CampaignPlanner({ credentials }: {
                   ...current, listId: id, itemIds: (list?.products ?? []).map((item) => item.id),
                   itemSnapshots: reconcileCampaignSnapshots(list?.products ?? [], {}),
                 }))
+                setProductPage(1)
+                setActiveDescriptionNetwork({})
+                setLegacyNetworkNotice(false)
                 setSavedDraftId(null)
                 setSavedRevision(null)
                 setRemoteSelection("")
@@ -429,13 +475,15 @@ export function CampaignPlanner({ credentials }: {
             {listsResponse?.next_cursor && <p className="campaign-status">Exibindo as 100 listas mais recentes.</p>}
             {selectedList && products.length === 0 && <p className="campaign-status">Esta lista não tem produtos. Adicione produtos em Listas.</p>}
             {selectedList && draft.itemIds.length > 0 && (
+              <>
               <ol className="campaign-products">
-                {draft.itemIds.map((id, index) => {
+                {visibleProductIds.map((id, pageIndex) => {
+                  const index = productPageStart + pageIndex
                   const product = products.find((entry) => entry.id === id)
                   const snapshot = snapshots[id]
                   if (!product || !snapshot) return null
                   const editing = editingProductId === id
-                  const prepared = Boolean(snapshot.copy.trim() && snapshot.networks.length)
+                  const prepared = Boolean(snapshot.copy.trim() && draft.networks.length)
                   return (
                     <li key={id} className="campaign-product">
                       <div className="campaign-product-row">
@@ -466,30 +514,65 @@ export function CampaignPlanner({ credentials }: {
                           <label className="campaign-field-label" htmlFor={`campaign-title-${id}`}>Título do produto</label>
                           <input className="campaign-select" id={`campaign-title-${id}`} maxLength={300}
                             value={snapshot.title} onChange={(e) => updateSnapshot(id, { title: e.target.value })} />
-                          <label className="campaign-field-label" htmlFor={`campaign-copy-${id}`}>Texto principal</label>
-                          <textarea className="campaign-textarea" id={`campaign-copy-${id}`}
-                            maxLength={10000} rows={4} value={snapshot.copy}
-                            onChange={(e) => updateSnapshot(id, { copy: e.target.value })}
-                            placeholder="Escreva a mensagem para este produto." />
-                          <div className="campaign-ai-controls">
-                            <AiCopyControls
-                              persona={aiPersonas[id] ?? "casual"}
-                              onPersonaChange={(persona) => setAiPersonas((current) => ({ ...current, [id]: persona }))}
-                              onGenerate={() => generateCampaignCopy.mutate({
-                                id, persona: aiPersonas[id] ?? "casual", oldCopy: snapshot.copy,
-                                listId: draft.listId, draftId: savedDraftId,
-                              })}
-                              hasAiKey={aiStatusQuery.data?.available === true}
-                              disabled={!canEditCampaign || generateCampaignCopy.isPending}
-                              isPending={generateCampaignCopy.isPending && generateCampaignCopy.variables?.id === id}
-                            />
-                            {product.description?.trim() && snapshot.copy !== product.description.trim() && (
-                              <button type="button" className="campaign-use-product-copy"
-                                onClick={() => updateSnapshot(id, { copy: product.description!.trim() })}>
-                                Usar descrição salva em Produtos
-                              </button>
-                            )}
-                          </div>
+                          <label className="campaign-field-label">Descrição para publicação</label>
+                          {draft.networks.length > 0 ? (
+                            <div className="campaign-description-tabs" role="tablist" aria-label="Descrição por rede social">
+                              {draft.networks.map((network) => (
+                                <button key={network} type="button" role="tab"
+                                  aria-selected={(activeDescriptionNetwork[id] ?? draft.networks[0]) === network}
+                                  className={(activeDescriptionNetwork[id] ?? draft.networks[0]) === network ? "is-active" : ""}
+                                  onClick={() => setActiveDescriptionNetwork((current) => ({ ...current, [id]: network }))}>
+                                  {NETWORK_RULES[network].label}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="campaign-item-hint">Selecione as redes sociais da campanha para criar descrições individuais. A descrição padrão permanece disponível abaixo.</p>
+                          )}
+                          {(() => {
+                            const activeNetwork = activeDescriptionNetwork[id] && draft.networks.includes(activeDescriptionNetwork[id])
+                              ? activeDescriptionNetwork[id]
+                              : draft.networks[0] ?? null
+                            const value = activeNetwork ? (snapshot.networkCopies[activeNetwork] || snapshot.copy) : snapshot.copy
+                            const limit = activeNetwork ? NETWORK_RULES[activeNetwork].maxChars : 10000
+                            const used = activeNetwork ? textLength(NETWORK_RULES[activeNetwork], value) : value.length
+                            return (
+                              <>
+                                <textarea className="campaign-textarea" id={`campaign-copy-${id}`}
+                                  maxLength={10000} rows={4} value={value}
+                                  onChange={(e) => updateSnapshot(id, activeNetwork
+                                    ? { networkCopies: { ...snapshot.networkCopies, [activeNetwork]: e.target.value } }
+                                    : { copy: e.target.value })}
+                                  placeholder="Escreva a mensagem para este produto." />
+                                {activeNetwork && (
+                                  <small className={used > limit ? "campaign-error" : "campaign-item-hint"}>
+                                    {used.toLocaleString("pt-BR")} / {limit.toLocaleString("pt-BR")} caracteres conforme a contagem da rede.
+                                  </small>
+                                )}
+                                <div className="campaign-ai-controls">
+                                  <AiCopyControls
+                                    persona={aiPersonas[id] ?? "casual"}
+                                    onPersonaChange={(persona) => setAiPersonas((current) => ({ ...current, [id]: persona }))}
+                                    onGenerate={() => generateCampaignCopy.mutate({
+                                      id, persona: aiPersonas[id] ?? "casual", oldCopy: value,
+                                      network: activeNetwork, listId: draft.listId, draftId: savedDraftId,
+                                    })}
+                                    hasAiKey={aiStatusQuery.data?.available === true}
+                                    disabled={!canEditCampaign || generateCampaignCopy.isPending}
+                                    isPending={generateCampaignCopy.isPending && generateCampaignCopy.variables?.id === id}
+                                  />
+                                  {product.description?.trim() && value !== product.description.trim() && (
+                                    <button type="button" className="campaign-use-product-copy"
+                                      onClick={() => updateSnapshot(id, activeNetwork
+                                        ? { networkCopies: { ...snapshot.networkCopies, [activeNetwork]: product.description!.trim() } }
+                                        : { copy: product.description!.trim() })}>
+                                      Usar descrição salva em Produtos
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            )
+                          })()}
                           {generateCampaignCopy.isError && generateCampaignCopy.variables?.id === id && (
                             <p className="campaign-error" role="alert">Não foi possível gerar o texto: {generateCampaignCopy.error.message}</p>
                           )}
@@ -498,30 +581,7 @@ export function CampaignPlanner({ credentials }: {
                           <input className="campaign-select" id={`campaign-link-${id}`} type="url" maxLength={2048}
                             value={snapshot.affiliateLink} onChange={(e) => updateSnapshot(id, { affiliateLink: e.target.value })}
                             placeholder="https://..." />
-                          <span className="campaign-field-label">Redes para este produto <small>(marque uma ou mais)</small></span>
-                          <NetworkPicker selected={snapshot.networks} states={networkStates}
-                            onToggle={(network) => updateSnapshot(id, {
-                              networks: snapshot.networks.includes(network)
-                                ? snapshot.networks.filter((entry) => entry !== network)
-                                : [...snapshot.networks, network],
-                            })} />
-                          {snapshot.networks.length > 0 && (
-                            <div className="campaign-network-copy">
-                              {snapshot.networks.map((network) => (
-                                <div key={network}>
-                                  <label className="campaign-field-label" htmlFor={`campaign-network-${id}-${network}`}>
-                                    Texto específico · {NETWORK_RULES[network].label}
-                                  </label>
-                                  <textarea className="campaign-textarea" id={`campaign-network-${id}-${network}`}
-                                    maxLength={10000} rows={3} value={snapshot.networkCopies[network] ?? ""}
-                                    placeholder="Deixe em branco para usar o texto principal."
-                                    onChange={(e) => updateSnapshot(id, {
-                                      networkCopies: { ...snapshot.networkCopies, [network]: e.target.value },
-                                    })} />
-                                </div>
-                              ))}
-                            </div>
-                          )}
+
                           <div className="campaign-media-choice">
                             <CampaignProductMediaSelector productId={id} shopeeImage={product.image ?? null}
                               disabled={!canEditCampaign}
@@ -553,6 +613,20 @@ export function CampaignPlanner({ credentials }: {
                   )
                 })}
               </ol>
+              {productPageCount > 1 && (
+                <nav className="campaign-pagination" aria-label="Páginas de produtos">
+                  <button type="button" aria-label="Página anterior" disabled={safeProductPage <= 1}
+                    onClick={() => setProductPage((page) => Math.max(1, page - 1))}>←</button>
+                  {Array.from({ length: productPageCount }, (_, index) => index + 1).map((page) => (
+                    <button key={page} type="button" aria-current={safeProductPage === page ? "page" : undefined}
+                      className={safeProductPage === page ? "is-active" : ""}
+                      onClick={() => setProductPage(page)}>{page}</button>
+                  ))}
+                  <button type="button" aria-label="Próxima página" disabled={safeProductPage >= productPageCount}
+                    onClick={() => setProductPage((page) => Math.min(productPageCount, page + 1))}>→</button>
+                </nav>
+              )}
+              </>
             )}
           </section>
 
