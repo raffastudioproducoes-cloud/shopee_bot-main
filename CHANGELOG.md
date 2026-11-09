@@ -15,6 +15,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Lista de produtos limitada a 10 itens por página, com numeração e navegação anterior/próxima, sem limitar a quantidade total da campanha.
 - Rascunhos antigos com seleções diferentes por produto são restaurados de forma conservadora: somente as redes comuns são pré-selecionadas e uma advertência pede revisão antes de salvar. A seleção global é persistida no contrato existente repetindo o mesmo conjunto de redes nos itens, sem migração destrutiva de banco.
 - Ajuda/FAQ atualizadas com Shopee Vídeo e com a distinção entre capacidade oficial da API TikTok e o fluxo PHOTO ainda não implementado no Auto Orbital.
+- TikTok: publicador atualizado para consultar Creator Info antes do envio, validar duração/privacidade por conta e enviar vídeos em chunks sequenciais de até 64 MB (teto de 4 GB), eliminando o antigo upload de arquivo inteiro em um único bloco.
 - Auditoria da publicação única: o planejador determinístico já cria uma composição por rede, mantém a ordem das mídias aceitas, reporta mídias descartadas e bloqueia erros de texto antes do envio; o backend repete a validação. Sem alterar o motor de publicação ou executar posts reais.
 
 ### Validation / release gate

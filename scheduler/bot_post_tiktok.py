@@ -63,9 +63,9 @@ def _refresh_tokens(user_id, profile_id, user_data):
 
 def _post_with_refresh(user_id, profile_id, user_data, media, text):
     try:
-        mark_external_delivery()
         return TikTokAPI.post_video(
-            user_data["tiktok_user_access_token"], media["file_path"], text
+            user_data["tiktok_user_access_token"], media["file_path"], text,
+            before_publish=mark_external_delivery,
         )
     except Exception as err:
         if not _is_token_expired(err):
@@ -80,8 +80,9 @@ def _post_with_refresh(user_id, profile_id, user_data, media, text):
         except Exception as err:
             logger.warning(f"TikTok: não marcou reconexão: {type(err).__name__}")
         raise TikTokAPI.TikTokAPIError(RECONNECT_MESSAGE)
-    mark_external_delivery()
-    return TikTokAPI.post_video(new_token, media["file_path"], text)
+    return TikTokAPI.post_video(
+        new_token, media["file_path"], text, before_publish=mark_external_delivery
+    )
 
 
 def bot_post_tiktok(job_id):

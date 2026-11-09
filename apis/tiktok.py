@@ -38,10 +38,12 @@ post_video usa a Content Posting API (Direct Post):
   3. Poll em /v2/post/publish/status/fetch/ até status virar
      PUBLISH_COMPLETE (ou FAILED).
 
-TODO: upload em múltiplos chunks pra vídeos grandes — hoje só sobe o
-arquivo inteiro num chunk único (funciona pra vídeos curtos de afiliado;
-a TikTok pede chunk_size entre 5MB-64MB pra arquivos maiores). Ver
-https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
+O upload usa blocos sequenciais de até 64 MB, respeitando o mínimo de 5 MB
+e o teto de 4 GB da Media Transfer Guide. Antes do envio, o publicador
+consulta Creator Info e valida a duração máxima e a opção de privacidade
+permitida para aquela conta. Ver
+https://developers.tiktok.com/docs/en/content-posting-api-media-transfer-guide
+https://developers.tiktok.com/docs/en/content-posting-api-reference-query-creator-info
 
 Photo Direct Post fica pendente de uma tela que consulte Creator Info e mostre
 as opções de privacidade exigidas pelo TikTok, além de URL pública em domínio
@@ -50,7 +52,9 @@ para publicação no TikTok.
 """
 
 import os
+import subprocess
 import time
+from math import ceil
 from urllib.parse import quote
 
 import requests
@@ -62,6 +66,10 @@ TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 USER_INFO_URL = "https://open.tiktokapis.com/v2/user/info/"
 POST_INIT_URL = "https://open.tiktokapis.com/v2/post/publish/video/init/"
 POST_STATUS_URL = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
+CREATOR_INFO_URL = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/"
+MIN_CHUNK_BYTES = 5 * 1024 * 1024
+MAX_CHUNK_BYTES = 64 * 1024 * 1024
+MAX_VIDEO_BYTES = 4 * 1024 * 1024 * 1024
 
 DEFAULT_SCOPE = "user.info.basic,video.publish,video.upload"
 
@@ -254,20 +262,78 @@ def post_text(app_id, secret, text):
 ###
 # Content Posting API — Direct Post
 ###
-def _init_video_post(user_access_token, video_size, text, privacy_level):
+def _upload_chunk_plan(video_size):
+    """Retorna (chunk_size, total_chunks) sem criar um último bloco menor que 5 MB.
+
+    Para arquivos até 64 MB, o arquivo inteiro é um único chunk. Acima disso,
+    distribui o tamanho entre ceil(size/64MB) chunks de tamanho quase igual.
+    """
+    if video_size <= 0 or video_size > MAX_VIDEO_BYTES:
+        raise TikTokAPIError("Vídeo TikTok inválido ou acima do limite de 4 GB.")
+    if video_size <= MAX_CHUNK_BYTES:
+        return video_size, 1
+    total_chunks = ceil(video_size / MAX_CHUNK_BYTES)
+    chunk_size = ceil(video_size / total_chunks)
+    if chunk_size < MIN_CHUNK_BYTES or chunk_size > MAX_CHUNK_BYTES:
+        raise TikTokAPIError("Não foi possível dividir o vídeo nos blocos aceitos pelo TikTok.")
+    return chunk_size, total_chunks
+
+
+def get_creator_info(user_access_token):
+    """Consulta os limites e opções atuais do criador antes de publicar."""
+    res = retry_with_backoff(
+        requests.post,
+        CREATOR_INFO_URL,
+        json={},
+        headers={
+            "Authorization": f"Bearer {user_access_token}",
+            "Content-Type": "application/json; charset=UTF-8",
+        },
+    )
+    if res.status_code != 200:
+        _raise_exception("Failed to Query TikTok Creator Info", res, CREATOR_INFO_URL)
+    data = (res.json() or {}).get("data") or {}
+    if not data.get("max_video_post_duration_sec") or not data.get("privacy_level_options"):
+        raise TikTokAPIError("TikTok não retornou os limites e opções de privacidade da conta.")
+    return data
+
+
+def _video_duration_seconds(video_path):
+    """Lê a duração real do arquivo com ffprobe; falha fechada se não puder verificar."""
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "error", "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1", video_path,
+            ],
+            check=True, capture_output=True, text=True, timeout=20,
+        )
+        duration = float(result.stdout.strip())
+        if duration <= 0:
+            raise ValueError("duração inválida")
+        return duration
+    except Exception as exc:
+        raise TikTokAPIError(
+            "Não foi possível verificar a duração do vídeo. Reenvie um MP4 válido."
+        ) from exc
+
+
+def _init_video_post(user_access_token, video_size, text, privacy_level, creator_info=None):
+    chunk_size, total_chunks = _upload_chunk_plan(video_size)
+    creator_info = creator_info or {}
     payload = {
         "post_info": {
             "title": text or "",
             "privacy_level": privacy_level,
-            "disable_duet": False,
-            "disable_comment": False,
-            "disable_stitch": False,
+            "disable_duet": bool(creator_info.get("duet_disabled")),
+            "disable_comment": bool(creator_info.get("comment_disabled")),
+            "disable_stitch": bool(creator_info.get("stitch_disabled")),
         },
         "source_info": {
             "source": "FILE_UPLOAD",
             "video_size": video_size,
-            "chunk_size": video_size,
-            "total_chunk_count": 1,
+            "chunk_size": chunk_size,
+            "total_chunk_count": total_chunks,
         },
     }
     res = retry_with_backoff(
@@ -286,24 +352,38 @@ def _init_video_post(user_access_token, video_size, text, privacy_level):
     return data["publish_id"], data["upload_url"]
 
 
-def _upload_video_file(upload_url, video_path):
-    with open(video_path, "rb") as f:
-        video_bytes = f.read()
-    video_size = len(video_bytes)
+def _upload_video_file(upload_url, video_path, chunk_size=None):
+    video_size = os.path.getsize(video_path)
+    planned_chunk_size, total_chunks = _upload_chunk_plan(video_size)
+    chunk_size = chunk_size or planned_chunk_size
+    if chunk_size != planned_chunk_size:
+        raise TikTokAPIError("Configuração de blocos do upload mudou durante a publicação.")
 
-    # ponytail: chunk único (arquivo inteiro) — upload em múltiplos
-    # chunks fica pro TODO no topo do módulo, se vídeos > 64MB virarem
-    # necessidade real.
-    res = requests.put(
-        upload_url,
-        data=video_bytes,
-        headers={
-            "Content-Type": "video/mp4",
-            "Content-Range": f"bytes 0-{video_size - 1}/{video_size}",
-        },
-    )
-    if res.status_code not in (200, 201):
-        _raise_exception("Failed to Upload Video File", res, upload_url)
+    with open(video_path, "rb") as video_file:
+        for chunk_index in range(total_chunks):
+            start = chunk_index * chunk_size
+            chunk = video_file.read(chunk_size)
+            if not chunk:
+                raise TikTokAPIError("Arquivo de vídeo terminou antes do esperado durante o upload.")
+            end = start + len(chunk) - 1
+            is_last = chunk_index == total_chunks - 1
+            res = requests.put(
+                upload_url,
+                data=chunk,
+                headers={
+                    "Content-Type": "video/mp4",
+                    "Content-Length": str(len(chunk)),
+                    "Content-Range": f"bytes {start}-{end}/{video_size}",
+                },
+            )
+            expected = (200, 201) if is_last else (206,)
+            if res.status_code not in expected:
+                _raise_exception(
+                    f"Failed to Upload Video Chunk {chunk_index + 1}/{total_chunks}",
+                    res, upload_url,
+                )
+        if video_file.read(1):
+            raise TikTokAPIError("Arquivo de vídeo mudou de tamanho durante o upload.")
 
 
 def _wait_publish_complete(user_access_token, publish_id, timeout_s=120):
@@ -338,21 +418,31 @@ def _wait_publish_complete(user_access_token, publish_id, timeout_s=120):
     )
 
 
-def post_video(user_access_token, video_path, text, privacy_level="SELF_ONLY"):
-    """Publica um vídeo no TikTok via Content Posting API (Direct Post).
-
-    `video_path` precisa ser um arquivo local temporário preparado pelo
-    chamador; a origem persistente de mídias é o Supabase Storage.
-    `privacy_level` default é SELF_ONLY porque contas sem aprovação de
-    parceiro da TikTok só conseguem publicar assim — ver bloqueio no
-    topo do módulo. Trocar pra PUBLIC_TO_EVERYONE só depois que o app
-    estiver auditado pela TikTok.
-
-    Retorna o publish_id.
-    """
+def post_video(user_access_token, video_path, text, privacy_level="SELF_ONLY", before_publish=None):
+    """Valida Creator Info e publica um vídeo com upload em chunks."""
     video_size = os.path.getsize(video_path)
+    _upload_chunk_plan(video_size)
+    creator = get_creator_info(user_access_token)
+    if creator.get("creator_can_post") is False:
+        raise TikTokAPIError(
+            "Esta conta TikTok não pode publicar no momento. Tente novamente mais tarde."
+        )
+    max_duration = int(creator["max_video_post_duration_sec"])
+    duration = _video_duration_seconds(video_path)
+    if duration > max_duration:
+        raise TikTokAPIError(
+            f"Este vídeo tem {duration:.1f}s, mas a conta TikTok permite no máximo "
+            f"{max_duration}s. Substitua o arquivo por um vídeo mais curto."
+        )
+    privacy_options = creator["privacy_level_options"]
+    if privacy_level not in privacy_options:
+        raise TikTokAPIError(
+            "A opção de privacidade solicitada não está disponível para esta conta TikTok."
+        )
+    if before_publish:
+        before_publish()
     publish_id, upload_url = _init_video_post(
-        user_access_token, video_size, text, privacy_level
+        user_access_token, video_size, text, privacy_level, creator
     )
     _upload_video_file(upload_url, video_path)
     _wait_publish_complete(user_access_token, publish_id)

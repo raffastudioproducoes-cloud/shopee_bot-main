@@ -27,6 +27,8 @@ test("Publicação única e campanha compartilham a lista compacta das nove rede
   assert.match(planner, /networks: draft\.networks/)
   assert.match(planner, /campaign-description-tabs/)
   assert.match(planner, /snapshot\.networkCopies\[activeNetwork\] \|\| snapshot\.copy/)
+  assert.match(planner, /snapshot\.affiliateLink/)
+  assert.match(planner, /textLength\(NETWORK_RULES\[activeNetwork\], finalText\)/)
   assert.match(planner, /slice\(productPageStart, productPageStart \+ 10\)/)
   assert.match(composer, /<NetworkPicker selected=\{activeNetworks\}/)
   assert.match(composer, /readOnly=\{!!post\}/)

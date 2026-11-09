@@ -167,7 +167,7 @@ export function NetworkLimitsHelp() {
           <table className="csp-s-0015"><tbody>
             <tr className="csp-named-row-border"><th scope="row" className="csp-named-th-cell">Duração</th><td className="csp-named-td-cell">De 3 a 60 segundos. A Shopee recomenda vídeos de até 30 segundos.</td></tr>
             <tr className="csp-named-row-border"><th scope="row" className="csp-named-th-cell">Produtos</th><td className="csp-named-td-cell">Até 6 produtos vinculados diretamente ao vídeo.</td></tr>
-            <tr className="csp-named-row-border"><th scope="row" className="csp-named-th-cell">Comissão</th><td className="csp-named-td-cell">O produto precisa ser vinculado no fluxo de publicação. Link na legenda ou nos comentários não substitui o vínculo.</td></tr>
+            <tr className="csp-named-row-border"><th scope="row" className="csp-named-th-cell">Comissão</th><td className="csp-named-td-cell">A Central informa 3% de comissão para vendas diretas atribuídas. O produto precisa ser vinculado no vídeo; link na legenda ou nos comentários não substitui o vínculo. A atribuição considera carrinho em até 24 horas após o clique e compra em até 7 dias.</td></tr>
             <tr className="csp-named-row-border"><th scope="row" className="csp-named-th-cell">Publicação</th><td className="csp-named-td-cell">Somente pelo aplicativo Shopee, conforme a Central de Ajuda consultada.</td></tr>
           </tbody></table>
           <p style={{ margin: 0, font: small, color: "var(--text-muted)" }}>

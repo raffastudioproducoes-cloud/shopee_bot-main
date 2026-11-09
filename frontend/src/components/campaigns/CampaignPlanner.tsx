@@ -483,7 +483,7 @@ export function CampaignPlanner({ credentials }: {
                   const snapshot = snapshots[id]
                   if (!product || !snapshot) return null
                   const editing = editingProductId === id
-                  const prepared = Boolean(snapshot.copy.trim() && draft.networks.length)
+                  const prepared = Boolean((snapshot.copy.trim() || Object.values(snapshot.networkCopies).some((text) => text.trim())) && draft.networks.length)
                   return (
                     <li key={id} className="campaign-product">
                       <div className="campaign-product-row">
@@ -535,7 +535,10 @@ export function CampaignPlanner({ credentials }: {
                               : draft.networks[0] ?? null
                             const value = activeNetwork ? (snapshot.networkCopies[activeNetwork] || snapshot.copy) : snapshot.copy
                             const limit = activeNetwork ? NETWORK_RULES[activeNetwork].maxChars : 10000
-                            const used = activeNetwork ? textLength(NETWORK_RULES[activeNetwork], value) : value.length
+                            const finalText = snapshot.affiliateLink && !value.includes(snapshot.affiliateLink)
+                              ? [value.trim(), snapshot.affiliateLink].filter(Boolean).join("\n")
+                              : value
+                            const used = activeNetwork ? textLength(NETWORK_RULES[activeNetwork], finalText) : finalText.length
                             return (
                               <>
                                 <textarea className="campaign-textarea" id={`campaign-copy-${id}`}
@@ -546,7 +549,7 @@ export function CampaignPlanner({ credentials }: {
                                   placeholder="Escreva a mensagem para este produto." />
                                 {activeNetwork && (
                                   <small className={used > limit ? "campaign-error" : "campaign-item-hint"}>
-                                    {used.toLocaleString("pt-BR")} / {limit.toLocaleString("pt-BR")} caracteres conforme a contagem da rede.
+                                    {used.toLocaleString("pt-BR")} / {limit.toLocaleString("pt-BR")} caracteres conforme a contagem da rede, incluindo o link de afiliado.
                                   </small>
                                 )}
                                 <div className="campaign-ai-controls">
