@@ -330,6 +330,9 @@ class TestCampaignNetworkReservations(unittest.TestCase):
             self.assertFalse(con.execute(
                 "SELECT has_function_privilege('service_role','public.reserve_campaign_f4e(uuid,uuid,uuid,integer,text,jsonb)','EXECUTE')"
             ).fetchone()[0])
+            self.assertTrue(con.execute(
+                "SELECT has_function_privilege('service_role','public.reserve_campaign_networks_f4e(uuid,uuid,uuid,integer,text,jsonb)','EXECUTE')"
+            ).fetchone()[0])
 
     def test_activate_pause_resume_cancel_and_history(self):
         rid = self.reserve()
