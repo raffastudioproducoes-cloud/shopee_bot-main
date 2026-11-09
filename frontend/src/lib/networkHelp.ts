@@ -4,7 +4,7 @@
 import type { PostNetwork } from "../api/posts"
 import { NETWORK_RULES, type NetworkRule } from "./networkLimits"
 
-export const CONSULTADO_EM = "07/10/2026"
+export const CONSULTADO_EM = "08/11/2026"
 
 export interface HelpSource {
   label: string
@@ -97,12 +97,14 @@ export const NETWORK_HELP: Record<PostNetwork, NetworkHelp> = {
     facts: [
       { label: "Posts por dia (API)", value: "cerca de 15 por conta de criador (varia por criador)" },
       { label: "Vídeo", value: "Somente MP4 neste app; H.264 recomendado; 23 a 60 fps" },
-      { label: "Fotos (API)", value: "WebP ou JPEG, até 20 MB (este app publica só vídeo)" },
-      { label: "Limite da legenda", value: "2200 vem da referência da API; as diretrizes não citam número", unconfirmed: true },
+      { label: "Fotos (API)", value: "A API aceita JPEG/WebP até 20 MB; este app ainda publica somente vídeos" },
+      { label: "Legenda de vídeo", value: "Até 2.200 unidades UTF-16 na implementação atual" },
+      { label: "Foto (API)", value: "Título até 90 e descrição até 4.000 unidades UTF-16; exige fluxo PHOTO, Creator Info, escolha de privacidade e domínio verificado para PULL_FROM_URL" },
     ],
     tips: [
       "App sem auditoria do TikTok: todo conteúdo fica privado (só você vê) e no máximo 5 usuários postam por dia. Para postar público, o app precisa ser auditado.",
       "A duração máxima real depende da conta do criador e pode ser menor que 10 min.",
+      "A API também aceita posts de fotos, mas o Auto Orbital ainda não implementa o fluxo PHOTO; não selecione fotos esperando que o app as publique no TikTok.",
       "O app usa 10 min (600 s), o limite do envio de vídeo por upload.",
     ],
     sources: [
