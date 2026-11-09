@@ -1,4 +1,4 @@
-"""Contrato do calendário de campanhas: 30 dias, frequência diária e rotação.
+"""Contrato do calendário de campanhas: 30 dias ativos, janela e rotação.
 
 Testes puramente locais: não criam jobs, posts ou chamadas externas.
 """
