@@ -1,3 +1,12 @@
+## 09/11/2026 — Release 3.9.0 (MINOR) em produção
+
+- [x] Rafa homologou em staging e autorizou o merge na `main`; PR #395 (merge commit `f3edf13`), CI, SemVer e CI de push SUCCESS; Render produção `dep-dbov227avr4c73bvifjg` LIVE; logs de boot sem erro.
+- [x] `main` e `staging` com árvores idênticas; histórico sincronizado pelo PR #396. Promover sempre por merge commit.
+- [x] Decisão de Rafa: campanhas ativas (incluindo as duas "Primeiro teste real") permanecem ativas; Supabase segue compartilhado entre staging e produção.
+- [ ] Smoke HTTP externo e QA autenticada em produção (fora do alcance do agente).
+- [ ] Próximo: plano de estabilização (Vault 65) e achados S-01 a S-06 da auditoria de 07/11.
+- Registro: `docs/RELEASE-3.9.0-20261109.md`.
+
 ## 09/11/2026 — Campanhas: dias efetivos e ativação direta (PATCH 3.8.1 candidata)
 
 - [x] Autorização de Rafa para aplicar migration 095 por deploy de staging no Supabase compartilhado; produção permanece sem autorização de promoção.

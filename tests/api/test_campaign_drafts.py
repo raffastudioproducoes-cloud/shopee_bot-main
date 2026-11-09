@@ -41,7 +41,7 @@ def test_draft_does_not_accept_ids_from_another_list_or_duplicates():
 
 def test_draft_preserves_intentionally_empty_copy_and_rejects_invalid_network():
     saved = payload()
-    assert saved.items[0].copy == ""
+    assert saved.items[0].copy_text == ""
     assert saved.items[0].network_copies["threads"] == ""
     with pytest.raises(Exception):
         payload(items=[item(12, networks=["kwai"]), item(13)])
@@ -336,3 +336,16 @@ def test_delete_draft_preserves_database_when_storage_cleanup_fails(monkeypatch)
             draft_id, expected_revision=1, user_id="owner", profile_id="profile-a"))
     assert caught.value.status_code == 502
     assert events == ["attempt"]
+
+
+def test_draft_item_keeps_copy_contract_with_alias_and_no_shadow_warning():
+    import warnings
+    from api.routers.campaigns import CampaignDraftItem
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        parsed = CampaignDraftItem.model_validate({"product_id": 1, "title": "t", "copy": "texto"})
+    assert parsed.copy_text == "texto"
+    assert parsed.model_dump(mode="json", by_alias=True)["copy"] == "texto"
+    assert "copy_text" not in parsed.model_dump(mode="json", by_alias=True)
+    assert CampaignDraftItem(product_id=1, title="t", copy_text="x").copy_text == "x"

@@ -10,7 +10,7 @@ test("Criar POST é uma rota privada dedicada, em cima de Automação", async ()
     src("pages/PanelPage.tsx"),
   ])
   assert.match(routes, /path: "\/posts\/criar"/)
-  assert.match(routes, /component: CreatePostPage/)
+  assert.match(routes, /component: (?:lazyRoute\()?CreatePostPage/)
   assert.ok(
     panel.indexOf("value: '/posts/criar'") > panel.indexOf("value: '/posts'") &&
     panel.indexOf("value: '/posts/criar'") < panel.indexOf("value: '/automacao-posts'"),

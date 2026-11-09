@@ -207,8 +207,8 @@ class TestProductsScopedByAccount:
             json={
                 "product_id": "123456789",
                 "name": "Fone",
-                "original_link": "https://shopee.example/product/123456789",
-                "commission_link": "https://shopee.example/affiliate/123456789",
+                "original_link": "https://s.shopee.com.br/original123456789",
+                "commission_link": "https://s.shopee.com.br/affiliate123456789",
             },
         )
 
@@ -251,8 +251,8 @@ def test_product_creation_returns_409_when_atomic_plan_quota_reached(
     monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
     res = auth_client.post("/products", json={
         "product_id": "987654321", "name": "Limite",
-        "original_link": "https://shopee.example/produto",
-        "commission_link": "https://shopee.example/afiliado",
+        "original_link": "https://s.shopee.com.br/produto",
+        "commission_link": "https://s.shopee.com.br/afiliado",
     })
     assert res.status_code == 409
     assert "Limite de produtos" in res.json()["detail"]
@@ -270,7 +270,66 @@ def test_product_creation_fails_closed_if_plan_policy_missing(
     monkeypatch.setattr(database_module, "get_supabase", lambda: fake_client)
     res = auth_client.post("/products", json={
         "product_id": "987654322", "name": "Falha de política",
-        "original_link": "https://shopee.example/produto",
-        "commission_link": "https://shopee.example/afiliado",
+        "original_link": "https://s.shopee.com.br/produto",
+        "commission_link": "https://s.shopee.com.br/afiliado",
     })
     assert res.status_code == 503
+
+
+@pytest.mark.parametrize("field,value", [
+    ("original_link", "javascript:alert(1)"),
+    ("original_link", "data:text/html;base64,PHNjcmlwdD4="),
+    ("original_link", "http://shopee.com.br/produto"),
+    ("original_link", "https://evil.example/produto"),
+    ("original_link", "https://shopee.com.br.evil.example/produto"),
+    ("original_link", "https://user:pass@shopee.com.br/produto"),
+    ("original_link", "https://shopee.com.br:8443/produto"),
+    ("original_link", "https:///sem-host"),
+    ("original_link", "https://xn--shope-9ua.com.br/produto"),
+    ("commission_link", "https://evil.example/aff"),
+    ("commission_link", "javascript:alert(1)"),
+    ("commission_link", "https://s.shopee.com.br"),
+    ("image", "https://evil.example/x.jpg"),
+    ("image", "http://down-br.img.susercontent.com/x.jpg"),
+    ("image", "data:image/png;base64,AAAA"),
+])
+def test_product_creation_rejects_unsafe_links_s02(auth_client, field, value):
+    """S-02: destinos externos, esquemas perigosos e credenciais não entram no banco."""
+    body = {
+        "product_id": "555", "name": "Produto",
+        "original_link": "https://s.shopee.com.br/original555",
+        "commission_link": "https://s.shopee.com.br/comissao555",
+        "image": "https://down-br.img.susercontent.com/file/x.jpg",
+    }
+    body[field] = value
+    res = auth_client.post("/products", json=body)
+    assert res.status_code == 422, res.text
+
+
+@pytest.mark.parametrize("value", [
+    "https://shopee.com.br/produto-i.1.2",
+    "https://www.shopee.com.br/produto-i.1.2",
+    "https://s.shopee.com.br/AbC123",
+])
+def test_safe_shopee_link_accepts_official_hosts(value):
+    from api.shopee_affiliate_links import is_safe_shopee_link
+    assert is_safe_shopee_link(value)
+
+
+@pytest.mark.parametrize("value", [
+    "https://shope.ee/AbC123",
+    "https://shp.ee/AbC123",
+])
+def test_unconfirmed_short_domains_are_not_trusted(value):
+    """shope.ee/shp.ee: titularidade não confirmada em fonte oficial; só entram após confirmação."""
+    from api.shopee_affiliate_links import is_safe_shopee_link
+    assert not is_safe_shopee_link(value)
+
+
+def test_shopee_image_url_predicate():
+    from api.shopee_images import is_shopee_image_url
+    assert is_shopee_image_url("https://down-br.img.susercontent.com/file/x")
+    assert is_shopee_image_url("https://cf.shopee.com.br/file/x")
+    assert not is_shopee_image_url("https://evil.example/x.jpg")
+    assert not is_shopee_image_url("http://cf.shopee.com.br/file/x")
+    assert not is_shopee_image_url(None)

@@ -1,3 +1,4 @@
+import { safeExternalUrl } from "../../lib/safeExternalUrl"
 import { useMemo, useState, useCallback, type ReactNode } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { catalogApi, CATALOG_SORT_OPTIONS, type CatalogProduct, type CatalogSortType } from "../../api/catalog"
@@ -150,10 +151,10 @@ function CatalogDetailsModal({ product, added, isAdding, error, onClose, onConfi
           {product.original_link || product.commission_link ? (
             <div className="csp-s-0056">
               {product.original_link ? (
-                <a href={product.original_link} target="_blank" rel="noreferrer" className="csp-named-link">Link original ↗</a>
+                <a href={safeExternalUrl(product.original_link)} target="_blank" rel="noreferrer" className="csp-named-link">Link original ↗</a>
               ) : null}
               {product.commission_link ? (
-                <a href={product.commission_link} target="_blank" rel="noreferrer" className="csp-named-link">Link de comissão ↗</a>
+                <a href={safeExternalUrl(product.commission_link)} target="_blank" rel="noreferrer" className="csp-named-link">Link de comissão ↗</a>
               ) : null}
             </div>
           ) : null}

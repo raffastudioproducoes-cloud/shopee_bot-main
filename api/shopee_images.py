@@ -19,17 +19,23 @@ SHOPEE_IMAGE_HOSTS = frozenset({
 MAX_PRODUCT_IMAGE_BYTES = 8 * 1024 * 1024
 
 
-def _check_shopee_image_url(raw: str) -> str:
+def is_shopee_image_url(raw: str | None) -> bool:
+    """HTTPS e host de imagem Shopee conhecido; sem credenciais nem porta atípica."""
+    if not raw:
+        return False
     try:
         parsed = urlparse(raw)
         host = (parsed.hostname or "").lower()
-        valid = (parsed.scheme == "https" and
-                 (host in SHOPEE_IMAGE_HOSTS or host.endswith(".img.susercontent.com")) and
-                 parsed.username is None and parsed.password is None and
-                 parsed.port in (None, 443))
+        return (parsed.scheme == "https" and
+                (host in SHOPEE_IMAGE_HOSTS or host.endswith(".img.susercontent.com")) and
+                parsed.username is None and parsed.password is None and
+                parsed.port in (None, 443))
     except (ValueError, TypeError):
-        valid = False
-    if not valid:
+        return False
+
+
+def _check_shopee_image_url(raw: str) -> str:
+    if not is_shopee_image_url(raw):
         raise HTTPException(status_code=400, detail="Origem da imagem Shopee não autorizada.")
     return raw
 

@@ -17,6 +17,31 @@ def valid_affiliate_id(value: str | None) -> bool:
     return bool(value and _AFFILIATE_ID.fullmatch(value))
 
 
+# Domínios fora da lista (ex.: shope.ee, shp.ee) NÃO são aceitos: a titularidade deles não foi
+# confirmada em fonte oficial da Shopee e a Central de Ajuda os cita junto de encurtadores de
+# terceiros. Para aceitar um novo domínio, confirme a titularidade e inclua-o em _REDIRECT_HOSTS.
+
+
+def is_safe_shopee_link(value: str | None) -> bool:
+    """HTTPS, host Shopee (inclui redirecionadores), sem credenciais nem porta atípica.
+
+    Rejeita esquemas como javascript:/data:, URL sem host e destinos externos.
+    Não consulta a rede (proteção contra SSRF).
+    """
+    if not value or len(value) > 2048 or value != value.strip():
+        return False
+    try:
+        url = urlsplit(value)
+        host = (url.hostname or "").lower()
+        return (url.scheme == "https"
+                and host in _REDIRECT_HOSTS
+                and url.username is None and url.password is None
+                and url.port in (None, 443)
+                and bool(url.path) and url.path != "/")
+    except (ValueError, TypeError):
+        return False
+
+
 def canonical_product_url(value: str | None) -> str | None:
     """Somente HTTPS Shopee Brasil; remove tracking prévio, fragmento e auth.
 

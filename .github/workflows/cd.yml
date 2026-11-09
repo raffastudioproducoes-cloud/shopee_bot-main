@@ -1,6 +1,9 @@
 name: CD — Deploy no Render
 
-# Só roda depois que o CI da main terminou com sucesso.
+# O deploy da produção é feito pelo autoDeploy do Render (serviço shopee-bot, branch main).
+# Este workflow NÃO dispara deploy (um hook junto do autoDeploy implantaria duas vezes);
+# ele confirma que a versão do commit testado ficou no ar. Se o Render não publicar a versão
+# no prazo, o job falha de forma visível, em vez de "passar" sem fazer nada.
 on:
   workflow_run:
     workflows: [CI]
@@ -16,16 +19,24 @@ concurrency:
 
 jobs:
   deploy:
+    name: deploy
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 25
+    env:
+      # Sobrescreva com a variável de repositório PROD_URL se o domínio mudar.
+      PROD_URL: ${{ vars.PROD_URL || 'https://shopee-bot-fj0w.onrender.com' }}
     steps:
-      - name: Disparar deploy no Render
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Confirmar versão publicada pelo autoDeploy do Render
         run: |
-          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
-            echo "::warning::RENDER_DEPLOY_HOOK_URL não configurado. Deploy ignorado."
-            exit 0
-          fi
-          curl -fsS --retry 2 --max-time 30 -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          echo "Commit testado: ${{ github.event.workflow_run.head_sha }} — versão esperada: ${VERSION}"
+          python scripts/verify_deploy.py --url "$PROD_URL" --expect-version "$VERSION" --timeout 900 --interval 20

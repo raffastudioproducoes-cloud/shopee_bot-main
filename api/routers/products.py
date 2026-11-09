@@ -20,9 +20,9 @@ from ..database import supabase
 from ..network_limits import NETWORK_RULES, text_length
 from .. import rate_limit_store
 from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload, detect_media_type
-from ..shopee_images import _download_shopee_image, MAX_PRODUCT_IMAGE_BYTES
+from ..shopee_images import _download_shopee_image, MAX_PRODUCT_IMAGE_BYTES, is_shopee_image_url
 from ..profiles import scope_account
-from ..shopee_affiliate_links import canonical_product_url, build_affiliate_link, personalize_product
+from ..shopee_affiliate_links import canonical_product_url, build_affiliate_link, is_safe_shopee_link, personalize_product
 from .platform_shopee import get_affiliate_id
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -59,6 +59,20 @@ class ProductCreate(_ProductFields):
     price_min: float | None = None
     price_max: float | None = None
 
+    @field_validator("original_link", "commission_link")
+    @classmethod
+    def _shopee_https_link(cls, value: str) -> str:
+        # S-02: nenhum destino externo, esquema perigoso ou credencial embutida entra no banco.
+        if not is_safe_shopee_link(value):
+            raise ValueError("Informe um link HTTPS da Shopee (shopee.com.br, www.shopee.com.br ou s.shopee.com.br).")
+        return value
+
+    @field_validator("image")
+    @classmethod
+    def _shopee_image(cls, value: str | None) -> str | None:
+        if value and not is_shopee_image_url(value):
+            raise ValueError("A imagem deve estar hospedada em um domínio de imagem da Shopee (HTTPS).")
+        return value or None
 
 
 class ProductUpdate(BaseModel):

@@ -23,6 +23,7 @@ from .auth import get_current_user_id
 from .platform_shopee import get_affiliate_id, resolve_platform_shopee_key
 from .. import shopee_catalog
 from ..shopee_affiliate_links import build_affiliate_link
+from ..rate_limiter import check_window
 from ..database import supabase
 from ..profiles import scope_account
 
@@ -41,30 +42,20 @@ _INT32_MAX = 2**31 - 1
 # (ver MEDIUM-1 do relatório de segurança).
 MAX_KEYWORD_LENGTH = 200
 
-# ponytail: rate limit de busca em memória de processo (mesmo padrão de
-# `_check_login_rate_limit` em api/routers/auth.py) — por usuário
-# autenticado, já que o endpoint exige login. Mesma limitação de lá: não
-# escala pra múltiplos workers/instâncias. Upgrade: slowapi + Redis se a
-# app crescer pra multi-worker.
+# Rate limit de busca por usuário autenticado. Usa api/rate_limiter.py: Redis atômico quando
+# RATELIMIT_STORAGE_URI está configurada; senão janela em memória com trava e chaves limitadas.
 _SEARCH_RATE_LIMIT_ATTEMPTS = 20
 _SEARCH_RATE_LIMIT_WINDOW_SECONDS = 60
 _search_attempts: dict[int, list[float]] = {}
 
 
 def _check_search_rate_limit(user_id: int) -> None:
-    now = time.monotonic()
-    attempts = [
-        t for t in _search_attempts.get(user_id, [])
-        if now - t < _SEARCH_RATE_LIMIT_WINDOW_SECONDS
-    ]
-    if len(attempts) >= _SEARCH_RATE_LIMIT_ATTEMPTS:
-        _search_attempts[user_id] = attempts
-        raise HTTPException(
-            status_code=429,
-            detail="Muitas buscas em pouco tempo. Aguarde antes de tentar novamente.",
-        )
-    attempts.append(now)
-    _search_attempts[user_id] = attempts
+    check_window(
+        "catalog-search", user_id,
+        attempts=_SEARCH_RATE_LIMIT_ATTEMPTS, window_seconds=_SEARCH_RATE_LIMIT_WINDOW_SECONDS,
+        state=_search_attempts,
+        detail="Muitas buscas em pouco tempo. Aguarde antes de tentar novamente.",
+    )
 
 
 def _get_shopee_credential(user_id: int) -> tuple[str, str] | None:

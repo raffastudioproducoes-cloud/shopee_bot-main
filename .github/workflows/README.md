@@ -8,7 +8,8 @@
 ## Arquivos
 
 - `ci.yml` — pipeline de integração contínua: lint + test para a API Python.
-- `cd.yml` — pipeline de entrega contínua: deploy no Render (se houver integração).
+- `cd.yml` — após o CI verde na `main`, **confirma** que o Render publicou a versão do commit (`scripts/verify_deploy.py`). O deploy em si é do autoDeploy do Render; o workflow não usa hook nem segredo e falha se a versão não aparecer em 15 min.
+- `cd-staging.yml` — apenas registra que a staging é implantada pelo autoDeploy; os smokes pós-deploy ficam em `staging-security-smoke.yml` e `staging-zap-baseline.yml`.
 
 ## Como usar
 

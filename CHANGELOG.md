@@ -5,7 +5,58 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.10.0] - 2026-11-09
+
+> Estabilização e segurança pós-3.9.0 (plano de estabilização do Vault, achados S-01 a S-06 da auditoria de 07/11). Sem migration, cron, gateway ou segredo novos.
+
+### Changed — CD verifica o deploy em vez de depender de hook (plano de estabilização, fase 6)
+
+- `cd.yml` (produção) não tenta mais disparar deploy por hook: o Render já faz deploy automático (`autoDeploy=yes`) e um hook junto dele implantaria duas vezes. Depois do CI verde na `main`, o job `deploy` roda `scripts/verify_deploy.py`, que consulta a página pública até aparecer `Versão X.Y.Z` (a do arquivo `VERSION` do commit testado) e **falha** em 15 min se não aparecer, em vez de terminar verde sem fazer nada.
+- `cd-staging.yml` só registra que a staging é implantada pelo autoDeploy (os smokes pós-deploy continuam nos workflows de staging).
+- O id e o nome do job continuam `deploy` (nenhuma regra de check obrigatório muda). Testes do verificador em `tests/ci/test_verify_deploy.py`, executados no CI. A URL de produção pode ser trocada pela variável de repositório `PROD_URL`. Em staging a verificação por versão não distingue pushes com a mesma `VERSION`, por isso não foi aplicada lá.
+
+### Security — achado S-04 (limites não atômicos entre instâncias)
+
+- Novo `api/rate_limiter.py`: janela deslizante única. Com `RATELIMIT_STORAGE_URI`, contagem **atômica e compartilhada** no Redis/Valkey (503 se o armazenamento falhar, nunca libera); sem ela, janela em memória **com trava** (N chamadas concorrentes não passam do teto) e **número máximo de chaves** (antes, busca de catálogo e teste de credenciais nunca descartavam chaves).
+- Busca de catálogo (20/min), "Testar conexão" (6/min) e callbacks Meta passam a usar o limitador único e, com Redis configurado, ficam distribuídos (antes eram sempre em memória). Textos de erro e limites inalterados.
+- Diagnóstico na inicialização (`rate_limit_store.describe_mode`): informa se o modo é distribuído e acessível, em memória ou em memória com vários workers, **sem registrar a URI**.
+- Testes: `tests/api/test_s04_rate_limiter.py` (14), incluindo concorrência, memória limitada, caminho Redis com dublê e falha fechada.
+
+### Security — `shope.ee` retirado da lista de links aceitos (S-02)
+
+- A titularidade de `shope.ee`/`shp.ee` não pôde ser confirmada em fonte oficial da Shopee e a Central de Ajuda do Afiliado os cita junto de encurtadores de terceiros. Para não abrir desvio para fora da Shopee, ficam aceitos só `shopee.com.br`, `www.shopee.com.br` e `s.shopee.com.br`. Os dois domínios agora são casos negativos nos testes.
+
+### Security — auditoria 07/11/2026, achados S-01 (parcial) e S-03
+
+- **S-01 (parcial):** `_get_thread_chain`, `_get_post_by_id_only` e `_delete_thread_cascade` (posts) passam a **exigir `user_id`** e filtram por dono; um post de outra conta responde 404 e nada é apagado. Todos os chamadores (posts e exportação de backup) foram ajustados. Novo `tests/api/test_s01_id_routes_ratchet.py` congela as 52 rotas com ID no caminho: uma rota nova com ID falha o teste até o escopo por conta/perfil ser revisado. **Não substitui** a matriz A/B por rota, ainda pendente.
+- **S-03:** texto de produto/usuário vai ao modelo num bloco `<dados>` JSON de uma linha (`<`/`>` neutralizados), com regra de dado não confiável, nos prompts de variantes por rede, descrição curta e respostas de thread. Depois da geração, qualquer URL além do link de afiliado do dono é recusada (reaplica o reparo determinístico, que agora remove toda URL do texto da IA mesmo sem link do dono). Corpus de injeção em `tests/api/test_s03_prompt_injection.py`.
+
+### Security — auditoria 07/11/2026, achados S-02 e S-06
+
+- **S-06:** o `authStore` não guarda nem persiste mais `accessToken`; `login(user)` não recebe token. Entradas antigas do `localStorage` são limpas por `version: 1` + `migrate`. A autorização continua sendo o cookie httpOnly validado em `/auth/me`.
+- **S-02:** `ProductCreate` passa a exigir, para `original_link` e `commission_link`, HTTPS em host Shopee (`shopee.com.br`, `www.shopee.com.br`, `s.shopee.com.br`), sem credenciais, porta atípica ou esquema `javascript:`/`data:`; `image` só aceita domínios de imagem da Shopee. Retorna 422. O **restore de backup** usa o mesmo schema e passa a recusar (422, com o nome do campo) produtos com link fora da Shopee. Na interface, `safeExternalUrl()`/`safeImageUrl()` são a segunda barreira dos links clicáveis.
+- Mudança de comportamento: o formulário manual de produto deixa de aceitar links e imagens de outros domínios.
+
+### Changed — peso do bundle inicial (plano de estabilização, fase 4)
+
+- Páginas secundárias e pesadas passam a carregar sob demanda (`lazy` + `lazyRoute`, com o skeleton existente): Ajuda, Configurações, Automação de posts, Credenciais, Criar Post (editor de campanhas), Termos, Privacidade e Dados coletados.
+- Bundle principal: **785,8 kB → 576,1 kB** brutos e **237,9 kB → 175,6 kB** comprimidos (gzip), cerca de −26%. O aviso de 500 kB do Vite permanece; o restante é dependência compartilhada e páginas de entrada (login, landing, painel, produtos, listas, posts).
+- Teste de rota de Criar Post ajustado para aceitar `lazyRoute(CreatePostPage, ...)` mantendo a verificação de que a rota usa `CreatePostPage`. Sem mudança de backend, migration, cron ou segredo.
+
+### Fixed — warnings do plano de estabilização (fases 2, 3 e 5)
+
+- **Chave JWT de teste:** `API_SECRET_KEY` de `tests/api/conftest.py` passa de 41 para 70 bytes, eliminando o `InsecureKeyLengthWarning` (HS384/HS512). Só afeta testes.
+- **Pydantic:** `CampaignDraftItem.copy` sombreava `BaseModel.copy`. O atributo Python passa a `copy_text` com `alias="copy"` e `populate_by_name`; os dois pontos que gravam o item usam `model_dump(by_alias=True)`, então o **contrato da API e o JSON persistido continuam com a chave `copy`**.
+- **FastAPI:** `@app.on_event("startup"/"shutdown")` migrado para `lifespan`, com o mesmo comportamento (incluindo subir sem Supabase e cancelar a limpeza periódica).
+- Testes novos: contrato do alias sem warning, e `tests/api/test_lifespan.py`. Resta o aviso de `gotrue` do pacote `supabase` (dependência de terceiros).
+
+### Security — dependências npm (plano de estabilização, fase 1)
+
+- `npm audit fix` no frontend: `vite` 6.4.3 → 6.4.6 (dependência direta de desenvolvimento) e `seroval` 1.6.7 → 1.8.0 (transitiva do `@tanstack/react-router`). `npm audit`: 2 vulnerabilidades altas → 0. Somente `package-lock.json`; `tsc`, build e testes sem novas falhas em relação à base.
+
 ## [3.9.0] - 2026-11-09
+
+> Publicada em produção em 09/11/2026 (Render `dep-dbov227avr4c73bvifjg` LIVE no commit `f3edf13`). Registro: `docs/RELEASE-3.9.0-20261109.md`.
 
 > Inclui a PATCH 3.8.1 (dias efetivos e ativação direta), que existiu somente em staging, e o lote de melhorias de campanhas homologado por Rafa em staging.
 

@@ -1,20 +1,20 @@
 name: CD Staging — Deploy no Render
 
+# O deploy da staging é feito pelo autoDeploy do Render (serviço shopee-bot-staging, branch
+# staging). Não há hook: um hook junto do autoDeploy implantaria duas vezes. Depois do deploy,
+# staging-security-smoke.yml e staging-zap-baseline.yml exercitam o ambiente publicado.
 on:
   push:
     branches: [staging]
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
+    name: deploy
     runs-on: ubuntu-latest
-
     steps:
-      - name: Trigger Render Deploy (staging)
-        env:
-          RENDER_STAGING_DEPLOY_HOOK_URL: ${{ secrets.RENDER_STAGING_DEPLOY_HOOK_URL }}
+      - name: Registrar que o deploy é do autoDeploy do Render
         run: |
-          if [ -z "$RENDER_STAGING_DEPLOY_HOOK_URL" ]; then
-            echo "::warning::RENDER_STAGING_DEPLOY_HOOK_URL nao configurado. Ignoring deploy."
-            exit 0
-          fi
-          curl -s -X POST "$RENDER_STAGING_DEPLOY_HOOK_URL"
+          echo "::notice::Staging é implantada pelo autoDeploy do Render a cada push na branch staging (commit ${GITHUB_SHA::7}). Este workflow não dispara deploy; os smokes pós-deploy rodam nos workflows de staging."
