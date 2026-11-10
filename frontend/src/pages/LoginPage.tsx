@@ -1,3 +1,4 @@
+import { prefersReducedMotion as systemPrefersReducedMotion, resetPostLoginAnimations } from '../lib/motion'
 import './LoginPage.css'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -50,8 +51,8 @@ export default function LoginPage() {
   const login = useAuthStore((state) => state.login)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loginDone, setLoginDone] = useState(false)
   const [error, setError] = useState('')
   const [forgotOpen, setForgotOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
@@ -98,8 +99,14 @@ export default function LoginPage() {
       }
       const user = await authApi.me()
       clearAdminVisitingSite()
+      resetPostLoginAnimations()
+      // O botão vira ✓ por um instante (confirmação do login) antes de abrir o painel; sem movimento reduzido.
+      if (!systemPrefersReducedMotion()) {
+        setLoginDone(true)
+        await new Promise((resolve) => window.setTimeout(resolve, 450))
+      }
       login(user)
-      navigate({ to: user.access === 'ADMIN' ? '/admin/overview' : '/app' })
+      navigate({ to: '/app' })
     } catch (err: unknown) {
       if (err instanceof Error && 'status' in err) {
         const apiError = err as { status: number; message: string }
@@ -141,7 +148,7 @@ export default function LoginPage() {
           <div className="csp-login-03">
           <div className="csp-login-04">
             <h1 className="csp-login-05">
-              <img src="/brand/wordmark.png" alt="Auto Orbital" className="csp-login-06" />
+              <img src="/brand/logo-wordmark.svg" alt="Auto Orbital" className="csp-login-06" />
             </h1>
             <p className="csp-login-07">Entre para continuar</p>
           </div>
@@ -164,40 +171,24 @@ export default function LoginPage() {
               <p className="login-support-hint">Para suporte Shopee, use o nome de usuário sem @. Não é necessário selecionar outro modo de login.</p>
             )}
 
-            <label className="csp-login-10">
-              <span
-                className="csp-login-11"
-              >
-                Senha
-              </span>
-              <div className="csp-login-12">
-                <span
-                  className="csp-login-13"
-                >
-                  <Icon name="lock" size={16} />
-                </span>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="Digite sua senha"
-                  autoComplete="current-password"
-                  className="csp-login-14"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                  className="csp-login-15"
-                >
-                  <Icon name={showPassword ? 'eye-off' : 'eye'} size={18} />
-                </button>
-              </div>
-            </label>
+            <TextInput
+              label="Senha"
+              icon="lock"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Digite sua senha"
+              autoComplete="current-password"
+            />
 
             <Button type="submit" variant="primary" fullWidth disabled={loading}>
-              {loading ? (
+              {loginDone ? (
+                <>
+                  <Icon name="check-circle-2" size={18} className="login-done-check" />
+                  Pronto!
+                </>
+              ) : loading ? (
                 <>
                   <Icon name="loader-2" size={18} className="animate-spin" />
                   Entrando...
@@ -281,7 +272,7 @@ export default function LoginPage() {
             clearAdminVisitingSite()
             login(user)
             setGoogleSetupOpen(false)
-            navigate({ to: user.access === 'ADMIN' ? '/admin/overview' : '/app' })
+            navigate({ to: '/app' })
           }}
         />
       )}

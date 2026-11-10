@@ -114,7 +114,7 @@ export const productsApi = {
     return api.delete<{ msg: string }>(`/products/${id}/media/${assetId}`)
   },
 
-  async delete(id: number): Promise<{ msg: string }> {
-    return api.delete<{ msg: string }>(`/products/${id}`)
+  async delete(id: number, keepalive = false): Promise<{ msg: string }> {
+    return api.delete<{ msg: string }>(`/products/${id}`, undefined, keepalive)
   },
 }

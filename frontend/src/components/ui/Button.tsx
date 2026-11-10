@@ -1,5 +1,6 @@
 import { useState } from "react"
 import type { ReactNode, CSSProperties, MouseEvent, AriaAttributes } from "react"
+import "./motion.css"
 import { Icon } from "./Icon"
 
 /**
@@ -92,7 +93,7 @@ export function Button({
       }}
       onMouseDown={() => setDown(true)}
       onMouseUp={() => setDown(false)}
-      className={className}
+      className={`ao-btn ao-btn--${variant} ${className}`.trim()}
       style={{
         display: "inline-flex",
         alignItems: "center",

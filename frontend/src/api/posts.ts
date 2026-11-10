@@ -257,8 +257,8 @@ export const postsApi = {
     return api.put<Post>(`/posts/${id}`, data)
   },
 
-  async delete(id: number): Promise<{ msg: string }> {
-    return api.delete<{ msg: string }>(`/posts/${id}`)
+  async delete(id: number, keepalive = false): Promise<{ msg: string }> {
+    return api.delete<{ msg: string }>(`/posts/${id}`, undefined, keepalive)
   },
 
   async generateCopy(

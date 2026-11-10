@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-q
 import { useState, useCallback, useEffect } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
+import { scheduleUndoableDelete, useHiddenIds } from "../lib/undoableDelete"
 import { postsApi, type Post, type PostNetwork } from "../api/posts"
 import { formatUtcTimestampBrasilia } from "../lib/ptBrDateTime"
 import { NETWORK_RULES } from "../lib/networkLimits"
@@ -49,6 +50,16 @@ const metaTextStyle = {
 }
 
 
+type NetworkFilter = "all" | PostNetwork
+const NETWORK_NAMES: Record<PostNetwork, string> = { threads: "Threads", x: "X", facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok" }
+const NETWORK_FILTERS: NetworkFilter[] = ["all", "threads", "x", "facebook", "instagram", "tiktok"]
+
+function countPostsByNetwork(posts: Post[]): Record<PostNetwork, number> {
+  const counts: Record<PostNetwork, number> = { threads: 0, x: 0, facebook: 0, instagram: 0, tiktok: 0 }
+  for (const post of posts) counts[post.network ?? "threads"] += 1
+  return counts
+}
+
 export function PostsPage() {
   const { logout } = useAuthStore()
   const queryClient = useQueryClient()
@@ -77,20 +88,27 @@ export function PostsPage() {
     getNextPageParam: (page) => page.next_cursor ?? undefined,
     refetchInterval: (query) => postsRefreshInterval(query.state.data?.pages?.flatMap((page) => page.data) ?? []),
   })
-  const posts = postsPages?.pages.flatMap((page) => page.data) ?? []
+  const hiddenPostIds = useHiddenIds("posts")
+  const posts = (postsPages?.pages.flatMap((page) => page.data) ?? []).filter((post) => !hiddenPostIds.has(String(post.id)))
   const hasActiveSearch = searchQuery.trim().length > 0
-  const visiblePosts = hasActiveSearch ? posts.filter((post) => matchesPost(post, searchQuery)) : posts
+  const [networkFilter, setNetworkFilter] = useState<NetworkFilter>("all")
+  const hasNetworkFilter = networkFilter !== "all"
+  const hasActiveFilter = hasActiveSearch || hasNetworkFilter
+  const searchedPosts = hasActiveSearch ? posts.filter((post) => matchesPost(post, searchQuery)) : posts
+  const visiblePosts = hasNetworkFilter ? searchedPosts.filter((post) => (post.network ?? "threads") === networkFilter) : searchedPosts
+  const networkCounts = countPostsByNetwork(posts)
   const pagination = paginatePostHistory(visiblePosts, historyPage)
   const canNextHistoryPage = !postsLoadError && canAdvancePostHistory(
-    pagination.page, pagination.loadedPages, !!hasNextPage, hasActiveSearch,
+    pagination.page, pagination.loadedPages, !!hasNextPage, hasActiveFilter,
   )
 
-  useEffect(() => setHistoryPage(1), [searchQuery, activeProfileId])
+  useEffect(() => setHistoryPage(1), [searchQuery, activeProfileId, networkFilter])
+  useEffect(() => setNetworkFilter("all"), [activeProfileId])
 
   const goToNextHistoryPage = () => {
     if (pagination.page < pagination.loadedPages) {
       setHistoryPage(pagination.page + 1)
-    } else if (!hasActiveSearch && hasNextPage && !isFetchingNextPage && !postsLoadError) {
+    } else if (!hasActiveFilter && hasNextPage && !isFetchingNextPage && !postsLoadError) {
       void fetchNextPage().then((result) => {
         const nextPostCount = result.data?.pages.reduce((count, page) => count + page.data.length, 0) ?? posts.length
         if (nextPostCount > pagination.page * POSTS_PER_PAGE) setHistoryPage(pagination.page + 1)
@@ -98,8 +116,8 @@ export function PostsPage() {
     }
   }
   useEffect(() => {
-    if (searchQuery.trim() && hasNextPage && !isFetchingNextPage && !postsLoadError) void fetchNextPage()
-  }, [searchQuery, hasNextPage, isFetchingNextPage, postsLoadError, fetchNextPage, posts.length])
+    if ((searchQuery.trim() || networkFilter !== "all") && hasNextPage && !isFetchingNextPage && !postsLoadError) void fetchNextPage()
+  }, [searchQuery, networkFilter, hasNextPage, isFetchingNextPage, postsLoadError, fetchNextPage, posts.length])
 
   const onAuthError = useCallback(
     (err: Error) => {
@@ -143,15 +161,21 @@ export function PostsPage() {
     onError: onAuthError,
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => postsApi.delete(id),
-    meta: { toast: { pending: "Removendo post…", success: "Post removido", error: "Não foi possível remover o post" } },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts"] })
+  // Exclusão com "Desfazer": o post some na hora e só é apagado no servidor após 7 s.
+  const deleteMutation = {
+    isPending: false,
+    mutate: (id: number) => {
       setDeleteConfirm(null)
+      scheduleUndoableDelete({
+        kind: "posts",
+        id,
+        message: "Post removido",
+        errorMessage: "Não foi possível remover o post",
+        run: (keepalive) => postsApi.delete(id, keepalive),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+      })
     },
-    onError: onAuthError,
-  })
+  }
 
   // A publicação roda no scheduler depois do 200: recarrega a lista
   // algumas vezes pra mostrar o resultado real (last_result).
@@ -211,11 +235,40 @@ export function PostsPage() {
         </div>
       </div>
 
+      {posts.length > 0 && (
+        <div role="group" aria-label="Filtrar posts por rede social" className="posts-network-filter" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {NETWORK_FILTERS.filter((key) => key === "all" || networkCounts[key] > 0 || key === networkFilter).map((key) => {
+            const active = networkFilter === key
+            const count = key === "all" ? posts.length : networkCounts[key]
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setNetworkFilter(key)}
+                className="ao-lift"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, minHeight: 36, padding: "0 14px", borderRadius: 999, cursor: "pointer",
+                  font: "var(--fw-semibold) var(--fs-caption)/1 var(--font-sans)",
+                  border: `1px solid ${active ? "var(--brand-electric-cyan, #1FD3FD)" : "var(--border-hairline)"}`,
+                  background: active ? "rgba(31, 211, 253, .14)" : "var(--surface-inset)",
+                  color: active ? "var(--text-body)" : "var(--text-muted)",
+                }}
+              >
+                {key !== "all" && <NetworkLogo network={key} size={16} />}
+                {key === "all" ? "Todas as redes" : NETWORK_NAMES[key]}
+                <span style={{ opacity: 0.7 }}>{count}{hasNextPage ? "+" : ""}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
       {postsLoadError && <p role="alert" style={{ color: "var(--negative)" }}>Não foi possível carregar o histórico.</p>}
-      {searchQuery.trim() && (
-        <p role="status" style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 12 }}>
-          {visiblePosts.length} resultado(s). {hasNextPage ? "Pesquisando também em posts antigos..." : "Histórico consultado."}
-          <Button variant="ghost" size="sm" onClick={clearSearch}>Limpar busca</Button>
+      {hasActiveFilter && (
+        <p role="status" style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          {visiblePosts.length} resultado(s){hasNetworkFilter ? ` em ${NETWORK_NAMES[networkFilter as PostNetwork]}` : ""}. {hasNextPage ? "Pesquisando também em posts antigos..." : "Histórico consultado."}
+          {hasActiveSearch && <Button variant="ghost" size="sm" onClick={clearSearch}>Limpar busca</Button>}
+          {hasNetworkFilter && <Button variant="ghost" size="sm" onClick={() => setNetworkFilter("all")}>Limpar filtro de rede</Button>}
         </p>
       )}
       {!searchQuery.trim() && posts.length === 0 ? (
@@ -227,6 +280,7 @@ export function PostsPage() {
       ) : (
         <Panel surface="dark" className="posts-list-panel">
           <PanelHeader title="Posts" />
+          {visiblePosts.length === 0 && <p style={{ padding: "0 16px 16px", color: "var(--text-muted)" }}>Nenhum post encontrado com esse filtro.</p>}
           {pagination.items.map((post, index) => (
             <div key={post.id}>
               {index > 0 && <Divider />}
@@ -490,7 +544,7 @@ export function PostsPage() {
 
       <Modal open={deleteConfirm != null} onClose={() => setDeleteConfirm(null)} title="Confirmar remoção" width={400}>
         <p className="csp-s-0324">
-          Tem certeza que deseja remover este post? Esta ação não pode ser desfeita.
+          Tem certeza que deseja remover este post? Você terá alguns segundos para desfazer.
         </p>
         <div className="csp-s-0325">
           <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>

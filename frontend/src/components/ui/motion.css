@@ -1,20 +1,41 @@
+/* Entrada pós-login: logo com brilho e anéis, sobe para o canto do menu; um círculo se abre revelando o painel. */
+@property --hole { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 .post-login-splash {
-  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; pointer-events: none;
-  background: var(--bg-app, #0b1020);
-  animation: post-login-reveal 1.2s cubic-bezier(.16,1,.3,1) forwards;
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; pointer-events: none; overflow: hidden;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(31,211,253,.10), transparent 70%), var(--bg-app, #0b1020);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent var(--hole), #000 calc(var(--hole) + 1.5%));
+  mask-image: radial-gradient(circle at 50% 50%, transparent var(--hole), #000 calc(var(--hole) + 1.5%));
+  animation: splash-hole 1.9s cubic-bezier(.65, 0, .2, 1) forwards, splash-gone 0s linear 1.9s forwards;
 }
-.post-login-splash img { animation: post-login-logo 1.2s cubic-bezier(.16,1,.3,1) forwards; filter: drop-shadow(0 0 24px rgba(79,195,247,.45)); }
-@keyframes post-login-reveal {
-  0%, 55% { clip-path: circle(150% at 50% 50%); }
-  100% { clip-path: circle(0 at 50% 50%); visibility: hidden; }
+@keyframes splash-hole { 0%, 55% { --hole: 0%; } 100% { --hole: 150%; } }
+@keyframes splash-gone { to { visibility: hidden; } }
+.post-login-splash__logo {
+  grid-area: 1 / 1; width: 220px; height: 220px; filter: drop-shadow(0 0 34px rgba(47,107,255,.55));
+  animation: splash-logo 1.9s cubic-bezier(.16, 1, .3, 1) forwards;
 }
-@keyframes post-login-logo {
-  0% { opacity: 0; transform: scale(.8); }
-  35% { opacity: 1; transform: scale(1); }
-  55% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(.6); }
+@keyframes splash-logo {
+  0% { opacity: 0; transform: scale(.4); }
+  22% { opacity: 1; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+  88% { opacity: 1; transform: translate(calc(-50vw + 56px), calc(-50vh + 42px)) scale(.36); }
+  100% { opacity: 0; transform: translate(calc(-50vw + 56px), calc(-50vh + 42px)) scale(.3); }
 }
+.post-login-splash__name {
+  grid-area: 1 / 1; margin-top: 230px; width: 230px; height: auto;
+  animation: splash-name 1.9s ease both;
+}
+@keyframes splash-name { 0%, 14% { opacity: 0; transform: translateY(8px); } 30%, 52% { opacity: 1; transform: none; } 66%, 100% { opacity: 0; } }
+.post-login-splash__ring {
+  grid-area: 1 / 1; width: 120px; height: 120px; border-radius: 50%; border: 2px solid rgba(31,211,253,.5);
+  animation: splash-ring 1.6s cubic-bezier(.16, 1, .3, 1) .15s both;
+}
+.post-login-splash__ring--late { border-color: rgba(147,108,242,.45); animation-delay: .45s; }
+@keyframes splash-ring { 0% { opacity: .9; transform: scale(.6); } 70% { opacity: .25; } 100% { opacity: 0; transform: scale(5); } }
 @media (prefers-reduced-motion: reduce) { .post-login-splash { display: none; } }
+@supports not (mask-image: radial-gradient(circle, transparent 0, #000 1%)) {
+  .post-login-splash { -webkit-mask-image: none; mask-image: none; animation: splash-fade 1.9s ease forwards; }
+  @keyframes splash-fade { 0%, 60% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+}
 
 /* Entrada em cascata dos cards (dashboard). */
 .ao-reveal { animation: ao-reveal-in .45s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--i, 0) * 70ms); }
@@ -58,3 +79,67 @@
 .campaign-remaining .campaign-remaining__bar i.is-done { background: var(--accent); }
 .campaign-remaining.is-ready { color: var(--text-body); }
 @media (prefers-reduced-motion: reduce) { .campaign-remaining .campaign-remaining__bar i { transition: none; } }
+
+/* Cascata dos blocos de qualquer página (cards, painéis, tabelas): entram em sequência ao abrir a página. */
+.page-enter > * > * { animation: ao-reveal-in .55s cubic-bezier(.16, 1, .3, 1) both; }
+.page-enter > * > *:nth-child(1) { animation-delay: .03s; }
+.page-enter > * > *:nth-child(2) { animation-delay: .09s; }
+.page-enter > * > *:nth-child(3) { animation-delay: .15s; }
+.page-enter > * > *:nth-child(4) { animation-delay: .21s; }
+.page-enter > * > *:nth-child(5) { animation-delay: .27s; }
+.page-enter > * > *:nth-child(n+6) { animation-delay: .33s; }
+@media (prefers-reduced-motion: reduce) { .page-enter > * > * { animation: none; } }
+
+/* Campos de texto: brilho no foco. */
+.ao-input { transition: box-shadow .2s cubic-bezier(.16, 1, .3, 1), border-color .2s cubic-bezier(.16, 1, .3, 1); }
+.ao-input:focus { box-shadow: 0 0 0 3px rgba(31, 211, 253, .26), 0 0 20px rgba(31, 211, 253, .2); border-color: var(--brand-electric-cyan, #1FD3FD) !important; }
+@media (prefers-reduced-motion: reduce) { .ao-input { transition: none; } }
+
+/* Botões: o principal ganha um brilho que atravessa ao passar o mouse/focar; todos sobem de leve. */
+.ao-btn { position: relative; overflow: hidden; }
+.ao-btn::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -70%; width: 45%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.38), transparent); transform: skewX(-18deg);
+}
+.ao-btn--primary:hover::after, .ao-btn--primary:focus-visible::after { left: 130%; transition: left .7s cubic-bezier(.16, 1, .3, 1); }
+.ao-btn:not(:disabled):hover { transform: translateY(-1px); }
+@media (prefers-reduced-motion: reduce) { .ao-btn::after { display: none; } .ao-btn:not(:disabled):hover { transform: none; } }
+
+/* Caixas clicáveis: sobem e brilham a borda ao passar o mouse. */
+.ao-lift { transition: transform .25s cubic-bezier(.16, 1, .3, 1), box-shadow .25s, border-color .25s; }
+.ao-lift:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0, 0, 0, .35), 0 0 0 1px rgba(31, 211, 253, .35); }
+@media (prefers-reduced-motion: reduce) { .ao-lift:hover { transform: none; } }
+
+/* Avisos agrupados: contador "×N" que pulsa quando o mesmo aviso se repete. */
+.toast-count { display: inline-block; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: rgba(0,0,0,.25); font-size: 12px; font-weight: 700; animation: copied-pop .3s cubic-bezier(.16, 1, .3, 1); }
+
+/* Aviso com ação (Desfazer) */
+.toast-action { flex: none; padding: 4px 10px; border-radius: 999px; border: 1px solid currentColor; background: transparent; color: inherit; font: var(--fw-semibold, 600) 13px/1 var(--font-sans); cursor: pointer; transition: background .15s, transform .15s; }
+.toast-action:hover { background: rgba(0,0,0,.12); }
+.toast-action:active { transform: scale(.96); }
+.toast-action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* Rótulo flutuante: o texto fica dentro do campo e sobe quando há foco, valor ou placeholder. */
+.ao-float { position: relative; }
+.ao-float-label { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); transform-origin: left top; max-width: calc(100% - 28px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--text-role-body); color: var(--text-muted); pointer-events: none; transition: top .18s cubic-bezier(.16, 1, .3, 1), transform .18s cubic-bezier(.16, 1, .3, 1), color .18s, max-width .18s; }
+.ao-float.has-icon .ao-float-label { left: 40px; max-width: calc(100% - 54px); }
+.ao-float-area .ao-float-label { top: 20px; }
+.ao-float:focus-within .ao-float-label,
+.ao-float.is-up .ao-float-label,
+.ao-float .ao-input:not(:placeholder-shown) ~ .ao-float-label,
+.ao-float .ao-input:-webkit-autofill ~ .ao-float-label,
+.ao-float-area textarea:not(:placeholder-shown) ~ .ao-float-label { top: 7px; transform: translateY(0) scale(.76); max-width: calc((100% - 28px) / .76); }
+.ao-float-area:focus-within .ao-float-label,
+.ao-float-area.is-up .ao-float-label,
+.ao-float-area textarea:not(:placeholder-shown) ~ .ao-float-label { top: 7px; }
+.ao-float:focus-within .ao-float-label { color: var(--brand-electric-cyan, #1FD3FD); }
+.ao-float input::placeholder, .ao-float textarea::placeholder { color: var(--text-muted); opacity: 0; transition: opacity .18s; }
+.ao-float:focus-within input::placeholder, .ao-float.is-up input::placeholder,
+.ao-float:focus-within textarea::placeholder, .ao-float.is-up textarea::placeholder { opacity: .7; }
+.ao-float-bare input::placeholder, .ao-float-bare textarea::placeholder { opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .ao-float-label, .ao-float input::placeholder, .ao-float textarea::placeholder { transition: none; } }
+
+/* Cursor do texto digitado */
+.type-caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -0.12em; background: var(--brand-electric-cyan, #1FD3FD); animation: caret-blink .7s steps(1) infinite; }
+@keyframes caret-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .type-caret { display: none; } }

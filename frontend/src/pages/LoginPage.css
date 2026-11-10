@@ -74,3 +74,8 @@
 .login-split__form input { transition: box-shadow .2s cubic-bezier(.16, 1, .3, 1), border-color .2s cubic-bezier(.16, 1, .3, 1); }
 .login-split__form input:focus-visible { box-shadow: 0 0 0 3px rgba(31, 211, 253, .28), 0 0 18px rgba(31, 211, 253, .22); }
 @media (prefers-reduced-motion: reduce) { .login-split__form input { transition: none; } }
+
+/* Login concluído: o ✓ do botão aparece "carimbando". */
+.login-done-check { animation: login-done-pop .4s cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes login-done-pop { from { transform: scale(.2) rotate(-40deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .login-done-check { animation: none; } }

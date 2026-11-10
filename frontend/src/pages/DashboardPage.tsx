@@ -5,6 +5,7 @@ import { Panel, PanelHeader } from '../components/ui/Panel'
 import { Button } from '../components/ui/Button'
 import '../components/ui/motion.css'
 import type { CSSProperties } from 'react'
+import { useTypewriter } from '../lib/motion'
 import { Skeleton, SkeletonCard, SkeletonRegion } from '../components/ui/Skeleton'
 
 function count(value: number | undefined) {
@@ -23,6 +24,8 @@ const itemStyle = { padding: '12px 0', borderTop: '1px solid var(--border-hairli
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { data: stats, isPending, error, refetch } = useDashboard()
+  const subtitle = 'Visão geral da sua conta · todos os perfis'
+  const typedSubtitle = useTypewriter(subtitle, 'dashboard-subtitulo')
 
   if (isPending) {
     return (
@@ -45,7 +48,7 @@ export default function DashboardPage() {
     <div className="csp-s-0233">
       <div>
         <h1 className="csp-s-0234">Dashboard</h1>
-        <p className="csp-s-0235">Visão geral da sua conta · todos os perfis</p>
+        <p className="csp-s-0235"><span className="csp-named-sr-only">{subtitle}</span><span aria-hidden="true">{typedSubtitle || '\u00a0'}{typedSubtitle.length < subtitle.length ? <span className="type-caret" /> : null}</span></p>
       </div>
 
       <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 'var(--gap-grid)' }}>

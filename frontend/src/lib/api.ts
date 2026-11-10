@@ -79,8 +79,8 @@ export const api = {
     request<T>(endpoint, { method: 'POST', body: JSON.stringify(data) }),
   put: <T>(endpoint: string, data: unknown) =>
     request<T>(endpoint, { method: 'PUT', body: JSON.stringify(data) }),
-  delete: <T>(endpoint: string, data?: unknown) =>
-    request<T>(endpoint, { method: 'DELETE', ...(data !== undefined && { body: JSON.stringify(data) }) }),
+  delete: <T>(endpoint: string, data?: unknown, keepalive = false) =>
+    request<T>(endpoint, { method: 'DELETE', ...(keepalive && { keepalive: true }), ...(data !== undefined && { body: JSON.stringify(data) }) }),
   download: async (endpoint: string): Promise<{ blob: Blob; mimeType: string }> => {
     const response = await fetch(`${API_BASE}${endpoint}`, { method: 'GET', credentials: 'include' })
     if (!response.ok) {

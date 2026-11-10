@@ -3,6 +3,7 @@ import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@t
 import { authApi } from "./api/auth"
 import { ApiError } from "./lib/api"
 import { useAuthStore } from "./stores/authStore"
+import { resetPostLoginAnimations } from "./lib/motion"
 import LoginPage from "./pages/LoginPage"
 import PresentationPage from "./pages/PresentationPage"
 import DashboardPage from "./pages/DashboardPage"
@@ -14,10 +15,10 @@ import { ProfilesPage } from "./pages/ProfilesPage"
 import { PageSkeleton, type PageSkeletonVariant } from "./components/ui/Skeleton"
 import { OrbitalLoader } from "./components/ui/OrbitalLoader"
 import { AdminLayout } from "./pages/AdminLayout"
-import { isAdminVisitingSite } from "./lib/adminSiteFlag"
 import { creationSearch } from "./lib/creationIntent"
 
 // Páginas secundárias e pesadas carregam sob demanda (peso do bundle inicial).
+const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"))
 const HelpPage = lazy(() => import("./pages/HelpPage").then((m) => ({ default: m.HelpPage })))
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })))
 const PostsAutomationPage = lazy(() => import("./pages/PostsAutomationPage").then((m) => ({ default: m.PostsAutomationPage })))
@@ -30,7 +31,6 @@ const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"))
 const UsersPage = lazy(() => import("./pages/UsersPage"))
 const LogsPage = lazy(() => import("./pages/LogsPage"))
 const AdminCredentialsPage = lazy(() => import("./pages/AdminCredentialsPage"))
-const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"))
 const OrbitalPilotPage = lazy(() => import("./pages/OrbitalPilotPage"))
 
 async function requireAdmin() {
@@ -85,15 +85,13 @@ const landingRoute = createRoute({
 
     const authStore = useAuthStore.getState()
     if (!authStore.isAuthenticated || authStore.user?.id !== user.id) {
+      resetPostLoginAnimations()
       authStore.login(user)
     } else {
       authStore.setUser(user)
     }
     authStore.setRoleVerified(true)
 
-    if (user.access === "ADMIN" && !isAdminVisitingSite()) {
-      throw redirect({ to: "/admin/overview" })
-    }
     throw redirect({ to: "/app" })
   },
   component: PresentationPage,
@@ -157,12 +155,6 @@ const panelRoute = createRoute({
 const dashboardRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/app",
-  beforeLoad: () => {
-    const { isAuthenticated, user } = useAuthStore.getState()
-    if (isAuthenticated && user?.access === "ADMIN" && !isAdminVisitingSite()) {
-      throw redirect({ to: "/admin/overview" })
-    }
-  },
   component: DashboardPage,
 })
 

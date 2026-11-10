@@ -1,3 +1,4 @@
+import { useCountProgress } from '../lib/motion'
 import { useId } from 'react'
 import { Activity, BarChart3, Eye, Gauge, Layers, MessageCircle, TrendingUp } from 'lucide-react'
 import { Panel } from './ui/Panel'
@@ -41,13 +42,16 @@ export type AnalyticsPostMetric = {
   clicks: number | null
 }
 const formatNumber = (value: number) => value.toLocaleString('pt-BR')
+/** Valor na fração `f` da animação de contagem (0→1), sempre inteiro. */
+const counted = (value: number, f: number) => Math.round(value * f)
 const shortDate = (date: string) => date.slice(8, 10) + '/' + date.slice(5, 7)
 
-function RadialBreakdown({ items, center, sublabel, accessibleLabel }: {
+function RadialBreakdown({ items, center, sublabel, accessibleLabel, f }: {
   items: { label: string; value: number | null; color: string; tone: string }[]
   center: string
   sublabel: string
   accessibleLabel: string
+  f: number
 }) {
   const total = items.reduce((sum, item) => sum + (item.value ?? 0), 0)
   let offset = 0
@@ -55,7 +59,7 @@ function RadialBreakdown({ items, center, sublabel, accessibleLabel }: {
     <svg viewBox="0 0 184 184" className="analytics-radial" role="img" aria-label={accessibleLabel}>
       <circle cx="92" cy="92" r="70" fill="none" stroke="var(--chart-grid)" strokeWidth="16" />
       {total > 0 && items.filter(item => (item.value ?? 0) > 0).map(item => {
-        const length = ((item.value ?? 0) / total) * 100
+        const length = ((item.value ?? 0) / total) * 100 * f
         const start = offset
         offset += length
         return <circle key={item.label} cx="92" cy="92" r="70" fill="none" stroke={item.color}
@@ -70,17 +74,18 @@ function RadialBreakdown({ items, center, sublabel, accessibleLabel }: {
     <ul className="analytics-radial-legend">
       {items.map(item => <li key={item.label}>
         <span className="analytics-legend-name"><span className={'analytics-legend-dot analytics-legend-' + item.tone} />{item.label}</span>
-        <strong>{item.value === null ? '—' : formatNumber(item.value)}</strong>
+        <strong>{item.value === null ? '—' : formatNumber(counted(item.value, f))}</strong>
       </li>)}
     </ul>
   </div>
 }
 
-function PublicationTrend({ timeline, days, loading, error }: {
+function PublicationTrend({ timeline, days, loading, error, f }: {
   timeline?: AnalyticsTimeline
   days: number
   loading: boolean
   error: boolean
+  f: number
 }) {
   const gradientId = 'analyticsArea' + useId().replace(/:/g, '')
   const today = new Date()
@@ -123,7 +128,7 @@ function PublicationTrend({ timeline, days, loading, error }: {
       {loading ? <p className="analytics-chart-message" role="status">Carregando histórico...</p>
         : error ? <p className="analytics-chart-message" role="alert">Evolução indisponível nesta consulta.</p>
           : !hasActivity ? <p className="analytics-chart-message">Sem publicações finalizadas no período selecionado.</p> : null}
-      <svg viewBox="0 0 680 256" className="analytics-timeline-chart" role="img"
+      <svg viewBox="0 0 680 256" className="analytics-timeline-chart" role="img" style={f < 1 ? { clipPath: `inset(0 ${(1 - f) * 100}% 0 0)` } : undefined}
         aria-label={'Evolução diária, UTC, de publicações nos últimos ' + days + ' dias. ' +
           'Concluídos, falhas e sem confirmação representados pelas linhas.'}>
         <defs><linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
@@ -173,7 +178,7 @@ const providerDescriptions: Record<string, string> = {
   unsupported: 'Insights por post indisponíveis',
 }
 
-function NetworkComparison({ rows }: { rows: AnalyticsSummaryRow[] }) {
+function NetworkComparison({ rows, f }: { rows: AnalyticsSummaryRow[]; f: number }) {
   const source = new Map(rows.map(row => [row.network, row]))
   const maximum = Math.max(1, ...rows.map(row => row.succeeded + row.failed + row.unknown))
   return <>
@@ -198,7 +203,7 @@ function NetworkComparison({ rows }: { rows: AnalyticsSummaryRow[] }) {
           <text x="4" y={y + 9} className={'analytics-bar-name' + (!row ? ' analytics-muted' : '')}>{channel.title}</text>
           <rect x="150" y={y - 1} width="424" height="12" rx="5" fill="var(--chart-grid)" />
           {bars.map(({ value, color }, segment) => {
-            const width = (value / maximum) * 424
+            const width = (value / maximum) * 424 * f
             const x = 150 + offset
             offset += width
             return value > 0 ? <rect key={segment} x={x} y={y - 1} width={width} height="12" fill={color}>
@@ -206,7 +211,7 @@ function NetworkComparison({ rows }: { rows: AnalyticsSummaryRow[] }) {
             </rect> : null
           })}
           <text x="644" y={y + 9} textAnchor="end" className="analytics-bar-count">
-            {row ? formatNumber(total) : '—'}
+            {row ? formatNumber(counted(total, f)) : '—'}
           </text>
         </g>
       })}
@@ -215,7 +220,7 @@ function NetworkComparison({ rows }: { rows: AnalyticsSummaryRow[] }) {
   </>
 }
 
-function WeekdayActivity({ timeline, loading, error }: { timeline?: AnalyticsTimeline; loading: boolean; error: boolean }) {
+function WeekdayActivity({ timeline, loading, error, f }: { timeline?: AnalyticsTimeline; loading: boolean; error: boolean; f: number }) {
   const labels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
   const totals = Array(7).fill(0) as number[]
   for (const point of timeline?.points ?? []) {
@@ -231,11 +236,11 @@ function WeekdayActivity({ timeline, loading, error }: { timeline?: AnalyticsTim
         : totals.every(value => value === 0) ? <p className="analytics-chart-note">Sem atividade registrada no período.</p> : null}
     <svg viewBox="0 0 560 212" className="analytics-weekday-chart" role="img" aria-label="Quantidade de envios por dia da semana em UTC">
       {totals.map((count, index) => {
-        const h = count / max * 142
+        const h = count / max * 142 * f
         return <g key={labels[index]}>
           <rect x={24 + index * 78} y={25} width="46" height="142" rx="8" fill="var(--chart-grid)" />
           {count > 0 && <rect x={24 + index * 78} y={167 - h} width="46" height={h} rx="8" fill="var(--brand-electric-cyan)" />}
-          <text x={47 + index * 78} y="20" textAnchor="middle" className="analytics-bar-count">{count}</text>
+          <text x={47 + index * 78} y="20" textAnchor="middle" className="analytics-bar-count">{counted(count, f)}</text>
           <text x={47 + index * 78} y="193" textAnchor="middle" className="analytics-bar-name">{labels[index]}</text>
         </g>
       })}
@@ -318,6 +323,7 @@ export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timeli
   postsLoading: boolean
   postsError: boolean
 }) {
+  const f = useCountProgress('analises')
   const completed = rows.reduce((sum, row) => sum + row.succeeded, 0)
   const failed = rows.reduce((sum, row) => sum + row.failed, 0)
   const uncertain = rows.reduce((sum, row) => sum + row.unknown, 0)
@@ -341,32 +347,32 @@ export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timeli
     <section className="analytics-kpi-grid" aria-label="Indicadores gerais e oficiais">
       <Panel surface="dark" className="analytics-kpi-card analytics-kpi-primary">
         <div className="analytics-kpi-top"><span>Total de envios</span><Layers size={20} aria-hidden="true" /></div>
-        <strong className="analytics-kpi-value">{formatNumber(all)}</strong>
+        <strong className="analytics-kpi-value">{formatNumber(counted(all, f))}</strong>
         <small>{formatNumber(completed)} concluídos · {formatNumber(failed)} falhas · {formatNumber(uncertain)} sem confirmação</small>
       </Panel>
       <Panel surface="dark" className="analytics-kpi-card analytics-kpi-rate">
         <div className="analytics-kpi-top"><span>Taxa confirmada</span><Gauge size={20} aria-hidden="true" /></div>
-        <strong className="analytics-kpi-value">{confirmedRate === null ? '—' : String(confirmedRate) + '%'}</strong>
+        <strong className="analytics-kpi-value">{confirmedRate === null ? '—' : String(counted(confirmedRate, f)) + '%'}</strong>
         <small>{all > 0 ? `${formatNumber(completed)} de ${formatNumber(all)} envios` : 'Sem envios para calcular'}</small>
       </Panel>
       <Panel surface="dark" className="analytics-kpi-card analytics-kpi-networks">
         <div className="analytics-kpi-top"><span>Redes com atividade</span><BarChart3 size={20} aria-hidden="true" /></div>
-        <strong className="analytics-kpi-value">{formatNumber(networksWithActivity)}</strong>
+        <strong className="analytics-kpi-value">{formatNumber(counted(networksWithActivity, f))}</strong>
         <small>De {socialCatalog.length} redes listadas</small>
       </Panel>
       <Panel surface="dark" className="analytics-kpi-card analytics-kpi-views">
         <div className="analytics-kpi-top"><span>Visualizações de posts</span><Eye size={20} aria-hidden="true" /></div>
-        <strong className="analytics-kpi-value">{totalViews === null ? '—' : formatNumber(totalViews)}</strong>
+        <strong className="analytics-kpi-value">{totalViews === null ? '—' : formatNumber(counted(totalViews, f))}</strong>
         <small>Somente dados oficiais dos posts rastreados</small>
       </Panel>
       <Panel surface="dark" className="analytics-kpi-card analytics-kpi-engagement">
         <div className="analytics-kpi-top"><span>Interações mensuradas</span><MessageCircle size={20} aria-hidden="true" /></div>
-        <strong className="analytics-kpi-value">{interactionTotal === null ? '—' : formatNumber(interactionTotal)}</strong>
+        <strong className="analytics-kpi-value">{interactionTotal === null ? '—' : formatNumber(counted(interactionTotal, f))}</strong>
         <small>Curtidas, comentários, reposts e cliques disponíveis</small>
       </Panel>
       <Panel surface="dark" className="analytics-kpi-card analytics-kpi-tracked">
         <div className="analytics-kpi-top"><span>Posts com insights</span><Activity size={20} aria-hidden="true" /></div>
-        <strong className="analytics-kpi-value">{formatNumber(postsWithInsights)}</strong>
+        <strong className="analytics-kpi-value">{formatNumber(counted(postsWithInsights, f))}</strong>
         <small>{formatNumber(postsWithExternalId)} com ID rastreável</small>
       </Panel>
     </section>
@@ -378,14 +384,14 @@ export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timeli
             <h2>Evolução das publicações</h2><p>Atividade diária no período selecionado</p></div>
           <span className="analytics-panel-period">{days} dias</span>
         </div>
-        <PublicationTrend timeline={timeline} days={days} loading={timelineLoading} error={timelineError} />
+        <PublicationTrend timeline={timeline} days={days} loading={timelineLoading} error={timelineError} f={f} />
       </Panel>
       <Panel surface="dark" className="analytics-data-panel analytics-network-panel">
         <div className="analytics-panel-heading">
           <div><span className="analytics-panel-eyebrow"><BarChart3 size={14} aria-hidden="true" /> REDES SOCIAIS</span>
             <h2>Comparação entre redes</h2><p>Volume e resultados por plataforma</p></div>
         </div>
-        <NetworkComparison rows={rows} />
+        <NetworkComparison rows={rows} f={f} />
       </Panel>
       <Panel surface="dark" className="analytics-data-panel analytics-status-panel">
         <div className="analytics-panel-heading">
@@ -395,7 +401,7 @@ export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timeli
         <RadialBreakdown
           items={measured.map((item, index) => ({ label: engagementLabels[item.key] + (item.value === null ? ' (indisponível)' : ''),
             value: item.value, color: engagementColors[index], tone: item.key }))}
-          center={interactionTotal === null ? '—' : formatNumber(interactionTotal)} sublabel="interações"
+          center={interactionTotal === null ? '—' : formatNumber(counted(interactionTotal, f))} sublabel="interações" f={f}
           accessibleLabel="Interações de publicações rastreadas, agrupadas por curtidas, comentários, reposts e cliques." />
         <p className="analytics-chart-footnote">Dados indisponíveis não são contabilizados como zero. Apenas posts publicados pela plataforma.</p>
       </Panel>
@@ -404,7 +410,7 @@ export function AnalyticsVisuals({ rows, days, timeline, timelineLoading, timeli
           <div><span className="analytics-panel-eyebrow"><BarChart3 size={14} aria-hidden="true" /> FREQUÊNCIA</span>
             <h2>Atividade por dia da semana</h2><p>Em quais dias os envios ocorreram</p></div>
         </div>
-        <WeekdayActivity timeline={timeline} loading={timelineLoading} error={timelineError} />
+        <WeekdayActivity timeline={timeline} loading={timelineLoading} error={timelineError} f={f} />
       </Panel>
       <Panel surface="dark" className="analytics-data-panel analytics-top-panel">
         <div className="analytics-panel-heading">

@@ -9,6 +9,10 @@
 import { useState } from "react"
 import type { ChangeEvent, CSSProperties, InputHTMLAttributes } from "react"
 import { Icon } from "./Icon"
+import "./motion.css"
+
+/** Tipos cujo campo nativo já mostra algo (data/hora): o rótulo fica sempre no alto. */
+const ALWAYS_UP_TYPES = new Set(["date", "datetime-local", "time", "month", "week", "color", "file"])
 
 export interface TextInputProps {
   label?: string
@@ -73,14 +77,7 @@ export function TextInput({
   const inputType = isPassword ? (revealed ? "text" : "password") : type
   return (
     <label className={className} style={{ display: "block", width, ...style }}>
-      {label ? (
-        <span
-          className="csp-s-0142"
-        >
-          {label}
-        </span>
-      ) : null}
-      <div className="csp-s-0143">
+      <div className={`ao-float${label ? "" : " ao-float-bare"}${icon ? " has-icon" : ""}${placeholder || ALWAYS_UP_TYPES.has(type) ? " is-up" : ""}`}>
         {icon ? (
           <span
             className="csp-s-0144"
@@ -93,7 +90,7 @@ export function TextInput({
           type={inputType}
           value={value}
           onChange={onChange}
-          placeholder={placeholder}
+          placeholder={label ? (placeholder ?? " ") : placeholder}
           required={required}
           minLength={minLength}
           maxLength={maxLength}
@@ -109,10 +106,11 @@ export function TextInput({
           onMouseLeave={() => setHot(false)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          className="ao-input"
           style={{
             width: "100%",
-            height: 40,
-            padding: `0 ${isPassword ? 40 : 14}px 0 ${icon ? 40 : 14}px`,
+            height: label ? 48 : 40,
+            padding: label ? `16px ${isPassword ? 40 : 14}px 0 ${icon ? 40 : 14}px` : `0 ${isPassword ? 40 : 14}px 0 ${icon ? 40 : 14}px`,
             borderRadius: "var(--r-md)",
             background: "var(--surface-inset)",
             border: `1px solid ${active ? "var(--border-strong)" : "var(--border-hairline)"}`,
@@ -125,6 +123,7 @@ export function TextInput({
             ...inputStyle,
           }}
         />
+        {label ? <span className="ao-float-label">{label}</span> : null}
         {isPassword ? (
           <button
             type="button"

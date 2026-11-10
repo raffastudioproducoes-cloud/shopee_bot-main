@@ -3,9 +3,9 @@ import { prefersReducedMotion } from '../../lib/motion'
 import './motion.css'
 
 const SEEN_KEY = 'ao-post-login-splash'
-export const SPLASH_MS = 1200
+export const SPLASH_MS = 1900
 
-/** Decide se a entrada animada aparece: 1 vez por sessão, nunca com movimento reduzido. */
+/** Aparece a cada login (e ao reabrir o site com sessão ativa), para qualquer conta, inclusive ADM. */
 export function shouldShowPostLoginSplash(): boolean {
   if (prefersReducedMotion()) return false
   try { return sessionStorage.getItem(SEEN_KEY) !== '1' } catch { return false }
@@ -16,8 +16,9 @@ function markSeen() {
 }
 
 /**
- * Tela rápida com a logo logo após o login: o painel já carrega por baixo e o círculo
- * se abre revelando-o. Não bloqueia cliques (pointer-events: none) e some sozinha em ~1,2 s.
+ * Entrada depois do login: a logo aparece com brilho e um anel que expande, sobe para o canto do menu
+ * enquanto um círculo se abre revelando o dashboard (que entra em cascata, com números contando).
+ * Não bloqueia cliques (pointer-events: none); toque ou tecla encerra na hora; some sozinha em ~1,9 s.
  */
 export function PostLoginSplash() {
   const [visible, setVisible] = useState(shouldShowPostLoginSplash)
@@ -39,7 +40,10 @@ export function PostLoginSplash() {
   if (!visible) return null
   return (
     <div className="post-login-splash" aria-hidden="true">
-      <img src="/brand/symbol-128.png" alt="" width={96} height={96} />
+      <span className="post-login-splash__ring" />
+      <span className="post-login-splash__ring post-login-splash__ring--late" />
+      <img className="post-login-splash__logo" src="/brand/logo-mark.svg" alt="" width={220} height={220} />
+      <img className="post-login-splash__name" src="/brand/logo-wordmark.svg" alt="" width={230} height={47} />
     </div>
   )
 }

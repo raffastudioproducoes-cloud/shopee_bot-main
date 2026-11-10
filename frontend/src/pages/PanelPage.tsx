@@ -19,16 +19,16 @@ import { PostLoginSplash } from '../components/ui/PostLoginSplash'
 import { PageSkeleton } from '../components/ui/Skeleton'
 import { PlanBadge } from "../components/plans/PlanSummary"
 import { StatusMessage } from '../components/StatusMessage'
-import { clearAdminVisitingSite, isAdminVisitingSite } from '../lib/adminSiteFlag'
+import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
 
 const navItems: SideRailItem[] = [
   { value: '/app', label: 'Dashboard', icon: 'house' },
+  { value: '/analytics', label: 'Análises', icon: 'chart-no-axes-combined' },
   { value: '/products', label: 'Produtos', icon: 'briefcase' },
   { value: '/lists', label: 'Listas', icon: 'sliders-horizontal' },
   { value: '/posts', label: 'Posts', icon: 'file-text' },
   { value: '/posts/criar', label: 'Criar POST', icon: 'square-pen' },
   { value: '/automacao-posts', label: 'Automação', icon: 'workflow' },
-  { value: '/analytics', label: 'Análises', icon: 'chart-no-axes-combined' },
   { value: '/credentials', label: 'Credenciais', icon: 'key-round' },
   { value: '/profiles', label: 'Perfis', icon: 'users' },
   { value: '/settings', label: 'Configurações', icon: 'lock' },
@@ -99,9 +99,6 @@ export function PanelPage() {
 
         setUser(userData)
         setRoleVerified(true)
-        if (userData.access === 'ADMIN' && location.pathname === '/app' && !isAdminVisitingSite()) {
-          navigate({ to: '/admin/overview' })
-        }
       })
       .catch((error: unknown) => {
         if (!active) return
@@ -146,7 +143,7 @@ export function PanelPage() {
 
   return (
     <div className="app-shell">
-      {user?.access !== 'ADMIN' && <PostLoginSplash />}
+      <PostLoginSplash />
       <LocationPermissionNotice />
       <SideRail
         id="app-nav"
@@ -159,7 +156,7 @@ export function PanelPage() {
           if (value === '/admin') clearAdminVisitingSite()
           navigate({ to: value })
         }}
-        logoSrc="/brand/symbol-128.png"
+        logoSrc="/brand/logo-mark-static.svg"
         brand="Auto Orbital"
       />
       <button
