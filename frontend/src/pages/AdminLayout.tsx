@@ -50,7 +50,7 @@ export function AdminLayout() {
       <div className="admin-frame">
       <header className="admin-header">
         <Link to="/admin/overview" className="admin-brand" aria-label="Auto Orbital, administração">
-          <img src="/brand/symbol-128.png" alt="" width="36" height="36" />
+          <img src="/brand/logo-mark-static.svg" alt="" width="36" height="36" />
           <span>Auto Orbital <small>ADMIN</small></span>
         </Link>
         <nav ref={menuRef} className="admin-menu" aria-label="Administração">

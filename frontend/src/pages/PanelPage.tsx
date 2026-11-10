@@ -156,7 +156,7 @@ export function PanelPage() {
           if (value === '/admin') clearAdminVisitingSite()
           navigate({ to: value })
         }}
-        logoSrc="/brand/symbol-128.png"
+        logoSrc="/brand/logo-mark-static.svg"
         brand="Auto Orbital"
       />
       <button

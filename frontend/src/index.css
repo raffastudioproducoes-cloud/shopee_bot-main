@@ -65,6 +65,7 @@ body { background: var(--bg-app-gradient); background-attachment: fixed; }
 .orbital-loader__horizon { position: absolute; z-index: 4; left: 29%; top: 21%; width: 42%; aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; background: var(--brand-event-horizon); border: 2px solid rgba(238,234,242,.88); box-shadow: 0 0 0 5px rgba(31,211,253,.2), 0 0 24px rgba(31,211,253,.5); overflow: hidden; }
 .orbital-loader__horizon img { width: 66%; height: 66%; object-fit: contain; opacity: .72; filter: grayscale(1) brightness(.5); }
 .orbital-loader__lens { position: absolute; z-index: 5; left: 17%; top: 27%; width: 66%; height: 46%; border: 2px solid rgba(238,234,242,.7); border-left-color: transparent; border-right-color: transparent; border-radius: 50%; transform: rotate(-13deg); filter: drop-shadow(0 0 5px rgba(31,211,253,.65)); }
+.orbital-loader__blackhole { position: absolute; z-index: 2; left: 50%; top: 50%; width: 100%; height: auto; aspect-ratio: 1; transform: translate(-50%, -50%); pointer-events: none; }
 .orbital-loader__orbit { position: absolute; inset: 2% 0; z-index: 3; pointer-events: none; }
 .orbital-loader__orbit--back { z-index: 1; transform: rotate(-18deg); }
 .orbital-loader__orbit--front { transform: rotate(-18deg) scaleY(.76); }
