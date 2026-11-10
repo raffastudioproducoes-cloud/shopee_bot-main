@@ -1,4 +1,5 @@
 import { safeExternalUrl, safeImageUrl } from "../lib/safeExternalUrl"
+import { scheduleUndoableDelete, useHiddenIds } from "../lib/undoableDelete"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useCallback, useEffect } from "react"
 import { useSearch } from "@tanstack/react-router"
@@ -115,7 +116,8 @@ export function ProductsPage() {
     queryFn: () => productsApi.list({ search: debouncedSearch || undefined, page_size: 200 }),
   })
 
-  const products = data?.data ?? []
+  const hiddenProductIds = useHiddenIds("products")
+  const products = (data?.data ?? []).filter((product) => !hiddenProductIds.has(String(product.id)))
 
   const { data: aiStatus, isPending: aiStatusLoading, isError: aiStatusError } = useQuery({
     queryKey: ["platform", "ai", "status"],
@@ -178,16 +180,24 @@ export function ProductsPage() {
     onError: onAuthError,
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => productsApi.delete(id),
-    meta: { toast: { pending: "Removendo produto…", success: "Produto removido", error: "Não foi possível remover" } },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] })
-      queryClient.invalidateQueries({ queryKey: ["plan-usage"] })
+  // Exclusão com "Desfazer": o produto some na hora e só é apagado no servidor após 7 s.
+  const deleteMutation = {
+    isPending: false,
+    mutate: (id: number) => {
       setDeleteId(null)
+      scheduleUndoableDelete({
+        kind: "products",
+        id,
+        message: "Produto removido",
+        errorMessage: "Não foi possível remover",
+        run: (keepalive) => productsApi.delete(id, keepalive),
+        onSettled: () => Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["products"] }),
+          queryClient.invalidateQueries({ queryKey: ["plan-usage"] }),
+        ]),
+      })
     },
-    onError: onAuthError,
-  })
+  }
 
   // ── Handlers ───────────────────────────────────────────────────────────────────
 

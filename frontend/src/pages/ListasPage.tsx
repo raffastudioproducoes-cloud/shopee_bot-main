@@ -1,3 +1,4 @@
+import { scheduleUndoableDelete, useHiddenIds } from "../lib/undoableDelete"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useCallback, useEffect } from "react"
 import { useSearch } from "@tanstack/react-router"
@@ -86,7 +87,8 @@ export function ListasPage() {
     enabled: usageSortSelected && Boolean(user?.id) && Boolean(listsData),
     staleTime: 60_000,
   })
-  const lists = listsData?.data ?? []
+  const hiddenListIds = useHiddenIds("lists")
+  const lists = (listsData?.data ?? []).filter((list) => !hiddenListIds.has(String(list.id)))
   const filteredLists = listSearch.trim()
     ? lists.filter((list) => matchesScopedSearch([
         list.name, ...(list.products ?? []).flatMap((product) => [product.name, product.product_id]),
@@ -144,16 +146,24 @@ export function ListasPage() {
 
   // ── Delete mutation ─────────────────────────────────────────────────────────────
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => listsApi.delete(id),
-    meta: { toast: { pending: "Removendo lista…", success: "Lista removida", error: "Não foi possível remover a lista" } },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["lists"] })
-      queryClient.invalidateQueries({ queryKey: ["plan-usage"] })
+  // Exclusão com "Desfazer": a lista some na hora e só é apagada no servidor após 7 s.
+  const deleteMutation = {
+    isPending: false,
+    mutate: (id: number) => {
       setDeleteConfirm(null)
+      scheduleUndoableDelete({
+        kind: "lists",
+        id,
+        message: "Lista removida",
+        errorMessage: "Não foi possível remover a lista",
+        run: (keepalive) => listsApi.delete(id, keepalive),
+        onSettled: () => Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["lists"] }),
+          queryClient.invalidateQueries({ queryKey: ["plan-usage"] }),
+        ]),
+      })
     },
-    onError: onAuthError,
-  })
+  }
 
   // ── Handlers ────────────────────────────────────────────────────────────────────
 

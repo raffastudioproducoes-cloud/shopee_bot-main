@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-q
 import { useState, useCallback, useEffect } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
+import { scheduleUndoableDelete, useHiddenIds } from "../lib/undoableDelete"
 import { postsApi, type Post, type PostNetwork } from "../api/posts"
 import { formatUtcTimestampBrasilia } from "../lib/ptBrDateTime"
 import { NETWORK_RULES } from "../lib/networkLimits"
@@ -77,7 +78,8 @@ export function PostsPage() {
     getNextPageParam: (page) => page.next_cursor ?? undefined,
     refetchInterval: (query) => postsRefreshInterval(query.state.data?.pages?.flatMap((page) => page.data) ?? []),
   })
-  const posts = postsPages?.pages.flatMap((page) => page.data) ?? []
+  const hiddenPostIds = useHiddenIds("posts")
+  const posts = (postsPages?.pages.flatMap((page) => page.data) ?? []).filter((post) => !hiddenPostIds.has(String(post.id)))
   const hasActiveSearch = searchQuery.trim().length > 0
   const visiblePosts = hasActiveSearch ? posts.filter((post) => matchesPost(post, searchQuery)) : posts
   const pagination = paginatePostHistory(visiblePosts, historyPage)
@@ -143,15 +145,21 @@ export function PostsPage() {
     onError: onAuthError,
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => postsApi.delete(id),
-    meta: { toast: { pending: "Removendo post…", success: "Post removido", error: "Não foi possível remover o post" } },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts"] })
+  // Exclusão com "Desfazer": o post some na hora e só é apagado no servidor após 7 s.
+  const deleteMutation = {
+    isPending: false,
+    mutate: (id: number) => {
       setDeleteConfirm(null)
+      scheduleUndoableDelete({
+        kind: "posts",
+        id,
+        message: "Post removido",
+        errorMessage: "Não foi possível remover o post",
+        run: (keepalive) => postsApi.delete(id, keepalive),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
+      })
     },
-    onError: onAuthError,
-  })
+  }
 
   // A publicação roda no scheduler depois do 200: recarrega a lista
   // algumas vezes pra mostrar o resultado real (last_result).
@@ -490,7 +498,7 @@ export function PostsPage() {
 
       <Modal open={deleteConfirm != null} onClose={() => setDeleteConfirm(null)} title="Confirmar remoção" width={400}>
         <p className="csp-s-0324">
-          Tem certeza que deseja remover este post? Esta ação não pode ser desfeita.
+          Tem certeza que deseja remover este post? Você terá alguns segundos para desfazer.
         </p>
         <div className="csp-s-0325">
           <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
