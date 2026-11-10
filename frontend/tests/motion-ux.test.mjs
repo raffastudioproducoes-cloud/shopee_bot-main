@@ -31,19 +31,26 @@ test('movimento reduzido desliga contagem, splash e cascata', () => {
   const splash = src('components/ui/PostLoginSplash.tsx')
   const css = src('components/ui/motion.css')
   assert.match(motion, /prefers-reduced-motion: reduce/)
-  assert.match(motion, /prefersReducedMotion\(\) \|\| !Number\.isFinite\(target\)/)
+  assert.match(motion, /const skip = prefersReducedMotion\(\) \|\| alreadyCounted\(label\)/)
   assert.match(splash, /if \(prefersReducedMotion\(\)\) return false/)
   assert.ok((css.match(/@media \(prefers-reduced-motion: reduce\)/g) ?? []).length >= 4)
 })
 
-test('splash pós-login: 1 vez por sessão, não bloqueia cliques, some em até 1,2 s e fica fora do admin', () => {
+test('splash pós-login: aparece a cada login e para TODAS as contas (inclusive ADM), não bloqueia cliques e some em até 1,9 s', () => {
   const splash = src('components/ui/PostLoginSplash.tsx')
   const css = src('components/ui/motion.css')
   assert.match(splash, /sessionStorage\.getItem\(SEEN_KEY\) !== '1'/)
-  assert.match(splash, /SPLASH_MS = 1200/)
+  assert.match(splash, /SPLASH_MS = 1900/)
   assert.match(splash, /pointerdown/)
   assert.match(css, /pointer-events: none/)
-  assert.match(src('pages/PanelPage.tsx'), /user\?\.access !== 'ADMIN' && <PostLoginSplash \/>/)
+  assert.match(css, /@property --hole/, 'círculo que se abre revelando o painel')
+  assert.match(css, /translate\(calc\(-50vw \+ 56px\), calc\(-50vh \+ 42px\)\)/, 'logo sobe para o canto do menu')
+  assert.doesNotMatch(src('pages/PanelPage.tsx'), /access !== 'ADMIN' && <PostLoginSplash/, 'ADM também vê a entrada')
+  assert.match(src('pages/PanelPage.tsx'), /<PostLoginSplash \/>/)
+  // a cada login as flags são zeradas (senão a entrada e as contagens só apareciam na 1ª vez da aba)
+  assert.match(src('lib/motion.ts'), /export function resetPostLoginAnimations/)
+  assert.match(src('pages/LoginPage.tsx'), /resetPostLoginAnimations\(\)/)
+  assert.match(src('router.tsx'), /resetPostLoginAnimations\(\)/)
 })
 
 test('dashboard: cards com cascata e contagem só para inteiros', () => {
@@ -124,4 +131,32 @@ test('campanha mostra quantos passos faltam e vira "Tudo pronto" com os 3 passos
   assert.match(planner, /gerar a prévia do calendário/)
   assert.match(planner, /Tudo pronto para ativar\./)
   assert.match(planner, /i < 3 - pending\.length/)
+})
+
+test('animações gerais: cascata em qualquer página, foco dos campos, brilho nos botões, caixas que sobem e avisos ×N', () => {
+  const css = src('components/ui/motion.css')
+  assert.match(css, /\.page-enter > \* > \* \{ animation: ao-reveal-in/)
+  assert.match(css, /\.ao-input:focus \{ box-shadow/)
+  assert.match(css, /\.ao-btn--primary:hover::after/)
+  assert.match(css, /\.ao-lift:hover \{ transform: translateY\(-3px\)/)
+  assert.match(css, /\.toast-count/)
+  assert.match(src('components/ui/TextInput.tsx'), /className="ao-input"/)
+  assert.match(src('components/ui/Button.tsx'), /ao-btn ao-btn--\$\{variant\}/)
+  assert.match(src('components/ui/StatCard.tsx'), /ao-lift/)
+  const store = src('stores/toastStore.ts')
+  assert.match(store, /count: \(t\.count \?\? 1\) \+ 1/)
+  assert.match(src('components/ui/Toaster.tsx'), /toast-count/)
+  for (const sel of ['.page-enter > * > *', '.ao-btn::after', '.ao-lift:hover', '.ao-input {']) {
+    const at = css.indexOf(sel)
+    assert.ok(at >= 0, sel)
+  }
+  assert.equal((css.match(/prefers-reduced-motion: reduce/g) ?? []).length >= 8, true, 'todo movimento tem caminho de movimento reduzido')
+})
+
+test('login: o botão vira "Pronto!" com ✓ antes de abrir o painel (sem movimento reduzido)', () => {
+  const login = src('pages/LoginPage.tsx')
+  assert.match(login, /setLoginDone\(true\)/)
+  assert.match(login, /Pronto!/)
+  assert.match(login, /!systemPrefersReducedMotion\(\)/)
+  assert.match(src('pages/LoginPage.css'), /login-done-pop/)
 })

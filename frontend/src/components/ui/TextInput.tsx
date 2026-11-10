@@ -109,6 +109,7 @@ export function TextInput({
           onMouseLeave={() => setHot(false)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          className="ao-input"
           style={{
             width: "100%",
             height: 40,

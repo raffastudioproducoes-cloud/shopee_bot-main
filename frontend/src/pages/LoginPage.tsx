@@ -1,3 +1,4 @@
+import { prefersReducedMotion as systemPrefersReducedMotion, resetPostLoginAnimations } from '../lib/motion'
 import './LoginPage.css'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -52,6 +53,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loginDone, setLoginDone] = useState(false)
   const [error, setError] = useState('')
   const [forgotOpen, setForgotOpen] = useState(false)
   const [registerOpen, setRegisterOpen] = useState(false)
@@ -98,8 +100,14 @@ export default function LoginPage() {
       }
       const user = await authApi.me()
       clearAdminVisitingSite()
+      resetPostLoginAnimations()
+      // O botão vira ✓ por um instante (confirmação do login) antes de abrir o painel; sem movimento reduzido.
+      if (!systemPrefersReducedMotion()) {
+        setLoginDone(true)
+        await new Promise((resolve) => window.setTimeout(resolve, 450))
+      }
       login(user)
-      navigate({ to: user.access === 'ADMIN' ? '/admin/overview' : '/app' })
+      navigate({ to: '/app' })
     } catch (err: unknown) {
       if (err instanceof Error && 'status' in err) {
         const apiError = err as { status: number; message: string }
@@ -197,7 +205,12 @@ export default function LoginPage() {
             </label>
 
             <Button type="submit" variant="primary" fullWidth disabled={loading}>
-              {loading ? (
+              {loginDone ? (
+                <>
+                  <Icon name="check-circle-2" size={18} className="login-done-check" />
+                  Pronto!
+                </>
+              ) : loading ? (
                 <>
                   <Icon name="loader-2" size={18} className="animate-spin" />
                   Entrando...
@@ -281,7 +294,7 @@ export default function LoginPage() {
             clearAdminVisitingSite()
             login(user)
             setGoogleSetupOpen(false)
-            navigate({ to: user.access === 'ADMIN' ? '/admin/overview' : '/app' })
+            navigate({ to: '/app' })
           }}
         />
       )}

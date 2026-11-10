@@ -52,7 +52,7 @@ export function StatCard({
   const shown = isInteger ? String(counted) : price
   return (
     <div
-      className={className}
+      className={`${className}${onClick ? " ao-lift" : ""}`.trim()}
       onClick={onClick}
       role={onClick ? "link" : undefined}
       tabIndex={onClick ? 0 : undefined}
