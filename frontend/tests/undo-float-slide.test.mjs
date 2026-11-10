@@ -44,3 +44,12 @@ test('ativar campanha usa deslizar para confirmar, com alternativa de teclado', 
   assert.match(s, /event\.key !== "Enter" && event\.key !== " "/)
   assert.match(s, /event\.detail === 0/)
 })
+
+test('cabeçalho do dashboard é digitado uma vez por login, com texto completo para leitor de tela', () => {
+  const m = src('lib/motion.ts')
+  assert.match(m, /export function useTypewriter/)
+  assert.match(m, /prefersReducedMotion\(\) \|\| alreadyCounted\(label\)/)
+  const d = src('pages/DashboardPage.tsx')
+  assert.match(d, /useTypewriter\(subtitle, 'dashboard-subtitulo'\)/)
+  assert.match(d, /csp-named-sr-only">\{subtitle\}/)
+})

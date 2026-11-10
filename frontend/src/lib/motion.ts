@@ -61,3 +61,29 @@ export function useCountUp(target: number, label: string, durationMs = 1100): nu
   if (!Number.isFinite(target) || target <= 0) return Math.max(0, Math.trunc(target || 0))
   return Math.min(target, Math.round(target * fraction))
 }
+
+/**
+ * Texto "digitado" (cabeçalho do dashboard, como no vídeo de referência). Só na primeira exibição do rótulo
+ * por sessão/login; movimento reduzido ou repetição mostram o texto inteiro na hora. Quem lê com leitor de
+ * tela deve usar o texto completo (aria-label), nunca o parcial.
+ */
+export function useTypewriter(text: string, label: string, delayMs = 700, charMs = 28): string {
+  const skip = prefersReducedMotion() || alreadyCounted(label)
+  const [shown, setShown] = useState(skip ? text.length : 0)
+
+  useEffect(() => {
+    if (skip) { setShown(text.length); return }
+    let index = 0
+    let timer = 0
+    const step = () => {
+      index += 1
+      setShown(index)
+      if (index < text.length) timer = window.setTimeout(step, charMs)
+      else markCounted(label)
+    }
+    timer = window.setTimeout(step, delayMs)
+    return () => window.clearTimeout(timer)
+  }, [text, label, delayMs, charMs, skip])
+
+  return text.slice(0, shown)
+}

@@ -138,3 +138,8 @@
 .ao-float:focus-within textarea::placeholder, .ao-float.is-up textarea::placeholder { opacity: .7; }
 .ao-float-bare input::placeholder, .ao-float-bare textarea::placeholder { opacity: .7; }
 @media (prefers-reduced-motion: reduce) { .ao-float-label, .ao-float input::placeholder, .ao-float textarea::placeholder { transition: none; } }
+
+/* Cursor do texto digitado */
+.type-caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -0.12em; background: var(--brand-electric-cyan, #1FD3FD); animation: caret-blink .7s steps(1) infinite; }
+@keyframes caret-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .type-caret { display: none; } }
