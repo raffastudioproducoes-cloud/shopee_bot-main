@@ -118,8 +118,10 @@ def test_social_preview_declared_in_server_html_and_brand_png():
     parsed.feed(html)
     canonical = "https://shopee-bot-fj0w.onrender.com/"
     image_url = canonical + "brand/og-image.png"
-    assert parsed.links["canonical"] == canonical
-    assert parsed.meta["og:url"] == canonical
+    # Sem canonical/og:url estáticos: o mesmo bundle serve staging e produção e o link compartilhado
+    # mantém o próprio domínio (frontend/tests/landing-share-metadata.test.mjs fixa o mesmo contrato).
+    assert "canonical" not in parsed.links
+    assert "og:url" not in parsed.meta
     assert parsed.meta["og:type"] == "website"
     assert parsed.meta["og:locale"] == "pt_BR"
     assert parsed.meta["og:title"] and parsed.meta["og:description"]

@@ -13,6 +13,7 @@ const spinnerAllowlist = {
   "components/ui/Toaster.tsx": [/t\.kind === "loading" \? "animate-spin"/], // toast de operação em andamento
   "pages/LoginPage.tsx": [/<Icon name="loader-2" size=\{18\} className="animate-spin" \/>/], // botão de submit
   "pages/PostsPage.tsx": [/publishMutation\.isPending && publishMutation\.variables === post\.id \? "animate-spin"/], // botão publicar
+  "components/ui/SlideToConfirm.tsx": [/name=\{loading \? "loader-2" : "chevrons-right"\} size=\{20\} className=\{loading \? "animate-spin"/], // alça "Ativando…"
   "pages/CredentialsPage.tsx": [/testing \? \(\s*<Icon name="loader-2"[^>]*className="animate-spin"/], // indicador "testando conexão"
 }
 

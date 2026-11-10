@@ -189,6 +189,12 @@ export function PrivacyPolicyPage() {
           via JavaScript no navegador, o que reduz a superfície de roubo de sessão.
         </li>
         <li>
+          Ao criar uma conta ou trocar a senha, verificamos se a senha já apareceu em vazamentos
+          públicos usando o serviço Have I Been Pwned por <em>k-anonimato</em>: somente os 5
+          primeiros caracteres de um resumo (SHA-1) da senha são enviados, nunca a senha, o
+          resumo completo, o e-mail ou qualquer dado da conta.
+        </li>
+        <li>
           O banco de dados usa Row Level Security (RLS), bloqueando qualquer acesso direto fora
           da API oficial.
         </li>

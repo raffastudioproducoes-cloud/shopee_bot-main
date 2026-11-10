@@ -120,7 +120,7 @@ export function PostProductPicker({
       {hasMore && (
         <button type="button" className="post-product-picker-more"
           disabled={loadingMore} onClick={loadMore}>
-          {loadingMore ? "Carregando..." : tab === "lists" ? "Carregar mais listas" : "Carregar mais produtos"}
+          {loadingMore ? "Buscando mais…" : tab === "lists" ? "Carregar mais listas" : "Carregar mais produtos"}
         </button>
       )}
       {tab === "lists" && lists.length === 0 && !listsLoading && !listsError && (
