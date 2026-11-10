@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react"
+import { Fragment, useLayoutEffect, useRef, useState } from "react"
 import type { CSSProperties } from "react"
 import { Icon } from "./Icon"
 import { IconButton } from "./IconButton"
@@ -11,6 +11,8 @@ export interface SideRailItem {
   label: string
   /** Lucide icon name. */
   icon: string
+  /** Grupo do menu (ex.: "Catálogo"). Entre grupos aparece um separador; no menu do celular vira título. */
+  group?: string
 }
 
 export interface SideRailProps {
@@ -89,10 +91,13 @@ export function SideRail({
       <div style={{ position: "relative", width: "100%" }}>
       {pill ? <span aria-hidden="true" className="app-rail-pill" style={{ transform: `translateY(${pill.y}px)`, height: pill.h }} /> : null}
       <ul className="csp-s-0136" ref={listRef} style={{ position: "relative" }}>
-        {items.map((it) => {
+        {items.map((it, index) => {
           const on = it.value === active
+          const startsGroup = index > 0 && it.group !== undefined && it.group !== items[index - 1]?.group
           return (
-            <li key={it.value} data-active={on ? "true" : undefined}>
+            <Fragment key={it.value}>
+            {startsGroup ? <li role="separator" aria-label={it.group} data-label={it.group} className="app-rail-sep" /> : null}
+            <li data-active={on ? "true" : undefined}>
               <button
                 type="button"
                 className="app-rail-item"
@@ -128,6 +133,7 @@ export function SideRail({
                 </span>
               </button>
             </li>
+            </Fragment>
           )
         })}
       </ul>

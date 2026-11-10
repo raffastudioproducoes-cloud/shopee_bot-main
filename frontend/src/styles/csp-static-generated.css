@@ -255,7 +255,7 @@
 /* frontend/src/components/ui/SideRail.tsx */
 :is(#root, body) .csp-s-0135 { font: var(--fw-bold) 18px/1 var(--font-display); letter-spacing: var(--ls-tight); color: var(--white); }
 /* frontend/src/components/ui/SideRail.tsx */
-:is(#root, body) .csp-s-0136 { display: flex; flex-direction: column; gap: 22px; margin: 0; padding: 0; list-style: none; width: 100%; }
+:is(#root, body) .csp-s-0136 { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 0; list-style: none; width: 100%; }
 /* frontend/src/components/ui/StatCard.tsx */
 :is(#root, body) .csp-s-0137 { display: flex; align-items: center; gap: 9px; }
 /* frontend/src/components/ui/StatCard.tsx */
