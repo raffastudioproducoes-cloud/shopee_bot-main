@@ -542,7 +542,7 @@ def init():
         hours=6,
         id="request_logs_retention",
         jobstore="on_demand",
-        next_run_time=datetime.now(_scheduler.timezone) + timedelta(minutes=2),
+        next_run_time=datetime.now(pytz.utc) + timedelta(minutes=2),
         replace_existing=True,
         max_instances=1,
         coalesce=True,
