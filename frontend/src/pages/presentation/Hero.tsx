@@ -77,16 +77,11 @@ export function Hero() {
 
         <motion.div className="relative mx-auto aspect-square w-full max-w-[560px]" style={{ scale: planetScale, opacity: planetOpacity }}>
           <motion.div className="absolute inset-0" style={{ rotate: orbitRotate }}>
-            {[0, 1, 2].map((r) => (
-              <div key={r} className="ao-orbit-ring absolute rounded-full" style={{ inset: `${r * 9}%`, transform: `rotateX(${60 + r * 8}deg) rotateZ(${r * 35}deg)` }} />
-            ))}
             <div className="absolute left-1/2 top-[6%] h-2 w-2 rounded-full bg-ao-primary shadow-ao-glow" />
             <div className="absolute bottom-[12%] right-[24%] h-1.5 w-1.5 rounded-full bg-ao-accent" />
           </motion.div>
-          <div className="ao-planet absolute inset-[24%] flex flex-col items-center justify-center rounded-full">
-            <span className="text-xs font-semibold tracking-[0.4em] text-ao-primary">AUTO</span>
-            <span className="font-ao-display text-3xl font-bold md:text-4xl">ORBITAL</span>
-          </div>
+          <img src="/brand/logo-mark.svg" alt="" aria-hidden="true" className="absolute left-1/2 top-1/2 h-[124%] w-[124%] max-w-none -translate-x-1/2 -translate-y-1/2" />
+          <span className="sr-only">Auto Orbital</span>
           {heroProducts.map(({ index, className }, i) => {
             const product = demoProducts[index]!
             return (

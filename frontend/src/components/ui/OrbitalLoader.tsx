@@ -28,9 +28,7 @@ export function OrbitalLoader({ size = "md", label = "Carregando dados…", full
     <div className={`orbital-loader orbital-loader--${size}${fullScreen ? " orbital-loader--fullscreen" : ""}`} role="status" aria-live="polite" style={style}>
       <div className="orbital-loader__scene" aria-hidden="true">
         <div className="orbital-loader__orbit orbital-loader__orbit--back"><OrbitIcon type="video" /><OrbitIcon type="thread" /><OrbitIcon type="calendar" /></div>
-        <div className="orbital-loader__disk" />
-        <div className="orbital-loader__horizon"><img src="/brand/symbol-128.png" alt="" /></div>
-        <div className="orbital-loader__lens" />
+        <img className="orbital-loader__blackhole" src="/brand/logo-mark.svg" alt="" />
         <div className="orbital-loader__orbit orbital-loader__orbit--front"><OrbitIcon type="post" /><OrbitIcon type="image" /><OrbitIcon type="heart" /></div>
       </div>
       <span className="orbital-loader__label">{label}</span>

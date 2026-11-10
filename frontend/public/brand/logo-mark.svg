@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 24 364 364" role="img" aria-label="Auto Orbital"><style>
+.ao-card{animation:ao-float 5s ease-in-out infinite}.c2{animation-delay:-1.2s}.c3{animation-delay:-2.4s}.c4{animation-delay:-3.4s}
+@keyframes ao-float{0%,100%{translate:0 0}50%{translate:0 -5px}}
+.ao-disk-glow{animation:ao-pulse 3.4s ease-in-out infinite}@keyframes ao-pulse{0%,100%{opacity:.85}50%{opacity:1}}
+.ao-star{animation:ao-tw 2.6s ease-in-out infinite}@keyframes ao-tw{0%,100%{opacity:.25}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.ao-card,.ao-disk-glow,.ao-star{animation:none}}
+</style>
+  <defs>
+    <radialGradient id="mk-bg" cx="50%" cy="52%" r="52%"><stop offset="0" stop-color="#2f6bff" stop-opacity=".22"/><stop offset=".5" stop-color="#1b2a8f" stop-opacity=".10"/><stop offset="1" stop-color="#0b1030" stop-opacity="0"/></radialGradient>
+    <linearGradient id="mk-diskA" x1="-165" y1="0" x2="165" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2f5bff"/><stop offset=".3" stop-color="#4f7bff"/><stop offset=".62" stop-color="#8a74ff"/><stop offset=".86" stop-color="#d58cff"/><stop offset="1" stop-color="#ff9ad6"/></linearGradient>
+    <linearGradient id="mk-diskB" x1="-140" y1="0" x2="140" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6f8cff"/><stop offset=".35" stop-color="#a9b8ff"/><stop offset=".7" stop-color="#e7c4ff"/><stop offset="1" stop-color="#ffd0e8"/></linearGradient>
+    <linearGradient id="mk-hot" x1="-130" y1="0" x2="130" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7ea0ff" stop-opacity="0"/><stop offset=".18" stop-color="#9db6ff" stop-opacity=".9"/><stop offset=".4" stop-color="#d9e6ff"/><stop offset=".58" stop-color="#ffffff"/><stop offset=".8" stop-color="#ffe2c8" stop-opacity=".95"/><stop offset="1" stop-color="#ffb8d8" stop-opacity="0"/></linearGradient>
+    <linearGradient id="mk-hotline" x1="-130" y1="0" x2="130" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".25" stop-color="#fff" stop-opacity=".9"/><stop offset=".75" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="mk-ring" x1="-80" y1="-30" x2="80" y2="40" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2d63ff"/><stop offset=".3" stop-color="#58a6ff"/><stop offset=".6" stop-color="#e9e4ff"/><stop offset=".82" stop-color="#d68cff"/><stop offset="1" stop-color="#8a62ff"/></linearGradient>
+    <linearGradient id="mk-orbit" x1="-184" y1="0" x2="184" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4a63ff"/><stop offset=".5" stop-color="#2a3b9a"/><stop offset="1" stop-color="#a06bff"/></linearGradient>
+    <linearGradient id="mk-card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2c55d8" stop-opacity=".30"/><stop offset="1" stop-color="#18237a" stop-opacity=".42"/></linearGradient>
+    <linearGradient id="mk-cardstroke" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#58a6ff"/><stop offset="1" stop-color="#7a6bff"/></linearGradient>
+    <radialGradient id="mk-sphere" cx="35%" cy="35%" r="70%"><stop offset="0" stop-color="#bfe2ff"/><stop offset=".5" stop-color="#3b7bff"/><stop offset="1" stop-color="#1a2a99"/></radialGradient>
+    <filter id="mk-blur8" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="mk-blur4" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="3.2"/></filter>
+    <filter id="mk-blur3" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="mk-soft" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#2f6bff" flood-opacity=".7"/></filter>
+    <clipPath id="mk-back"><rect x="-200" y="-100" width="400" height="101"/></clipPath>
+    <clipPath id="mk-front"><rect x="-200" y="0" width="400" height="100"/></clipPath>
+  </defs>
+  <circle cx="200" cy="200" r="198" fill="url(#mk-bg)"/>
+  <g transform="translate(200 206) rotate(-20)">
+    <ellipse rx="184" ry="70" fill="none" stroke="url(#mk-orbit)" stroke-width="1.3" opacity=".9"/>
+    <ellipse rx="184" ry="70" fill="none" stroke="#5f6dff" stroke-width="4" opacity=".16" filter="url(#mk-blur3)"/>
+    <g class="ao-disk-glow"><ellipse rx="160" ry="52" fill="none" stroke="url(#mk-diskA)" stroke-width="1.2" opacity="0.55" clip-path="url(#mk-back)"/><ellipse rx="154" ry="49" fill="none" stroke="url(#mk-diskA)" stroke-width="1.8" opacity="0.8" clip-path="url(#mk-back)"/><ellipse rx="148" ry="46" fill="none" stroke="url(#mk-diskB)" stroke-width="1.4" opacity="0.7" clip-path="url(#mk-back)"/><ellipse rx="142" ry="44" fill="none" stroke="url(#mk-diskA)" stroke-width="2.6" opacity="0.95" clip-path="url(#mk-back)"/><ellipse rx="136" ry="41" fill="none" stroke="url(#mk-diskB)" stroke-width="1.6" opacity="0.85" clip-path="url(#mk-back)"/><ellipse rx="131" ry="39" fill="none" stroke="url(#mk-diskB)" stroke-width="3.2" opacity="1" clip-path="url(#mk-back)"/></g>
+    <g><g><animateMotion dur="11s" repeatCount="indefinite" path="M -184 0 A 184 70 0 1 1 184 0 A 184 70 0 1 1 -184 0"/><circle r="7" fill="#3b7bff" opacity=".6" filter="url(#mk-blur3)"/><circle r="4.2" fill="url(#mk-sphere)"/></g></g>
+  </g>
+  <g transform="translate(200 206)">
+    <circle r="84" fill="none" stroke="#3f7bff" stroke-width="12" opacity=".38" filter="url(#mk-blur8)"/>
+    <circle r="76" fill="none" stroke="url(#mk-ring)" stroke-width="9" opacity=".55" filter="url(#mk-blur4)"/>
+    <circle r="76" fill="none" stroke="url(#mk-ring)" stroke-width="5"/>
+    <circle r="76" fill="none" stroke="#ffffff" stroke-width="1.4" opacity=".75" stroke-dasharray="150 330" transform="rotate(-150)"/>
+    <circle r="71" fill="#000"/>
+    <path d="M 40 -58 A 71 71 0 0 1 70 12" fill="none" stroke="#ffb98a" stroke-width="3" opacity=".55" filter="url(#mk-blur3)"/>
+  </g>
+  <g transform="translate(200 206) rotate(-20)"><g class="ao-disk-glow"><ellipse rx="160" ry="52" fill="none" stroke="url(#mk-diskA)" stroke-width="1.2" opacity="0.55" clip-path="url(#mk-front)"/><ellipse rx="154" ry="49" fill="none" stroke="url(#mk-diskA)" stroke-width="1.8" opacity="0.8" clip-path="url(#mk-front)"/><ellipse rx="148" ry="46" fill="none" stroke="url(#mk-diskB)" stroke-width="1.4" opacity="0.7" clip-path="url(#mk-front)"/><ellipse rx="142" ry="44" fill="none" stroke="url(#mk-diskA)" stroke-width="2.6" opacity="0.95" clip-path="url(#mk-front)"/><ellipse rx="136" ry="41" fill="none" stroke="url(#mk-diskB)" stroke-width="1.6" opacity="0.85" clip-path="url(#mk-front)"/><ellipse rx="131" ry="39" fill="none" stroke="url(#mk-diskB)" stroke-width="3.2" opacity="1" clip-path="url(#mk-front)"/><ellipse rx="128" ry="38" fill="none" stroke="url(#mk-hot)" stroke-width="9" opacity=".65" filter="url(#mk-blur4)" clip-path="url(#mk-front)"/><ellipse rx="128" ry="38" fill="none" stroke="url(#mk-hot)" stroke-width="3.4" clip-path="url(#mk-front)"/><ellipse rx="128" ry="38" fill="none" stroke="url(#mk-hotline)" stroke-width="1.3" clip-path="url(#mk-front)"/></g></g>
+  <g transform="translate(200 206) rotate(-20)"><circle cx="-160" cy="22" r="6" fill="#3b7bff" opacity=".5" filter="url(#mk-blur3)"/><circle cx="-160" cy="22" r="3.6" fill="url(#mk-sphere)"/></g>
+  
+  
+</svg>

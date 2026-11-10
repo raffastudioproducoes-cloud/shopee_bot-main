@@ -1,5 +1,5 @@
 import { MotionConfig, motion, useScroll, useSpring } from "motion/react"
-import { ArrowUpRight, Orbit } from "lucide-react"
+import { ArrowUpRight } from "lucide-react"
 import { useEffect } from "react"
 import { Hero } from "./Hero"
 import { OfferSection } from "./Offer"
@@ -36,7 +36,7 @@ export default function PresentationBody() {
         <motion.div style={{ scaleX: progress }} className="fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-ao-primary" aria-hidden="true" />
         <header className="fixed inset-x-0 top-0 z-40 border-b border-ao-border bg-ao-bg/70 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-            <a href="#topo" aria-label="Auto Orbital — início"><img src="/brand/wordmark.png" alt="Auto Orbital" className="h-7 w-auto" /></a>
+            <a href="#topo" aria-label="Auto Orbital — início"><img src="/brand/logo-wordmark.svg" alt="Auto Orbital" className="h-9 w-auto" /></a>
             <nav aria-label="Navegação principal" className="hidden gap-8 text-sm font-semibold text-ao-muted-fg md:flex">
               <a href="#desafio" className="hover:text-ao-fg">O desafio</a>
               <a href="#como-funciona" className="hover:text-ao-fg">Como funciona</a>
@@ -63,7 +63,7 @@ export default function PresentationBody() {
         </main>
         <footer className="ao-footer text-sm text-ao-muted-fg">
           <div className="ao-footer-inner">
-            <a href="#topo" className="inline-flex items-center gap-2 font-ao-display font-bold text-ao-fg"><Orbit className="h-5 w-5 text-ao-primary" /> AUTO ORBITAL</a>
+            <a href="#topo" className="inline-flex items-center gap-2 font-ao-display font-bold text-ao-fg"><img src="/brand/logo-mark-static.svg" alt="" className="h-8 w-8" /><img src="/brand/logo-wordmark.svg" alt="Auto Orbital" className="h-6 w-auto" /></a>
             <span>Uma plataforma em evolução para afiliados.</span>
             <nav aria-label="Rodapé">
               <a href="/termos">Termos</a>

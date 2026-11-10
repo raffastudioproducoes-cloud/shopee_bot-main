@@ -42,8 +42,8 @@ export function PostLoginSplash() {
     <div className="post-login-splash" aria-hidden="true">
       <span className="post-login-splash__ring" />
       <span className="post-login-splash__ring post-login-splash__ring--late" />
-      <img className="post-login-splash__logo" src="/brand/symbol-128.png" alt="" width={104} height={104} />
-      <span className="post-login-splash__name">AUTO ORBITAL</span>
+      <img className="post-login-splash__logo" src="/brand/logo-mark.svg" alt="" width={220} height={220} />
+      <img className="post-login-splash__name" src="/brand/logo-wordmark.svg" alt="" width={230} height={47} />
     </div>
   )
 }

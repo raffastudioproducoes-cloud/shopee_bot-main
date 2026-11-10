@@ -148,7 +148,7 @@ export default function LoginPage() {
           <div className="csp-login-03">
           <div className="csp-login-04">
             <h1 className="csp-login-05">
-              <img src="/brand/wordmark.png" alt="Auto Orbital" className="csp-login-06" />
+              <img src="/brand/logo-wordmark.svg" alt="Auto Orbital" className="csp-login-06" />
             </h1>
             <p className="csp-login-07">Entre para continuar</p>
           </div>
