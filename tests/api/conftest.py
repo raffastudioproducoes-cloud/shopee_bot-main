@@ -45,6 +45,15 @@ def _init_database():
 
 
 @pytest.fixture(autouse=True)
+def _no_network_for_password_breach_check(monkeypatch):
+    """A checagem de senha vazada (S-05) chama um serviço externo; nos testes ela nunca sai para a rede.
+    Os testes dedicados (test_password_breach.py) trocam este mock por respostas controladas."""
+    from api import password_breach
+
+    monkeypatch.setattr(password_breach, "breach_count", lambda password: 0)
+
+
+@pytest.fixture(autouse=True)
 def _mock_active_scheduler_for_api_contracts(monkeypatch):
     """Mocks do Supabase não iniciam Flask; status ativo por padrão.
 
