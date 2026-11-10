@@ -22,6 +22,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Desfazer ao excluir** (Posts, Produtos e Listas): o item some na hora e aparece o aviso "… removido · Desfazer" por 7 s; só depois a exclusão vai ao servidor. Tocar em **Desfazer** cancela sem enviar nada. Se a aba for fechada/atualizada dentro da janela, a exclusão pendente é enviada na hora (`pagehide`, fetch `keepalive`); se o servidor recusar, o item volta e aparece o erro. Avisos com ação não são agrupados em ×N. **Limite honesto:** não há lixeira no servidor; depois dos 7 s a exclusão é definitiva como antes.
 - **Cabeçalho do dashboard digitado** (como no vídeo de referência): a linha "Visão geral da sua conta…" aparece letra a letra com cursor, uma vez por login; movimento reduzido mostra o texto inteiro; leitor de tela lê o texto completo.
 - Testes: `frontend/tests/undo-float-slide.test.mjs` (6, no CI).
+- **Retenção de `request_logs` em 90 dias** (decisão do dono em 10/11/2026): rotina `api/log_retention.py` agendada a cada 6 h (e 2 min após subir), apaga em blocos de 500 só os registros com mais de 90 dias; não toca em `audit_events` nem em dados de conta. **Política de Privacidade** atualizada (seção 5 e frase sobre "append-only"; data 10/11/2026). Testes: `tests/api/test_log_retention.py` (5).
 
 ## [3.12.0] - 2026-11-09
 

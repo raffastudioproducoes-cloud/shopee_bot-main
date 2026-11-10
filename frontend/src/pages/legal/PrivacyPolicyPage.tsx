@@ -13,7 +13,7 @@ import { LegalLayout } from './LegalLayout'
 
 export function PrivacyPolicyPage() {
   return (
-    <LegalLayout title="Política de Privacidade" updatedAt="7 de novembro de 2026">
+    <LegalLayout title="Política de Privacidade" updatedAt="10 de novembro de 2026">
       <h2>1. Quem somos</h2>
       <p>
         O Auto Orbital é um painel de automação que ajuda o usuário a publicar conteúdo em
@@ -167,6 +167,12 @@ export function PrivacyPolicyPage() {
         e-mail informado na seção 11.
       </p>
       <p>
+        <strong>Logs de requisição (request_logs):</strong> são apagados automaticamente pelo
+        sistema depois de <strong>90 dias</strong>. A exclusão é feita por uma rotina periódica,
+        de modo que um registro pode permanecer por algumas horas além desse prazo até a próxima
+        execução. Essa rotina não altera os eventos de auditoria (audit_events).
+      </p>
+      <p>
         Não definimos um prazo fixo de retenção para todos os dados. Quando um prazo específico
         não estiver ainda definido pelo sistema, o controlador definirá e comunicará o prazo de
         retenção antes de armazenar os dados, sempre de acordo com a legislação aplicável.
@@ -187,8 +193,9 @@ export function PrivacyPolicyPage() {
           da API oficial.
         </li>
         <li>
-          Acesso aos dados restrito à API oficial; os logs são escritos em modo append-only
-          e sanitizados antes de persistir.
+          Acesso aos dados restrito à API oficial; os logs de requisição são sanitizados antes
+          de persistir, não são editados depois de gravados e são apagados automaticamente após
+          90 dias (seção 5).
         </li>
       </ul>
 

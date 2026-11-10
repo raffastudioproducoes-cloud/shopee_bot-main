@@ -1,6 +1,6 @@
 import os
 import socket
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytz
 from dotenv import load_dotenv
@@ -450,6 +450,12 @@ def _run_daily_analytics_refresh():
     refresh_due_analytics()
 
 
+def _run_log_retention():
+    """Mesma ideia do refresh de analytics: a API só é importada quando o job roda."""
+    from api.log_retention import run_log_retention
+    run_log_retention()
+
+
 def init():
     global _scheduler, _shutting_down
     _shutting_down = False
@@ -524,6 +530,19 @@ def init():
         hours=1,
         id="analytics_refresh_daily",
         jobstore="on_demand",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Retenção de 90 dias de request_logs (idempotente; roda em staging e produção).
+    _scheduler.add_job(
+        _run_log_retention,
+        trigger="interval",
+        hours=6,
+        id="request_logs_retention",
+        jobstore="on_demand",
+        next_run_time=datetime.now(_scheduler.timezone) + timedelta(minutes=2),
         replace_existing=True,
         max_instances=1,
         coalesce=True,
