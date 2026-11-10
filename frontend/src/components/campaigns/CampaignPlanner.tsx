@@ -971,6 +971,23 @@ export function CampaignPlanner({ credentials }: {
         <div className="campaign-next-step">
           <p>Ao ativar, o servidor valida as cotas, retém os arquivos no armazenamento privado e confirma as permissões OAuth. A execução ocorre somente nos horários previstos, com pausa e cancelamento disponíveis.</p>
         </div>
+        {(() => {
+          const pending = [
+            !selectedList || draft.itemIds.length === 0 ? "escolher a lista e os produtos" : null,
+            !payload ? "definir período e frequência" : null,
+            !preview ? "gerar a prévia do calendário" : null,
+          ].filter((step): step is string => step !== null)
+          return (
+            <p className={`campaign-remaining${pending.length === 0 ? " is-ready" : ""}`} role="status">
+              <span className="campaign-remaining__bar" aria-hidden="true">
+                {[0, 1, 2].map((i) => <i key={i} className={i < 3 - pending.length ? "is-done" : undefined} />)}
+              </span>
+              {pending.length === 0
+                ? "Tudo pronto para ativar."
+                : `Falta${pending.length === 1 ? "" : "m"} ${pending.length} ${pending.length === 1 ? "passo" : "passos"}: ${pending.join(", ")}.`}
+            </p>
+          )
+        })()}
         <div className="campaign-actions">
           <span className={`campaign-activate-wrap${confettiKey > 0 && activationPhase === "success" ? " is-celebrating" : ""}`}>
           <Button variant="primary" icon="send"

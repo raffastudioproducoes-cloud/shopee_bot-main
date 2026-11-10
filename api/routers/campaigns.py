@@ -739,4 +739,12 @@ async def change_campaign_state(
         "p_user_id":str(user_id),"p_profile_id":profile_id,
         "p_reservation_id":str(reservation_id),"p_action":action,
     })
+    if action=="cancel":
+        # Posts que nunca rodaram não devem ficar no histórico de Posts. Falha aqui não desfaz o cancelamento.
+        try:
+            supabase.rpc("purge_cancelled_campaign_f4e",{
+                "p_user_id":str(user_id),"p_profile_id":profile_id,"p_reservation_id":str(reservation_id),
+            }).execute()
+        except Exception as exc:
+            logger.warning("Limpeza de posts da campanha cancelada falhou (%s)",type(exc).__name__)
     return reservation_details(reservation_id,user_id,profile_id)

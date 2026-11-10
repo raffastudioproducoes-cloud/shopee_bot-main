@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { motion, useMotionValue, useReducedMotion, useScroll, type MotionValue } from "motion/react"
-import type { ReactNode, RefObject } from "react"
+import { useState, type ReactNode, type RefObject } from "react"
 import { LOGIN_PATH } from "./content"
 
 /** Progresso do scroll de uma cena; com "reduzir movimento" ativo, retorna a cena já concluída. */
@@ -50,4 +50,27 @@ export function SceneTag({ scene, title, note }: { scene: string; title: string;
 /** Link para a tela de login dentro do app (sem recarregar a página). */
 export function LoginLink({ className, children }: { className?: string; children: ReactNode }) {
   return <Link to={LOGIN_PATH} className={className}>{children}</Link>
+}
+
+/** Imagem de produto com reserva: se o CDN falhar ou bloquear, mostra um bloco de cor com a inicial. */
+export function ProductThumb({ src, name, className = "h-12 w-12" }: { src: string; name: string; className?: string }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <span aria-hidden="true" className={`${className} inline-flex shrink-0 items-center justify-center rounded-lg bg-ao-muted font-ao-display text-sm font-semibold text-ao-primary`}>
+        {name.charAt(0)}
+      </span>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className={`${className} shrink-0 rounded-lg bg-ao-muted object-cover`}
+    />
+  )
 }

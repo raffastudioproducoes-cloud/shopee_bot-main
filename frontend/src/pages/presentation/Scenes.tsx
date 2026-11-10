@@ -1,8 +1,9 @@
 import { AnimatePresence, motion, useMotionValueEvent, useTransform, type MotionValue } from "motion/react"
-import { Search } from "lucide-react"
 import { useRef, useState } from "react"
 import { flowSteps, networks, productSteps, progressToStep, routineTasks, weekDays, type NetworkTask } from "./content"
-import { Eyebrow, Highlight, SceneTag, useSceneProgress } from "./shared"
+import { DemoPanel } from "./ProductDemo"
+import { demoProducts, formatDemoPrice } from "./demoProducts"
+import { Eyebrow, Highlight, ProductThumb, SceneTag, useSceneProgress } from "./shared"
 
 /* ---------- Cena 01: o caos da divulgação manual ---------- */
 
@@ -52,8 +53,13 @@ export function ChallengeScene() {
             <NetworkCard key={task.name} task={task} index={i} progress={p} />
           ))}
           <motion.div style={{ scale: coreScale, x: shake }} className="relative z-10 rounded-2xl border border-ao-primary/60 bg-ao-card px-8 py-6 text-center shadow-ao-glow">
-            <p className="font-ao-display text-lg font-bold">Seu produto</p>
-            <p className="text-sm text-ao-muted-fg">Uma oportunidade encontrada</p>
+            <div className="flex items-center gap-3 text-left">
+              <ProductThumb src={demoProducts[0]!.image} name={demoProducts[0]!.name} className="h-14 w-14" />
+              <div>
+                <p className="max-w-[11rem] font-ao-display text-sm font-bold leading-tight">{demoProducts[0]!.name}</p>
+                <p className="mt-1 text-xs text-ao-muted-fg">Uma oportunidade encontrada · {formatDemoPrice(demoProducts[0]!)}</p>
+              </div>
+            </div>
           </motion.div>
         </div>
         <div className="mx-auto w-full max-w-7xl px-6 pb-8">
@@ -202,7 +208,7 @@ export function ProductScene() {
             </ol>
             <motion.div style={{ rotateX, rotateY, scale, transformPerspective: 1200 }} className="overflow-hidden rounded-2xl border border-ao-border bg-ao-card shadow-ao-elegant">
               <div className="flex items-center justify-between border-b border-ao-border px-5 py-3 text-xs text-ao-muted-fg">
-                <span>Auto Orbital / Demonstração</span><span>Fluxo ilustrativo — sem dados reais</span>
+                <span>Auto Orbital / Demonstração</span><span>Fluxo ilustrativo · produtos do catálogo de exemplo</span>
               </div>
               <div className="h-0.5 bg-ao-muted"><motion.div className="h-full bg-ao-primary" style={{ width: bar }} /></div>
               <div className="min-h-[300px] p-6">
@@ -212,18 +218,12 @@ export function ProductScene() {
                       <p className="font-ao-display text-xl font-semibold">{current.subtitle}</p>
                       <span className="text-xs text-ao-primary">{current.number} / 05</span>
                     </div>
-                    <div className="mt-5 flex items-center gap-2 rounded-lg border border-ao-border bg-ao-bg/40 px-3 py-2 text-sm text-ao-muted-fg">
-                      <Search className="h-4 w-4" /> Busque produtos no catálogo conectado
-                    </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-lg border border-ao-border p-4"><strong className="font-ao-display">Produto de demonstração</strong><p className="text-xs text-ao-muted-fg">Catálogo inicial · Shopee</p></div>
-                      <div className="rounded-lg border border-dashed border-ao-border p-4"><strong className="font-ao-display">Outra oportunidade</strong><p className="text-xs text-ao-muted-fg">Organize sua seleção</p></div>
-                    </div>
+                    <div className="mt-5"><DemoPanel step={step} /></div>
                     <p className="mt-6"><strong className="font-ao-display text-ao-primary">{current.title}</strong> — {current.description}</p>
                   </motion.div>
                 </AnimatePresence>
               </div>
-              <p className="border-t border-ao-border px-5 py-2 text-[11px] text-ao-muted-fg">Interface demonstrativa inspirada no fluxo real · não é uma conta ativa</p>
+              <p className="border-t border-ao-border px-5 py-2 text-[11px] text-ao-muted-fg">Interface demonstrativa com produtos reais de um catálogo de exemplo · horários e status ilustrativos · não é uma conta ativa</p>
             </motion.div>
           </div>
           <div className="mt-6"><SceneTag scene="Cena 03" title="Exploração do painel em etapas" note="Câmera Scroll World" /></div>

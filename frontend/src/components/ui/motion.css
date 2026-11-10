@@ -1,0 +1,60 @@
+.post-login-splash {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; pointer-events: none;
+  background: var(--bg-app, #0b1020);
+  animation: post-login-reveal 1.2s cubic-bezier(.16,1,.3,1) forwards;
+}
+.post-login-splash img { animation: post-login-logo 1.2s cubic-bezier(.16,1,.3,1) forwards; filter: drop-shadow(0 0 24px rgba(79,195,247,.45)); }
+@keyframes post-login-reveal {
+  0%, 55% { clip-path: circle(150% at 50% 50%); }
+  100% { clip-path: circle(0 at 50% 50%); visibility: hidden; }
+}
+@keyframes post-login-logo {
+  0% { opacity: 0; transform: scale(.8); }
+  35% { opacity: 1; transform: scale(1); }
+  55% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(.6); }
+}
+@media (prefers-reduced-motion: reduce) { .post-login-splash { display: none; } }
+
+/* Entrada em cascata dos cards (dashboard). */
+.ao-reveal { animation: ao-reveal-in .45s cubic-bezier(.16,1,.3,1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+@keyframes ao-reveal-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ao-reveal { animation: none; } }
+
+/* Confirmação de cópia. */
+.copied-flash { animation: copied-pop .3s cubic-bezier(.16,1,.3,1); }
+@keyframes copied-pop { 0% { transform: scale(.9); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .copied-flash { animation: none; } }
+
+/* Avisos (toasts): entrada suave. */
+.toast-in { animation: toast-slide .28s cubic-bezier(.16,1,.3,1) both; }
+@keyframes toast-slide { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .toast-in { animation: none; } }
+
+/* Transição entre páginas: entrada curta (E/A2). Só opacidade e deslocamento leve. */
+.page-enter { animation: page-in .22s cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .page-enter { animation: none; } }
+
+/* Menu lateral: pílula deslizante (E1). */
+.app-rail-pill {
+  position: absolute; left: 2px; right: 2px; top: 0; border-radius: 14px; background: rgba(255, 255, 255, .09);
+  transition: transform .3s cubic-bezier(.16, 1, .3, 1), height .3s cubic-bezier(.16, 1, .3, 1); pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) { .app-rail-pill { transition: none; } }
+
+/* Contador de caracteres em anel (E4). --p vai de 0 a 1; passou do limite, o anel fica vermelho. */
+.char-ring {
+  display: inline-block; width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; border-radius: 50%;
+  background: conic-gradient(var(--char-ring-color, var(--accent)) calc(var(--p, 0) * 360deg), rgba(255,255,255,.14) 0);
+  -webkit-mask: radial-gradient(circle, transparent 5px, #000 6px); mask: radial-gradient(circle, transparent 5px, #000 6px);
+}
+.char-ring.is-over { --char-ring-color: var(--negative, #ff5c7a); }
+
+/* "Faltam N passos" da campanha (E2, gradiente de meta). */
+.campaign-remaining { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 14px; color: var(--text-muted); }
+.campaign-remaining .campaign-remaining__bar { display: inline-flex; gap: 4px; }
+.campaign-remaining .campaign-remaining__bar i { width: 22px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.16); transition: background .3s cubic-bezier(.16, 1, .3, 1); }
+.campaign-remaining .campaign-remaining__bar i.is-done { background: var(--accent); }
+.campaign-remaining.is-ready { color: var(--text-body); }
+@media (prefers-reduced-motion: reduce) { .campaign-remaining .campaign-remaining__bar i { transition: none; } }

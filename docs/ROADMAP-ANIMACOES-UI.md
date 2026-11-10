@@ -91,3 +91,28 @@ Escolher o primeiro lote (sugestão: A1+A3, B1–B3, C1, C3, D1) e aprovar a ide
 **Polimento (polish), na ordem:** 1) tarefa bloqueada, perda de dados, estado enganoso; 2) loading/vazio/erro/sucesso/permissão; 3) fluxo, hierarquia, responsividade, desvio do design system; 4) inconsistência visual e de movimento; 5) limpeza. Corrigir na causa, no token/componente compartilhado.
 
 **Pendências derivadas (candidatas ao lote 3):** (a) dashboard usa o padrão "número grande + rótulo" nos 4 cards: avaliar dar função (link para a lista filtrada) e histórico; (b) botão "×" dos avisos usa glifo de texto: trocar por ícone da biblioteca; (c) corpo de texto das páginas legais/FAQ com medida ≤ 75 caracteres; (d) auditar contraste de textos secundários nos temas escuros; (e) fonte Mona Sans bloqueada pela CSP (jsdelivr): hospedar localmente.
+
+
+## 8. Status final (09/11/2026, staging 3.12.0)
+
+| ID | Situação | Onde / motivo |
+|---|---|---|
+| A1 entrada pós-login | **Feito** (1,2 s, 1× por sessão) | `PostLoginSplash` |
+| A2 transição de página | **Feito** (220 ms, só opacidade e 6 px) | `.page-enter` no painel |
+| A3 contagem dos números | **Feito** | `useCountUp` nos cards |
+| B1 login: brilho no foco | **Feito** (foco). O rótulo flutuante **não** foi feito | Mudaria o markup de todos os campos; o ganho não justificou o risco no login |
+| B2 erro do login balança | **Feito** | `login-shake` |
+| B3 botão "Entrar" vira ✓ | **Não feito** | A splash que aparece logo em seguida já confirma o sucesso; atrasar a navegação pelo ✓ iria contra "nunca atrasar o carregamento" |
+| C1 segurar para confirmar | **Feito** (Perfis e Backup); teclado e leitor de tela confirmam direto | `HoldToConfirmButton` |
+| C2 deslizar para ativar campanha | **Não feito** | Soma atrito a um fluxo crítico que já tem confete e validações no servidor |
+| C3 copiar com ✓ | **Feito** (e-mail de suporte; é o único botão de copiar do app) | `HelpPage` |
+| D1 avisos animados | **Feito** (entrada). O agrupamento "×N" **não** | Os avisos já substituem o de mesmo id |
+| D2 desfazer ao excluir | **Não feito** | Exige exclusão reversível no backend (lixeira), não só animação |
+| E1 pílula deslizante do menu | **Feito** | `app-rail-pill` |
+| E2 "Faltam N passos" | **Feito** (campanha) | `campaign-remaining` |
+| E3 brilho no botão de upgrade | **Feito** (ao passar o mouse, sem loop) | `plan-info-button` |
+| E4 contador em anel | **Feito** | `char-ring` |
+| E5 mostrar senha | **Já existia** (login e campos de senha) | |
+| Tags de plano (pedido de Rafa) | **Feito** | `PlanTag`: Admin rubi, Premium na paleta da marca, Pro azul, Free simples |
+
+Leis de UX aplicadas: Von Restorff (só o Pro destacado em Planos, um selo), Zeigarnik / gradiente de meta ("Faltam N passos"), Fitts (cards do dashboard clicáveis e botões grandes). **Pendentes por decisão de produto:** Hick (recomendar uma opção por tela) e Miller (agrupar o menu em até 7 itens): mexem na navegação e pedem aprovação de Rafa sobre o novo agrupamento antes de implementar.

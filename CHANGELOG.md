@@ -5,6 +5,39 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.12.0] - 2026-11-09
+
+Release MINOR em um passo SemVer a partir da 3.11.0 (produção), consolidando os builds internos 3.11.1, 3.12.0 e 3.12.1 da staging: limpeza de posts ao cancelar campanha e exclusão de posts de campanha (migration 097), tags de plano com identidade visual (Administrador em rubi, Premium, Pro e Free), animações e UX do lote 4 (transição de página, menu com pílula, anel de caracteres, "Faltam N passos" na campanha), apresentação pública com produtos reais do catálogo de exemplo e Pro destacado na tabela de planos. Os números 3.11.1 e 3.12.1 existiram só na staging.
+
+### Build interno da staging 3.12.1
+
+### Changed — apresentação pública com produtos reais e tabela de planos
+
+- **Produtos reais nas animações:** o Hero (cards flutuantes), a cena do caos (o "seu produto") e a demonstração em 5 etapas (busca, listas, editor com contador, agenda e histórico) passam a usar 8 produtos do catálogo do dono (conta `rafastudio`): nome curto, preço e imagem. Dados **estáticos** em `demoProducts.ts`: a página pública não consulta o banco; sem link de afiliado, comissão nem dado de outra conta. Imagens com carregamento tardio e **reserva** (bloco com a inicial) se o CDN falhar. Os rótulos agora dizem que são produtos reais de um catálogo de exemplo, com horários e status ilustrativos.
+- **Tabela de planos da apresentação:** o Pro ganha o mesmo destaque da tabela das configurações (faixa na coluna, selo "Recomendado" e as etiquetas de plano `PlanTag`), e as 3 colunas passam a caber no celular.
+- Testes: `frontend/tests/presentation-page.test.mjs` (+2).
+
+### Build interno da staging 3.12.0
+
+### Added — tags de plano e animações/UX, lote 4
+
+- **Tags de plano com identidade própria** (componente `PlanTag`, usado na etiqueta do cabeçalho, no resumo do plano, na tabela de comparação e na apresentação pública): **Administrador** em rubi com variações de carmesim e efeito de brilho (faixa clara + varredura diagonal lenta); **Premium** com o mesmo brilho na paleta da marca (azul-gelo, violeta, lilás) e texto escuro para contraste; **Pro** em azul da marca; **Free** simples e neutro, para a diferença visual atrair o upgrade. Tokens `--plan-ruby-*` e `--plan-crimson` na tabela de cores do site. Movimento reduzido desliga a varredura.
+- **Transição entre páginas** (entrada curta de 220 ms).
+- **Menu lateral** com pílula que desliza até a página atual.
+- **Contador de caracteres em anel** no editor de posts (fica vermelho ao passar do limite).
+- **Brilho diagonal** ao passar o mouse no botão de upgrade (sem loop).
+- **Foco do login** com brilho suave nos campos.
+- **Campanha: "Faltam N passos"** com barra de 3 etapas acima do botão de ativar ("Tudo pronto para ativar." quando completo).
+- Testes: `frontend/tests/plan-tags.test.mjs` (3, no CI) e `frontend/tests/motion-ux.test.mjs` (13).
+
+### Build interno da staging 3.11.1
+
+### Fixed — apagar posts de campanha e cancelar campanha
+
+- **Apagar post de campanha (corrige a 3.12.1 interna):** no banco real a trava `campaign_job_immutable` recusa apagar o post enquanto a vaga da campanha aponta para o job (provado em PostgreSQL com as migrations reais). Nova função `purge_campaign_posts_f4e` (migration 097) remove a vaga e depois o post (agendador, job, mídia e produto saem por CASCADE). Post em envio responde 409 ("tente em instantes") e post já executado responde 409 ("fica no histórico da campanha"): vagas succeeded/failed/unknown permanecem, porque contam na cota diária do plano.
+- **Cancelar campanha** agora apaga os posts que nunca rodaram (`purge_cancelled_campaign_f4e`), em vez de deixá-los no histórico de Posts (era o motivo dos 450 posts da campanha cancelada). A reserva cancelada e o que já foi publicado ou falhou continuam no histórico. Se a limpeza falhar, o cancelamento não é desfeito.
+- Testes: `tests/sql/test_f4e2b7_postgres.py` (6, contra PostgreSQL), `tests/api/test_campaign_cancel_purge.py` (4) e `tests/api/test_profile_scope_posts.py` (4 de campanha).
+
 ## [3.11.0] - 2026-11-09
 
 Release MINOR que leva à produção, em um passo SemVer a partir da 3.10.1, tudo o que foi validado na staging nos builds internos 3.10.2 a 3.14.0 (listados abaixo): correção da página Posts (conexão morta com o banco), desempenho (índice, listagem em lote, cache), preços Pro R$ 59,90 e Premium R$ 109,90, nova apresentação pública, exclusão de posts de campanha, animações e UX (lotes 1 a 3) e fonte Mona Sans hospedada. Os números 3.10.2 a 3.14.0 existiram apenas como versão da staging; a produção passa de 3.10.1 direto para 3.11.0.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { prefersReducedMotion } from '../../lib/motion'
-import './postLoginSplash.css'
+import './motion.css'
 
 const SEEN_KEY = 'ao-post-login-splash'
 export const SPLASH_MS = 1200
