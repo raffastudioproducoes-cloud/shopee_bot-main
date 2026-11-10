@@ -3,6 +3,7 @@ import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@t
 import { authApi } from "./api/auth"
 import { ApiError } from "./lib/api"
 import { useAuthStore } from "./stores/authStore"
+import { resetPostLoginAnimations } from "./lib/motion"
 import LoginPage from "./pages/LoginPage"
 import PresentationPage from "./pages/PresentationPage"
 import DashboardPage from "./pages/DashboardPage"
@@ -84,6 +85,7 @@ const landingRoute = createRoute({
 
     const authStore = useAuthStore.getState()
     if (!authStore.isAuthenticated || authStore.user?.id !== user.id) {
+      resetPostLoginAnimations()
       authStore.login(user)
     } else {
       authStore.setUser(user)

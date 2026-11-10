@@ -143,7 +143,7 @@ export function PanelPage() {
 
   return (
     <div className="app-shell">
-      {user?.access !== 'ADMIN' && <PostLoginSplash />}
+      <PostLoginSplash />
       <LocationPermissionNotice />
       <SideRail
         id="app-nav"

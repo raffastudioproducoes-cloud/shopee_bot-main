@@ -11,6 +11,12 @@ export function prefersReducedMotion(): boolean {
 }
 
 const COUNTED_KEY = 'ao-counted'
+const SPLASH_KEY = 'ao-post-login-splash'
+
+/** Chamada a cada login: a entrada com a logo e as contagens voltam a aparecer (não só na primeira vez da aba). */
+export function resetPostLoginAnimations(): void {
+  try { sessionStorage.removeItem(SPLASH_KEY); sessionStorage.removeItem(COUNTED_KEY) } catch { /* sem sessionStorage */ }
+}
 
 function alreadyCounted(label: string): boolean {
   try { return (sessionStorage.getItem(COUNTED_KEY) ?? '').split('|').includes(label) } catch { return false }

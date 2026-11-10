@@ -38,7 +38,7 @@ export function Toaster() {
               size={16}
               className={t.kind === "loading" ? "animate-spin" : undefined}
             />
-            <span className="csp-s-0159">{t.text}</span>
+            <span className="csp-s-0159">{t.text}{(t.count ?? 1) > 1 ? <> <span className="toast-count" key={t.count}>×{t.count}</span></> : null}</span>
             {t.kind !== "loading" ? (
               <button
                 type="button"

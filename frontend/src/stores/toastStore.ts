@@ -6,6 +6,8 @@ export interface Toast {
   id: string
   kind: ToastKind
   text: string
+  /** Quantas vezes o mesmo aviso se repetiu (aparece como ×N). */
+  count?: number
 }
 
 interface ToastState {
@@ -20,6 +22,12 @@ const SUCCESS_TIMEOUT_MS = 4000
 export const useToastStore = create<ToastState>()((set, get) => ({
   toasts: [],
   show: (toast) => {
+    // Mesmo texto e tipo com outro id (ex.: salvar três vezes seguidas): agrupa em um só aviso com ×N.
+    const twin = get().toasts.find((t) => t.id !== toast.id && t.kind === toast.kind && t.text === toast.text && toast.kind !== 'loading')
+    if (twin) {
+      set({ toasts: get().toasts.map((t) => (t.id === twin.id ? { ...t, count: (t.count ?? 1) + 1 } : t)) })
+      return
+    }
     set({ toasts: [...get().toasts.filter((t) => t.id !== toast.id), toast] })
     if (toast.kind === 'success') {
       setTimeout(() => {
