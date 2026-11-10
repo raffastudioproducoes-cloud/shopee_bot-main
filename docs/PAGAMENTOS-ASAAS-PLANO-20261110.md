@@ -17,10 +17,22 @@ chave de produção, só com autorização dele.
 | 6 meses | `SEMIANNUALLY` | 5% | 6 × mensal × 0,95 |
 | 1 ano | `YEARLY` | 15% | 12 × mensal × 0,85 |
 
+- **Preço mensal de referência** (informado por Rafa em 09/11/2026, já exibido na
+  apresentação em `frontend/src/pages/presentation/content.ts`): **Pro R$ 59,90**,
+  **Premium R$ 109,90**. Valores por período (arredondamento para o centavo, meio
+  para cima), sujeitos à confirmação final de Rafa:
+
+| Período | Pro (total) | Pro (por mês) | Premium (total) | Premium (por mês) |
+|---|---|---|---|---|
+| Mensal | R$ 59,90 | R$ 59,90 | R$ 109,90 | R$ 109,90 |
+| 3 meses | R$ 175,21 | R$ 58,40 | R$ 321,46 | R$ 107,15 |
+| 6 meses | R$ 341,43 | R$ 56,91 | R$ 626,43 | R$ 104,41 |
+| 1 ano | R$ 610,98 | R$ 50,92 | R$ 1.120,98 | R$ 93,42 |
+
 - **Plano de 9 meses descartado:** o Asaas não tem ciclo de 9 meses
   (ciclos: `WEEKLY`, `BIWEEKLY`, `MONTHLY`, `BIMONTHLY`, `QUARTERLY`,
   `SEMIANNUALLY`, `YEARLY`). Todos os períodos acima renovam automaticamente.
-- **Pendentes:** preço mensal do Pro e do Premium; formas de pagamento
+- **Pendentes:** formas de pagamento
   (só cartão ou cartão + Pix); dias de tolerância de atraso; nota fiscal automática.
 - Regras de troca de plano já vigentes ([política F4, seção 12](PLANOS-F4-POLITICAS-E-FASES-20261103.md)):
   ativação só após pagamento confirmado; downgrade e cancelamento valem no
@@ -90,4 +102,4 @@ chave de produção, só com autorização dele.
 
 - Conta **sandbox** em `sandbox.asaas.com` e a chave de API dela cadastrada por
   ele no Render (serviço staging) como `ASAAS_API_KEY` — nunca no chat.
-- Preço mensal do Pro e do Premium; respostas aos pendentes da seção 1.
+- Respostas aos pendentes da seção 1 (formas de pagamento, tolerância, nota fiscal).
