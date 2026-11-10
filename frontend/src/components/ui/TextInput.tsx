@@ -11,7 +11,7 @@ import type { ChangeEvent, CSSProperties, InputHTMLAttributes } from "react"
 import { Icon } from "./Icon"
 import "./motion.css"
 
-/** Tipos cujo campo nativo já mostra algo (data/hora): o rótulo fica sempre no alto. */
+/** Só data/hora ficam com o rótulo sempre no alto; campos com placeholder (ex.: CPF) mantêm o rótulo dentro até o foco, como os demais. Tipos cujo campo nativo já mostra algo (data/hora): o rótulo fica sempre no alto. */
 const ALWAYS_UP_TYPES = new Set(["date", "datetime-local", "time", "month", "week", "color", "file"])
 
 export interface TextInputProps {
@@ -77,7 +77,7 @@ export function TextInput({
   const inputType = isPassword ? (revealed ? "text" : "password") : type
   return (
     <label className={className} style={{ display: "block", width, ...style }}>
-      <div className={`ao-float${label ? "" : " ao-float-bare"}${icon ? " has-icon" : ""}${placeholder || ALWAYS_UP_TYPES.has(type) ? " is-up" : ""}`}>
+      <div className={`ao-float${label ? "" : " ao-float-bare"}${icon ? " has-icon" : ""}${ALWAYS_UP_TYPES.has(type) ? " is-up" : ""}`}>
         {icon ? (
           <span
             className="csp-s-0144"

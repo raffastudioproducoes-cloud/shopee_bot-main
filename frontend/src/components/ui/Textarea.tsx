@@ -43,7 +43,7 @@ export function Textarea({
   const active = hot || focused
   return (
     <label className={className} style={{ display: "block", width, ...style }}>
-      <div className={`ao-float ao-float-area${label ? "" : " ao-float-bare"}${placeholder ? " is-up" : ""}`}>
+      <div className={`ao-float ao-float-area${label ? "" : " ao-float-bare"}""`}>
       <textarea
         name={name}
         aria-label={ariaLabel}

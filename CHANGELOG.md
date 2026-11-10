@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.13.1] - 2026-11-10
+
+### Fixed — rótulo flutuante inconsistente nos campos com exemplo (placeholder)
+
+- No "Criar conta", só o campo **CPF** aparecia com o rótulo no alto (por ter o exemplo "000.000.000-00") enquanto os outros mostravam o rótulo dentro do campo. Agora todos se comportam igual: o rótulo fica dentro até o foco ou o preenchimento, e o exemplo aparece ao focar. Só data/hora mantêm o rótulo sempre no alto (o navegador já mostra um valor nelas). Vale para `TextInput` e `Textarea` em todo o site.
+- Observação: o aviso "Cadastro aguardando configuração do Supabase Auth." do "Criar conta" **não** vem desta mudança; ele aparece quando a configuração `email_signup_enabled` do servidor está desligada (variáveis do Supabase Auth no Render). Só 1 conta no banco foi criada por esse caminho (25/08/2026).
+
 ## [3.13.0] - 2026-11-10
 
 ### Changed — ADM entra pelo dashboard; contagem que acelera no dashboard e na análise
