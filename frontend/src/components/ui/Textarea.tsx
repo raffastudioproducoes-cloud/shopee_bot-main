@@ -43,19 +43,13 @@ export function Textarea({
   const active = hot || focused
   return (
     <label className={className} style={{ display: "block", width, ...style }}>
-      {label ? (
-        <span
-          className="csp-s-0145"
-        >
-          {label}
-        </span>
-      ) : null}
+      <div className={`ao-float ao-float-area${label ? "" : " ao-float-bare"}${placeholder ? " is-up" : ""}`}>
       <textarea
         name={name}
         aria-label={ariaLabel}
         value={value}
         onChange={onChange}
-        placeholder={placeholder}
+        placeholder={label ? (placeholder ?? " ") : placeholder}
         required={required}
         disabled={disabled}
         rows={rows}
@@ -65,7 +59,7 @@ export function Textarea({
         onBlur={() => setFocused(false)}
         style={{
           width: "100%",
-          padding: "10px 14px",
+          padding: label ? "22px 14px 8px" : "10px 14px",
           borderRadius: "var(--r-md)",
           background: "var(--surface-inset)",
           border: `1px solid ${active ? "var(--border-strong)" : "var(--border-hairline)"}`,
@@ -79,6 +73,8 @@ export function Textarea({
           ...textareaStyle,
         }}
       />
+      {label ? <span className="ao-float-label">{label}</span> : null}
+      </div>
     </label>
   )
 }

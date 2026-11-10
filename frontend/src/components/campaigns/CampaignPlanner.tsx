@@ -18,6 +18,7 @@ import { TextInput } from "../ui/TextInput"
 import { Button } from "../ui/Button"
 import { CampaignPagination } from "./CampaignPagination"
 import { CAMPAIGN_PAGE_SIZE, campaignPageCount, clampCampaignPage, relevantProgressCounts } from "../../lib/campaignPagination"
+import { SlideToConfirm } from "../ui/SlideToConfirm"
 import { ConfettiBurst } from "../ui/ConfettiBurst"
 import { ActivationProgress, type ActivationPhase } from "./ActivationProgress"
 import { AiCopyControls } from "../posts/AiCopyControls"
@@ -990,11 +991,13 @@ export function CampaignPlanner({ credentials }: {
         })()}
         <div className="campaign-actions">
           <span className={`campaign-activate-wrap${confettiKey > 0 && activationPhase === "success" ? " is-celebrating" : ""}`}>
-          <Button variant="primary" icon="send"
+          <SlideToConfirm
+            label="Ativar campanha"
+            busyLabel="Ativando campanha…"
             disabled={Boolean(activationBlockReason) || (!plan?.activation_available && !preparationRetryAllowed) || !payload || !saveInput ||
               saveMutation.isPending || activateMutation.isPending || mediaDelete.isPending}
             loading={saveMutation.isPending || activateMutation.isPending}
-            onClick={() => {
+            onConfirm={() => {
               if ((!plan?.activation_available && !preparationRetryAllowed) || !payload || !saveInput) return
               if (savedDraftId && savedRevision !== null && lastSavedSignature === saveSignature) {
                 activateMutation.mutate({ id: savedDraftId, revision: savedRevision, signature: saveSignature })
@@ -1004,9 +1007,8 @@ export function CampaignPlanner({ credentials }: {
                   signature: saveSignature, activateAfterSave: true,
                 })
               }
-            }}>
-            Ativar campanha
-          </Button>
+            }}
+          />
           <ConfettiBurst burstKey={confettiKey} />
           </span>
           <small>Salvar rascunho manualmente é opcional. Ao ativar, a configuração é registrada internamente para garantir revisão, mídia e idempotência; se a ativação falhar, ela permanece recuperável como rascunho.</small>

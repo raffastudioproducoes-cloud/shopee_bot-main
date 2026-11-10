@@ -17,6 +17,11 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Botão "Entrar" vira "Pronto! ✓"** por 0,45 s antes de abrir o painel (sem movimento reduzido).
 - **Botões:** o principal ganha brilho que atravessa ao passar o mouse; todos sobem de leve. **Campos de texto:** brilho ciano no foco (em todo o site, inclusive "Criar conta"). **Caixas clicáveis** (cards do dashboard): sobem e brilham a borda. **Avisos repetidos** viram um só com contador "×N".
 - Testes: `frontend/tests/count-ease-and-nav.test.mjs` (6, no CI); `landing-entry-routing` e `admin-site-separation` atualizados. Falhas antigas fora do CI, confirmadas na base: `admin-site-separation` (2), `analytics-social-platforms`, `admin-layout`, `task4-admin-routes`.
+- **Rótulo flutuante nos campos** (`TextInput`/`Textarea`, em todo o site, inclusive login e "Criar conta"): o nome do campo fica dentro dele e sobe para o topo ao focar, digitar, preencher automaticamente ou quando há placeholder/data/hora. Só CSS (`:focus-within`, `:placeholder-shown`); movimento reduzido sem transição. O campo "Senha" do login passou a usar o mesmo componente.
+- **Deslizar para confirmar a ativação da campanha** (`SlideToConfirm`): arraste a alça até o fim (≥ 92%); soltar antes volta ao início. Teclado e leitor de tela: a alça é um botão (Enter/Espaço ou "ativar") e confirma direto. Mantém os bloqueios, o "Ativando…" e os confetes.
+- **Desfazer ao excluir** (Posts, Produtos e Listas): o item some na hora e aparece o aviso "… removido · Desfazer" por 7 s; só depois a exclusão vai ao servidor. Tocar em **Desfazer** cancela sem enviar nada. Se a aba for fechada/atualizada dentro da janela, a exclusão pendente é enviada na hora (`pagehide`, fetch `keepalive`); se o servidor recusar, o item volta e aparece o erro. Avisos com ação não são agrupados em ×N. **Limite honesto:** não há lixeira no servidor; depois dos 7 s a exclusão é definitiva como antes.
+- **Cabeçalho do dashboard digitado** (como no vídeo de referência): a linha "Visão geral da sua conta…" aparece letra a letra com cursor, uma vez por login; movimento reduzido mostra o texto inteiro; leitor de tela lê o texto completo.
+- Testes: `frontend/tests/undo-float-slide.test.mjs` (6, no CI).
 
 ## [3.12.0] - 2026-11-09
 

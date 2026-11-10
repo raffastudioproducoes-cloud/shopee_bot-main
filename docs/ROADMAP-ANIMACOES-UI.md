@@ -116,3 +116,8 @@ Escolher o primeiro lote (sugestão: A1+A3, B1–B3, C1, C3, D1) e aprovar a ide
 | Tags de plano (pedido de Rafa) | **Feito** | `PlanTag`: Admin rubi, Premium na paleta da marca, Pro azul, Free simples |
 
 Leis de UX aplicadas: Von Restorff (só o Pro destacado em Planos, um selo), Zeigarnik / gradiente de meta ("Faltam N passos"), Fitts (cards do dashboard clicáveis e botões grandes). **Pendentes por decisão de produto:** Hick (recomendar uma opção por tela) e Miller (agrupar o menu em até 7 itens): mexem na navegação e pedem aprovação de Rafa sobre o novo agrupamento antes de implementar.
+
+
+## 9. Fechamento do roteiro (10/11/2026, staging 3.13.0)
+
+Os itens que estavam "não feitos" no quadro da seção 8 foram implementados: **B1 rótulo flutuante** (todos os campos), **B3 "Pronto! ✓" no login**, **C2 deslizar para ativar campanha**, **D1 avisos agrupados ×N**, **D2 desfazer ao excluir** (Posts, Produtos e Listas; janela de 7 s no navegador, sem lixeira no servidor) e o **cabeçalho digitado** do dashboard. Nada do roteiro está pendente, exceto a **logo em código** (prévia aguardando validação de Rafa).

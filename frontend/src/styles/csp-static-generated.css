@@ -269,11 +269,9 @@
 /* frontend/src/components/ui/TextInput.tsx */
 :is(#root, body) .csp-s-0142 { display: block; font: var(--text-role-label); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
 /* frontend/src/components/ui/TextInput.tsx */
-:is(#root, body) .csp-s-0143 { position: relative; }
 /* frontend/src/components/ui/TextInput.tsx */
 :is(#root, body) .csp-s-0144 { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); display: inline-flex; color: var(--text-muted); pointer-events: none; }
 /* frontend/src/components/ui/Textarea.tsx */
-:is(#root, body) .csp-s-0145 { display: block; font: var(--text-role-label); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
 /* frontend/src/components/ui/TimelineListCard.tsx */
 :is(#root, body) .csp-s-0146 { min-width: 0; flex: 1 1 160px; }
 /* frontend/src/components/ui/TimelineListCard.tsx */

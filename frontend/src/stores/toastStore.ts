@@ -8,6 +8,10 @@ export interface Toast {
   text: string
   /** Quantas vezes o mesmo aviso se repetiu (aparece como ×N). */
   count?: number
+  /** Ação do aviso (ex.: "Desfazer"). */
+  action?: { label: string; onClick: () => void }
+  /** Quanto tempo o aviso de sucesso fica na tela (padrão 4 s). */
+  durationMs?: number
 }
 
 interface ToastState {
@@ -23,7 +27,7 @@ export const useToastStore = create<ToastState>()((set, get) => ({
   toasts: [],
   show: (toast) => {
     // Mesmo texto e tipo com outro id (ex.: salvar três vezes seguidas): agrupa em um só aviso com ×N.
-    const twin = get().toasts.find((t) => t.id !== toast.id && t.kind === toast.kind && t.text === toast.text && toast.kind !== 'loading')
+    const twin = get().toasts.find((t) => t.id !== toast.id && t.kind === toast.kind && t.text === toast.text && toast.kind !== 'loading' && !toast.action)
     if (twin) {
       set({ toasts: get().toasts.map((t) => (t.id === twin.id ? { ...t, count: (t.count ?? 1) + 1 } : t)) })
       return
@@ -33,7 +37,7 @@ export const useToastStore = create<ToastState>()((set, get) => ({
       setTimeout(() => {
         // só remove se ainda for o mesmo aviso de sucesso (id pode ter sido reaproveitado)
         if (get().toasts.some((t) => t.id === toast.id && t.kind === 'success')) get().dismiss(toast.id)
-      }, SUCCESS_TIMEOUT_MS)
+      }, toast.durationMs ?? SUCCESS_TIMEOUT_MS)
     }
   },
   dismiss: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
