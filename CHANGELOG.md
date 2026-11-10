@@ -7,12 +7,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [3.13.0] - 2026-11-10
 
-### Changed — ADM entra pelo dashboard e a análise de redes vai para baixo dele
+### Changed — ADM entra pelo dashboard; contagem que acelera no dashboard e na análise
 
 - **ADM** deixa de ser desviado para o painel admin no login (senha e Google), na raiz do site, em `/app` e no retorno das páginas legais: entra no dashboard do site como qualquer conta. O **Painel admin** continua no menu (e `/admin` segue protegido por papel).
-- **Análise de redes** agora fica embaixo do dashboard (seção `#analises`), carregada sob demanda **só quando a área chega perto da tela** (`LazyWhenVisible`), para não pesar o dashboard nem disparar consultas de análise para quem não rola até lá. Incorporada, o título vira `h2` (a página já tem um `h1`).
-- O item "Análises" saiu do menu lateral (11 → 10 itens); a rota antiga `/analytics` continua valendo e leva para a seção no dashboard (`/app#analises`), então links salvos não quebram.
-- Testes: `frontend/tests/dashboard-analytics-section.test.mjs` (4, no CI); `landing-entry-routing` e `admin-site-separation` atualizados para a regra nova. Falhas antigas fora do CI, confirmadas na base: `admin-site-separation` (2), `analytics-social-platforms`, `admin-layout`, `task4-admin-routes`.
+- **Menu:** "Análises" fica **logo abaixo de "Dashboard"**; a análise continua sendo a sua própria página (`/analytics`), não vai dentro do dashboard.
+- **Contagem dos números mais viva:** começa devagar e acelera até o valor final (ease-in cúbico, 1,1 s), no dashboard e na análise. Na análise, os KPIs, os números das barras e da legenda, as **barras** (comparação por rede e atividade por dia da semana), o **anel** de engajamento e a **linha do tempo** enchem/revelam junto, na mesma fração (`useCountProgress`). Só na primeira exibição de cada área por sessão; movimento reduzido mostra o valor final na hora.
+- Testes: `frontend/tests/count-ease-and-nav.test.mjs` (6, no CI); `landing-entry-routing` e `admin-site-separation` atualizados. Falhas antigas fora do CI, confirmadas na base: `admin-site-separation` (2), `analytics-social-platforms`, `admin-layout`, `task4-admin-routes`.
 
 ## [3.12.0] - 2026-11-09
 

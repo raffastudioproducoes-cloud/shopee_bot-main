@@ -23,6 +23,7 @@ import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
 
 const navItems: SideRailItem[] = [
   { value: '/app', label: 'Dashboard', icon: 'house' },
+  { value: '/analytics', label: 'Análises', icon: 'chart-no-axes-combined' },
   { value: '/products', label: 'Produtos', icon: 'briefcase' },
   { value: '/lists', label: 'Listas', icon: 'sliders-horizontal' },
   { value: '/posts', label: 'Posts', icon: 'file-text' },

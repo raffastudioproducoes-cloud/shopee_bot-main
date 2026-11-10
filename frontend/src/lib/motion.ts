@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { countUpValue } from './countUp'
+import { countUpEase } from './countUp'
 
 /** Preferência do sistema por menos movimento (WCAG 2.3.3). Falha segura: sem matchMedia, assume movimento reduzido. */
 export function prefersReducedMotion(): boolean {
@@ -24,26 +24,34 @@ function markCounted(label: string) {
 }
 
 /**
- * Contagem de 0 até `target` só na primeira exibição de cada rótulo na sessão.
- * Com movimento reduzido, valor 0 ou repetição, devolve o valor final na hora (sem atrasar dado real).
+ * Fração 0→1 da animação de contagem, no ritmo "devagar no início, acelera no fim". Os números, as barras e
+ * os anéis usam a mesma fração para encher juntos. Só roda na primeira exibição de cada rótulo na sessão;
+ * com movimento reduzido ou repetição, devolve 1 na hora (sem atrasar dado real).
  */
-export function useCountUp(target: number, label: string, durationMs = 700): number {
-  const skip = prefersReducedMotion() || !Number.isFinite(target) || target <= 0 || alreadyCounted(label)
-  const [value, setValue] = useState(skip ? target : 0)
+export function useCountProgress(label: string, durationMs = 1100): number {
+  const skip = prefersReducedMotion() || alreadyCounted(label)
+  const [fraction, setFraction] = useState(skip ? 1 : 0)
   const frame = useRef(0)
 
   useEffect(() => {
-    if (skip) { setValue(target); return }
+    if (skip) { setFraction(1); return }
     const start = performance.now()
     const tick = (now: number) => {
-      const progress = (now - start) / durationMs
-      setValue(countUpValue(target, progress))
+      const progress = Math.min(1, (now - start) / durationMs)
+      setFraction(countUpEase(progress))
       if (progress < 1) frame.current = requestAnimationFrame(tick)
       else markCounted(label)
     }
     frame.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame.current)
-  }, [target, label, durationMs, skip])
+  }, [label, durationMs, skip])
 
-  return value
+  return fraction
+}
+
+/** Contagem de 0 até `target` acompanhando `useCountProgress`. Alvo inválido ou zero aparece como está. */
+export function useCountUp(target: number, label: string, durationMs = 1100): number {
+  const fraction = useCountProgress(label, durationMs)
+  if (!Number.isFinite(target) || target <= 0) return Math.max(0, Math.trunc(target || 0))
+  return Math.min(target, Math.round(target * fraction))
 }

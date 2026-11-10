@@ -4,12 +4,8 @@ import { StatCard } from '../components/ui/StatCard'
 import { Panel, PanelHeader } from '../components/ui/Panel'
 import { Button } from '../components/ui/Button'
 import '../components/ui/motion.css'
-import { lazy, Suspense } from 'react'
 import type { CSSProperties } from 'react'
-import { LazyWhenVisible } from '../components/ui/LazyWhenVisible'
 import { Skeleton, SkeletonCard, SkeletonRegion } from '../components/ui/Skeleton'
-
-const AnalyticsSection = lazy(() => import('./AnalyticsPage'))
 
 function count(value: number | undefined) {
   return typeof value === 'number' && Number.isFinite(value) ? String(value) : '—'
@@ -95,14 +91,6 @@ export default function DashboardPage() {
           </div>
         </Panel>
       </div>
-
-      <section id="analises" aria-label="Análise de redes" style={{ scrollMarginTop: 90, marginTop: 24 }}>
-        <LazyWhenVisible placeholder={<div style={{ minHeight: 240 }} aria-hidden="true" />}>
-          <Suspense fallback={<SkeletonRegion><Skeleton width="100%" height={240} /></SkeletonRegion>}>
-            <AnalyticsSection embedded />
-          </Suspense>
-        </LazyWhenVisible>
-      </section>
     </div>
   )
 }

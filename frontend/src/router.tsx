@@ -17,6 +17,7 @@ import { AdminLayout } from "./pages/AdminLayout"
 import { creationSearch } from "./lib/creationIntent"
 
 // Páginas secundárias e pesadas carregam sob demanda (peso do bundle inicial).
+const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"))
 const HelpPage = lazy(() => import("./pages/HelpPage").then((m) => ({ default: m.HelpPage })))
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })))
 const PostsAutomationPage = lazy(() => import("./pages/PostsAutomationPage").then((m) => ({ default: m.PostsAutomationPage })))
@@ -187,11 +188,10 @@ const postsAutomationRoute = createRoute({
   component: lazyRoute(PostsAutomationPage, "detail"),
 })
 
-// A análise de redes passou para baixo do dashboard. A rota antiga continua valendo para links salvos.
 const analyticsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/analytics",
-  beforeLoad: () => { throw redirect({ to: "/app", hash: "analises" }) },
+  component: lazyRoute(AnalyticsPage, "table"),
 })
 
 const credentialsRoute = createRoute({

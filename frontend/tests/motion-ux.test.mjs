@@ -31,7 +31,7 @@ test('movimento reduzido desliga contagem, splash e cascata', () => {
   const splash = src('components/ui/PostLoginSplash.tsx')
   const css = src('components/ui/motion.css')
   assert.match(motion, /prefers-reduced-motion: reduce/)
-  assert.match(motion, /prefersReducedMotion\(\) \|\| !Number\.isFinite\(target\)/)
+  assert.match(motion, /const skip = prefersReducedMotion\(\) \|\| alreadyCounted\(label\)/)
   assert.match(splash, /if \(prefersReducedMotion\(\)\) return false/)
   assert.ok((css.match(/@media \(prefers-reduced-motion: reduce\)/g) ?? []).length >= 4)
 })
