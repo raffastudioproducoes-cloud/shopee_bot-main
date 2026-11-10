@@ -84,8 +84,15 @@ body { background: var(--bg-app-gradient); background-attachment: fixed; }
 .app-menu-btn, .app-rail-backdrop { display: none; }
 .app-topbar { flex-wrap: wrap; row-gap: 8px; }
 
+/* Separador entre grupos do menu lateral (desktop: só um traço; celular: título do grupo). */
+.app-rail { overflow-y: auto; scrollbar-width: none; position: sticky; top: 0; align-self: flex-start; height: 100vh; height: 100dvh; }
+.app-rail::-webkit-scrollbar { display: none; }
+.app-rail-sep { height: 1px; margin: 4px 24px; background: var(--border-hairline, rgba(255,255,255,.12)); list-style: none; }
+
 @media (max-width: 767px) {
   .app-shell { --shell-pad: 12px; }
+  .app-rail-sep { height: auto; margin: 14px 12px 0; background: none; }
+  .app-rail-sep::before { content: attr(data-label); display: block; font: 600 11px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); padding-bottom: 2px; border-bottom: 1px solid var(--border-hairline, rgba(255,255,255,.12)); padding-bottom: 8px; }
   .app-menu-btn { display: inline-flex; }
   .app-topbar-search { display: none !important; }
   .app-topbar { gap: 6px !important; }

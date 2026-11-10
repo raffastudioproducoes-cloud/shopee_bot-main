@@ -13,6 +13,10 @@ Release MINOR (um passo a partir da produção 3.13.0): verificação de senha v
 
 - No cadastro por e-mail e na redefinição de senha, o servidor consulta o **Have I Been Pwned** por k-anonimato: só os **5 primeiros caracteres do SHA-1** saem do servidor (nunca a senha, o resumo completo ou dados da conta; `Add-Padding` ligado). Senha encontrada em vazamentos é recusada com 422 e mensagem em português. Se o serviço estiver fora do ar ou lento (3 s), **não bloqueia** o cadastro (falha aberta, com aviso no log). Substitui a opção paga (proteção nativa do Supabase Auth, exige plano Pro). Código: `api/password_breach.py`; testes: `tests/api/test_password_breach.py` (6). **Política de Privacidade** atualizada com a nova verificação.
 
+### Changed — menu lateral agrupado (ordem de Rafa)
+
+- Os itens do menu agora aparecem em grupos, com um traço entre eles no desktop e **títulos de grupo** no menu do celular: **Visão geral** (Dashboard, Análises), **Catálogo** (Produtos, Listas), **Publicação** (Posts, Criar post, Automação), **Conta** (Credenciais, Perfis, Configurações, Ajuda & FAQ) e **Administração** (Painel admin, só ADM). A ordem dos itens não mudou; Dashboard e Análises seguem no topo. O espaçamento entre itens diminuiu (22 → 14 px) para caber os separadores e o menu rola sozinho em telas baixas. Acessível: cada separador é `role="separator"` com o nome do grupo. Teste: `frontend/tests/menu-groups.test.mjs` (no CI).
+
 ### Changed — cadastro por e-mail
 
 - `SUPABASE_AUTH_EMAIL_SIGNUP_ENABLED=true` na produção e na staging (ordem de Rafa). Limite conhecido: o SMTP padrão do Supabase só entrega a membros da equipe até haver SMTP próprio.
