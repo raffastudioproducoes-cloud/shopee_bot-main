@@ -36,15 +36,16 @@ test('movimento reduzido desliga contagem, splash e cascata', () => {
   assert.ok((css.match(/@media \(prefers-reduced-motion: reduce\)/g) ?? []).length >= 4)
 })
 
-test('splash pós-login: aparece a cada login e para TODAS as contas (inclusive ADM), não bloqueia cliques e some em até 1,9 s', () => {
+test('splash pós-login: aparece a cada login e para TODAS as contas (inclusive ADM), não bloqueia cliques e some em até 2,2 s', () => {
   const splash = src('components/ui/PostLoginSplash.tsx')
   const css = src('components/ui/motion.css')
   assert.match(splash, /sessionStorage\.getItem\(SEEN_KEY\) !== '1'/)
-  assert.match(splash, /SPLASH_MS = 1900/)
+  assert.match(splash, /SPLASH_MS = 2200/)
   assert.match(splash, /pointerdown/)
   assert.match(css, /pointer-events: none/)
   assert.match(css, /@property --hole/, 'círculo que se abre revelando o painel')
-  assert.match(css, /translate\(calc\(-50vw \+ 56px\), calc\(-50vh \+ 42px\)\)/, 'logo sobe para o canto do menu')
+  assert.match(css, /calc\(var\(--hole\) \+ 16%\)/, 'círculo de borda difusa (sem traço marcado)')
+  assert.doesNotMatch(css, /post-login-splash__ring \{[^}]*border:/, 'sem anéis de traço')
   assert.doesNotMatch(src('pages/PanelPage.tsx'), /access !== 'ADMIN' && <PostLoginSplash/, 'ADM também vê a entrada')
   assert.match(src('pages/PanelPage.tsx'), /<PostLoginSplash \/>/)
   // a cada login as flags são zeradas (senão a entrada e as contagens só apareciam na 1ª vez da aba)
