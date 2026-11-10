@@ -1,6 +1,6 @@
 import { prefersReducedMotion as systemPrefersReducedMotion, resetPostLoginAnimations } from '../lib/motion'
 import './LoginPage.css'
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useAuthStore } from '../stores/authStore'
@@ -13,6 +13,7 @@ import { AppFooter } from '../components/layout/AppFooter'
 import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
 import { validatePassword } from '../lib/password'
 import { validCpf } from '../lib/cpf'
+import { LoginOrbitStill } from '../components/login/LoginOrbitStill'
 import { PasswordRecoveryRequestModal } from '../components/auth/PasswordRecoveryRequestModal'
 
 // Split-screen responsivo: sem breakpoint padrão no projeto (nenhum @media existente
@@ -45,6 +46,9 @@ function readRecoveryLink(): RecoveryLinkState {
   }
   return { token: null, notice: '' }
 }
+
+// three.js só é baixado quando a tela de login abre (fora do pacote inicial).
+const LoginOrbitScene = lazy(() => import('../components/login/LoginOrbitScene'))
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -133,8 +137,8 @@ export default function LoginPage() {
           className="login-split__image"
           
         >
-          {!prefersReducedMotion && (
-            <video className="login-split__video" src="/videos/login-bg.mp4" autoPlay loop muted playsInline />
+          {prefersReducedMotion ? <LoginOrbitStill /> : (
+            <Suspense fallback={<LoginOrbitStill />}><LoginOrbitScene /></Suspense>
           )}
           {/* Fusão vídeo→form no mobile (empilhado): degradê na borda inferior do painel de
               vídeo. Escondido no desktop via CSS (lá quem funde é o background do form). */}

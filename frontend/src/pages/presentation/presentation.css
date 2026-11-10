@@ -35,8 +35,8 @@ html:has(.ao-pres) { scroll-behavior: smooth; }
     radial-gradient(ellipse at 20% 10%, color-mix(in oklab, var(--color-ao-accent) 12%, transparent), transparent 50%);
 }
 .ao-orbit-ring {
-  border: 1px solid color-mix(in oklab, var(--color-ao-primary) 35%, transparent);
-  box-shadow: 0 0 30px -10px color-mix(in oklab, var(--color-ao-primary) 50%, transparent);
+  background: radial-gradient(closest-side, transparent 62%, color-mix(in oklab, var(--color-ao-primary) 16%, transparent) 74%, color-mix(in oklab, var(--color-ao-accent) 10%, transparent) 84%, transparent 96%);
+  filter: blur(14px);
 }
 .ao-btn-primary, .ao-btn-ghost {
   display: inline-flex; align-items: center; gap: 0.6rem;
@@ -46,13 +46,13 @@ html:has(.ao-pres) { scroll-behavior: smooth; }
   background: linear-gradient(135deg, var(--color-ao-primary), oklch(0.65 0.18 250));
   color: var(--color-ao-on-primary);
   box-shadow: 0 0 40px -8px color-mix(in oklab, var(--color-ao-primary) 55%, transparent);
-  transition: transform 0.2s;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s;
 }
 .ao-btn-primary:hover { transform: translateY(-2px); }
 .ao-btn-ghost {
   border: 1px solid var(--color-ao-border);
   background: color-mix(in oklab, var(--color-ao-card) 60%, transparent);
-  transition: border-color 0.2s;
+  transition: border-color 0.35s, background-color 0.35s;
 }
 .ao-btn-ghost:hover { border-color: var(--color-ao-primary); }
 .ao-btn-ghost--small { padding: 0.5rem 1rem; }

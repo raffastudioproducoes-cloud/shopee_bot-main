@@ -5,6 +5,22 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.15.0] - 2026-11-10
+
+### Changed — logo v2 e animações mais suaves (aprovado por Rafa pela prévia)
+
+- **Logo e nome refeitos em código (v2):** o disco de acreção passa a ser feito de faixas de luz difusa (azul → violeta → rosa), sem traços finos; halo suave em volta do buraco negro; cards menores e discretos. No nome, o "O" é um anel com um disco difuso (sem o risco branco). Mesmas letras (r e b já corrigidos). Gerador: `docs/brand/gerador-da-logo-v2.py`. PNG, favicon, ícones PWA e imagem de compartilhamento regerados.
+- **Abertura pós-login:** sem os anéis de traço; o buraco negro surge de uma névoa, o nome aparece e a tela se abre num círculo de **borda difusa**, com a logo se dissolvendo nele (2,2 s; toque/tecla encerra; movimento reduzido desliga).
+- **Apresentação:** animações acompanham a rolagem com uma mola leve (sem trancos); entradas com menos deslocamento e sem inclinação 3D forte; cards com rotação mínima; o "tremor" do card do desafio virou um brilho suave; bordas e brilhos mais fracos e difusos; o anel da "virada" virou névoa; linha do fluxo fina com degradê.
+- Testes: `motion-ux` atualizado (círculo de borda difusa, sem anéis de traço).
+
+### Added — animação "Do caos à órbita" na tela de login e cadastro (three.js)
+
+- No lugar do vídeo da caixa, a tela de login mostra uma animação 3D em loop de 15 s, sem som: 64 posts explodem e voam bagunçados (com rastro e tremor de câmera) enquanto batem as palavras "COPIA. COLA. POSTA. REPETE. DE NOVO? CHEGA."; em seguida giram em redemoinho e encaixam numa grade ("UM LUGAR SÓ.", "CADA POST NO SEU HORÁRIO."); a grade é engolida pelo buraco negro e fecha com a logo, o nome e "DO CAOS À ÓRBITA.". Aprovada por Rafa pela prévia em vídeo.
+- **Carga:** o three.js entra em um pacote separado (~121 kB gzip), baixado só ao abrir o login; o pacote inicial do site não cresce. A cena pausa fora da tela ou com a aba oculta, limita a resolução a 1,5× e libera a GPU ao sair.
+- **Reservas:** com "reduzir movimento", sem WebGL ou enquanto carrega, aparece um quadro parado (logo, nome e frase). Decorativa (`aria-hidden`).
+- Testes: `frontend/tests/login-orbit-scene.test.mjs` (3, no CI).
+
 ## [3.14.0] - 2026-11-10
 
 Release MINOR (um passo a partir da produção 3.13.0): verificação de senha vazada (S-05), cadastro por e-mail ligado, correção do rótulo flutuante e testes antigos consertados e incluídos no CI. O número 3.13.1 existiu só na staging.

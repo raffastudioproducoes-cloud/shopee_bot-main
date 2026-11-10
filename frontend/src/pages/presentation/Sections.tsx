@@ -105,7 +105,7 @@ export function FinalSection() {
   const scale = useTransform(scrollYProgress, [0, 1], [0.4, 1.2])
   return (
     <section id="comecar" ref={ref} className="relative overflow-hidden px-6 py-40 text-center">
-      <motion.img src="/brand/logo-mark.svg" alt="" aria-hidden="true" style={{ scale }} className="pointer-events-none absolute left-1/2 top-1/2 h-[80vmin] w-[80vmin] max-w-none -translate-x-1/2 -translate-y-1/2 opacity-50" />
+      <motion.img src="/brand/logo-mark.svg" alt="" aria-hidden="true" style={{ scale }} className="pointer-events-none absolute left-1/2 top-1/2 h-[80vmin] w-[80vmin] max-w-none -translate-x-1/2 -translate-y-1/2 opacity-25" />
       <Reveal className="relative">
         <Eyebrow>09 / Sua próxima órbita</Eyebrow>
         <h2 className="mx-auto mt-4 max-w-3xl font-ao-display text-4xl font-bold md:text-6xl">Boas oportunidades merecem <Highlight>uma rotina à altura.</Highlight></h2>

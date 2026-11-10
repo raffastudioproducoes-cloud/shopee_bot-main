@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { motion, useMotionValue, useReducedMotion, useScroll, type MotionValue } from "motion/react"
+import { motion, useMotionValue, useReducedMotion, useScroll, useSpring, type MotionValue } from "motion/react"
 import { useState, type ReactNode, type RefObject } from "react"
 import { LOGIN_PATH } from "./content"
 
@@ -9,20 +9,21 @@ export function useSceneProgress(
   offset: ["start start", "end end"] | ["start start", "end start"] = ["start start", "end end"],
 ): MotionValue<number> {
   const { scrollYProgress } = useScroll({ target: ref, offset })
+  // Mola leve: o movimento acompanha a rolagem sem trancos (rodinha do mouse, toque).
+  const smooth = useSpring(scrollYProgress, { stiffness: 110, damping: 28, mass: 0.35, restDelta: 0.0005 })
   const finished = useMotionValue(1)
   const reduce = useReducedMotion()
-  return reduce ? finished : scrollYProgress
+  return reduce ? finished : smooth
 }
 
 export function Reveal({ children, delay = 0, className }: { children: ReactNode; delay?: number; className?: string }) {
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0, y: 60, rotateX: 18, filter: "blur(8px)" }}
-      whileInView={{ opacity: 1, y: 0, rotateX: 0, filter: "blur(0px)" }}
-      viewport={{ once: true, margin: "-15% 0px" }}
-      transition={{ duration: 0.9, delay, ease: [0.16, 1, 0.3, 1] }}
-      style={{ transformPerspective: 1000 }}
+      initial={{ opacity: 0, y: 26, filter: "blur(5px)" }}
+      whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+      viewport={{ once: true, margin: "-12% 0px" }}
+      transition={{ duration: 1.1, delay, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
     </motion.div>
