@@ -2,7 +2,7 @@
 
 Desde 10/11/2026 a marca é **código** (SVG vetorial), redesenhada fielmente a partir do logo original
 (buraco negro com disco de acreção, anel de fótons e cards de conteúdo; nome "AutoOrbital" em Poppins
-SemiBold com o "O" como anel planetário). Gerador: `docs/brand/gerador-da-logo.py` (fontTools + Poppins 600).
+SemiBold com o "O" como anel planetário). Gerador atual (v2, suave, 3.15.0): `docs/brand/gerador-da-logo-v2.py` (usa as letras de `gerador-da-logo.py`, fontTools + Poppins 600).
 
 | Arquivo | Uso |
 |---|---|
