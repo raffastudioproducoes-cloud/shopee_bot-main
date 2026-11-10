@@ -27,8 +27,8 @@ const heroProducts = [
 export function Hero() {
   const ref = useRef<HTMLElement>(null)
   const p = useSceneProgress(ref, ["start start", "end start"])
-  const orbitRotate = useTransform(p, [0, 1], [0, 160])
-  const planetScale = useTransform(p, [0, 1], [1, 2.6])
+  const orbitRotate = useTransform(p, [0, 1], [0, 60])
+  const planetScale = useTransform(p, [0, 1], [1, 1.5])
   const planetOpacity = useTransform(p, [0, 0.8], [1, 0])
   const textY = useTransform(p, [0, 1], [0, -220])
   const textOpacity = useTransform(p, [0, 0.6], [1, 0])
@@ -51,9 +51,9 @@ export function Hero() {
                     <motion.span
                       key={word.text + i}
                       className={`mr-[0.25em] inline-block ${word.accent ? "text-ao-primary" : ""}`}
-                      initial={{ opacity: 0, y: 40, filter: "blur(10px)" }}
+                      initial={{ opacity: 0, y: 22, filter: "blur(6px)" }}
                       animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                      transition={{ delay: 0.15 + i * 0.07, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                      transition={{ delay: 0.15 + i * 0.06, duration: 1, ease: [0.22, 1, 0.36, 1] }}
                     >
                       {word.text}
                     </motion.span>
@@ -80,7 +80,7 @@ export function Hero() {
             <div className="absolute left-1/2 top-[6%] h-2 w-2 rounded-full bg-ao-primary shadow-ao-glow" />
             <div className="absolute bottom-[12%] right-[24%] h-1.5 w-1.5 rounded-full bg-ao-accent" />
           </motion.div>
-          <img src="/brand/logo-mark.svg" alt="" aria-hidden="true" className="absolute left-1/2 top-1/2 h-[124%] w-[124%] max-w-none -translate-x-1/2 -translate-y-1/2" />
+          <img src="/brand/logo-mark.svg" alt="" aria-hidden="true" className="absolute left-1/2 top-1/2 h-[106%] w-[106%] max-w-none -translate-x-1/2 -translate-y-1/2" />
           <span className="sr-only">Auto Orbital</span>
           {heroProducts.map(({ index, className }, i) => {
             const product = demoProducts[index]!
@@ -88,9 +88,9 @@ export function Hero() {
               <motion.div
                 key={product.id}
                 className={`absolute ${className} hidden w-56 items-center gap-3 rounded-2xl border border-ao-border bg-ao-card/90 p-2.5 shadow-ao-elegant backdrop-blur lg:flex`}
-                initial={{ opacity: 0, scale: 0.7, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: [0, -10, 0] }}
-                transition={{ delay: 1.1 + i * 0.2, opacity: { duration: 0.6 }, scale: { duration: 0.6 }, y: { repeat: Infinity, duration: 5 + i, ease: "easeInOut" } }}
+                initial={{ opacity: 0, scale: 0.94, y: 14 }}
+                animate={{ opacity: 1, scale: 1, y: [0, -6, 0] }}
+                transition={{ delay: 1.1 + i * 0.2, opacity: { duration: 0.9 }, scale: { duration: 0.9, ease: [0.22, 1, 0.36, 1] }, y: { repeat: Infinity, duration: 7 + i, ease: "easeInOut" } }}
               >
                 <ProductThumb src={product.image} name={product.name} className="h-12 w-12" />
                 <span className="min-w-0">
@@ -103,10 +103,10 @@ export function Hero() {
           {orbitBadges.map(({ label, Icon, className }, i) => (
             <motion.div
               key={label}
-              className={`absolute ${className} inline-flex items-center gap-2 rounded-xl border border-ao-border bg-ao-card/80 px-4 py-2.5 text-sm font-semibold backdrop-blur`}
-              initial={{ opacity: 0, scale: 0.6 }}
-              animate={{ opacity: 1, scale: 1, y: [0, -8, 0] }}
-              transition={{ delay: 0.8 + i * 0.15, y: { repeat: Infinity, duration: 4 + i, ease: "easeInOut" } }}
+              className={`absolute ${className} inline-flex items-center gap-2 rounded-xl border border-ao-border bg-ao-card/60 px-4 py-2.5 text-sm font-semibold backdrop-blur-md`}
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1, y: [0, -5, 0] }}
+              transition={{ delay: 0.8 + i * 0.15, opacity: { duration: 0.9 }, scale: { duration: 0.9, ease: [0.22, 1, 0.36, 1] }, y: { repeat: Infinity, duration: 6 + i, ease: "easeInOut" } }}
             >
               <Icon className="h-4 w-4 text-ao-primary" /> {label}
             </motion.div>

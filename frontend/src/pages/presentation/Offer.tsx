@@ -44,12 +44,12 @@ export function OfferSection() {
             return (
               <motion.article
                 key={offer.id}
-                className={`relative flex flex-col rounded-3xl border p-8 backdrop-blur ${offer.highlight ? "border-ao-primary/60 bg-ao-primary/10 shadow-[0_0_60px_-15px_var(--color-ao-primary)]" : "border-ao-border bg-ao-card/60"}`}
-                initial={{ opacity: 0, y: 80, rotateY: (index - 1) * -25 }}
+                className={`relative flex flex-col rounded-3xl border p-8 backdrop-blur ${offer.highlight ? "border-ao-primary/35 bg-ao-primary/10 shadow-[0_0_80px_-28px_var(--color-ao-primary)]" : "border-ao-border bg-ao-card/60"}`}
+                initial={{ opacity: 0, y: 34, rotateY: (index - 1) * -6 }}
                 whileInView={{ opacity: 1, y: 0, rotateY: 0 }}
-                whileHover={{ y: -8 }}
+                whileHover={{ y: -4 }}
                 viewport={{ once: true, margin: "-15% 0px" }}
-                transition={{ duration: 0.9, delay: index * 0.15, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ duration: 1.1, delay: index * 0.12, ease: [0.22, 1, 0.36, 1] }}
               >
                 {offer.highlight && (
                   <span className="absolute -top-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-ao-primary px-3 py-1 text-xs font-semibold text-ao-on-primary">

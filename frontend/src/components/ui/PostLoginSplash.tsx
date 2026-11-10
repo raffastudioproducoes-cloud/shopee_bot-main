@@ -3,7 +3,7 @@ import { prefersReducedMotion } from '../../lib/motion'
 import './motion.css'
 
 const SEEN_KEY = 'ao-post-login-splash'
-export const SPLASH_MS = 1900
+export const SPLASH_MS = 2200
 
 /** Aparece a cada login (e ao reabrir o site com sessão ativa), para qualquer conta, inclusive ADM. */
 export function shouldShowPostLoginSplash(): boolean {
@@ -18,7 +18,7 @@ function markSeen() {
 /**
  * Entrada depois do login: a logo aparece com brilho e um anel que expande, sobe para o canto do menu
  * enquanto um círculo se abre revelando o dashboard (que entra em cascata, com números contando).
- * Não bloqueia cliques (pointer-events: none); toque ou tecla encerra na hora; some sozinha em ~1,9 s.
+ * Não bloqueia cliques (pointer-events: none); toque ou tecla encerra na hora; some sozinha em ~2,2 s.
  */
 export function PostLoginSplash() {
   const [visible, setVisible] = useState(shouldShowPostLoginSplash)

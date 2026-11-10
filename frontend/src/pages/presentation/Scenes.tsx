@@ -8,11 +8,11 @@ import { Eyebrow, Highlight, ProductThumb, SceneTag, useSceneProgress } from "./
 /* ---------- Cena 01: o caos da divulgação manual ---------- */
 
 const chaosPositions = [
-  { x: -340, y: -170, r: -12 },
-  { x: 320, y: -190, r: 9 },
-  { x: -380, y: 150, r: 7 },
-  { x: 350, y: 170, r: -10 },
-  { x: 0, y: 260, r: 4 },
+  { x: -340, y: -170, r: -5 },
+  { x: 320, y: -190, r: 4 },
+  { x: -380, y: 150, r: 3 },
+  { x: 350, y: 170, r: -4 },
+  { x: 0, y: 260, r: 2 },
 ]
 
 function NetworkCard({ task, index, progress }: { task: NetworkTask; index: number; progress: MotionValue<number> }) {
@@ -22,8 +22,8 @@ function NetworkCard({ task, index, progress }: { task: NetworkTask; index: numb
   const x = useTransform(progress, range, [0, target.x])
   const y = useTransform(progress, range, [0, target.y])
   const rotate = useTransform(progress, range, [0, target.r])
-  const opacity = useTransform(progress, [start, start + 0.06], [0, 1])
-  const scale = useTransform(progress, range, [0.4, 1])
+  const opacity = useTransform(progress, [start, start + 0.12], [0, 1])
+  const scale = useTransform(progress, range, [0.82, 1])
   return (
     <motion.div style={{ x, y, rotate, opacity, scale }} className="absolute w-44 rounded-xl border border-ao-border bg-ao-card p-4 shadow-ao-elegant md:w-52">
       <p className="font-ao-display font-semibold">{task.name}</p>
@@ -39,7 +39,7 @@ export function ChallengeScene() {
   const ref = useRef<HTMLElement>(null)
   const p = useSceneProgress(ref)
   const coreScale = useTransform(p, [0, 0.8], [1, 0.85])
-  const shake = useTransform(p, [0.75, 0.8, 0.85, 0.9], [0, -6, 6, 0])
+  const pulse = useTransform(p, [0.72, 0.82, 0.92], [0.35, 1, 0.35])
   return (
     <section id="desafio" ref={ref} className="relative h-[320vh]">
       <div className="sticky top-0 flex h-screen flex-col overflow-hidden">
@@ -52,7 +52,8 @@ export function ChallengeScene() {
           {networks.map((task, i) => (
             <NetworkCard key={task.name} task={task} index={i} progress={p} />
           ))}
-          <motion.div style={{ scale: coreScale, x: shake }} className="relative z-10 rounded-2xl border border-ao-primary/60 bg-ao-card px-8 py-6 text-center shadow-ao-glow">
+          <motion.div style={{ scale: coreScale }} className="relative z-10 rounded-2xl border border-ao-primary/25 bg-ao-card px-8 py-6 text-center shadow-ao-glow">
+            <motion.span aria-hidden="true" style={{ opacity: pulse }} className="pointer-events-none absolute -inset-6 -z-10 rounded-[2rem] bg-ao-primary/20 blur-2xl" />
             <div className="flex items-center gap-3 text-left">
               <ProductThumb src={demoProducts[0]!.image} name={demoProducts[0]!.name} className="h-14 w-14" />
               <div>
@@ -82,9 +83,10 @@ function DayColumn({ day, index, progress }: { day: string; index: number; progr
         {Array.from({ length: visible }).map((_, i) => (
           <motion.div
             key={i}
-            initial={{ opacity: 0, y: -60, rotate: (i % 2 ? 1 : -1) * 8 }}
-            animate={{ opacity: 1, y: 0, rotate: (i % 3) - 1 }}
-            exit={{ opacity: 0, y: -30 }}
+            initial={{ opacity: 0, y: -18, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
             className={`h-5 rounded ${i % 3 === 0 ? "bg-ao-primary/70" : i % 3 === 1 ? "bg-ao-accent/60" : "bg-ao-muted"}`}
           />
         ))}
@@ -133,10 +135,10 @@ export function BacklogScene() {
 /* ---------- Cena 02: a transformação orbital ---------- */
 
 const scatter = [
-  { x: -260, y: -200, r: -25 },
-  { x: 240, y: -160, r: 18 },
-  { x: -200, y: 190, r: 14 },
-  { x: 280, y: 210, r: -20 },
+  { x: -260, y: -200, r: -8 },
+  { x: 240, y: -160, r: 6 },
+  { x: -200, y: 190, r: 5 },
+  { x: 280, y: 210, r: -7 },
 ]
 
 function FlowNode({ label, index, progress }: { label: string; index: number; progress: MotionValue<number> }) {
@@ -146,7 +148,7 @@ function FlowNode({ label, index, progress }: { label: string; index: number; pr
   const rotate = useTransform(progress, [0, 0.5], [s.r, 0])
   const glow = useTransform(progress, [0.5 + index * 0.1, 0.6 + index * 0.1], [0.3, 1])
   return (
-    <motion.div style={{ x, y, rotate, opacity: glow }} className="relative z-10 rounded-xl border border-ao-primary/50 bg-ao-card px-5 py-3 text-center font-ao-display font-semibold shadow-ao-glow">
+    <motion.div style={{ x, y, rotate, opacity: glow }} className="relative z-10 rounded-xl border border-ao-primary/25 bg-ao-card px-5 py-3 text-center font-ao-display font-semibold shadow-ao-glow">
       {label}
     </motion.div>
   )
@@ -156,8 +158,8 @@ export function TurnScene() {
   const ref = useRef<HTMLElement>(null)
   const p = useSceneProgress(ref)
   const line = useTransform(p, [0.45, 0.9], [0, 1])
-  const ringRotate = useTransform(p, [0, 1], [-90, 90])
-  const ringScale = useTransform(p, [0, 0.5], [2.5, 1])
+  const ringRotate = useTransform(p, [0, 1], [-30, 30])
+  const ringScale = useTransform(p, [0, 0.5], [1.5, 1])
   return (
     <section id="virada" ref={ref} className="relative h-[280vh]">
       <div className="sticky top-0 flex h-screen flex-col items-center justify-center overflow-hidden px-6 text-center">
@@ -167,7 +169,8 @@ export function TurnScene() {
         <p className="mt-4 max-w-2xl text-ao-muted-fg">Imagine suas oportunidades, conteúdos e programações seguindo um mesmo fluxo. Sem transformar cada nova divulgação em uma lista de tarefas dispersas.</p>
         <div className="relative mt-14 flex flex-col items-center gap-6 md:flex-row md:gap-10">
           <svg className="absolute left-0 top-1/2 hidden h-2 w-full -translate-y-1/2 md:block" preserveAspectRatio="none" viewBox="0 0 100 2" aria-hidden="true">
-            <motion.line x1="0" y1="1" x2="100" y2="1" className="stroke-ao-primary" strokeWidth="0.6" style={{ pathLength: line }} />
+            <defs><linearGradient id="ao-flow-line" x1="0" x2="1"><stop offset="0" stopColor="var(--color-ao-primary)" stopOpacity="0" /><stop offset=".15" stopColor="var(--color-ao-primary)" stopOpacity=".55" /><stop offset=".85" stopColor="var(--color-ao-accent)" stopOpacity=".55" /><stop offset="1" stopColor="var(--color-ao-accent)" stopOpacity="0" /></linearGradient></defs>
+            <motion.line x1="0" y1="1" x2="100" y2="1" stroke="url(#ao-flow-line)" strokeWidth="0.35" style={{ pathLength: line }} />
           </svg>
           {flowSteps.map((s, i) => <FlowNode key={s} label={s} index={i} progress={p} />)}
         </div>
@@ -184,9 +187,9 @@ export function ProductScene() {
   const p = useSceneProgress(ref)
   const [step, setStep] = useState(0)
   useMotionValueEvent(p, "change", (v) => setStep(progressToStep(v, productSteps.length)))
-  const rotateX = useTransform(p, [0, 0.2], [28, 0])
-  const rotateY = useTransform(p, [0.2, 0.5, 0.8, 1], [0, -6, 6, 0])
-  const scale = useTransform(p, [0, 0.2], [0.8, 1])
+  const rotateX = useTransform(p, [0, 0.2], [10, 0])
+  const rotateY = useTransform(p, [0.2, 0.5, 0.8, 1], [0, -2, 2, 0])
+  const scale = useTransform(p, [0, 0.2], [0.93, 1])
   const bar = useTransform(p, [0, 1], ["0%", "100%"])
   const current = productSteps[step] ?? productSteps[0]!
 
@@ -200,7 +203,7 @@ export function ProductScene() {
           <div className="mt-6 grid gap-6 lg:grid-cols-[260px_1fr]">
             <ol className="hidden space-y-2 lg:block">
               {productSteps.map((s, i) => (
-                <li key={s.number} className={`rounded-xl border px-4 py-3 transition-all duration-500 ${i === step ? "border-ao-primary bg-ao-card shadow-ao-glow" : "border-transparent opacity-50"}`}>
+                <li key={s.number} className={`rounded-xl border px-4 py-3 transition-all duration-500 ${i === step ? "border-ao-primary/40 bg-ao-card shadow-ao-glow" : "border-transparent opacity-50"}`}>
                   <span className="text-xs text-ao-primary">{s.number}</span> <strong className="font-ao-display">{s.title}</strong>
                   <p className="text-xs text-ao-muted-fg">{s.subtitle}</p>
                 </li>
@@ -213,7 +216,7 @@ export function ProductScene() {
               <div className="h-0.5 bg-ao-muted"><motion.div className="h-full bg-ao-primary" style={{ width: bar }} /></div>
               <div className="min-h-[300px] p-6">
                 <AnimatePresence mode="wait">
-                  <motion.div key={current.number} initial={{ opacity: 0, x: 60, filter: "blur(6px)" }} animate={{ opacity: 1, x: 0, filter: "blur(0px)" }} exit={{ opacity: 0, x: -60, filter: "blur(6px)" }} transition={{ duration: 0.45 }}>
+                  <motion.div key={current.number} initial={{ opacity: 0, x: 22, filter: "blur(4px)" }} animate={{ opacity: 1, x: 0, filter: "blur(0px)" }} exit={{ opacity: 0, x: -22, filter: "blur(4px)" }} transition={{ duration: 0.45 }}>
                     <div className="flex items-center justify-between">
                       <p className="font-ao-display text-xl font-semibold">{current.subtitle}</p>
                       <span className="text-xs text-ao-primary">{current.number} / 05</span>

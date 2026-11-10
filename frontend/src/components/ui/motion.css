@@ -1,39 +1,40 @@
-/* Entrada pós-login: logo com brilho e anéis, sobe para o canto do menu; um círculo se abre revelando o painel. */
+/* Entrada pós-login (v2, suave): o buraco negro surge de uma névoa de luz, o nome aparece,
+   e a tela se abre num círculo de borda difusa. Sem traços nem anéis marcados. */
 @property --hole { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 .post-login-splash {
   position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; pointer-events: none; overflow: hidden;
-  background: radial-gradient(60% 60% at 50% 50%, rgba(31,211,253,.10), transparent 70%), var(--bg-app, #0b1020);
-  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent var(--hole), #000 calc(var(--hole) + 1.5%));
-  mask-image: radial-gradient(circle at 50% 50%, transparent var(--hole), #000 calc(var(--hole) + 1.5%));
-  animation: splash-hole 1.9s cubic-bezier(.65, 0, .2, 1) forwards, splash-gone 0s linear 1.9s forwards;
+  background: radial-gradient(55% 55% at 50% 46%, rgba(58,109,255,.16), transparent 72%), var(--bg-app, #0b1020);
+  -webkit-mask-image: radial-gradient(circle at 50% 46%, transparent var(--hole), #000 calc(var(--hole) + 16%));
+  mask-image: radial-gradient(circle at 50% 46%, transparent var(--hole), #000 calc(var(--hole) + 16%));
+  animation: splash-hole 2.2s cubic-bezier(.7, 0, .2, 1) forwards, splash-gone 0s linear 2.2s forwards;
 }
-@keyframes splash-hole { 0%, 55% { --hole: 0%; } 100% { --hole: 150%; } }
+@keyframes splash-hole { 0%, 58% { --hole: -16%; } 100% { --hole: 140%; } }
 @keyframes splash-gone { to { visibility: hidden; } }
 .post-login-splash__logo {
-  grid-area: 1 / 1; width: 220px; height: 220px; filter: drop-shadow(0 0 34px rgba(47,107,255,.55));
-  animation: splash-logo 1.9s cubic-bezier(.16, 1, .3, 1) forwards;
+  grid-area: 1 / 1; width: min(250px, 62vw); height: auto; margin-bottom: 8vh;
+  animation: splash-logo 2.2s cubic-bezier(.22, 1, .36, 1) forwards;
 }
 @keyframes splash-logo {
-  0% { opacity: 0; transform: scale(.4); }
-  22% { opacity: 1; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.08); }
-  88% { opacity: 1; transform: translate(calc(-50vw + 56px), calc(-50vh + 42px)) scale(.36); }
-  100% { opacity: 0; transform: translate(calc(-50vw + 56px), calc(-50vh + 42px)) scale(.3); }
+  0% { opacity: 0; transform: scale(.9); filter: blur(10px); }
+  30% { opacity: 1; transform: scale(1); filter: blur(0); }
+  58% { opacity: 1; transform: scale(1.03); filter: blur(0); }
+  100% { opacity: 0; transform: scale(1.22); filter: blur(6px); }
 }
 .post-login-splash__name {
-  grid-area: 1 / 1; margin-top: 230px; width: 230px; height: auto;
-  animation: splash-name 1.9s ease both;
+  grid-area: 1 / 1; margin-top: min(210px, 52vw); width: min(220px, 56vw); height: auto;
+  animation: splash-name 2.2s cubic-bezier(.22, 1, .36, 1) both;
 }
-@keyframes splash-name { 0%, 14% { opacity: 0; transform: translateY(8px); } 30%, 52% { opacity: 1; transform: none; } 66%, 100% { opacity: 0; } }
+@keyframes splash-name { 0%, 16% { opacity: 0; transform: translateY(10px); filter: blur(6px); } 40%, 58% { opacity: 1; transform: none; filter: blur(0); } 78%, 100% { opacity: 0; transform: translateY(-4px); filter: blur(4px); } }
 .post-login-splash__ring {
-  grid-area: 1 / 1; width: 120px; height: 120px; border-radius: 50%; border: 2px solid rgba(31,211,253,.5);
-  animation: splash-ring 1.6s cubic-bezier(.16, 1, .3, 1) .15s both;
+  grid-area: 1 / 1; width: min(250px, 62vw); aspect-ratio: 1; margin-bottom: 8vh; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(120,150,255,.26), rgba(150,120,255,.10) 55%, transparent 75%);
+  filter: blur(18px); animation: splash-bloom 2.2s cubic-bezier(.22, 1, .36, 1) both;
 }
-.post-login-splash__ring--late { border-color: rgba(147,108,242,.45); animation-delay: .45s; }
-@keyframes splash-ring { 0% { opacity: .9; transform: scale(.6); } 70% { opacity: .25; } 100% { opacity: 0; transform: scale(5); } }
+.post-login-splash__ring--late { display: none; }
+@keyframes splash-bloom { 0% { opacity: 0; transform: scale(.7); } 35% { opacity: 1; transform: scale(1.5); } 60% { opacity: .9; transform: scale(1.7); } 100% { opacity: 0; transform: scale(2.6); } }
 @media (prefers-reduced-motion: reduce) { .post-login-splash { display: none; } }
 @supports not (mask-image: radial-gradient(circle, transparent 0, #000 1%)) {
-  .post-login-splash { -webkit-mask-image: none; mask-image: none; animation: splash-fade 1.9s ease forwards; }
+  .post-login-splash { -webkit-mask-image: none; mask-image: none; animation: splash-fade 2.2s ease forwards; }
   @keyframes splash-fade { 0%, 60% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
 }
 

@@ -29,9 +29,9 @@
   --color-ao-primary: oklch(0.83 0.13 215);
   --color-ao-on-primary: oklch(0.15 0.04 262);
   --color-ao-accent: oklch(0.62 0.2 295);
-  --color-ao-border: oklch(0.32 0.05 260);
+  --color-ao-border: oklch(0.36 0.05 260 / 0.55);
   --font-ao-display: "Outfit", "Mona Sans", system-ui, sans-serif;
-  --shadow-ao-glow: 0 0 40px -8px color-mix(in oklab, var(--color-ao-primary) 55%, transparent);
+  --shadow-ao-glow: 0 0 70px -22px color-mix(in oklab, var(--color-ao-primary) 45%, transparent);
   --shadow-ao-elegant: 0 20px 50px -20px oklch(0 0 0 / 0.7);
 }
 
