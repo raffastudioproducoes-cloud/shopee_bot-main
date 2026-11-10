@@ -14,7 +14,6 @@ import { ProfilesPage } from "./pages/ProfilesPage"
 import { PageSkeleton, type PageSkeletonVariant } from "./components/ui/Skeleton"
 import { OrbitalLoader } from "./components/ui/OrbitalLoader"
 import { AdminLayout } from "./pages/AdminLayout"
-import { isAdminVisitingSite } from "./lib/adminSiteFlag"
 import { creationSearch } from "./lib/creationIntent"
 
 // Páginas secundárias e pesadas carregam sob demanda (peso do bundle inicial).
@@ -30,7 +29,6 @@ const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"))
 const UsersPage = lazy(() => import("./pages/UsersPage"))
 const LogsPage = lazy(() => import("./pages/LogsPage"))
 const AdminCredentialsPage = lazy(() => import("./pages/AdminCredentialsPage"))
-const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"))
 const OrbitalPilotPage = lazy(() => import("./pages/OrbitalPilotPage"))
 
 async function requireAdmin() {
@@ -91,9 +89,6 @@ const landingRoute = createRoute({
     }
     authStore.setRoleVerified(true)
 
-    if (user.access === "ADMIN" && !isAdminVisitingSite()) {
-      throw redirect({ to: "/admin/overview" })
-    }
     throw redirect({ to: "/app" })
   },
   component: PresentationPage,
@@ -157,12 +152,6 @@ const panelRoute = createRoute({
 const dashboardRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/app",
-  beforeLoad: () => {
-    const { isAuthenticated, user } = useAuthStore.getState()
-    if (isAuthenticated && user?.access === "ADMIN" && !isAdminVisitingSite()) {
-      throw redirect({ to: "/admin/overview" })
-    }
-  },
   component: DashboardPage,
 })
 
@@ -198,10 +187,11 @@ const postsAutomationRoute = createRoute({
   component: lazyRoute(PostsAutomationPage, "detail"),
 })
 
+// A análise de redes passou para baixo do dashboard. A rota antiga continua valendo para links salvos.
 const analyticsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/analytics",
-  component: lazyRoute(AnalyticsPage, "table"),
+  beforeLoad: () => { throw redirect({ to: "/app", hash: "analises" }) },
 })
 
 const credentialsRoute = createRoute({

@@ -53,7 +53,8 @@ type PostMetric = {
 }
 type PostsResult = { posts: PostMetric[]; total_posts: number; truncated: boolean }
 
-export default function AnalyticsPage() {
+/** `embedded`: usada embaixo do dashboard, então o título vira h2 (a página já tem um h1). */
+export default function AnalyticsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [days, setDays] = useState('30')
   const [network, setNetwork] = useState('all')
   const [selectedProfile, setSelectedProfile] = useState('all')
@@ -162,7 +163,9 @@ export default function AnalyticsPage() {
   return (
     <div className="csp-s-0168">
       <header>
-        <h1 className="csp-s-0169">Análise de redes</h1>
+        {embedded
+          ? <h2 className="csp-s-0169" style={{ fontSize: 26, marginTop: 8 }}>Análise de redes</h2>
+          : <h1 className="csp-s-0169">Análise de redes</h1>}
         <p className="csp-s-0170">{selectedProfile === 'all'
           ? 'Resultados das publicações de todos os perfis da conta'
           : 'Resultados das publicações do perfil selecionado'}</p>

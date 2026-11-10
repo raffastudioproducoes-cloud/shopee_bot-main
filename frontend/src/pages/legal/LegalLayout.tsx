@@ -4,7 +4,6 @@ import type { ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { authApi } from '../../api/auth'
 import { useAuthStore } from '../../stores/authStore'
-import { isAdminVisitingSite } from '../../lib/adminSiteFlag'
 
 // Mesmo breakpoint usado em LoginPage.tsx (768px) — não existe um padrão
 // central de breakpoints no projeto, então cada componente com CSS próprio
@@ -30,8 +29,7 @@ export function LegalLayout({ title, updatedAt, children }: LegalLayoutProps) {
       const auth = useAuthStore.getState()
       if (!auth.isAuthenticated) auth.login(user)
       else auth.setUser(user)
-      const home = user.access === 'ADMIN' && !isAdminVisitingSite() ? '/admin/overview' : '/'
-      await navigate({ to: home })
+      await navigate({ to: '/' })
     } catch {
       // Não confiar apenas no estado local caso o cookie tenha expirado.
       useAuthStore.getState().logout()

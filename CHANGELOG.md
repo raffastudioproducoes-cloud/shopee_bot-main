@@ -5,6 +5,15 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.13.0] - 2026-11-10
+
+### Changed — ADM entra pelo dashboard e a análise de redes vai para baixo dele
+
+- **ADM** deixa de ser desviado para o painel admin no login (senha e Google), na raiz do site, em `/app` e no retorno das páginas legais: entra no dashboard do site como qualquer conta. O **Painel admin** continua no menu (e `/admin` segue protegido por papel).
+- **Análise de redes** agora fica embaixo do dashboard (seção `#analises`), carregada sob demanda **só quando a área chega perto da tela** (`LazyWhenVisible`), para não pesar o dashboard nem disparar consultas de análise para quem não rola até lá. Incorporada, o título vira `h2` (a página já tem um `h1`).
+- O item "Análises" saiu do menu lateral (11 → 10 itens); a rota antiga `/analytics` continua valendo e leva para a seção no dashboard (`/app#analises`), então links salvos não quebram.
+- Testes: `frontend/tests/dashboard-analytics-section.test.mjs` (4, no CI); `landing-entry-routing` e `admin-site-separation` atualizados para a regra nova. Falhas antigas fora do CI, confirmadas na base: `admin-site-separation` (2), `analytics-social-platforms`, `admin-layout`, `task4-admin-routes`.
+
 ## [3.12.0] - 2026-11-09
 
 Release MINOR em um passo SemVer a partir da 3.11.0 (produção), consolidando os builds internos 3.11.1, 3.12.0 e 3.12.1 da staging: limpeza de posts ao cancelar campanha e exclusão de posts de campanha (migration 097), tags de plano com identidade visual (Administrador em rubi, Premium, Pro e Free), animações e UX do lote 4 (transição de página, menu com pílula, anel de caracteres, "Faltam N passos" na campanha), apresentação pública com produtos reais do catálogo de exemplo e Pro destacado na tabela de planos. Os números 3.11.1 e 3.12.1 existiram só na staging.

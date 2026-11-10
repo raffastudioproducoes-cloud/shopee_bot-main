@@ -10,16 +10,16 @@ test('flag de visita ao site usa sessionStorage protegido por try/catch', async 
   assert.match(flag, /sessionStorage/)
 })
 
-test('login e rota /app enviam ADMIN para /admin/overview, respeitando a flag', async () => {
+test('ADM entra no dashboard do site (login, raiz e /app); o painel admin fica no menu', async () => {
   const login = await source('pages/LoginPage.tsx')
   const router = await source('router.tsx')
   const panel = await source('pages/PanelPage.tsx')
-  assert.match(login, /user\.access\s*===\s*['"]ADMIN['"][\s\S]*\/admin\/overview/)
+  assert.doesNotMatch(login, /admin\/overview/)
   assert.match(login, /clearAdminVisitingSite\(\)/)
   const dash = router.match(/const dashboardRoute = createRoute\(\{[\s\S]*?\r?\n}\)/)?.[0] ?? ''
-  assert.match(dash, /beforeLoad/)
-  assert.match(router, /ADMIN[\s\S]*isAdminVisitingSite\(\)[\s\S]*\/admin\/overview|isAdminVisitingSite\(\)[\s\S]*ADMIN[\s\S]*\/admin\/overview/)
-  assert.match(panel, /isAdminVisitingSite\(\)/)
+  assert.doesNotMatch(dash, /admin\/overview|isAdminVisitingSite/)
+  assert.doesNotMatch(panel, /navigate\(\{ to: '\/admin\/overview' \}\)/)
+  assert.match(panel, /value: '\/admin', label: 'Painel admin'|label:\s*['"]Painel admin['"]/)
 })
 
 test('AdminLayout tem "Ir para o site" que grava a flag; site tem "Painel admin" que a limpa', async () => {
