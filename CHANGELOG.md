@@ -5,6 +5,33 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.14.0] - 2026-11-10
+
+Release MINOR (um passo a partir da produção 3.13.0): verificação de senha vazada (S-05), cadastro por e-mail ligado, correção do rótulo flutuante e testes antigos consertados e incluídos no CI. O número 3.13.1 existiu só na staging.
+
+### Added — S-05: senha vazada recusada (k-anonimato, sem custo)
+
+- No cadastro por e-mail e na redefinição de senha, o servidor consulta o **Have I Been Pwned** por k-anonimato: só os **5 primeiros caracteres do SHA-1** saem do servidor (nunca a senha, o resumo completo ou dados da conta; `Add-Padding` ligado). Senha encontrada em vazamentos é recusada com 422 e mensagem em português. Se o serviço estiver fora do ar ou lento (3 s), **não bloqueia** o cadastro (falha aberta, com aviso no log). Substitui a opção paga (proteção nativa do Supabase Auth, exige plano Pro). Código: `api/password_breach.py`; testes: `tests/api/test_password_breach.py` (6). **Política de Privacidade** atualizada com a nova verificação.
+
+### Changed — menu lateral agrupado (ordem de Rafa)
+
+- Os itens do menu agora aparecem em grupos, com um traço entre eles no desktop e **títulos de grupo** no menu do celular: **Visão geral** (Dashboard, Análises), **Catálogo** (Produtos, Listas), **Publicação** (Posts, Criar post, Automação), **Conta** (Credenciais, Perfis, Configurações, Ajuda & FAQ) e **Administração** (Painel admin, só ADM). A ordem dos itens não mudou; Dashboard e Análises seguem no topo. O espaçamento entre itens diminuiu (22 → 14 px) para caber os separadores e o menu rola sozinho em telas baixas. Acessível: cada separador é `role="separator"` com o nome do grupo. Teste: `frontend/tests/menu-groups.test.mjs` (no CI).
+
+### Changed — cadastro por e-mail
+
+- `SUPABASE_AUTH_EMAIL_SIGNUP_ENABLED=true` na produção e na staging (ordem de Rafa). Limite conhecido: o SMTP padrão do Supabase só entrega a membros da equipe até haver SMTP próprio.
+
+### Fixed — testes antigos consertados e agora no CI
+
+- `pwa-brand` (título do site), `test_social_preview_declared_in_server_html_and_brand_png` (sem canonical/og:url estáticos, de propósito), `loadings` e `skeleton-guard` (texto "Carregando..." do seletor de produtos trocado por "Buscando mais…"; alça do deslizar na lista de spinners permitidos) passam e entram no CI.
+
+### Build interno da staging 3.13.1
+
+### Fixed — rótulo flutuante inconsistente nos campos com exemplo (placeholder)
+
+- No "Criar conta", só o campo **CPF** aparecia com o rótulo no alto (por ter o exemplo "000.000.000-00") enquanto os outros mostravam o rótulo dentro do campo. Agora todos se comportam igual: o rótulo fica dentro até o foco ou o preenchimento, e o exemplo aparece ao focar. Só data/hora mantêm o rótulo sempre no alto (o navegador já mostra um valor nelas). Vale para `TextInput` e `Textarea` em todo o site.
+- Observação: o aviso "Cadastro aguardando configuração do Supabase Auth." do "Criar conta" **não** vem desta mudança; ele aparece quando a configuração `email_signup_enabled` do servidor está desligada (variáveis do Supabase Auth no Render). Só 1 conta no banco foi criada por esse caminho (25/08/2026).
+
 ## [3.13.0] - 2026-11-10
 
 ### Changed — ADM entra pelo dashboard; contagem que acelera no dashboard e na análise
@@ -16,7 +43,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Cascata em todas as páginas:** os blocos de qualquer página (cards, painéis, tabelas) entram em sequência ao abrir.
 - **Botão "Entrar" vira "Pronto! ✓"** por 0,45 s antes de abrir o painel (sem movimento reduzido).
 - **Botões:** o principal ganha brilho que atravessa ao passar o mouse; todos sobem de leve. **Campos de texto:** brilho ciano no foco (em todo o site, inclusive "Criar conta"). **Caixas clicáveis** (cards do dashboard): sobem e brilham a borda. **Avisos repetidos** viram um só com contador "×N".
-- Testes: `frontend/tests/count-ease-and-nav.test.mjs` (6, no CI); `landing-entry-routing` e `admin-site-separation` atualizados. Falhas antigas fora do CI, confirmadas na base: `admin-site-separation` (2), `analytics-social-platforms`, `admin-layout`, `task4-admin-routes`.
+- Testes: `frontend/tests/count-ease-and-nav.test.mjs` (6, no CI); `landing-entry-routing` e `admin-site-separation` atualizados.
 - **Rótulo flutuante nos campos** (`TextInput`/`Textarea`, em todo o site, inclusive login e "Criar conta"): o nome do campo fica dentro dele e sobe para o topo ao focar, digitar, preencher automaticamente ou quando há placeholder/data/hora. Só CSS (`:focus-within`, `:placeholder-shown`); movimento reduzido sem transição. O campo "Senha" do login passou a usar o mesmo componente.
 - **Deslizar para confirmar a ativação da campanha** (`SlideToConfirm`): arraste a alça até o fim (≥ 92%); soltar antes volta ao início. Teclado e leitor de tela: a alça é um botão (Enter/Espaço ou "ativar") e confirma direto. Mantém os bloqueios, o "Ativando…" e os confetes.
 - **Desfazer ao excluir** (Posts, Produtos e Listas): o item some na hora e aparece o aviso "… removido · Desfazer" por 7 s; só depois a exclusão vai ao servidor. Tocar em **Desfazer** cancela sem enviar nada. Se a aba for fechada/atualizada dentro da janela, a exclusão pendente é enviada na hora (`pagehide`, fetch `keepalive`); se o servidor recusar, o item volta e aparece o erro. Avisos com ação não são agrupados em ×N. **Limite honesto:** não há lixeira no servidor; depois dos 7 s a exclusão é definitiva como antes.

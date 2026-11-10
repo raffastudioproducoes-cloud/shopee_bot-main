@@ -24,6 +24,7 @@ from supabase import create_client
 from ..config import settings
 from ..account_identity import cpf_record, normalize_full_name
 from ..database import get_supabase
+from ..password_breach import ensure_password_not_breached
 from .auth import (
     _check_login_rate_limit, _create_token, _validate_password_length,
     client_ip, provision_new_user,
@@ -195,6 +196,7 @@ async def register_email(body: EmailRegistration, request: Request, response: Re
     _validate_password_length(body.password)
     if body.password != body.confirm_password:
         raise HTTPException(422, "As senhas não coincidem.")
+    await ensure_password_not_breached(body.password)
 
     email = _normalized_email(body.email)
     db = get_supabase()
@@ -314,6 +316,7 @@ async def complete_password_recovery(body: PasswordRecoveryComplete, request: Re
     _validate_password_length(body.new_password)
     if body.new_password != body.confirm_password:
         raise HTTPException(422, "As senhas não coincidem.")
+    await ensure_password_not_breached(body.new_password)
 
     try:
         verified = _auth_client().auth.get_user(body.access_token)

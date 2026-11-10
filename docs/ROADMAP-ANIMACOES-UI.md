@@ -121,3 +121,5 @@ Leis de UX aplicadas: Von Restorff (só o Pro destacado em Planos, um selo), Zei
 ## 9. Fechamento do roteiro (10/11/2026, staging 3.13.0)
 
 Os itens que estavam "não feitos" no quadro da seção 8 foram implementados: **B1 rótulo flutuante** (todos os campos), **B3 "Pronto! ✓" no login**, **C2 deslizar para ativar campanha**, **D1 avisos agrupados ×N**, **D2 desfazer ao excluir** (Posts, Produtos e Listas; janela de 7 s no navegador, sem lixeira no servidor) e o **cabeçalho digitado** do dashboard. Nada do roteiro está pendente, exceto a **logo em código** (prévia aguardando validação de Rafa).
+
+**UX-2 (10/11/2026):** o menu lateral foi agrupado por assunto (Visão geral, Catálogo, Publicação, Conta, Administração) na 3.14.0, por ordem de Rafa.

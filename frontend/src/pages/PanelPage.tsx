@@ -21,22 +21,23 @@ import { PlanBadge } from "../components/plans/PlanSummary"
 import { StatusMessage } from '../components/StatusMessage'
 import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
 
+// Menu agrupado por assunto (menos itens soltos para o olho varrer: leis de Hick e Miller).
 const navItems: SideRailItem[] = [
-  { value: '/app', label: 'Dashboard', icon: 'house' },
-  { value: '/analytics', label: 'Análises', icon: 'chart-no-axes-combined' },
-  { value: '/products', label: 'Produtos', icon: 'briefcase' },
-  { value: '/lists', label: 'Listas', icon: 'sliders-horizontal' },
-  { value: '/posts', label: 'Posts', icon: 'file-text' },
-  { value: '/posts/criar', label: 'Criar POST', icon: 'square-pen' },
-  { value: '/automacao-posts', label: 'Automação', icon: 'workflow' },
-  { value: '/credentials', label: 'Credenciais', icon: 'key-round' },
-  { value: '/profiles', label: 'Perfis', icon: 'users' },
-  { value: '/settings', label: 'Configurações', icon: 'lock' },
-  { value: '/ajuda', label: 'Ajuda & FAQ', icon: 'help-circle' },
+  { value: '/app', label: 'Dashboard', icon: 'house', group: 'Visão geral' },
+  { value: '/analytics', label: 'Análises', icon: 'chart-no-axes-combined', group: 'Visão geral' },
+  { value: '/products', label: 'Produtos', icon: 'briefcase', group: 'Catálogo' },
+  { value: '/lists', label: 'Listas', icon: 'sliders-horizontal', group: 'Catálogo' },
+  { value: '/posts', label: 'Posts', icon: 'file-text', group: 'Publicação' },
+  { value: '/posts/criar', label: 'Criar POST', icon: 'square-pen', group: 'Publicação' },
+  { value: '/automacao-posts', label: 'Automação', icon: 'workflow', group: 'Publicação' },
+  { value: '/credentials', label: 'Credenciais', icon: 'key-round', group: 'Conta' },
+  { value: '/profiles', label: 'Perfis', icon: 'users', group: 'Conta' },
+  { value: '/settings', label: 'Configurações', icon: 'lock', group: 'Conta' },
+  { value: '/ajuda', label: 'Ajuda & FAQ', icon: 'help-circle', group: 'Conta' },
 ]
 
 const adminNavItems: SideRailItem[] = [
-  { value: '/admin', label: 'Painel admin', icon: 'shield-check' },
+  { value: '/admin', label: 'Painel admin', icon: 'shield-check', group: 'Administração' },
 ]
 
 export function PanelPage() {

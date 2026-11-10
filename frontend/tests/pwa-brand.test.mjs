@@ -21,7 +21,7 @@ test('manifest PWA instalável com identidade Auto Orbital', () => {
 test('index.html sem a marca antiga e com os metadados novos', () => {
   const html = read('../index.html')
   assert.doesNotMatch(html, /Shopee Auto Vendas/)
-  assert.match(html, /<title>Auto Orbital<\/title>/)
+  assert.match(html, /<title>Auto Orbital(?: \|[^<]+)?<\/title>/)
   assert.match(html, /theme-color" content="#010719"/)
   assert.match(html, /rel="manifest" href="\/manifest.webmanifest"/)
   assert.match(html, /og:image" content="https:\/\//)

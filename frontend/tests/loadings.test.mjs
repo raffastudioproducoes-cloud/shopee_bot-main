@@ -10,7 +10,7 @@ test("splash HTML existe antes do bundle, injeta versão e oferece noscript", as
   assert.match(html, /id="site-splash"/)
   assert.match(html, /%APP_VERSION%/)
   assert.match(html, /<noscript>/)
-  assert.match(html, /brand\/symbol\.png/)
+  assert.match(html, /brand\/logo-mark\.svg/)
 })
 
 test("OrbitalLoader expõe tamanhos, acessibilidade e movimento reduzido", async () => {
