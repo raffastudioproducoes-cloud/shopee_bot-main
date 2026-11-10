@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — cobrança com Asaas, fase 1 (base; ainda sem tela nem contratação)
+
+- **Planejamento:** [`docs/PAGAMENTOS-ASAAS-PLANO-20261110.md`](docs/PAGAMENTOS-ASAAS-PLANO-20261110.md) — Pro R$ 59,90 e Premium R$ 109,90 por mês; períodos mensal, 3 meses (−2,5%), 6 meses (−5%) e 1 ano (−15%), todos com renovação automática; cartão e Pix; 15 dias de tolerância; nota fiscal automática.
+- **Migração 098** (aditiva, idempotente, testada duas vezes em PostgreSQL 16 descartável): preços (`plan_prices`) e períodos (`plan_periods`) editáveis com auditoria, cliente, checkout, assinatura, cobranças e eventos de webhook. RLS bloqueia o navegador; só `service_role`.
+- **API:** `GET /billing/plans` devolve a tabela calculada no servidor; `POST /billing/webhook/asaas` confere o token (`asaas-access-token`), grava o evento uma única vez pelo `id` e responde 200 (processamento na fase 3). Cliente HTTP do Asaas em `api/asaas_client.py` (chave só no header, nunca em log).
+- **Desligado por padrão:** sem `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` no Render, a cobrança não faz nada (503). Nenhum plano é alterado nesta fase.
+- Testes: `tests/api/test_billing_asaas.py` (14).
+
 ## [3.15.0] - 2026-11-10
 
 ### Changed — logo v2 e animações mais suaves (aprovado por Rafa pela prévia)
