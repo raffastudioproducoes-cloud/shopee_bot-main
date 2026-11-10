@@ -32,8 +32,20 @@ chave de produção, só com autorização dele.
 - **Plano de 9 meses descartado:** o Asaas não tem ciclo de 9 meses
   (ciclos: `WEEKLY`, `BIWEEKLY`, `MONTHLY`, `BIMONTHLY`, `QUARTERLY`,
   `SEMIANNUALLY`, `YEARLY`). Todos os períodos acima renovam automaticamente.
-- **Pendentes:** formas de pagamento
-  (só cartão ou cartão + Pix); dias de tolerância de atraso; nota fiscal automática.
+- **Formas de pagamento:** cartão de crédito **e** Pix (decisão de Rafa, 10/11).
+  O Checkout aceita `PIX` e `CREDIT_CARD`; a documentação mostra assinatura
+  recorrente pelo Checkout só com cartão. Plano: testar no sandbox se
+  `RECURRENT` aceita Pix; se não aceitar, cartão segue pelo Checkout e Pix usa
+  assinatura direta (`POST /v3/subscriptions`, `billingType: PIX`), em que o
+  cliente paga cada fatura pelo QR Code (não é débito automático; Pix Automático
+  é outro produto, fora deste escopo).
+- **Tolerância de atraso:** **até 15 dias** após o vencimento. Durante esse prazo o
+  plano continua ativo e o titular recebe aviso; após 15 dias sem pagamento a conta
+  volta para Free, com a mesma regra de campanhas do downgrade.
+- **Nota fiscal:** **emissão automática sempre** (NFS-e configurada em cada
+  assinatura). Requer, no painel do Asaas, conta habilitada para notas fiscais,
+  dados fiscais da empresa e o serviço municipal (`municipalServiceId` ou código
+  da prefeitura) — itens que Rafa precisa confirmar/cadastrar, não o código.
 - Regras de troca de plano já vigentes ([política F4, seção 12](PLANOS-F4-POLITICAS-E-FASES-20261103.md)):
   ativação só após pagamento confirmado; downgrade e cancelamento valem no
   vencimento, sem cortar o período já pago; Premium→Pro pausa campanhas
@@ -102,4 +114,4 @@ chave de produção, só com autorização dele.
 
 - Conta **sandbox** em `sandbox.asaas.com` e a chave de API dela cadastrada por
   ele no Render (serviço staging) como `ASAAS_API_KEY` — nunca no chat.
-- Respostas aos pendentes da seção 1 (formas de pagamento, tolerância, nota fiscal).
+- Configuração fiscal no Asaas (habilitar NFS-e, dados fiscais, serviço municipal).
