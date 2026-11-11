@@ -1,6 +1,12 @@
+import { useState } from "react"
+import { Link } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
 import { motion } from "motion/react"
 import { Check, Minus, Sparkles } from "lucide-react"
+import { billingApi } from "../../api/billing"
 import { PlanTag } from "../../components/plans/PlanTag"
+import { BILLING_PERIODS, PERIOD_LABELS, brl, discountLabel, type BillingPeriod } from "../../lib/planIntent"
+import { useAuthStore } from "../../stores/authStore"
 import { buildComparison, planOffers, plans, type ComparisonValue } from "./content"
 import { Eyebrow, Highlight, LoginLink, Reveal } from "./shared"
 
@@ -25,6 +31,12 @@ function Cell({ value, delay, highlight = false }: { value: ComparisonValue; del
 
 export function OfferSection() {
   const rows = buildComparison()
+  const authenticated = useAuthStore((state) => state.isAuthenticated)
+  const [period, setPeriod] = useState<BillingPeriod>("yearly")
+  // Preços e período vêm do servidor (mesma conta que o pagamento usa). Se falhar, valem os valores de referência.
+  const prices = useQuery({ queryKey: ["billing-plans"], queryFn: billingApi.plans, staleTime: 5 * 60_000, retry: false })
+  const open = prices.data?.checkout_enabled === true
+  const priceOf = (tier: string) => prices.data?.prices.find((p) => p.tier === tier && p.period === period)
   return (
     <section id="valores" className="relative px-6 py-32">
       <div className="mx-auto max-w-6xl">
@@ -33,8 +45,26 @@ export function OfferSection() {
           <h2 className="mt-4 font-ao-display text-4xl font-semibold md:text-5xl">
             Escolha a <Highlight>órbita</Highlight> do seu ritmo.
           </h2>
-          <p className="mt-4 text-ao-muted-fg">Comece grátis. Os valores do Pro e do Premium são de referência e a contratação ainda não foi aberta.</p>
+          <p className="mt-4 text-ao-muted-fg">
+            {open
+              ? "Comece grátis e assine quando quiser. Cancele a qualquer momento: o plano segue até o fim do período pago."
+              : "Comece grátis. Os valores do Pro e do Premium são de referência e a contratação ainda não foi aberta."}
+          </p>
         </Reveal>
+
+        {open && (
+          <div className="mt-8 flex flex-wrap justify-center gap-2" role="radiogroup" aria-label="Período de contratação">
+            {BILLING_PERIODS.map((id) => {
+              const bps = prices.data?.prices.find((p) => p.tier === "pro" && p.period === id)?.discount_bps ?? 0
+              return (
+                <button key={id} type="button" role="radio" aria-checked={period === id} onClick={() => setPeriod(id)}
+                  className={`rounded-full border px-4 py-2 text-sm transition-colors ${period === id ? "border-ao-primary bg-ao-primary/15 text-ao-fg" : "border-ao-border text-ao-muted-fg hover:text-ao-fg"}`}>
+                  {PERIOD_LABELS[id]}{bps ? <span className="ml-2 text-xs font-semibold text-ao-primary">{discountLabel(bps)}</span> : null}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {/* Cards de valor: entram em leque, como planetas alinhando na órbita */}
         <div className="mt-16 grid gap-6 md:grid-cols-3 [perspective:1200px]">
@@ -65,9 +95,13 @@ export function OfferSection() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.8, delay: 0.4 + index * 0.15 }}
                 >
-                  {offer.priceLabel}
+                  {offer.id !== "free" && open && priceOf(offer.id) ? brl(priceOf(offer.id)!.per_month_cents) : offer.priceLabel}
                 </motion.p>
-                <p className="mt-1 text-xs uppercase tracking-[0.2em] text-ao-muted-fg">{offer.priceNote}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.2em] text-ao-muted-fg">
+                  {offer.id !== "free" && open && priceOf(offer.id)
+                    ? (priceOf(offer.id)!.months === 1 ? "por mês" : `por mês · ${brl(priceOf(offer.id)!.total_cents)} a cada ${PERIOD_LABELS[period].toLowerCase()}`)
+                    : offer.priceNote}
+                </p>
                 <ul className="mt-6 flex-1 space-y-2 text-sm">
                   {rows.map((row, rowIndex) => {
                     const value = row.values[plan.id]
@@ -86,9 +120,15 @@ export function OfferSection() {
                     )
                   })}
                 </ul>
-                <LoginLink className={`mt-8 justify-center text-center ${offer.highlight ? "ao-btn-primary" : "ao-btn-ghost"}`}>
-                  {offer.id === "free" ? "Começar grátis" : "Entrar"}
-                </LoginLink>
+                {offer.id !== "free" && open ? (
+                  authenticated
+                    ? <Link to="/planos" search={{ plano: offer.id, periodo: period }} className={`mt-8 justify-center text-center ${offer.highlight ? "ao-btn-primary" : "ao-btn-ghost"}`}>Assinar {plan.name}</Link>
+                    : <Link to="/login" search={{ plano: offer.id, periodo: period }} className={`mt-8 justify-center text-center ${offer.highlight ? "ao-btn-primary" : "ao-btn-ghost"}`}>Assinar {plan.name}</Link>
+                ) : (
+                  <LoginLink className={`mt-8 justify-center text-center ${offer.highlight ? "ao-btn-primary" : "ao-btn-ghost"}`}>
+                    {offer.id === "free" ? "Começar grátis" : "Entrar"}
+                  </LoginLink>
+                )}
               </motion.article>
             )
           })}

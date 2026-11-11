@@ -390,3 +390,158 @@ def test_billing_admin_routes_require_admin(admin):
     assert client.get("/admin/billing/status").status_code == 403
     assert client.post("/admin/billing/webhook", json={}).status_code == 403
     assert not calls
+
+
+# ---------- cliente: minha assinatura, cancelamento e isolamento entre contas ----------
+class _Store:
+    """Banco falso com filtros reais, para provar que uma conta não alcança a outra."""
+
+    def __init__(self, tables):
+        self.t = {k: [dict(r) for r in v] for k, v in tables.items()}
+
+    def table(self, name):
+        return _Filter(self, name)
+
+
+class _Filter:
+    def __init__(self, db, name):
+        self.db, self.name, self.preds, self.op, self.payload = db, name, [], "select", None
+        self._limit = None
+
+    def select(self, *_a):
+        return self
+
+    def update(self, payload):
+        self.op, self.payload = "update", payload; return self
+
+    def eq(self, c, v):
+        self.preds.append(lambda r: r.get(c) == v); return self
+
+    def in_(self, c, vs):
+        self.preds.append(lambda r: r.get(c) in vs); return self
+
+    def order(self, c, desc=False):
+        self._order = (c, desc); return self
+
+    def limit(self, n):
+        self._limit = n; return self
+
+    def execute(self):
+        rows = [r for r in self.db.t.get(self.name, []) if all(p(r) for p in self.preds)]
+        if self.op == "update":
+            for r in rows:
+                r.update(self.payload)
+            return MagicMock(data=rows)
+        order = getattr(self, "_order", None)
+        if order:
+            rows.sort(key=lambda r: r.get(order[0]) or "", reverse=order[1])
+        return MagicMock(data=[dict(r) for r in rows[: self._limit or None]])
+
+
+SUB_A = {"id": "s-a", "user_id": "ua", "environment": "sandbox", "asaas_subscription_id": "sub_secret_a",
+         "tier": "pro", "period": "yearly", "billing_type": "CREDIT_CARD", "value_cents": 61098,
+         "status": "active", "current_period_end": "2027-11-11", "overdue_since": None,
+         "created_at": "2026-11-11"}
+PAY_A = {"user_id": "ua", "environment": "sandbox", "asaas_payment_id": "pay_secret", "billing_type": "CREDIT_CARD",
+         "status": "RECEIVED", "value_cents": 61098, "due_date": "2026-11-11", "paid_at": "2026-11-11T10:00:00",
+         "invoice_url": "https://sandbox.asaas.com/i/abc"}
+
+
+@pytest.fixture
+def mine(monkeypatch):
+    monkeypatch.setattr(settings, "asaas_api_key", "$aact_test")
+    monkeypatch.setattr(settings, "asaas_api_url", "https://api-sandbox.asaas.com/v3")
+    monkeypatch.setattr(settings, "asaas_sandbox_testers", "ua,ub")
+    db = _Store({"billing_subscriptions": [SUB_A], "billing_payments": [PAY_A]})
+    monkeypatch.setattr(database_module, "get_supabase", lambda: db)
+    calls = []
+    monkeypatch.setattr(asaas_client, "request", lambda m, p, **kw: calls.append((m, p)) or {})
+    app.dependency_overrides.clear()
+
+    def as_user(uid):
+        app.dependency_overrides[get_current_user_id] = lambda: uid
+        return TestClient(app)
+    yield as_user, db, calls
+    app.dependency_overrides.clear()
+
+
+def test_subscription_summary_has_no_asaas_ids(mine):
+    as_user, _db, _calls = mine
+    body = as_user("ua").get("/billing/subscription").json()
+    assert body["subscription"]["tier"] == "pro" and body["subscription"]["status"] == "active"
+    assert body["subscription"]["grace_days"] == 15
+    assert body["payments"][0]["invoice_url"].startswith("https://sandbox.asaas.com/")
+    text = str(body)
+    assert "sub_secret_a" not in text and "pay_secret" not in text and "asaas_subscription_id" not in text
+
+
+def test_other_account_sees_nothing_and_cannot_cancel(mine):
+    as_user, db, calls = mine
+    client = as_user("ub")
+    assert client.get("/billing/subscription").json() == {"subscription": None, "payments": []}
+    assert client.post("/billing/subscription/cancel").status_code == 404
+    assert not calls and db.t["billing_subscriptions"][0]["status"] == "active"
+
+
+def test_subscription_endpoints_require_login():
+    app.dependency_overrides.clear()
+    client = TestClient(app)
+    assert client.get("/billing/subscription").status_code == 401
+    assert client.post("/billing/subscription/cancel").status_code == 401
+
+
+def test_cancel_removes_in_asaas_and_keeps_paid_period(mine):
+    as_user, db, calls = mine
+    res = as_user("ua").post("/billing/subscription/cancel")
+    assert res.status_code == 200
+    assert calls == [("DELETE", "/subscriptions/sub_secret_a")]
+    sub = res.json()["subscription"]
+    assert sub["status"] == "canceled" and sub["current_period_end"] == "2027-11-11"
+    assert db.t["billing_subscriptions"][0]["status"] == "canceled"
+    # segunda vez: nada mais para cancelar
+    assert as_user("ua").post("/billing/subscription/cancel").status_code == 404
+
+
+def test_cancel_failure_in_asaas_keeps_subscription(mine, monkeypatch):
+    as_user, db, _calls = mine
+
+    def refuse(method, path, **kw):
+        raise asaas_client.AsaasError(422, ["não foi possível"])
+    monkeypatch.setattr(asaas_client, "request", refuse)
+    assert as_user("ua").post("/billing/subscription/cancel").status_code == 422
+    assert db.t["billing_subscriptions"][0]["status"] == "active"
+
+
+def test_cancel_already_gone_in_asaas_still_marks_canceled(mine, monkeypatch):
+    as_user, db, _calls = mine
+
+    def gone(method, path, **kw):
+        raise asaas_client.AsaasError(404, [])
+    monkeypatch.setattr(asaas_client, "request", gone)
+    assert as_user("ua").post("/billing/subscription/cancel").status_code == 200
+    assert db.t["billing_subscriptions"][0]["status"] == "canceled"
+
+
+def test_overdue_summary_shows_grace_deadline(mine):
+    as_user, db, _calls = mine
+    db.t["billing_subscriptions"][0].update(status="overdue", overdue_since="2027-02-11")
+    sub = as_user("ua").get("/billing/subscription").json()["subscription"]
+    assert sub["grace_until"] == "2027-02-26"
+
+
+def test_plans_endpoint_reports_checkout_flag(monkeypatch):
+    monkeypatch.setattr(database_module, "get_supabase", lambda: None)
+    app.dependency_overrides.clear()
+    monkeypatch.setattr(settings, "asaas_api_key", "")
+    assert TestClient(app).get("/billing/plans").json()["checkout_enabled"] is False
+    monkeypatch.setattr(settings, "asaas_api_key", "$aact_x")
+    assert TestClient(app).get("/billing/plans").json()["checkout_enabled"] is True
+
+
+def test_checkout_returns_to_client_plans_page(checkout):
+    client, _db, sent = checkout
+    client.post("/billing/checkout", json=BODY)
+    callback = sent[-1][1]["callback"]
+    assert callback["successUrl"].endswith("/planos?assinatura=sucesso")
+    assert callback["cancelUrl"].endswith("/planos?assinatura=cancelada")
+    assert callback["expiredUrl"].endswith("/planos?assinatura=expirada")

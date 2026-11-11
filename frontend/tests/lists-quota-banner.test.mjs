@@ -29,7 +29,7 @@ test("Listas usa a mesma barra compacta de Produtos sem resumo de plano", () => 
   assert.match(lists, /plan=\{planQuery\.data\}/)
   assert.match(lists, /loading=\{planQuery\.isPending\}/)
   assert.match(lists, /error=\{planQuery\.isError\}/)
-  assert.match(lists, /onUpgrade=\{\(\) => void router\.navigate\(\{ to: "\/settings", hash: "planos" \}\)\}/)
+  assert.match(lists, /onUpgrade=\{\(\) => void router\.navigate\(\{ to: "\/planos", search: \{ de: "listas" \} \}\)\}/)
   assert.doesNotMatch(lists, /<PlanSummary|<PlanBadge|<UpgradeInfo/)
   assert.match(quota, /Cota de listas/)
   assert.doesNotMatch(quota, /Plano da conta|Sem cotas comerciais|Conhecer planos/)

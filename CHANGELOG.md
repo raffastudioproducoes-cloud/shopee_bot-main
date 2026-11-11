@@ -19,6 +19,16 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **`POST /billing/checkout`:** exige login e dados da conta completos (nome, CPF, e-mail, celular), recusa segunda assinatura aberta e limita a 5 tentativas por hora. Cria (ou reaproveita) o cliente no Asaas e um checkout recorrente de 60 min, e devolve o link; o navegador vai para a página segura do Asaas. **Não altera o plano**: a ativação será feita pelo webhook (fase 3). Retorno mostra "aguardando confirmação", cancelado ou expirado.
 - Testes: +9 em `tests/api/test_billing_asaas.py`; `frontend/tests/plan-checkout.test.mjs` (4, no CI).
 
+### Added — cobrança com Asaas, telas do cliente (planos, pagamento e upgrade)
+
+- **Tela `/planos` ("Planos e pagamento")**, no menu lateral (grupo Conta) e também aberta pelo selo de plano do topo: escolha de período (mensal, 3 meses −2,5%, 6 meses −5%, 1 ano −15%), cartões Pro e Premium com preço por mês, total e economia, forma de pagamento (cartão ou Pix) e **resumo** antes de pagar. O botão leva à página segura do Asaas; o retorno (`?assinatura=sucesso|cancelada|expirada`) só avisa "aguardando confirmação", porque o plano é liberado pelo webhook.
+- **Minha assinatura:** situação, valor, "paga até", histórico das últimas 12 cobranças com link da fatura (só se for `https` do próprio Asaas), aviso de atraso com a data limite dos 15 dias de tolerância e **cancelamento** com confirmação (o plano segue até o fim do período pago). `GET /billing/subscription` e `POST /billing/subscription/cancel`, sempre só da própria conta e sem devolver nenhum id do Asaas.
+- **Todos os botões de upgrade** ("Melhorar plano" em Produtos, Listas, Perfis e Criar POST; "Conhecer planos e upgrade" na Automação; link em Configurações) abrem `/planos`, já dizendo de onde veio o clique.
+- **Apresentação:** os cartões Pro e Premium mostram os preços reais por período e o botão **"Assinar Pro/Premium"** abre o login com o plano escolhido; depois de entrar (e-mail ou Google) a pessoa cai direto no pagamento. A escolha fica só em `sessionStorage`, validada contra a lista de planos e períodos. Com a contratação desligada no servidor (`checkout_enabled=false`), tudo continua como antes: "Entrar".
+- **Sem funções de ADMIN no site do cliente:** a API do painel ADMIN foi para `api/billingAdmin.ts`, importada só pela área `/admin`; teste garante que o pacote do cliente não a importa.
+- **Pendente:** trocar de plano com assinatura aberta (por ora a tela orienta cancelar e contratar o novo plano em seguida).
+- Testes: +10 na API (isolamento entre contas, cancelamento, retorno do checkout, flag) e `frontend/tests/plan-purchase-flow.test.mjs` (7, no CI).
+
 ### Added — cobrança com Asaas: painel do ADMIN
 
 - **Aba "Cobrança" na área `/admin`**, separada de "Diagnóstico" (redes e plataformas) e fora das Configurações do cliente. Mostra o estado da cobrança (ambiente, chave de API, token do webhook, contas de teste e webhook no Asaas) sem revelar nenhum segredo, e o botão **"Registrar webhook no Asaas"**, que cria ou atualiza o webhook com o token do servidor e os 17 eventos usados. Rotas `GET /admin/billing/status` e `POST /admin/billing/webhook` (só ADMIN). Testes: +4 na API e `frontend/tests/admin-billing.test.mjs` (3, no CI).

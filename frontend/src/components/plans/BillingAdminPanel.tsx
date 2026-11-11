@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { billingAdminApi } from "../../api/billing"
+import { billingAdminApi } from "../../api/billingAdmin"
 import { Button } from "../ui/Button"
 import "./planCheckout.css"
 
