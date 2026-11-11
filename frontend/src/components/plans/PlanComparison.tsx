@@ -1,5 +1,6 @@
 import { usePlanUsage } from "../../hooks/usePlanUsage"
 import { accountPlanLabel } from "../../lib/planPresentation"
+import { BillingAdminPanel } from "./BillingAdminPanel"
 import { PlanCheckout } from "./PlanCheckout"
 import { PlanTag } from "./PlanTag"
 import "./planComparison.css"
@@ -61,9 +62,12 @@ export function PlanComparison() {
         Regras de segurança e das redes sociais continuam válidas para todos os planos.
       </p>
       {data?.is_admin ? (
-        <p className="plan-comparison__note">
-          O plano Administrador não possui cota comercial, mas segue os limites operacionais.
-        </p>
+        <>
+          <p className="plan-comparison__note">
+            O plano Administrador não possui cota comercial, mas segue os limites operacionais.
+          </p>
+          <BillingAdminPanel />
+        </>
       ) : (
         <PlanCheckout currentTier={data?.plan_tier === "plus" ? "pro" : data?.plan_tier} />
       )}

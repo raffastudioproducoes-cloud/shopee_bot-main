@@ -22,3 +22,17 @@ export const billingApi = {
   checkout: (body: { tier: PaidTier; period: BillingPeriod; billing_type: BillingType }) =>
     api.post<CheckoutResponse>("/billing/checkout", body),
 }
+
+export interface BillingAdminStatus {
+  environment: "sandbox" | "production"
+  api_key_configured: boolean
+  webhook_token_configured: boolean
+  sandbox_testers: number
+  webhook_url: string
+  webhook: { id?: string; enabled?: boolean; interrupted?: boolean; error?: string } | null
+}
+
+export const billingAdminApi = {
+  status: () => api.get<BillingAdminStatus>("/billing/admin/status"),
+  registerWebhook: () => api.post<{ id: string; url: string; updated: boolean; events: number }>("/billing/admin/webhook", {}),
+}
