@@ -313,6 +313,7 @@ def test_checkout_asaas_refusal_marks_order_failed(checkout, monkeypatch):
     monkeypatch.setattr(asaas_client, "create_checkout", refuse)
     res = client.post("/billing/checkout", json=BODY)
     assert res.status_code == 422 and res.json()["detail"]["details"] == ["Cliente inválido"]
+    assert res.json()["detail"]["message"].endswith(": Cliente inválido")
     assert ("billing_checkouts", "update", {"status": "failed"}, {"id": "order-1"}) in db.calls
 
 
