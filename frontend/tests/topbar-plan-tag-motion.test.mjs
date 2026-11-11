@@ -7,7 +7,7 @@ const css = readFileSync(new URL("../src/components/plans/planSummary.css", impo
 test("a etiqueta nasce atrás do cartão e desce apenas quando o badge monta", () => {
   assert.match(css, /\.plan-topbar-account \.active-profile-chip\s*\{[^}]*z-index:\s*2/s)
   assert.match(css, /\.plan-topbar-account \.plan-topbar-tag\s*\{[^}]*z-index:\s*1/s)
-  assert.match(css, /\.plan-topbar-account \.plan-topbar-tag > span\s*\{[^}]*animation:\s*plan-topbar-tag-reveal/s)
+  assert.match(css, /\.plan-topbar-account \.plan-topbar-tag \.plan-tag\s*\{[^}]*animation:\s*plan-topbar-tag-reveal/s)
   assert.match(css, /@keyframes plan-topbar-tag-reveal\s*\{\s*from\s*\{\s*transform:\s*translateY\(var\(--plan-tag-entry-offset\)\)/)
   assert.match(css, /to\s*\{\s*transform:\s*translateY\(0\)/)
 })

@@ -85,3 +85,7 @@
   .plan-checkout__summary button { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .plan-checkout__period, .plan-checkout__card { transition: none; } }
+
+/* Etiqueta do cabeçalho: o link ocupa a faixa inteira e a etiqueta mantém o encaixe sob o perfil. */
+.plan-topbar-account .plan-topbar-tag .plan-badge-link { display: block; width: 100%; pointer-events: auto; border-radius: 26px; }
+@media (max-width: 767px) { .app-topbar .plan-topbar-account .plan-topbar-tag .plan-badge-link { border-radius: 19px; } }
