@@ -121,7 +121,7 @@ def _pix_automatic(order: dict, customer: str, body: CheckoutRequest, price: dic
     next_charge = billing_events._add_months(datetime.now(BRT).date(), price["months"])
     created = asaas_client.create_pix_authorization({
         "frequency": PIX_FREQUENCY[price["cycle"]],
-        "contractId": order["id"],
+        "contractId": str(order["id"]).replace("-", ""),  # o Asaas aceita no máximo 35 caracteres (UUID tem 36)
         "startDate": next_charge.isoformat(),
         "value": value,
         "description": name,
