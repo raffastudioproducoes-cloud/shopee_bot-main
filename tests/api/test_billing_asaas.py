@@ -555,3 +555,37 @@ def test_plans_endpoint_reports_sandbox_flag(monkeypatch):
     assert TestClient(app).get("/billing/plans").json()["sandbox"] is True
     monkeypatch.setattr(settings, "asaas_api_url", "https://api.asaas.com/v3")
     assert TestClient(app).get("/billing/plans").json()["sandbox"] is False
+
+
+def _unbilled(monkeypatch, tier="premium", access="USER", testers="uc"):
+    monkeypatch.setattr(settings, "asaas_api_key", "$aact_test")
+    monkeypatch.setattr(settings, "asaas_api_url", "https://api-sandbox.asaas.com/v3")
+    monkeypatch.setattr(settings, "asaas_sandbox_testers", testers)
+    db = _Store({"users": [{"id": "uc", "plan_tier": tier, "access": access}]})
+    monkeypatch.setattr(database_module, "get_supabase", lambda: db)
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: "uc"
+    return db, TestClient(app)
+
+
+def test_cancel_unbilled_paid_plan_returns_to_free_now(monkeypatch):
+    db, client = _unbilled(monkeypatch)
+    try:
+        res = client.post("/billing/subscription/cancel")
+        assert res.status_code == 200
+        assert db.t["users"][0]["plan_tier"] == "free"
+        # sem plano pago, nada mais a cancelar
+        assert client.post("/billing/subscription/cancel").status_code == 404
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_cancel_unbilled_plan_never_touches_admin_free_or_non_testers(monkeypatch):
+    for kwargs, code, tier in [({"access": "ADMIN"}, 404, "premium"), ({"tier": "free"}, 404, "free"),
+                               ({"testers": "outra"}, 403, "premium")]:
+        db, client = _unbilled(monkeypatch, **kwargs)
+        try:
+            assert client.post("/billing/subscription/cancel").status_code == code
+            assert db.t["users"][0]["plan_tier"] == tier
+        finally:
+            app.dependency_overrides.clear()

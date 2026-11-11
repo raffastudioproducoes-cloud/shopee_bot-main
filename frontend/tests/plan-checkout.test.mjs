@@ -51,3 +51,11 @@ test("Planos mostra cancelamento sempre, guia de teste só no sandbox e a tabela
   assert.match(guide, /4539 6560 4839 2220/)
   assert.match(guide, /nada é cobrado de verdade/)
 })
+
+test("plano pago sem assinatura também pode ser cancelado (volta ao Free) e atualiza os limites", () => {
+  const card = readFileSync(new URL("../src/components/plans/SubscriptionCard.tsx", import.meta.url), "utf8")
+  assert.match(card, /const unbilled = !sub && paidAccount/)
+  assert.match(card, /unbilled && !confirming/)
+  assert.match(card, /invalidateQueries\(\{ queryKey: \["plan-usage"\] \}\)/)
+  assert.doesNotMatch(card, /<Button variant="ghost" disabled>Cancelar plano<\/Button>/)
+})

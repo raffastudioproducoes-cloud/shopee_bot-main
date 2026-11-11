@@ -123,6 +123,20 @@ def _set_plan(user_id: str, tier: str, reason: str) -> None:
     logger.info("Plano da conta alterado para %s (%s)", tier, reason)
 
 
+def cancel_unbilled_plan(user_id: str) -> bool:
+    """Titular cancela um plano pago que não tem assinatura (liberado pela equipe).
+
+    Não há período pago a preservar, então a conta volta ao Free agora. Contas ADMIN não têm plano.
+    Retorna False quando não há plano pago para cancelar.
+    """
+    rows = supabase.table("users").select("plan_tier,access").eq("id", user_id).limit(1).execute().data or []
+    row = rows[0] if rows else {}
+    if row.get("access") == "ADMIN" or row.get("plan_tier") not in ("pro", "plus", "premium"):
+        return False
+    _set_plan(user_id, "free", "cancelamento pelo titular (plano sem cobrança)")
+    return True
+
+
 def _update_subscription(sub: dict, **fields) -> None:
     fields["updated_at"] = _now().isoformat()
     supabase.table("billing_subscriptions").update(fields).eq("id", sub["id"]).execute()
