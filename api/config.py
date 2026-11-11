@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     # não gravar nada nos testes nem em quem roda a API localmente sem querer
     # auditoria; produção liga via env var REQUEST_LOGGING_ENABLED=true.
     request_logging_enabled: bool = False
+    # Cobrança Asaas. Sem chave a cobrança fica desligada (rotas respondem 503).
+    # Staging usa o sandbox; produção, a conta real (chaves diferentes).
+    asaas_api_key: str = ""
+    asaas_api_url: str = "https://api-sandbox.asaas.com/v3"
+    asaas_webhook_token: str = ""
+    asaas_user_agent: str = "AutoOrbital/1.0"
 
     model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
