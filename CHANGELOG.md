@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — etiqueta de plano no cabeçalho
+
+- A etiqueta Premium/Pro voltou a encaixar sob o cartão do perfil, igual à do ADMIN, mantendo as cores. O link para `/planos` passou a envolver a etiqueta e os seletores de CSS esperavam a etiqueta como filha direta do contêiner; agora valem também dentro do link.
+
 ### Added — cobrança com Asaas, fase 1 (base; ainda sem tela nem contratação)
 
 - **Planejamento:** [`docs/PAGAMENTOS-ASAAS-PLANO-20261110.md`](docs/PAGAMENTOS-ASAAS-PLANO-20261110.md) — Pro R$ 59,90 e Premium R$ 109,90 por mês; períodos mensal, 3 meses (−2,5%), 6 meses (−5%) e 1 ano (−15%), todos com renovação automática; cartão e Pix; 15 dias de tolerância; nota fiscal automática.
