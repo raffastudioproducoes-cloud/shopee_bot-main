@@ -6,10 +6,11 @@
 // Motivado por: ProductsPage (nome, ID Shopee, links, comissão, preço — text/url/number),
 // PostsPage (agendamento — datetime-local/time), CredentialsPage (APP ID/secret/token —
 // text/password), ListasPage e UsersPage (nome/usuário/senha).
-import { useState } from "react"
+import { useId, useState } from "react"
 import type { ChangeEvent, CSSProperties, InputHTMLAttributes } from "react"
 import { Icon } from "./Icon"
 import "./motion.css"
+import "./fieldMessage.css"
 
 /** Só data/hora ficam com o rótulo sempre no alto; campos com placeholder (ex.: CPF) mantêm o rótulo dentro até o foco, como os demais. Tipos cujo campo nativo já mostra algo (data/hora): o rótulo fica sempre no alto. */
 const ALWAYS_UP_TYPES = new Set(["date", "datetime-local", "time", "month", "week", "color", "file"])
@@ -38,6 +39,11 @@ export interface TextInputProps {
   inputStyle?: CSSProperties
   /** Lucide icon name (kebab-case), rendered inside the field on the left. */
   icon?: string
+  /** Mensagem de erro do campo (mostrada abaixo, em vermelho). */
+  error?: string | null
+  /** Ajuda fixa abaixo do campo (ex.: regra de preenchimento). */
+  hint?: string
+  onBlur?: () => void
 }
 
 /** Retangular text field with an Eyebrow-style label above it. */
@@ -64,7 +70,11 @@ export function TextInput({
   style,
   inputStyle,
   icon,
+  error,
+  hint,
+  onBlur,
 }: TextInputProps) {
+  const msgId = useId()
   const [hot, setHot] = useState(false)
   const [focused, setFocused] = useState(false)
   const [revealed, setRevealed] = useState(false)
@@ -105,7 +115,9 @@ export function TextInput({
           onMouseEnter={() => setHot(true)}
           onMouseLeave={() => setHot(false)}
           onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onBlur={() => { setFocused(false); onBlur?.() }}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error || hint ? msgId : undefined}
           className="ao-input"
           style={{
             width: "100%",
@@ -147,6 +159,8 @@ export function TextInput({
           </button>
         ) : null}
       </div>
+      {error ? <small id={msgId} role="alert" className="ao-field-msg ao-field-msg--error">{error}</small>
+        : hint ? <small id={msgId} className="ao-field-msg">{hint}</small> : null}
     </label>
   )
 }

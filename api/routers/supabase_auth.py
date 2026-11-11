@@ -51,6 +51,10 @@ def _auth_client():
     return create_client(settings.supabase_url, settings.supabase_auth_publishable_key)
 
 
+# Cadastro novo: domínio com ponto e TLD só de letras (rejeita "a@b", "a@b.c", "a@b.12").
+_SIGNUP_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)*\.[a-z]{2,}$")
+
+
 def _normalized_email(value: str) -> str:
     email = value.strip().lower()
     if len(email) > 254 or not _EMAIL_RE.fullmatch(email):
@@ -199,6 +203,8 @@ async def register_email(body: EmailRegistration, request: Request, response: Re
     await ensure_password_not_breached(body.password)
 
     email = _normalized_email(body.email)
+    if not _SIGNUP_EMAIL_RE.fullmatch(email):
+        raise HTTPException(422, "Informe um e-mail válido, como nome@exemplo.com.")
     db = get_supabase()
     if db.table("users").select("id").eq("username", username).limit(1).execute().data:
         raise HTTPException(409, "Nome de usuário já existe.")
