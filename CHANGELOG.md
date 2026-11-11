@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — página Planos e pagamento pronta para teste
+
+- **Cancelamento de plano** sempre visível em `/planos` (seção "Cancelamento de plano"): com assinatura aberta cancela a renovação (o plano segue até o fim do período pago); sem assinatura mostra o botão desativado explicando o motivo.
+- A tabela **Planos e limites** saiu de Configurações e foi para a página Planos e pagamento.
+- **Guia de teste** (`SandboxGuide`) exibido só quando o servidor informa `sandbox: true` em `GET /billing/plans`: cartões fictícios do Asaas, orientação de Pix e aviso de que nada é cobrado. Em produção não aparece.
+
 ### Changed — layout da tela de login
 
 - Desktop: a animação "Do caos à órbita" passou a ocupar 60% da largura (era 45%) e o formulário 40% (era 55%), alinhado perto da borda em degradê da animação. Antes os dois ficavam muito distantes. Mobile inalterado.

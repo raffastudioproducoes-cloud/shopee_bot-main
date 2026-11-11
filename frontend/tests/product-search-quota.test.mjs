@@ -57,10 +57,14 @@ test("a página de produtos mantém busca e direciona upgrade a planos", async (
   assert.doesNotMatch(source, /<PlanSummary/)
 })
 
-test("as cotas e avisos ficam na seção de planos de Configurações", async () => {
+test("as cotas e avisos ficam na página Planos e pagamento, não mais em Configurações", async () => {
   const source = await readFile(new URL("../src/components/plans/PlanComparison.tsx", import.meta.url), "utf8")
   assert.match(source, /id="planos"/)
-  for (const term of ["2.000", "500", "100", "Campanhas", "Assinar ou mudar de plano", "Premium"]) {
+  for (const term of ["2.000", "500", "100", "Campanhas", "Premium"]) {
     assert.ok(source.toLocaleLowerCase("pt-BR").includes(term.toLocaleLowerCase("pt-BR")))
   }
+  const planos = await readFile(new URL("../src/pages/PlanosPage.tsx", import.meta.url), "utf8")
+  assert.match(planos, /<PlanComparison \/>/)
+  const settings = await readFile(new URL("../src/pages/SettingsPage.tsx", import.meta.url), "utf8")
+  assert.doesNotMatch(settings, /PlanComparison/)
 })

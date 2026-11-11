@@ -44,6 +44,7 @@ class CheckoutRequest(BaseModel):
 async def list_plan_prices():
     """Preços calculados no servidor para Pro e Premium em cada período."""
     return {"currency": "BRL", "checkout_enabled": asaas_client.enabled(),
+            "sandbox": asaas_client.environment() == "sandbox",
             "prices": billing_pricing.price_table(supabase)}
 
 
