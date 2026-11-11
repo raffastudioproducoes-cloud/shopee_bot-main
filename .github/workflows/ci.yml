@@ -52,7 +52,9 @@ jobs:
 
   api:
     name: API Python (lint + testes)
-    runs-on: ubuntu-latest
+    # Fixado no 24.04: o ubuntu-latest virou 26.04 ("resolute"), cujo apt tenta variantes amd64v3
+    # que o mirror não serve e perde ~20 s por pacote ao instalar o FFmpeg (código 124).
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
