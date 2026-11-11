@@ -77,6 +77,8 @@ chave de produção, só com autorização dele.
 
 - **Segredos (Render, nunca no código nem no navegador):** `ASAAS_API_KEY`,
   `ASAAS_API_URL`, `ASAAS_WEBHOOK_TOKEN`. Staging = sandbox; produção = conta real.
+- **Trava do sandbox:** staging e produção dividem o banco; no sandbox só as contas em
+  `ASAAS_SANDBOX_TESTERS` (ids separados por vírgula) contratam e têm o plano alterado.
 - **Banco (migração aditiva, RLS sem acesso do navegador, só `service_role`):**
   - `plan_prices` — preço mensal por plano e desconto por período, editável pelo
     ADMIN com auditoria (o valor cobrado é sempre calculado no servidor).

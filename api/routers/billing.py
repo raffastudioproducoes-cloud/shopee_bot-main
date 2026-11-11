@@ -13,10 +13,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from .. import asaas_client, billing_pricing
+from .. import asaas_client, billing_events, billing_pricing
 from ..account_identity import purchase_readiness
 from ..config import settings
 from ..crypto import decrypt
@@ -47,7 +47,7 @@ async def list_plan_prices():
 
 
 @router.post("/webhook/asaas")
-async def asaas_webhook(request: Request):
+async def asaas_webhook(request: Request, background: BackgroundTasks):
     expected = settings.asaas_webhook_token or ""
     if not expected:
         raise HTTPException(status_code=503, detail="Webhook de cobrança não configurado")
@@ -76,6 +76,8 @@ async def asaas_webhook(request: Request):
         # Sem gravar não respondemos 200: o Asaas tenta de novo depois.
         logger.error("Falha ao gravar evento de cobrança: %s", type(exc).__name__)
         raise HTTPException(status_code=503, detail="Tente novamente") from None
+    # Aplica fora da resposta; o agendador repete o que falhar.
+    background.add_task(billing_events.run_billing_jobs)
     return {"received": True}
 
 
@@ -110,6 +112,8 @@ def create_checkout(body: CheckoutRequest, user_id: str = Depends(get_current_us
     if not asaas_client.enabled():
         raise HTTPException(503, "Contratação indisponível no momento.")
     env = asaas_client.environment()
+    if not asaas_client.may_bill(user_id):
+        raise HTTPException(403, "Contratação em fase de testes. Disponível em breve.")
     user = _one(supabase.table("users").select("id,email").eq("id", user_id).maybe_single().execute())
     if not user:
         raise HTTPException(404, "Conta não encontrada.")

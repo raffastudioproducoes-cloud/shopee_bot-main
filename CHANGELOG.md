@@ -19,6 +19,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **`POST /billing/checkout`:** exige login e dados da conta completos (nome, CPF, e-mail, celular), recusa segunda assinatura aberta e limita a 5 tentativas por hora. Cria (ou reaproveita) o cliente no Asaas e um checkout recorrente de 60 min, e devolve o link; o navegador vai para a página segura do Asaas. **Não altera o plano**: a ativação será feita pelo webhook (fase 3). Retorno mostra "aguardando confirmação", cancelado ou expirado.
 - Testes: +9 em `tests/api/test_billing_asaas.py`; `frontend/tests/plan-checkout.test.mjs` (4, no CI).
 
+### Added — cobrança com Asaas, fase 3 (ativação e baixa automática do plano)
+
+- **`api/billing_events.py`:** aplica os eventos gravados pelo webhook, em ordem de chegada e só do ambiente atual (sandbox ou produção). Pagamento confirmado ativa o plano até o fim do período pago; atraso mantém o plano por até **15 dias** e depois volta a Free; estorno ou chargeback voltam a Free na hora; assinatura cancelada mantém o plano até o fim do período pago. Só este módulo altera `users.plan_tier` por cobrança. Evento que falha para a fila (nada é aplicado fora de ordem) e é repetido até 8 vezes.
+- **Quando roda:** logo depois de cada aviso do Asaas e a cada 10 min no agendador (`billing_asaas`).
+- **Trava do sandbox:** como staging e produção dividem o banco, no sandbox só as contas listadas em `ASAAS_SANDBOX_TESTERS` podem contratar e ter o plano alterado.
+- **Pendente:** pausa de campanhas acima do limite no downgrade Premium→Pro (regra da política F4).
+- Testes: `tests/api/test_billing_events.py` (12) e +1 em `test_billing_asaas.py`.
+
 ## [3.15.0] - 2026-11-10
 
 ### Changed — logo v2 e animações mais suaves (aprovado por Rafa pela prévia)
