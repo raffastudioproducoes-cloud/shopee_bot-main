@@ -333,3 +333,60 @@ def test_sandbox_checkout_only_for_listed_testers(checkout, monkeypatch):
     assert client.post("/billing/checkout", json=BODY).status_code == 403 and not sent
     monkeypatch.setattr(settings, "asaas_api_url", "https://api.asaas.com/v3")
     assert client.post("/billing/checkout", json=BODY).status_code == 200
+
+
+# ---------- ADMIN: status e registro do webhook ----------
+@pytest.fixture
+def admin(monkeypatch):
+    monkeypatch.setattr(settings, "asaas_api_key", "$aact_test")
+    monkeypatch.setattr(settings, "asaas_webhook_token", TOKEN)
+    monkeypatch.setattr(settings, "frontend_url", "https://staging.example.com")
+    db = _DB(users=[{"id": "a1", "access": "ADMIN", "email": "admin@example.com"}])
+    monkeypatch.setattr(database_module, "get_supabase", lambda: db)
+    calls = []
+
+    def fake_request(method, path, **kw):
+        calls.append((method, path, kw))
+        if method == "GET":
+            return {"data": calls_existing}
+        return {"id": "wh_1"}
+    calls_existing = []
+    monkeypatch.setattr(asaas_client, "request", fake_request)
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: "a1"
+    yield TestClient(app), db, calls, calls_existing
+    app.dependency_overrides.clear()
+
+
+def test_admin_status_never_reveals_secrets(admin):
+    client, _db, _calls, _ex = admin
+    body = client.get("/admin/billing/status").json()
+    assert body["api_key_configured"] and body["webhook_token_configured"]
+    assert body["webhook_url"] == "https://staging.example.com/api/billing/webhook/asaas"
+    assert TOKEN not in str(body) and "aact" not in str(body)
+
+
+def test_admin_registers_webhook_with_server_token(admin):
+    client, _db, calls, _ex = admin
+    res = client.post("/admin/billing/webhook", json={})
+    assert res.status_code == 200 and res.json()["updated"] is False
+    method, path, kw = calls[-1]
+    assert (method, path) == ("POST", "/webhooks")
+    assert kw["json"]["authToken"] == TOKEN and kw["json"]["sendType"] == "SEQUENTIALLY"
+    assert "PAYMENT_CONFIRMED" in kw["json"]["events"] and kw["json"]["email"] == "admin@example.com"
+    assert TOKEN not in res.text
+
+
+def test_admin_updates_existing_webhook(admin):
+    client, _db, calls, existing = admin
+    existing.append({"id": "wh_9", "url": "https://staging.example.com/api/billing/webhook/asaas"})
+    assert client.post("/admin/billing/webhook", json={}).json()["updated"] is True
+    assert calls[-1][:2] == ("PUT", "/webhooks/wh_9")
+
+
+def test_billing_admin_routes_require_admin(admin):
+    client, db, calls, _ex = admin
+    db.rows["users"] = [{"id": "a1", "access": "USER"}]
+    assert client.get("/admin/billing/status").status_code == 403
+    assert client.post("/admin/billing/webhook", json={}).status_code == 403
+    assert not calls

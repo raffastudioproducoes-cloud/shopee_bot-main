@@ -23,7 +23,7 @@ test('área admin tem guarda própria e rejeita USER antes de carregar páginas'
   await assert.rejects(admin.beforeLoad, value => value.to === '/')
   role = 'ADMIN'
   await admin.beforeLoad()
-  for (const path of ['overview', 'users', 'logs', 'credentials']) {
+  for (const path of ['overview', 'users', 'logs', 'credentials', 'billing']) {
     assert.ok(routes.some(value => value.path === path && value.getParentRoute() === admin), `filha admin ausente: ${path}`)
   }
 })

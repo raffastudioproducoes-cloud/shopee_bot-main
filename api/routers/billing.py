@@ -173,3 +173,78 @@ def create_checkout(body: CheckoutRequest, user_id: str = Depends(get_current_us
         {"asaas_checkout_id": created["id"], "status": "active"}).eq("id", order["id"]).execute()
     return {"checkout_url": asaas_client.checkout_url(created["id"]),
             "expires_in_minutes": CHECKOUT_MINUTES, "value_cents": price["total_cents"]}
+
+
+# ---------- ADMIN: conferir configuração e registrar o webhook no Asaas ----------
+WEBHOOK_EVENTS = [
+    "CHECKOUT_PAID", "CHECKOUT_CANCELED", "CHECKOUT_EXPIRED",
+    "SUBSCRIPTION_CREATED", "SUBSCRIPTION_INACTIVATED", "SUBSCRIPTION_DELETED",
+    "PAYMENT_CREATED", "PAYMENT_UPDATED", "PAYMENT_CONFIRMED", "PAYMENT_RECEIVED", "PAYMENT_OVERDUE",
+    "PAYMENT_DELETED", "PAYMENT_RESTORED", "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED",
+    "PAYMENT_CHARGEBACK_REQUESTED", "PAYMENT_CHARGEBACK_DISPUTE",
+]
+
+
+def _require_admin_dep(user_id: str = Depends(get_current_user_id)) -> str:
+    from .users import _require_admin
+    return _require_admin(user_id)
+
+
+# Mesmo padrão da área /admin: tudo daqui exige ADMIN, separado das rotas de cliente.
+admin_router = APIRouter(prefix="/admin/billing", tags=["admin-billing"])
+
+
+def _webhook_url() -> str:
+    return settings.frontend_url.rstrip("/") + "/api/billing/webhook/asaas"
+
+
+def _registered_webhook() -> dict | None:
+    data = asaas_client.request("GET", "/webhooks", params={"limit": 20})
+    for hook in data.get("data") or []:
+        if hook.get("url") == _webhook_url():
+            return hook
+    return None
+
+
+@admin_router.get("/status")
+def billing_admin_status(_admin: str = Depends(_require_admin_dep)):
+    """Mostra o que está configurado, sem revelar nenhum segredo."""
+    status = {
+        "environment": asaas_client.environment(), "api_key_configured": asaas_client.enabled(),
+        "webhook_token_configured": bool(settings.asaas_webhook_token),
+        "sandbox_testers": len([t for t in (settings.asaas_sandbox_testers or "").split(",") if t.strip()]),
+        "webhook_url": _webhook_url(), "webhook": None,
+    }
+    if asaas_client.enabled():
+        try:
+            hook = _registered_webhook()
+            status["webhook"] = hook and {"id": hook.get("id"), "enabled": hook.get("enabled"),
+                                          "interrupted": hook.get("interrupted")}
+        except (asaas_client.AsaasUnavailable, asaas_client.AsaasError):
+            status["webhook"] = {"error": "Não foi possível consultar o Asaas."}
+    return status
+
+
+@admin_router.post("/webhook")
+def billing_admin_register_webhook(admin_id: str = Depends(_require_admin_dep)):
+    """Cria (ou atualiza) o webhook desta instalação no Asaas com o token do servidor."""
+    if not asaas_client.enabled() or not settings.asaas_webhook_token:
+        raise HTTPException(503, "Configure ASAAS_API_KEY e ASAAS_WEBHOOK_TOKEN no Render primeiro.")
+    admin = _one(supabase.table("users").select("email").eq("id", admin_id).maybe_single().execute()) or {}
+    body = {
+        "name": f"Auto Orbital ({asaas_client.environment()})", "url": _webhook_url(),
+        "enabled": True, "interrupted": False, "apiVersion": 3,
+        "authToken": settings.asaas_webhook_token, "sendType": "SEQUENTIALLY", "events": WEBHOOK_EVENTS,
+    }
+    if admin.get("email"):
+        body["email"] = admin["email"]  # avisos de falha do próprio Asaas para o ADMIN
+    try:
+        existing = _registered_webhook()
+        hook = (asaas_client.request("PUT", f"/webhooks/{existing['id']}", json=body) if existing
+                else asaas_client.request("POST", "/webhooks", json=body))
+    except asaas_client.AsaasUnavailable:
+        raise HTTPException(503, "Asaas indisponível. Tente novamente.") from None
+    except asaas_client.AsaasError as exc:
+        raise HTTPException(422, {"message": "O Asaas recusou o webhook.", "details": exc.messages[:3]}) from None
+    return {"id": hook.get("id"), "url": _webhook_url(), "updated": bool(existing),
+            "events": len(WEBHOOK_EVENTS)}

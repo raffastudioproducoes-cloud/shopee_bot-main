@@ -33,3 +33,8 @@
 .plan-checkout__error a { color: inherit; text-decoration: underline; }
 .plan-checkout__fine { margin: 14px 0 0; color: var(--text-secondary, #b1b7c5); font-size: 12.5px; line-height: 1.55; }
 @media (prefers-reduced-motion: reduce) { .plan-checkout__period { transition: none; } }
+.billing-admin__grid { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 14px; font-size: 14px; }
+.billing-admin__grid dt { color: var(--text-secondary, #b1b7c5); }
+.billing-admin__grid dd { margin: 0; }
+.billing-admin h3 { margin: 0 0 14px; font-size: 18px; }
+.billing-admin button { margin-bottom: 8px; }

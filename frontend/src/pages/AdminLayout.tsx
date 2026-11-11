@@ -17,6 +17,7 @@ const sections = [
   { to: '/admin/users', label: 'Usuários', icon: 'users' },
   { to: '/admin/logs', label: 'Logs', icon: 'scroll-text' },
   { to: '/admin/credentials', label: 'Diagnóstico', icon: 'key-round' },
+  { to: '/admin/billing', label: 'Cobrança', icon: 'credit-card' },
 ] as const
 
 export function AdminLayout() {

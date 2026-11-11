@@ -52,7 +52,9 @@ jobs:
 
   api:
     name: API Python (lint + testes)
-    runs-on: ubuntu-latest
+    # Fixado no 24.04: o ubuntu-latest virou 26.04 ("resolute"), cujo apt tenta variantes amd64v3
+    # que o mirror não serve e perde ~20 s por pacote ao instalar o FFmpeg (código 124).
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -66,6 +68,9 @@ jobs:
             # Preferir o mirror oficial e limitar cada tentativa sem remover testes de vídeo.
             if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
               sudo sed -i 's#http://azure.archive.ubuntu.com/ubuntu/#http://archive.ubuntu.com/ubuntu/#g' /etc/apt/sources.list.d/ubuntu.sources
+              # Runners novos listam os mirrors em um arquivo (mirror+file:); o sed acima não pega.
+              sudo sed -i 's#mirror+file:/etc/apt/apt-mirrors.txt#http://archive.ubuntu.com/ubuntu/#g' /etc/apt/sources.list.d/ubuntu.sources
+              sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=25 update
             fi
             timeout 360s sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=25 install -y --no-install-recommends ffmpeg
             ffmpeg -version
@@ -140,7 +145,7 @@ jobs:
 
       # Mantém os contratos de calendário/weekday e acesso ao plano no gate frontend.
       - name: Contratos de rotas, login e piloto visual da landing
-        run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs tests/presentation-page.test.mjs tests/motion-ux.test.mjs tests/undo-float-slide.test.mjs tests/brand-code-logo.test.mjs tests/pwa-brand.test.mjs tests/loadings.test.mjs tests/skeleton-guard.test.mjs tests/menu-groups.test.mjs tests/login-orbit-scene.test.mjs tests/plan-tags.test.mjs tests/count-ease-and-nav.test.mjs tests/posts-composer.test.mjs tests/form-drafts.test.mjs tests/campaign-snapshots.test.mjs tests/campaign-networks-checkboxes.test.mjs tests/campaign-schedule.test.mjs tests/plan-access.test.mjs tests/account-identity.test.mjs tests/profiles-identity-only.test.mjs tests/plan-checkout.test.mjs
+        run: node --test tests/landing-entry-routing.test.mjs tests/landing-share-metadata.test.mjs tests/support-username-login.test.mjs tests/landing-orbital-pilot.test.mjs tests/presentation-page.test.mjs tests/motion-ux.test.mjs tests/undo-float-slide.test.mjs tests/brand-code-logo.test.mjs tests/pwa-brand.test.mjs tests/loadings.test.mjs tests/skeleton-guard.test.mjs tests/menu-groups.test.mjs tests/login-orbit-scene.test.mjs tests/plan-tags.test.mjs tests/count-ease-and-nav.test.mjs tests/posts-composer.test.mjs tests/form-drafts.test.mjs tests/campaign-snapshots.test.mjs tests/campaign-networks-checkboxes.test.mjs tests/campaign-schedule.test.mjs tests/plan-access.test.mjs tests/account-identity.test.mjs tests/profiles-identity-only.test.mjs tests/plan-checkout.test.mjs tests/admin-billing.test.mjs
 
       - name: Ordenação de Listas e buscas contextuais (Node 20)
         run: node --test tests/posts-history-pagination.test.mjs tests/lists-sort.test.mjs tests/scoped-page-search.test.mjs tests/products-topbar-tab.test.mjs tests/products-topbar-search.test.mjs tests/product-media-upload-progress.test.mjs tests/campaign-product-media-selector.test.mjs
