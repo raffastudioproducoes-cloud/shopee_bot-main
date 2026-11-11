@@ -146,7 +146,8 @@ export function PlanCheckout({ initialTier, initialPeriod, currentTier, hasSubsc
           e contrate o novo plano em seguida.</p>}
       </div>
 
-      {pix && <PixAutomaticPanel pix={pix} period={period} onClose={() => setPix(null)} />}
+      {pix && <PixAutomaticPanel pix={pix} period={period} onClose={() => setPix(null)}
+        onRetry={() => { setPix(null); checkout.mutate() }} retrying={checkout.isPending} />}
 
       {error && <p className="plan-checkout__error" role="alert">{error.message}
         {needsProfile && <> <Link to="/profiles">Completar dados da conta</Link></>}</p>}

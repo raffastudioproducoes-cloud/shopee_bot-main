@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — cronômetro no QR Code do Pix
+
+- O QR Code do Pix Automático mostra o tempo restante (regressivo, destaca nos últimos 5 minutos) e, ao expirar, oferece "Gerar novo QR Code". A API devolve `expires_in_seconds` (3600). O tempo de validade em si não mudou (não testei se o Asaas aceita mais de 1 hora).
+
 ### Fixed — Pix Automático: identificador do contrato
 
 - O Asaas limita o `contractId` da autorização a 35 caracteres; o UUID do pedido tem 36. Agora vai sem hífens (32).

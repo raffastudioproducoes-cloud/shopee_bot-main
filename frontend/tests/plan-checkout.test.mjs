@@ -71,3 +71,14 @@ test("Pix usa o QR Code do Pix Automático no próprio site (não o checkout rec
   assert.match(panel, /refetchInterval/)
   assert.match(panel, /invalidateQueries\(\{ queryKey: \["plan-usage"\] \}\)/)
 })
+
+test("QR do Pix tem cronômetro regressivo e, ao expirar, oferece gerar outro", () => {
+  const panel = readFileSync(new URL("../src/components/plans/PixAutomaticPanel.tsx", import.meta.url), "utf8")
+  assert.match(panel, /useCountdown\(pix\.expires_in_seconds\)/)
+  assert.match(panel, /role="timer"/)
+  assert.match(panel, /Tempo restante para pagar/)
+  assert.match(panel, /Este QR Code expirou/)
+  assert.match(panel, /Gerar novo QR Code/)
+  const checkout = readFileSync(new URL("../src/components/plans/PlanCheckout.tsx", import.meta.url), "utf8")
+  assert.match(checkout, /onRetry=\{\(\) => \{ setPix\(null\); checkout\.mutate\(\) \}\}/)
+})

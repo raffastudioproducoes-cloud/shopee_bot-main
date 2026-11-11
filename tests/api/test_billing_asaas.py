@@ -315,6 +315,7 @@ def test_pix_uses_automatic_authorization_not_checkout(checkout):
     out = res.json()
     assert out["pix"]["payload"] == "000201PIXCOPIAECOLA" and out["pix"]["image_base64"] == "QUJD"
     assert "checkout_url" not in out and out["value_cents"] == 61098
+    assert out["pix"]["expires_in_seconds"] == 3600
     assert ("billing_checkouts", "update", {"asaas_checkout_id": "auth_1", "status": "active"}, {"id": "order-1"}) in db.calls
 
 

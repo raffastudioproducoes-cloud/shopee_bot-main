@@ -177,7 +177,8 @@ def create_checkout(body: CheckoutRequest, user_id: str = Depends(get_current_us
             pix = _pix_automatic(order, customer, body, price)
             supabase.table("billing_checkouts").update(
                 {"asaas_checkout_id": pix["id"], "status": "active"}).eq("id", order["id"]).execute()
-            return {"pix": {k: pix[k] for k in ("payload", "image_base64", "expires_at", "next_charge")},
+            return {"pix": {**{k: pix[k] for k in ("payload", "image_base64", "expires_at", "next_charge")},
+                            "expires_in_seconds": PIX_QR_SECONDS},
                     "expires_in_minutes": PIX_QR_SECONDS // 60, "value_cents": price["total_cents"]}
         created = asaas_client.create_checkout({
             "customer": customer,
