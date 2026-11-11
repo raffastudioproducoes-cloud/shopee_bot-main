@@ -1,5 +1,6 @@
 import { usePlanUsage } from "../../hooks/usePlanUsage"
 import { accountPlanLabel } from "../../lib/planPresentation"
+import { PlanCheckout } from "./PlanCheckout"
 import { PlanTag } from "./PlanTag"
 import "./planComparison.css"
 
@@ -59,10 +60,13 @@ export function PlanComparison() {
         *Campanhas sujeitas aos limites de duração, ritmo e disponibilidade do serviço.
         Regras de segurança e das redes sociais continuam válidas para todos os planos.
       </p>
-      <p className="plan-comparison__note">
-        A contratação e a mudança de plano ainda não estão disponíveis neste painel.
-        O plano Administrador não possui cota comercial, mas segue os limites operacionais.
-      </p>
+      {data?.is_admin ? (
+        <p className="plan-comparison__note">
+          O plano Administrador não possui cota comercial, mas segue os limites operacionais.
+        </p>
+      ) : (
+        <PlanCheckout currentTier={data?.plan_tier === "plus" ? "pro" : data?.plan_tier} />
+      )}
     </section>
   )
 }

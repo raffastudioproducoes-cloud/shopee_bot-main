@@ -22,7 +22,7 @@ export function UpgradeInfo({ feature }: { feature?: string }) {
       onClick={() => setOpen((value) => !value)}>Conhecer planos e upgrade</button>
     {open && <div id={id} className="plan-info" role="status">
       <strong>{feature ? `${feature}: consulte as opções do plano` : "Planos Free, Pro e Premium"}</strong>
-      <p>Contratação e alteração de plano ainda não estão disponíveis. Não há cobrança ou checkout nesta tela.</p>
+      <p>Para assinar o Pro ou o Premium, vá em Configurações › Planos e limites.</p>
       <p>Campanhas são previstas para Pro e Premium; automação é prevista para Premium.
         Ativação de campanhas e automação ainda estão indisponíveis em todos os planos.
         Limites das redes, conexão e segurança continuam obrigatórios.</p>

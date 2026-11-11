@@ -169,3 +169,158 @@ def test_migration_keeps_billing_tables_out_of_the_browser():
     assert "('pro', 5990), ('premium', 10990)" in sql
     assert "('yearly', 12, 'YEARLY', 1500)" in sql
     assert "DROP TABLE" not in sql.upper() and "DELETE FROM" not in sql.upper()
+
+
+# ---------- fase 2: criação do checkout ----------
+from api.crypto import encrypt  # noqa: E402
+from api.routers import billing as billing_router  # noqa: E402
+from api.routers.auth import get_current_user_id  # noqa: E402
+
+
+class _Q:
+    def __init__(self, db, name):
+        self.db, self.name, self.op, self.payload, self.filters = db, name, "select", None, {}
+
+    def select(self, *_a, **_k):
+        return self
+
+    def insert(self, payload):
+        self.op, self.payload = "insert", payload; return self
+
+    def update(self, payload):
+        self.op, self.payload = "update", payload; return self
+
+    def upsert(self, payload, **_k):
+        self.op, self.payload = "upsert", payload; return self
+
+    def eq(self, col, val):
+        self.filters[col] = val; return self
+
+    def in_(self, col, vals):
+        self.filters[col] = tuple(vals); return self
+
+    def gte(self, *_a):
+        return self
+
+    def limit(self, *_a):
+        return self
+
+    def maybe_single(self):
+        self.single = True; return self
+
+    def execute(self):
+        self.db.calls.append((self.name, self.op, self.payload, dict(self.filters)))
+        if self.op == "insert":
+            return MagicMock(data=[{"id": "order-1", **self.payload}])
+        if self.op != "select":
+            return MagicMock(data=[self.payload])
+        rows = self.db.rows.get(self.name)
+        if getattr(self, "single", False):
+            return MagicMock(data=rows[0] if rows else None)
+        return MagicMock(data=rows or [])
+
+
+class _DB:
+    def __init__(self, **rows):
+        self.rows, self.calls = rows, []
+
+    def table(self, name):
+        return _Q(self, name)
+
+
+IDENTITY = {"full_name": "Maria Teste", "cpf_ciphertext": encrypt("52998224725"),
+            "mobile_phone": "+5511987654321"}
+
+
+@pytest.fixture
+def checkout(monkeypatch):
+    monkeypatch.setattr(settings, "asaas_api_key", "$aact_test")
+    monkeypatch.setattr(settings, "asaas_api_url", "https://api-sandbox.asaas.com/v3")
+    db = _DB(users=[{"id": "u1", "email": "m@example.com"}], account_billing_identity=[IDENTITY])
+    monkeypatch.setattr(database_module, "get_supabase", lambda: db)
+    sent = []
+    monkeypatch.setattr(asaas_client, "create_customer", lambda **kw: sent.append(("customer", kw)) or {"id": "cus_1"})
+    monkeypatch.setattr(asaas_client, "create_checkout", lambda body: sent.append(("checkout", body)) or {"id": "chk_1"})
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: "u1"
+    yield TestClient(app), db, sent
+    app.dependency_overrides.clear()
+
+
+BODY = {"tier": "pro", "period": "yearly", "billing_type": "CREDIT_CARD"}
+
+
+def test_checkout_creates_customer_and_recurrent_checkout(checkout):
+    client, db, sent = checkout
+    res = client.post("/billing/checkout", json=BODY)
+    assert res.status_code == 200, res.text
+    assert res.json()["checkout_url"].endswith("checkoutSession/show?id=chk_1")
+    assert res.json()["value_cents"] == 61098
+    customer = sent[0][1]
+    assert customer["cpf_cnpj"] == "52998224725" and customer["mobile_phone"] == "11987654321"
+    body = sent[1][1]
+    assert body["customer"] == "cus_1" and body["chargeTypes"] == ["RECURRENT"]
+    assert body["billingTypes"] == ["CREDIT_CARD"] and body["externalReference"] == "order-1"
+    assert body["subscription"]["cycle"] == "YEARLY"
+    assert body["items"][0]["value"] == 610.98
+    # Plano nunca é alterado aqui.
+    assert not any(name == "users" and op != "select" for name, op, *_ in db.calls)
+    assert ("billing_checkouts", "update", {"asaas_checkout_id": "chk_1", "status": "active"},
+            {"id": "order-1"}) in db.calls
+
+
+def test_checkout_requires_complete_identity(checkout):
+    client, db, sent = checkout
+    db.rows["account_billing_identity"] = [{"full_name": "Maria Teste"}]
+    res = client.post("/billing/checkout", json=BODY)
+    assert res.status_code == 422
+    assert "CPF" in res.json()["detail"]["missing"] and not sent
+
+
+def test_checkout_blocks_second_subscription(checkout):
+    client, db, sent = checkout
+    db.rows["billing_subscriptions"] = [{"id": "s1"}]
+    assert client.post("/billing/checkout", json=BODY).status_code == 409 and not sent
+
+
+def test_checkout_rejects_unknown_period_and_free(checkout):
+    client, _db, sent = checkout
+    assert client.post("/billing/checkout", json={**BODY, "period": "ninemonths"}).status_code == 422
+    assert client.post("/billing/checkout", json={**BODY, "tier": "free"}).status_code == 422
+    assert not sent
+
+
+def test_checkout_reuses_existing_customer(checkout):
+    client, db, sent = checkout
+    db.rows["billing_customers"] = [{"asaas_customer_id": "cus_old"}]
+    assert client.post("/billing/checkout", json={**BODY, "billing_type": "PIX"}).status_code == 200
+    assert [k for k, _ in sent] == ["checkout"] and sent[0][1]["customer"] == "cus_old"
+    assert sent[0][1]["billingTypes"] == ["PIX"]
+
+
+def test_checkout_disabled_without_key(checkout, monkeypatch):
+    client, _db, sent = checkout
+    monkeypatch.setattr(settings, "asaas_api_key", "")
+    assert client.post("/billing/checkout", json=BODY).status_code == 503 and not sent
+
+
+def test_checkout_asaas_refusal_marks_order_failed(checkout, monkeypatch):
+    client, db, _sent = checkout
+
+    def refuse(body):
+        raise asaas_client.AsaasError(400, ["Cliente inválido"])
+    monkeypatch.setattr(asaas_client, "create_checkout", refuse)
+    res = client.post("/billing/checkout", json=BODY)
+    assert res.status_code == 422 and res.json()["detail"]["details"] == ["Cliente inválido"]
+    assert ("billing_checkouts", "update", {"status": "failed"}, {"id": "order-1"}) in db.calls
+
+
+def test_checkout_requires_login():
+    app.dependency_overrides.clear()
+    assert TestClient(app).post("/billing/checkout", json=BODY).status_code == 401
+
+
+def test_checkout_rate_limited(checkout):
+    client, db, sent = checkout
+    db.rows["billing_checkouts"] = [{"id": i} for i in range(billing_router.MAX_CHECKOUTS_PER_HOUR)]
+    assert client.post("/billing/checkout", json=BODY).status_code == 429 and not sent

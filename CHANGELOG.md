@@ -13,6 +13,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - **Desligado por padrão:** sem `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` no Render, a cobrança não faz nada (503). Nenhum plano é alterado nesta fase.
 - Testes: `tests/api/test_billing_asaas.py` (14).
 
+### Added — cobrança com Asaas, fase 2 (tela de planos e contratação)
+
+- **Configurações › Planos e limites:** seletor de período (mensal, 3 meses −2,5%, 6 meses −5%, 1 ano −15%), cartões Pro e Premium com preço por mês, total do ciclo e economia, escolha entre cartão e Pix e botão "Assinar". Preços vêm de `GET /billing/plans`. ADMIN não vê a contratação.
+- **`POST /billing/checkout`:** exige login e dados da conta completos (nome, CPF, e-mail, celular), recusa segunda assinatura aberta e limita a 5 tentativas por hora. Cria (ou reaproveita) o cliente no Asaas e um checkout recorrente de 60 min, e devolve o link; o navegador vai para a página segura do Asaas. **Não altera o plano**: a ativação será feita pelo webhook (fase 3). Retorno mostra "aguardando confirmação", cancelado ou expirado.
+- Testes: +9 em `tests/api/test_billing_asaas.py`; `frontend/tests/plan-checkout.test.mjs` (4, no CI).
+
 ## [3.15.0] - 2026-11-10
 
 ### Changed — logo v2 e animações mais suaves (aprovado por Rafa pela prévia)
