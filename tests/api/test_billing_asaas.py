@@ -310,7 +310,8 @@ def test_pix_uses_automatic_authorization_not_checkout(checkout):
     body = sent[1][1]
     assert body["frequency"] == "ANNUALLY" and body["paymentCreationMode"] == "SUBSCRIPTION"
     assert body["value"] == 610.98 and body["immediateQrCode"]["originalValue"] == 610.98
-    assert body["customerId"] == "cus_1" and body["contractId"] == "order-1"
+    assert body["customerId"] == "cus_1" and body["contractId"] == "order1"
+    assert len(body["contractId"]) <= 35
     out = res.json()
     assert out["pix"]["payload"] == "000201PIXCOPIAECOLA" and out["pix"]["image_base64"] == "QUJD"
     assert "checkout_url" not in out and out["value_cents"] == 61098
@@ -626,3 +627,30 @@ def test_cancel_unbilled_plan_never_touches_admin_free_or_non_testers(monkeypatc
             assert db.t["users"][0]["plan_tier"] == tier
         finally:
             app.dependency_overrides.clear()
+
+
+def test_pix_contract_id_fits_asaas_limit_with_real_uuid(checkout):
+    client, db, sent = checkout
+    real = "2e895580-b2ac-4254-83ce-f465e77918c1"
+    original = db.table
+    db.table = lambda name: _with_id(original(name), real) if name == "billing_checkouts" else original(name)
+    assert client.post("/billing/checkout", json={**BODY, "billing_type": "PIX"}).status_code == 200
+    assert sent[1][1]["contractId"] == real.replace("-", "") and len(sent[1][1]["contractId"]) == 32
+
+
+def _with_id(query, order_id):
+    insert = query.insert
+
+    def patched(payload):
+        q = insert(payload)
+        execute = q.execute
+        q.execute = lambda: _swap(execute(), order_id)
+        return q
+    query.insert = patched
+    return query
+
+
+def _swap(result, order_id):
+    if result.data:
+        result.data[0]["id"] = order_id
+    return result

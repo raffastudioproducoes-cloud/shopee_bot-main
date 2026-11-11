@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — Pix Automático: identificador do contrato
+
+- O Asaas limita o `contractId` da autorização a 35 caracteres; o UUID do pedido tem 36. Agora vai sem hífens (32).
+
 ### Changed — Pix com Pix Automático (decisão de Rafa, 11/11/2026)
 
 - O checkout recorrente do Asaas só aceita cartão (o Asaas recusa `PIX` com `RECURRENT`). O Pix agora usa o **Pix Automático**: `POST /billing/checkout` com `billing_type=PIX` cria uma autorização (`/pix/automatic/authorizations`, frequência mensal/trimestral/semestral/anual conforme o período, cobranças geradas por assinatura) e devolve o QR Code, mostrado na própria página `/planos` com "copia e cola". O QR paga o período inteiro e autoriza os débitos seguintes; a próxima cobrança sai sozinha na data.
