@@ -217,3 +217,61 @@ def test_jobs_do_nothing_without_key(db, monkeypatch):
 def test_add_months_handles_month_end():
     assert billing_events._add_months(date(2026, 1, 31), 1) == date(2026, 2, 28)
     assert billing_events._add_months(date(2026, 11, 11), 12) == date(2027, 11, 11)
+
+
+# ---------- Pix Automático ----------
+def _pix_order(db, status="active"):
+    db.t["billing_checkouts"][0].update(billing_type="PIX", asaas_checkout_id="auth_1", status=status)
+
+
+def _auth(event, **extra):
+    return {"authorization": {"id": "auth_1", "status": event.rsplit("_", 1)[-1], "customerId": "cus_1", **extra}}
+
+
+def test_pix_automatic_activation_pays_first_period_and_sets_plan(db, monkeypatch):
+    _pix_order(db)
+    monkeypatch.setattr(billing_events.asaas_client, "get_pix_authorization",
+                        lambda _id: {"subscriptionId": "sub_pix"})
+    _apply("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED",
+           _auth("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED"))
+    assert db.t["billing_checkouts"][0]["status"] == "paid"
+    sub = db.sub()
+    assert sub["asaas_subscription_id"] == "sub_pix" and sub["billing_type"] == "PIX" and sub["status"] == "active"
+    assert sub["tier"] == "premium" and sub["current_period_end"] == billing_events._add_months(
+        billing_events._now().date(), 3).isoformat()
+    assert db.plan() == "premium"
+
+
+def test_pix_activation_without_subscription_id_uses_marker_then_next_charge_adopts_it(db, monkeypatch):
+    _pix_order(db)
+    monkeypatch.setattr(billing_events.asaas_client, "get_pix_authorization", lambda _id: {})
+    _apply("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED",
+           _auth("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED"))
+    assert db.sub()["asaas_subscription_id"] == "pixauto:auth_1"
+    event = _pay("PAYMENT_CONFIRMED")
+    event["payment"]["billingType"] = "PIX"
+    _apply("PAYMENT_CONFIRMED", event)
+    assert len(db.t["billing_subscriptions"]) == 1 and db.sub()["asaas_subscription_id"] == "sub_1"
+
+
+def test_pix_refused_or_expired_before_payment_never_activates(db):
+    _pix_order(db)
+    _apply("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_REFUSED", _auth("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_REFUSED"))
+    assert db.t["billing_checkouts"][0]["status"] == "expired" and db.plan() == "free"
+    assert "billing_subscriptions" not in db.t or not db.t["billing_subscriptions"]
+
+
+def test_pix_cancelled_by_payer_keeps_paid_period_and_stops_renewal(db, monkeypatch):
+    _pix_order(db)
+    monkeypatch.setattr(billing_events.asaas_client, "get_pix_authorization", lambda _id: {"subscriptionId": "sub_pix"})
+    _apply("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED",
+           _auth("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED"))
+    _apply("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_CANCELLED",
+           _auth("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_CANCELLED", cancellationReason="PAYER_REQUESTED"))
+    assert db.sub()["status"] == "canceled" and db.plan() == "premium"  # plano até o fim do período pago
+
+
+def test_pix_event_for_unknown_authorization_is_ignored(db):
+    _apply("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED",
+           {"authorization": {"id": "desconhecida"}})
+    assert db.plan() == "free" and not db.t.get("billing_subscriptions")

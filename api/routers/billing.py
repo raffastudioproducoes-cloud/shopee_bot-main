@@ -105,6 +105,36 @@ def _customer_id(user_id: str, user: dict, identity: dict, env: str) -> str:
     return created["id"]
 
 
+PIX_FREQUENCY = {"MONTHLY": "MONTHLY", "QUARTERLY": "QUARTERLY", "SEMIANNUALLY": "SEMIANNUALLY",
+                 "YEARLY": "ANNUALLY"}
+PIX_QR_SECONDS = 3600
+
+
+def _pix_automatic(order: dict, customer: str, body: CheckoutRequest, price: dict) -> dict:
+    """Cria a autorização do Pix Automático e devolve o QR Code do 1º pagamento.
+
+    O QR paga o período inteiro agora e registra a autorização no banco do cliente; os próximos
+    períodos são cobrados pelo Asaas na data (mensal, 3 meses, 6 meses ou 1 ano), sem o cliente fazer nada.
+    """
+    value = price["total_cents"] / 100
+    name = f"Auto Orbital {TIER_NAMES[body.tier]} · {PERIOD_NAMES[body.period]}"
+    next_charge = billing_events._add_months(datetime.now(BRT).date(), price["months"])
+    created = asaas_client.create_pix_authorization({
+        "frequency": PIX_FREQUENCY[price["cycle"]],
+        "contractId": order["id"],
+        "startDate": next_charge.isoformat(),
+        "value": value,
+        "description": name,
+        "customerId": customer,
+        "paymentCreationMode": "SUBSCRIPTION",
+        "immediateQrCode": {"expirationSeconds": PIX_QR_SECONDS, "originalValue": value, "description": name},
+    })
+    qr = created.get("immediateQrCode") or {}
+    return {"id": created["id"], "payload": created.get("payload"),
+            "image_base64": created.get("encodedImage"), "expires_at": qr.get("expirationDate"),
+            "next_charge": next_charge.isoformat()}
+
+
 @router.post("/checkout")
 def create_checkout(body: CheckoutRequest, user_id: str = Depends(get_current_user_id)):
     """Cria o checkout recorrente do Asaas e devolve o link de pagamento.
@@ -143,6 +173,12 @@ def create_checkout(body: CheckoutRequest, user_id: str = Depends(get_current_us
     base = settings.frontend_url.rstrip("/")
     try:
         customer = _customer_id(user_id, user, identity, env)
+        if body.billing_type == "PIX":
+            pix = _pix_automatic(order, customer, body, price)
+            supabase.table("billing_checkouts").update(
+                {"asaas_checkout_id": pix["id"], "status": "active"}).eq("id", order["id"]).execute()
+            return {"pix": {k: pix[k] for k in ("payload", "image_base64", "expires_at", "next_charge")},
+                    "expires_in_minutes": PIX_QR_SECONDS // 60, "value_cents": price["total_cents"]}
         created = asaas_client.create_checkout({
             "customer": customer,
             "billingTypes": [body.billing_type],
@@ -212,6 +248,19 @@ def my_subscription(user_id: str = Depends(get_current_user_id)):
     return {"subscription": sub, "payments": payments}
 
 
+def _cancel_pix_authorization(user_id: str, env: str) -> None:
+    """Revoga a autorização do Pix Automático para não haver novo débito. Falha aqui não impede o cancelamento."""
+    orders = (supabase.table("billing_checkouts").select("asaas_checkout_id").eq("user_id", user_id)
+              .eq("environment", env).eq("billing_type", "PIX").eq("status", "paid")
+              .order("created_at", desc=True).limit(1).execute().data) or []
+    if not orders or not orders[0].get("asaas_checkout_id"):
+        return
+    try:
+        asaas_client.cancel_pix_authorization(orders[0]["asaas_checkout_id"])
+    except asaas_client.AsaasError as exc:
+        logger.warning("Autorização Pix Automático não cancelada no Asaas (%s)", exc.status)
+
+
 @router.post("/subscription/cancel")
 def cancel_my_subscription(user_id: str = Depends(get_current_user_id)):
     """Encerra a renovação. O plano segue até o fim do período já pago (regra de Rafa).
@@ -221,7 +270,7 @@ def cancel_my_subscription(user_id: str = Depends(get_current_user_id)):
     if not asaas_client.may_bill(user_id):
         raise HTTPException(403, "Cobrança em fase de testes.")
     env = asaas_client.environment()
-    found = (supabase.table("billing_subscriptions").select("id,asaas_subscription_id")
+    found = (supabase.table("billing_subscriptions").select("id,asaas_subscription_id,billing_type")
              .eq("user_id", user_id).eq("environment", env)
              .in_("status", ["pending", "active", "overdue"]).limit(1).execute().data) or []
     if not found:
@@ -231,7 +280,10 @@ def cancel_my_subscription(user_id: str = Depends(get_current_user_id)):
     if not asaas_client.enabled():
         raise HTTPException(503, "Cobrança indisponível no momento.")
     try:
-        asaas_client.request("DELETE", f"/subscriptions/{found[0]['asaas_subscription_id']}")
+        if not str(found[0]["asaas_subscription_id"]).startswith("pixauto:"):
+            asaas_client.request("DELETE", f"/subscriptions/{found[0]['asaas_subscription_id']}")
+        if found[0].get("billing_type") == "PIX":
+            _cancel_pix_authorization(user_id, env)
     except asaas_client.AsaasError as exc:
         if exc.status != 404:  # já removida no Asaas: só falta refletir aqui
             raise HTTPException(422, "O Asaas não conseguiu cancelar agora. Tente novamente.") from None
@@ -250,6 +302,9 @@ WEBHOOK_EVENTS = [
     "PAYMENT_CREATED", "PAYMENT_UPDATED", "PAYMENT_CONFIRMED", "PAYMENT_RECEIVED", "PAYMENT_OVERDUE",
     "PAYMENT_DELETED", "PAYMENT_RESTORED", "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED",
     "PAYMENT_CHARGEBACK_REQUESTED", "PAYMENT_CHARGEBACK_DISPUTE",
+    "PIX_AUTOMATIC_RECURRING_AUTHORIZATION_CREATED", "PIX_AUTOMATIC_RECURRING_AUTHORIZATION_ACTIVATED",
+    "PIX_AUTOMATIC_RECURRING_AUTHORIZATION_CANCELLED", "PIX_AUTOMATIC_RECURRING_AUTHORIZATION_EXPIRED",
+    "PIX_AUTOMATIC_RECURRING_AUTHORIZATION_REFUSED", "PIX_AUTOMATIC_RECURRING_PAYMENT_INSTRUCTION_REFUSED",
 ]
 
 

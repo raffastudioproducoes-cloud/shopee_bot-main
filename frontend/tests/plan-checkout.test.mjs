@@ -59,3 +59,15 @@ test("plano pago sem assinatura também pode ser cancelado (volta ao Free) e atu
   assert.match(card, /invalidateQueries\(\{ queryKey: \["plan-usage"\] \}\)/)
   assert.doesNotMatch(card, /<Button variant="ghost" disabled>Cancelar plano<\/Button>/)
 })
+
+test("Pix usa o QR Code do Pix Automático no próprio site (não o checkout recorrente)", () => {
+  const checkout = readFileSync(new URL("../src/components/plans/PlanCheckout.tsx", import.meta.url), "utf8")
+  assert.match(checkout, /if \(data\.pix\) setPix\(data\.pix\)/)
+  assert.match(checkout, /else if \(data\.checkout_url\) window\.location\.assign\(data\.checkout_url\)/)
+  assert.match(checkout, /<PixAutomaticPanel pix=\{pix\}/)
+  const panel = readFileSync(new URL("../src/components/plans/PixAutomaticPanel.tsx", import.meta.url), "utf8")
+  assert.match(panel, /\^\[A-Za-z0-9\+\/=\]\+\$/)
+  assert.match(panel, /autorize o débito automático/)
+  assert.match(panel, /refetchInterval/)
+  assert.match(panel, /invalidateQueries\(\{ queryKey: \["plan-usage"\] \}\)/)
+})

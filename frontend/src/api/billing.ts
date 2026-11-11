@@ -17,7 +17,9 @@ export interface PlanPrice {
 }
 
 export interface PlansResponse { currency: "BRL"; checkout_enabled: boolean; sandbox?: boolean; prices: PlanPrice[] }
-export interface CheckoutResponse { checkout_url: string; expires_in_minutes: number; value_cents: number }
+export interface PixAutomaticQr { payload: string | null; image_base64: string | null; expires_at: string | null; next_charge: string }
+/** Cartão: `checkout_url` (página do Asaas). Pix: `pix` (QR Code do Pix Automático mostrado no próprio site). */
+export interface CheckoutResponse { checkout_url?: string; pix?: PixAutomaticQr; expires_in_minutes: number; value_cents: number }
 
 export interface MySubscription {
   subscription: null | {

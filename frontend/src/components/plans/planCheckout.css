@@ -100,3 +100,10 @@
 .plan-sub__cancel { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(154, 166, 189, .14); }
 .plan-sub__cancel h3 { margin: 0 0 8px; font-size: 16px; }
 .plan-sub__cancel p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: var(--text-secondary, #b1b7c5); }
+
+/* Pix Automático (QR Code) */
+.plan-pix ol { margin: 0 0 14px; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.5; }
+.plan-pix__body { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.plan-pix__body img { background: #fff; padding: 8px; border-radius: 12px; }
+.plan-pix__code { max-width: 420px; max-height: 96px; overflow: auto; margin: 0 0 10px; padding: 10px; font: 12px/1.4 ui-monospace, monospace;
+  word-break: break-all; border-radius: 10px; border: 1px solid rgba(154, 166, 189, .25); background: rgba(255, 255, 255, .03); }
