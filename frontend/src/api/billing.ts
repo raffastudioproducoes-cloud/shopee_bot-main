@@ -33,6 +33,6 @@ export interface BillingAdminStatus {
 }
 
 export const billingAdminApi = {
-  status: () => api.get<BillingAdminStatus>("/billing/admin/status"),
-  registerWebhook: () => api.post<{ id: string; url: string; updated: boolean; events: number }>("/billing/admin/webhook", {}),
+  status: () => api.get<BillingAdminStatus>("/admin/billing/status"),
+  registerWebhook: () => api.post<{ id: string; url: string; updated: boolean; events: number }>("/admin/billing/webhook", {}),
 }

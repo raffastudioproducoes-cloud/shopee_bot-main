@@ -360,7 +360,7 @@ def admin(monkeypatch):
 
 def test_admin_status_never_reveals_secrets(admin):
     client, _db, _calls, _ex = admin
-    body = client.get("/billing/admin/status").json()
+    body = client.get("/admin/billing/status").json()
     assert body["api_key_configured"] and body["webhook_token_configured"]
     assert body["webhook_url"] == "https://staging.example.com/api/billing/webhook/asaas"
     assert TOKEN not in str(body) and "aact" not in str(body)
@@ -368,7 +368,7 @@ def test_admin_status_never_reveals_secrets(admin):
 
 def test_admin_registers_webhook_with_server_token(admin):
     client, _db, calls, _ex = admin
-    res = client.post("/billing/admin/webhook", json={})
+    res = client.post("/admin/billing/webhook", json={})
     assert res.status_code == 200 and res.json()["updated"] is False
     method, path, kw = calls[-1]
     assert (method, path) == ("POST", "/webhooks")
@@ -380,13 +380,13 @@ def test_admin_registers_webhook_with_server_token(admin):
 def test_admin_updates_existing_webhook(admin):
     client, _db, calls, existing = admin
     existing.append({"id": "wh_9", "url": "https://staging.example.com/api/billing/webhook/asaas"})
-    assert client.post("/billing/admin/webhook", json={}).json()["updated"] is True
+    assert client.post("/admin/billing/webhook", json={}).json()["updated"] is True
     assert calls[-1][:2] == ("PUT", "/webhooks/wh_9")
 
 
 def test_billing_admin_routes_require_admin(admin):
     client, db, calls, _ex = admin
     db.rows["users"] = [{"id": "a1", "access": "USER"}]
-    assert client.get("/billing/admin/status").status_code == 403
-    assert client.post("/billing/admin/webhook", json={}).status_code == 403
+    assert client.get("/admin/billing/status").status_code == 403
+    assert client.post("/admin/billing/webhook", json={}).status_code == 403
     assert not calls

@@ -14,8 +14,8 @@ export function BillingAdminPanel() {
   const s = status.data
   const hook = s?.webhook
   return (
-    <div className="plan-checkout billing-admin" aria-labelledby="billing-admin-title">
-      <h3 id="billing-admin-title">Cobrança Asaas (ADMIN)</h3>
+    <div className="billing-admin" aria-labelledby="billing-admin-title">
+      <h3 id="billing-admin-title">Asaas</h3>
       {status.isPending ? <p>Consultando…</p> : status.isError ? <p role="status">Não foi possível consultar.</p> : s && (
         <dl className="billing-admin__grid">
           <dt>Ambiente</dt><dd>{s.environment === "sandbox" ? "Sandbox (testes)" : "Produção"}</dd>

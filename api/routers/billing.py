@@ -190,6 +190,10 @@ def _require_admin_dep(user_id: str = Depends(get_current_user_id)) -> str:
     return _require_admin(user_id)
 
 
+# Mesmo padrão da área /admin: tudo daqui exige ADMIN, separado das rotas de cliente.
+admin_router = APIRouter(prefix="/admin/billing", tags=["admin-billing"])
+
+
 def _webhook_url() -> str:
     return settings.frontend_url.rstrip("/") + "/api/billing/webhook/asaas"
 
@@ -202,7 +206,7 @@ def _registered_webhook() -> dict | None:
     return None
 
 
-@router.get("/admin/status")
+@admin_router.get("/status")
 def billing_admin_status(_admin: str = Depends(_require_admin_dep)):
     """Mostra o que está configurado, sem revelar nenhum segredo."""
     status = {
@@ -221,7 +225,7 @@ def billing_admin_status(_admin: str = Depends(_require_admin_dep)):
     return status
 
 
-@router.post("/admin/webhook")
+@admin_router.post("/webhook")
 def billing_admin_register_webhook(admin_id: str = Depends(_require_admin_dep)):
     """Cria (ou atualiza) o webhook desta instalação no Asaas com o token do servidor."""
     if not asaas_client.enabled() or not settings.asaas_webhook_token:

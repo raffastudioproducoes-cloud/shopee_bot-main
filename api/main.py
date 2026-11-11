@@ -48,7 +48,7 @@ from .routers import (
     settings_router,
     meta_callbacks_router,
 )
-from .routers.billing import router as billing_router
+from .routers.billing import admin_router as billing_admin_router, router as billing_router
 from .routers.platform_ai import router as platform_ai_router
 from .routers.platform_shopee import router as platform_shopee_router
 from .routers.shopee_video import router as shopee_video_router
@@ -129,6 +129,7 @@ app.include_router(profiles_router)
 app.include_router(settings_router)
 app.include_router(meta_callbacks_router)
 app.include_router(billing_router)
+app.include_router(billing_admin_router)
 
 
 async def _cleanup_media_drafts_periodically() -> None:

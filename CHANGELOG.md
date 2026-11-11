@@ -21,7 +21,7 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Added — cobrança com Asaas: painel do ADMIN
 
-- Em **Configurações › Planos e limites**, o ADMIN vê o estado da cobrança (ambiente, chave, token, contas de teste e webhook) sem nenhum segredo, e um botão **"Registrar webhook no Asaas"** que cria ou atualiza o webhook com o token do servidor e os 17 eventos usados. `GET /billing/admin/status` e `POST /billing/admin/webhook` (só ADMIN). Testes: +4.
+- **Aba "Cobrança" na área `/admin`**, separada de "Diagnóstico" (redes e plataformas) e fora das Configurações do cliente. Mostra o estado da cobrança (ambiente, chave de API, token do webhook, contas de teste e webhook no Asaas) sem revelar nenhum segredo, e o botão **"Registrar webhook no Asaas"**, que cria ou atualiza o webhook com o token do servidor e os 17 eventos usados. Rotas `GET /admin/billing/status` e `POST /admin/billing/webhook` (só ADMIN). Testes: +4 na API e `frontend/tests/admin-billing.test.mjs` (3, no CI).
 
 ### Added — cobrança com Asaas, fase 3 (ativação e baixa automática do plano)
 

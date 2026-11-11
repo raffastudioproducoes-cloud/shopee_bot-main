@@ -36,3 +36,5 @@
 .billing-admin__grid { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 14px; font-size: 14px; }
 .billing-admin__grid dt { color: var(--text-secondary, #b1b7c5); }
 .billing-admin__grid dd { margin: 0; }
+.billing-admin h3 { margin: 0 0 14px; font-size: 18px; }
+.billing-admin button { margin-bottom: 8px; }
