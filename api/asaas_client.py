@@ -69,8 +69,9 @@ def request(method: str, path: str, *, json: dict | None = None, params: dict | 
     data = resp.json() if resp.content else {}
     if resp.status_code >= 400:
         msgs = [str(e.get("description") or e.get("code") or "") for e in (data.get("errors") or [])]
-        logger.info("Asaas recusou %s %s (%s)", method, path, resp.status_code)
-        raise AsaasError(resp.status_code, [m for m in msgs if m])
+        msgs = [m for m in msgs if m]
+        logger.warning("Asaas recusou %s %s (%s): %s", method, path, resp.status_code, "; ".join(msgs[:3]) or "sem descrição")
+        raise AsaasError(resp.status_code, msgs)
     return data
 
 

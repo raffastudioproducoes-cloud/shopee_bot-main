@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — motivo da recusa do Asaas visível
+
+- Quando o Asaas recusa a criação do pagamento, a mensagem na tela e o log do servidor passam a trazer o motivo informado pelo Asaas (antes só "recusou os dados"), para diagnosticar sem adivinhar.
+
 ### Changed — página Planos e pagamento pronta para teste
 
 - **Cancelamento de plano** sempre visível em `/planos` (seção "Cancelamento de plano"): com assinatura aberta cancela a renovação (o plano segue até o fim do período pago); sem assinatura mostra o botão desativado explicando o motivo.

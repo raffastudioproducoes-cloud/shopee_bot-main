@@ -169,7 +169,9 @@ def create_checkout(body: CheckoutRequest, user_id: str = Depends(get_current_us
         raise HTTPException(503, "Pagamento indisponível no momento. Tente novamente.") from None
     except asaas_client.AsaasError as exc:
         supabase.table("billing_checkouts").update({"status": "failed"}).eq("id", order["id"]).execute()
-        raise HTTPException(422, {"message": "O Asaas recusou os dados de cobrança.",
+        reason = "; ".join(exc.messages[:3])
+        raise HTTPException(422, {"message": "O Asaas recusou os dados de cobrança"
+                                             + (f": {reason}" if reason else "."),
                                   "details": exc.messages[:3]}) from None
     supabase.table("billing_checkouts").update(
         {"asaas_checkout_id": created["id"], "status": "active"}).eq("id", order["id"]).execute()
