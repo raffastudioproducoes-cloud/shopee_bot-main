@@ -40,6 +40,7 @@ export function SubscriptionCard({ tier }: { tier?: string }) {
     mutationFn: billingApi.cancelSubscription,
     onSuccess: (data: MySubscription) => {
       queryClient.setQueryData(["billing-subscription"], data)
+      void queryClient.invalidateQueries({ queryKey: ["plan-usage"] })
       setConfirming(false)
     },
   })
@@ -49,6 +50,7 @@ export function SubscriptionCard({ tier }: { tier?: string }) {
   if (query.isPending || query.isError || (!sub && payments.length === 0 && !paidAccount)) return null
 
   const open = sub && sub.status !== "canceled"
+  const unbilled = !sub && paidAccount
   return (
     <section className="plan-checkout plan-sub" aria-labelledby="plan-sub-title">
       <h2 id="plan-sub-title">Minha assinatura</h2>
@@ -123,11 +125,23 @@ export function SubscriptionCard({ tier }: { tier?: string }) {
           </div>
         )}
         {sub?.status === "canceled" && <p>Este plano já foi cancelado e não será renovado.</p>}
-        {!sub && (
+        {unbilled && !confirming && (
           <>
-            <p>Não há assinatura para cancelar. Quando você contratar um plano pago, o cancelamento aparece aqui.</p>
-            <Button variant="ghost" disabled>Cancelar plano</Button>
+            <p>Seu plano não tem cobrança (foi liberado pela equipe). Cancelar volta a conta para o plano Free agora.</p>
+            <Button variant="ghost" onClick={() => setConfirming(true)}>Cancelar plano</Button>
           </>
+        )}
+        {unbilled && confirming && (
+          <div className="plan-sub__confirm" role="alertdialog" aria-label="Confirmar cancelamento">
+            <p>Cancelar agora? Como não há período pago, a conta volta para o plano Free imediatamente e os limites
+              do Free passam a valer.</p>
+            <div className="plan-sub__actions">
+              <Button variant="ghost" onClick={() => setConfirming(false)} disabled={cancel.isPending}>Manter plano</Button>
+              <Button onClick={() => cancel.mutate()} disabled={cancel.isPending}>
+                {cancel.isPending ? "Cancelando…" : "Sim, cancelar plano"}
+              </Button>
+            </div>
+          </div>
         )}
       </div>
       {cancel.error && <p className="plan-checkout__error" role="alert">{cancel.error.message}</p>}

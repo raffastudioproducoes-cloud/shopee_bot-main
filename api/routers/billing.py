@@ -214,17 +214,22 @@ def my_subscription(user_id: str = Depends(get_current_user_id)):
 
 @router.post("/subscription/cancel")
 def cancel_my_subscription(user_id: str = Depends(get_current_user_id)):
-    """Encerra a renovação. O plano segue até o fim do período já pago (regra de Rafa)."""
-    if not asaas_client.enabled():
-        raise HTTPException(503, "Cobrança indisponível no momento.")
-    env = asaas_client.environment()
+    """Encerra a renovação. O plano segue até o fim do período já pago (regra de Rafa).
+
+    Sem assinatura (plano liberado pela equipe) não há período pago: a conta volta ao Free agora.
+    """
     if not asaas_client.may_bill(user_id):
         raise HTTPException(403, "Cobrança em fase de testes.")
+    env = asaas_client.environment()
     found = (supabase.table("billing_subscriptions").select("id,asaas_subscription_id")
              .eq("user_id", user_id).eq("environment", env)
              .in_("status", ["pending", "active", "overdue"]).limit(1).execute().data) or []
     if not found:
-        raise HTTPException(404, "Você não tem assinatura ativa.")
+        if not billing_events.cancel_unbilled_plan(user_id):
+            raise HTTPException(404, "Você não tem assinatura ativa.")
+        return my_subscription(user_id)
+    if not asaas_client.enabled():
+        raise HTTPException(503, "Cobrança indisponível no momento.")
     try:
         asaas_client.request("DELETE", f"/subscriptions/{found[0]['asaas_subscription_id']}")
     except asaas_client.AsaasError as exc:

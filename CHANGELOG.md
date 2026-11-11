@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — cancelar plano sem assinatura
+
+- O botão "Cancelar plano" em `/planos` agora funciona também para plano pago sem assinatura (liberado pela equipe): pede confirmação e a conta volta ao Free na hora (não há período pago a preservar) e os limites são atualizados. Contas ADMIN e contas Free não são afetadas; no sandbox só vale para as contas da lista de testadores. Com assinatura, nada muda: o plano segue até o fim do período pago. Limite conhecido: campanhas ativas não são pausadas automaticamente no downgrade.
+
 ### Fixed — motivo da recusa do Asaas visível
 
 - Quando o Asaas recusa a criação do pagamento, a mensagem na tela e o log do servidor passam a trazer o motivo informado pelo Asaas (antes só "recusou os dados"), para diagnosticar sem adivinhar.
