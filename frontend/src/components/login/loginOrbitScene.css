@@ -14,4 +14,4 @@
 .login-orbit.is-static .login-orbit__end { opacity: 1; }
 .login-orbit.is-static .login-orbit__canvas, .login-orbit.is-static .login-orbit__word, .login-orbit.is-static .login-orbit__flash { display: none; }
 /* Desktop: funde a borda direita no fundo do formulário. */
-@media (min-width: 768px) { .login-orbit::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 22%; background: linear-gradient(to right, transparent, var(--bg-app)); pointer-events: none; } }
+@media (min-width: 768px) { .login-orbit::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 26%; background: linear-gradient(to right, transparent, var(--bg-app)); pointer-events: none; } }
