@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — validação ao vivo no cadastro
+
+- **Criar conta e conclusão do cadastro Google:** CPF com máscara e conferência dos dígitos verificadores (recusa 000.000.000-00, repetidos e dígito errado) já ao digitar/sair do campo; e-mail com formato válido (domínio e TLD de letras); nome com sobrenome e sem números; senha mostra o mínimo (8 caracteres) e erro na hora; confirmação de senha avisa se diferente. O botão só libera com tudo válido. O servidor passou a recusar e-mail malformado no cadastro (`422`); CPF e senha já eram validados lá. Limite conhecido: a conferência de CPF é matemática, não consulta a Receita Federal.
+
 ### Fixed — etiqueta de plano no cabeçalho
 
 - A etiqueta Premium/Pro voltou a encaixar sob o cartão do perfil, igual à do ADMIN, mantendo as cores. O link para `/planos` passou a envolver a etiqueta e os seletores de CSS esperavam a etiqueta como filha direta do contêiner; agora valem também dentro do link.
