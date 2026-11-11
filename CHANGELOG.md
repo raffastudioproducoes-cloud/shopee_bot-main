@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — layout da tela de login
+
+- Desktop: a animação "Do caos à órbita" passou a ocupar 60% da largura (era 45%) e o formulário 40% (era 55%), alinhado perto da borda em degradê da animação. Antes os dois ficavam muito distantes. Mobile inalterado.
+
 ### Fixed — validação ao vivo no cadastro
 
 - **Criar conta e conclusão do cadastro Google:** CPF com máscara e conferência dos dígitos verificadores (recusa 000.000.000-00, repetidos e dígito errado) já ao digitar/sair do campo; e-mail com formato válido (domínio e TLD de letras); nome com sobrenome e sem números; senha mostra o mínimo (8 caracteres) e erro na hora; confirmação de senha avisa se diferente. O botão só libera com tudo válido. O servidor passou a recusar e-mail malformado no cadastro (`422`); CPF e senha já eram validados lá. Limite conhecido: a conferência de CPF é matemática, não consulta a Receita Federal.
