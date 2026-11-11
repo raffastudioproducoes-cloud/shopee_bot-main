@@ -1,5 +1,9 @@
 # Rate limiting distribuído (Redis/Render Key Value)
 
+## Atualização 11/11/2026 — Key Value da staging removido (ordem de Rafa)
+
+A instância Render Key Value `auto-orbital-staging-ratelimit` (Valkey 8, plano Free, criada em 31/10 para o S-04) foi **retirada** a pedido de Rafa: ele não queria um segundo recurso "staging" no painel. Antes de apagar, a staging passou a usar `RATELIMIT_STORAGE_URI=memory://` (contadores em memória, correto só com **uma instância**, que é o caso hoje). Produção nunca teve Key Value. Para voltar ao modo compartilhado (2+ instâncias), recriar um Key Value por ambiente conforme a seção "Configuração por ambiente", com autorização de Rafa.
+
 ## Atualização 09/11/2026 — limitador único (S-04)
 
 Os limites por usuário/IP da API passam por `api/rate_limiter.py`: busca de catálogo (20/min), "Testar conexão" (6/min), callbacks Meta e, via `rate_limit_store`, a autenticação. Com `RATELIMIT_STORAGE_URI` a contagem é atômica e compartilhada entre workers e instâncias; sem ela vale a janela em memória, agora com trava (concorrência) e número máximo de chaves, **correta só com uma instância**. A inicialização registra o modo ativo (sem a URI). **Produção ainda não tem Key Value configurado** (só a staging); configurá-lo depende de autorização de Rafa por custo.
