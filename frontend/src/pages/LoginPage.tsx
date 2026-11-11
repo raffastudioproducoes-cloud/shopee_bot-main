@@ -15,6 +15,7 @@ import { validatePassword } from '../lib/password'
 import { validCpf } from '../lib/cpf'
 import { LoginOrbitStill } from '../components/login/LoginOrbitStill'
 import { PasswordRecoveryRequestModal } from '../components/auth/PasswordRecoveryRequestModal'
+import { parsePlanIntent } from '../lib/planIntent'
 
 // Split-screen responsivo: sem breakpoint padrão no projeto (nenhum @media existente
 // em frontend/src), então define-se aqui. 768px = ponto de quebra usado no restante
@@ -50,8 +51,31 @@ function readRecoveryLink(): RecoveryLinkState {
 // three.js só é baixado quando a tela de login abre (fora do pacote inicial).
 const LoginOrbitScene = lazy(() => import('../components/login/LoginOrbitScene'))
 
+
+const PLAN_INTENT_KEY = 'ao-plan-intent'
+
+/** Guarda (validado) o plano escolhido na apresentação; sobrevive ao login com Google e à confirmação de e-mail. */
+function rememberPlanIntent() {
+  try {
+    const fromUrl = parsePlanIntent(Object.fromEntries(new URLSearchParams(window.location.search)))
+    if (fromUrl.plano) window.sessionStorage.setItem(PLAN_INTENT_KEY, JSON.stringify(fromUrl))
+  } catch { /* sem sessionStorage: o login segue normal */ }
+}
+
+/** Lê e apaga a intenção guardada; só valores conhecidos saem daqui. */
+function takePlanIntent() {
+  try {
+    const raw = window.sessionStorage.getItem(PLAN_INTENT_KEY)
+    window.sessionStorage.removeItem(PLAN_INTENT_KEY)
+    return raw ? parsePlanIntent(JSON.parse(raw) as Record<string, unknown>) : {}
+  } catch {
+    return {}
+  }
+}
+
 export default function LoginPage() {
   const navigate = useNavigate()
+  useEffect(() => { rememberPlanIntent() }, [])
   const login = useAuthStore((state) => state.login)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -110,7 +134,9 @@ export default function LoginPage() {
         await new Promise((resolve) => window.setTimeout(resolve, 450))
       }
       login(user)
-      navigate({ to: '/app' })
+      const intent = takePlanIntent()
+      if (intent.plano) navigate({ to: '/planos', search: intent })
+      else navigate({ to: '/app' })
     } catch (err: unknown) {
       if (err instanceof Error && 'status' in err) {
         const apiError = err as { status: number; message: string }
@@ -276,7 +302,9 @@ export default function LoginPage() {
             clearAdminVisitingSite()
             login(user)
             setGoogleSetupOpen(false)
-            navigate({ to: '/app' })
+            const intent = takePlanIntent()
+            if (intent.plano) navigate({ to: '/planos', search: intent })
+            else navigate({ to: '/app' })
           }}
         />
       )}

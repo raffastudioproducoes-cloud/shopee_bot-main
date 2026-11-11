@@ -78,6 +78,8 @@ test("resumo renderiza escopo, consumo ausente, erro 503 e CTA sem checkout", as
   const mod = await moduleAt("components/plans/PlanSummary.tsx", {
     "./PlanTag": { PlanTag: ({ children }) => React.createElement("span", null, children), planTierOf: () => "free" },
     "../ui/Button": { Button: box("button") },
+    // Link do roteador precisa de contexto de rota; aqui só importa que exista o destino
+    "@tanstack/react-router": { Link: ({ to, children }) => React.createElement("a", { "data-to": to }, children) },
     "../ui/Panel": { Panel: box("section") }, "../ui/Skeleton": { Skeleton: box("div") },
     "../../hooks/usePlanUsage": { usePlanUsage: () => query },
     "../../hooks/useProfiles": { useProfiles: () => ({ activeProfile: { id: "a" } }) },

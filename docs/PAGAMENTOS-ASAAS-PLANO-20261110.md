@@ -117,3 +117,9 @@ chave de produção, só com autorização dele.
 - Conta **sandbox** em `sandbox.asaas.com` e a chave de API dela cadastrada por
   ele no Render (serviço staging) como `ASAAS_API_KEY` — nunca no chat.
 - Configuração fiscal no Asaas (habilitar NFS-e, dados fiscais, serviço municipal).
+
+## 6. Estado em 11/11/2026
+
+- Fases 1 a 3 e painel ADMIN (`/admin/billing`) na staging; webhook registrado e ativo no sandbox.
+- **Telas do cliente** (`/planos`, minha assinatura, cancelamento, botões de upgrade e apresentação): em PR para a staging.
+- **Pendente:** troca de plano com assinatura aberta; pausa de campanhas no downgrade Premium→Pro; NFS-e automática (depende do cadastro fiscal no Asaas); teste de ponta a ponta com cartão de teste no sandbox; produção (chave real, webhook e `ASAAS_API_URL` de produção) só com autorização de Rafa.

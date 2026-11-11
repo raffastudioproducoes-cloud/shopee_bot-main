@@ -166,7 +166,7 @@ export function CreatePostPage() {
         plan={planQuery.data}
         loading={planQuery.isPending}
         error={planQuery.isError}
-        onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })}
+        onUpgrade={() => void router.navigate({ to: "/planos", search: { de: "publicacao" } })}
       />
       {creationMode === "campaign" ? <CampaignPlanner key={activeProfileId} credentials={credentials} /> : <PostComposer
         post={null}

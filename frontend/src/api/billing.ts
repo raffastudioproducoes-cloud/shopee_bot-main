@@ -1,7 +1,8 @@
+// Somente o que o CLIENTE usa. Rotas de administração ficam em api/billingAdmin.ts
+// e só são importadas pela área /admin (não entram no pacote do site do cliente).
 import { api } from "../lib/api"
+import type { BillingPeriod, PaidTier } from "../lib/planIntent"
 
-export type PaidTier = "pro" | "premium"
-export type BillingPeriod = "monthly" | "quarterly" | "semiannual" | "yearly"
 export type BillingType = "CREDIT_CARD" | "PIX"
 
 export interface PlanPrice {
@@ -15,24 +16,35 @@ export interface PlanPrice {
   savings_cents: number
 }
 
+export interface PlansResponse { currency: "BRL"; checkout_enabled: boolean; prices: PlanPrice[] }
 export interface CheckoutResponse { checkout_url: string; expires_in_minutes: number; value_cents: number }
 
+export interface MySubscription {
+  subscription: null | {
+    tier: PaidTier
+    period: BillingPeriod
+    billing_type: BillingType
+    value_cents: number
+    status: "pending" | "active" | "overdue" | "canceled"
+    current_period_end: string | null
+    overdue_since: string | null
+    grace_until: string | null
+    grace_days: number
+  }
+  payments: Array<{
+    billing_type: string | null
+    status: string
+    value_cents: number | null
+    due_date: string | null
+    paid_at: string | null
+    invoice_url: string | null
+  }>
+}
+
 export const billingApi = {
-  plans: () => api.get<{ currency: "BRL"; prices: PlanPrice[] }>("/billing/plans"),
+  plans: () => api.get<PlansResponse>("/billing/plans"),
   checkout: (body: { tier: PaidTier; period: BillingPeriod; billing_type: BillingType }) =>
     api.post<CheckoutResponse>("/billing/checkout", body),
-}
-
-export interface BillingAdminStatus {
-  environment: "sandbox" | "production"
-  api_key_configured: boolean
-  webhook_token_configured: boolean
-  sandbox_testers: number
-  webhook_url: string
-  webhook: { id?: string; enabled?: boolean; interrupted?: boolean; error?: string } | null
-}
-
-export const billingAdminApi = {
-  status: () => api.get<BillingAdminStatus>("/admin/billing/status"),
-  registerWebhook: () => api.post<{ id: string; url: string; updated: boolean; events: number }>("/admin/billing/webhook", {}),
+  subscription: () => api.get<MySubscription>("/billing/subscription"),
+  cancelSubscription: () => api.post<MySubscription>("/billing/subscription/cancel", {}),
 }

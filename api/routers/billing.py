@@ -9,7 +9,7 @@ from __future__ import annotations
 import hmac
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -43,7 +43,8 @@ class CheckoutRequest(BaseModel):
 @router.get("/plans")
 async def list_plan_prices():
     """Preços calculados no servidor para Pro e Premium em cada período."""
-    return {"currency": "BRL", "prices": billing_pricing.price_table(supabase)}
+    return {"currency": "BRL", "checkout_enabled": asaas_client.enabled(),
+            "prices": billing_pricing.price_table(supabase)}
 
 
 @router.post("/webhook/asaas")
@@ -148,9 +149,9 @@ def create_checkout(body: CheckoutRequest, user_id: str = Depends(get_current_us
             "minutesToExpire": CHECKOUT_MINUTES,
             "externalReference": order["id"],
             "callback": {
-                "successUrl": f"{base}/settings?assinatura=sucesso#planos",
-                "cancelUrl": f"{base}/settings?assinatura=cancelada#planos",
-                "expiredUrl": f"{base}/settings?assinatura=expirada#planos",
+                "successUrl": f"{base}/planos?assinatura=sucesso",
+                "cancelUrl": f"{base}/planos?assinatura=cancelada",
+                "expiredUrl": f"{base}/planos?assinatura=expirada",
             },
             "items": [{
                 "name": f"Auto Orbital {TIER_NAMES[body.tier]}",
@@ -173,6 +174,65 @@ def create_checkout(body: CheckoutRequest, user_id: str = Depends(get_current_us
         {"asaas_checkout_id": created["id"], "status": "active"}).eq("id", order["id"]).execute()
     return {"checkout_url": asaas_client.checkout_url(created["id"]),
             "expires_in_minutes": CHECKOUT_MINUTES, "value_cents": price["total_cents"]}
+
+
+# ---------- Cliente: minha assinatura ----------
+SUMMARY_FIELDS = "tier,period,billing_type,value_cents,status,current_period_end,overdue_since,created_at"
+SHOWN_STATUS = ["pending", "active", "overdue", "canceled"]
+PAYMENT_FIELDS = ("billing_type", "status", "value_cents", "due_date", "paid_at", "invoice_url")
+
+
+def _grace_until(overdue_since: str | None) -> str | None:
+    if not overdue_since:
+        return None
+    return (date.fromisoformat(str(overdue_since)[:10]) + timedelta(days=billing_events.GRACE_DAYS)).isoformat()
+
+
+@router.get("/subscription")
+def my_subscription(user_id: str = Depends(get_current_user_id)):
+    """Assinatura e cobranças da PRÓPRIA conta. Nunca devolve ids do Asaas."""
+    env = asaas_client.environment()
+    subs = (supabase.table("billing_subscriptions").select(SUMMARY_FIELDS).eq("user_id", user_id)
+            .eq("environment", env).in_("status", SHOWN_STATUS)
+            .order("created_at", desc=True).limit(1).execute().data) or []
+    payments = (supabase.table("billing_payments")
+                .select(",".join(PAYMENT_FIELDS))
+                .eq("user_id", user_id).eq("environment", env)
+                .order("due_date", desc=True).limit(12).execute().data) or []
+    # Lista branca também no código: a resposta nunca carrega id do Asaas.
+    payments = [{k: p.get(k) for k in PAYMENT_FIELDS} for p in payments]
+    sub = subs[0] if subs else None
+    if sub:
+        sub = {k: sub.get(k) for k in SUMMARY_FIELDS.split(",") if k != "created_at"}
+        sub["grace_until"] = _grace_until(sub.get("overdue_since"))
+        sub["grace_days"] = billing_events.GRACE_DAYS
+    return {"subscription": sub, "payments": payments}
+
+
+@router.post("/subscription/cancel")
+def cancel_my_subscription(user_id: str = Depends(get_current_user_id)):
+    """Encerra a renovação. O plano segue até o fim do período já pago (regra de Rafa)."""
+    if not asaas_client.enabled():
+        raise HTTPException(503, "Cobrança indisponível no momento.")
+    env = asaas_client.environment()
+    if not asaas_client.may_bill(user_id):
+        raise HTTPException(403, "Cobrança em fase de testes.")
+    found = (supabase.table("billing_subscriptions").select("id,asaas_subscription_id")
+             .eq("user_id", user_id).eq("environment", env)
+             .in_("status", ["pending", "active", "overdue"]).limit(1).execute().data) or []
+    if not found:
+        raise HTTPException(404, "Você não tem assinatura ativa.")
+    try:
+        asaas_client.request("DELETE", f"/subscriptions/{found[0]['asaas_subscription_id']}")
+    except asaas_client.AsaasError as exc:
+        if exc.status != 404:  # já removida no Asaas: só falta refletir aqui
+            raise HTTPException(422, "O Asaas não conseguiu cancelar agora. Tente novamente.") from None
+    except asaas_client.AsaasUnavailable:
+        raise HTTPException(503, "Asaas indisponível. Tente novamente.") from None
+    supabase.table("billing_subscriptions").update(
+        {"status": "canceled", "updated_at": datetime.now(timezone.utc).isoformat()}
+    ).eq("id", found[0]["id"]).eq("user_id", user_id).execute()
+    return my_subscription(user_id)
 
 
 # ---------- ADMIN: conferir configuração e registrar o webhook no Asaas ----------

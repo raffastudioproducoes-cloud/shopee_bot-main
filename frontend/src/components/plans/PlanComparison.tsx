@@ -1,6 +1,6 @@
 import { usePlanUsage } from "../../hooks/usePlanUsage"
 import { accountPlanLabel } from "../../lib/planPresentation"
-import { PlanCheckout } from "./PlanCheckout"
+import { Link } from "@tanstack/react-router"
 import { PlanTag } from "./PlanTag"
 import "./planComparison.css"
 
@@ -65,7 +65,9 @@ export function PlanComparison() {
           O plano Administrador não possui cota comercial, mas segue os limites operacionais.
         </p>
       ) : (
-        <PlanCheckout currentTier={data?.plan_tier === "plus" ? "pro" : data?.plan_tier} />
+        <p className="plan-comparison__note">
+          <Link to="/planos" className="plan-info-cta">Assinar ou mudar de plano</Link>
+        </p>
       )}
     </section>
   )

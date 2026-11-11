@@ -32,6 +32,7 @@ const navItems: SideRailItem[] = [
   { value: '/automacao-posts', label: 'Automação', icon: 'workflow', group: 'Publicação' },
   { value: '/credentials', label: 'Credenciais', icon: 'key-round', group: 'Conta' },
   { value: '/profiles', label: 'Perfis', icon: 'users', group: 'Conta' },
+  { value: '/planos', label: 'Planos', icon: 'credit-card', group: 'Conta' },
   { value: '/settings', label: 'Configurações', icon: 'lock', group: 'Conta' },
   { value: '/ajuda', label: 'Ajuda & FAQ', icon: 'help-circle', group: 'Conta' },
 ]

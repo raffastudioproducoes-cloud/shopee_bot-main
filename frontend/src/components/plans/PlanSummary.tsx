@@ -1,4 +1,5 @@
 import { useId, useState } from "react"
+import { Link } from "@tanstack/react-router"
 import { PlanTag, planTierOf } from "./PlanTag"
 import { Button } from "../ui/Button"
 import { Panel } from "../ui/Panel"
@@ -21,11 +22,10 @@ export function UpgradeInfo({ feature }: { feature?: string }) {
     <button type="button" className="plan-info-button" aria-expanded={open} aria-controls={id}
       onClick={() => setOpen((value) => !value)}>Conhecer planos e upgrade</button>
     {open && <div id={id} className="plan-info" role="status">
-      <strong>{feature ? `${feature}: consulte as opções do plano` : "Planos Free, Pro e Premium"}</strong>
-      <p>Para assinar o Pro ou o Premium, vá em Configurações › Planos e limites.</p>
-      <p>Campanhas são previstas para Pro e Premium; automação é prevista para Premium.
-        Ativação de campanhas e automação ainda estão indisponíveis em todos os planos.
-        Limites das redes, conexão e segurança continuam obrigatórios.</p>
+      <strong>{feature ? `${feature}: veja o plano que libera` : "Planos Free, Pro e Premium"}</strong>
+      <p>Campanhas são do Pro e do Premium; automação é do Premium. Você escolhe o período (mensal, 3 e 6 meses ou 1 ano,
+        com desconto) e paga com cartão ou Pix. Limites das redes, conexão e segurança continuam valendo em todos os planos.</p>
+      <Link to="/planos" search={feature ? { de: "automacao" } : {}} className="plan-info-cta">Ver planos e assinar</Link>
     </div>}
   </div>
 }
@@ -38,7 +38,9 @@ export function PlanBadge() {
   if (!activeProfile || query.isError || !query.data) return null
   const label = accountPlanLabel(query.data)
   if (label === "Plano indisponível") return null
-  return <PlanTag tier={planTierOf(query.data)}>{label}</PlanTag>
+  return <Link to="/planos" className="plan-badge-link" aria-label={`${label}: ver planos e pagamento`}>
+    <PlanTag tier={planTierOf(query.data)}>{label}</PlanTag>
+  </Link>
 }
 
 export function PlanSummary({ resources = ["products", "lists", "profiles", "immediate", "recurring"] }: {
