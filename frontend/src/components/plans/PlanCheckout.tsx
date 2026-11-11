@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { billingApi, type BillingType, type PlanPrice } from "../../api/billing"
+import { billingApi, type BillingType, type PixAutomaticQr, type PlanPrice } from "../../api/billing"
 import { ApiError } from "../../lib/api"
 import {
   BILLING_PERIODS, PAID_TIERS, PERIOD_LABELS, PERIOD_MONTHS, brl, discountLabel,
@@ -9,13 +9,14 @@ import {
 } from "../../lib/planIntent"
 import { plans as planLimits } from "../../pages/presentation/content"
 import { Button } from "../ui/Button"
+import { PixAutomaticPanel } from "./PixAutomaticPanel"
 import { PlanTag } from "./PlanTag"
 import "./planCheckout.css"
 
 const TIER_NAMES: Record<PaidTier, string> = { pro: "Pro", premium: "Premium" }
 const METHODS: { id: BillingType; label: string; hint: string }[] = [
   { id: "CREDIT_CARD", label: "Cartão de crédito", hint: "Renova sozinho no cartão a cada ciclo." },
-  { id: "PIX", label: "Pix", hint: "A cada ciclo chega uma fatura Pix para você pagar." },
+  { id: "PIX", label: "Pix", hint: "Pix Automático: você paga agora e autoriza o banco a debitar sozinho na próxima data." },
 ]
 
 export function priceFor(prices: PlanPrice[] | undefined, tier: PaidTier, period: BillingPeriod) {
@@ -54,9 +55,13 @@ export function PlanCheckout({ initialTier, initialPeriod, currentTier, hasSubsc
   const [method, setMethod] = useState<BillingType>("CREDIT_CARD")
   const prices = useQuery({ queryKey: ["billing-plans"], queryFn: billingApi.plans, staleTime: 5 * 60_000 })
   const enabled = prices.data?.checkout_enabled === true
+  const [pix, setPix] = useState<PixAutomaticQr | null>(null)
   const checkout = useMutation({
     mutationFn: () => billingApi.checkout({ tier, period, billing_type: method }),
-    onSuccess: (data) => { window.location.assign(data.checkout_url) },
+    onSuccess: (data) => {
+      if (data.pix) setPix(data.pix)
+      else if (data.checkout_url) window.location.assign(data.checkout_url)
+    },
   })
   const error = checkout.error instanceof ApiError ? checkout.error : null
   const needsProfile = error?.status === 422 && error.message.startsWith("Complete os dados")
@@ -140,6 +145,8 @@ export function PlanCheckout({ initialTier, initialPeriod, currentTier, hasSubsc
           Você já tem uma assinatura. Para trocar de plano, cancele a atual (ela vale até o fim do período pago)
           e contrate o novo plano em seguida.</p>}
       </div>
+
+      {pix && <PixAutomaticPanel pix={pix} period={period} onClose={() => setPix(null)} />}
 
       {error && <p className="plan-checkout__error" role="alert">{error.message}
         {needsProfile && <> <Link to="/profiles">Completar dados da conta</Link></>}</p>}

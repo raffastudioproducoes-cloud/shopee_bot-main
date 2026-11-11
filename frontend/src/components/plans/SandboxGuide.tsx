@@ -25,10 +25,10 @@ export function SandboxGuide() {
             Titular: nome fictício. CPF e endereço: use dados fictícios.</p>
         </div>
         <div>
-          <h3>Pix</h3>
-          <p>Escolha Pix, siga para a página do Asaas e gere o QR Code. No teste não há banco pagando: simule o
-            pagamento da cobrança pelo painel do Asaas Sandbox. Depois que o Asaas avisar o site, o plano muda
-            (pode levar alguns minutos).</p>
+          <h3>Pix (Pix Automático)</h3>
+          <p>Escolha Pix para gerar o QR Code aqui mesmo. No teste não há banco pagando: simule o pagamento da
+            cobrança Pix pelo painel do Asaas Sandbox. Depois que o Asaas avisar o site, o plano muda (pode levar
+            alguns minutos). Se o Asaas Sandbox não liberar o Pix Automático nesta conta, o motivo aparece na tela.</p>
         </div>
       </div>
       <p className="plan-checkout__fine">Dados de teste conforme a documentação do Asaas; se o Asaas os alterar, vale a

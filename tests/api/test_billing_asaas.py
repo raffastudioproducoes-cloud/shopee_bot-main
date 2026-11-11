@@ -242,6 +242,9 @@ def checkout(monkeypatch):
     sent = []
     monkeypatch.setattr(asaas_client, "create_customer", lambda **kw: sent.append(("customer", kw)) or {"id": "cus_1"})
     monkeypatch.setattr(asaas_client, "create_checkout", lambda body: sent.append(("checkout", body)) or {"id": "chk_1"})
+    monkeypatch.setattr(asaas_client, "create_pix_authorization", lambda body: sent.append(("pix", body)) or {
+        "id": "auth_1", "payload": "000201PIXCOPIAECOLA", "encodedImage": "QUJD",
+        "immediateQrCode": {"expirationDate": "2026-11-11 19:00:00"}})
     app.dependency_overrides.clear()
     app.dependency_overrides[get_current_user_id] = lambda: "u1"
     yield TestClient(app), db, sent
@@ -294,9 +297,43 @@ def test_checkout_rejects_unknown_period_and_free(checkout):
 def test_checkout_reuses_existing_customer(checkout):
     client, db, sent = checkout
     db.rows["billing_customers"] = [{"asaas_customer_id": "cus_old"}]
-    assert client.post("/billing/checkout", json={**BODY, "billing_type": "PIX"}).status_code == 200
+    assert client.post("/billing/checkout", json=BODY).status_code == 200
     assert [k for k, _ in sent] == ["checkout"] and sent[0][1]["customer"] == "cus_old"
-    assert sent[0][1]["billingTypes"] == ["PIX"]
+    assert sent[0][1]["billingTypes"] == ["CREDIT_CARD"]
+
+
+def test_pix_uses_automatic_authorization_not_checkout(checkout):
+    client, db, sent = checkout
+    res = client.post("/billing/checkout", json={**BODY, "billing_type": "PIX"})
+    assert res.status_code == 200, res.text
+    assert [k for k, _ in sent] == ["customer", "pix"]  # nunca o checkout recorrente (só aceita cartão)
+    body = sent[1][1]
+    assert body["frequency"] == "ANNUALLY" and body["paymentCreationMode"] == "SUBSCRIPTION"
+    assert body["value"] == 610.98 and body["immediateQrCode"]["originalValue"] == 610.98
+    assert body["customerId"] == "cus_1" and body["contractId"] == "order-1"
+    out = res.json()
+    assert out["pix"]["payload"] == "000201PIXCOPIAECOLA" and out["pix"]["image_base64"] == "QUJD"
+    assert "checkout_url" not in out and out["value_cents"] == 61098
+    assert ("billing_checkouts", "update", {"asaas_checkout_id": "auth_1", "status": "active"}, {"id": "order-1"}) in db.calls
+
+
+@pytest.mark.parametrize("period,frequency", [("monthly", "MONTHLY"), ("quarterly", "QUARTERLY"),
+                                              ("semiannual", "SEMIANNUALLY"), ("yearly", "ANNUALLY")])
+def test_pix_frequency_matches_period(checkout, period, frequency):
+    client, _db, sent = checkout
+    assert client.post("/billing/checkout", json={**BODY, "period": period, "billing_type": "PIX"}).status_code == 200
+    assert sent[1][1]["frequency"] == frequency
+
+
+def test_pix_asaas_refusal_shows_reason(checkout, monkeypatch):
+    client, db, _sent = checkout
+
+    def refuse(body):
+        raise asaas_client.AsaasError(400, ["Conta não elegível ao Pix Automático"])
+    monkeypatch.setattr(asaas_client, "create_pix_authorization", refuse)
+    res = client.post("/billing/checkout", json={**BODY, "billing_type": "PIX"})
+    assert res.status_code == 422 and "não elegível" in res.json()["detail"]["message"]
+    assert ("billing_checkouts", "update", {"status": "failed"}, {"id": "order-1"}) in db.calls
 
 
 def test_checkout_disabled_without_key(checkout, monkeypatch):

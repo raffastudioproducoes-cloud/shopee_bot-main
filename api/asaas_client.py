@@ -88,6 +88,19 @@ def create_checkout(body: dict, **kw) -> dict:
     return request("POST", "/checkouts", json=body, **kw)
 
 
+def create_pix_authorization(body: dict, **kw) -> dict:
+    """Pix Automático (jornada 3): o QR Code inicial paga o 1º período e autoriza os próximos débitos."""
+    return request("POST", "/pix/automatic/authorizations", json=body, **kw)
+
+
+def get_pix_authorization(authorization_id: str, **kw) -> dict:
+    return request("GET", f"/pix/automatic/authorizations/{authorization_id}", **kw)
+
+
+def cancel_pix_authorization(authorization_id: str, **kw) -> dict:
+    return request("DELETE", f"/pix/automatic/authorizations/{authorization_id}", **kw)
+
+
 def checkout_url(checkout_id: str) -> str:
     """Formato documentado para produção; o host do sandbox ainda precisa ser
     confirmado no primeiro teste (a documentação só mostra asaas.com)."""

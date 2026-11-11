@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — Pix com Pix Automático (decisão de Rafa, 11/11/2026)
+
+- O checkout recorrente do Asaas só aceita cartão (o Asaas recusa `PIX` com `RECURRENT`). O Pix agora usa o **Pix Automático**: `POST /billing/checkout` com `billing_type=PIX` cria uma autorização (`/pix/automatic/authorizations`, frequência mensal/trimestral/semestral/anual conforme o período, cobranças geradas por assinatura) e devolve o QR Code, mostrado na própria página `/planos` com "copia e cola". O QR paga o período inteiro e autoriza os débitos seguintes; a próxima cobrança sai sozinha na data.
+- Eventos novos tratados no webhook (`PIX_AUTOMATIC_RECURRING_AUTHORIZATION_*`): ativação libera o plano; recusa/expiração encerram o pedido; cancelamento pelo pagador no banco encerra a renovação e mantém o plano até o fim do período pago. Cancelar o plano no site também revoga a autorização. Atraso segue a regra de 15 dias.
+- **Ação de Rafa:** reconferir/registrar o webhook no painel ADMIN (Cobrança) para incluir os eventos novos do Pix Automático.
+- **Não validado:** elegibilidade da conta Asaas ao Pix Automático (sandbox e produção), adesão do banco do cliente, formato real dos eventos (ajustar após o primeiro teste), aviso de "pagamento pendente" no sino de notificações (não implementado).
+
 ### Fixed — cancelar plano sem assinatura
 
 - O botão "Cancelar plano" em `/planos` agora funciona também para plano pago sem assinatura (liberado pela equipe): pede confirmação e a conta volta ao Free na hora (não há período pago a preservar) e os limites são atualizados. Contas ADMIN e contas Free não são afetadas; no sandbox só vale para as contas da lista de testadores. Com assinatura, nada muda: o plano segue até o fim do período pago. Limite conhecido: campanhas ativas não são pausadas automaticamente no downgrade.

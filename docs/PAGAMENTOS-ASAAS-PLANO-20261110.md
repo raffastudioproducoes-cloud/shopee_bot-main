@@ -123,3 +123,7 @@ chave de produção, só com autorização dele.
 - Fases 1 a 3 e painel ADMIN (`/admin/billing`) na staging; webhook registrado e ativo no sandbox.
 - **Telas do cliente** (`/planos`, minha assinatura, cancelamento, botões de upgrade e apresentação): em PR para a staging.
 - **Pendente:** troca de plano com assinatura aberta; pausa de campanhas no downgrade Premium→Pro; NFS-e automática (depende do cadastro fiscal no Asaas); teste de ponta a ponta com cartão de teste no sandbox; produção (chave real, webhook e `ASAAS_API_URL` de produção) só com autorização de Rafa.
+
+## 7. Pix (decisão de 11/11/2026)
+
+O checkout recorrente do Asaas só aceita cartão (erro do Asaas: `CREDIT_CARD é o único método permitido para RECURRENT`; Pix exige `DETACHED`). Rafa escolheu o **Pix Automático**: o QR Code inicial paga o período inteiro e autoriza o débito nas próximas datas (mensal, trimestral, semestral, anual; `paymentCreationMode=SUBSCRIPTION`). Cancelamento no banco ou no site encerra a renovação; atraso segue 15 dias de tolerância. Pendências: validar elegibilidade e eventos reais no sandbox; aviso de pagamento pendente no sino.

@@ -27,6 +27,7 @@ REVERSAL_EVENTS = {"PAYMENT_REFUNDED", "PAYMENT_CHARGEBACK_REQUESTED", "PAYMENT_
 PAYMENT_RECORD_EVENTS = {"PAYMENT_CREATED", "PAYMENT_UPDATED", "PAYMENT_DELETED", "PAYMENT_RESTORED",
                          "PAYMENT_OVERDUE", "PAYMENT_PARTIALLY_REFUNDED"} | PAID_EVENTS | REVERSAL_EVENTS
 ENDED_SUBSCRIPTION_EVENTS = {"SUBSCRIPTION_INACTIVATED", "SUBSCRIPTION_DELETED"}
+PIX_AUTH_PREFIX = "PIX_AUTOMATIC_RECURRING_AUTHORIZATION_"
 
 
 def _now() -> datetime:
@@ -81,11 +82,70 @@ def _latest_checkout(env: str, user_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def _checkout_by_authorization(env: str, authorization_id: str | None) -> dict | None:
+    if not authorization_id:
+        return None
+    rows = _rows(supabase.table("billing_checkouts").select("*").eq("environment", env)
+                 .eq("asaas_checkout_id", authorization_id).limit(1).execute())
+    return rows[0] if rows else None
+
+
+def _open_pix_subscription(env: str, user_id: str) -> dict | None:
+    rows = _rows(supabase.table("billing_subscriptions").select("*").eq("environment", env)
+                 .eq("user_id", user_id).eq("billing_type", "PIX")
+                 .in_("status", ["pending", "active", "overdue"])
+                 .order("created_at", desc=True).limit(1).execute())
+    return rows[0] if rows else None
+
+
+def _apply_pix_authorization(env: str, event: str, payload: dict) -> None:
+    """Pix Automático: ativação paga o 1º período; recusa, expiração e cancelamento encerram a recorrência."""
+    auth = payload.get("authorization") or {}
+    order = _checkout_by_authorization(env, auth.get("id"))
+    if not order:
+        logger.warning("Autorização Pix Automático %s sem pedido correspondente; ignorada", event)
+        return
+    user_id = order["user_id"]
+    status = event[len(PIX_AUTH_PREFIX):]
+    if status == "ACTIVATED":
+        supabase.table("billing_checkouts").update(
+            {"status": "paid", "updated_at": _now().isoformat()}).eq("id", order["id"]).execute()
+        sub_id = auth.get("subscriptionId")
+        if not sub_id:
+            sub_id = (asaas_client.get_pix_authorization(auth["id"]) or {}).get("subscriptionId")
+        # Sem id da assinatura vinculada ainda, guarda um marcador; o 1º evento de cobrança o substitui.
+        sub_id = sub_id or f"pixauto:{auth['id']}"
+        end = _add_months(_now().date(), _months(order["period"]))
+        supabase.table("billing_subscriptions").upsert({
+            "user_id": user_id, "environment": env, "asaas_subscription_id": sub_id,
+            "tier": order["tier"], "period": order["period"], "billing_type": "PIX",
+            "value_cents": order["value_cents"], "status": "active",
+            "current_period_end": end.isoformat(), "overdue_since": None,
+            "updated_at": _now().isoformat(),
+        }, on_conflict="environment,asaas_subscription_id").execute()
+        _set_plan(user_id, order["tier"], event)
+    elif status in ("REFUSED", "EXPIRED") and order["status"] != "paid":
+        supabase.table("billing_checkouts").update(
+            {"status": "expired", "updated_at": _now().isoformat()}).eq("id", order["id"]).execute()
+    elif status == "CANCELLED":
+        if order["status"] != "paid":
+            supabase.table("billing_checkouts").update(
+                {"status": "canceled", "updated_at": _now().isoformat()}).eq("id", order["id"]).execute()
+            return
+        sub = _open_pix_subscription(env, user_id)
+        if sub:  # plano segue até o fim do período já pago; o job diário faz a volta a Free
+            _update_subscription(sub, status="canceled")
+
+
 def _ensure_subscription(env: str, asaas_id: str, user_id: str, source: dict) -> dict | None:
     """Cria o registro local da assinatura a partir do último checkout da conta."""
     found = _subscription(env, asaas_id)
     if found:
         return found
+    placeholder = _open_pix_subscription(env, user_id) if source.get("billingType") == "PIX" else None
+    if placeholder and str(placeholder["asaas_subscription_id"]).startswith("pixauto:"):
+        _update_subscription(placeholder, asaas_subscription_id=asaas_id)
+        return _subscription(env, asaas_id)
     order = _latest_checkout(env, user_id)
     if not order:
         logger.warning("Assinatura %s sem checkout correspondente; ignorada", asaas_id)
@@ -173,6 +233,9 @@ def apply_event(env: str, event: str, payload: dict) -> None:
             supabase.table("billing_checkouts").update(
                 {"status": status, "updated_at": _now().isoformat()}
             ).eq("environment", env).eq("asaas_checkout_id", checkout["id"]).neq("status", "paid").execute()
+        return
+    if event.startswith(PIX_AUTH_PREFIX):
+        _apply_pix_authorization(env, event, payload)
         return
     if event == "SUBSCRIPTION_CREATED":
         sub = payload.get("subscription") or {}
