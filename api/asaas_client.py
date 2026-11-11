@@ -35,6 +35,14 @@ def enabled() -> bool:
     return bool(settings.asaas_api_key)
 
 
+def may_bill(user_id: str | None) -> bool:
+    """Produção cobra qualquer conta; sandbox só as contas de teste listadas."""
+    if environment() == "production":
+        return True
+    testers = {t.strip() for t in (settings.asaas_sandbox_testers or "").split(",") if t.strip()}
+    return bool(user_id) and str(user_id) in testers
+
+
 def request(method: str, path: str, *, json: dict | None = None, params: dict | None = None,
             client: httpx.Client | None = None) -> dict:
     if not enabled():

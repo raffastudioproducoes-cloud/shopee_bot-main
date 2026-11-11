@@ -236,6 +236,7 @@ IDENTITY = {"full_name": "Maria Teste", "cpf_ciphertext": encrypt("52998224725")
 def checkout(monkeypatch):
     monkeypatch.setattr(settings, "asaas_api_key", "$aact_test")
     monkeypatch.setattr(settings, "asaas_api_url", "https://api-sandbox.asaas.com/v3")
+    monkeypatch.setattr(settings, "asaas_sandbox_testers", "u1")
     db = _DB(users=[{"id": "u1", "email": "m@example.com"}], account_billing_identity=[IDENTITY])
     monkeypatch.setattr(database_module, "get_supabase", lambda: db)
     sent = []
@@ -324,3 +325,11 @@ def test_checkout_rate_limited(checkout):
     client, db, sent = checkout
     db.rows["billing_checkouts"] = [{"id": i} for i in range(billing_router.MAX_CHECKOUTS_PER_HOUR)]
     assert client.post("/billing/checkout", json=BODY).status_code == 429 and not sent
+
+
+def test_sandbox_checkout_only_for_listed_testers(checkout, monkeypatch):
+    client, _db, sent = checkout
+    monkeypatch.setattr(settings, "asaas_sandbox_testers", "outra-conta")
+    assert client.post("/billing/checkout", json=BODY).status_code == 403 and not sent
+    monkeypatch.setattr(settings, "asaas_api_url", "https://api.asaas.com/v3")
+    assert client.post("/billing/checkout", json=BODY).status_code == 200

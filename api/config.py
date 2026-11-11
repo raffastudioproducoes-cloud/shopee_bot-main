@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     asaas_api_url: str = "https://api-sandbox.asaas.com/v3"
     asaas_webhook_token: str = ""
     asaas_user_agent: str = "AutoOrbital/1.0"
+    # Staging e produção dividem o banco: no sandbox só estas contas (ids, separados
+    # por vírgula) podem contratar e ter o plano alterado por pagamento de teste.
+    asaas_sandbox_testers: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
