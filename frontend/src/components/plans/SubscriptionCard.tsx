@@ -32,7 +32,7 @@ export function safeInvoiceUrl(url: string | null): string | null {
   }
 }
 
-export function SubscriptionCard() {
+export function SubscriptionCard({ tier }: { tier?: string }) {
   const queryClient = useQueryClient()
   const query = useQuery({ queryKey: ["billing-subscription"], queryFn: billingApi.subscription, retry: false })
   const [confirming, setConfirming] = useState(false)
@@ -45,12 +45,19 @@ export function SubscriptionCard() {
   })
   const sub = query.data?.subscription
   const payments = query.data?.payments ?? []
-  if (query.isPending || query.isError || (!sub && payments.length === 0)) return null
+  const paidAccount = tier === "pro" || tier === "premium"
+  if (query.isPending || query.isError || (!sub && payments.length === 0 && !paidAccount)) return null
 
   const open = sub && sub.status !== "canceled"
   return (
     <section className="plan-checkout plan-sub" aria-labelledby="plan-sub-title">
       <h2 id="plan-sub-title">Minha assinatura</h2>
+      {!sub && (
+        <p className="plan-checkout__note" role="status">
+          Seu plano está ativo, mas não há assinatura com cobrança recorrente nesta conta (plano liberado pela equipe
+          ou ainda sem pagamento).
+        </p>
+      )}
       {sub && (
         <dl className="plan-sub__grid">
           <dt>Plano</dt><dd><PlanTag tier={sub.tier}>{TIER_NAMES[sub.tier]}</PlanTag> · {PERIOD_LABELS[sub.period]}</dd>
@@ -95,21 +102,34 @@ export function SubscriptionCard() {
         </div>
       )}
 
-      {open && !confirming && (
-        <Button variant="ghost" onClick={() => setConfirming(true)}>Cancelar assinatura</Button>
-      )}
-      {open && confirming && (
-        <div className="plan-sub__confirm" role="alertdialog" aria-label="Confirmar cancelamento">
-          <p>Cancelar agora? Seu plano continua até {day(sub.current_period_end)} e depois volta para o Free.
-            Cobranças pendentes desta assinatura são removidas.</p>
-          <div className="plan-sub__actions">
-            <Button variant="ghost" onClick={() => setConfirming(false)} disabled={cancel.isPending}>Manter assinatura</Button>
-            <Button onClick={() => cancel.mutate()} disabled={cancel.isPending}>
-              {cancel.isPending ? "Cancelando…" : "Sim, cancelar"}
-            </Button>
+      <div className="plan-sub__cancel">
+        <h3>Cancelamento de plano</h3>
+        {open && !confirming && (
+          <>
+            <p>Cancela a renovação. O plano segue até {day(sub.current_period_end)} e depois a conta volta para o Free.</p>
+            <Button variant="ghost" onClick={() => setConfirming(true)}>Cancelar plano</Button>
+          </>
+        )}
+        {open && confirming && (
+          <div className="plan-sub__confirm" role="alertdialog" aria-label="Confirmar cancelamento">
+            <p>Cancelar agora? Seu plano continua até {day(sub.current_period_end)} e depois volta para o Free.
+              Cobranças pendentes desta assinatura são removidas.</p>
+            <div className="plan-sub__actions">
+              <Button variant="ghost" onClick={() => setConfirming(false)} disabled={cancel.isPending}>Manter plano</Button>
+              <Button onClick={() => cancel.mutate()} disabled={cancel.isPending}>
+                {cancel.isPending ? "Cancelando…" : "Sim, cancelar plano"}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+        {sub?.status === "canceled" && <p>Este plano já foi cancelado e não será renovado.</p>}
+        {!sub && (
+          <>
+            <p>Não há assinatura para cancelar. Quando você contratar um plano pago, o cancelamento aparece aqui.</p>
+            <Button variant="ghost" disabled>Cancelar plano</Button>
+          </>
+        )}
+      </div>
       {cancel.error && <p className="plan-checkout__error" role="alert">{cancel.error.message}</p>}
     </section>
   )

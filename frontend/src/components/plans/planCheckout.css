@@ -89,3 +89,14 @@
 /* Etiqueta do cabeçalho: o link ocupa a faixa inteira e a etiqueta mantém o encaixe sob o perfil. */
 .plan-topbar-account .plan-topbar-tag .plan-badge-link { display: block; width: 100%; pointer-events: auto; border-radius: 26px; }
 @media (max-width: 767px) { .app-topbar .plan-topbar-account .plan-topbar-tag .plan-badge-link { border-radius: 19px; } }
+
+/* Guia do ambiente de teste (só no sandbox) */
+.plan-sandbox { border-color: rgba(255, 196, 94, .45); background: rgba(255, 196, 94, .05); }
+.plan-sandbox__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.plan-sandbox table { border-collapse: collapse; font-size: 13.5px; margin-bottom: 8px; }
+.plan-sandbox th, .plan-sandbox td { padding: 6px 12px 6px 0; text-align: left; border-bottom: 1px solid rgba(154, 166, 189, .14); }
+.plan-sandbox code { font-family: ui-monospace, monospace; font-size: 13.5px; }
+.plan-sandbox p { margin: 0 0 8px; font-size: 14px; line-height: 1.5; }
+.plan-sub__cancel { margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(154, 166, 189, .14); }
+.plan-sub__cancel h3 { margin: 0 0 8px; font-size: 16px; }
+.plan-sub__cancel p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: var(--text-secondary, #b1b7c5); }

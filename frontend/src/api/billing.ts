@@ -16,7 +16,7 @@ export interface PlanPrice {
   savings_cents: number
 }
 
-export interface PlansResponse { currency: "BRL"; checkout_enabled: boolean; prices: PlanPrice[] }
+export interface PlansResponse { currency: "BRL"; checkout_enabled: boolean; sandbox?: boolean; prices: PlanPrice[] }
 export interface CheckoutResponse { checkout_url: string; expires_in_minutes: number; value_cents: number }
 
 export interface MySubscription {

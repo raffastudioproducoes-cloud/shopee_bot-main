@@ -545,3 +545,12 @@ def test_checkout_returns_to_client_plans_page(checkout):
     assert callback["successUrl"].endswith("/planos?assinatura=sucesso")
     assert callback["cancelUrl"].endswith("/planos?assinatura=cancelada")
     assert callback["expiredUrl"].endswith("/planos?assinatura=expirada")
+
+
+def test_plans_endpoint_reports_sandbox_flag(monkeypatch):
+    monkeypatch.setattr(database_module, "get_supabase", lambda: None)
+    app.dependency_overrides.clear()
+    monkeypatch.setattr(settings, "asaas_api_url", "https://api-sandbox.asaas.com/v3")
+    assert TestClient(app).get("/billing/plans").json()["sandbox"] is True
+    monkeypatch.setattr(settings, "asaas_api_url", "https://api.asaas.com/v3")
+    assert TestClient(app).get("/billing/plans").json()["sandbox"] is False

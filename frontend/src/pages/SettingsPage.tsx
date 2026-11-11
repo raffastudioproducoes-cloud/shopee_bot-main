@@ -3,7 +3,6 @@ import { RegionConsent } from "../components/profiles/RegionConsent"
 import { AcquisitionConsent } from "../components/profiles/AcquisitionConsent"
 import { BackupSection } from "../components/profiles/BackupSection"
 import { Panel } from "../components/ui/Panel"
-import { PlanComparison } from "../components/plans/PlanComparison"
 import { Button } from "../components/ui/Button"
 import { PasswordRecoveryRequestModal } from "../components/auth/PasswordRecoveryRequestModal"
 
@@ -16,7 +15,6 @@ export function SettingsPage() {
         <h1 className="csp-s-0380">Configurações</h1>
         <p className="csp-s-0381">Ajustes da sua conta.</p>
       </div>
-      <PlanComparison />
       <Panel className="settings-password-card" padding={24} style={{ maxWidth: 420 }}>
         <div className="csp-s-0382">
           <h2 className="csp-s-0383">Trocar senha</h2>

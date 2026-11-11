@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query"
 import { billingApi } from "../api/billing"
 import { PlanCheckout } from "../components/plans/PlanCheckout"
 import { SubscriptionCard } from "../components/plans/SubscriptionCard"
+import { PlanComparison } from "../components/plans/PlanComparison"
+import { SandboxGuide } from "../components/plans/SandboxGuide"
 import { usePlanUsage } from "../hooks/usePlanUsage"
 import { parsePlanosSearch } from "../lib/planIntent"
 import "../components/plans/planCheckout.css"
@@ -22,6 +24,7 @@ export default function PlanosPage() {
   const search = parsePlanosSearch(useSearch({ strict: false }) as Record<string, unknown>)
   const usage = usePlanUsage()
   const sub = useQuery({ queryKey: ["billing-subscription"], queryFn: billingApi.subscription, retry: false })
+  const prices = useQuery({ queryKey: ["billing-plans"], queryFn: billingApi.plans, staleTime: 5 * 60_000 })
   const plan = usage.data
   const tier = plan?.plan_tier === "plus" ? "pro" : plan?.plan_tier
   const hasSubscription = ["pending", "active", "overdue"].includes(sub.data?.subscription?.status ?? "")
@@ -37,10 +40,12 @@ export default function PlanosPage() {
           {RETURN_MESSAGES[search.assinatura]}
         </p>
       )}
-      <SubscriptionCard />
+      {prices.data?.sandbox && prices.data.checkout_enabled && <SandboxGuide />}
+      <SubscriptionCard tier={tier} />
       {plan?.is_admin
         ? <p className="plan-checkout__note" role="status">Contas administradoras não têm cota comercial e não precisam de plano.</p>
         : <PlanCheckout initialTier={search.plano} initialPeriod={search.periodo} currentTier={tier} hasSubscription={hasSubscription} />}
+      <PlanComparison />
     </div>
   )
 }

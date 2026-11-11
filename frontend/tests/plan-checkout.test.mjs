@@ -38,3 +38,16 @@ test("a tela de planos é do cliente: ADMIN não contrata e o painel ADMIN não 
   assert.doesNotMatch(page + checkout, /billingAdmin|BillingAdminPanel|\/admin\/billing/)
   assert.doesNotMatch(api.replace(/^\/\/.*$/gm, ""), /billingAdmin|\/admin\/billing/)
 })
+
+test("Planos mostra cancelamento sempre, guia de teste só no sandbox e a tabela de limites", () => {
+  const card = readFileSync(new URL("../src/components/plans/SubscriptionCard.tsx", import.meta.url), "utf8")
+  assert.match(card, /Cancelamento de plano/)
+  assert.match(card, /Cancelar plano/)
+  assert.match(card, /paidAccount/)
+  const page = readFileSync(new URL("../src/pages/PlanosPage.tsx", import.meta.url), "utf8")
+  assert.match(page, /prices\.data\?\.sandbox && prices\.data\.checkout_enabled && <SandboxGuide \/>/)
+  assert.match(page, /<SubscriptionCard tier=\{tier\} \/>/)
+  const guide = readFileSync(new URL("../src/components/plans/SandboxGuide.tsx", import.meta.url), "utf8")
+  assert.match(guide, /4539 6560 4839 2220/)
+  assert.match(guide, /nada é cobrado de verdade/)
+})
