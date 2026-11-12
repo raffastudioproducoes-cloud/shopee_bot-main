@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Documentação
+
+- Evidências da promoção 3.16.0 (PR #458, merge `6f61487`, deploy de produção live) em `docs/RELEASE-3.16.0-20261112.md`, `AGENTS.md` e `docs/TASK.md`; correção da URL de prontidão (`/api/health/ready`). Sem mudança de código nem de versão.
+
 ## [3.16.0] - 2026-11-12
 
 Pagamentos com Asaas (cartão e Pix Automático), telas de plano do cliente, validação do cadastro e acertos de operação. **MINOR** (funcionalidade compatível). Em produção a contratação fica **desligada**: sem `ASAAS_API_KEY` no serviço de produção, `GET /billing/plans` informa `checkout_enabled=false` e a tela mostra "A contratação ainda não está aberta". A migration 098 (tabelas `plan_*` e `billing_*`, RLS fechada) já estava aplicada no banco compartilhado desde o deploy da staging.
