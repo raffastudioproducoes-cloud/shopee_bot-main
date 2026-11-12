@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.16.1] - 2026-11-12
+
+Correção (PATCH): verificação OAuth das campanhas deixa de falhar com `RuntimeError` de `asyncio.run` sob gevent.
+
 ### Fixed — campanhas Threads marcadas como "credenciais inválidas"
 
 - A verificação OAuth que antecede o envio de campanha (`campaign_dispatch._validated_credentials` -> `_autotest_outcome` -> `_call_with_timeout`) rodava `asyncio.run(...)` num `ThreadPoolExecutor`. Com o monkey-patch do gevent essa "thread" é um greenlet no mesmo thread do SO de um loop em execução, e `asyncio.run` levantava `RuntimeError: asyncio.run() cannot be called from a running event loop` (com `RuntimeWarning: coroutine 'validate_network_credential' was never awaited`). Todo slot de campanha era marcado como falha ("Credenciais ou permissões OAuth inválidas"). `_call_with_timeout` agora usa o threadpool do gevent (thread real do SO), mantendo o timeout de 20 s. O log de falha passa a registrar a mensagem sanitizada e o traceback. Teste de regressão em `tests/scheduler/test_campaign_credential_validation.py`.
