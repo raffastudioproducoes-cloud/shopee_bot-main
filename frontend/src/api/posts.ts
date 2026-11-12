@@ -27,12 +27,16 @@ export interface PostScheduleEntry {
   day_of_week?: number | null
   days_of_week?: number[] | null
   start_date?: string | null
+  /** Fuso IANA da recorrência; ausente em respostas antigas = America/Sao_Paulo. */
+  timezone?: string | null
 }
 
 export interface PostScheduleSlot {
   /** 0=segunda ... 6=domingo; null para publicações antigas por data. */
   day_of_week: number | null
   time: string
+  /** Fuso do horário recorrente (somente slots cron). */
+  timezone?: string | null
   status: 'programado' | 'em execução' | 'postado' | 'erro' | 'erro parcial' | 'sem confirmação'
   last_at: string | null
   /** Causa técnica retornada somente para ADMIN. */
@@ -83,6 +87,7 @@ export interface PostSchedule {
   day_of_week?: number | null // 0-6, obrigatório se trigger=cron
   days_of_week?: number[] | null // 0-6, um a sete dias para trigger=cron
   start_date?: string | null // ISO 8601, opcional em cron
+  timezone?: string | null // IANA; horários cron valem neste fuso
 }
 
 export interface PostCreate {

@@ -47,6 +47,7 @@ from ..plan_quotas import reserve_post_plan_quota, release_failed_post_plan_quot
 from ..audit_log import log_action
 from ..database import supabase
 from shopee_bot.database.scheduler_environment import current_environment
+from shopee_bot.utils.timezones import normalize_timezone, timezone_or_default
 from ..storage_capacity import storage_upload_reservation
 from ..utils.log_sanitizer import sanitize_log_data
 from ..network_limits import validate_post, errors_detail, is_network_disabled
@@ -251,6 +252,13 @@ class PostSchedule(BaseModel):
     days_of_week: list[int] | None = None
     start_date: str | None = None  # ISO 8601, opcional em cron
     run_date: str | None = None  # ISO 8601, obrigatório se trigger=date
+    # Fuso IANA dos horários recorrentes; ausente = fuso salvo do usuário.
+    timezone: str | None = Field(default=None, max_length=64)
+
+    @field_validator("timezone")
+    @classmethod
+    def _valid_timezone(cls, value):
+        return None if value is None else normalize_timezone(value)
 
     @model_validator(mode="after")
     def _check_required_fields(self):
@@ -657,7 +665,7 @@ def _media_shared_elsewhere(media_id: int, post_id: int) -> bool:
 
 def _get_post_schedule_entries(user_id: int, post_id: int) -> list[dict]:
     """Retorna todas as ocorrências da agenda, inclusive horários recorrentes."""
-    fields = ("id", "trigger", "run_date", "time", "day_of_week", "days_of_week", "start_date")
+    fields = ("id", "trigger", "run_date", "time", "day_of_week", "days_of_week", "start_date", "timezone")
     result = (
         supabase.table("schedulers").select(",".join(fields))
         .eq("user_id", user_id).eq("post_id", post_id).execute()
@@ -680,15 +688,30 @@ def _is_scheduled(job: dict | None, post: dict) -> bool:
     return job is not None and not post.get("publish_immediately", False)
 
 
+def _user_timezone(user_id) -> str:
+    """Fuso salvo do usuário; falha de leitura mantém o comportamento antigo (Brasília)."""
+    try:
+        result = supabase.table("users").select("timezone").eq("id", user_id).maybe_single().execute()
+    except Exception:
+        logger.warning("Fuso do usuário indisponível; agenda usará America/Sao_Paulo", exc_info=True)
+        return timezone_or_default(None)
+    row = result.data if result is not None else None
+    return timezone_or_default((row or {}).get("timezone"))
+
+
 async def _create_schedule_jobs(user_id: int, post_id: int, func: str, schedule: PostSchedule, profile_id: str) -> None:
     created: list[str] = []
+    # Só a recorrência usa o fuso; run_date (avulso) segue no horário de Brasília.
+    extra = {}
+    if schedule.trigger == "cron":
+        extra["timezone"] = schedule.timezone or _user_timezone(user_id)
     try:
         for time in schedule.times or [schedule.time]:
             job_id = await create_scheduler_job(
                 user_id=user_id, post_id=post_id, func=func, trigger=schedule.trigger,
                 time=time, day_of_week=schedule.day_of_week,
                 days_of_week=schedule.days_of_week, start_date=schedule.start_date,
-                run_date=schedule.run_date, profile_id=profile_id,
+                run_date=schedule.run_date, profile_id=profile_id, **extra,
             )
             created.append(job_id)
     except Exception as exc:
@@ -904,6 +927,7 @@ def _schedule_slot_history(
                 job = latest_by_slot.get((int(day), time_value, scheduler_id))
                 slots.append({
                     "day_of_week": int(day), "time": time_value,
+                    "timezone": timezone_or_default(entry.get("timezone")),
                     "status": slot_state(job),
                     "last_at": (job.get("finished_at") or job.get("started_at") or job.get("created_at")) if job else None,
                     "error": sanitize_log_data(str(job.get("last_error")))[:200]
@@ -1437,7 +1461,7 @@ def _id_chunks(ids: list[int], size: int = _LIST_ID_CHUNK):
 
 
 def _batch_schedule_entries(user_id: int, ids: list[int]) -> dict[int, list[dict]]:
-    fields = ("id", "trigger", "run_date", "time", "day_of_week", "days_of_week", "start_date")
+    fields = ("id", "trigger", "run_date", "time", "day_of_week", "days_of_week", "start_date", "timezone")
     grouped: dict[int, list[dict]] = {}
     for chunk in _id_chunks(ids):
         rows = (

@@ -1,3 +1,4 @@
+import { formatInstant } from "../lib/userTimeZone"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { useAuthStore } from "../stores/authStore"
@@ -170,7 +171,7 @@ function ConnectionStatus({ status, compact = false }: { status: CredentialStatu
       </span>
       {status.checked_at && !testing && !compact && (
         <span className="csp-s-0196">
-          Testado em {new Date(status.checked_at).toLocaleString("pt-BR")}
+          Testado em {formatInstant(status.checked_at)}
         </span>
       )}
     </>
@@ -182,7 +183,7 @@ function ConnectionDetails({ status }: { status: CredentialStatusWithLight }) {
   return (
     <div className="credentials-connection-details">
       {status.status_text && <span>{status.status_text}</span>}
-      {status.checked_at && <span>Último teste: {new Date(status.checked_at).toLocaleString("pt-BR")}</span>}
+      {status.checked_at && <span>Último teste: {formatInstant(status.checked_at)}</span>}
       {status.check_message && <span>{status.check_message}</span>}
     </div>
   )

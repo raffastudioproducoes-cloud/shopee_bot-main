@@ -1,3 +1,4 @@
+import { getUserTimeZone } from '../lib/userTimeZone'
 import { useCountProgress } from '../lib/motion'
 import { useId } from 'react'
 import { Activity, BarChart3, Eye, Gauge, Layers, MessageCircle, TrendingUp } from 'lucide-react'
@@ -296,7 +297,7 @@ function TopPosts({ posts, loading, error }: { posts?: AnalyticsPostMetric[]; lo
       {ranked.map(post => <li key={post.job_id}>
         <div className="analytics-post-content">
           <strong>{post.preview || 'Publicação sem texto'}</strong>
-          <small className="analytics-post-source">{networkNames[post.network]} · {new Date(post.finished_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} · {collectionLabel(post.state)}</small>
+          <small className="analytics-post-source">{networkNames[post.network]} · {new Date(post.finished_at).toLocaleDateString('pt-BR', { timeZone: getUserTimeZone() })} · {collectionLabel(post.state)}</small>
           <div className="analytics-post-metrics" aria-label="Interações oficiais da publicação">
             {([
               ['Curtidas', post.likes], ['Comentários', post.comments],

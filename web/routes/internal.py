@@ -32,6 +32,7 @@ from shopee_bot.apis import threads as ThreadsAPI
 from shopee_bot.apis import instagram as InstagramAPI
 from shopee_bot.apis import tiktok as TikTokAPI
 from shopee_bot.database.schedulers import NETWORK_FUNC_MAP
+from shopee_bot.utils.timezones import normalize_timezone
 
 internal_bp = Blueprint("internal", __name__, url_prefix="/internal")
 
@@ -120,6 +121,12 @@ def create_job():
         return jsonify({"error": str(exc)}), 400
     if days_of_week is not None and body.get("day_of_week") not in (None, days_of_week[0]):
         return jsonify({"error": "day_of_week deve corresponder ao primeiro item de days_of_week"}), 400
+    timezone_name = body.get("timezone")
+    if timezone_name is not None:
+        try:
+            timezone_name = normalize_timezone(timezone_name)
+        except ValueError:
+            return jsonify({"error": "Fuso horário inválido"}), 400
     job = {
         "post_id": body["post_id"],
         "func": func,
@@ -130,6 +137,7 @@ def create_job():
         "start_date": _parse_datetime(body.get("start_date")),
         "run_date": _parse_datetime(body.get("run_date")),
         "profile_id": profile_id,
+        "timezone": timezone_name,
     }
     try:
         job_id = add_job(user_id, job)

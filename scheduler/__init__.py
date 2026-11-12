@@ -32,6 +32,7 @@ from shopee_bot.scheduler.update_products import update_products
 from shopee_bot.scheduler.publication_result import PublicationResult, unknown
 from shopee_bot.scheduler import publication_context
 from shopee_bot.scheduler import campaign_dispatch
+from shopee_bot.utils.timezones import timezone_or_default, zone
 
 load_dotenv()
 HOST = os.environ.get("SHOPEE_PG_HOST")
@@ -154,10 +155,16 @@ def reconcile_central_jobs():
 
 
 def _occurrence_key(job_id, job_data):
-    """A agenda date ocorre uma vez; cron ganha uma chave por minuto local."""
+    """A agenda date ocorre uma vez; cron ganha uma chave por minuto local.
+
+    O minuto é o do fuso da agenda (linhas antigas: America/Sao_Paulo, chave
+    idêntica à anterior). No recuo do horário de verão o mesmo minuto local
+    se repete e a segunda execução é tratada como a mesma ocorrência.
+    """
     if job_data.get("trigger") != "cron":
         return str(job_id)
-    return f"{job_id}:{datetime.now(pytz.timezone('America/Sao_Paulo')).strftime('%Y-%m-%dT%H:%M')}"
+    local_now = datetime.now(zone(job_data.get("timezone")))
+    return f"{job_id}:{local_now.strftime('%Y-%m-%dT%H:%M')}"
 
 
 def _execute_publish_item(publish_job_id, job_data):
@@ -395,7 +402,9 @@ def _add_job(user_id, job, conn):
             minute=minute,
             hour=hour,
             day_of_week=days_expression,
-            start_date=start_date
+            start_date=start_date,
+            # Horário de parede no fuso do usuário; sem fuso = Brasília (padrão do banco).
+            timezone=timezone_or_default(job.get("timezone")),
         )
     elif trigger == "date":
         _scheduler.add_job(
