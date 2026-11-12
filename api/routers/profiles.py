@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from ..database import supabase
+from ..effective_plan import effective_plan
 from ..storage_capacity import storage_upload_reservation
 from ..media_sanitizer import JPEG, PNG, WEBP, MediaSanitizerError, detect_media_type, sanitize_media_upload
 from ..profiles import is_principal
@@ -140,7 +141,7 @@ async def get_profile_quota(user_id: str = Depends(get_current_user_id)):
                    .eq("id", user_id).maybe_single().execute())
         if not account or not account.data:
             raise HTTPException(status_code=404, detail="Conta não encontrada.")
-        tier = "pro" if account.data["plan_tier"] == "plus" else account.data["plan_tier"]
+        tier = effective_plan(account.data["access"], account.data["plan_tier"])
         is_admin = account.data["access"] == "ADMIN"
         limit = None
         if not is_admin:

@@ -61,6 +61,7 @@ REVIEWED_ID_ROUTES = frozenset({
     "POST /profiles/{profile_id}/avatar",
     "PUT /admin/ai/{provider}",
     "PUT /admin/users/{user_id}",
+    "PUT /admin/users/{user_id}/plan",
     "PUT /campaigns/drafts/{draft_id}",
     "PUT /credentials/ai/{provider}",
     "PUT /credentials/{network}",

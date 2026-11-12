@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 
 from .database import supabase
+from .effective_plan import effective_plan
 from .campaign_schedule import (
     MAX_CAMPAIGN_CALENDAR_DAYS, count_campaign_days, plan_campaign_slots,
 )
@@ -50,8 +51,7 @@ def load_campaign_policy(user_id: str, profile_id: str) -> CampaignPolicy:
         if not account or not isinstance(account.data, dict):
             raise _unavailable()
         access = account.data.get("access")
-        tier = account.data.get("plan_tier")
-        tier = "pro" if tier == "plus" else tier
+        tier = effective_plan(access, account.data.get("plan_tier"))
         if access not in ("USER", "ADMIN") or tier not in ("free", "pro", "premium"):
             raise _unavailable()
         if access == "ADMIN":

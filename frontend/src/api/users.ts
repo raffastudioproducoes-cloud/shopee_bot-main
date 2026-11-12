@@ -8,6 +8,24 @@ export interface AppUser {
   access: UserAccess
   created_at: string
   updated_at: string | null
+  plan_tier: 'free' | 'pro' | 'premium'
+  /** Fim do período pago/concedido; null para Free, sem prazo ou ADMIN. */
+  plan_expires_at: string | null
+}
+
+export type GrantablePlan = 'free' | 'pro' | 'premium'
+
+export interface PlanGrantInput {
+  plan: GrantablePlan
+  days?: number
+  ends_at?: string
+  reason?: string
+}
+
+export interface PlanGrantResult {
+  user_id: string
+  plan_tier: GrantablePlan
+  plan_expires_at: string | null
 }
 
 export interface UserCreate {
@@ -50,6 +68,10 @@ export const usersApi = {
 
   async delete(id: string): Promise<{ msg: string }> {
     return api.delete<{ msg: string }>(`/admin/users/${id}`)
+  },
+
+  async setPlan(id: string, data: PlanGrantInput): Promise<PlanGrantResult> {
+    return api.put<PlanGrantResult>('/admin/users/' + id + '/plan', data)
   },
 
   async deleteSelf(currentPassword: string): Promise<{ msg: string }> {

@@ -525,7 +525,7 @@ def test_get_profile_quota_admin_ignores_commercial_max(auth_client, monkeypatch
     ]
     response = auth_client.get("/profiles/quota")
     assert response.status_code == 200
-    assert response.json() == {"tier": "free", "used": 1, "limit": None, "unlimited": True}
+    assert response.json() == {"tier": "premium", "used": 1, "limit": None, "unlimited": True}
 
 
 def test_get_profile_quota_fails_closed_without_policy(auth_client, monkeypatch):

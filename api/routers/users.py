@@ -35,6 +35,7 @@ from .products import ProductCreate, _normalize_numeric_fields, find_product_in_
 from .profiles import get_current_profile_id
 from ..audit_trail import record_audit_event
 from ..config import settings
+from ..effective_plan import effective_plan
 from ..database import get_supabase, supabase
 from ..account_erasure import erase_account, account_erasure_enabled
 from ..profiles import scope_account, scope_owner
@@ -371,7 +372,7 @@ async def list_users(
 ):
     query = (
         supabase.table("users")
-        .select("id, username, access, created_at, updated_at")
+        .select("id, username, access, created_at, updated_at, plan_tier, campaign_paid_through")
         .order("created_at", desc=True)
         .limit(limit)
     )
@@ -382,6 +383,12 @@ async def list_users(
     next_cursor = None
     if result.data and len(result.data) == limit:
         next_cursor = result.data[-1]["created_at"]
+
+    # Plano atual e fim do período pago para a tela de contas (legado "plus" aparece como Pro).
+    for row in result.data:
+        paid_until = row.pop("campaign_paid_through", None)
+        row["plan_tier"] = effective_plan(row.get("access"), row.get("plan_tier"))
+        row["plan_expires_at"] = paid_until if row["access"] != "ADMIN" and row["plan_tier"] in ("pro", "premium") else None
 
     return {"data": result.data, "next_cursor": next_cursor}
 
