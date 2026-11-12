@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — campanhas Threads marcadas como "credenciais inválidas"
+
+- A verificação OAuth que antecede o envio de campanha (`campaign_dispatch._validated_credentials` -> `_autotest_outcome` -> `_call_with_timeout`) rodava `asyncio.run(...)` num `ThreadPoolExecutor`. Com o monkey-patch do gevent essa "thread" é um greenlet no mesmo thread do SO de um loop em execução, e `asyncio.run` levantava `RuntimeError: asyncio.run() cannot be called from a running event loop` (com `RuntimeWarning: coroutine 'validate_network_credential' was never awaited`). Todo slot de campanha era marcado como falha ("Credenciais ou permissões OAuth inválidas"). `_call_with_timeout` agora usa o threadpool do gevent (thread real do SO), mantendo o timeout de 20 s. O log de falha passa a registrar a mensagem sanitizada e o traceback. Teste de regressão em `tests/scheduler/test_campaign_credential_validation.py`.
+
 ### Documentação
 
 - Evidências da promoção 3.16.0 (PR #458, merge `6f61487`, deploy de produção live) em `docs/RELEASE-3.16.0-20261112.md`, `AGENTS.md` e `docs/TASK.md`; correção da URL de prontidão (`/api/health/ready`). Sem mudança de código nem de versão.
