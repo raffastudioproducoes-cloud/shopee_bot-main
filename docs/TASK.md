@@ -1,3 +1,14 @@
+## 12/11/2026 — Release 3.16.0 (MINOR): pagamentos Asaas, /planos, cadastro e operação
+
+- [x] Pagamentos Asaas na staging (sandbox): cartão (checkout recorrente) e Pix Automático; webhook, painel ADMIN, `/planos`, cancelamento, guia de teste, validação do cadastro, login 60/40 (PRs #441–#456).
+- [x] Banco compartilhado (a pedido de Rafa): cron de despertar só antes de publicações de produção com log; agendamentos migrados para `production`; histórico de posts apagado (cópias `bkp_reset_20261112_*`). Ver `docs/operations/`.
+- [ ] Promoção `staging → main` (merge commit) e evidências em `docs/RELEASE-3.16.0-20261112.md`.
+- [ ] Validar na produção as primeiras execuções (recorrência 12/11 12:00 UTC; campanha 13:00 UTC) em Posts, `admin_wake_log` e logs do Render; checar leitura das credenciais do Threads pela produção.
+- [ ] Teste de pagamento de ponta a ponta no sandbox (cartão e Pix com mudança de plano) e conferência dos avisos reais do Pix Automático.
+- [ ] Abrir contratação em produção só com autorização: chave/URL/token do Asaas, webhook de produção, Termos/Privacidade, NFS-e.
+- [ ] Pendências: aviso de pagamento pendente no sino; troca de plano com assinatura aberta; pausa de campanhas no downgrade; "Programado" em Posts mostra 3 h antes (a confirmar).
+- [ ] Meta App Review: enviar `threads_manage_insights` após a gravação de Rafa; leitores de insights do Instagram e do Facebook ainda não existem.
+
 ## 09/11/2026 — Release 3.9.0 (MINOR) em produção
 
 - [x] Rafa homologou em staging e autorizou o merge na `main`; PR #395 (merge commit `f3edf13`), CI, SemVer e CI de push SUCCESS; Render produção `dep-dbov227avr4c73bvifjg` LIVE; logs de boot sem erro.
