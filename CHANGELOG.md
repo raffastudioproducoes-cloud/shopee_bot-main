@@ -5,6 +5,16 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — concessão de plano pelo ADMIN
+
+- `PUT /admin/users/{user_id}/plan` (só ADMIN, 30 alterações/min por admin): dá Pro ou Premium a qualquer conta por `days` (1 a 365) **ou** `ends_at` (até 365 dias à frente), ou remove o plano com `plan=free`. Grava `users.plan_tier` e `users.campaign_paid_through` e registra quem concedeu, quando e até quando na tabela nova `plan_grants` (migration `099_plan_grants.sql`, aditiva; reversão `DROP TABLE public.plan_grants`) e em `audit_events`. Recusa conta ADMIN e conta com assinatura Asaas ativa/em atraso.
+- Ao vencer, a conta volta ao Free automaticamente: varredura a cada 5 minutos (`expire_due_grants`) em cada worker, idempotente; só rebaixa se o plano ainda é o da concessão. Limite conhecido: entre o vencimento e a varredura (até ~5 min) os limites ainda leem o plano antigo; campanhas já exigem `campaign_paid_through` vigente. Campanhas ativas não são pausadas no rebaixamento além do que o executor já faz.
+- `/admin/users` mostra `plan_tier` e `plan_expires_at`; em `/admin/users` (UI) botão "Dar plano" na linha do usuário, com modal de plano, duração (dias ou data final) e confirmação.
+
+### Changed — ADMIN é sempre Premium
+
+- Nova função central `effective_plan(access, plan_tier)` (`api/effective_plan.py`): conta `ADMIN` é Premium com tudo liberado e `users.plan_tier`/`campaign_*` não decidem nada para ela. Usada na política de campanhas (`/campaigns/limits`, `/profiles/usage`), em `/profiles/quota` e na lista de contas; a UI deixa de oferecer "Melhorar plano" ao ADMIN também com `plan_tier=free` gravado. Os limites no banco (RPCs de cota) já isentavam ADMIN pelo papel. O X segue desabilitado para todos por regra de produto (`DISABLED_NETWORKS`), não por plano.
+
 ### Documentação
 
 - Evidências da promoção 3.16.0 (PR #458, merge `6f61487`, deploy de produção live) em `docs/RELEASE-3.16.0-20261112.md`, `AGENTS.md` e `docs/TASK.md`; correção da URL de prontidão (`/api/health/ready`). Sem mudança de código nem de versão.

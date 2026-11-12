@@ -22,6 +22,7 @@ from .middleware import AccessLogRedactor, RequestIDMiddleware, RequestLoggingMi
 from .routers.posts import cleanup_expired_media_drafts
 from .routers.auth import cleanup_expired_sessions
 from .routers.admin import router as admin_router
+from .plan_grants import expire_due_grants
 
 for noisy_logger in ("httpx", "httpcore", "urllib3"):
     logging.getLogger(noisy_logger).setLevel(logging.WARNING)
@@ -146,6 +147,16 @@ async def _cleanup_media_drafts_periodically() -> None:
         await asyncio.sleep(3600)
 
 
+async def _expire_plan_grants_periodically() -> None:
+    """Best effort: concessões de plano vencidas voltam ao Free em até 5 minutos."""
+    while True:
+        try:
+            await run_in_threadpool(expire_due_grants)
+        except Exception:
+            logger.warning("Falha na expiração periódica de concessões de plano", exc_info=True)
+        await asyncio.sleep(300)
+
+
 # Health check
 @app.get("/health")
 async def health():
@@ -195,9 +206,11 @@ async def startup():
         )
         return
     app.state.media_draft_cleanup_task = asyncio.create_task(_cleanup_media_drafts_periodically())
+    app.state.plan_grant_expiry_task = asyncio.create_task(_expire_plan_grants_periodically())
 
 
 async def shutdown():
-    task = getattr(app.state, "media_draft_cleanup_task", None)
-    if task:
-        task.cancel()
+    for name in ("media_draft_cleanup_task", "plan_grant_expiry_task"):
+        task = getattr(app.state, name, None)
+        if task:
+            task.cancel()

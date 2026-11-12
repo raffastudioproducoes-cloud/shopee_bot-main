@@ -4,6 +4,7 @@ import logging
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Query
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from ..admin_metrics import AdminMetricsResponse, collect_admin_metrics
@@ -14,6 +15,8 @@ from ..admin_operations import OperationsResponse, collect_operations
 from ..admin_queue_health import QueueHealthResponse, collect_queue_health
 from ..admin_views import AdminLogsResponse, AdminCredentialStatus
 from ..audit_log import log_action
+from .. import plan_grants
+from ..rate_limiter import check_window
 from .profiles import get_current_profile_id
 
 from . import logs, users, credentials, platform_ai, platform_shopee
@@ -27,6 +30,18 @@ router.add_api_route("/users/{user_id}", users.get_user, methods=["GET"])
 router.add_api_route("/users/{user_id}", users.update_user, methods=["PUT"])
 router.add_api_route("/users/{user_id}", users.delete_user, methods=["DELETE"])
 router.add_api_route("/users/{user_id}/erasure/retry", users.resume_erasure, methods=["POST"])
+
+_PLAN_RATE_ATTEMPTS = 30
+_plan_attempts: dict = {}
+
+
+@router.put("/users/{user_id}/plan")
+async def set_user_plan(user_id: str, body: plan_grants.PlanGrantRequest,
+                        admin_id: str = Depends(get_current_user_id)):
+    """Concede Pro/Premium por prazo (1 a 365 dias) ou remove o plano ("free"). Só ADMIN."""
+    check_window("admin-plan-grant", admin_id, attempts=_PLAN_RATE_ATTEMPTS, window_seconds=60,
+                 state=_plan_attempts, detail="Muitas alterações de plano em pouco tempo. Aguarde um minuto.")
+    return await run_in_threadpool(plan_grants.apply_plan, admin_id, user_id, body)
 # Overrides manuais de credenciais (token já emitido): só ADMIN, reutilizando
 # os handlers de credentials (sem rota equivalente em /credentials).
 router.add_api_route("/credentials/threads", credentials.save_threads_credential, methods=["PUT"])

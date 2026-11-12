@@ -3,7 +3,7 @@ import { useState } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { ApiError } from "../lib/api"
 import { validatePassword } from "../lib/password"
-import { usersApi, type AppUser, type UserAccess } from "../api/users"
+import { usersApi, type AppUser, type UserAccess, type GrantablePlan } from "../api/users"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { IconButton } from "../components/ui/IconButton"
@@ -26,6 +26,7 @@ export default function UsersPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<AppUser | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [planUser, setPlanUser] = useState<AppUser | null>(null)
   const [search, setSearch] = useState("")
   const [accessFilter, setAccessFilter] = useState("ALL")
   useAutosavedDraft(formDraftKey(accountId, "users-filters", null, false), { search, accessFilter }, (saved) => {
@@ -65,6 +66,15 @@ export default function UsersPage() {
       clearFormDraft(formDraftKey(accountId, `user-edit:${editingUser?.id}`, null, false))
       setModalOpen(false)
       setEditingUser(null)
+    },
+    onError: onAuthError,
+  })
+
+  const planMutation = useMutation({
+    mutationFn: ({ id, ...data }: { id: string } & Parameters<typeof usersApi.setPlan>[1]) => usersApi.setPlan(id, data),
+    onSuccess: () => {
+      invalidate()
+      setPlanUser(null)
     },
     onError: onAuthError,
   })
@@ -134,11 +144,13 @@ export default function UsersPage() {
                 </div>
                 <p className="admin-user-details">
                   <span>Criado em {new Date(user.created_at).toLocaleDateString("pt-BR")}</span>
+                  <span>{planSummary(user)}</span>
                   <span>{user.updated_at ? `Atualizado em ${new Date(user.updated_at).toLocaleDateString("pt-BR")}` : "Sem alterações registradas"}</span>
                 </p>
                 <div className="admin-user-actions">
                   <Badge tone={user.access === "ADMIN" ? "mint" : "neutral"}>{user.access === "ADMIN" ? "Administrador" : "Usuário"}</Badge>
                   <div>
+                    {user.access !== "ADMIN" && <IconButton icon="sparkles" label={"Dar plano a " + user.username} tone="plain" onClick={() => setPlanUser(user)} />}
                     <IconButton icon="pencil" label={`Editar ${user.username}`} tone="plain" onClick={() => { setEditingUser(user); setModalOpen(true) }} />
                     <IconButton icon="trash-2" label={`Remover ${user.username}`} tone="plain" onClick={() => setDeleteConfirm(user.id)} style={{ color: "var(--negative)" }} />
                   </div>
@@ -160,6 +172,16 @@ export default function UsersPage() {
           onUpdate={(id, username, access) => updateMutation.mutate({ id, username, access })}
           loading={createMutation.isPending || updateMutation.isPending}
           apiError={createMutation.error instanceof ApiError && createMutation.error.status !== 401 ? createMutation.error.message : null}
+        />
+      )}
+
+      {planUser && (
+        <PlanGrantModal
+          user={planUser}
+          onClose={() => setPlanUser(null)}
+          onSubmit={(data) => planMutation.mutate({ id: planUser.id, ...data })}
+          loading={planMutation.isPending}
+          apiError={planMutation.error instanceof ApiError && planMutation.error.status !== 401 ? planMutation.error.message : null}
         />
       )}
 
@@ -250,6 +272,107 @@ function UserModal({ user, onClose, onCreate, onUpdate, loading, apiError }: Use
           <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button type="submit" variant="primary" disabled={loading || !username.trim() || (!user && (!password.trim() || passwordError !== null))}>
             {loading ? "Salvando..." : user ? "Salvar" : "Criar"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+const PLAN_LABELS: Record<GrantablePlan, string> = { free: "Free", pro: "Pro", premium: "Premium" }
+const MAX_PLAN_DAYS = 365
+
+function planSummary(user: AppUser): string {
+  if (user.access === "ADMIN") return "Plano: Premium (administrador)"
+  const label = PLAN_LABELS[user.plan_tier] ?? "Free"
+  if (user.plan_tier === "free") return "Plano: " + label
+  return user.plan_expires_at
+    ? "Plano: " + label + " até " + new Date(user.plan_expires_at).toLocaleDateString("pt-BR")
+    : "Plano: " + label + " (sem prazo)"
+}
+
+function localDateInput(offsetDays: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() + offsetDays)
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  return date.getFullYear() + "-" + month + "-" + String(date.getDate()).padStart(2, "0")
+}
+
+interface PlanGrantModalProps {
+  user: AppUser
+  onClose: () => void
+  onSubmit: (data: { plan: GrantablePlan; days?: number; ends_at?: string }) => void
+  loading: boolean
+  apiError?: string | null
+}
+
+function PlanGrantModal({ user, onClose, onSubmit, loading, apiError }: PlanGrantModalProps) {
+  const [plan, setPlan] = useState<GrantablePlan>(user.plan_tier === "free" ? "pro" : user.plan_tier)
+  const [mode, setMode] = useState<"days" | "date">("days")
+  const [days, setDays] = useState("30")
+  const [endDate, setEndDate] = useState(localDateInput(30))
+  const [confirmed, setConfirmed] = useState(false)
+  const paid = plan !== "free"
+  const daysNumber = Number(days)
+  const daysValid = Number.isInteger(daysNumber) && daysNumber >= 1 && daysNumber <= MAX_PLAN_DAYS
+  const dateValid = endDate > localDateInput(0) && endDate <= localDateInput(MAX_PLAN_DAYS - 1)
+  const durationValid = !paid || (mode === "days" ? daysValid : dateValid)
+  const edit = (apply: () => void) => { apply(); setConfirmed(false) }
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!confirmed) {
+      setConfirmed(true)
+      return
+    }
+    if (!paid) return onSubmit({ plan })
+    if (mode === "days") return onSubmit({ plan, days: daysNumber })
+    onSubmit({ plan, ends_at: new Date(endDate + "T23:59:59").toISOString() })
+  }
+
+  const summary = !paid
+    ? "Remover o plano de " + user.username + " (volta ao Free agora)."
+    : mode === "days"
+      ? "Dar " + PLAN_LABELS[plan] + " a " + user.username + " por " + daysNumber + " dia(s)."
+      : "Dar " + PLAN_LABELS[plan] + " a " + user.username + " até " + new Date(endDate + "T00:00:00").toLocaleDateString("pt-BR") + "."
+
+  return (
+    <Modal open onClose={onClose} title="Dar plano" width={420} className="admin-dialog">
+      <form onSubmit={handleSubmit} className="csp-s-0396">
+        <p className="csp-s-0394">Conta: <strong>{user.username}</strong>. {planSummary(user)}</p>
+        <Select
+          label="Plano"
+          value={plan}
+          onChange={(event) => edit(() => setPlan(event.target.value as GrantablePlan))}
+          options={[
+            { value: "pro", label: "Pro" },
+            { value: "premium", label: "Premium" },
+            { value: "free", label: "Free (remover plano)" },
+          ]}
+        />
+        {paid && (
+          <>
+            <Select
+              label="Duração"
+              value={mode}
+              onChange={(event) => edit(() => setMode(event.target.value as "days" | "date"))}
+              options={[{ value: "days", label: "Número de dias" }, { value: "date", label: "Data final" }]}
+            />
+            {mode === "days" ? (
+              <TextInput label="Dias (1 a 365)" type="number" min={1} max={MAX_PLAN_DAYS} value={days}
+                onChange={(event) => edit(() => setDays(event.target.value))} required />
+            ) : (
+              <TextInput label="Data final" type="date" min={localDateInput(1)} max={localDateInput(MAX_PLAN_DAYS - 1)} value={endDate}
+                onChange={(event) => edit(() => setEndDate(event.target.value))} required />
+            )}
+          </>
+        )}
+        {confirmed && <p role="status" className="csp-s-0394">Confirmar: {summary}</p>}
+        {apiError && <p role="alert" className="csp-s-0397">{apiError}</p>}
+        <div className="csp-s-0398">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" variant="primary" disabled={loading || !durationValid}>
+            {loading ? "Salvando..." : confirmed ? "Confirmar" : "Continuar"}
           </Button>
         </div>
       </form>
