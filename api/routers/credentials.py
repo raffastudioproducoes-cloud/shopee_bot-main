@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
+from gevent import Timeout as GeventTimeout, get_hub
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
@@ -1334,13 +1335,15 @@ def _autotest_submit(fn, *args) -> None:
 
 
 def _call_with_timeout(fn, *args):
-    """Roda `fn` num thread descartável e desiste após AUTOTEST_TIMEOUT_SECONDS
-    (o thread órfão termina sozinho pelo timeout HTTP do provedor)."""
-    pool = ThreadPoolExecutor(max_workers=1)
+    """Roda `fn` numa thread do SO (threadpool do gevent) e desiste após
+    AUTOTEST_TIMEOUT_SECONDS (a thread órfã termina sozinha pelo timeout HTTP
+    do provedor). Thread do SO, não ThreadPoolExecutor: com monkey-patch do
+    gevent essa "thread" é um greenlet no mesmo thread do SO e `asyncio.run`
+    falha com "cannot be called from a running event loop"."""
     try:
-        return pool.submit(fn, *args).result(timeout=AUTOTEST_TIMEOUT_SECONDS)
-    finally:
-        pool.shutdown(wait=False)
+        return get_hub().threadpool.spawn(fn, *args).get(timeout=AUTOTEST_TIMEOUT_SECONDS)
+    except GeventTimeout:
+        raise FutureTimeout() from None
 
 
 def _autotest_outcome(network: str, user_id, profile_id: str | None) -> tuple[str, str]:
