@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.18.0] - 2026-11-12
+
+Funcionalidade (MINOR): fuso horário por usuário. O agendamento recorrente dispara no fuso da agenda e o site exibe datas no fuso do usuário. Migração 100 aplicada no banco.
+
 ### Added — fuso horário por usuário (posts recorrentes)
 
 - Migration `100_user_timezone.sql`, aditiva e idempotente: `users.timezone text NOT NULL DEFAULT 'America/Sao_Paulo'`, `users.timezone_updated_at timestamptz` (NULL = nunca confirmado) e `schedulers.timezone text NOT NULL DEFAULT 'America/Sao_Paulo'`, com CHECK de 1 a 64 caracteres. Linhas existentes ficam em Brasília. Reversão (depois de voltar o código): `ALTER TABLE public.schedulers DROP COLUMN IF EXISTS timezone; ALTER TABLE public.users DROP COLUMN IF EXISTS timezone_updated_at; ALTER TABLE public.users DROP COLUMN IF EXISTS timezone;` e remover `100_user_timezone.sql` da tabela `migrations`.
