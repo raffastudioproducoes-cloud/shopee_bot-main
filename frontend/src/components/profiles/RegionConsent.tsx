@@ -1,3 +1,4 @@
+import { formatInstant } from '../../lib/userTimeZone'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { profilesApi } from '../../api/profiles'
@@ -69,7 +70,7 @@ export function RegionConsent() {
       {location?.choice === 'accepted' && (
         <div className="csp-s-0102">
           <p>Uma posição aproximada foi registrada em {location.collected_at
-            ? new Date(location.collected_at).toLocaleString('pt-BR')
+            ? formatInstant(location.collected_at)
             : 'data não disponível'}. O administrador pode visualizar esse ponto para planejar a expansão do serviço.</p>
           <Button variant="secondary" disabled={revokeLocation.isPending} onClick={() => revokeLocation.mutate()}>
             Excluir localização e retirar autorização

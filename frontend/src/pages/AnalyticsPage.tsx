@@ -1,3 +1,4 @@
+import { formatInstant, getUserTimeZone } from '../lib/userTimeZone'
 import { useEffect, useState } from 'react'
 import { formDraftKey } from '../lib/formDraftStorage'
 import { useAutosavedDraft } from '../hooks/useAutosavedDraft'
@@ -208,7 +209,7 @@ export default function AnalyticsPage() {
         {refreshMessage.message}
       </p>}
       {data?.last_completed_at && <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '12px 0 0' }}>
-        Última consulta às redes: {new Date(data.last_completed_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })} (Brasília).
+        Última consulta às redes: {formatInstant(data.last_completed_at, { dateStyle: 'short', timeStyle: 'short' })} ({getUserTimeZone()}).
       </p>}
 
       {!filterAvailable ? (

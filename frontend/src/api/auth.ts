@@ -17,6 +17,10 @@ export interface MeResponse {
   access: string
   /** Perfil ativo validado pelo backend (claim do cookie); null = sem perfil/token antigo. */
   profile_id: string | null
+  /** Fuso IANA salvo na conta (padrão America/Sao_Paulo). */
+  timezone?: string
+  /** false = nunca confirmado; o site adota o fuso do dispositivo uma vez. */
+  timezone_confirmed?: boolean
 }
 
 export interface ResetPasswordResponse {
@@ -84,6 +88,10 @@ export const authApi = {
 
   async me(): Promise<MeResponse> {
     return api.get<MeResponse>('/auth/me')
+  },
+
+  async updateTimeZone(timezone: string): Promise<{ timezone: string; timezone_confirmed: boolean }> {
+    return api.put('/auth/me/timezone', { timezone })
   },
 
   async requestPasswordRecovery(email: string): Promise<string> {

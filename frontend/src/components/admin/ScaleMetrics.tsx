@@ -1,3 +1,4 @@
+import { getUserTimeZone } from '../../lib/userTimeZone'
 import { useQuery } from '@tanstack/react-query'
 import { adminMetricsApi, type AdminMetrics } from '../../api/adminMetrics'
 import { Panel } from '../ui/Panel'
@@ -52,7 +53,7 @@ export function ScaleMetrics({ data }: { data: AdminMetrics }) {
   if (data.render.cpu && !isStale(data.render.cpu.timestamp, 7_200_000) && cpu != null && cpu >= 80) notices.push('CPU acima de 80% na última amostra. Confirme duração e fila antes de escalar.')
   if (data.render.memory && !isStale(data.render.memory.timestamp, 7_200_000) && memory != null && memory >= 80) notices.push('Memória acima de 80% na última amostra. Investigue crescimento e picos antes de escalar.')
   return <section className="admin-scale-section" aria-labelledby="admin-scale-title">
-    <div className="admin-section-heading"><span>CONTROLE DA OPERAÇÃO</span><h2 id="admin-scale-title">Capacidade e crescimento</h2><p>Sinais para investigar gargalos e planejar a expansão.</p>{metrics?.collected_at && <p>Banco e clientes: coleta de {formatMetricTime(metrics.collected_at)} · Brasília{isStale(metrics.collected_at) ? ' · Dados antigos' : ''}</p>}</div>
+    <div className="admin-section-heading"><span>CONTROLE DA OPERAÇÃO</span><h2 id="admin-scale-title">Capacidade e crescimento</h2><p>Sinais para investigar gargalos e planejar a expansão.</p>{metrics?.collected_at && <p>Banco e clientes: coleta de {formatMetricTime(metrics.collected_at)} · {getUserTimeZone()}{isStale(metrics.collected_at) ? ' · Dados antigos' : ''}</p>}</div>
     <div className="admin-scale-grid">
       <Panel surface="dark" className="admin-metric-card"><CardTags tags={['render', 'capacity']} /><h3>Capacidade do Render</h3><div className="admin-capacity-pair"><Gauge label="CPU / limite" percent={cpu} timestamp={data.render.cpu?.timestamp} /><Gauge label="RAM / limite" percent={memory} timestamp={data.render.memory?.timestamp} /></div><p>Percentuais de amostras compatíveis. Pico sustentado e disponibilidade exigem histórico próprio e sondas externas.</p></Panel>
       <Panel surface="dark" className="admin-metric-card">

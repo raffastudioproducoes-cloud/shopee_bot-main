@@ -1,3 +1,4 @@
+import { getUserTimeZone } from '../lib/userTimeZone'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { adminMetricsApi } from '../api/adminMetrics'
@@ -52,7 +53,7 @@ export default function AdminOverviewPage() {
   return <div className="admin-overview">
     <div className="admin-overview-heading"><div><h1>Visão geral</h1><p>Operação e audiência · somente dados agregados</p></div><label>Período<select value={days} onChange={event => setDays(Number(event.target.value))}>{[7, 30, 90].map(value => <option key={value} value={value}>{value} dias</option>)}</select></label></div>
     <div className="admin-collection-state" aria-live="polite">
-      <p>Última coleta: {formatMetricTime(data.updated_at)} · Brasília{isStale(data.updated_at) ? ' · Dados antigos' : ''}{isFetching ? ' · Atualizando…' : ''}</p>
+      <p>Última coleta: {formatMetricTime(data.updated_at)} · {getUserTimeZone()}{isStale(data.updated_at) ? ' · Dados antigos' : ''}{isFetching ? ' · Atualizando…' : ''}</p>
       <Button variant="secondary" disabled={isFetching} onClick={() => { void refetch() }}>Atualizar agora</Button>
       <Button variant="ghost" aria-pressed={compare} onClick={() => setCompare(!compare)}>Comparar com período anterior</Button>
     </div>
@@ -92,8 +93,8 @@ export default function AdminOverviewPage() {
               <span>{label}</span><strong>{number(metric ? metric.value / factor : null, metric ? ` ${unit}` : '')}</strong>
               {metric && <>
                 {!key.endsWith('_limit') && metric.values.length > 0 && <MetricTrend values={metric.values.map(value => value / factor)} timestamps={metric.timestamps} label={`${label}: ${number(metric.value / factor)} ${unit}. Última hora.`} compact />}
-                <time dateTime={metric.timestamp}>Amostra: {formatMetricTime(metric.timestamp)} · Brasília{isStale(metric.timestamp, 7_200_000) ? ' · Amostra antiga' : ''}</time>
-                {!key.endsWith('_limit') && metric.values.length > 0 && <details className="admin-resource-history"><summary>Consultar amostras</summary><div className="admin-metric-table"><table><thead><tr><th>Horário de Brasília</th><th>{unit}</th></tr></thead><tbody>{metric.values.map((value, index) => <tr key={metric.timestamps[index]}><td>{formatMetricTime(metric.timestamps[index])}</td><td>{number(value / factor)}</td></tr>)}</tbody></table></div></details>}
+                <time dateTime={metric.timestamp}>Amostra: {formatMetricTime(metric.timestamp)} · {getUserTimeZone()}{isStale(metric.timestamp, 7_200_000) ? ' · Amostra antiga' : ''}</time>
+                {!key.endsWith('_limit') && metric.values.length > 0 && <details className="admin-resource-history"><summary>Consultar amostras</summary><div className="admin-metric-table"><table><thead><tr><th>Horário ({getUserTimeZone()})</th><th>{unit}</th></tr></thead><tbody>{metric.values.map((value, index) => <tr key={metric.timestamps[index]}><td>{formatMetricTime(metric.timestamps[index])}</td><td>{number(value / factor)}</td></tr>)}</tbody></table></div></details>}
               </>}
             </div>
           })}

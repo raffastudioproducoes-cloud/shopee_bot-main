@@ -3,7 +3,7 @@ import { useState } from "react"
 import type { Post, PostNetwork } from "../../api/posts"
 import { postsApi } from "../../api/posts"
 import { NETWORK_RULES } from "../../lib/networkLimits"
-import { formatUtcTimestampBrasilia } from "../../lib/ptBrDateTime"
+import { DEFAULT_TIME_ZONE, formatUtcTimestamp, withTimeZone } from "../../lib/userTimeZone"
 import { useProfileStore } from "../../stores/profileStore"
 import { useAuthStore } from "../../stores/authStore"
 import { Modal } from "../ui/Modal"
@@ -40,8 +40,8 @@ export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
   const parts = details.texts?.length ? details.texts : [details.text]
   const networks = groupNetworks.length ? groupNetworks : [details.network ?? "threads"]
   const schedule = scheduleLines(details)
-  const lastPublished = details.last_published_at ? formatUtcTimestampBrasilia(details.last_published_at) : null
-  const lastAttempt = details.last_result?.at ? formatUtcTimestampBrasilia(details.last_result.at) : null
+  const lastPublished = details.last_published_at ? formatUtcTimestamp(details.last_published_at) : null
+  const lastAttempt = details.last_result?.at ? formatUtcTimestamp(details.last_result.at) : null
   const slots = details.schedule_slots ?? []
   const failedAt = lastAttempt ?? "horário não informado"
   const postSummary = details.text.trim().slice(0, 65) + (details.text.length > 65 ? "…" : "")
@@ -94,20 +94,20 @@ export function PostDetailsModal({ post, groupNetworks, onClose }: Props) {
         </section>
         <section style={sectionStyle}>
           <h3 style={headingStyle}>Datas e horários</h3>
-          <p style={valueStyle}>Criado em: {formatUtcTimestampBrasilia(details.created_at)}</p>
-          {details.updated_at && <p style={valueStyle}>Última atualização: {formatUtcTimestampBrasilia(details.updated_at)}</p>}
+          <p style={valueStyle}>Criado em: {formatUtcTimestamp(details.created_at)}</p>
+          {details.updated_at && <p style={valueStyle}>Última atualização: {formatUtcTimestamp(details.updated_at)}</p>}
           <p style={valueStyle}>Modalidade: {postKind(details)}</p>
           {slots.length > 0 ? (
             <div style={{ display: "grid", gap: 6 }} aria-label="Resultado por dia e horário">
               {slots.map((slot, index) => (
                 <div key={index} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "6px 12px", padding: "7px 10px", border: "1px solid var(--border-hairline)", borderRadius: "var(--r-sm)" }}>
                   <span style={{ ...valueStyle, minWidth: 142, fontVariantNumeric: "tabular-nums" }}>
-                    {slot.day_of_week === null ? formatUtcTimestampBrasilia(slot.time) : `${DAYS[slot.day_of_week] ?? "Dia"} · ${slot.time}`}
+                    {slot.day_of_week === null ? formatUtcTimestamp(slot.time) : `${DAYS[slot.day_of_week] ?? "Dia"} · ${withTimeZone(slot.time, slot.timezone ?? DEFAULT_TIME_ZONE)}`}
                   </span>
                   <StatusBadge tone={SLOT_TONE[slot.status] ?? "neutral"} style={{ fontSize: 11, padding: "2px 7px", opacity: .85 }}>
                     {slot.status === "erro" ? "Erro" : slot.status === "erro parcial" ? "Erro parcial" : slot.status === "postado" ? "Postado" : slot.status === "programado" ? "Programado" : slot.status}
                   </StatusBadge>
-                  {slot.last_at && <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Última tentativa: {formatUtcTimestampBrasilia(slot.last_at)}</span>}
+                  {slot.last_at && <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Última tentativa: {formatUtcTimestamp(slot.last_at)}</span>}
                   {isAdmin && slot.error && (
                     <details style={{ flexBasis: "100%", minWidth: 0 }}>
                       <summary style={{ color: "var(--text-muted)", cursor: "pointer", fontSize: 11 }}>Ver diagnóstico</summary>

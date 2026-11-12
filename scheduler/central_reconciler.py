@@ -6,6 +6,7 @@ a identidade de publicação/claim continua sendo o UUID de schedulers.
 """
 
 from shopee_bot.database import schedulers
+from shopee_bot.utils.timezones import timezone_or_default
 
 PREFIX = "central:"
 MISFIRE_SECONDS = 3600
@@ -49,6 +50,7 @@ def reconcile(scheduler, run_central):
                 trigger="cron", minute=clock.minute, hour=clock.hour,
                 day_of_week=",".join(str(day) for day in days),
                 start_date=record.get("start_date"),
+                timezone=timezone_or_default(record.get("timezone")),
             )
         elif record["trigger"] == "date":
             if record.get("run_date") is None:

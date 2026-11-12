@@ -1,3 +1,4 @@
+import { formatInstant } from '../lib/userTimeZone'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -32,7 +33,7 @@ function StatusCard({ platform, status, result }: {
       </span>
       <div className="admin-credential-status-card__text">
         <strong>{platform.title}</strong>
-        {checkedAt && <small>Último teste: {new Date(checkedAt).toLocaleString('pt-BR')}</small>}
+        {checkedAt && <small>Último teste: {formatInstant(checkedAt)}</small>}
       </div>
       <Badge tone={tone}>{planned ? plannedLabel : state === 'ok' ? 'Funcionando' : result?.state === 'error' ? result.status_text : status?.status_text || 'Desconectado'}</Badge>
     </div>

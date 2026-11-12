@@ -1,5 +1,6 @@
 import type { Post, PostScheduleEntry } from "../../api/posts"
-import { formatUtcTimestampBrasilia, isoToBr } from "../../lib/ptBrDateTime"
+import { isoToBr } from "../../lib/ptBrDateTime"
+import { DEFAULT_TIME_ZONE, formatUtcTimestamp, withTimeZone } from "../../lib/userTimeZone"
 import { NETWORK_RULES } from "../../lib/networkLimits"
 import { matchesScopedSearch } from "../../lib/pageSearch"
 
@@ -12,6 +13,11 @@ export function postKind(post: Post): "Imediato" | "Agendado" | "Recorrente" {
   return post.scheduled ? "Agendado" : "Imediato"
 }
 
+/** Recorrências antigas não trazem fuso: foram criadas em Brasília (padrão do banco). */
+function recurrenceZone(entries: PostScheduleEntry[]): string {
+  return entries.find((entry) => entry.timezone)?.timezone ?? DEFAULT_TIME_ZONE
+}
+
 function scheduleDays(entry: PostScheduleEntry): string[] {
   const days = entry.days_of_week?.length ? entry.days_of_week : entry.day_of_week != null ? [entry.day_of_week] : []
   return [...new Set(days)].sort((a, b) => a - b).map((day) => WEEKDAY_NAMES[day]).filter((day): day is string => Boolean(day))
@@ -20,7 +26,7 @@ function scheduleDays(entry: PostScheduleEntry): string[] {
 export function scheduleLines(post: Post): string[] {
   if (post.publish_immediately === true) return []
   const entries = post.schedule_entries ?? []
-  const dates = [...new Set(entries.filter((entry) => entry.trigger === "date" && entry.run_date).map((entry) => formatUtcTimestampBrasilia(entry.run_date!)))]
+  const dates = [...new Set(entries.filter((entry) => entry.trigger === "date" && entry.run_date).map((entry) => formatUtcTimestamp(entry.run_date!)))]
   const cronEntries = entries.filter((entry) => entry.trigger === "cron")
   const grouped = new Map<string, Set<string>>()
   for (const entry of cronEntries) {
@@ -33,12 +39,12 @@ export function scheduleLines(post: Post): string[] {
   }
   const recurring = WEEKDAY_NAMES.filter((day) => grouped.has(day)).map((day) => {
     const times = [...grouped.get(day)!].sort()
-    return day + ": " + (times.length ? times.join(", ") : "horário não informado")
+    return day + ": " + (times.length ? withTimeZone(times.join(", "), recurrenceZone(cronEntries)) : "horário não informado")
   })
   const startDates = [...new Set(cronEntries.map((entry) => entry.start_date?.slice(0, 10)).filter((date): date is string => Boolean(date)))]
   const starts = startDates.map((date) => "Início: " + isoToBr(date))
   if (dates.length || recurring.length) return [...dates.map((date) => "Programado: " + date), ...starts, ...recurring]
-  if (post.scheduled_for && post.schedule_trigger === "date") return ["Programado: " + formatUtcTimestampBrasilia(post.scheduled_for)]
+  if (post.scheduled_for && post.schedule_trigger === "date") return ["Programado: " + formatUtcTimestamp(post.scheduled_for)]
   if (post.schedule_trigger === "cron") return ["Recorrência cadastrada; detalhes indisponíveis no momento."]
   return []
 }
@@ -54,7 +60,7 @@ export function compactScheduleSummary(post: Post): string | null {
   if (postKind(post) === "Imediato") return null
   if (postKind(post) === "Agendado") {
     const date = post.schedule_entries?.find((entry) => entry.trigger === "date")?.run_date ?? post.scheduled_for
-    return date ? "Programado: " + formatUtcTimestampBrasilia(date).replace(/:\d{2}$/, "") : "Agendamento registrado"
+    return date ? "Programado: " + formatUtcTimestamp(date).replace(/:\d{2}$/, "") : "Agendamento registrado"
   }
 
   const recurring = (post.schedule_entries ?? []).filter((entry) => entry.trigger === "cron")
@@ -69,23 +75,23 @@ export function compactScheduleSummary(post: Post): string | null {
   const orderedTimes = [...times].sort()
   const visibleTimes = orderedTimes.slice(0, 3).join(", ")
   const timesLabel = visibleTimes
-    ? visibleTimes + (orderedTimes.length > 3 ? " +" + (orderedTimes.length - 3) : "")
+    ? withTimeZone(visibleTimes + (orderedTimes.length > 3 ? " +" + (orderedTimes.length - 3) : ""), recurrenceZone(recurring))
     : "horários no detalhe"
   return daysLabel + " · " + timesLabel
 }
 
 export function lastPublishedLabel(post: Post): string | null {
   if (!post.last_result?.at) return null
-  return formatUtcTimestampBrasilia(post.last_result.at)
+  return formatUtcTimestamp(post.last_result.at)
 }
 
 export function postSearchText(post: Post): string {
   const dates = [post.created_at, post.updated_at, post.scheduled_for, post.last_result?.at]
     .filter((value): value is string => Boolean(value))
-    .flatMap((value) => [value, formatUtcTimestampBrasilia(value)])
+    .flatMap((value) => [value, formatUtcTimestamp(value)])
   const runDates = (post.schedule_entries ?? []).flatMap((entry) => {
     if (!entry.run_date) return []
-    return [entry.run_date, formatUtcTimestampBrasilia(entry.run_date)]
+    return [entry.run_date, formatUtcTimestamp(entry.run_date)]
   })
   const startDates = (post.schedule_entries ?? []).map((entry) => entry.start_date ? isoToBr(entry.start_date.slice(0, 10)) : "")
   const clockTimes = (post.schedule_entries ?? []).map((entry) => entry.time ?? "")

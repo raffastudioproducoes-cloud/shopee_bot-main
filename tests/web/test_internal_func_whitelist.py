@@ -151,3 +151,35 @@ def test_scheduler_status_is_private_read_only_and_reports_unavailable(client, m
     assert res.status_code == 200
     assert res.json == {"available": False}
     mock_add_job.assert_not_called()
+
+
+def _cron_body(**extra):
+    return {
+        "user_id": 1, "post_id": 1, "func": "bot_post", "trigger": "cron",
+        "time": "10:00", "days_of_week": [0], "day_of_week": 0,
+        "profile_id": "11111111-1111-1111-1111-111111111111", **extra,
+    }
+
+
+def test_create_job_forwards_valid_timezone(client, monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_SECRET", INTERNAL_SECRET)
+    with patch("shopee_bot.web.routes.internal.add_job", return_value="j") as mock_add_job:
+        res = client.post("/internal/scheduler/jobs", json=_cron_body(timezone="Europe/Lisbon"), headers=_headers())
+    assert res.status_code == 201
+    assert mock_add_job.call_args.args[1]["timezone"] == "Europe/Lisbon"
+
+
+def test_create_job_without_timezone_keeps_default(client, monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_SECRET", INTERNAL_SECRET)
+    with patch("shopee_bot.web.routes.internal.add_job", return_value="j") as mock_add_job:
+        res = client.post("/internal/scheduler/jobs", json=_cron_body(), headers=_headers())
+    assert res.status_code == 201
+    assert mock_add_job.call_args.args[1]["timezone"] is None
+
+
+def test_create_job_rejects_invalid_timezone(client, monkeypatch):
+    monkeypatch.setenv("INTERNAL_API_SECRET", INTERNAL_SECRET)
+    with patch("shopee_bot.web.routes.internal.add_job") as mock_add_job:
+        res = client.post("/internal/scheduler/jobs", json=_cron_body(timezone="Brasilia"), headers=_headers())
+    assert res.status_code == 400
+    mock_add_job.assert_not_called()

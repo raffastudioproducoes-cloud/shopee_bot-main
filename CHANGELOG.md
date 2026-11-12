@@ -5,6 +5,22 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.18.0] - 2026-11-12
+
+Funcionalidade (MINOR): fuso horário por usuário. O agendamento recorrente dispara no fuso da agenda e o site exibe datas no fuso do usuário. Migração 100 aplicada no banco.
+
+### Added — fuso horário por usuário (posts recorrentes)
+
+- Migration `100_user_timezone.sql`, aditiva e idempotente: `users.timezone text NOT NULL DEFAULT 'America/Sao_Paulo'`, `users.timezone_updated_at timestamptz` (NULL = nunca confirmado) e `schedulers.timezone text NOT NULL DEFAULT 'America/Sao_Paulo'`, com CHECK de 1 a 64 caracteres. Linhas existentes ficam em Brasília. Reversão (depois de voltar o código): `ALTER TABLE public.schedulers DROP COLUMN IF EXISTS timezone; ALTER TABLE public.users DROP COLUMN IF EXISTS timezone_updated_at; ALTER TABLE public.users DROP COLUMN IF EXISTS timezone;` e remover `100_user_timezone.sql` da tabela `migrations`.
+- `PUT /auth/me/timezone` grava o fuso da conta; o nome é validado contra a base IANA (`zoneinfo`, `shopee_bot/utils/timezones.py`). `/auth/me` devolve `timezone` e `timezone_confirmed`. `tzdata` entra em `api/requirements.txt` para a validação não depender do sistema.
+- Post recorrente grava o fuso em `schedulers.timezone` (o enviado em `schedule.timezone`, validado, ou o salvo na conta). O `CronTrigger` (scheduler local e espelho central) usa o fuso da linha; a chave de idempotência por minuto usa o minuto local desse fuso. Linhas sem fuso ou com `America/Sao_Paulo` disparam igual ao comportamento anterior.
+- Configurações ganham o cartão "Fuso horário" (lista IANA do navegador via `Intl.supportedValuesOf`). No primeiro acesso, conta sem fuso confirmado adota o do dispositivo (`Intl.DateTimeFormat().resolvedOptions().timeZone`) e o salva.
+
+### Changed — horários exibidos no fuso do usuário
+
+- Helper único `frontend/src/lib/userTimeZone.ts`; Painel, Análises, Posts (lista, detalhes, revisões), Logs, Notificações, Credenciais, Região e métricas do ADMIN mostram data e hora no fuso do usuário, em vez de Brasília fixo ou do navegador. O texto "(Brasília)" do Painel e do seletor de horário passa a mostrar o fuso do usuário; recorrências aparecem como "09:00 (America/Sao_Paulo)".
+- Sem mudança: campanhas continuam no horário de Brasília (backend de campanhas não lê o fuso ainda), `schedulers.run_date` continua `TIMESTAMP` sem fuso em Brasília, e textos de rotinas do servidor (reset de análises, coleta das 00h15) seguem em Brasília.
+
 ## [3.17.0] - 2026-11-12
 
 Funcionalidade (MINOR): concessão de plano pelo ADMIN com prazo, ADMIN sempre Premium e retentativa automática de slot de campanha com falha de credencial.
