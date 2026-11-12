@@ -50,7 +50,11 @@ def _validated_credentials(network, user_id, profile_id):
     try:
         state, _ = _autotest_outcome(network, user_id, profile_id)
     except Exception as exc:
-        logger.warning("Falha na verificação OAuth da campanha %s (%s)", network, type(exc).__name__)
+        logger.warning(
+            "Falha na verificação OAuth da campanha %s (%s): %s",
+            network, type(exc).__name__, sanitize_log_data(str(exc)),
+            exc_info=True,
+        )
         return False
     return state == "ok"
 
