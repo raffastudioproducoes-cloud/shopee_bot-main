@@ -1,0 +1,3 @@
+.ao-field-msg { display: block; margin: 6px 4px 0; font-size: 12.5px; line-height: 1.4; color: var(--text-muted, #9aa3b5); }
+.ao-field-msg--error { color: #ff9b9b; }
+.ao-input[aria-invalid="true"] { border-color: #ff7a7a !important; }

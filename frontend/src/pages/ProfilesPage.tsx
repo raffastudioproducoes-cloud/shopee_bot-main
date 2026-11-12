@@ -129,7 +129,7 @@ export function ProfilesPage() {
   const primaryNotices = <>
     <div className="profiles-primary-card__quota">
       <ResourceQuotaBar plan={planQuery.data} resource="profiles" loading={planQuery.isPending} error={planQuery.isError}
-        onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })} />
+        onUpgrade={() => void router.navigate({ to: "/planos", search: { de: "perfis" } })} />
     </div>
     <AccountIdentityIntro />
   </>

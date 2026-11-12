@@ -32,8 +32,8 @@
   box-shadow: inset 0 1px 1px rgba(255,255,255,.6), inset 0 -2px 3px rgba(9,25,89,.3), 0 4px 14px rgba(147,108,242,.4);
 }
 /* Na etiqueta do cabeçalho (só a faixa de baixo aparece): sombras próprias do cabeçalho prevalecem. */
-.plan-topbar-account .plan-topbar-tag > span.plan-tag--admin { box-shadow: inset 0 1px 1px rgba(255,255,255,.55), inset 0 -2px 3px rgba(40,0,10,.45), 0 6px 16px rgba(224,21,63,.4); }
-.plan-topbar-account .plan-topbar-tag > span.plan-tag--premium { box-shadow: inset 0 1px 1px rgba(255,255,255,.6), inset 0 -2px 3px rgba(9,25,89,.3), 0 6px 16px rgba(147,108,242,.4); }
+.plan-topbar-account .plan-topbar-tag .plan-tag--admin { box-shadow: inset 0 1px 1px rgba(255,255,255,.55), inset 0 -2px 3px rgba(40,0,10,.45), 0 6px 16px rgba(224,21,63,.4); }
+.plan-topbar-account .plan-topbar-tag .plan-tag--premium { box-shadow: inset 0 1px 1px rgba(255,255,255,.6), inset 0 -2px 3px rgba(9,25,89,.3), 0 6px 16px rgba(147,108,242,.4); }
 @keyframes plan-tag-sheen { 0%, 55% { left: -60%; } 100% { left: 130%; } }
 @media (prefers-reduced-motion: reduce) { .plan-tag--admin::after, .plan-tag--premium::after { animation: none; display: none; } }
 /* Cabeçalhos de tabela em tela pequena: etiqueta compacta para as 3 colunas caberem. */

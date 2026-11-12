@@ -12,9 +12,11 @@ import { Icon } from '../components/ui/Icon'
 import { AppFooter } from '../components/layout/AppFooter'
 import { clearAdminVisitingSite } from '../lib/adminSiteFlag'
 import { validatePassword } from '../lib/password'
-import { validCpf } from '../lib/cpf'
+import { formatCpf, validCpf } from '../lib/cpf'
+import { PASSWORD_HINT, cpfProblem, emailProblem, fullNameProblem, passwordProblem as pwProblem, validEmail } from '../lib/identityValidation'
 import { LoginOrbitStill } from '../components/login/LoginOrbitStill'
 import { PasswordRecoveryRequestModal } from '../components/auth/PasswordRecoveryRequestModal'
+import { parsePlanIntent } from '../lib/planIntent'
 
 // Split-screen responsivo: sem breakpoint padrão no projeto (nenhum @media existente
 // em frontend/src), então define-se aqui. 768px = ponto de quebra usado no restante
@@ -50,8 +52,31 @@ function readRecoveryLink(): RecoveryLinkState {
 // three.js só é baixado quando a tela de login abre (fora do pacote inicial).
 const LoginOrbitScene = lazy(() => import('../components/login/LoginOrbitScene'))
 
+
+const PLAN_INTENT_KEY = 'ao-plan-intent'
+
+/** Guarda (validado) o plano escolhido na apresentação; sobrevive ao login com Google e à confirmação de e-mail. */
+function rememberPlanIntent() {
+  try {
+    const fromUrl = parsePlanIntent(Object.fromEntries(new URLSearchParams(window.location.search)))
+    if (fromUrl.plano) window.sessionStorage.setItem(PLAN_INTENT_KEY, JSON.stringify(fromUrl))
+  } catch { /* sem sessionStorage: o login segue normal */ }
+}
+
+/** Lê e apaga a intenção guardada; só valores conhecidos saem daqui. */
+function takePlanIntent() {
+  try {
+    const raw = window.sessionStorage.getItem(PLAN_INTENT_KEY)
+    window.sessionStorage.removeItem(PLAN_INTENT_KEY)
+    return raw ? parsePlanIntent(JSON.parse(raw) as Record<string, unknown>) : {}
+  } catch {
+    return {}
+  }
+}
+
 export default function LoginPage() {
   const navigate = useNavigate()
+  useEffect(() => { rememberPlanIntent() }, [])
   const login = useAuthStore((state) => state.login)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -110,7 +135,9 @@ export default function LoginPage() {
         await new Promise((resolve) => window.setTimeout(resolve, 450))
       }
       login(user)
-      navigate({ to: '/app' })
+      const intent = takePlanIntent()
+      if (intent.plano) navigate({ to: '/planos', search: intent })
+      else navigate({ to: '/app' })
     } catch (err: unknown) {
       if (err instanceof Error && 'status' in err) {
         const apiError = err as { status: number; message: string }
@@ -276,7 +303,9 @@ export default function LoginPage() {
             clearAdminVisitingSite()
             login(user)
             setGoogleSetupOpen(false)
-            navigate({ to: '/app' })
+            const intent = takePlanIntent()
+            if (intent.plano) navigate({ to: '/planos', search: intent })
+            else navigate({ to: '/app' })
           }}
         />
       )}
@@ -368,14 +397,27 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const touch = (field: string) => setTouched((t) => ({ ...t, [field]: true }))
+  const cpfDigits = cpf.replace(/\D/g, '')
+  const nameError = touched.name ? fullNameProblem(fullName) : null
+  const cpfError = touched.cpf || cpfDigits.length === 11 ? cpfProblem(cpf) : null
+  const emailError = touched.email ? emailProblem(email) : null
+  const passwordError = touched.password ? pwProblem(password) : null
+  const confirmError = touched.confirm && confirmPassword && password !== confirmPassword ? 'As senhas não coincidem.' : null
+  const formValid = !fullNameProblem(fullName) && fullName.trim() !== '' && validCpf(cpf) && validEmail(email)
+    && !pwProblem(password) && password !== '' && password === confirmPassword
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
 
     if (!acceptedTerms) { setError('É necessário ler e aceitar os Termos para criar a conta.'); return }
-    if (fullName.trim().split(/\s+/).length < 2) { setError('Informe nome e sobrenome.'); return }
+    setTouched({ name: true, cpf: true, email: true, password: true, confirm: true })
+    const nameProblem = fullNameProblem(fullName)
+    if (nameProblem || !fullName.trim()) { setError(nameProblem ?? 'Informe nome e sobrenome.'); return }
     if (!validCpf(cpf)) { setError('Informe um CPF válido.'); return }
+    if (!validEmail(email)) { setError('Informe um e-mail válido.'); return }
     const passwordProblem = validatePassword(password)
     if (passwordProblem) { setError(passwordProblem); return }
     if (password !== confirmPassword) {
@@ -409,35 +451,45 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
           label="Nome completo *"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
+          onBlur={() => touch('name')}
+          error={nameError}
           required
           autoComplete="name"
           disabled={!!success}
         />
-        <TextInput label="CPF *" value={cpf} onChange={e => setCpf(e.target.value)} required
-          inputMode="numeric" maxLength={18} autoComplete="off" placeholder="000.000.000-00" disabled={!!success} />
+        <TextInput label="CPF *" value={cpf} onChange={e => setCpf(formatCpf(e.target.value))} onBlur={() => touch('cpf')}
+          error={cpfError} required inputMode="numeric" maxLength={14} autoComplete="off" placeholder="000.000.000-00"
+          disabled={!!success} />
         <TextInput
-          label="E-mail"
+          label="E-mail *"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onBlur={() => touch('email')}
+          error={emailError}
           required
           autoComplete="email"
           disabled={!!success}
         />
         <TextInput
-          label="Senha"
+          label="Senha *"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onBlur={() => touch('password')}
+          error={passwordError}
+          hint={PASSWORD_HINT}
           required
           autoComplete="new-password"
           disabled={!!success}
         />
         <TextInput
-          label="Confirmar senha"
+          label="Confirmar senha *"
           type="password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
+          onBlur={() => touch('confirm')}
+          error={confirmError}
           required
           autoComplete="new-password"
           disabled={!!success}
@@ -451,7 +503,7 @@ function RegisterModal({ enabled, onClose }: RegisterModalProps) {
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" disabled={loading || !!success || !acceptedTerms || !enabled}>
+          <Button type="submit" variant="primary" disabled={loading || !!success || !acceptedTerms || !enabled || !formValid}>
             {loading ? 'Enviando...' : 'Criar conta'}
           </Button>
         </div>
@@ -467,11 +519,15 @@ function GoogleSetupModal({ onClose, onSuccess }: { onClose: () => void; onSucce
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const nameError = touched.name ? fullNameProblem(fullName) : null
+  const cpfError = touched.cpf || cpf.replace(/\D/g, '').length === 11 ? cpfProblem(cpf) : null
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!acceptedTerms) { setError('Aceite os Termos de Uso para continuar.'); return }
-    if (fullName.trim().split(/\s+/).length < 2 || !validCpf(cpf)) { setError('Informe nome completo e CPF válido.'); return }
+    setTouched({ name: true, cpf: true })
+    if (fullNameProblem(fullName) || !fullName.trim() || !validCpf(cpf)) { setError('Informe nome completo e CPF válido.'); return }
     setLoading(true)
     setError('')
     try {
@@ -490,9 +546,11 @@ function GoogleSetupModal({ onClose, onSuccess }: { onClose: () => void; onSucce
         <p>Confirme seus dados cadastrais. O Google gerencia sua senha de acesso.</p>
         {error && <div className="csp-login-banner csp-login-banner-error">{error}</div>}
         <TextInput label="Nome completo *" value={fullName} onChange={e => setFullName(e.target.value)}
+          onBlur={() => setTouched(t => ({ ...t, name: true }))} error={nameError}
           required minLength={5} maxLength={150} autoComplete="name" />
-        <TextInput label="CPF *" value={cpf} onChange={e => setCpf(e.target.value)}
-          required inputMode="numeric" maxLength={18} autoComplete="off" />
+        <TextInput label="CPF *" value={cpf} onChange={e => setCpf(formatCpf(e.target.value))}
+          onBlur={() => setTouched(t => ({ ...t, cpf: true }))} error={cpfError}
+          required inputMode="numeric" maxLength={14} autoComplete="off" placeholder="000.000.000-00" />
         <label><input type="checkbox" checked={acceptedTerms}
           onChange={e => setAcceptedTerms(e.target.checked)} required /> Aceito os{' '}
           <a href="/termos" target="_blank" rel="noreferrer">Termos de Uso</a> e li a{' '}

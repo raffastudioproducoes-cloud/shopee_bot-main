@@ -242,7 +242,7 @@ export function ListasPage() {
         plan={planQuery.data}
         loading={planQuery.isPending}
         error={planQuery.isError}
-        onUpgrade={() => void router.navigate({ to: "/settings", hash: "planos" })}
+        onUpgrade={() => void router.navigate({ to: "/planos", search: { de: "listas" } })}
       />
       {usageSortSelected && usageQuery.isPending && (
         <p role="status" style={{ color: "var(--text-muted)", marginBottom: 12 }}>

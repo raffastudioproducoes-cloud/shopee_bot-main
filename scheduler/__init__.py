@@ -456,6 +456,12 @@ def _run_log_retention():
     run_log_retention()
 
 
+def _run_billing_jobs():
+    """Cobrança Asaas: eventos pendentes e fim de tolerância. Sem chave, não faz nada."""
+    from api.billing_events import run_billing_jobs
+    run_billing_jobs()
+
+
 def init():
     global _scheduler, _shutting_down
     _shutting_down = False
@@ -543,6 +549,19 @@ def init():
         id="request_logs_retention",
         jobstore="on_demand",
         next_run_time=datetime.now(pytz.utc) + timedelta(minutes=2),
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Cobrança Asaas: reaplica eventos que falharam e baixa planos vencidos.
+    _scheduler.add_job(
+        _run_billing_jobs,
+        trigger="interval",
+        minutes=10,
+        id="billing_asaas",
+        jobstore="on_demand",
+        next_run_time=datetime.now(pytz.utc) + timedelta(minutes=3),
         replace_existing=True,
         max_instances=1,
         coalesce=True,

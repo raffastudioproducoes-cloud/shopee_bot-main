@@ -15,6 +15,7 @@ import {
   SquarePen,
   Workflow,
   KeyRound,
+  CreditCard,
   Users,
   LogOut,
   X,
@@ -88,6 +89,7 @@ const ICONS: Record<string, ComponentType<LucideProps>> = {
   "square-pen": SquarePen,
   workflow: Workflow,
   "key-round": KeyRound,
+  "credit-card": CreditCard,
   users: Users,
   "log-out": LogOut,
   // Extrapolação: adicionados para o close button do Modal (IconButton icon="x") e o

@@ -5,6 +5,91 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.16.0] - 2026-11-12
+
+Pagamentos com Asaas (cartão e Pix Automático), telas de plano do cliente, validação do cadastro e acertos de operação. **MINOR** (funcionalidade compatível). Em produção a contratação fica **desligada**: sem `ASAAS_API_KEY` no serviço de produção, `GET /billing/plans` informa `checkout_enabled=false` e a tela mostra "A contratação ainda não está aberta". A migration 098 (tabelas `plan_*` e `billing_*`, RLS fechada) já estava aplicada no banco compartilhado desde o deploy da staging.
+
+### Changed — despertar do site antes das publicações (operação, sem mudança de código)
+
+- Cron de despertar (Supabase) passou de `*/2` (chamava o site sempre que havia qualquer fila pendente) para consulta a cada minuto que só chama a **produção** 3 a 4 min antes de publicações do ambiente `production`. Log em `public.admin_wake_log`. Documentado em `docs/operations/wake-before-posts-cron.sql` (com reversão) e em `AGENTS.md`. Publicações do ambiente `staging` não acordam nenhum serviço.
+
+### Changed — cronômetro no QR Code do Pix
+
+- O QR Code do Pix Automático mostra o tempo restante (regressivo, destaca nos últimos 5 minutos) e, ao expirar, oferece "Gerar novo QR Code". A API devolve `expires_in_seconds` (3600). O tempo de validade em si não mudou (não testei se o Asaas aceita mais de 1 hora).
+
+### Fixed — Pix Automático: identificador do contrato
+
+- O Asaas limita o `contractId` da autorização a 35 caracteres; o UUID do pedido tem 36. Agora vai sem hífens (32).
+
+### Changed — Pix com Pix Automático (decisão de Rafa, 11/11/2026)
+
+- O checkout recorrente do Asaas só aceita cartão (o Asaas recusa `PIX` com `RECURRENT`). O Pix agora usa o **Pix Automático**: `POST /billing/checkout` com `billing_type=PIX` cria uma autorização (`/pix/automatic/authorizations`, frequência mensal/trimestral/semestral/anual conforme o período, cobranças geradas por assinatura) e devolve o QR Code, mostrado na própria página `/planos` com "copia e cola". O QR paga o período inteiro e autoriza os débitos seguintes; a próxima cobrança sai sozinha na data.
+- Eventos novos tratados no webhook (`PIX_AUTOMATIC_RECURRING_AUTHORIZATION_*`): ativação libera o plano; recusa/expiração encerram o pedido; cancelamento pelo pagador no banco encerra a renovação e mantém o plano até o fim do período pago. Cancelar o plano no site também revoga a autorização. Atraso segue a regra de 15 dias.
+- **Ação de Rafa:** reconferir/registrar o webhook no painel ADMIN (Cobrança) para incluir os eventos novos do Pix Automático.
+- **Não validado:** elegibilidade da conta Asaas ao Pix Automático (sandbox e produção), adesão do banco do cliente, formato real dos eventos (ajustar após o primeiro teste), aviso de "pagamento pendente" no sino de notificações (não implementado).
+
+### Fixed — cancelar plano sem assinatura
+
+- O botão "Cancelar plano" em `/planos` agora funciona também para plano pago sem assinatura (liberado pela equipe): pede confirmação e a conta volta ao Free na hora (não há período pago a preservar) e os limites são atualizados. Contas ADMIN e contas Free não são afetadas; no sandbox só vale para as contas da lista de testadores. Com assinatura, nada muda: o plano segue até o fim do período pago. Limite conhecido: campanhas ativas não são pausadas automaticamente no downgrade.
+
+### Fixed — motivo da recusa do Asaas visível
+
+- Quando o Asaas recusa a criação do pagamento, a mensagem na tela e o log do servidor passam a trazer o motivo informado pelo Asaas (antes só "recusou os dados"), para diagnosticar sem adivinhar.
+
+### Changed — página Planos e pagamento pronta para teste
+
+- **Cancelamento de plano** sempre visível em `/planos` (seção "Cancelamento de plano"): com assinatura aberta cancela a renovação (o plano segue até o fim do período pago); sem assinatura mostra o botão desativado explicando o motivo.
+- A tabela **Planos e limites** saiu de Configurações e foi para a página Planos e pagamento.
+- **Guia de teste** (`SandboxGuide`) exibido só quando o servidor informa `sandbox: true` em `GET /billing/plans`: cartões fictícios do Asaas, orientação de Pix e aviso de que nada é cobrado. Em produção não aparece.
+
+### Changed — layout da tela de login
+
+- Desktop: a animação "Do caos à órbita" passou a ocupar 60% da largura (era 45%) e o formulário 40% (era 55%), alinhado perto da borda em degradê da animação. Antes os dois ficavam muito distantes. Mobile inalterado.
+
+### Fixed — validação ao vivo no cadastro
+
+- **Criar conta e conclusão do cadastro Google:** CPF com máscara e conferência dos dígitos verificadores (recusa 000.000.000-00, repetidos e dígito errado) já ao digitar/sair do campo; e-mail com formato válido (domínio e TLD de letras); nome com sobrenome e sem números; senha mostra o mínimo (8 caracteres) e erro na hora; confirmação de senha avisa se diferente. O botão só libera com tudo válido. O servidor passou a recusar e-mail malformado no cadastro (`422`); CPF e senha já eram validados lá. Limite conhecido: a conferência de CPF é matemática, não consulta a Receita Federal.
+
+### Fixed — etiqueta de plano no cabeçalho
+
+- A etiqueta Premium/Pro voltou a encaixar sob o cartão do perfil, igual à do ADMIN, mantendo as cores. O link para `/planos` passou a envolver a etiqueta e os seletores de CSS esperavam a etiqueta como filha direta do contêiner; agora valem também dentro do link.
+
+### Added — cobrança com Asaas, fase 1 (base; ainda sem tela nem contratação)
+
+- **Planejamento:** [`docs/PAGAMENTOS-ASAAS-PLANO-20261110.md`](docs/PAGAMENTOS-ASAAS-PLANO-20261110.md) — Pro R$ 59,90 e Premium R$ 109,90 por mês; períodos mensal, 3 meses (−2,5%), 6 meses (−5%) e 1 ano (−15%), todos com renovação automática; cartão e Pix; 15 dias de tolerância; nota fiscal automática.
+- **Migração 098** (aditiva, idempotente, testada duas vezes em PostgreSQL 16 descartável): preços (`plan_prices`) e períodos (`plan_periods`) editáveis com auditoria, cliente, checkout, assinatura, cobranças e eventos de webhook. RLS bloqueia o navegador; só `service_role`.
+- **API:** `GET /billing/plans` devolve a tabela calculada no servidor; `POST /billing/webhook/asaas` confere o token (`asaas-access-token`), grava o evento uma única vez pelo `id` e responde 200 (processamento na fase 3). Cliente HTTP do Asaas em `api/asaas_client.py` (chave só no header, nunca em log).
+- **Desligado por padrão:** sem `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` no Render, a cobrança não faz nada (503). Nenhum plano é alterado nesta fase.
+- Testes: `tests/api/test_billing_asaas.py` (14).
+
+### Added — cobrança com Asaas, fase 2 (tela de planos e contratação)
+
+- **Configurações › Planos e limites:** seletor de período (mensal, 3 meses −2,5%, 6 meses −5%, 1 ano −15%), cartões Pro e Premium com preço por mês, total do ciclo e economia, escolha entre cartão e Pix e botão "Assinar". Preços vêm de `GET /billing/plans`. ADMIN não vê a contratação.
+- **`POST /billing/checkout`:** exige login e dados da conta completos (nome, CPF, e-mail, celular), recusa segunda assinatura aberta e limita a 5 tentativas por hora. Cria (ou reaproveita) o cliente no Asaas e um checkout recorrente de 60 min, e devolve o link; o navegador vai para a página segura do Asaas. **Não altera o plano**: a ativação será feita pelo webhook (fase 3). Retorno mostra "aguardando confirmação", cancelado ou expirado.
+- Testes: +9 em `tests/api/test_billing_asaas.py`; `frontend/tests/plan-checkout.test.mjs` (4, no CI).
+
+### Added — cobrança com Asaas, telas do cliente (planos, pagamento e upgrade)
+
+- **Tela `/planos` ("Planos e pagamento")**, no menu lateral (grupo Conta) e também aberta pelo selo de plano do topo: escolha de período (mensal, 3 meses −2,5%, 6 meses −5%, 1 ano −15%), cartões Pro e Premium com preço por mês, total e economia, forma de pagamento (cartão ou Pix) e **resumo** antes de pagar. O botão leva à página segura do Asaas; o retorno (`?assinatura=sucesso|cancelada|expirada`) só avisa "aguardando confirmação", porque o plano é liberado pelo webhook.
+- **Minha assinatura:** situação, valor, "paga até", histórico das últimas 12 cobranças com link da fatura (só se for `https` do próprio Asaas), aviso de atraso com a data limite dos 15 dias de tolerância e **cancelamento** com confirmação (o plano segue até o fim do período pago). `GET /billing/subscription` e `POST /billing/subscription/cancel`, sempre só da própria conta e sem devolver nenhum id do Asaas.
+- **Todos os botões de upgrade** ("Melhorar plano" em Produtos, Listas, Perfis e Criar POST; "Conhecer planos e upgrade" na Automação; link em Configurações) abrem `/planos`, já dizendo de onde veio o clique.
+- **Apresentação:** os cartões Pro e Premium mostram os preços reais por período e o botão **"Assinar Pro/Premium"** abre o login com o plano escolhido; depois de entrar (e-mail ou Google) a pessoa cai direto no pagamento. A escolha fica só em `sessionStorage`, validada contra a lista de planos e períodos. Com a contratação desligada no servidor (`checkout_enabled=false`), tudo continua como antes: "Entrar".
+- **Sem funções de ADMIN no site do cliente:** a API do painel ADMIN foi para `api/billingAdmin.ts`, importada só pela área `/admin`; teste garante que o pacote do cliente não a importa.
+- **Pendente:** trocar de plano com assinatura aberta (por ora a tela orienta cancelar e contratar o novo plano em seguida).
+- Testes: +10 na API (isolamento entre contas, cancelamento, retorno do checkout, flag) e `frontend/tests/plan-purchase-flow.test.mjs` (7, no CI).
+
+### Added — cobrança com Asaas: painel do ADMIN
+
+- **Aba "Cobrança" na área `/admin`**, separada de "Diagnóstico" (redes e plataformas) e fora das Configurações do cliente. Mostra o estado da cobrança (ambiente, chave de API, token do webhook, contas de teste e webhook no Asaas) sem revelar nenhum segredo, e o botão **"Registrar webhook no Asaas"**, que cria ou atualiza o webhook com o token do servidor e os 17 eventos usados. Rotas `GET /admin/billing/status` e `POST /admin/billing/webhook` (só ADMIN). Testes: +4 na API e `frontend/tests/admin-billing.test.mjs` (3, no CI).
+
+### Added — cobrança com Asaas, fase 3 (ativação e baixa automática do plano)
+
+- **`api/billing_events.py`:** aplica os eventos gravados pelo webhook, em ordem de chegada e só do ambiente atual (sandbox ou produção). Pagamento confirmado ativa o plano até o fim do período pago; atraso mantém o plano por até **15 dias** e depois volta a Free; estorno ou chargeback voltam a Free na hora; assinatura cancelada mantém o plano até o fim do período pago. Só este módulo altera `users.plan_tier` por cobrança. Evento que falha para a fila (nada é aplicado fora de ordem) e é repetido até 8 vezes.
+- **Quando roda:** logo depois de cada aviso do Asaas e a cada 10 min no agendador (`billing_asaas`).
+- **Trava do sandbox:** como staging e produção dividem o banco, no sandbox só as contas listadas em `ASAAS_SANDBOX_TESTERS` podem contratar e ter o plano alterado.
+- **Pendente:** pausa de campanhas acima do limite no downgrade Premium→Pro (regra da política F4).
+- Testes: `tests/api/test_billing_events.py` (12) e +1 em `test_billing_asaas.py`.
+
 ## [3.15.0] - 2026-11-10
 
 ### Changed — logo v2 e animações mais suaves (aprovado por Rafa pela prévia)

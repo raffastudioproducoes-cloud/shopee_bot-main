@@ -78,6 +78,8 @@ test("resumo renderiza escopo, consumo ausente, erro 503 e CTA sem checkout", as
   const mod = await moduleAt("components/plans/PlanSummary.tsx", {
     "./PlanTag": { PlanTag: ({ children }) => React.createElement("span", null, children), planTierOf: () => "free" },
     "../ui/Button": { Button: box("button") },
+    // Link do roteador precisa de contexto de rota; aqui só importa que exista o destino
+    "@tanstack/react-router": { Link: ({ to, children }) => React.createElement("a", { "data-to": to }, children) },
     "../ui/Panel": { Panel: box("section") }, "../ui/Skeleton": { Skeleton: box("div") },
     "../../hooks/usePlanUsage": { usePlanUsage: () => query },
     "../../hooks/useProfiles": { useProfiles: () => ({ activeProfile: { id: "a" } }) },
@@ -145,8 +147,8 @@ test("resumo é responsivo e não depende só de cor ou hover", async () => {
   assert.match(css, /\.plan-topbar-account \.plan-topbar-tag \{[\s\S]*?position: absolute/)
   assert.match(css, /\.plan-topbar-account \.plan-topbar-tag \{[\s\S]*?left: 0;[\s\S]*?right: 0;[\s\S]*?bottom: 0/)
   assert.match(css, /\.plan-topbar-account \.plan-topbar-tag \{[\s\S]*?z-index: 1/)
-  assert.match(css, /\.plan-topbar-account \.plan-topbar-tag > span \{[\s\S]*?width: 100%/)
-  assert.match(css, /\.plan-topbar-account \.plan-topbar-tag > span \{[\s\S]*?align-items: flex-end/)
+  assert.match(css, /\.plan-topbar-account \.plan-topbar-tag \.plan-tag \{[\s\S]*?width: 100%/)
+  assert.match(css, /\.plan-topbar-account \.plan-topbar-tag \.plan-tag \{[\s\S]*?align-items: flex-end/)
   assert.match(css, /padding: 32px 12px 8px !important/)
   assert.doesNotMatch(css, /margin: 0 0 0 -19px/)
   const chip = await readFile(new URL("../src/components/profiles/ActiveProfileChip.tsx", import.meta.url), "utf8")

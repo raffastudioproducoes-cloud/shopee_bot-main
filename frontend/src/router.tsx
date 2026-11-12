@@ -16,10 +16,12 @@ import { PageSkeleton, type PageSkeletonVariant } from "./components/ui/Skeleton
 import { OrbitalLoader } from "./components/ui/OrbitalLoader"
 import { AdminLayout } from "./pages/AdminLayout"
 import { creationSearch } from "./lib/creationIntent"
+import { parsePlanIntent, parsePlanosSearch } from "./lib/planIntent"
 
 // Páginas secundárias e pesadas carregam sob demanda (peso do bundle inicial).
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"))
 const HelpPage = lazy(() => import("./pages/HelpPage").then((m) => ({ default: m.HelpPage })))
+const PlanosPage = lazy(() => import("./pages/PlanosPage"))
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })))
 const PostsAutomationPage = lazy(() => import("./pages/PostsAutomationPage").then((m) => ({ default: m.PostsAutomationPage })))
 const CredentialsPage = lazy(() => import("./pages/CredentialsPage").then((m) => ({ default: m.CredentialsPage })))
@@ -31,6 +33,7 @@ const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"))
 const UsersPage = lazy(() => import("./pages/UsersPage"))
 const LogsPage = lazy(() => import("./pages/LogsPage"))
 const AdminCredentialsPage = lazy(() => import("./pages/AdminCredentialsPage"))
+const AdminBillingPage = lazy(() => import("./pages/AdminBillingPage"))
 const OrbitalPilotPage = lazy(() => import("./pages/OrbitalPilotPage"))
 
 async function requireAdmin() {
@@ -100,6 +103,8 @@ const landingRoute = createRoute({
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
+  // Guarda só o plano/período escolhidos na apresentação (valores conhecidos) para abrir o pagamento após o login.
+  validateSearch: (search: Record<string, unknown>) => parsePlanIntent(search),
   component: LoginPage,
 })
 
@@ -241,10 +246,23 @@ const adminCredentialsRoute = createRoute({
   component: lazyRoute(AdminCredentialsPage, "detail"),
 })
 
+const adminBillingRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "billing",
+  component: lazyRoute(AdminBillingPage, "detail"),
+})
+
 const helpRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/ajuda",
   component: lazyRoute(HelpPage, "detail"),
+})
+
+const planosRoute = createRoute({
+  getParentRoute: () => panelRoute,
+  path: "/planos",
+  validateSearch: (search: Record<string, unknown>) => parsePlanosSearch(search),
+  component: lazyRoute(PlanosPage, "detail"),
 })
 
 const settingsRoute = createRoute({
@@ -262,7 +280,7 @@ const routeTree = rootRoute.addChildren([
   termsRoute,
   privacyRoute,
   dataCollectedRoute,
-  adminRoute.addChildren([adminIndexRoute, adminOverviewRoute, usersRoute, logsRoute, adminCredentialsRoute]),
+  adminRoute.addChildren([adminIndexRoute, adminOverviewRoute, usersRoute, logsRoute, adminCredentialsRoute, adminBillingRoute]),
   panelRoute.addChildren([
     dashboardRoute,
     productsRoute,
@@ -274,6 +292,7 @@ const routeTree = rootRoute.addChildren([
     credentialsRoute,
     profilesRoute,
     helpRoute,
+    planosRoute,
     settingsRoute,
   ]),
 ])

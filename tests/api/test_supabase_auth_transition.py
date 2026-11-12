@@ -61,6 +61,39 @@ def test_registration_rejects_password_mismatch_before_auth_call(client, monkeyp
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize("email", ["rafacelle27", "a@b", "a@b.c", "a@b.12", "a b@exemplo.com", "a@@exemplo.com"])
+def test_registration_rejects_malformed_email_before_auth_call(client, monkeypatch, email):
+    _enable(monkeypatch)
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key: None)
+    monkeypatch.setattr(sb, "ensure_password_not_breached", lambda password: _noop())
+    monkeypatch.setattr(sb, "_auth_client", lambda: pytest.fail("não deve consultar GoTrue"))
+    response = client.post("/auth/supabase/register", json={
+        "username": "clienteteste", "email": email,
+        "full_name": "Cliente Teste", "cpf": "52998224725",
+        "password": "minhasenhasegura", "confirm_password": "minhasenhasegura",
+        "accepted_terms_version": "2026-10-31",
+    })
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("cpf", ["00000000000", "11111111111", "52998224726", "123", "abcdefghijk"])
+def test_registration_rejects_invalid_cpf_before_auth_call(client, monkeypatch, cpf):
+    _enable(monkeypatch)
+    monkeypatch.setattr(sb, "_check_login_rate_limit", lambda key: None)
+    monkeypatch.setattr(sb, "_auth_client", lambda: pytest.fail("não deve consultar GoTrue"))
+    response = client.post("/auth/supabase/register", json={
+        "username": "clienteteste", "email": "cliente@example.com",
+        "full_name": "Cliente Teste", "cpf": cpf,
+        "password": "minhasenhasegura", "confirm_password": "minhasenhasegura",
+        "accepted_terms_version": "2026-10-31",
+    })
+    assert response.status_code == 422
+
+
+async def _noop():
+    return None
+
+
 def test_google_identity_verified_via_supabase_user_endpoint(client, monkeypatch):
     """OAuth usa o JWT entregue pelo GoTrue, sem exigir SDK com sb_publishable."""
     _enable(monkeypatch)

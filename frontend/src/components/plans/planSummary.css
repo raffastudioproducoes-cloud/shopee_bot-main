@@ -60,7 +60,7 @@
   margin: 0;
   pointer-events: none;
 }
-.plan-topbar-account .plan-topbar-tag > span {
+.plan-topbar-account .plan-topbar-tag .plan-tag {
   box-sizing: border-box;
   display: flex !important;
   width: 100%;
@@ -130,7 +130,7 @@
     bottom: 0;
     margin: 0;
   }
-  .app-topbar .plan-topbar-account .plan-topbar-tag > span {
+  .app-topbar .plan-topbar-account .plan-topbar-tag .plan-tag {
     width: 100%;
     min-height: 50px;
     padding: 27px 6px 5px !important;
@@ -143,7 +143,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .plan-topbar-account .plan-topbar-tag > span { animation: none; }
+  .plan-topbar-account .plan-topbar-tag .plan-tag { animation: none; }
 }
 
 

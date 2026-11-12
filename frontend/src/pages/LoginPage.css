@@ -8,14 +8,13 @@
   .login-split__form { width: 100%; flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
   @media (min-width: 768px) {
     .login-split { flex-direction: row; }
-    /* Largura/posição do painel de imagem no fluxo flex NÃO mudam (continua 45%) —
-       é isso que garante que .login-split__form (55%, via flex-grow) fique no mesmo
-       lugar de sempre. O vídeo por dentro é que se estende visualmente até 80vw via
+    /* Painel de imagem 60% / formulário 40% (era 45/55, o que deixava a animação longe do formulário). O vídeo por dentro é que se estende visualmente até 80vw via
        position:absolute + overflow:visible no painel pai (ver .login-split__video). */
-    .login-split__image { width: 45%; height: auto; overflow: visible; z-index: 0; }
+    .login-split__image { width: 60%; height: auto; overflow: visible; z-index: 0; }
     .login-split__video { top: 0; left: 0; right: auto; bottom: auto; width: 80vw; height: 100%; }
     .login-split__fade { display: none; }
-    .login-split__form { width: 55%; height: auto; z-index: 1; }
+    /* A animação ocupa 60% da tela e o formulário fica colado na borda em degradê dela (sem o vão de antes). */
+    .login-split__form { width: 40%; height: auto; z-index: 1; justify-content: flex-start; padding-left: clamp(24px, 4.5vw, 88px); }
   }
 
 /* Propriedades estaticas extraidas de style={} para uma CSP sem atributos inline. */
