@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — retentativa automática de slot de campanha com falha de credencial
+
+- Quando um slot de campanha (`publish_jobs.publication_origin='campaign'`) falha porque a verificação de credencial/OAuth reprovou, o scheduler o devolve a `pending` (e o slot em `campaign_network_slots_f4e` a `planned`) para o próximo ciclo, **uma única vez**, e somente se ainda estiver a até 60 minutos de `scheduled_for`. Passou de 60 min ou já houve 2 tentativas (`attempt >= 2`): permanece `failed`. Nunca reprocessa se houver `external_id`, `external_started_at` ou status diferente de `failed`; falhas que não são de credencial não são reprocessadas. `last_error` é preservado. Sem migração (`campaign_dispatch.retry_credential_failure`). Testes em `tests/scheduler/test_campaign_credential_retry.py`.
+
 ### Fixed — campanhas Threads marcadas como "credenciais inválidas"
 
 - A verificação OAuth que antecede o envio de campanha (`campaign_dispatch._validated_credentials` -> `_autotest_outcome` -> `_call_with_timeout`) rodava `asyncio.run(...)` num `ThreadPoolExecutor`. Com o monkey-patch do gevent essa "thread" é um greenlet no mesmo thread do SO de um loop em execução, e `asyncio.run` levantava `RuntimeError: asyncio.run() cannot be called from a running event loop` (com `RuntimeWarning: coroutine 'validate_network_credential' was never awaited`). Todo slot de campanha era marcado como falha ("Credenciais ou permissões OAuth inválidas"). `_call_with_timeout` agora usa o threadpool do gevent (thread real do SO), mantendo o timeout de 20 s. O log de falha passa a registrar a mensagem sanitizada e o traceback. Teste de regressão em `tests/scheduler/test_campaign_credential_validation.py`.
