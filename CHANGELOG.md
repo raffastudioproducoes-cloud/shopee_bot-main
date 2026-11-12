@@ -5,6 +5,24 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.17.0] - 2026-11-12
+
+Funcionalidade (MINOR): concessão de plano pelo ADMIN com prazo, ADMIN sempre Premium e retentativa automática de slot de campanha com falha de credencial.
+
+### Added — concessão de plano pelo ADMIN
+
+- `PUT /admin/users/{user_id}/plan` (só ADMIN, 30 alterações/min por admin): dá Pro ou Premium a qualquer conta por `days` (1 a 365) **ou** `ends_at` (até 365 dias à frente), ou remove o plano com `plan=free`. Grava `users.plan_tier` e `users.campaign_paid_through` e registra quem concedeu, quando e até quando na tabela nova `plan_grants` (migration `099_plan_grants.sql`, aditiva; reversão `DROP TABLE public.plan_grants`) e em `audit_events`. Recusa conta ADMIN e conta com assinatura Asaas ativa/em atraso.
+- Ao vencer, a conta volta ao Free automaticamente: varredura a cada 5 minutos (`expire_due_grants`) em cada worker, idempotente; só rebaixa se o plano ainda é o da concessão. Limite conhecido: entre o vencimento e a varredura (até ~5 min) os limites ainda leem o plano antigo; campanhas já exigem `campaign_paid_through` vigente. Campanhas ativas não são pausadas no rebaixamento além do que o executor já faz.
+- `/admin/users` mostra `plan_tier` e `plan_expires_at`; em `/admin/users` (UI) botão "Dar plano" na linha do usuário, com modal de plano, duração (dias ou data final) e confirmação.
+
+### Changed — ADMIN é sempre Premium
+
+- Nova função central `effective_plan(access, plan_tier)` (`api/effective_plan.py`): conta `ADMIN` é Premium com tudo liberado e `users.plan_tier`/`campaign_*` não decidem nada para ela. Usada na política de campanhas (`/campaigns/limits`, `/profiles/usage`), em `/profiles/quota` e na lista de contas; a UI deixa de oferecer "Melhorar plano" ao ADMIN também com `plan_tier=free` gravado. Os limites no banco (RPCs de cota) já isentavam ADMIN pelo papel. O X segue desabilitado para todos por regra de produto (`DISABLED_NETWORKS`), não por plano.
+
+### Added — retentativa automática de slot de campanha com falha de credencial
+
+- Quando um slot de campanha (`publish_jobs.publication_origin='campaign'`) falha porque a verificação de credencial/OAuth reprovou, o scheduler o devolve a `pending` (e o slot em `campaign_network_slots_f4e` a `planned`) para o próximo ciclo, **uma única vez**, e somente se ainda estiver a até 60 minutos de `scheduled_for`. Passou de 60 min ou já houve 2 tentativas (`attempt >= 2`): permanece `failed`. Nunca reprocessa se houver `external_id`, `external_started_at` ou status diferente de `failed`; falhas que não são de credencial não são reprocessadas. `last_error` é preservado. Sem migração (`campaign_dispatch.retry_credential_failure`). Testes em `tests/scheduler/test_campaign_credential_retry.py`.
+
 ## [3.16.1] - 2026-11-12
 
 Correção (PATCH): verificação OAuth das campanhas deixa de falhar com `RuntimeError` de `asyncio.run` sob gevent.

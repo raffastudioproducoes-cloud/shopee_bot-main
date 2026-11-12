@@ -304,6 +304,7 @@ ADMIN_CASES = [
     ("PUT", "/admin/users/2", {"json": {"role": "admin"}}),
     ("DELETE", "/admin/users/2", {}),
     ("POST", "/admin/users/2/erasure/retry", {}),
+    ("PUT", "/admin/users/2/plan", {"json": {"plan": "pro", "days": 5}}),
     ("PUT", "/admin/ai/openai", {"json": {"api_key": "k"}}),
     ("DELETE", "/admin/ai/openai", {}),
     ("POST", "/admin/ai/openai/activate", {}),
