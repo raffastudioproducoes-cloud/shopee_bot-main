@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.16.0] - 2026-11-12
+
+Pagamentos com Asaas (cartão e Pix Automático), telas de plano do cliente, validação do cadastro e acertos de operação. **MINOR** (funcionalidade compatível). Em produção a contratação fica **desligada**: sem `ASAAS_API_KEY` no serviço de produção, `GET /billing/plans` informa `checkout_enabled=false` e a tela mostra "A contratação ainda não está aberta". A migration 098 (tabelas `plan_*` e `billing_*`, RLS fechada) já estava aplicada no banco compartilhado desde o deploy da staging.
+
 ### Changed — despertar do site antes das publicações (operação, sem mudança de código)
 
 - Cron de despertar (Supabase) passou de `*/2` (chamava o site sempre que havia qualquer fila pendente) para consulta a cada minuto que só chama a **produção** 3 a 4 min antes de publicações do ambiente `production`. Log em `public.admin_wake_log`. Documentado em `docs/operations/wake-before-posts-cron.sql` (com reversão) e em `AGENTS.md`. Publicações do ambiente `staging` não acordam nenhum serviço.
