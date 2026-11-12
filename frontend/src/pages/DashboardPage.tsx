@@ -1,3 +1,4 @@
+import { getUserTimeZone } from '../lib/userTimeZone'
 import { useNavigate } from '@tanstack/react-router'
 import { useDashboard } from '../hooks/useDashboard'
 import { StatCard } from '../components/ui/StatCard'
@@ -14,7 +15,7 @@ function count(value: number | undefined) {
 
 function RecordedAt({ value }: { value: string | null }) {
   if (!value || Number.isNaN(Date.parse(value))) return <span>Data indisponível</span>
-  return <time dateTime={value}>{new Date(value).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} (Brasília)</time>
+  return <time dateTime={value}>{new Date(value).toLocaleString('pt-BR', { timeZone: getUserTimeZone() })} ({getUserTimeZone()})</time>
 }
 
 const networks: Record<string, string> = { threads: 'Threads', facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', x: 'X' }

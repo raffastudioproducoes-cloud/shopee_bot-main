@@ -4,6 +4,7 @@ import { usePlanUsage } from "../../hooks/usePlanUsage"
 import { Eye } from "lucide-react"
 import { useAuthStore } from "../../stores/authStore"
 import { postsApi, type Post, type PostSchedule, type PostNetwork } from "../../api/posts"
+import { getUserTimeZone } from "../../lib/userTimeZone"
 import { credentialsApi, platformAiApi } from "../../api/credentials"
 import {
   NETWORK_RULES,
@@ -347,7 +348,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
 
   const buildSchedule = (): PostSchedule => {
     if (when === "cron") {
-      return { trigger: "cron", time: cronTime, times: cronTimes, days_of_week: cronDays }
+      return { trigger: "cron", time: cronTime, times: cronTimes, days_of_week: cronDays, timezone: getUserTimeZone() }
     }
     // "Agora" = rede de segurança de 5 min: o post é disparado explicitamente
     // logo após o envio da mídia (ver createMutation), sem duplicar.

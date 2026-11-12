@@ -1,4 +1,5 @@
 import { useId } from "react"
+import { getUserTimeZone } from "../../lib/userTimeZone"
 import "./postTimePicker.css"
 
 interface Props {
@@ -24,7 +25,7 @@ export function PostTimePicker({ label, value, onChange }: Props) {
 
   return (
     <div className="post-time-picker">
-      <span id={id} className="post-time-picker-label">{label} <small>(Brasília, 24h)</small></span>
+      <span id={id} className="post-time-picker-label">{label} <small>({getUserTimeZone()}, 24h)</small></span>
       <div className="post-time-picker-desktop" role="group" aria-labelledby={id}>
         <label>
           <span className="post-time-picker-sr">Horas</span>

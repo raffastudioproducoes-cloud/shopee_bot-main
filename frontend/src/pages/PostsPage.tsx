@@ -4,7 +4,7 @@ import { useAuthStore } from "../stores/authStore"
 import { router } from "../router"
 import { scheduleUndoableDelete, useHiddenIds } from "../lib/undoableDelete"
 import { postsApi, type Post, type PostNetwork } from "../api/posts"
-import { formatUtcTimestampBrasilia } from "../lib/ptBrDateTime"
+import { formatUtcTimestamp } from "../lib/userTimeZone"
 import { NETWORK_RULES } from "../lib/networkLimits"
 import { NetworkLogo } from "../components/posts/NetworkPicker"
 import { useProfileStore } from "../stores/profileStore"
@@ -370,9 +370,9 @@ export function PostsPage() {
                     className="post-list-timestamps"
                     style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 14px", marginTop: 6, font: "var(--fw-regular) var(--fs-caption)/1.4 var(--font-sans)", color: "var(--text-muted)" }}
                   >
-                    <span>Criado: {formatUtcTimestampBrasilia(post.created_at).replace(/:\d{2}$/, "")}</span>
-                    {post.last_published_at && <span>Última publicação: {formatUtcTimestampBrasilia(post.last_published_at).replace(/:\d{2}$/, "")}</span>}
-                    {post.last_result?.at && <span>Última execução: {formatUtcTimestampBrasilia(post.last_result.at).replace(/:\d{2}$/, "")}</span>}
+                    <span>Criado: {formatUtcTimestamp(post.created_at).replace(/:\d{2}$/, "")}</span>
+                    {post.last_published_at && <span>Última publicação: {formatUtcTimestamp(post.last_published_at).replace(/:\d{2}$/, "")}</span>}
+                    {post.last_result?.at && <span>Última execução: {formatUtcTimestamp(post.last_result.at).replace(/:\d{2}$/, "")}</span>}
                     {compactScheduleSummary(post) && (
                       <span title={scheduleLines(post).join(" · ")}>{compactScheduleSummary(post)}</span>
                     )}

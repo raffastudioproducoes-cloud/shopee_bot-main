@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { Post } from "../../api/posts"
 import { postsApi } from "../../api/posts"
-import { formatUtcTimestampBrasilia } from "../../lib/ptBrDateTime"
+import { formatUtcTimestamp } from "../../lib/userTimeZone"
 
 type Props = { post: Post; onClose: () => void }
 
@@ -64,7 +64,7 @@ export function FutureRevisionEditor({ post, onClose }: Props) {
       {latest.isSuccess && (
         <form onSubmit={(event) => { event.preventDefault(); if (valid && !save.isPending) save.mutate() }} style={{ display: "grid", gap: 12 }}>
           {latest.data.revision && <p style={{ margin: 0, color: "var(--text-muted)" }}>
-            Revisão anterior confirmada para slots posteriores a {formatUtcTimestampBrasilia(latest.data.revision.effective_after)}.
+            Revisão anterior confirmada para slots posteriores a {formatUtcTimestamp(latest.data.revision.effective_after)}.
           </p>}
           {texts.map((text, index) => (
             <div key={index} style={{ display: "grid", gap: 6 }}>
@@ -97,7 +97,7 @@ export function FutureRevisionEditor({ post, onClose }: Props) {
             {save.error instanceof Error ? save.error.message : "Não foi possível salvar a revisão."}
           </p>}
           {savedAt && <p role="status" style={{ color: "var(--positive)" }}>
-            Revisão registrada. Será usada somente para ocorrências após {formatUtcTimestampBrasilia(savedAt)}.
+            Revisão registrada. Será usada somente para ocorrências após {formatUtcTimestamp(savedAt)}.
           </p>}
         </form>
       )}

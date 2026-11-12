@@ -2,6 +2,7 @@ import { useState } from "react"
 import { RegionConsent } from "../components/profiles/RegionConsent"
 import { AcquisitionConsent } from "../components/profiles/AcquisitionConsent"
 import { BackupSection } from "../components/profiles/BackupSection"
+import { TimeZoneSettings } from "../components/profiles/TimeZoneSettings"
 import { Panel } from "../components/ui/Panel"
 import { Button } from "../components/ui/Button"
 import { PasswordRecoveryRequestModal } from "../components/auth/PasswordRecoveryRequestModal"
@@ -26,6 +27,7 @@ export function SettingsPage() {
           </Button>
         </div>
       </Panel>
+      <TimeZoneSettings />
       <section aria-labelledby="privacy-settings-title" className="csp-s-0387">
         <div>
           <h2 id="privacy-settings-title" className="csp-s-0388">Privacidade, localização e origem</h2>

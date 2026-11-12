@@ -1,3 +1,4 @@
+import { formatInstant } from "../lib/userTimeZone"
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { logsApi } from "../api/logs"
@@ -92,7 +93,7 @@ export default function LogsPage() {
               {rows.map((row, index) => (
                 <tr key={`${row.created_at}:${index}`} className="csp-s-0305">
                   <td className="csp-s-0306">
-                    {new Date(row.created_at).toLocaleString("pt-BR")}
+                    {formatInstant(row.created_at)}
                   </td>
                   <td className="csp-s-0307">{row.method} {row.path}</td>
                   <td className="csp-s-0308">

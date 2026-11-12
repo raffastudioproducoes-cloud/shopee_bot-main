@@ -37,33 +37,3 @@ export function isoToBr(iso: string): string {
   return `${d}/${m}/${y}`
 }
 
-
-/**
- * Converte timestamps UTC do PostgreSQL para Brasília.
- * Aceita valores com Z, offset explícito ou sem fuso.
- *
- * IMPORTANTE: timestamps sem fuso devem representar UTC.
- */
-export function formatUtcTimestampBrasilia(value: string): string {
-  const normalized = value.trim().replace(" ", "T")
-
-  const hasTimezone = /(Z|[+-]\d{2}:?\d{2})$/i.test(normalized)
-  const iso = hasTimezone ? normalized : `${normalized}Z`
-
-  const date = new Date(iso)
-
-  if (Number.isNaN(date.getTime())) {
-    return "Data inválida"
-  }
-
-  return date.toLocaleString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  })
-}

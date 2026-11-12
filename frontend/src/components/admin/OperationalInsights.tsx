@@ -1,3 +1,4 @@
+import { formatInstant } from '../../lib/userTimeZone'
 import { useQuery } from '@tanstack/react-query'
 import { adminMetricsApi } from '../../api/adminMetrics'
 import { CardTags } from './CardTags'
@@ -43,7 +44,7 @@ export function OperationalInsights({ accountCount }: { accountCount?: number | 
             <div><dt>Resultado mais recente</dt><dd>{up.latest === 'ok' ? 'OK' : up.latest === 'error' ? 'Erro' : 'Não conclusivo'}</dd></div>
             <div><dt>Taxa de respostas OK (exclui inconclusivos)</dt><dd>{up.ok + up.error > 0 ? fmt(100 * up.ok / (up.ok + up.error)) + '%' : 'Indisponível'}</dd></div></dl>
           <details><summary>Últimas verificações</summary><div className="admin-metric-table"><table><thead><tr><th>Instante</th><th>Resultado</th></tr></thead><tbody>
-            {up.recent.map(x => <tr key={x.at}><td>{new Date(x.at).toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'})}</td><td>{x.status === 'ok' ? 'OK' : x.status === 'error' ? 'Erro' : 'Inconclusivo'}</td></tr>)}
+            {up.recent.map(x => <tr key={x.at}><td>{formatInstant(x.at)}</td><td>{x.status === 'ok' ? 'OK' : x.status === 'error' ? 'Erro' : 'Inconclusivo'}</td></tr>)}
           </tbody></table></div></details>
           <p>Verificações a cada 5 minutos de /health/ready; sondas sem resposta são inconclusivas. Não equivale a SLA, uptime contínuo ou monitoramento externo independente.</p>
         </> : <p role="status">{isLoading ? 'Consultando...' : 'Aguardando verificações automáticas válidas.'}</p>}

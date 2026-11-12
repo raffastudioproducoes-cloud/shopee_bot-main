@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 from ..config import settings
 from ..database import get_supabase, supabase
 from .. import rate_limit_store
+from shopee_bot.utils.timezones import normalize_timezone, timezone_or_default
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -428,7 +429,33 @@ async def me(request: Request):
         "username": user["username"],
         "access": user.get("access", ""),
         "profile_id": _resolve_profile_id(claim, user["id"]),
+        # Fuso IANA usado para agendar e exibir horários; sem coluna = Brasília.
+        "timezone": timezone_or_default(user.get("timezone")),
+        # False = nunca confirmado: o site adota o fuso do dispositivo uma vez.
+        "timezone_confirmed": bool(user.get("timezone_updated_at")),
     }
+
+
+class TimezoneUpdate(BaseModel):
+    timezone: str = Field(min_length=1, max_length=64)
+
+
+@router.put("/me/timezone")
+def update_my_timezone(body: TimezoneUpdate, user_id: str = Depends(get_current_user_id)):
+    """Grava o fuso do usuário. Agendas já criadas mantêm o fuso delas."""
+    try:
+        name = normalize_timezone(body.timezone)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Fuso horário inválido. Use um nome IANA, ex.: America/Sao_Paulo.")
+    try:
+        db = get_supabase()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail=_DB_UNAVAILABLE_DETAIL)
+    db.table("users").update({
+        "timezone": name,
+        "timezone_updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", user_id).execute()
+    return {"timezone": name, "timezone_confirmed": True}
 
 
 @router.post("/reset-password")

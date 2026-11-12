@@ -1,3 +1,4 @@
+import { formatInstant } from "../../lib/userTimeZone"
 // Extrapolação: sino do TopBar era só decoração até agora (ícone sem onClick,
 // bolinha de "não lido" fixa via prop default `unread = true`) — ver
 // TopBar.tsx e api/routers/notifications.py. Este componente é autocontido
@@ -96,7 +97,7 @@ export function NotificationsBell() {
                           {n.description || n.type || "Atividade registrada"}
                         </p>
                         <p className="csp-s-0126">
-                          {new Date(n.created_at).toLocaleString("pt-BR")}
+                          {formatInstant(n.created_at)}
                         </p>
                       </div>
                     </div>

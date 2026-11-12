@@ -1,6 +1,7 @@
+import { getUserTimeZone } from "../../lib/userTimeZone"
 export function formatMetricTime(timestamp: string) {
   const date = new Date(timestamp)
-  return Number.isFinite(date.getTime()) ? date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : 'Horário indisponível'
+  return Number.isFinite(date.getTime()) ? date.toLocaleString('pt-BR', { timeZone: getUserTimeZone() }) : 'Horário indisponível'
 }
 
 export function isStale(timestamp: string, maximumAge = 300_000, now = Date.now()) {
