@@ -15,6 +15,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 - Nova função central `effective_plan(access, plan_tier)` (`api/effective_plan.py`): conta `ADMIN` é Premium com tudo liberado e `users.plan_tier`/`campaign_*` não decidem nada para ela. Usada na política de campanhas (`/campaigns/limits`, `/profiles/usage`), em `/profiles/quota` e na lista de contas; a UI deixa de oferecer "Melhorar plano" ao ADMIN também com `plan_tier=free` gravado. Os limites no banco (RPCs de cota) já isentavam ADMIN pelo papel. O X segue desabilitado para todos por regra de produto (`DISABLED_NETWORKS`), não por plano.
 
+### Added — retentativa automática de slot de campanha com falha de credencial
+
+- Quando um slot de campanha (`publish_jobs.publication_origin='campaign'`) falha porque a verificação de credencial/OAuth reprovou, o scheduler o devolve a `pending` (e o slot em `campaign_network_slots_f4e` a `planned`) para o próximo ciclo, **uma única vez**, e somente se ainda estiver a até 60 minutos de `scheduled_for`. Passou de 60 min ou já houve 2 tentativas (`attempt >= 2`): permanece `failed`. Nunca reprocessa se houver `external_id`, `external_started_at` ou status diferente de `failed`; falhas que não são de credencial não são reprocessadas. `last_error` é preservado. Sem migração (`campaign_dispatch.retry_credential_failure`). Testes em `tests/scheduler/test_campaign_credential_retry.py`.
+
 ## [3.16.1] - 2026-11-12
 
 Correção (PATCH): verificação OAuth das campanhas deixa de falhar com `RuntimeError` de `asyncio.run` sob gevent.
