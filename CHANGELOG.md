@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.17.0] - 2026-11-12
+
+Funcionalidade (MINOR): concessão de plano pelo ADMIN com prazo, ADMIN sempre Premium e retentativa automática de slot de campanha com falha de credencial.
+
 ### Added — concessão de plano pelo ADMIN
 
 - `PUT /admin/users/{user_id}/plan` (só ADMIN, 30 alterações/min por admin): dá Pro ou Premium a qualquer conta por `days` (1 a 365) **ou** `ends_at` (até 365 dias à frente), ou remove o plano com `plan=free`. Grava `users.plan_tier` e `users.campaign_paid_through` e registra quem concedeu, quando e até quando na tabela nova `plan_grants` (migration `099_plan_grants.sql`, aditiva; reversão `DROP TABLE public.plan_grants`) e em `audit_events`. Recusa conta ADMIN e conta com assinatura Asaas ativa/em atraso.
