@@ -28,4 +28,7 @@
 
 ## 4. Evidências
 
-Preenchidas após o deploy (PR de promoção, CI, gate SemVer, deploy Render, logs de boot) em registro posterior.
+- PR #457 (preparação, staging) e PR #458 (`staging → main`, **merge commit** `6f61487513675164e72923da3f90e369e716ebb3`), ambos com CI verde: API, Frontend, F4E, staging externo, passive-zap e gate "VERSION e CHANGELOG obrigatórios" (`Release SemVer OK: 3.15.0 -> 3.16.0`).
+- Deploy Render **staging** `dep-dbqi6davcj2c73evr3mg`: LIVE em `9a911b4`.
+- Deploy Render **produção** `dep-dbqi82o473hc738198l0`: LIVE em `6f61487` (12/11/2026 ~02:28 UTC). Logs de boot sem nível `error`; gunicorn subiu o worker e as migrações já aplicadas foram ignoradas (idempotente).
+- Não verificado por mim: `/health/ready` externo (o ambiente da sessão não alcança o host de produção) — conferir no navegador.
