@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — despertar do site antes das publicações (operação, sem mudança de código)
+
+- Cron de despertar (Supabase) passou de `*/2` (chamava o site sempre que havia qualquer fila pendente) para consulta a cada minuto que só chama a **produção** 3 a 4 min antes de publicações do ambiente `production`. Log em `public.admin_wake_log`. Documentado em `docs/operations/wake-before-posts-cron.sql` (com reversão) e em `AGENTS.md`. Publicações do ambiente `staging` não acordam nenhum serviço.
+
 ### Changed — cronômetro no QR Code do Pix
 
 - O QR Code do Pix Automático mostra o tempo restante (regressivo, destaca nos últimos 5 minutos) e, ao expirar, oferece "Gerar novo QR Code". A API devolve `expires_in_seconds` (3600). O tempo de validade em si não mudou (não testei se o Asaas aceita mais de 1 hora).
