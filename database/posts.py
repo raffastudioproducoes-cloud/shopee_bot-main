@@ -1,7 +1,9 @@
+import sys
+
 import pytz
 from datetime import datetime
 from shopee_bot.database import query_db, execute_db
-from shopee_bot.database import post_content_snapshot
+from shopee_bot.database import post_content_snapshot, post_link_redirects
 
 
 def count(user_id):
@@ -86,9 +88,16 @@ def get(user_id, post_id, profile_id):
         ORDER BY ph.depth ASC
     """
     args = (post_id, user_id, profile_id, user_id, profile_id)
-    return post_content_snapshot.apply_to_parts(
+    parts = post_content_snapshot.apply_to_parts(
         query_db(query, args), post_content_snapshot.get()
     )
+    return post_link_redirects.rewrite_parts(parts, _active_publish_job_id())
+
+
+def _active_publish_job_id():
+    """Só há envio ativo se o scheduler já carregou o contexto; não importa o scheduler à toa."""
+    context = sys.modules.get("shopee_bot.scheduler.publication_context")
+    return context.active_publish_job_id() if context else None
 
 
 def get_for_delete(user_id, post_id):

@@ -53,6 +53,8 @@ from .routers.billing import admin_router as billing_admin_router, router as bil
 from .routers.platform_ai import router as platform_ai_router
 from .routers.platform_shopee import router as platform_shopee_router
 from .routers.shopee_video import router as shopee_video_router
+from .routers.post_metrics import router as post_metrics_router
+from .routers.link_redirect import router as link_redirect_router
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -125,6 +127,8 @@ app.include_router(shopee_video_router)
 app.include_router(users_router)
 app.include_router(dashboard_router)
 app.include_router(social_analytics_router)
+app.include_router(post_metrics_router)
+app.include_router(link_redirect_router)
 app.include_router(notifications_router)
 app.include_router(profiles_router)
 app.include_router(settings_router)

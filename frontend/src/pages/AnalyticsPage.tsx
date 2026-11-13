@@ -12,6 +12,8 @@ import { PageSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
 import { AnalyticsVisuals, type AnalyticsTimeline } from '../components/AnalyticsVisuals'
 import { ANALYTICS_NETWORKS, hasRecordedAnalytics } from '../lib/analyticsNetworks'
+import { PostMetricsPanel } from '../components/PostMetricsPanel'
+import { LEGACY_PERIODS, customRangeError, periodQuery } from '../lib/postMetrics'
 
 type Network = 'threads' | 'facebook' | 'instagram' | 'tiktok' | 'x'
 type Row = {
@@ -58,6 +60,8 @@ export default function AnalyticsPage() {
   const [days, setDays] = useState('30')
   const [network, setNetwork] = useState('all')
   const [selectedProfile, setSelectedProfile] = useState('all')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [refreshMessage, setRefreshMessage] = useState<{ scope: string; message: string } | null>(null)
   const queryClient = useQueryClient()
@@ -77,8 +81,10 @@ export default function AnalyticsPage() {
   // Keep the existing saved period/network filters per operational profile.
   // The viewing selector never calls setActiveProfileId or /profiles/.../activate.
   useAutosavedDraft(formDraftKey(userId, 'analytics-filters', profileId), {
-    days, network, selectedProfile,
+    days, network, selectedProfile, customFrom, customTo,
   }, (saved) => {
+    setCustomFrom(typeof saved?.customFrom === 'string' ? saved.customFrom : '')
+    setCustomTo(typeof saved?.customTo === 'string' ? saved.customTo : '')
     setDays(typeof saved?.days === 'string' ? saved.days : '30')
     setNetwork(typeof saved?.network === 'string' ? saved.network : 'all')
     setSelectedProfile(typeof saved?.selectedProfile === 'string' ? saved.selectedProfile : 'all')
@@ -99,10 +105,17 @@ export default function AnalyticsPage() {
   const waitingForProfileList = selectedProfile !== 'all' && !profiles && !profilesError
   const filterAvailable = network === 'all' || hasRecordedAnalytics(network)
   const pendingPlatform = filterAvailable ? null : ANALYTICS_NETWORKS.find((item) => item.key === network)
+  // Resumo operacional legado vai até 90 dias; as métricas por post aceitam até 365 dias.
+  const legacyPeriod = LEGACY_PERIODS.includes(days)
+  const rangeError = days === 'custom' ? customRangeError(customFrom, customTo) : null
+  const metricsPeriod = periodQuery(days, customFrom, customTo, getUserTimeZone())
+  const metricsQuery = metricsPeriod
+    ? `${metricsPeriod}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`
+    : null
   const { data, isLoading, error } = useQuery({
     queryKey: ['analytics-summary', userId, selectedProfile, days, network],
     queryFn: () => api.get<Summary>(`/analytics/summary?days=${days}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`),
-    enabled: Boolean(userId) && canQuerySelection && filterAvailable,
+    enabled: Boolean(userId) && canQuerySelection && filterAvailable && legacyPeriod,
     refetchInterval: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
   })
@@ -110,7 +123,7 @@ export default function AnalyticsPage() {
   const { data: timeline, isLoading: timelineLoading, isError: timelineError } = useQuery({
     queryKey: ['analytics-timeline', userId, selectedProfile, days, network],
     queryFn: () => api.get<AnalyticsTimeline>(`/analytics/timeline?days=${days}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`),
-    enabled: Boolean(userId) && canQuerySelection && filterAvailable,
+    enabled: Boolean(userId) && canQuerySelection && filterAvailable && legacyPeriod,
     retry: 1,
     refetchInterval: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -118,7 +131,7 @@ export default function AnalyticsPage() {
   const { data: postsData, isLoading: postsLoading, isError: postsError } = useQuery({
     queryKey: ['analytics-posts', userId, selectedProfile, days, network],
     queryFn: () => api.get<PostsResult>(`/analytics/posts?days=${days}${network === 'all' ? '' : `&network=${network}`}${selectedProfileQuery}`),
-    enabled: Boolean(userId) && canQuerySelection && filterAvailable,
+    enabled: Boolean(userId) && canQuerySelection && filterAvailable && legacyPeriod,
     refetchInterval: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
   })
@@ -139,6 +152,9 @@ export default function AnalyticsPage() {
         queryClient.invalidateQueries({ queryKey: ['analytics-timeline', userId, selectedProfile] }),
         queryClient.invalidateQueries({ queryKey: ['analytics-posts', userId, selectedProfile] }),
         queryClient.invalidateQueries({ queryKey: ['analytics-refresh-quota', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['post-metrics'] }),
+        queryClient.invalidateQueries({ queryKey: ['post-ranking'] }),
+        queryClient.invalidateQueries({ queryKey: ['post-series'] }),
       ])
       setRefreshMessage({
         scope: profileScope,
@@ -179,7 +195,16 @@ export default function AnalyticsPage() {
           ]} />
         <Select label="Período" value={days} onChange={(event) => setDays(event.target.value)} width={160} options={[
           { value: '7', label: '7 dias' }, { value: '30', label: '30 dias' }, { value: '90', label: '90 dias' },
+          { value: '180', label: '180 dias' }, { value: '365', label: '365 dias' }, { value: 'custom', label: 'Personalizado' },
         ]} />
+        {days === 'custom' && <>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>Início
+            <input type="date" value={customFrom} max={customTo || undefined} onChange={(event) => setCustomFrom(event.target.value)} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>Fim
+            <input type="date" value={customTo} min={customFrom || undefined} onChange={(event) => setCustomTo(event.target.value)} />
+          </label>
+        </>}
         <Select label="Rede" value={network} onChange={(event) => setNetwork(event.target.value)} width={190} options={[
           { value: 'all', label: 'Todas' }, ...ANALYTICS_NETWORKS.map((item) => ({ value: item.key, label: item.title })),
         ]} />
@@ -197,6 +222,7 @@ export default function AnalyticsPage() {
           </span>
         </div>
       </div>
+      {rangeError && <p role="alert" style={{ color: 'var(--negative)', margin: '12px 0 0' }}>{rangeError} O período personalizado aceita até 365 dias.</p>}
       {profilesError && <p role="alert" style={{ color: 'var(--negative)', margin: '12px 0 0' }}>
         Não foi possível listar os perfis. A visão geral continua disponível.
       </p>}
@@ -220,6 +246,13 @@ export default function AnalyticsPage() {
             <p>Não há coleta externa habilitada para esta rede. Os dados não são apresentados como zero e nenhuma consulta à API da plataforma é realizada.</p>
           </section>
         </>
+      ) : !legacyPeriod ? (
+        <>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '12px 0 0' }}>
+            O resumo de envios por dia cobre até 90 dias. Para períodos maiores, as métricas por postagem abaixo usam o histórico de coletas guardado.
+          </p>
+          {metricsQuery && canQuerySelection && <PostMetricsPanel query={metricsQuery} scopeKey={profileScope} />}
+        </>
       ) : isLoading || waitingForProfileList ? <PageSkeleton variant="table" heading={false} /> : error ? (
         <>
           <p role="alert" className="csp-s-0171">Não foi possível carregar as análises.</p>
@@ -229,8 +262,9 @@ export default function AnalyticsPage() {
           <AnalyticsVisuals rows={rows} days={Number(days)} timeline={timeline} posts={postsData?.posts}
             postsLoading={postsLoading} postsError={postsError}
             timelineLoading={timelineLoading} timelineError={timelineError} />
+          {metricsQuery && canQuerySelection && <PostMetricsPanel query={metricsQuery} scopeKey={profileScope} />}
           <p className="csp-s-0176">
-            Envios vêm da fila do Auto Orbital. Os filtros de 7, 30 ou 90 dias escolhem os posts <strong>publicados nesse intervalo</strong>;
+            Envios vêm da fila do Auto Orbital. Os filtros de período (7 a 365 dias ou personalizado) escolhem os posts <strong>publicados nesse intervalo</strong>;
             os insights exibidos são os <strong>totais acumulados de cada post</strong> até a última coleta, não as visualizações ocorridas apenas no intervalo.
             Nunca usamos visualizações gerais do perfil ou da Página. A consulta automática usa o agendamento existente a cada 24 horas; uma consulta manual por perfil pode ser solicitada após 5 minutos.
             Traço significa métrica indisponível, não zero. Facebook e Instagram exigem contas conectadas e uma integração de insights por post validada;
