@@ -234,6 +234,11 @@ export const postsApi = {
     return api.post<MediaDraft>('/posts/product-image-drafts/' + productId, {})
   },
 
+  /** Copia uma mídia da galeria do produto (página Produtos) para rascunho privado. */
+  async importProductMediaDraft(productId: number, assetId: string): Promise<MediaDraft> {
+    return api.post<MediaDraft>(`/posts/product-media-drafts/${productId}/${encodeURIComponent(assetId)}`, {})
+  },
+
   async deleteDraftMedia(id: string): Promise<{ msg: string }> {
     return api.delete<{ msg: string }>(`/posts/media-drafts/${id}`)
   },

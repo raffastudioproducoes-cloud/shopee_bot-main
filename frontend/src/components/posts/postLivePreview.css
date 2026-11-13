@@ -106,6 +106,9 @@
 .post-composer-shopee-media label{display:flex;align-items:center;gap:9px;color:var(--text-body);font:var(--text-role-body);cursor:pointer}
 .post-composer-shopee-media input{width:16px;height:16px;accent-color:var(--accent)}
 .post-composer-shopee-media p{margin:7px 0 0;color:var(--text-muted);font:var(--text-role-caption);line-height:1.5}
+.post-composer-product-media{display:grid;gap:6px;margin:8px 0 0;padding:0;border:0;min-width:0}
+.post-composer-product-media legend{padding:0;margin-bottom:4px;color:var(--text-muted);font:var(--text-role-caption)}
+.post-composer-product-media label span{overflow-wrap:anywhere}
 
 .post-preview-thread-stack{border-top:1px solid #ffffff24;padding:3px 12px 7px}
 .post-preview-thread-part{display:flex;align-items:flex-start;gap:9px;padding:11px 0;border-bottom:1px solid #ffffff1a}

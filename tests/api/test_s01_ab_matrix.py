@@ -280,6 +280,7 @@ RESOURCE_CASES = [
     ("POST", f"/posts/{RID}/future-revisions", {"json": {"texts": ["hack"]}}),
     ("GET", f"/posts/{RID}/future-revisions/latest", {}),
     ("POST", f"/posts/product-image-drafts/{RID}", {}),
+    ("POST", f"/posts/product-media-drafts/{RID}/{UID}", {}),
     ("DELETE", f"/posts/media-drafts/{UID}", {}),
     ("GET", f"/campaigns/drafts/{UID}", {}),
     ("PUT", f"/campaigns/drafts/{UID}", {"json": {"name": "hack", "expected_revision": 1, "items": [

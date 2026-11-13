@@ -59,6 +59,7 @@ from ..shopee_images import (
     _check_shopee_image_url, _download_shopee_image,
 )
 from .. import x_oauth
+from ..network_text import unwrap_network_text
 from ..text_variants import generate_variants, generate_thread_replies, generate_short_product_description, MAX_THREAD_PARTS
 from ..internal_client import (
     create_scheduler_job,
@@ -299,6 +300,7 @@ class PostCreate(BaseModel):
     def _only_recurring_for_legacy_create(self):
         if self.schedule.trigger != "cron":
             raise ValueError("Agendamento avulso indisponível. Use Recorrente ou Agora.")
+        self.texts = [unwrap_network_text(text, self.network) for text in self.texts]
         return self
 
     @field_validator("texts")
@@ -314,6 +316,12 @@ class PostCreate(BaseModel):
 class PostComposition(BaseModel):
     network: NetworkLiteral
     texts: list[str]
+
+    @model_validator(mode="after")
+    def _plain_network_text(self):
+        # Nunca grava o mapa {"rede": "texto"} da IA como texto do post.
+        self.texts = [unwrap_network_text(text, self.network) for text in self.texts]
+        return self
 
     @field_validator("texts")
     @classmethod
@@ -364,6 +372,7 @@ class PostUpdate(BaseModel):
     @field_validator("texts")
     @classmethod
     def _texts_not_empty(cls, v):
+        v = [unwrap_network_text(t) for t in v]
         if not v or not any(t.strip() for t in v):
             raise ValueError("texts precisa ter ao menos um item com texto")
         if len(v) > MAX_THREAD_PARTS:
@@ -401,6 +410,17 @@ class GenerateCopyBody(BaseModel):
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
+
+def _clean_post_text(post: dict) -> dict:
+    """Posts antigos podem ter o mapa {"rede": "texto"} gravado: exibe só o texto."""
+    if "text" not in post:
+        return post
+    return {**post, "text": unwrap_network_text(post["text"], post.get("network"))}
+
+
+def _clean_chain_texts(chain: list[dict], network: str | None) -> list[str]:
+    return [unwrap_network_text(row["text"], network) for row in chain]
+
 
 def _get_post(user_id: int, post_id: int, profile_id: str | None = None) -> dict:
     """Busca o post verificando dono e, com perfil ativo, o perfil (evita
@@ -1593,8 +1613,8 @@ def _enrich_listed_posts(rows: list[dict], user_id: int, profile_id: str | None,
         latest.sort(key=lambda value: _utc_instant(value) or floor)
         result = _resolve_last_publish_result(state["job"].get(post_id), state["activity"].get(post_id))
         posts.append({
-            **item,
-            "texts": [row["text"] for row in chain],
+            **_clean_post_text(item),
+            "texts": _clean_chain_texts(chain, item.get("network")),
             "products": products.get(post_id, []),
             "medias": medias.get(post_id, []),
             "scheduled": _is_scheduled(job, item),
@@ -1614,8 +1634,8 @@ def _enrich_listed_post(item: dict, user_id: int, profile_id: str | None, is_adm
     job = schedule_entries[0] if schedule_entries else None
     chain = _get_thread_chain(item["id"], user_id)
     return {
-        **item,
-        "texts": [row["text"] for row in chain],
+        **_clean_post_text(item),
+        "texts": _clean_chain_texts(chain, item.get("network")),
         "products": _get_post_products(item["id"]),
         "medias": _get_post_medias(item["id"]),
         "scheduled": _is_scheduled(job, item),
@@ -2003,6 +2023,80 @@ async def import_product_image_draft(
     return _store_sanitized_draft(media, user_id, profile_id)
 
 
+_PRODUCT_MEDIA_EXTENSIONS = (".jpg", ".png", ".gif", ".webp", ".mp4")
+
+
+@router.post("/product-media-drafts/{product_id}/{asset_id}", status_code=status.HTTP_201_CREATED)
+async def import_product_media_draft(
+    product_id: int,
+    asset_id: uuid.UUID,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Copia uma imagem/vídeo da galeria do produto (página Produtos) para um
+    rascunho privado do perfil ativo, como um upload comum.
+
+    O navegador envia só IDs: dono, produto, status e chave são conferidos no
+    servidor. A galeria do produto nunca é alterada; o arquivo já foi
+    sanitizado no upload do produto, então a cópia é feita no próprio Storage.
+    """
+    profile_id = _require_profile_id(profile_id)
+    product = scope_account(
+        supabase.table("products").select("id").eq("id", product_id), user_id,
+    ).maybe_single().execute()
+    if not product or not product.data:
+        raise HTTPException(status_code=404, detail="Produto não encontrado nesta conta.")
+    found = scope_account(
+        supabase.table("product_media").select("*")
+        .eq("id", str(asset_id)).eq("product_id", product_id),
+        user_id,
+    ).maybe_single().execute()
+    source = found.data if found else None
+    if not source or source.get("status") != "ready":
+        raise HTTPException(status_code=404, detail="Mídia do produto não encontrada ou indisponível.")
+    origin_key = str(source.get("storage_key") or "")
+    size = int(source.get("size_bytes") or 0)
+    if (not origin_key.startswith(f"products/{user_id}/{product_id}/")
+            or ".." in origin_key or not origin_key.endswith(_PRODUCT_MEDIA_EXTENSIONS)
+            or source.get("media_type") not in ("IMAGE", "VIDEO")
+            or not source.get("mime_type") or not 0 < size <= MAX_MEDIA_BYTES):
+        raise HTTPException(status_code=409, detail="Referência de mídia do produto inválida.")
+
+    cleanup_expired_media_drafts()
+    upload_id = str(uuid.uuid4())
+    storage_key = f"drafts/{user_id}/{profile_id}/{upload_id}.{origin_key.rsplit('.', 1)[-1]}"
+    create = supabase.table("temporary_media_uploads").insert({
+        "id": upload_id, "user_id": user_id, "profile_id": profile_id,
+        "storage_bucket": MEDIA_DRAFT_BUCKET, "storage_key": storage_key,
+        "file_name": source["file_name"], "mime_type": source["mime_type"],
+        "size_bytes": size, "media_type": source["media_type"], "status": "uploading",
+        "expires_at": (datetime.now(timezone.utc) + MEDIA_DRAFT_TTL).isoformat(),
+    }).execute()
+    if not create.data:
+        raise HTTPException(status_code=500, detail="Não foi possível preparar a mídia.")
+    try:
+        with storage_upload_reservation(size):
+            supabase.storage.from_(MEDIA_DRAFT_BUCKET).copy(origin_key, storage_key)
+        updated = (
+            supabase.table("temporary_media_uploads").update({"status": "ready"})
+            .eq("id", upload_id).eq("user_id", user_id).eq("profile_id", profile_id)
+            .eq("status", "uploading").execute()
+        )
+        if not updated.data:
+            raise RuntimeError("draft not confirmed")
+    except Exception as exc:
+        logger.warning("Falha ao copiar mídia do produto para rascunho", exc_info=True)
+        try:
+            _remove_draft_from_storage({"storage_bucket": MEDIA_DRAFT_BUCKET, "storage_key": storage_key})
+        except Exception:
+            logger.warning("Falha ao desfazer cópia de mídia do produto", exc_info=True)
+        supabase.table("temporary_media_uploads").delete().eq("id", upload_id).eq("status", "uploading").execute()
+        if isinstance(exc, HTTPException):  # ex.: armazenamento cheio, mensagem própria
+            raise
+        raise HTTPException(status_code=502, detail="Não foi possível preparar a mídia do produto. Tente novamente.") from None
+    return _draft_response(updated.data[0])
+
+
 @router.delete("/media-drafts/{media_id}")
 async def delete_media_draft(
     media_id: str,
@@ -2045,8 +2139,8 @@ async def get_post(
     chain = _get_thread_chain(post_id, user_id)
     is_admin = _post_admin_access(user_id)
     return {
-        **post,
-        "texts": [row["text"] for row in chain],
+        **_clean_post_text(post),
+        "texts": _clean_chain_texts(chain, post.get("network")),
         "products": _get_post_products(post_id),
         "medias": _get_post_medias(post_id),
         "scheduled": _is_scheduled(job, post),
