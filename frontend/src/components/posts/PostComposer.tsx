@@ -95,6 +95,7 @@ export interface PostComposerProps {
     files: File[],
     productImageIds: number[],
     publishNow: boolean,
+    productMediaIds: { productId: number; assetId: string }[],
   ) => void
   loading: boolean
   error?: string
@@ -131,6 +132,8 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
   const [trayOpen, setTrayOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [useShopeeImages, setUseShopeeImages] = useState(false)
+  // Mídias da página Produtos entram marcadas; aqui ficam só as desmarcadas.
+  const [skippedProductMedia, setSkippedProductMedia] = useState<string[]>([])
   const [aiAutoContinuation, setAiAutoContinuation] = useState(false)
   const [aiAdjustmentNotice, setAiAdjustmentNotice] = useState<string | null>(null)
   const aiProductRef = useRef<number | null>(null)
@@ -242,6 +245,16 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     prefetchedProductRef.current = selectedProductId
   }, [post, selectedProductId, selectedProductDescription])
   const importablePhotos = !post && useShopeeImages ? selectedProducts.filter((p) => !!p.image) : []
+  // Imagens e vídeos cadastrados pelo usuário no produto (galeria privada).
+  const productMediaQuery = useQuery({
+    queryKey: ["product-media", selectedProductId],
+    queryFn: () => productsApi.media(selectedProductId as number),
+    enabled: !post && selectedProductId !== null,
+    staleTime: 60_000,
+  })
+  const productMedia = !post && selectedProductId !== null ? (productMediaQuery.data?.items ?? []) : []
+  const chosenProductMedia = productMedia.filter((item) => !skippedProductMedia.includes(item.id))
+  useEffect(() => { setSkippedProductMedia([]) }, [selectedProductId])
   // Serviço de IA da plataforma: nenhuma chave por usuário ou perfil.
   const { data: aiStatus } = useQuery({
     queryKey: ["platform", "ai", "status"],
@@ -336,6 +349,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     setPendingFiles([])
     setTrayOpen(false)
     setUseShopeeImages(false)
+    setSkippedProductMedia([])
     setAiAutoContinuation(false)
     setAiAdjustmentNotice(null)
     aiProductRef.current = null
@@ -415,7 +429,11 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
   // Validação por rede em tempo real (lib/networkLimits.ts), cada uma com o seu texto.
   const media: MediaInfo[] = post
     ? post.medias.map((m) => ({ name: m.file_name, size: m.size, kind: m.type === "VIDEO" ? "video" : mediaKind(m.file_name) }))
-    : [...pendingFiles.map((p) => p.info), ...importablePhotos.map((p) => ({ name: "shopee-" + p.id + ".jpg", size: 1, kind: "image" as const }))]
+    : [
+      ...pendingFiles.map((p) => p.info),
+      ...chosenProductMedia.map((m) => ({ name: m.file_name, size: m.size_bytes, kind: m.media_type === "VIDEO" ? "video" as const : "image" as const })),
+      ...importablePhotos.map((p) => ({ name: "shopee-" + p.id + ".jpg", size: 1, kind: "image" as const })),
+    ]
   // Seletor: máximo absoluto por tipo entre as redes marcadas.
   const limits = pickLimits(activeNetworks.map((n) => NETWORK_RULES[n]))
   const draftFor = (n: PostNetwork) => {
@@ -517,6 +535,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
       pendingFiles.map((p) => p.file),
       importablePhotos.map((p) => p.id),
       when === "now",
+      chosenProductMedia.map((m) => ({ productId: m.product_id, assetId: m.id })),
     )
   }
 
@@ -579,8 +598,22 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
           <label><input type="checkbox" checked={useShopeeImages}
             onChange={(event) => setUseShopeeImages(event.target.checked)} />
             <span>Usar fotos dos produtos Shopee na publicação</span></label>
-          <p>A integração Shopee disponibiliza a foto principal cadastrada. Para incluir outras imagens ou vídeos, envie arquivos do computador ou celular. As mídias escolhidas são copiadas para armazenamento privado ao criar o post.</p>
+          <p>A integração Shopee disponibiliza a foto principal cadastrada. As imagens e vídeos que você cadastrou na página Produtos entram marcados; desmarque o que não quiser. Também é possível enviar arquivos do computador ou celular. As mídias escolhidas são copiadas para armazenamento privado ao criar o post.</p>
           {useShopeeImages && importablePhotos.length === 0 && <p role="status">Nenhum produto selecionado possui foto cadastrada.</p>}
+          {productMediaQuery.isError && <p role="status">Não foi possível carregar as mídias cadastradas do produto.</p>}
+          {productMedia.length > 0 && <fieldset className="post-composer-product-media">
+            <legend>Mídias cadastradas no produto</legend>
+            {productMedia.map((item) => (
+              <label key={item.id}>
+                <input type="checkbox" checked={!skippedProductMedia.includes(item.id)}
+                  onChange={(event) => setSkippedProductMedia((prev) => event.target.checked
+                    ? prev.filter((id) => id !== item.id) : [...prev, item.id])} />
+                {item.media_type === "IMAGE" &&
+                  <img src={item.preview_url} alt="" width={40} height={40} style={{ objectFit: "cover", borderRadius: 6 }} />}
+                <span>{item.media_type === "VIDEO" ? "Vídeo" : "Imagem"} · {item.file_name}</span>
+              </label>
+            ))}
+          </fieldset>}
         </div>}
 
         <div>

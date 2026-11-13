@@ -12,6 +12,7 @@ import re
 from .network_limits import _URL_RE, _HASHTAG_RE, _MENTION_RE
 
 from .network_limits import NETWORK_RULES, validate_post
+from .network_text import unwrap_network_text
 
 # Teto recomendável de uma copy de vendas (mesmo do Instagram/TikTok).
 PRACTICAL_MAX_CHARS = 2200
@@ -150,7 +151,7 @@ def parse_variants(raw: str, keys: list[str]) -> dict[str, str] | None:
     cleaned = _FENCE_RE.sub("", raw.strip())
     start, end = cleaned.find("{"), cleaned.rfind("}")
     try:
-        data = json.loads(cleaned[start:end + 1]) if start >= 0 else None
+        data = json.loads(cleaned[start:end + 1], strict=False) if start >= 0 else None
     except ValueError:
         return None
     if not isinstance(data, dict):
@@ -165,7 +166,11 @@ def _ask(complete, prompt: str, keys: list[str]) -> dict[str, str]:
     raw = complete(prompt, VARIANTS_MAX_TOKENS)
     parsed = parse_variants(raw, keys)
     if parsed is None and len(keys) == 1:
-        parsed = {keys[0]: raw.strip()}  # modelo respondeu texto puro: serve pra 1 variante
+        # Texto puro serve pra 1 variante; um mapa com outra chave vira o texto dela.
+        # Nunca devolve o JSON cru como descrição (bug do post com {"threads": ...}).
+        text = unwrap_network_text(_FENCE_RE.sub("", raw.strip()), keys[0]).strip()
+        if text and not text.startswith("{"):
+            parsed = {keys[0]: text}
     if parsed is None:
         raise LLMError("bad_response", "A IA não devolveu os textos no formato esperado. Tente novamente.")
     return parsed
@@ -365,7 +370,7 @@ def _parse_reply_parts(raw: str, expected: int) -> list[str] | None:
     cleaned = _FENCE_RE.sub("", raw.strip())
     start, end = cleaned.find("{"), cleaned.rfind("}")
     try:
-        payload = json.loads(cleaned[start:end + 1]) if start >= 0 else None
+        payload = json.loads(cleaned[start:end + 1], strict=False) if start >= 0 else None
     except ValueError:
         return None
     if not isinstance(payload, dict) or not isinstance(payload.get("parts"), list):

@@ -59,6 +59,24 @@ test("foto da Shopee e arquivos de PC/celular coexistem no editor", async () => 
 
 })
 
+test("mídias cadastradas em Produtos entram pré-selecionadas e podem ser desmarcadas", async () => {
+  const [composer, postsApi, create] = await Promise.all([
+    src("components/posts/PostComposer.tsx"),
+    src("api/posts.ts"),
+    src("pages/CreatePostPage.tsx"),
+  ])
+  // Galeria do produto carregada no composer; seleção guarda só as desmarcadas.
+  assert.match(composer, /productsApi\.media\(/)
+  assert.match(composer, /skippedProductMedia/)
+  assert.match(composer, /Mídias cadastradas no produto/)
+  // Entram na validação por rede (mesmo array `media` usado pelos limites).
+  assert.match(composer, /\.\.\.chosenProductMedia\.map\(\(m\) => \(\{ name: m\.file_name/)
+  // Cópia no servidor por ID, antes da foto principal Shopee (mesma ordem do array).
+  assert.match(postsApi, /\/posts\/product-media-drafts\//)
+  const order = create.indexOf("importProductMediaDraft")
+  assert.ok(order > 0 && order < create.indexOf("importProductImageDraft"))
+})
+
 
 test("campanha salva snapshots no servidor sem acionar posts ou scheduler", async () => {
   const [planner, api] = await Promise.all([
