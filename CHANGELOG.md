@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.20.0] - 2026-11-13
+
+Funcionalidade (MINOR): mídias cadastradas do produto entram no Criar Post, e o texto por rede deixa de ser publicado como JSON.
+
 ### Fixed — texto por rede publicado como JSON
 - O texto gerado pela IA podia ser publicado (e listado em Posts) literalmente como `{"threads": "..."}`. A resposta da IA trazia quebras de linha cruas dentro do JSON; o parser estrito recusava e, com uma só rede marcada, o JSON inteiro virava o texto do post, depois reaproveitado nas outras redes. O parser agora aceita esse formato e nunca devolve o JSON cru.
 - Defesa em profundidade: criação/edição de posts, publicador (todas as redes) e listagem/detalhes extraem o texto da rede (ou o primeiro texto) quando o conteúdo é um mapa rede→texto. Posts já gravados assim passam a ser exibidos e publicados limpos, sem migração.
