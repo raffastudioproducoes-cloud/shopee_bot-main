@@ -125,3 +125,15 @@ def proxy(subpath):
         status=upstream.status_code,
         headers=response_headers,
     )
+
+
+# Redirecionador público de cliques (api/routers/link_redirect.py). Só GET e só o
+# formato do token; o destino vem do banco no FastAPI, nunca desta URL.
+click_redirect_bp = Blueprint("click_redirect", __name__)
+
+
+@click_redirect_bp.get("/r/<token>")
+def click_redirect(token):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{22,64}", token):
+        return {"error": "Link não encontrado"}, 404
+    return proxy(f"r/{token}")

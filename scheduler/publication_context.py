@@ -30,6 +30,12 @@ def reset(tokens):
     _active_attempt.reset(attempt_token)
 
 
+def active_publish_job_id():
+    """ID do envio em execução neste contexto (ou None fora de uma publicação)."""
+    attempt = _active_attempt.get()
+    return attempt[0] if attempt else None
+
+
 def mark_external_delivery():
     """Chamar logo antes do primeiro POST/upload de publicação no provedor.
 

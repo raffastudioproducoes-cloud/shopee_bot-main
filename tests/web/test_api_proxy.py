@@ -137,3 +137,24 @@ def test_campaign_activation_timeout_returns_actionable_504(client):
     assert res.status_code == 504
     assert "seção 06" in res.get_json()["error"]
     assert "credentials" not in res.get_data(as_text=True)
+
+
+def test_click_redirect_route_forwards_302_without_following(client):
+    token = "AbCdEfGhIjKlMnOpQrStUv"
+    with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
+        mock_req.return_value = _FakeUpstreamResponse(
+            status_code=302, content=b"", headers={"Location": "https://s.shopee.com.br/abc"}
+        )
+        res = client.get(f"/r/{token}")
+    assert res.status_code == 302
+    assert res.headers["Location"] == "https://s.shopee.com.br/abc"
+    called = mock_req.call_args
+    assert called.kwargs["url"] == f"http://127.0.0.1:8001/r/{token}"
+    assert called.kwargs["allow_redirects"] is False
+
+
+def test_click_redirect_route_rejects_malformed_token_without_upstream(client):
+    with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
+        res = client.get("/r/curto")
+    assert res.status_code == 404
+    mock_req.assert_not_called()

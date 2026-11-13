@@ -8,6 +8,8 @@ import '../components/ui/motion.css'
 import type { CSSProperties } from 'react'
 import { useTypewriter } from '../lib/motion'
 import { Skeleton, SkeletonCard, SkeletonRegion } from '../components/ui/Skeleton'
+import { DashboardBestPost } from '../components/DashboardBestPost'
+import { useAuthStore } from '../stores/authStore'
 
 function count(value: number | undefined) {
   return typeof value === 'number' && Number.isFinite(value) ? String(value) : '—'
@@ -24,6 +26,7 @@ const itemStyle = { padding: '12px 0', borderTop: '1px solid var(--border-hairli
 
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const userId = useAuthStore((state) => state.user?.id)
   const { data: stats, isPending, error, refetch } = useDashboard()
   const subtitle = 'Visão geral da sua conta · todos os perfis'
   const typedSubtitle = useTypewriter(subtitle, 'dashboard-subtitulo')
@@ -84,6 +87,8 @@ export default function DashboardPage() {
             </ul>
           )}
         </Panel>
+
+        <DashboardBestPost userId={userId} />
 
         <Panel surface="dark">
           <PanelHeader title="Ações Rápidas" />
