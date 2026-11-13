@@ -5,6 +5,18 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — métricas por postagem (Fase 1) e redirecionador de cliques
+
+- Migration `101_post_metrics.sql`, aditiva e idempotente (só objetos novos; `publication_insights` não muda): tabela `post_metrics` (histórico append-only de cada coleta, sucesso ou falha, com `views/reach/likes/comments/shares/saves/clicks` nulos quando a rede não fornece, `window_label`, `extra`, `source`, `status`, `error`; sem expurgo, retenção de 365 dias ou mais), `post_link_clicks` (token opaco por envio e destino), `post_link_click_days` (contagem agregada por dia) e a função `record_post_link_click(text)`. RLS fechada (`block_all_api`) e acesso só para `service_role`. Reversão (depois de voltar o código): `DROP FUNCTION IF EXISTS public.record_post_link_click(text); DROP TABLE IF EXISTS public.post_link_click_days; DROP TABLE IF EXISTS public.post_link_clicks; DROP TABLE IF EXISTS public.post_metrics;` e remover `101_post_metrics.sql` da tabela `migrations`.
+- Coletor Threads grava uma linha em `post_metrics` a cada coleta (falhas guardam só o código do estado, nunca token ou corpo da resposta), além do upsert de `publication_insights`. Confirmação manual com permalink: o ID é resolvido entre os posts do próprio usuário (`/{user}/threads`) ou o envio fica `sem_id`. Sequências: mede a última parte (único ID salvo) e marca `parcial`; uma sequência de 2 partes agora também é reconhecida como sequência.
+- API: `GET /analytics/post-metrics` (lista por post, ordenação por coluna, paginação até 100), `GET /analytics/ranking` (top N por views/likes/comments/shares/clicks e ranking de redes por soma e média por post medido) e `GET /analytics/series` (evolução por post ou por rede a partir do histórico). Filtros `network`, `profile_id` (ownership validada), `days` 7/30/90/180/365 ou `from`/`to` até 365 dias, `tz` IANA.
+- Redirecionador público `GET /r/{token}` (Flask repassa ao FastAPI): 302 para o link guardado no banco, revalidado como HTTPS de host Shopee (`s.shopee.com.br`, `shopee.com.br`, `www.shopee.com.br`); token de 16 bytes; limite de 60 acessos/min por IP (chave em hash, só em memória/Redis); pré-visualizações de link das redes não contam; o caminho `/r/` não entra em `request_logs`. No envio, o link Shopee do texto vira `CLICK_REDIRECT_BASE_URL/r/<token>` por (envio, rede); sem a variável, com erro de banco ou se o texto passar do limite da rede, o link direto é mantido.
+- Análises: tabela por post (visualizações, curtidas, comentários, compartilhamentos/reposts, cliques) com ordenação, "Melhores posts" (top 10), "Melhor rede" (soma e média), gráfico de evolução e períodos 180/365 dias e personalizado. Dashboard: card "Desempenho (30 dias)" com melhor post e melhor rede. "—" com dica "a rede não fornece esta métrica".
+
+### Changed — privacidade
+
+- Política de Privacidade (2.2) e "Quais dados utilizamos?" descrevem o histórico de métricas por post e a contagem agregada de cliques por link e por dia, sem IP, navegador ou dado de quem clicou.
+
 ## [3.18.0] - 2026-11-12
 
 Funcionalidade (MINOR): fuso horário por usuário. O agendamento recorrente dispara no fuso da agenda e o site exibe datas no fuso do usuário. Migração 100 aplicada no banco.

@@ -170,6 +170,7 @@ const providerDescriptions: Record<string, string> = {
   no_posts: 'Sem posts confirmados',
   missing_external_id: 'Post sem ID rastreável',
   multipart_unmapped: 'Sequência de posts incompleta',
+  sem_id: 'Confirmação manual sem ID localizado',
   not_connected: 'Rede não conectada',
   api_error: 'API não retornou insights do post',
   permission_required: 'Sem permissão para insights do post',
@@ -291,6 +292,7 @@ function TopPosts({ posts, loading, error }: { posts?: AnalyticsPostMetric[]; lo
     : state === 'multipart_unmapped' ? 'Sequência sem IDs completos'
       : state === 'not_collected' ? 'Aguardando coleta'
         : state === 'missing_external_id' ? 'Sem ID da publicação'
+          : state === 'sem_id' ? 'Link confirmado sem ID localizado'
           : 'Insights indisponíveis'
   return <>
     <ol className="analytics-top-posts">

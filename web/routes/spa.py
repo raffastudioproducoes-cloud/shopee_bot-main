@@ -45,7 +45,7 @@ _ASSETS_DIR = _DIST_DIR / "assets"
 
 # paths servidos por outras rotas Flask — o catch-all nunca deve responder
 # por eles, mesmo que a rota real não esteja registrada no momento
-_RESERVED_PREFIXES = ("api/", "static/", "panel/", "auth/", "internal/")
+_RESERVED_PREFIXES = ("api/", "static/", "panel/", "auth/", "internal/", "r/")
 
 
 # Arquivos com hash no nome (assets/) nunca mudam; vídeos, marcas e ícones de public/ mudam raramente.

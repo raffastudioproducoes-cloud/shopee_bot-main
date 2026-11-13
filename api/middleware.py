@@ -93,7 +93,9 @@ def _user_from_cookie(request: Request) -> tuple[str | None, str | None, str | N
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if not settings.request_logging_enabled or request.url.path in _SKIP_PATHS:
+        # /r/{token}: clique público no redirecionador; LGPD = sem IP/UA gravados nem linha por clique.
+        if (not settings.request_logging_enabled or request.url.path in _SKIP_PATHS
+                or request.url.path.startswith("/r/")):
             return await call_next(request)
 
         start = time.monotonic()
