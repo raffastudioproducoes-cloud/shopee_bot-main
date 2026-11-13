@@ -59,6 +59,7 @@ from ..shopee_images import (
     _check_shopee_image_url, _download_shopee_image,
 )
 from .. import x_oauth
+from ..network_text import unwrap_network_text
 from ..text_variants import generate_variants, generate_thread_replies, generate_short_product_description, MAX_THREAD_PARTS
 from ..internal_client import (
     create_scheduler_job,
@@ -299,6 +300,7 @@ class PostCreate(BaseModel):
     def _only_recurring_for_legacy_create(self):
         if self.schedule.trigger != "cron":
             raise ValueError("Agendamento avulso indisponível. Use Recorrente ou Agora.")
+        self.texts = [unwrap_network_text(text, self.network) for text in self.texts]
         return self
 
     @field_validator("texts")
@@ -314,6 +316,12 @@ class PostCreate(BaseModel):
 class PostComposition(BaseModel):
     network: NetworkLiteral
     texts: list[str]
+
+    @model_validator(mode="after")
+    def _plain_network_text(self):
+        # Nunca grava o mapa {"rede": "texto"} da IA como texto do post.
+        self.texts = [unwrap_network_text(text, self.network) for text in self.texts]
+        return self
 
     @field_validator("texts")
     @classmethod
@@ -364,6 +372,7 @@ class PostUpdate(BaseModel):
     @field_validator("texts")
     @classmethod
     def _texts_not_empty(cls, v):
+        v = [unwrap_network_text(t) for t in v]
         if not v or not any(t.strip() for t in v):
             raise ValueError("texts precisa ter ao menos um item com texto")
         if len(v) > MAX_THREAD_PARTS:
@@ -401,6 +410,17 @@ class GenerateCopyBody(BaseModel):
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
+
+def _clean_post_text(post: dict) -> dict:
+    """Posts antigos podem ter o mapa {"rede": "texto"} gravado: exibe só o texto."""
+    if "text" not in post:
+        return post
+    return {**post, "text": unwrap_network_text(post["text"], post.get("network"))}
+
+
+def _clean_chain_texts(chain: list[dict], network: str | None) -> list[str]:
+    return [unwrap_network_text(row["text"], network) for row in chain]
+
 
 def _get_post(user_id: int, post_id: int, profile_id: str | None = None) -> dict:
     """Busca o post verificando dono e, com perfil ativo, o perfil (evita
@@ -1593,8 +1613,8 @@ def _enrich_listed_posts(rows: list[dict], user_id: int, profile_id: str | None,
         latest.sort(key=lambda value: _utc_instant(value) or floor)
         result = _resolve_last_publish_result(state["job"].get(post_id), state["activity"].get(post_id))
         posts.append({
-            **item,
-            "texts": [row["text"] for row in chain],
+            **_clean_post_text(item),
+            "texts": _clean_chain_texts(chain, item.get("network")),
             "products": products.get(post_id, []),
             "medias": medias.get(post_id, []),
             "scheduled": _is_scheduled(job, item),
@@ -1614,8 +1634,8 @@ def _enrich_listed_post(item: dict, user_id: int, profile_id: str | None, is_adm
     job = schedule_entries[0] if schedule_entries else None
     chain = _get_thread_chain(item["id"], user_id)
     return {
-        **item,
-        "texts": [row["text"] for row in chain],
+        **_clean_post_text(item),
+        "texts": _clean_chain_texts(chain, item.get("network")),
         "products": _get_post_products(item["id"]),
         "medias": _get_post_medias(item["id"]),
         "scheduled": _is_scheduled(job, item),
@@ -2045,8 +2065,8 @@ async def get_post(
     chain = _get_thread_chain(post_id, user_id)
     is_admin = _post_admin_access(user_id)
     return {
-        **post,
-        "texts": [row["text"] for row in chain],
+        **_clean_post_text(post),
+        "texts": _clean_chain_texts(chain, post.get("network")),
         "products": _get_post_products(post_id),
         "medias": _get_post_medias(post_id),
         "scheduled": _is_scheduled(job, post),

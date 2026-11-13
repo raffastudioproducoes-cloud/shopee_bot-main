@@ -4,6 +4,7 @@ import pytz
 from datetime import datetime
 from shopee_bot.database import query_db, execute_db
 from shopee_bot.database import post_content_snapshot, post_link_redirects
+from api.network_text import unwrap_network_text
 
 
 def count(user_id):
@@ -15,7 +16,8 @@ def get(user_id, post_id, profile_id):
     query = """
         WITH RECURSIVE post_hierarchy AS (
             -- parent node
-            SELECT id, text, created_at, updated_at, post_id, user_id, profile_id, 0 as depth
+            SELECT id, text, created_at, updated_at, post_id, user_id, profile_id, 0 as depth,
+                   network
             FROM posts
             WHERE id = %s AND user_id = %s AND profile_id = %s::uuid
               AND post_id IS NULL
@@ -25,7 +27,7 @@ def get(user_id, post_id, profile_id):
             -- children nodes
             SELECT
                 p.id, p.text, p.created_at, p.updated_at, p.post_id,
-                p.user_id, p.profile_id, ph.depth + 1
+                p.user_id, p.profile_id, ph.depth + 1, ph.network
             FROM posts p
             INNER JOIN post_hierarchy ph ON p.post_id = ph.id
             WHERE p.user_id = %s AND p.profile_id = %s::uuid
@@ -37,6 +39,7 @@ def get(user_id, post_id, profile_id):
             ph.updated_at - interval '3 hours' AS updated_at,
             ph.post_id,
             ph.depth,
+            ph.network,
             COALESCE(
                 array_agg(
                     -- duplicating because of LEFT JOINS
@@ -84,13 +87,18 @@ def get(user_id, post_id, profile_id):
           AND s.profile_id IS NOT DISTINCT FROM ph.profile_id
         GROUP BY
             ph.id, ph.text, ph.created_at, ph.updated_at, ph.post_id,
-            ph.depth, pp.post_id, s.id
+            ph.depth, ph.network, pp.post_id, s.id
         ORDER BY ph.depth ASC
     """
     args = (post_id, user_id, profile_id, user_id, profile_id)
     parts = post_content_snapshot.apply_to_parts(
         query_db(query, args), post_content_snapshot.get()
     )
+    # Nunca publica o mapa {"rede": "texto"} da IA: só o texto da rede.
+    parts = [
+        {**part, "text": unwrap_network_text(part.get("text"), part.get("network"))}
+        for part in parts or []
+    ]
     return post_link_redirects.rewrite_parts(parts, _active_publish_job_id())
 
 
