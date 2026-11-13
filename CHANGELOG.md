@@ -5,6 +5,13 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — texto por rede publicado como JSON
+- O texto gerado pela IA podia ser publicado (e listado em Posts) literalmente como `{"threads": "..."}`. A resposta da IA trazia quebras de linha cruas dentro do JSON; o parser estrito recusava e, com uma só rede marcada, o JSON inteiro virava o texto do post, depois reaproveitado nas outras redes. O parser agora aceita esse formato e nunca devolve o JSON cru.
+- Defesa em profundidade: criação/edição de posts, publicador (todas as redes) e listagem/detalhes extraem o texto da rede (ou o primeiro texto) quando o conteúdo é um mapa rede→texto. Posts já gravados assim passam a ser exibidos e publicados limpos, sem migração.
+
+### Added — mídias do produto no Criar POST
+- Ao escolher um produto, as imagens e vídeos cadastrados na página Produtos aparecem pré-selecionados (com opção de desmarcar) e são copiados no servidor para o armazenamento privado do post (`POST /posts/product-media-drafts/{product_id}/{asset_id}`), conferindo conta, produto, status e chave. Entram na validação por rede já existente. A foto principal Shopee continua opcional.
+
 ## [3.19.0] - 2026-11-13
 
 Funcionalidade (MINOR): métricas por postagem com histórico, rankings, filtros de até 365 dias e redirecionador próprio de cliques. Migração 101 aplicada no banco.

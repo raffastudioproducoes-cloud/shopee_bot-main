@@ -61,6 +61,7 @@ export function CreatePostPage() {
       files: File[]
       productImageIds: number[]
       publishNow: boolean
+      productMediaIds: { productId: number; assetId: string }[]
     }): Promise<NetworkResult[]> => {
       const draftMedia = []
       try {
@@ -69,6 +70,7 @@ export function CreatePostPage() {
         const scheduler = await postsApi.schedulerStatus()
         if (!scheduler.available) throw new Error(scheduler.message)
         for (const file of data.files) draftMedia.push(await postsApi.uploadDraftMedia(file))
+        for (const item of data.productMediaIds) draftMedia.push(await postsApi.importProductMediaDraft(item.productId, item.assetId))
         for (const productId of data.productImageIds) draftMedia.push(await postsApi.importProductImageDraft(productId))
         const payload = {
           compositions: data.networks.map((network) => ({ network, texts: data.textsByNetwork[network] ?? [] })),
@@ -142,8 +144,9 @@ export function CreatePostPage() {
       files: File[],
       productImageIds: number[],
       publishNow: boolean,
+      productMediaIds: { productId: number; assetId: string }[],
     ) => {
-      createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, productImageIds, publishNow })
+      createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, productImageIds, publishNow, productMediaIds })
     },
     [createMutation],
   )

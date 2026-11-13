@@ -51,6 +51,8 @@ REVIEWED_ID_ROUTES = frozenset({
     "POST /credentials/ai/{provider}/test",
     "POST /credentials/{network}/test",
     "POST /posts/product-image-drafts/{product_id}",
+    # A/B: tests/api/test_product_media_post_drafts.py (produto/mídia de outra conta = 404).
+    "POST /posts/product-media-drafts/{product_id}/{asset_id}",
     "POST /posts/{post_id}/future-revisions",
     "POST /posts/{post_id}/media",
     "POST /posts/{post_id}/publish",
