@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.19.0] - 2026-11-13
+
+Funcionalidade (MINOR): métricas por postagem com histórico, rankings, filtros de até 365 dias e redirecionador próprio de cliques. Migração 101 aplicada no banco.
+
 ### Added — métricas por postagem (Fase 1) e redirecionador de cliques
 
 - Migration `101_post_metrics.sql`, aditiva e idempotente (só objetos novos; `publication_insights` não muda): tabela `post_metrics` (histórico append-only de cada coleta, sucesso ou falha, com `views/reach/likes/comments/shares/saves/clicks` nulos quando a rede não fornece, `window_label`, `extra`, `source`, `status`, `error`; sem expurgo, retenção de 365 dias ou mais), `post_link_clicks` (token opaco por envio e destino), `post_link_click_days` (contagem agregada por dia) e a função `record_post_link_click(text)`. RLS fechada (`block_all_api`) e acesso só para `service_role`. Reversão (depois de voltar o código): `DROP FUNCTION IF EXISTS public.record_post_link_click(text); DROP TABLE IF EXISTS public.post_link_click_days; DROP TABLE IF EXISTS public.post_link_clicks; DROP TABLE IF EXISTS public.post_metrics;` e remover `101_post_metrics.sql` da tabela `migrations`.
