@@ -6,7 +6,11 @@ monkeypatch (nada de banco ou rede de verdade — ver tests/scheduler/
 conftest.py).
 """
 
+import contextlib
+import os
 import sys
+
+import pytest
 
 # import (não "from X import Y") de propósito: scheduler/__init__.py faz
 # "from .bot_post_tiktok import bot_post_tiktok", o que sobrescreve o
@@ -17,6 +21,27 @@ import shopee_bot.scheduler.bot_post_tiktok  # noqa: F401
 from shopee_bot.database.activity_types import ActivityType
 
 module = sys.modules["shopee_bot.scheduler.bot_post_tiktok"]
+
+
+REAL_LOCAL_FILE_TESTS = {
+    "test_storage_uri_is_resolved_to_existing_local_file_and_cleaned",
+    "test_download_error_fails_cleanly_before_any_tiktok_call",
+    "test_value_error_after_tiktok_call_stays_unknown",
+}
+
+
+@pytest.fixture(autouse=True)
+def _local_file_passthrough(request, monkeypatch):
+    """Testes legados usam caminhos locais fictícios; os de storage:// abaixo
+    (nomes em REAL_LOCAL_FILE_TESTS) injetam o próprio resolvedor."""
+    if request.node.name in REAL_LOCAL_FILE_TESTS:
+        return
+
+    @contextlib.contextmanager
+    def passthrough(media, max_bytes):
+        yield media["file_path"]
+
+    monkeypatch.setattr(module, "local_file", passthrough)
 
 
 def _user_data(**overrides):
@@ -283,3 +308,81 @@ def test_refresh_is_scoped_by_profile(monkeypatch):
     monkeypatch.setattr(module, "insert_activities", lambda *a, **k: None)
     module.bot_post_tiktok("j")
     assert saved == [(42, "prof-9")]
+
+
+# --- mídia storage:// (rascunhos do Criar Post) -------------------------
+
+STORAGE_VIDEO = {"type": "VIDEO", "file_path": "storage://post-media/drafts/1/p/a.mp4"}
+
+
+def _setup_storage(monkeypatch, local_file):
+    _patch_common(monkeypatch, _user_data(), [{"text": "t", "medias": [STORAGE_VIDEO]}])
+    monkeypatch.setattr(module, "local_file", local_file)
+    acts = []
+    monkeypatch.setattr(
+        module, "insert_activities",
+        lambda uid, typ, meta, profile_id=None: acts.append((typ, meta)),
+    )
+    return acts
+
+
+def test_storage_uri_is_resolved_to_existing_local_file_and_cleaned(monkeypatch, tmp_path):
+    local = tmp_path / "video.mp4"
+    seen = {}
+
+    @contextlib.contextmanager
+    def fake_local_file(media, max_bytes):
+        seen["uri"], seen["max"] = media["file_path"], max_bytes
+        local.write_bytes(b"video")
+        try:
+            yield str(local)
+        finally:
+            local.unlink()
+
+    acts = _setup_storage(monkeypatch, fake_local_file)
+
+    def post_video(token, path, text, before_publish=None):
+        seen["path"], seen["existed"] = path, os.path.isfile(path)
+        return "pub-1"
+
+    monkeypatch.setattr(module.TikTokAPI, "post_video", post_video)
+    result = module.bot_post_tiktok("j")
+
+    assert seen["uri"] == STORAGE_VIDEO["file_path"]
+    assert seen["max"] == module.TikTokAPI.MAX_VIDEO_BYTES
+    assert seen["path"] == str(local) and seen["existed"] is True
+    assert not local.exists()  # temporário apagado
+    assert result.status == "succeeded" and acts[0][0] == ActivityType.BOT_POST_SUCCESS
+
+
+def test_download_error_fails_cleanly_before_any_tiktok_call(monkeypatch):
+    @contextlib.contextmanager
+    def broken(media, max_bytes):
+        raise module.MediaDownloadError("Falha de rede ao baixar a mídia (ConnectionError).")
+        yield
+
+    acts = _setup_storage(monkeypatch, broken)
+    monkeypatch.setattr(
+        module.TikTokAPI, "post_video",
+        lambda *a, **k: pytest.fail("não deve chamar o TikTok sem a mídia"),
+    )
+    result = module.bot_post_tiktok("j")
+
+    assert result.status == "failed"
+    assert "baixar a mídia" in result.error
+    assert acts[0][0] == ActivityType.BOT_POST_FAILURE
+    assert acts[0][1]["metadata"]["stage"] == "media"
+
+
+def test_value_error_after_tiktok_call_stays_unknown(monkeypatch, tmp_path):
+    @contextlib.contextmanager
+    def ok(media, max_bytes):
+        yield str(tmp_path / "v.mp4")
+
+    _setup_storage(monkeypatch, ok)
+
+    def post_video(*a, **k):
+        raise ValueError("resposta inválida depois do init")
+
+    monkeypatch.setattr(module.TikTokAPI, "post_video", post_video)
+    assert module.bot_post_tiktok("j").status == "unknown"

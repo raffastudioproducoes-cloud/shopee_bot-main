@@ -15,6 +15,7 @@ from shopee_bot.database.activities import (
     insert_activities, activity_metadata_wrapper
 )
 from shopee_bot.database.activity_types import ActivityType
+from shopee_bot.scheduler.media_delivery import MediaDownloadError, local_file
 from shopee_bot.scheduler.profile_scope import require_profile_id
 from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.publication_result import failed, succeeded, unknown
@@ -61,10 +62,10 @@ def _refresh_tokens(user_id, profile_id, user_data):
     return tokens["access_token"]
 
 
-def _post_with_refresh(user_id, profile_id, user_data, media, text):
+def _post_with_refresh(user_id, profile_id, user_data, video_path, text):
     try:
         return TikTokAPI.post_video(
-            user_data["tiktok_user_access_token"], media["file_path"], text,
+            user_data["tiktok_user_access_token"], video_path, text,
             before_publish=mark_external_delivery,
         )
     except Exception as err:
@@ -81,8 +82,25 @@ def _post_with_refresh(user_id, profile_id, user_data, media, text):
             logger.warning(f"TikTok: não marcou reconexão: {type(err).__name__}")
         raise TikTokAPI.TikTokAPIError(RECONNECT_MESSAGE)
     return TikTokAPI.post_video(
-        new_token, media["file_path"], text, before_publish=mark_external_delivery
+        new_token, video_path, text, before_publish=mark_external_delivery
     )
+
+
+def _fail(job_id, username, user_id, post_id, profile_id, stage, err, result):
+    logger.exception(f"TikTok job #{job_id} para {username} falhou: {err}")
+    insert_activities(
+        user_id,
+        ActivityType.BOT_POST_FAILURE,
+        activity_metadata_wrapper({
+            "network": "tiktok",
+            "job_id": str(job_id),
+            "post_id": post_id,
+            "stage": stage,
+            "error": str(err),
+        }),
+        profile_id=profile_id
+    )
+    return result(err)
 
 
 def bot_post_tiktok(job_id):
@@ -127,26 +145,16 @@ def bot_post_tiktok(job_id):
         return failed(message)
 
     try:
-        publish_id = _post_with_refresh(
-            user_id, profile_id, user_data, media, head_post["text"]
-        )
+        # file_path é storage://...: baixa para um temporário (apagado ao sair).
+        # Falha aqui acontece antes de qualquer chamada ao TikTok -> failed.
+        with local_file(media, TikTokAPI.MAX_VIDEO_BYTES) as video_path:
+            publish_id = _post_with_refresh(
+                user_id, profile_id, user_data, video_path, head_post["text"]
+            )
+    except MediaDownloadError as err:
+        return _fail(job_id, username, user_id, post_id, profile_id, "media", err, failed)
     except Exception as err:
-        logger.exception(
-            f"TikTok job #{job_id} para {username} falhou: {err}"
-        )
-        insert_activities(
-            user_id,
-            ActivityType.BOT_POST_FAILURE,
-            activity_metadata_wrapper({
-                "network": "tiktok",
-                "job_id": str(job_id),
-                "post_id": post_id,
-                "stage": "publish",
-                "error": str(err),
-            }),
-            profile_id=profile_id
-        )
-        return unknown(err)
+        return _fail(job_id, username, user_id, post_id, profile_id, "publish", err, unknown)
 
     insert_activities(
         user_id,

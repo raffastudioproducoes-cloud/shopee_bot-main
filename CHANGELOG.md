@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.20.1] - 2026-11-13
+
+Correção (PATCH): publicação no TikTok com mídia do Storage privado (o vídeo é baixado para arquivo temporário) e falha de mídia vira `failed` claro.
+
+### Fixed — publicação no TikTok com mídia do armazenamento privado
+- A publicação no TikTok falhava com `[Errno 2] No such file or directory: 'storage://post-media/...'`: o publicador abria a referência `storage://` como arquivo local, enquanto as outras redes já a resolviam. Agora o vídeo é baixado do Supabase Storage (URL assinada, sem registrar URL nem token) para um arquivo temporário, respeitando o limite de tamanho do TikTok, e o temporário é apagado ao final.
+- Falha ao obter/baixar a mídia (antes de qualquer chamada ao TikTok) passa a ser falha definitiva clara (`failed`, etapa `media`) em vez de status `unknown` ("Sem confirmação"). Erros depois do contato com o TikTok continuam `unknown`; nenhum retry automático novo.
+
 ## [3.20.0] - 2026-11-13
 
 Funcionalidade (MINOR): mídias cadastradas do produto entram no Criar Post, e o texto por rede deixa de ser publicado como JSON.
