@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.23.1] - 2026-11-14
+
+Correções (PATCH): espera do contêiner no Threads, Instagram exige mídia e logs sem mascarar códigos numéricos. Sem migração.
+
 ### Fixed — espera do contêiner no Threads e Instagram sem mídia (14/11/2026)
 
 - **Threads:** a publicação chamava `threads_publish` segundos depois de criar o contêiner e falhava com `Meta code=24 | subcode=4279009` ("The requested resource does not exist"). Agora espera ao menos 30 s após criar (post simples e carrossel), exige status `FINISHED`, consulta a cada 15 s e desiste em 5 min com erro claro; `ERROR`/`EXPIRED` também param antes de publicar. O antigo polling de 1 s sem limite foi removido. Falha no `threads_publish` continua `unknown` (sem reenvio automático). Fonte: doc oficial `developers.facebook.com/docs/threads/posts` (esperar ~30 s) e `/docs/threads/troubleshooting` (status 1x/min por até 5 min).
