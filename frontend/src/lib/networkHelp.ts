@@ -84,7 +84,7 @@ export const NETWORK_HELP: Record<PostNetwork, NetworkHelp> = {
       { label: "Vídeo (Reels)", value: "Somente MP4 neste app; H.264 ou HEVC, 23 a 60 fps, 9:16 recomendado" },
     ],
     tips: [
-      "O Instagram não publica sem imagem ou vídeo; por isso o criador de post exige mídia ou um produto com foto.",
+      "O Instagram não publica sem imagem ou vídeo; por isso o criador de post exige uma imagem ou vídeo (a foto do produto conta se for importada).",
       "PNG não é aceito: converta para JPEG.",
       "A mídia precisa estar numa URL pública na hora da publicação.",
     ],
@@ -140,7 +140,7 @@ export function linksSummary(r: NetworkRule): string {
 export function mediaSummary(r: NetworkRule): string {
   const p: string[] = []
   if (r.requiresMedia === "video") p.push("exige 1 vídeo")
-  else if (r.requiresMedia === "media-or-product") p.push("exige mídia")
+  else if (r.requiresMedia === "media") p.push("exige mídia")
   if (r.maxMedia != null) p.push(`até ${r.maxMedia} itens`)
   else if (r.maxImages || r.maxGifs) {
     p.push(`${r.maxImages} fotos OU ${r.maxGifs} GIF OU ${r.maxVideos} vídeo${r.allowMix === false ? ", sem misturar" : ""}`)

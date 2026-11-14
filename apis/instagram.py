@@ -5,8 +5,8 @@ Publicação via Graph API usando App Access Token (client_credentials).
 Fluxo:
   1. Validate credentials: App Access Token + verificar user Instagram (se
      tiver user_access_token salvo) ou só App Token.
-  2. Publicar: criar container de mídia de texto (Instagram suporta texto
-     como 'TEXT' no Media Container) e publicar com polling.
+  2. Publicar: criar container de imagem, vídeo (REELS) ou carrossel e
+     publicar com polling.
 
 Notas:
   - Instagram requer usuário/autorização para publicar via Graph API.
@@ -17,9 +17,12 @@ Notas:
     (colunas adicionadas na migration 024), preenchidas pelo fluxo OAuth
     de Facebook Login for Business em api/instagram_oauth.py — ver
     scheduler/bot_post_instagram.py pra onde esses valores são lidos e
-    passados pra post_text/post_product.
-  - Para publicar TEXTO sem imagem/video, Instagram aceita media_type TEXT
-    desde que o usuário tenha autorização.
+    passados pros publicadores de mídia.
+  - O Instagram NÃO publica post só de texto: a doc oficial de Content
+    Publishing (developers.facebook.com/docs/instagram-platform/content-publishing,
+    conferida em 14/11/2026) só lista imagem, vídeo/REELS, STORIES e
+    CAROUSEL. Sem mídia, o publicador falha antes de chamar a API
+    (InstagramMediaRequiredError).
   - Se a conta for Business/Creator com Instagram Graph API habilitada,
     publicação via Graph API funciona com o token de usuário longo.
 
@@ -35,10 +38,8 @@ BLOQUEIO EXTERNO (App Review da Meta):
     Review ser aprovado. Não há workaround de código pra isso.
 
 Recomendação do README:
-  - Hoje o wrapper implementa validação e postagem básica (TEXT),
-    mas a publicação só funcionará com user_access_token adicional.
-  - Se a conta não tiver autorização, post_text levanta NotImplementedError
-    com orientação de como obter o token.
+  - Hoje o wrapper implementa validação e postagem de imagem, vídeo e
+    carrossel; a publicação exige user_access_token.
 """
 
 import time
@@ -48,6 +49,16 @@ from shopee_bot.apis.meta_version import GRAPH_BASE
 
 # Mesma versão do OAuth (apis/meta_version.py).
 API_BASE = GRAPH_BASE
+
+
+class InstagramMediaRequiredError(Exception):
+    """Post sem imagem/vídeo: o Instagram não aceita publicação só de texto."""
+
+    def __init__(self):
+        super().__init__(
+            "Instagram exige imagem ou vídeo: posts só de texto ou só com o "
+            "link do produto não são aceitos. Adicione uma foto ou vídeo."
+        )
 
 # Tokens: app_id = Instagram App ID, secret = Instagram App Secret.
 # user_access_token salvo em env ou em coluna extra da tabela futura.
@@ -149,30 +160,6 @@ def validate_user_token(user_access_token, ig_user_id=None):
         "Nenhuma Página com conta Instagram Business vinculada — vincule e reconecte"
     )
 
-
-def _create_text_media_container(ig_user_id, user_access_token, text):
-    """Cria container de mídia de TEXTO para publicação no Instagram."""
-    url = f"{API_BASE}/{ig_user_id}/media"
-    params = {
-        "access_token": user_access_token,
-        "media_type": "TEXT",
-        "caption": text,
-    }
-    res = retry_with_backoff(
-        requests.post, url, params=params,
-        exceptions=(requests.exceptions.RequestException,),
-        timeout=30,
-    )
-    if res.status_code not in (200, 201):
-        raise Exception(
-            f"Instagram: falha ao criar container de texto "
-            f"(status {res.status_code}): {res.text[:300]}"
-        )
-    data = res.json()
-    creation_id = data.get("id")
-    if not creation_id:
-        raise Exception(f"Instagram: resposta inesperada ao criar container: {data}")
-    return creation_id
 
 def _create_image_media_container(ig_user_id, user_access_token, image_url, caption):
     """Cria um container IMAGE a partir de URL pública para a Graph API."""
@@ -276,61 +263,6 @@ def _resolve_ig_user_id(user_access_token, ig_user_id=None):
             "Conecte uma conta Business ou use um user token com permissões."
         )
     return ig_business["id"]
-
-def post_text(app_id, secret, user_access_token, text, ig_user_id=None):
-    """Posta um texto (caption) no Instagram via Graph API.
-
-    Pré-requisitos:
-      - user_access_token com permissões instagram_basic e
-        instagram_content_publish.
-      - Conta Business ou Creator com Instagram Graph API habilitada.
-      - ig_user_id: id da conta Instagram Business/Creator, salvo na
-        credencial pelo fluxo OAuth. Se omitido, é resolvido na hora
-        (fallback, mais lento — 1 chamada extra à Graph API).
-    """
-    if not user_access_token:
-        raise NotImplementedError(
-            "Instagram: user_access_token é obrigatório para publicar. "
-            "Implemente OAuth ou salve o token na tabela/credential. "
-            "Ver: https://developers.facebook.com/docs/instagram-api"
-        )
-    # app_token não é usado pra publicar (a Graph API usa o
-    # user_access_token pros endpoints de media/media_publish), só
-    # validado aqui pra falhar cedo se app_id/secret estiverem errados.
-    _app_access_token(app_id, secret)
-    ig_user_id = _resolve_ig_user_id(user_access_token, ig_user_id)
-
-    creation_id = _create_text_media_container(
-        ig_user_id, user_access_token, text
-    )
-    _poll_media_container(user_access_token, creation_id)
-    media_id = _publish_media_container(ig_user_id, user_access_token, creation_id)
-    return media_id
-
-def post_product(app_id, secret, user_access_token, product, ig_user_id=None):
-    """Posta texto com link de afiliado de produto Shopee no Instagram."""
-    commission_link = (
-        product.get("commission_link")
-        or product.get("original_link")
-        or ""
-    )
-    name = product.get("name", "[produto]")
-    commission = product.get("commission")
-    price_min = product.get("price_min")
-    price_max = product.get("price_max")
-
-    text = (
-        f"🔥 {name}\n"
-    )
-    if commission is not None:
-        text += f"Comissão: {commission}%\n"
-    if price_min is not None or price_max is not None:
-        text += f"Faixa: R$ {price_min} a R$ {price_max}\n"
-    if commission_link:
-        text += f"\n{commission_link}"
-
-    return post_text(app_id, secret, user_access_token, text, ig_user_id)
-
 
 def post_image(app_id, secret, user_access_token, image_url, caption, ig_user_id=None):
     """Publica imagem por URL pública e espera o container ficar pronto."""

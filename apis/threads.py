@@ -203,27 +203,56 @@ def _get_media_container_status(
     return res.json()
 
 
-# https://developers.facebook.com/docs/threads/troubleshooting#publishing-does-not-return-a-media-id
-def _wait_container_ok(user_access_token, container_id):
+# Doc oficial (conferida em 14/11/2026):
+# - developers.facebook.com/docs/threads/posts: "Wait about 30 seconds before
+#   publishing a Threads media container."
+# - developers.facebook.com/docs/threads/troubleshooting: consultar o status
+#   do contêiner 1x/min por no máximo 5 min; status IN_PROGRESS, FINISHED,
+#   ERROR, EXPIRED, PUBLISHED.
+# Publicar logo após criar gerou "code=24 subcode=4279009 The requested
+# resource does not exist" (job 72c45ba8). Intervalo de 15 s (mais curto que
+# o 1x/min sugerido) para não atrasar posts de texto, que ficam prontos rápido;
+# no pior caso são ~20 consultas por contêiner, longe do limite de chamadas.
+MIN_WAIT_BEFORE_PUBLISH_S = 30
+POLL_INTERVAL_S = 15
+MAX_WAIT_S = 300
+
+# Injetáveis em teste (monkeypatch) para não dormir de verdade.
+_sleep = time.sleep
+_monotonic = time.monotonic
+
+
+class ThreadsContainerError(Exception):
+    """Contêiner não ficou pronto (ERROR/EXPIRED/timeout). Nada foi publicado."""
+
+
+def _wait_container_ok(user_access_token, container_id, created_at):
+    """Espera o contêiner ficar FINISHED e ao menos 30 s após a criação.
+
+    `created_at` é o _monotonic() logo após criar o contêiner.
+    """
+    deadline = created_at + MAX_WAIT_S
+    ready_at = created_at + MIN_WAIT_BEFORE_PUBLISH_S
     while True:
+        remaining = ready_at - _monotonic()
+        if remaining > 0:
+            _sleep(remaining)
         res = _get_media_container_status(user_access_token, container_id)
-        status = res["status"] if "status" in res else None
-        error_message = res["error_message"] if "error_message" in res else None
-
-        if status in ["EXPIRED", "ERROR"]:
-            raise Exception(
-                "Cannot proceed. MDI {0} is {1}, {2}".format(
-                    container_id,
-                    status,
-                    error_message
-                )
-            )
-
-        if status != "FINISHED":
-            time.sleep(1)
-
-        elif status == "FINISHED":
+        status = res.get("status")
+        if status == "FINISHED":
             return True
+        if status in ("ERROR", "EXPIRED"):
+            detail = sanitize_log_data(str(res.get("error_message") or ""))[:240]
+            raise ThreadsContainerError(
+                f"Threads: contêiner {container_id} terminou como {status}"
+                + (f" ({detail})" if detail else "")
+            )
+        if _monotonic() + POLL_INTERVAL_S > deadline:
+            raise ThreadsContainerError(
+                f"Threads: contêiner {container_id} não ficou pronto em "
+                f"{MAX_WAIT_S // 60} min (último status: {status}); nada foi publicado"
+            )
+        ready_at = _monotonic() + POLL_INTERVAL_S
 
 
 # https://developers.facebook.com/docs/threads/posts#carousel-posts
@@ -234,7 +263,9 @@ def make_carousel_post(
     medias,
     reply_to_id=None
 ):
-    children = list()
+    # Cria todos os itens antes de esperar: os 30 s de cada um correm em
+    # paralelo em vez de somar 30 s por item.
+    items = list()
     for media in medias:
         media_type = media["type"]
         media_url = media["url"]
@@ -253,9 +284,11 @@ def make_carousel_post(
                 MediaType.VIDEO,
                 video_url=media_url,
             )
+        items.append((item_id, _monotonic()))
 
-        _wait_container_ok(user_access_token, item_id)
-        children.append(item_id)
+    for item_id, created_at in items:
+        _wait_container_ok(user_access_token, item_id, created_at)
+    children = [item_id for item_id, _ in items]
 
     carousel_container_id = _create_carousel_container(
         user_id,
@@ -264,8 +297,9 @@ def make_carousel_post(
         text,
         reply_to_id
     )
+    created_at = _monotonic()
 
-    _wait_container_ok(user_access_token, carousel_container_id)
+    _wait_container_ok(user_access_token, carousel_container_id, created_at)
 
     threads_id = _publish_media_container(
         user_id,
@@ -293,8 +327,9 @@ def make_post(
         video_url,
         reply_to_id
     )
+    created_at = _monotonic()
 
-    _wait_container_ok(user_access_token, media_container_id)
+    _wait_container_ok(user_access_token, media_container_id, created_at)
 
     threads_id = _publish_media_container(
         user_id,

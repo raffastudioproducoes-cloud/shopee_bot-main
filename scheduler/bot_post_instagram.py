@@ -1,6 +1,6 @@
 from shopee_bot.apis import instagram as InstagramAPI
 from shopee_bot.clogging import logger
-from shopee_bot.database import schedulers, instagram_credentials, posts, products
+from shopee_bot.database import schedulers, instagram_credentials, posts
 from shopee_bot.database.activities import (
     insert_activities, activity_metadata_wrapper
 )
@@ -8,7 +8,7 @@ from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
 from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.media_delivery import delivery_url
-from shopee_bot.scheduler.publication_result import external_id, succeeded, unknown
+from shopee_bot.scheduler.publication_result import external_id, failed, succeeded, unknown
 
 
 def _first_image(post):
@@ -91,17 +91,10 @@ def bot_post_instagram(job_id):
             external = _publish_image(
                 app_id, secret, user_access_token, ig_user_id, image, root_post["text"]
             )
-        elif root_post["product_ids"]:
-            product = products.get(user_id, root_post["product_ids"][0], profile_id)
-            mark_external_delivery()
-            external = InstagramAPI.post_product(
-                app_id, secret, user_access_token, product, ig_user_id
-            )
         else:
-            mark_external_delivery()
-            external = InstagramAPI.post_text(
-                app_id, secret, user_access_token, root_post["text"], ig_user_id
-            )
+            # Sem mídia: a API de publicação do Instagram não aceita post só
+            # de texto. Falha antes de qualquer chamada externa.
+            raise InstagramAPI.InstagramMediaRequiredError()
     except Exception as err:
         logger.exception(f"job #{job_id} for {username} falhou: {err}")
         insert_activities(
@@ -116,6 +109,8 @@ def bot_post_instagram(job_id):
             }),
             profile_id=profile_id
         )
+        if isinstance(err, InstagramAPI.InstagramMediaRequiredError):
+            return failed(err)
         return unknown(err)
 
     insert_activities(

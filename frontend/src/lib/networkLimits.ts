@@ -51,8 +51,8 @@ export interface NetworkRule {
   maxGifs?: number
   maxVideos?: number
   allowMix?: boolean
-  /** "media-or-product": a foto do produto supre (publicador do Instagram). */
-  requiresMedia?: "media-or-product" | "video"
+  /** "media": exige imagem/vídeo; a foto Shopee importada do produto conta como mídia. */
+  requiresMedia?: "media" | "video"
   exts: string[]
   maxBytes: Partial<Record<MediaKind, number>>
   videoMinSec?: number
@@ -138,7 +138,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     maxMentions: 20,
     maxMedia: 10,
     allowMix: true,
-    requiresMedia: "media-or-product",
+    requiresMedia: "media",
     exts: ["jpg", "jpeg", "mp4"],
     maxBytes: { image: 8 * MB, video: 300 * MB },
     imageAspect: [0.8, 1.91],
@@ -243,8 +243,9 @@ export function validateForNetwork(network: PostNetwork, draft: PostDraft): Issu
   const media = draft.media
   const byKind = (k: MediaKind) => media.filter((m) => m.kind === k).length
   if (rule.requiresMedia === "video" && byKind("video") === 0) add("requiresMedia", "exige 1 vídeo (.mp4)")
-  if (rule.requiresMedia === "media-or-product" && media.length === 0 && draft.productCount === 0) {
-    add("requiresMedia", "exige imagem/vídeo (ou um produto com foto)")
+  // Instagram não publica só texto: produto sem foto importada não supre.
+  if (rule.requiresMedia === "media" && media.length === 0) {
+    add("requiresMedia", "exige imagem ou vídeo (não publica só texto)")
   }
   if (rule.maxMedia != null && media.length > rule.maxMedia) add("maxMedia", `máx. ${rule.maxMedia} mídias (você tem ${media.length})`)
   const caps: [MediaKind, number | undefined][] = [
