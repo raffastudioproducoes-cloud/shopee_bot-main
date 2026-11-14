@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
+from . import meta_post_insights as meta
 from .crypto import decrypt
 from .database import supabase
 from .profiles import scope_account, scope_owner
@@ -21,6 +22,10 @@ logger = logging.getLogger(__name__)
 TABLE = "publication_insights"
 HISTORY_TABLE = "post_metrics"
 NETWORKS = ("threads", "facebook", "instagram", "tiktok", "x")
+# Redes com coletor por post; TikTok e X ficam "unsupported" (fases seguintes).
+COLLECTED_NETWORKS = ("threads", "instagram", "facebook")
+SOURCES = {"threads": "threads_media_insights", "instagram": "ig_media_insights",
+           "facebook": "fb_post_insights"}
 METRICS = ("views", "likes", "replies", "reposts", "quotes", "shares")
 THREADS_HOST = "https://graph.threads.net/v1.0"
 _EXTERNAL_ID = re.compile(r"^[0-9]{1,40}$")
@@ -74,7 +79,7 @@ def _profile_jobs(user_id, profile_id):
             supabase.table("publish_jobs").select(
                 "id,post_id,profile_id,network,external_id,finished_at"
             ), user_id, profile_id
-        ).eq("network", "threads").eq("status", "succeeded")
+        ).in_("network", list(COLLECTED_NETWORKS)).eq("status", "succeeded")
          .gte("finished_at", since).order("finished_at", desc=True)
          .order("id").range(offset, offset + _PAGE - 1).execute()).data or []
         rows.extend(job for job in page if job.get("external_id"))
@@ -200,7 +205,8 @@ def _persist(job, user_id, state, metrics):
         "last_attempt_at": now,
         "last_completed_at": now if state == "ok" else None,
         **{key: metrics.get(key) if metrics else None
-           for key in ("views", "likes", "comments", "reposts", "shares", "quotes", "clicks")},
+           for key in ("views", "reach", "likes", "comments", "reposts", "shares", "saves",
+                       "quotes", "clicks")},
     }
     supabase.table(TABLE).upsert(payload, on_conflict="publish_job_id").execute()
 
@@ -223,10 +229,11 @@ def history_row(job, user_id, status, metrics, measured_id=None, extra=None):
         "publish_job_id": job["id"], "network": job["network"],
         "external_id": str(measured_id or job.get("external_id") or "")[:512] or None,
         "window_label": window_label(job.get("finished_at")),
-        "views": metrics.get("views"), "reach": None, "likes": metrics.get("likes"),
+        "views": metrics.get("views"), "reach": metrics.get("reach"), "likes": metrics.get("likes"),
         "comments": metrics.get("comments"), "shares": combined_shares(metrics),
-        "saves": None, "clicks": None,  # Threads não fornece clique por post; cliques vêm do redirecionador.
-        "extra": {**detail, **(extra or {})}, "source": "threads_media_insights",
+        # Nenhuma rede dá clique em link por post aqui; cliques vêm do redirecionador.
+        "saves": metrics.get("saves"), "clicks": None,
+        "extra": {**detail, **(extra or {})}, "source": SOURCES.get(job["network"]),
         "status": status, "error": None if ok else status[:200],
     }
 
@@ -239,55 +246,126 @@ def _record_history(row):
         logger.warning("Histórico de métricas indisponível nesta coleta")
 
 
-async def collect_profile_posts(user_id, profile_id):
-    """Usa a claim já existente do refresh; não adiciona agendador ou cron."""
-    jobs = await asyncio.to_thread(_profile_jobs, user_id, profile_id)
-    if not jobs:
-        return {"threads": "no_posts", "facebook": "not_connected",
-                "instagram": "not_connected", "tiktok": "unsupported", "x": "unsupported"}
+def _overall(states):
+    if not states:
+        return "no_posts"
+    if all(state == "ok" for state in states):
+        return "ok"
+    return "partial" if "ok" in states else states[0]
+
+
+async def _collect_threads(client, user_id, profile_id, jobs):
     account = await asyncio.to_thread(_threads_account, user_id, profile_id)
     if not account:
-        return {"threads": "not_connected", "facebook": "not_connected",
-                "instagram": "not_connected", "tiktok": "unsupported", "x": "unsupported"}
+        return "not_connected"
     threads_user_id, token_cipher = account
     try:
         token = decrypt(token_cipher)
     except Exception:
-        return {"threads": "unavailable", "facebook": "not_connected",
-                "instagram": "not_connected", "tiktok": "unsupported", "x": "unsupported"}
+        return "unavailable"
     multi = await asyncio.to_thread(_multi_part_ids, user_id, profile_id, jobs)
     semaphore = asyncio.Semaphore(_PARALLEL)
     codes = {code for code in (permalink_code(job["external_id"]) for job in jobs) if code}
+    resolved = await resolve_permalinks(client, threads_user_id, token, codes)
 
-    async with httpx.AsyncClient(timeout=15) as client:
-        resolved = await resolve_permalinks(client, threads_user_id, token, codes)
+    async def collect(job):
+        async with semaphore:
+            code = permalink_code(job["external_id"])
+            measured_id = resolved.get(code) if code else job["external_id"]
+            extra = {"resolved_from": "permalink"} if code else {}
+            if code and not measured_id:
+                state, metrics = "sem_id", None
+            else:
+                state, metrics = await read_threads_post(client, measured_id, token)
+            status = state
+            if job["post_id"] in multi:
+                # Só o ID da última parte existe: mede essa parte e marca parcial.
+                extra.update(parts_measured=1, limitation=SEQUENCE_LIMITATION)
+                status = "parcial" if state == "ok" else state
+                state = "multipart_unmapped"
+            await asyncio.to_thread(_persist, job, user_id, state, metrics)
+            await asyncio.to_thread(_record_history, history_row(
+                job, user_id, status, metrics, measured_id, extra))
+            return state
+    outcomes = await asyncio.gather(*(collect(job) for job in jobs), return_exceptions=True)
+    return _overall([value if isinstance(value, str) else "unavailable" for value in outcomes])
 
-        async def collect(job):
-            async with semaphore:
-                code = permalink_code(job["external_id"])
-                measured_id = resolved.get(code) if code else job["external_id"]
-                extra = {"resolved_from": "permalink"} if code else {}
-                if code and not measured_id:
-                    state, metrics = "sem_id", None
-                else:
-                    state, metrics = await read_threads_post(client, measured_id, token)
-                status = state
-                if job["post_id"] in multi:
-                    # Só o ID da última parte existe: mede essa parte e marca parcial.
-                    extra.update(parts_measured=1, limitation=SEQUENCE_LIMITATION)
-                    status = "parcial" if state == "ok" else state
-                    state = "multipart_unmapped"
+
+def _meta_account(network, user_id, profile_id):
+    """Token cifrado da conta conectada: usuário (Instagram) ou Página (Facebook)."""
+    table, identifier, token_field = {
+        "instagram": ("instagram_credentials", "ig_user_id", "user_access_token"),
+        "facebook": ("facebook_credentials", "page_id", "page_access_token"),
+    }[network]
+    response = scope_owner(
+        supabase.table(table).select(f"{identifier},{token_field},status"), user_id, profile_id
+    ).maybe_single().execute()
+    data = response.data if response else None
+    if not data or data.get("status") is not True or not data.get(identifier) or not data.get(token_field):
+        return None
+    return data[token_field]
+
+
+async def _collect_meta(client, network, user_id, profile_id, jobs):
+    """Instagram/Facebook: falha por post é registrada e o restante segue.
+
+    Escopo ausente, token expirado ou rate limit valem para a conta inteira: o primeiro
+    post que recebe um deles para as chamadas seguintes (sem retry; a próxima rodada
+    tenta de novo). Posts não consultados por rate limit mantêm o último valor.
+    """
+    token_cipher = await asyncio.to_thread(_meta_account, network, user_id, profile_id)
+    if not token_cipher:
+        return "not_connected"
+    try:
+        token = decrypt(token_cipher)
+    except Exception:
+        return "unavailable"
+    reader = meta.read_instagram_media if network == "instagram" else meta.read_facebook_post
+    semaphore = asyncio.Semaphore(_PARALLEL)
+    stopped = []
+
+    async def collect(job):
+        async with semaphore:
+            if stopped:
+                state, metrics, extra = stopped[0], None, {"skipped": True}
+            else:
+                state, metrics, extra = await reader(client, job["external_id"], token)
+                if state in meta.STOP_STATES and not stopped:
+                    stopped.append(state)
+            measured_id = extra.pop("measured_id", None)
+            if state != "rate_limited":
                 await asyncio.to_thread(_persist, job, user_id, state, metrics)
-                await asyncio.to_thread(_record_history, history_row(
-                    job, user_id, status, metrics, measured_id, extra))
-                return state
-        outcomes = await asyncio.gather(*(collect(job) for job in jobs), return_exceptions=True)
-    states = [value if isinstance(value, str) else "unavailable" for value in outcomes]
-    overall = "ok" if states and all(s == "ok" for s in states) else (
-        "partial" if "ok" in states else states[0] if states else "no_posts"
-    )
-    return {"threads": overall, "facebook": "not_connected",
-            "instagram": "not_connected", "tiktok": "unsupported", "x": "unsupported"}
+            await asyncio.to_thread(_record_history, history_row(
+                job, user_id, state, metrics, measured_id, extra))
+            return state
+    outcomes = await asyncio.gather(*(collect(job) for job in jobs), return_exceptions=True)
+    return _overall([value if isinstance(value, str) else "unavailable" for value in outcomes])
+
+
+async def _guarded(network, coroutine):
+    """Uma rede quebrada nunca derruba a coleta das outras nem a rotina."""
+    try:
+        return await coroutine
+    except Exception as err:
+        logger.warning("Coleta de métricas %s falhou: %s", network, type(err).__name__)
+        return "unavailable"
+
+
+async def collect_profile_posts(user_id, profile_id):
+    """Usa a claim já existente do refresh; não adiciona agendador ou cron."""
+    jobs = await asyncio.to_thread(_profile_jobs, user_id, profile_id)
+    states = {"threads": "no_posts", "facebook": "no_posts", "instagram": "no_posts",
+              "tiktok": "unsupported", "x": "unsupported"}
+    by_network = {network: [job for job in jobs if job.get("network") == network]
+                  for network in COLLECTED_NETWORKS}
+    async with httpx.AsyncClient(timeout=15) as client:
+        for network, subset in by_network.items():
+            if not subset:
+                continue
+            work = (_collect_threads(client, user_id, profile_id, subset) if network == "threads"
+                    else _collect_meta(client, network, user_id, profile_id, subset))
+            states[network] = await _guarded(network, work)
+    return states
 
 
 def current_network_connections(user_id, profile_id=None):
@@ -337,8 +415,8 @@ def indexed_insights(user_id, jobs):
     for offset in range(0, len(ids), _PAGE):
         response = (scope_account(
             supabase.table(TABLE).select(
-                "publish_job_id,network,external_id,state,views,likes,comments,reposts,"
-                "shares,quotes,clicks,last_completed_at"
+                "publish_job_id,network,external_id,state,views,reach,likes,comments,reposts,"
+                "shares,saves,quotes,clicks,last_completed_at"
             ), user_id
         ).in_("publish_job_id", ids[offset:offset + _PAGE]).execute())
         for item in response.data or []:

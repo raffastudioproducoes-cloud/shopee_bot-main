@@ -106,7 +106,7 @@ def test_other_users_profile_is_404(db):
 
 @pytest.mark.parametrize("query", [
     "days=999", "days=60", "from=2025-01-01&to=2026-01-02", "from=2026-02-01&to=2026-01-01",
-    "from=2026-01-01", "tz=Marte/Base", "limit=0", "limit=101", "network=kwai", "sort=reach",
+    "from=2026-01-01", "tz=Marte/Base", "limit=0", "limit=101", "network=kwai", "sort=impressions",
 ])
 def test_invalid_parameters_are_422(db, query):
     assert TestClient(app).get(f"/analytics/post-metrics?{query}").status_code == 422
@@ -317,3 +317,18 @@ def test_redirect_is_not_request_logged(redirect, monkeypatch):
     monkeypatch.setattr(middleware.RequestLoggingMiddleware, "_save", lambda *a, **k: saved.append(a))
     TestClient(app).get(f"/r/{TOKEN}", follow_redirects=False)
     assert saved == []
+
+
+def test_instagram_row_exposes_reach_and_saves_and_reconnect_state(db):
+    profile = "00000000-0000-0000-0000-0000000000a1"
+    db.tables["publish_jobs"] += [_job("job-ig", "user-a", profile, network="instagram", external="1789", post_id=5),
+                                  _job("job-fb", "user-a", profile, network="facebook", external="1_2", post_id=6)]
+    db.tables["publication_insights"] += [
+        _insight("job-ig", "user-a", network="instagram", external="1789", views=10, reach=8, saves=3, likes=1),
+        _insight("job-fb", "user-a", network="facebook", external="1_2", state="permission_required"),
+    ]
+    body = TestClient(app).get("/analytics/post-metrics?days=30&sort=saves").json()
+    rows = {row["job_id"]: row for row in body["posts"]}
+    assert rows["job-ig"]["reach"] == 8 and rows["job-ig"]["saves"] == 3 and rows["job-ig"]["status"] == "ok"
+    assert body["posts"][0]["job_id"] == "job-ig"  # único com salvamentos; nulos no fim
+    assert rows["job-fb"]["status"] == "permission_required" and rows["job-fb"]["views"] is None

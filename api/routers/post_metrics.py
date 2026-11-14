@@ -29,7 +29,7 @@ MAX_HISTORY_ROWS = 20000
 _PAGE = 500
 METRIC_FIELDS = ("views", "reach", "likes", "comments", "shares", "saves", "clicks")
 RankMetric = Literal["views", "likes", "comments", "shares", "clicks"]
-SortField = Literal["views", "likes", "comments", "shares", "clicks", "finished_at"]
+SortField = Literal["views", "reach", "likes", "comments", "shares", "saves", "clicks", "finished_at"]
 USABLE_STATES = {"ok": "ok", "multipart_unmapped": "parcial"}
 
 
@@ -115,8 +115,8 @@ def post_row(job, item, tokens, preview):
         item.get("external_id") == job.get("external_id")) and item.get("state") in USABLE_STATES
     row = {field: None for field in METRIC_FIELDS}
     if usable:
-        row.update(views=item.get("views"), likes=item.get("likes"),
-                   comments=item.get("comments"), shares=combined_shares(item))
+        row.update(views=item.get("views"), reach=item.get("reach"), likes=item.get("likes"),
+                   comments=item.get("comments"), shares=combined_shares(item), saves=item.get("saves"))
     row["clicks"] = sum(tokens.values()) if tokens else None
     if usable:
         status = USABLE_STATES[item["state"]]

@@ -5,6 +5,22 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.23.0] - 2026-11-14
+
+Funcionalidade (MINOR): métricas por post do Instagram e do Facebook (Fase 2 de insights), com a migração 103.
+
+### Added — métricas por post do Instagram e do Facebook (Fase 2 de insights, 14/11/2026)
+- `api/meta_post_insights.py`: leitura por post na Graph API (v26.0), mesmo contrato do coletor do Threads e mesma rotina (`collect_profile_posts`, claim de `analytics_daily_refreshes`, janela de 90 dias, histórico append-only em `post_metrics`, cache em `publication_insights`).
+  - Instagram (`/{ig-media-id}/insights`): `views`, `reach`, `likes`, `comments`, `shares`, `saved`. Não pede `impressions` (depreciado para mídia após 02/07/2024) nem `plays`/`video_views`. Carrossel: métricas do álbum.
+  - Facebook (`/{post-id}/insights`): `post_media_view`, `post_total_media_view_unique`, `post_reactions_by_type_total` (soma vira "curtidas" = reações); comentários (`comments.summary`) e compartilhamentos (`shares.count`) do objeto Post. Não pede `post_impressions*` (obsoleto acima da v25).
+  - Fotos antigas guardavam o ID da foto: o coletor resolve `page_story_id`. Vídeos do Facebook ficam `unsupported_type` (o nó Video não documenta o ID do post).
+- Erros da Graph API classificados por post, sem guardar mensagem bruta: `permission_required` / `token_expired` ("Reconecte a conta para liberar insights"), `not_found` (post removido), `rate_limited` (mantém o último valor), `api_error`. Escopo ausente, token expirado ou rate limit param as chamadas restantes da conta naquela rodada, sem retry; a falha de uma rede nunca derruba as outras nem a publicação.
+- Migração 103 (aditiva, idempotente, não aplicada aqui): colunas `reach` e `saves` anuláveis em `publication_insights`.
+- Análises: colunas Alcance e Salvamentos na tabela por post (ordenáveis), tooltip com o significado de cada métrica por rede, aviso por post de reconexão/post removido; `/analytics/summary` passa a mostrar as métricas de Instagram e Facebook.
+
+### Changed
+- Publicador do Facebook grava o `post_id` devolvido por `/photos` (antes, o ID da foto).
+
 ## [3.22.0] - 2026-11-14
 
 Funcionalidade (MINOR): X (Twitter) reativado como rede publicável; docs atualizados com o estado real das redes.
