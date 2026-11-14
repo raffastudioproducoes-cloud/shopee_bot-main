@@ -5,6 +5,19 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.21.0] - 2026-11-14
+
+Funcionalidade (MINOR): livro de consumo de cota imutável no banco (apagar post não devolve cota). Migração 102 já aplicada no banco compartilhado.
+
+### Added — livro de consumo de cota (`quota_ledger`, migração 102, ainda não aplicada)
+- Tabela `quota_ledger` só de inserção: RLS fechada (`block_all_api`), `service_role` só lê, sem FK em cascata. Triggers recusam UPDATE, DELETE e TRUNCATE para qualquer papel; expurgo exige migração controlada. Escrita só por funções `SECURITY DEFINER` com `search_path` fixo (`record_quota_use` aceita apenas consumo positivo).
+- `reserve_post_plan_quota` (mesma assinatura de 073, compatível com a main 3.20.1) registra no livro cada publicação imediata e cada horário recorrente no momento em que são reservados.
+
+### Fixed — apagar post devolvia cota
+- Imediatas/hora passam a somar pelo livro. Reservas anteriores à data de corte (`quota_ledger_cutover`, momento em que a 102 for aplicada) continuam contando pelo mapa antigo, sem dupla contagem.
+- Recorrências/dia: um horário apagado (CASCADE do post) continua ocupando o dia da semana por 24 h. Publicar, apagar e recriar no mesmo dia deixa de passar do limite do plano.
+- Só a compensação de criação que falhou (`release_failed_post_plan_quota`, sem agenda nem job, reserva dos últimos 15 min) devolve cota. A API chama essa compensação antes de apagar o post, também para recorrência.
+
 ## [3.20.1] - 2026-11-13
 
 Correção (PATCH): publicação no TikTok com mídia do Storage privado (o vídeo é baixado para arquivo temporário) e falha de mídia vira `failed` claro.
