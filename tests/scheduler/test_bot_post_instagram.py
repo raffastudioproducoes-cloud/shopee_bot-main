@@ -44,67 +44,39 @@ def _patch_common(monkeypatch, user_data, root_post):
     )
 
 
-def test_bot_post_instagram_text_only_uses_saved_token_and_ig_user_id(monkeypatch):
-    user_data = _user_data()
-    root_post = {"text": "oi", "product_ids": []}
-    _patch_common(monkeypatch, user_data, root_post)
+def _fail_if_called(*_args, **_kwargs):
+    raise AssertionError("não deveria chamar a API do Instagram")
 
-    calls = {}
 
-    def fake_post_text(app_id, secret, user_access_token, text, ig_user_id):
-        calls["args"] = (app_id, secret, user_access_token, text, ig_user_id)
-        return "media-1"
-
-    monkeypatch.setattr(module.InstagramAPI, "post_text", fake_post_text)
-
+def _assert_media_required_failure(monkeypatch, root_post):
+    _patch_common(monkeypatch, _user_data(), root_post)
+    for name in ("_publish_image", "_publish_video", "_publish_carousel",
+                 "mark_external_delivery"):
+        monkeypatch.setattr(module, name, _fail_if_called)
     activities = []
     monkeypatch.setattr(
         module, "insert_activities",
         lambda user_id, activity_type, metadata, profile_id=None: activities.append(
-            (user_id, activity_type, metadata)
+            (activity_type, metadata)
         ),
     )
 
     result = module.bot_post_instagram("job-1")
 
-    assert calls["args"] == (
-        "app-1", "secret-1", "user-token-1", "oi", "ig-user-1"
-    )
+    # Falha definitiva (nada foi enviado), não 'unknown': não precisa conciliar.
+    assert result.status == "failed"
     assert len(activities) == 1
-    user_id, activity_type, metadata = activities[0]
-    assert user_id == 42
-    assert activity_type == ActivityType.BOT_POST_SUCCESS
-    assert metadata["metadata"]["post_id"] == 7
-    assert result.status == "succeeded"
-    assert result.external_id == "media-1"
+    activity_type, metadata = activities[0]
+    assert activity_type == ActivityType.BOT_POST_FAILURE
+    assert "Instagram exige imagem ou vídeo" in metadata["metadata"]["error"]
 
 
-def test_bot_post_instagram_with_product_calls_post_product(monkeypatch):
-    user_data = _user_data()
-    root_post = {"text": "", "product_ids": [99]}
-    _patch_common(monkeypatch, user_data, root_post)
+def test_bot_post_instagram_text_only_fails_before_api(monkeypatch):
+    _assert_media_required_failure(monkeypatch, {"text": "oi", "product_ids": []})
 
-    product = {"name": "Produto X", "commission_link": "http://x"}
-    monkeypatch.setattr(
-        module.products, "get", lambda user_id, product_id, profile_id: product,
-    )
 
-    calls = {}
-
-    def fake_post_product(app_id, secret, user_access_token, product_arg, ig_user_id):
-        calls["args"] = (
-            app_id, secret, user_access_token, product_arg, ig_user_id
-        )
-        return "media-2"
-
-    monkeypatch.setattr(module.InstagramAPI, "post_product", fake_post_product)
-    monkeypatch.setattr(module, "insert_activities", lambda *a, **k: None)
-
-    module.bot_post_instagram("job-2")
-
-    assert calls["args"] == (
-        "app-1", "secret-1", "user-token-1", product, "ig-user-1"
-    )
+def test_bot_post_instagram_product_without_media_fails_before_api(monkeypatch):
+    _assert_media_required_failure(monkeypatch, {"text": "", "product_ids": [99], "medias": []})
 
 
 def test_bot_post_instagram_with_image_uses_image_publisher(monkeypatch):
@@ -132,13 +104,14 @@ def test_bot_post_instagram_with_image_uses_image_publisher(monkeypatch):
 
 def test_bot_post_instagram_failure_records_activity_and_does_not_raise(monkeypatch):
     user_data = _user_data()
-    root_post = {"text": "oi", "product_ids": []}
+    image = {"type": "IMAGE", "file_path": "web/media/7/image.jpg"}
+    root_post = {"text": "oi", "product_ids": [], "medias": [image]}
     _patch_common(monkeypatch, user_data, root_post)
 
-    def fake_post_text(*args, **kwargs):
+    def fake_publish_image(*args, **kwargs):
         raise Exception("instagram_content_publish not approved for this app")
 
-    monkeypatch.setattr(module.InstagramAPI, "post_text", fake_post_text)
+    monkeypatch.setattr(module, "_publish_image", fake_publish_image)
 
     activities = []
     monkeypatch.setattr(
@@ -148,8 +121,9 @@ def test_bot_post_instagram_failure_records_activity_and_does_not_raise(monkeypa
         ),
     )
 
-    module.bot_post_instagram("job-3")
+    result = module.bot_post_instagram("job-3")
 
+    assert result.status == "unknown"
     assert len(activities) == 1
     user_id, activity_type, metadata = activities[0]
     assert activity_type == ActivityType.BOT_POST_FAILURE

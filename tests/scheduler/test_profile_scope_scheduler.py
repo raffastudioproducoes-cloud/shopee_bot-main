@@ -129,8 +129,10 @@ def _run_bot(monkeypatch, job):
         }
 
     monkeypatch.setattr(bot.instagram_credentials, "get_by_user_id", fake_creds)
-    monkeypatch.setattr(bot.posts, "get", lambda u, p, profile_id: [{"text": "oi", "product_ids": []}])
-    monkeypatch.setattr(bot.InstagramAPI, "post_text", lambda *a, **k: "media-1")
+    image = {"type": "IMAGE", "file_path": "web/media/7/a.jpg"}
+    monkeypatch.setattr(bot.posts, "get",
+                        lambda u, p, profile_id: [{"text": "oi", "product_ids": [], "medias": [image]}])
+    monkeypatch.setattr(bot, "_publish_image", lambda *a, **k: "media-1")
 
     def fake_activity(user_id, activity_type, metadata, profile_id=None):
         seen["activity_profile"] = profile_id

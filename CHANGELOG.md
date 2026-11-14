@@ -5,6 +5,16 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.23.1] - 2026-11-14
+
+Correções (PATCH): espera do contêiner no Threads, Instagram exige mídia e logs sem mascarar códigos numéricos. Sem migração.
+
+### Fixed — espera do contêiner no Threads e Instagram sem mídia (14/11/2026)
+
+- **Threads:** a publicação chamava `threads_publish` segundos depois de criar o contêiner e falhava com `Meta code=24 | subcode=4279009` ("The requested resource does not exist"). Agora espera ao menos 30 s após criar (post simples e carrossel), exige status `FINISHED`, consulta a cada 15 s e desiste em 5 min com erro claro; `ERROR`/`EXPIRED` também param antes de publicar. O antigo polling de 1 s sem limite foi removido. Falha no `threads_publish` continua `unknown` (sem reenvio automático). Fonte: doc oficial `developers.facebook.com/docs/threads/posts` (esperar ~30 s) e `/docs/threads/troubleshooting` (status 1x/min por até 5 min).
+- **Instagram:** a doc oficial de Content Publishing não aceita post só de texto (`media_type=TEXT` não existe; só imagem, vídeo/REELS, STORIES e CAROUSEL). Post sem mídia (só texto ou só produto sem foto importada) agora falha antes de chamar a API com "Instagram exige imagem ou vídeo", como falha definitiva (`failed`, não `unknown`). O criador de post passa a exigir imagem ou vídeo para o Instagram (a foto Shopee importada do produto conta).
+- **Logs:** o sanitizador deixou de trocar códigos numéricos de erro (`code=24`, `subcode=4279009`) por `***REDACTED***`; tokens, código OAuth e `code=` em URL continuam mascarados.
+
 ## [3.23.0] - 2026-11-14
 
 Funcionalidade (MINOR): métricas por post do Instagram e do Facebook (Fase 2 de insights), com a migração 103.

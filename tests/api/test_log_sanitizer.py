@@ -85,3 +85,36 @@ class TestSanitizePassthrough:
     def test_none_and_numbers_pass_through(self):
         assert sanitize_log_data(None) is None
         assert sanitize_log_data(200) == 200
+
+
+class TestMetaErrorCodes:
+    def test_preserves_numeric_meta_code_and_subcode(self):
+        text = (
+            "Failed to Publish Media Container: HTTP 400 | Meta code=24 | "
+            "subcode=4279009 | The requested resource does not exist"
+        )
+
+        assert sanitize_log_data(text) == text
+        assert sanitize_log_data({"error": text})["error"] == text
+
+    def test_preserves_json_numeric_code(self):
+        text = '{"error": {"code": 190, "error_subcode": 463}}'
+
+        assert sanitize_log_data(text) == text
+
+    def test_still_masks_tokens_next_to_codes(self):
+        text = (
+            "Meta code=24 subcode=4279009 access_token=EAAGabc123secret "
+            "token=xyz789 code=oauth-code-123 state=12345"
+        )
+
+        result = sanitize_log_data(text)
+
+        assert "code=24" in result and "subcode=4279009" in result
+        for secret in ("EAAGabc123secret", "xyz789", "oauth-code-123", "12345"):
+            assert secret not in result
+
+    def test_still_masks_code_in_query_string(self):
+        result = sanitize_log_data("https://x.test/cb?code=123456&state=s")
+
+        assert "123456" not in result

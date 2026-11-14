@@ -69,6 +69,9 @@ _KEY_VALUE_RE = re.compile(
     \s*[:=]\s*)(["']?)([^"',}\s]+)\2""",
     re.VERBOSE,
 )
+# Códigos numéricos de erro (ex: "Meta code=24 | subcode=4279009") são
+# diagnóstico, não credencial: código OAuth nunca é só dígitos curtos.
+_NUMERIC_CODE_RE = re.compile(r"\d{1,10}")
 _POSTGRES_DSN_RE = re.compile(r"(postgres(?:ql)?://[^:/@]+:)(.*)(@[^/\s]+(?:/[^\s?]*)?(?:\?[^\s]*)?)", re.IGNORECASE)
 
 
@@ -93,11 +96,18 @@ def _is_sensitive_key(key: str) -> bool:
     )
 
 
+def _mask_key_value(m: re.Match) -> str:
+    key = m.group(1).strip(" \t\"':=").lower()
+    if key == "code" and _NUMERIC_CODE_RE.fullmatch(m.group(3)):
+        return m.group(0)
+    return f"{m.group(1)}{m.group(2)}{_MASK}{m.group(2)}"
+
+
 def _sanitize_string(value: str) -> str:
     value = _POSTGRES_DSN_RE.sub(r"\1***REDACTED***\3", value)
     value = _BEARER_RE.sub(f"Bearer {_MASK}", value)
     value = _BASIC_RE.sub(f"Basic {_MASK}", value)
-    value = _KEY_VALUE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{_MASK}{m.group(2)}", value)
+    value = _KEY_VALUE_RE.sub(_mask_key_value, value)
     value = _SENSITIVE_QUERY_RE.sub(lambda m: f"{m.group(1)}{_MASK}", value)
     value = _JWT_RE.sub(_MASK, value)
     return value
