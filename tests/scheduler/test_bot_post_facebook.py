@@ -242,3 +242,14 @@ def test_graph_error_with_media_is_logged_as_error_not_text_fallback(monkeypatch
 
     assert activities[0][0] == ActivityType.BOT_POST_FAILURE
     assert "signed url" in errors[0]
+
+
+def test_photo_publication_stores_post_id_for_metrics(monkeypatch):
+    """/photos devolve id da foto e post_id; métricas por post precisam do post_id."""
+    image = {"type": "IMAGE", "file_path": "web/media/7/image.jpg"}
+    _patch_common(monkeypatch, {"text": "foto", "product_ids": [], "medias": [image]})
+    monkeypatch.setattr(module, "_publish_image", lambda *a: {"id": "555", "post_id": "111_222"})
+    monkeypatch.setattr(module, "insert_activities", lambda *a, **k: None)
+    assert module.bot_post_facebook("job-photo").external_id == "111_222"
+    monkeypatch.setattr(module, "_publish_image", lambda *a: {"id": "111_333"})
+    assert module.bot_post_facebook("job-photo").external_id == "111_333"

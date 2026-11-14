@@ -55,6 +55,9 @@ logger = logging.getLogger("uvicorn.error")
 # o dialog OAuth retorna "Aplicativo inativo". config_id criado em
 # Login do Facebook para Empresas > Configurações, com as permissões
 # pages_show_list/pages_read_engagement/pages_manage_posts.
+# Métricas por post (api/meta_post_insights.py) exigem também read_insights na
+# MESMA configuração: escopo vem do config_id, não de scope= nesta URL. Sem ele a
+# coleta grava `permission_required` ("reconecte a conta") e a publicação segue igual.
 CONFIG_ID = os.environ.get("FACEBOOK_CONFIG_ID")
 
 

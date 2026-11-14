@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { formatInstant } from '../lib/userTimeZone'
 import {
-  METRIC_LABELS, RANK_METRICS, UNAVAILABLE_TOOLTIP, formatMetric, seriesTotals,
-  type RankMetric, type SeriesPoint,
+  METRIC_LABELS, RANK_METRICS, TABLE_LABELS, TABLE_METRICS, UNAVAILABLE_TOOLTIP, collectionNote,
+  formatMetric, metricNote, seriesTotals, type RankMetric, type SeriesPoint, type TableMetric,
 } from '../lib/postMetrics'
 import { Panel } from './ui/Panel'
 import { Select } from './ui/Select'
@@ -23,7 +23,7 @@ export type PostMetricRow = {
   finished_at: string | null
   preview: string
   status: string
-} & Record<RankMetric, number | null>
+} & Record<TableMetric, number | null>
 type ListResult = { posts: PostMetricRow[]; total: number; truncated: boolean }
 type NetworkRank = { network: string; posts: number; posts_measured: number; total: number | null; average: number | null }
 type RankingResult = { posts: PostMetricRow[]; networks: NetworkRank[] }
@@ -35,9 +35,10 @@ interface PostMetricsPanelProps {
   scopeKey: string
 }
 
-export function Metric({ value }: { value: number | null | undefined }) {
+export function Metric({ value, note }: { value: number | null | undefined; note?: string }) {
   const text = formatMetric(value)
-  return text === '—' ? <span title={UNAVAILABLE_TOOLTIP} aria-label={UNAVAILABLE_TOOLTIP}>—</span> : <>{text}</>
+  if (text === '—') return <span title={UNAVAILABLE_TOOLTIP} aria-label={UNAVAILABLE_TOOLTIP}>—</span>
+  return note ? <span title={note}>{text}</span> : <>{text}</>
 }
 
 function publishedAt(value: string | null) {
@@ -64,7 +65,7 @@ function EvolutionChart({ values }: { values: { day: string; value: number | nul
 }
 
 export function PostMetricsPanel({ query, scopeKey }: PostMetricsPanelProps) {
-  const [sort, setSort] = useState<RankMetric | 'finished_at'>('views')
+  const [sort, setSort] = useState<TableMetric | 'finished_at'>('views')
   const [order, setOrder] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(0)
   const [rankMetric, setRankMetric] = useState<RankMetric>('views')
@@ -83,7 +84,7 @@ export function PostMetricsPanel({ query, scopeKey }: PostMetricsPanelProps) {
     queryFn: () => api.get<SeriesResult>(`/analytics/series?${query}`),
   })
 
-  function toggleSort(field: RankMetric | 'finished_at') {
+  function toggleSort(field: TableMetric | 'finished_at') {
     setPage(0)
     if (field === sort) setOrder(order === 'desc' ? 'asc' : 'desc')
     else { setSort(field); setOrder('desc') }
@@ -107,7 +108,7 @@ export function PostMetricsPanel({ query, scopeKey }: PostMetricsPanelProps) {
           : ranking.isError ? <p role="alert">Ranking indisponível.</p>
             : !ranking.data?.posts.length ? <p className="post-metrics-muted">Nenhum post com {METRIC_LABELS[rankMetric].toLowerCase()} medido neste período.</p>
               : <ol className="post-metrics-list">{ranking.data.posts.map((post) => <li key={post.job_id}>
-                <strong><Metric value={post[rankMetric]} /></strong> · {NETWORK_NAMES[post.network] ?? post.network} · {post.preview}
+                <strong><Metric value={post[rankMetric]} note={metricNote(post.network, rankMetric)} /></strong> · {NETWORK_NAMES[post.network] ?? post.network} · {post.preview}
                 <div className="post-metrics-muted">{publishedAt(post.finished_at)}</div>
               </li>)}</ol>}
       </Panel>
@@ -140,7 +141,7 @@ export function PostMetricsPanel({ query, scopeKey }: PostMetricsPanelProps) {
     <Panel surface="glass" className="analytics-data-panel">
       <div className="analytics-panel-heading">
         <div><span className="analytics-panel-eyebrow">POR POSTAGEM</span><h2>Desempenho de cada post</h2>
-          <p>Totais acumulados até a última coleta. "—" = a rede não fornece a métrica. Cliques contam só links rastreados pelo Auto Orbital.</p></div>
+          <p>Totais acumulados até a última coleta. "—" = a rede não fornece a métrica. Passe o mouse no número para ver o que ele mede em cada rede (no Facebook, curtidas = reações). Cliques contam só links rastreados pelo Auto Orbital.</p></div>
       </div>
       {list.isLoading ? <SkeletonText lines={3} />
         : list.isError ? <p role="alert">Métricas por publicação indisponíveis.</p>
@@ -150,17 +151,16 @@ export function PostMetricsPanel({ query, scopeKey }: PostMetricsPanelProps) {
                 <thead><tr>
                   <th scope="col">Post</th>
                   <th scope="col"><button type="button" aria-pressed={sort === 'finished_at'} onClick={() => toggleSort('finished_at')}>Publicado em</button></th>
-                  {RANK_METRICS.map((key) => <th scope="col" key={key} aria-sort={sort === key ? (order === 'desc' ? 'descending' : 'ascending') : 'none'}>
+                  {TABLE_METRICS.map((key) => <th scope="col" key={key} aria-sort={sort === key ? (order === 'desc' ? 'descending' : 'ascending') : 'none'}>
                     <button type="button" aria-pressed={sort === key} onClick={() => toggleSort(key)}>
-                      {METRIC_LABELS[key]}{sort === key ? (order === 'desc' ? ' ↓' : ' ↑') : ''}
+                      {TABLE_LABELS[key]}{sort === key ? (order === 'desc' ? ' ↓' : ' ↑') : ''}
                     </button></th>)}
                 </tr></thead>
                 <tbody>{rows.map((post) => <tr key={post.job_id}>
                   <td><strong>{NETWORK_NAMES[post.network] ?? post.network}</strong> · {post.preview}
-                    {post.status === 'parcial' && <div className="post-metrics-muted">Sequência: métricas só da última parte</div>}
-                    {post.status === 'sem_id' && <div className="post-metrics-muted">Confirmação manual sem ID localizado</div>}</td>
+                    {collectionNote(post.status) && <div className="post-metrics-muted">{collectionNote(post.status)}</div>}</td>
                   <td>{publishedAt(post.finished_at)}</td>
-                  {RANK_METRICS.map((key) => <td key={key}><Metric value={post[key]} /></td>)}
+                  {TABLE_METRICS.map((key) => <td key={key}><Metric value={post[key]} note={metricNote(post.network, key)} /></td>)}
                 </tr>)}</tbody>
               </table></div>
               <div className="post-metrics-pager">

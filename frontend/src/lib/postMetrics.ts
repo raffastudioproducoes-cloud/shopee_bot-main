@@ -12,6 +12,43 @@ export const METRIC_LABELS: Record<RankMetric, string> = {
 }
 export const UNAVAILABLE_TOOLTIP = 'a rede não fornece esta métrica'
 
+/** Colunas da tabela por post: as do ranking mais alcance e salvamentos (Instagram/Facebook). */
+export const TABLE_METRICS = ['views', 'reach', 'likes', 'comments', 'shares', 'saves', 'clicks'] as const
+export type TableMetric = typeof TABLE_METRICS[number]
+export const TABLE_LABELS: Record<TableMetric, string> = {
+  ...METRIC_LABELS, reach: 'Alcance', saves: 'Salvamentos',
+}
+
+/** O que cada coluna significa em cada rede (tooltip da célula). Ausente = rótulo genérico. */
+const NETWORK_METRIC_NOTES: Record<string, Partial<Record<TableMetric, string>>> = {
+  threads: { shares: 'Compartilhamentos + reposts' },
+  instagram: { views: 'Visualizações da mídia', reach: 'Contas alcançadas', saves: 'Salvamentos', shares: 'Compartilhamentos' },
+  facebook: { views: 'Visualizações de mídia do post', reach: 'Pessoas que viram a mídia', likes: 'Reações (todos os tipos)' },
+}
+
+export function metricNote(network: string, metric: TableMetric): string {
+  return NETWORK_METRIC_NOTES[network]?.[metric] ?? TABLE_LABELS[metric]
+}
+
+/** Estado da coleta de um post em texto para o usuário; null quando não há o que avisar. */
+const RECONNECT = 'Reconecte a conta para liberar insights'
+const STATUS_NOTES: Record<string, string> = {
+  parcial: 'Sequência: métricas só da última parte',
+  sem_id: 'ID do post na rede não localizado',
+  permission_required: RECONNECT,
+  token_expired: RECONNECT,
+  not_found: 'Post removido ou indisponível na rede',
+  unsupported_type: 'Vídeo do Facebook: métricas por vídeo ainda não coletadas',
+  rate_limited: 'Limite da API atingido; nova tentativa na próxima coleta',
+  api_error: 'A rede não respondeu às métricas deste post',
+  network_error: 'Falha de conexão na última coleta',
+  no_data: 'A rede ainda não devolveu dados (Instagram pode atrasar até 48 h)',
+}
+
+export function collectionNote(status: string): string | null {
+  return STATUS_NOTES[status] ?? null
+}
+
 /** Métrica indisponível é "—", nunca 0. */
 export function formatMetric(value: unknown): string {
   return typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('pt-BR') : '—'

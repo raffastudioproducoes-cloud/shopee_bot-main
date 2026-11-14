@@ -8,8 +8,8 @@ type Coverage = { label: string; detail: string; tone: 'available' | 'limited' |
 
 /** Cobertura efetiva, distinta da possibilidade futura indicada pelo catálogo de Credenciais. */
 const COVERAGE: Readonly<Record<string, Coverage>> = {
-  facebook: { label: 'Envios', detail: 'Histórico de envios; insights por publicação ainda sem coletor validado.', tone: 'limited' },
-  instagram: { label: 'Envios', detail: 'Histórico de envios; insights por mídia dependem de integração e permissões.', tone: 'limited' },
+  facebook: { label: 'Insights por post', detail: 'Coleta por post da Página (visualizações de mídia, alcance, reações, comentários, compartilhamentos); exige read_insights e Página com 100+ curtidas. Vídeos ainda sem métricas.', tone: 'available' },
+  instagram: { label: 'Insights por post', detail: 'Coleta por mídia (visualizações, alcance, curtidas, comentários, compartilhamentos, salvamentos); exige instagram_manage_insights e pode atrasar até 48 h.', tone: 'available' },
   kwai: { label: 'Não integrado', detail: 'Não existe publicador nem coletor oficial habilitado no Auto Orbital.', tone: 'planned' },
   'shopee-video': { label: 'Aprovação pendente', detail: 'Shopee Video Management exige aprovação e OAuth específicos; não é Shopee Afiliados.', tone: 'planned' },
   telegram: { label: 'Em breve', detail: 'Integração com canais/bots ainda não implementada; métricas indisponíveis.', tone: 'planned' },

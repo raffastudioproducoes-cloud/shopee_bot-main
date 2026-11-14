@@ -1,3 +1,11 @@
+## 14/11/2026 — Insights por post, Fase 2 (Instagram e Facebook)
+
+- [x] Coletores por post de Instagram e Facebook no mesmo pipeline do Threads (`api/meta_post_insights.py`, `api/post_insights.py`), histórico em `post_metrics`, cache em `publication_insights` + migração 103 (`reach`, `saves`). UI de Análises com Alcance, Salvamentos e aviso "Reconecte a conta para liberar insights".
+- [ ] Rafa: adicionar `instagram_manage_insights` + `pages_read_engagement` à configuração `INSTAGRAM_CONFIG_ID` e `read_insights` à `FACEBOOK_CONFIG_ID` (Login do Facebook para Empresas); depois reconectar Instagram e Facebook em Credenciais. Os escopos vêm do config_id, não do código.
+- [ ] Validar contra a API real em staging (conta de teste com papel no app; Página com 100+ curtidas para insights do Facebook). Nada foi chamado na API real nesta fase.
+- [ ] Pendente: métricas de vídeo do Facebook (`/{video-id}/video_insights` exige `pages_manage_engagement`); TikTok e X ficam para as fases seguintes.
+- [ ] Meta App Review de `instagram_manage_insights` e `read_insights` após validar em staging.
+
 ## 14/11/2026 — Estado das redes e reativação do X
 
 - [x] 14/11/2026 — Rafa confirmou em produção: Facebook, Instagram (vínculo Página↔Instagram profissional feito; OAuth ok), Threads e TikTok (conta privada necessária enquanto o app não for auditado) FUNCIONANDO. X REATIVADO em 14/11/2026 por decisão do Rafa (cliente único em teste; pode falhar por crédito da API, erro 402 vira falha clara "X recusou por falta de créditos da API").
@@ -14,7 +22,7 @@
 - [ ] Teste de pagamento de ponta a ponta no sandbox (cartão e Pix com mudança de plano) e conferência dos avisos reais do Pix Automático.
 - [ ] Abrir contratação em produção só com autorização: chave/URL/token do Asaas, webhook de produção, Termos/Privacidade, NFS-e.
 - [ ] Pendências: aviso de pagamento pendente no sino; troca de plano com assinatura aberta; pausa de campanhas no downgrade; "Programado" em Posts mostra 3 h antes (a confirmar).
-- [ ] Meta App Review: enviar `threads_manage_insights` após a gravação de Rafa; leitores de insights do Instagram e do Facebook ainda não existem.
+- [ ] Meta App Review: enviar `threads_manage_insights` após a gravação de Rafa; leitores de insights do Instagram e do Facebook entraram na Fase 2 (14/11/2026).
 
 ## 09/11/2026 — Release 3.9.0 (MINOR) em produção
 
