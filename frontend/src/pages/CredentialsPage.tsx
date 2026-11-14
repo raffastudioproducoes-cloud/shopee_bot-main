@@ -853,7 +853,7 @@ function XCredentialCard({
 
         {disabledReason && (
           <p role="status" className="csp-s-0220">
-            Plano pago em breve; publicação no X pausada.
+            {disabledReason}
           </p>
         )}
 

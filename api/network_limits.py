@@ -16,7 +16,10 @@ import re
 MB = 1024 * 1024
 GB = 1024 * MB
 
-DISABLED_NETWORKS = {"x": "X estará disponível em um plano pago em breve"}
+# Redes bloqueadas por regra de produto (rede -> motivo). Vazio desde 14/11/2026:
+# o X foi reativado por decisão do Rafa (cliente único em teste; a API do X
+# pode recusar por falta de créditos, tratado em apis/x.py).
+DISABLED_NETWORKS: dict[str, str] = {}
 
 
 def is_network_disabled(name: str) -> str | None:
