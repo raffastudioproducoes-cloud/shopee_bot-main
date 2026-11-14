@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.23.0] - 2026-11-14
+
+Funcionalidade (MINOR): métricas por post do Instagram e do Facebook (Fase 2 de insights), com a migração 103.
+
 ### Added — métricas por post do Instagram e do Facebook (Fase 2 de insights, 14/11/2026)
 - `api/meta_post_insights.py`: leitura por post na Graph API (v26.0), mesmo contrato do coletor do Threads e mesma rotina (`collect_profile_posts`, claim de `analytics_daily_refreshes`, janela de 90 dias, histórico append-only em `post_metrics`, cache em `publication_insights`).
   - Instagram (`/{ig-media-id}/insights`): `views`, `reach`, `likes`, `comments`, `shares`, `saved`. Não pede `impressions` (depreciado para mídia após 02/07/2024) nem `plays`/`video_views`. Carrossel: métricas do álbum.
