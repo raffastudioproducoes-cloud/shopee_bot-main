@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import vm from 'node:vm'
+import ts from 'typescript'
 
-const { validateForNetwork } = await import('../src/lib/networkLimits.ts')
+// Node 20 do CI não importa .ts: transpila e executa num contexto isolado.
+const transpiled = ts.transpileModule(
+  readFileSync(new URL('../src/lib/networkLimits.ts', import.meta.url), 'utf8'),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } },
+).outputText
+const mod = { exports: {} }
+vm.runInNewContext(transpiled, { module: mod, exports: mod.exports })
+const { validateForNetwork } = mod.exports
 
 const errors = (draft) =>
   validateForNetwork('instagram', draft).filter((i) => i.key === 'requiresMedia' && i.level === 'error')
