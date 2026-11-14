@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.21.0] - 2026-11-14
+
+Funcionalidade (MINOR): livro de consumo de cota imutável no banco (apagar post não devolve cota). Migração 102 já aplicada no banco compartilhado.
+
 ### Added — livro de consumo de cota (`quota_ledger`, migração 102, ainda não aplicada)
 - Tabela `quota_ledger` só de inserção: RLS fechada (`block_all_api`), `service_role` só lê, sem FK em cascata. Triggers recusam UPDATE, DELETE e TRUNCATE para qualquer papel; expurgo exige migração controlada. Escrita só por funções `SECURITY DEFINER` com `search_path` fixo (`record_quota_use` aceita apenas consumo positivo).
 - `reserve_post_plan_quota` (mesma assinatura de 073, compatível com a main 3.20.1) registra no livro cada publicação imediata e cada horário recorrente no momento em que são reservados.
