@@ -39,6 +39,21 @@ CALLBACK_URL = os.environ.get("X_CALLBACK_URL")
 MEDIA_UPLOAD_URL = "https://api.x.com/2/media/upload"  # exige escopo OAuth media.write
 DEFAULT_SCOPES = "tweet.read tweet.write users.read media.write offline.access"
 
+CREDITS_MESSAGE = (
+    "O X recusou por falta de créditos da API (HTTP 402); o post não foi "
+    "publicado. Adicione créditos no X Developer Portal e tente de novo."
+)
+
+
+class XCreditsError(Exception):
+    """402 do X: app sem créditos. Falha definitiva, sem retry."""
+
+
+def _raise_if_no_credits(res):
+    if res.status_code == 402:
+        raise XCreditsError(CREDITS_MESSAGE)
+
+
 MEDIA_RECONNECT_MESSAGE = (
     "O X recusou o upload da imagem (HTTP {status}). Reconecte a conta do X "
     "para conceder a permissão media.write; o post não foi publicado."
@@ -194,6 +209,7 @@ def upload_image(user_access_token, content, filename="image"):
         exceptions=(requests.exceptions.RequestException,),
         timeout=60,
     )
+    _raise_if_no_credits(res)
     if res.status_code in (401, 403):
         raise Exception(MEDIA_RECONNECT_MESSAGE.format(status=res.status_code))
     if res.status_code not in (200, 201):
@@ -222,6 +238,7 @@ def post_text(user_access_token, text, reply_to_id=None, media_ids=None):
         json=payload, exceptions=(requests.exceptions.RequestException,),
         timeout=30,
     )
+    _raise_if_no_credits(res)
     if res.status_code not in (200, 201):
         raise Exception(
             f"X: falha ao publicar Tweet (status {res.status_code}): "

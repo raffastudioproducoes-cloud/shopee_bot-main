@@ -31,8 +31,8 @@ test('Termos e Política têm comentário de revisão jurídica', () => {
   assert.match(pp, /Revisão jurídica necessária antes de publicação oficial/)
 })
 
-test('X aguarda disponibilização em plano pago', () => {
+test('X reativado: sem mensagem de plano pago, mecanismo DISABLED_NETWORKS preservado', () => {
   const limits = source('../src/lib/networkLimits.ts')
-  assert.match(limits, /X estará disponível em um plano pago em breve/)
+  assert.doesNotMatch(limits, /plano pago/)
   assert.match(limits, /DISABLED_NETWORKS/)
 })

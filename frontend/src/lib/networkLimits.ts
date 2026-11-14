@@ -67,9 +67,8 @@ export interface NetworkRule {
 const MB = 1024 * 1024
 const GB = 1024 * MB
 
-export const DISABLED_NETWORKS: Partial<Record<PostNetwork, string>> = {
-  x: "X estará disponível em um plano pago em breve",
-}
+// Vazio desde 14/11/2026: o X foi reativado (espelho de DISABLED_NETWORKS em api/network_limits.py).
+export const DISABLED_NETWORKS: Partial<Record<PostNetwork, string>> = {}
 
 export const isNetworkDisabled = (network: PostNetwork): string | undefined => DISABLED_NETWORKS[network]
 

@@ -72,6 +72,31 @@ def test_expired_x_token_refreshes_with_global_oauth_and_scopes_saved_tokens(mon
     assert result.external_id == "x-1"
 
 
+class _Resp402:
+    status_code = 402
+    text = '{"title":"CreditsDepleted"}'
+
+
+def test_x_402_credits_error_becomes_clear_failed_result(monkeypatch):
+    from shopee_bot.apis import x as xapi
+
+    monkeypatch.setattr(xapi.requests, "post", lambda *a, **k: _Resp402())
+    monkeypatch.setattr(module.schedulers, "get_by_id",
+                        lambda j: {"user_id": 1, "post_id": 2, "profile_id": "p"})
+    monkeypatch.setattr(module.x_credentials, "get_by_user_id",
+                        lambda u, p: {"username": "u", "x_access_token": "tok"})
+    monkeypatch.setattr(module.posts, "get", lambda u, post, p: [{"text": "oi"}])
+    acts = []
+    monkeypatch.setattr(module, "insert_activities",
+                        lambda u, t, m, profile_id=None: acts.append((t, m)))
+
+    result = module.bot_post_x("job-1")
+
+    assert result.status == "failed"
+    assert "falta de créditos da API" in result.error
+    assert acts[0][0] == ActivityType.BOT_POST_FAILURE
+
+
 def test_disabled_x_job_logs_and_skips_before_api_calls(monkeypatch, caplog):
     from shopee_bot.api import network_limits
 

@@ -111,6 +111,26 @@ def test_create_rejects_text_over_network_limit(client):
     assert db.tables["posts"] == []
 
 
+def test_x_is_enabled_by_default_in_production_module():
+    """O conftest zera DISABLED_NETWORKS; aqui carrega o módulo cru do disco."""
+    import importlib.util
+    from api import network_limits
+
+    spec = importlib.util.spec_from_file_location("network_limits_raw", network_limits.__file__)
+    raw = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(raw)
+
+    assert raw.DISABLED_NETWORKS == {}
+    assert raw.is_network_disabled("x") is None
+
+
+def test_create_accepts_x_post(client):
+    c, db = client
+    res = c.post("/posts", json={"texts": ["oi"], "schedule": SCHEDULE, "network": "x"})
+    assert res.status_code == 201
+    assert [p["network"] for p in db.tables["posts"]] == ["x"]
+
+
 def test_create_rejects_disabled_network(client, monkeypatch):
     from api import network_limits
 
