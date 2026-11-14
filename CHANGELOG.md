@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.22.0] - 2026-11-14
+
+Funcionalidade (MINOR): X (Twitter) reativado como rede publicável; docs atualizados com o estado real das redes.
+
 ### Changed — X (Twitter) reativado (14/11/2026)
 - `DISABLED_NETWORKS` (`api/network_limits.py` e `frontend/src/lib/networkLimits.ts`) ficou vazio: o X volta a poder ser conectado por OAuth, escolhido no Criar Post, aceito pela API e executado pelo scheduler. Decisão do Rafa (cliente único em teste); o mecanismo de bloqueio por rede foi mantido.
 - Credenciais, seletor de redes e Análises deixam de mostrar "plano pago em breve"/"Desabilitado" para o X.
