@@ -135,3 +135,60 @@ def test_migration_is_opt_in_private_and_reentrant():
     assert "FOR UPDATE" in sql
     assert "current_setting('app.profile_quota_rpc'" not in sql
     assert "CREATE TRIGGER" not in sql
+
+
+@pytest.mark.anyio
+async def test_recurring_create_failure_compensates_before_deleting_post(monkeypatch):
+    """Livro 102: o CASCADE do post grava a vaga; a compensação vem antes do DELETE."""
+    body = posts.PostCreate(
+        texts=["Oi"], network="threads",
+        schedule={"trigger": "cron", "days_of_week": [1], "times": ["09:00"]},
+    )
+    calls = []
+    monkeypatch.setattr(posts, "_require_profile_id", lambda p: p)
+    monkeypatch.setattr(posts, "_check_network_enabled", lambda *a: None)
+    monkeypatch.setattr(posts, "_validate_product_ids", lambda *a: None)
+    monkeypatch.setattr(posts, "_get_owned_medias", lambda *a: [])
+    monkeypatch.setattr(posts, "_check_network_rules", lambda *a, **k: None)
+    monkeypatch.setattr(posts, "_ensure_scheduler_available", AsyncMock())
+    monkeypatch.setattr(posts, "_create_thread", lambda *a: {"id": 81})
+    monkeypatch.setattr(posts, "_set_post_products", lambda *a: None)
+    monkeypatch.setattr(posts, "reserve_post_plan_quota", lambda *a, **k: calls.append("reserve"))
+    monkeypatch.setattr(posts, "_create_schedule_jobs",
+                        AsyncMock(side_effect=posts.InternalApiError("down")))
+    monkeypatch.setattr(posts, "release_failed_post_plan_quota",
+                        lambda *a: calls.append(("release",) + a))
+    monkeypatch.setattr(posts, "_delete_thread_cascade", lambda *a: calls.append("delete"))
+    with pytest.raises(HTTPException) as raised:
+        await posts.create_post(body, user_id="user-a", profile_id="profile-a")
+    assert raised.value.status_code == 502
+    assert calls == ["reserve", ("release", "user-a", "profile-a", 81), "delete"]
+
+
+@pytest.mark.anyio
+async def test_batch_failure_compensates_recurring_before_rollback(monkeypatch):
+    body = posts.PostBatchCreate(
+        compositions=[{"network": "threads", "texts": ["Primeiro"]}],
+        product_ids=[], draft_media_ids=[],
+        schedule={"trigger": "cron", "days_of_week": [2], "times": ["10:00"]},
+        publish_immediately=False,
+    )
+    calls = []
+    monkeypatch.setattr(posts, "_validate_product_ids", lambda *a: None)
+    monkeypatch.setattr(posts, "_ensure_scheduler_available", AsyncMock())
+    monkeypatch.setattr(posts, "_get_owned_ready_drafts", lambda *a: [])
+    monkeypatch.setattr(posts, "_x_media_for", lambda *a: True)
+    monkeypatch.setattr(posts, "_preview_batch", lambda *a: [
+        {"network": "threads", "texts": ["Primeiro"], "mode": "text", "media_draft_ids": [], "warnings": []},
+    ])
+    monkeypatch.setattr(posts, "_create_thread", lambda *a: {"id": 91})
+    monkeypatch.setattr(posts, "_set_post_products", lambda *a: None)
+    monkeypatch.setattr(posts, "_attach_medias", lambda *a: [])
+    monkeypatch.setattr(posts, "reserve_post_plan_quota", lambda *a, **k: None)
+    monkeypatch.setattr(posts, "_create_schedule_jobs",
+                        AsyncMock(side_effect=posts.InternalApiError("down")))
+    monkeypatch.setattr(posts, "release_failed_post_plan_quota", lambda *a: calls.append("release"))
+    monkeypatch.setattr(posts, "_rollback_plan", lambda *a: calls.append("rollback"))
+    result = await posts.create_posts_batch(body, user_id="user-a", profile_id="profile-a")
+    assert result["created"] == [] and len(result["blocked"]) == 1
+    assert calls == ["release", "rollback"]

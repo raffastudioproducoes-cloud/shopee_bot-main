@@ -1722,9 +1722,12 @@ async def create_post(
         )
         await _create_schedule_jobs(user_id, head["id"], NETWORK_FUNC_MAP[body.network], body.schedule, profile_id)
     except HTTPException:
+        # Compensar ANTES de apagar: o CASCADE do post grava a vaga no livro de consumo.
+        release_failed_post_plan_quota(user_id, profile_id, head["id"])
         _delete_thread_cascade(head["id"], user_id)
         raise
     except InternalApiError:
+        release_failed_post_plan_quota(user_id, profile_id, head["id"])
         _delete_thread_cascade(head["id"], user_id)
         raise HTTPException(
             status_code=502,
@@ -1863,9 +1866,9 @@ async def create_posts_batch(
         except Exception as exc:
             if not isinstance(exc, (InternalApiError, _DraftUnavailable, HTTPException)):
                 logger.warning("Falha ao montar post da rede %s", plan["network"], exc_info=True)
+            # Compensar ANTES de apagar: o CASCADE do post grava a vaga no livro de consumo.
+            release_failed_post_plan_quota(user_id, profile_id, head["id"])
             _rollback_plan(head["id"], fresh, materialized, user_id, profile_id)
-            if body.publish_immediately:
-                release_failed_post_plan_quota(user_id, profile_id, head["id"])
             blocked.append({
                 **plan,
                 "mode": "blocked",
