@@ -86,7 +86,7 @@ export function NetworkPicker({ selected, states, onToggle, readOnly }: NetworkP
         const ready = availability === "active" && supported && !unavailable && state?.connected === true
         const checked = supported && selected.includes(key)
         const reason = availability === "planned" || !supported ? "Em breve"
-          : unavailable ? "em breve · plano pago"
+          : unavailable ? "Indisponível"
           : state?.connected === undefined ? "Verificando conexão"
           : !state.connected ? "Não conectada" : "Conectada"
         // Permitir remover escolhas legadas sem OAuth; jamais selecionar uma rede indisponível.

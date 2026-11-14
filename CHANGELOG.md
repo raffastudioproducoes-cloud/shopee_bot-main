@@ -5,6 +5,15 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Changed — X (Twitter) reativado (14/11/2026)
+- `DISABLED_NETWORKS` (`api/network_limits.py` e `frontend/src/lib/networkLimits.ts`) ficou vazio: o X volta a poder ser conectado por OAuth, escolhido no Criar Post, aceito pela API e executado pelo scheduler. Decisão do Rafa (cliente único em teste); o mecanismo de bloqueio por rede foi mantido.
+- Credenciais, seletor de redes e Análises deixam de mostrar "plano pago em breve"/"Desabilitado" para o X.
+- Docs (`AGENTS.md`, `docs/TASK.md`, `docs/GUIA-MESTRE-IA.md`, `docs/RULES.md`): Facebook, Instagram, Threads e TikTok registrados como funcionando em produção em 14/11/2026 (TikTok exige conta privada até o app ser auditado).
+
+### Added
+- `apis/x.py`: resposta 402 do X (créditos da API esgotados) vira `XCreditsError` com a mensagem "O X recusou por falta de créditos da API"; o job fica `failed` (sem retry, sem `unknown` quando falha antes de publicar).
+- Docs: Instagram exige conta profissional vinculada a uma Página do Facebook; sem isso o erro é "Nenhuma Página do Facebook do usuário tem conta Instagram Business/Creator vinculada".
+
 ## [3.21.0] - 2026-11-14
 
 Funcionalidade (MINOR): livro de consumo de cota imutável no banco (apagar post não devolve cota). Migração 102 já aplicada no banco compartilhado.

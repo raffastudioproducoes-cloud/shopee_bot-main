@@ -1,3 +1,10 @@
+## 14/11/2026 — Estado das redes e reativação do X
+
+- [x] 14/11/2026 — Rafa confirmou em produção: Facebook, Instagram (vínculo Página↔Instagram profissional feito; OAuth ok), Threads e TikTok (conta privada necessária enquanto o app não for auditado) FUNCIONANDO. X REATIVADO em 14/11/2026 por decisão do Rafa (cliente único em teste; pode falhar por crédito da API, erro 402 vira falha clara "X recusou por falta de créditos da API").
+- [x] Instagram exige conta profissional (Business/Creator) vinculada a uma Página do Facebook (Contas vinculadas da Página); sem isso o erro é "Nenhuma Página do Facebook do usuário tem conta Instagram Business/Creator vinculada".
+- [x] `DISABLED_NETWORKS` (API e front) ficou vazio; o mecanismo de bloqueio por rede foi preservado. Erro 402 do X (créditos da API) vira `failed` claro, sem retry.
+- [ ] Rafa: conferir no X Developer Portal o OAuth 2.0 (Read and write), redirect URI = `X_CALLBACK_URL` e créditos da API; reconectar o X em Credenciais para garantir `media.write`.
+
 ## 12/11/2026 — Release 3.16.0 (MINOR): pagamentos Asaas, /planos, cadastro e operação
 
 - [x] Pagamentos Asaas na staging (sandbox): cartão (checkout recorrente) e Pix Automático; webhook, painel ADMIN, `/planos`, cancelamento, guia de teste, validação do cadastro, login 60/40 (PRs #441–#456).
@@ -913,7 +920,7 @@ Detalhamento em `docs/POSTS-AJUSTES-RECORRENCIA-20261102.md`.
 - [x] Callbacks públicos Meta/Threads: desautorizar, exclusão de dados, status.
 - [x] URLs de privacidade, termos e exclusão corrigidas no painel da Meta.
 - [ ] App Meta em modo desenvolvimento: Threads com convite pendente para @rotadesconto; Facebook/Instagram precisam da conta de teste como Testador. Para clientes reais, publicar o app (verificação da empresa e análise do app).
-- [x] X desativado até plano pago.
+- [x] X desativado até plano pago (histórico; **reativado em 14/11/2026**, ver seção 14/11/2026).
 - [ ] TikTok foto: melhoria futura.
 
 ## Atualização 2026-10-12 — publicação de mídia e agendamento
@@ -931,7 +938,7 @@ implementadas localmente em `staging` (sem push); Tarefa 7 parcial.
   (foto única). Evidência: `tests/api` 536, `tests/scheduler` 75, node 10, build ok.
 - [ ] Aplicar migrações 046 e 047 no Supabase de staging (ação humana autorizada).
 - [ ] Validação humana em staging por rede e modo; registrar só o que for observado.
-- [ ] X está desabilitado até virar plano pago; quando reabrir, validar `media.write` e reconectar
+- [ ] X reativado em 14/11/2026: validar `media.write` e reconectar
   a conta de teste se necessário.
 - [ ] TikTok foto: Creator Info no fluxo do usuário e URL em domínio/prefixo verificado.
 - [x] Graph API do Facebook/Instagram revisada para `v26.0`; ainda garantir ordem de mídia por contrato e
@@ -1060,11 +1067,11 @@ app do Instagram (`api/facebook_oauth.py`). Evidência: `git log` (`89e542b`, `2
 
 | Rede | Wrapper de publicação | Registrado no scheduler | OAuth de app único | Usuário conectado (token real) | Status |
 | --- | --- | --- | --- | --- | --- |
-| Threads | `scheduler/bot_post.py` | Sim | Sim | **Sim** | Publicação em produção não confirmada nesta verificação |
-| X | `scheduler/bot_post_x.py` | Sim | Sim | Não | **Desabilitada** — em breve no plano pago; scheduler pula sem chamar a API |
-| Instagram | `scheduler/bot_post_instagram.py` | Sim | Sim | Não | **Bloqueada** — idem |
-| Facebook | `scheduler/bot_post_facebook.py` | Sim | Sim (migrado) | Não confirmado | **Bloqueada** — nunca validado com sucesso |
-| TikTok | `scheduler/bot_post_tiktok.py` | Sim | Sim; domínio/prefixo e redirect staging validados | **Sim no staging** | Conexão/autorização confirmada em staging; publicação real ainda depende de teste/post e política Direct Post |
+| Threads | `scheduler/bot_post.py` | Sim | Sim | **Sim** | **Funcionando em produção (14/11/2026)** |
+| X | `scheduler/bot_post_x.py` | Sim | Sim | A conectar pelo Rafa | **Reativada em 14/11/2026** (decisão do Rafa; cliente único em teste). Pode falhar por crédito da API (402 → `failed` claro) |
+| Instagram | `scheduler/bot_post_instagram.py` | Sim | Sim | Sim | **Funcionando em produção (14/11/2026)** — exige conta profissional vinculada a uma Página do Facebook |
+| Facebook | `scheduler/bot_post_facebook.py` | Sim | Sim (migrado) | Sim | **Funcionando em produção (14/11/2026)** |
+| TikTok | `scheduler/bot_post_tiktok.py` | Sim | Sim; domínio/prefixo e redirect staging validados | **Sim no staging** | **Funcionando em produção (14/11/2026)**; exige conta privada enquanto o app não for auditado (política Direct Post) |
 | Kwai | Não existe | — | — | — | **Bloqueada — sem API pública de postagem disponível** (decisão antiga, não é pendência nova) |
 
 ## Outras pendências reais (vault, 2026-09-28)

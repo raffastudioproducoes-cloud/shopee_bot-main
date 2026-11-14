@@ -16,7 +16,7 @@ const COVERAGE: Readonly<Record<string, Coverage>> = {
   threads: { label: 'Insights por post', detail: 'Coleta por ID de post confirmado, condicionada a OAuth e permissão de insights.', tone: 'available' },
   tiktok: { label: 'Envios', detail: 'Histórico de envios; insights de vídeos exigem integração e escopo video.list.', tone: 'limited' },
   whatsapp: { label: 'Em breve', detail: 'WhatsApp Business Cloud API e webhooks ainda não foram integrados.', tone: 'planned' },
-  x: { label: 'Desabilitado', detail: 'Publicação bloqueada no produto; somente histórico de envios já registrado.', tone: 'limited' },
+  x: { label: 'Envios', detail: 'Histórico de envios; a publicação pode falhar por falta de créditos da API do X.', tone: 'limited' },
 }
 
 export const ANALYTICS_NETWORKS = buildAdminDiagnosticSections().social.map((platform) => ({
