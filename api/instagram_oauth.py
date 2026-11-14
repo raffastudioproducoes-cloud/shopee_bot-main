@@ -51,6 +51,9 @@ SECRET = os.environ.get("INSTAGRAM_SECRET")
 # o dialog OAuth retorna "Aplicativo inativo". config_id criado em
 # Login do Facebook para Empresas > Configurações, com as permissões
 # instagram_basic/instagram_content_publish/pages_show_list.
+# Métricas por mídia (api/meta_post_insights.py) exigem também
+# instagram_manage_insights e pages_read_engagement na MESMA configuração (escopo vem
+# do config_id). Sem eles a coleta grava `permission_required` e a publicação segue igual.
 CONFIG_ID = os.environ.get("INSTAGRAM_CONFIG_ID")
 CALLBACK_URL = os.environ.get("INSTAGRAM_CALLBACK_URL")
 

@@ -165,4 +165,7 @@ def bot_post_facebook(job_id):
         profile_id=profile_id
     )
     logger.info(f"bot_post_facebook job #{job_id} for {username} finished.")
+    # /photos devolve `id` da foto e `post_id` do post; métricas por post precisam do post.
+    if isinstance(external, dict) and external.get("post_id"):
+        external = external["post_id"]
     return succeeded(external_id(external))

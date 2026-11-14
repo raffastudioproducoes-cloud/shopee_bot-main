@@ -49,8 +49,8 @@ async def refresh_account(user_id, profile_id, *, manual=False, claim_token=None
         states = await collect_profile_posts(user_id, profile_id)
     except Exception:
         logger.exception("Falha sanitizada na coleta por publicação")
-        states = {"threads": "unavailable", "facebook": "not_connected",
-                  "instagram": "not_connected", "tiktok": "unsupported", "x": "unsupported"}
+        states = {"threads": "unavailable", "facebook": "unavailable",
+                  "instagram": "unavailable", "tiktok": "unsupported", "x": "unsupported"}
     now = datetime.now(timezone.utc).isoformat()
     payload = {
         "last_completed_at": now,

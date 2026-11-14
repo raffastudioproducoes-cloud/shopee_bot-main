@@ -69,3 +69,17 @@ test('telas usam o helper: traço com tooltip, fuso do usuário e card no Dashbo
   assert.match(card, /days=30&metric=views/)
   assert.match(card, /to: '\/analytics'/)
 })
+
+test('Fase 2: rótulos por rede, alcance/salvamentos e aviso de reconexão', () => {
+  assert.deepEqual([...pm.TABLE_METRICS], ['views', 'reach', 'likes', 'comments', 'shares', 'saves', 'clicks'])
+  assert.equal(pm.metricNote('facebook', 'likes'), 'Reações (todos os tipos)')
+  assert.equal(pm.metricNote('instagram', 'saves'), 'Salvamentos')
+  assert.equal(pm.metricNote('threads', 'reach'), 'Alcance')
+  assert.equal(pm.collectionNote('permission_required'), 'Reconecte a conta para liberar insights')
+  assert.equal(pm.collectionNote('token_expired'), 'Reconecte a conta para liberar insights')
+  assert.equal(pm.collectionNote('ok'), null)
+  assert.equal(pm.formatMetric(null), '—')
+  const panel = readFileSync(new URL('../src/components/PostMetricsPanel.tsx', import.meta.url), 'utf8')
+  assert.match(panel, /TABLE_METRICS\.map\(\(key\) => <td key=\{key\}><Metric value=\{post\[key\]\} note=\{metricNote\(post\.network, key\)\}/)
+  assert.match(panel, /collectionNote\(post\.status\)/)
+})

@@ -10,7 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from ..analytics_refresh import (TABLE as REFRESH_TABLE, claim_manual_refresh,
                                  manual_quota_status, refresh_account)
 from ..database import supabase
-from ..post_insights import (current_network_connections, distinct_published_jobs,
+from ..post_insights import (COLLECTED_NETWORKS, current_network_connections, distinct_published_jobs,
                              indexed_insights, published_jobs, summarize_post_metrics)
 from ..profiles import scope_account, scope_owner
 from .auth import get_current_user_id
@@ -214,8 +214,6 @@ def summary(
             status = "unsupported"
         elif not connections.get(name, False):
             status = "not_connected"
-        elif name != "threads":
-            status = "unsupported"
         elif not subset:
             status = "no_posts"
         elif not eligible:
@@ -228,8 +226,8 @@ def summary(
             status = next(iter(states))
         else:
             status = "not_collected"
-        if name != "threads":
-            # Não existe coletor individual homologado nessas redes ainda.
+        if name not in COLLECTED_NETWORKS:
+            # Não existe coletor individual homologado nessas redes ainda (TikTok, X).
             metrics = {field: None for field in metrics}
         rows.append({
             "network": name,
