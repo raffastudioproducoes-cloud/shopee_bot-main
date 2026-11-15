@@ -32,11 +32,13 @@ export function metricNote(network: string, metric: TableMetric): string {
 
 /** Estado da coleta de um post em texto para o usuário; null quando não há o que avisar. */
 const RECONNECT = 'Reconecte a conta para liberar insights'
+export const ACCESS_DENIED = 'A Meta recusou os insights deste post (a Página pode ter menos de 100 curtidas ou faltar permissão). Veja o código no log.'
 const STATUS_NOTES: Record<string, string> = {
   parcial: 'Sequência: métricas só da última parte',
   sem_id: 'ID do post na rede não localizado',
   permission_required: RECONNECT,
   token_expired: RECONNECT,
+  access_denied: ACCESS_DENIED,
   not_found: 'Post removido ou indisponível na rede',
   unsupported_type: 'Vídeo do Facebook: métricas por vídeo ainda não coletadas',
   rate_limited: 'Limite da API atingido; nova tentativa na próxima coleta',

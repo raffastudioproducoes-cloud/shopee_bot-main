@@ -14,8 +14,8 @@ from api import post_insights
 TOKEN = "secret-meta-token"
 
 
-def _error(code, subcode=None, status=400):
-    body = {"error": {"message": f"contém {TOKEN}", "code": code}}
+def _error(code, subcode=None, status=400, message="(#10) Requires read_insights permission"):
+    body = {"error": {"message": f"{message} contém {TOKEN}", "code": code, "type": "OAuthException"}}
     if subcode is not None:
         body["error"]["error_subcode"] = subcode
     return httpx.Response(status, json=body)
@@ -64,6 +64,8 @@ def test_instagram_unknown_metric_falls_back_once():
 @pytest.mark.parametrize("response,expected", [
     (_error(10, status=403), "permission_required"),
     (_error(200), "permission_required"),
+    (_error(10, status=403, message="(#10) Not enough viewers"), "access_denied"),
+    (httpx.Response(403, json={}), "access_denied"),
     (_error(190, status=401), "token_expired"),
     (_error(100, 33), "not_found"),
     (_error(4), "rate_limited"),
@@ -132,6 +134,61 @@ def test_facebook_removed_post_and_missing_scope():
     assert state == "not_found"
     (state, _, _), _ = _read(meta.read_facebook_post, "111_222", lambda r: _error(10, status=403))
     assert state == "permission_required"
+
+
+def _fb_fields_fail(response):
+    base = _facebook_handler()
+
+    def handler(request):
+        if request.url.path.endswith("/111_222") and request.url.params.get("fields") == meta.FB_POST_FIELDS:
+            return response
+        return base(request)
+    return handler
+
+
+def test_facebook_post_fields_permission_error_keeps_insights(caplog):
+    caplog.set_level("WARNING", logger=meta.__name__)
+    (state, metrics, extra), _ = _read(meta.read_facebook_post, "333", _fb_fields_fail(_error(10, status=403)))
+    assert state == "ok"
+    assert metrics == {"views": 500, "reach": 300, "likes": 10, "comments": None, "shares": None, "saves": None}
+    assert extra["post_fields"] == {"state": "permission_required", "step": "post_fields",
+                                    "graph_code": 10, "graph_subcode": None}
+    assert "message" not in str(extra) and TOKEN not in str(extra) and "Requires" not in str(extra)
+    log = caplog.text
+    assert "code=10" in log and "status=403" in log and "type=OAuthException" in log
+    assert TOKEN not in log and "Requires" not in log
+    assert "111" not in log and "222" not in log and "333" not in log  # sem IDs de post/Página
+
+
+def test_facebook_post_fields_stop_states_still_return_early():
+    for response, expected in ((_error(190, status=401), "token_expired"), (_error(4), "rate_limited"),
+                               (_error(100, 33), "not_found")):
+        (state, metrics, extra), _ = _read(meta.read_facebook_post, "111_222", _fb_fields_fail(response))
+        assert state == expected and metrics is None and extra["step"] == "post_fields"
+
+
+def test_facebook_insights_error_records_step_and_code_without_message():
+    def handler(request):
+        if request.url.path.endswith("/insights"):
+            return _error(10, status=403, message="(#10) Not enough viewers")
+        return _facebook_handler()(request)
+    (state, metrics, extra), _ = _read(meta.read_facebook_post, "333", handler)
+    assert state == "access_denied" and metrics is None
+    assert extra == {"resolved_from": "photo", "step": "insights", "graph_code": 10, "graph_subcode": None}
+    (state, _, extra), _ = _read(meta.read_facebook_post, "333", lambda r: _error(200, 7))
+    assert state == "permission_required"
+    assert extra == {"step": "resolve", "graph_code": 200, "graph_subcode": 7}
+
+
+def test_access_denied_does_not_stop_or_ask_reconnect(monkeypatch):
+    jobs = [_job(f"fb{i}", "facebook", f"1{i}_2", post_id=i) for i in range(3)]
+    states, persisted, history = _collect(
+        monkeypatch, jobs, lambda r: _error(10, status=403, message="(#10) Not enough viewers"))
+    assert states["facebook"] == "access_denied" and "access_denied" not in meta.STOP_STATES
+    assert "access_denied" not in meta.RECONNECT_STATES
+    assert len(history) == 3 and all(row["extra"]["graph_code"] == 10 for row in history)
+    assert all(row["extra"]["step"] == "insights" for row in history)
+    assert TOKEN not in str(history)
 
 
 # ---------------- Coletor ----------------
