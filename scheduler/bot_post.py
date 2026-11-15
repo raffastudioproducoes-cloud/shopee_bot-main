@@ -9,6 +9,7 @@ from shopee_bot.scheduler.profile_scope import require_profile_id
 from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.media_delivery import STORAGE_PREFIX, delivery_url
 from shopee_bot.scheduler.publication_result import succeeded, unknown, failed
+from shopee_bot.utils import mark_not_published, was_not_published
 
 
 MEDIA_FILE_MISSING_MESSAGE = (
@@ -23,13 +24,16 @@ def _ensure_media_ready(medias):
 
 
 def _carousel_post(user_data, post, reply_to_id=None):
-    _ensure_media_ready(post["medias"])
     medias, cleanups = [], []
     try:
-        for media in post["medias"]:
-            url, cleanup = delivery_url(media)
-            cleanups.append(cleanup)
-            medias.append({"type": media["type"], "url": url})
+        try:
+            _ensure_media_ready(post["medias"])
+            for media in post["medias"]:
+                url, cleanup = delivery_url(media)
+                cleanups.append(cleanup)
+                medias.append({"type": media["type"], "url": url})
+        except Exception as err:
+            raise mark_not_published(err)
         mark_external_delivery()
         return ThreadsAPI.make_carousel_post(
             user_data["threads_user_id"],
@@ -44,9 +48,12 @@ def _carousel_post(user_data, post, reply_to_id=None):
 
 
 def _media_post(user_data, post, reply_to_id=None):
-    _ensure_media_ready(post["medias"])
     media = post["medias"][0]
-    url, cleanup = delivery_url(media)
+    try:
+        _ensure_media_ready(post["medias"])
+        url, cleanup = delivery_url(media)
+    except Exception as err:
+        raise mark_not_published(err)
     kind = {"IMAGE": {"media_type": "IMAGE", "image_url": url}}.get(
         media["type"], {"media_type": "VIDEO", "video_url": url}
     )
@@ -126,13 +133,17 @@ def bot_post(job_id):
             )
             # não continua a thread: partes seguintes seriam replies de
             # um post que nunca saiu (reply_to_id inválido).
-            # Uma rejeição 4xx na CRIAÇÃO do contêiner é definitiva:
-            # nenhuma publicação foi solicitada. Erros no publish (ou após
-            # partes anteriores) continuam incertos para evitar duplicação.
-            if (published_parts == 0 and
-                    isinstance(err, ThreadsAPI.ThreadsApiError) and
-                    err.stage.startswith("Failed to Create") and
-                    400 <= err.status_code < 500):
+            # Falha antes do threads_publish (mídia local, criação ou
+            # espera do contêiner: timeout, ERROR, EXPIRED) é definitiva:
+            # nada ficou público. Só erro no próprio threads_publish (ou
+            # depois de partes já publicadas) fica incerto, sem reenvio
+            # automático, para nunca duplicar.
+            container_rejected = (
+                isinstance(err, ThreadsAPI.ThreadsApiError) and
+                err.stage.startswith("Failed to Create") and
+                400 <= err.status_code < 500
+            )
+            if published_parts == 0 and (was_not_published(err) or container_rejected):
                 return failed(err)
             return unknown(err)
 

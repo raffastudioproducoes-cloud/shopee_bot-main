@@ -9,6 +9,15 @@ from shopee_bot.scheduler.profile_scope import require_profile_id
 from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.media_delivery import delivery_url
 from shopee_bot.scheduler.publication_result import external_id, failed, succeeded, unknown
+from shopee_bot.utils import mark_not_published, was_not_published
+
+
+def _local_url(media):
+    """URL de entrega gerada localmente; falha aqui não envia nada à rede."""
+    try:
+        return delivery_url(media)
+    except Exception as err:
+        raise mark_not_published(err)
 
 
 def _first_image(post):
@@ -16,7 +25,7 @@ def _first_image(post):
 
 
 def _publish_image(app_id, secret, user_access_token, ig_user_id, media, caption):
-    url, cleanup = delivery_url(media)
+    url, cleanup = _local_url(media)
     try:
         mark_external_delivery()
         return InstagramAPI.post_image(app_id, secret, user_access_token, url, caption, ig_user_id)
@@ -25,7 +34,7 @@ def _publish_image(app_id, secret, user_access_token, ig_user_id, media, caption
 
 
 def _publish_video(app_id, secret, user_access_token, ig_user_id, media, caption):
-    url, cleanup = delivery_url(media)
+    url, cleanup = _local_url(media)
     try:
         mark_external_delivery()
         return InstagramAPI.post_video(app_id, secret, user_access_token, url, caption, ig_user_id)
@@ -37,7 +46,7 @@ def _publish_carousel(app_id, secret, user_access_token, ig_user_id, medias, cap
     items, cleanups = [], []
     try:
         for media in medias:
-            url, cleanup = delivery_url(media)
+            url, cleanup = _local_url(media)
             cleanups.append(cleanup)
             items.append({"type": media["type"], "url": url})
         mark_external_delivery()
@@ -109,7 +118,9 @@ def bot_post_instagram(job_id):
             }),
             profile_id=profile_id
         )
-        if isinstance(err, InstagramAPI.InstagramMediaRequiredError):
+        # Falha antes do media_publish (container, espera, mídia local) não
+        # publicou nada: failed. Erro no próprio media_publish fica unknown.
+        if isinstance(err, InstagramAPI.InstagramMediaRequiredError) or was_not_published(err):
             return failed(err)
         return unknown(err)
 

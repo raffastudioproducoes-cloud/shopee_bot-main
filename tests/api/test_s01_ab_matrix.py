@@ -277,6 +277,8 @@ RESOURCE_CASES = [
     ("DELETE", f"/posts/{RID}/media/{RID}", {}),
     ("POST", f"/posts/{RID}/reconcile", {"json": {}}),
     ("POST", f"/posts/{RID}/retry-unknown", {"json": {"source_job_id": UID}}),
+    ("POST", f"/posts/{RID}/resolve-unknown", {"json": {"source_job_id": UID, "outcome": "not_published", "confirmed": True}}),
+    ("POST", f"/posts/{RID}/retry-failed", {"json": {"source_job_id": UID, "confirmed": True}}),
     ("POST", f"/posts/{RID}/future-revisions", {"json": {"texts": ["hack"]}}),
     ("GET", f"/posts/{RID}/future-revisions/latest", {}),
     ("POST", f"/posts/product-image-drafts/{RID}", {}),

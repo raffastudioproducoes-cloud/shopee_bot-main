@@ -58,9 +58,10 @@ test('Posts: filtro por rede social com contagem, limpeza e carga de páginas an
   const s = src('pages/PostsPage.tsx')
   assert.match(s, /aria-label="Filtrar posts por rede social"/)
   assert.match(s, /aria-pressed=\{active\}/)
-  assert.match(s, /countPostsByNetwork\(posts\)/)
+  // Contagem sobre o histórico completo carregado, não sobre a lista já filtrada por status.
+  assert.match(s, /countPostsByNetwork\(allPosts\)/)
   assert.match(s, /\(post\.network \?\? "threads"\) === networkFilter/)
   assert.match(s, /Limpar filtro de rede/)
   assert.match(s, /canAdvancePostHistory\(\s*pagination\.page, pagination\.loadedPages, !!hasNextPage, hasActiveFilter/)
-  assert.match(s, /setHistoryPage\(1\), \[searchQuery, activeProfileId, networkFilter\]/)
+  assert.match(s, /setHistoryPage\(1\), \[searchQuery, activeProfileId, networkFilter, statusFilter\]/)
 })
