@@ -57,6 +57,8 @@ REVIEWED_ID_ROUTES = frozenset({
     "POST /posts/{post_id}/media",
     "POST /posts/{post_id}/publish",
     "POST /posts/{post_id}/reconcile",
+    "POST /posts/{post_id}/resolve-unknown",
+    "POST /posts/{post_id}/retry-failed",
     "POST /posts/{post_id}/retry-unknown",
     "POST /products/{product_id}/media",
     "POST /profiles/{profile_id}/activate",

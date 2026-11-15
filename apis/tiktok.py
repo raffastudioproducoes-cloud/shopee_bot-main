@@ -59,7 +59,7 @@ from urllib.parse import quote
 
 import requests
 
-from shopee_bot.utils import ConnectionTestError, retry_with_backoff
+from shopee_bot.utils import ConnectionTestError, retry_with_backoff, mark_not_published
 
 AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
 TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
@@ -420,25 +420,28 @@ def _wait_publish_complete(user_access_token, publish_id, timeout_s=120):
 
 def post_video(user_access_token, video_path, text, privacy_level="SELF_ONLY", before_publish=None):
     """Valida Creator Info e publica um vídeo com upload em chunks."""
-    video_size = os.path.getsize(video_path)
-    _upload_chunk_plan(video_size)
-    creator = get_creator_info(user_access_token)
-    if creator.get("creator_can_post") is False:
-        raise TikTokAPIError(
-            "Esta conta TikTok não pode publicar no momento. Tente novamente mais tarde."
-        )
-    max_duration = int(creator["max_video_post_duration_sec"])
-    duration = _video_duration_seconds(video_path)
-    if duration > max_duration:
-        raise TikTokAPIError(
-            f"Este vídeo tem {duration:.1f}s, mas a conta TikTok permite no máximo "
-            f"{max_duration}s. Substitua o arquivo por um vídeo mais curto."
-        )
-    privacy_options = creator["privacy_level_options"]
-    if privacy_level not in privacy_options:
-        raise TikTokAPIError(
-            "A opção de privacidade solicitada não está disponível para esta conta TikTok."
-        )
+    try:
+        video_size = os.path.getsize(video_path)
+        _upload_chunk_plan(video_size)
+        creator = get_creator_info(user_access_token)
+        if creator.get("creator_can_post") is False:
+            raise TikTokAPIError(
+                "Esta conta TikTok não pode publicar no momento. Tente novamente mais tarde."
+            )
+        max_duration = int(creator["max_video_post_duration_sec"])
+        duration = _video_duration_seconds(video_path)
+        if duration > max_duration:
+            raise TikTokAPIError(
+                f"Este vídeo tem {duration:.1f}s, mas a conta TikTok permite no máximo "
+                f"{max_duration}s. Substitua o arquivo por um vídeo mais curto."
+            )
+        privacy_options = creator["privacy_level_options"]
+        if privacy_level not in privacy_options:
+            raise TikTokAPIError(
+                "A opção de privacidade solicitada não está disponível para esta conta TikTok."
+            )
+    except Exception as err:
+        raise mark_not_published(err)  # validação prévia: nenhum envio ao TikTok
     if before_publish:
         before_publish()
     publish_id, upload_url = _init_video_post(

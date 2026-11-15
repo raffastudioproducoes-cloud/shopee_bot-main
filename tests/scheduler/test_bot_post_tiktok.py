@@ -386,3 +386,17 @@ def test_value_error_after_tiktok_call_stays_unknown(monkeypatch, tmp_path):
 
     monkeypatch.setattr(module.TikTokAPI, "post_video", post_video)
     assert module.bot_post_tiktok("j").status == "unknown"
+
+
+def test_validacao_da_conta_antes_do_init_e_failed(monkeypatch, tmp_path):
+    """creator_info recusou a conta antes do init: nada foi enviado ao TikTok."""
+    video = tmp_path / "v.mp4"
+    video.write_bytes(b"0" * 10)
+    _patch_common(monkeypatch, _user_data(), [{"text": "oi", "medias": [
+        {"type": "VIDEO", "file_path": str(video), "file_name": "v.mp4"}]}])
+    monkeypatch.setattr(module, "insert_activities", lambda *a, **k: None)
+    monkeypatch.setattr(module.TikTokAPI, "_upload_chunk_plan", lambda size: None)
+    monkeypatch.setattr(module.TikTokAPI, "get_creator_info", lambda token: {"creator_can_post": False})
+    monkeypatch.setattr(module.TikTokAPI, "_init_video_post",
+                        lambda *a, **k: pytest.fail("não deve iniciar a publicação"))
+    assert module.bot_post_tiktok("j").status == "failed"

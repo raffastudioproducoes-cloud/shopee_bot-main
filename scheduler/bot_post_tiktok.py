@@ -17,6 +17,7 @@ from shopee_bot.database.activities import (
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.media_delivery import MediaDownloadError, local_file
 from shopee_bot.scheduler.profile_scope import require_profile_id
+from shopee_bot.utils import mark_not_published, was_not_published
 from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.publication_result import failed, succeeded, unknown
 
@@ -71,6 +72,7 @@ def _post_with_refresh(user_id, profile_id, user_data, video_path, text):
     except Exception as err:
         if not _is_token_expired(err):
             raise
+        expired_before_publish = was_not_published(err)
     logger.info("TikTok access token expirado — renovando com refresh token.")
     new_token = _refresh_tokens(user_id, profile_id, user_data)
     if not new_token:
@@ -80,7 +82,8 @@ def _post_with_refresh(user_id, profile_id, user_data, video_path, text):
             )
         except Exception as err:
             logger.warning(f"TikTok: não marcou reconexão: {type(err).__name__}")
-        raise TikTokAPI.TikTokAPIError(RECONNECT_MESSAGE)
+        reconnect = TikTokAPI.TikTokAPIError(RECONNECT_MESSAGE)
+        raise mark_not_published(reconnect) if expired_before_publish else reconnect
     return TikTokAPI.post_video(
         new_token, video_path, text, before_publish=mark_external_delivery
     )
@@ -154,7 +157,9 @@ def bot_post_tiktok(job_id):
     except MediaDownloadError as err:
         return _fail(job_id, username, user_id, post_id, profile_id, "media", err, failed)
     except Exception as err:
-        return _fail(job_id, username, user_id, post_id, profile_id, "publish", err, unknown)
+        # Validação da conta/vídeo antes do init no TikTok: nada enviado.
+        result = failed if was_not_published(err) else unknown
+        return _fail(job_id, username, user_id, post_id, profile_id, "publish", err, result)
 
     insert_activities(
         user_id,

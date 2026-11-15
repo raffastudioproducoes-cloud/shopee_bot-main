@@ -757,6 +757,8 @@ _PUBLISH_ACTIVITY_STATUS = {1: "published", 2: "failed"}
 MANUAL_CONFIRMATION_PREFIX = "MANUAL_CONFIRMED; "
 USER_REPORTED_REMOVED_PREFIX = "USER_REPORTED_REMOVED; "
 MANUAL_RETRY_PREFIX = "MANUAL_RETRY_REQUESTED; "
+MANUAL_NOT_PUBLISHED_PREFIX = "MANUAL_NOT_PUBLISHED; "
+MANUAL_NOT_PUBLISHED_MESSAGE = "Você conferiu e marcou como não publicado. Reenvie quando quiser."
 
 
 def _utc_instant(value: str | None) -> datetime | None:
@@ -802,6 +804,7 @@ def _public_publish_result(result: dict | None, is_admin: bool) -> dict | None:
     return {**result, "error": (
         "Falha parcial na publicação. Confira o post na rede antes de tentar novamente."
         if result.get("partial_failure") else
+        MANUAL_NOT_PUBLISHED_MESSAGE if result.get("manual_not_published") else
         "Falha ao publicar. Confira o horário da execução."
         if result.get("status") == "failed" else
         result.get("error") if result.get("status") == "unknown" else None
@@ -1069,6 +1072,7 @@ def _resolve_last_publish_result(job: dict | None, activity: dict | None) -> dic
     state = job["status"]
     manual = state == "succeeded" and (job.get("last_error") or "").startswith(MANUAL_CONFIRMATION_PREFIX)
     reported_removed = state == "unknown" and (job.get("last_error") or "").startswith(USER_REPORTED_REMOVED_PREFIX)
+    manual_not_published = state == "failed" and (job.get("last_error") or "").startswith(MANUAL_NOT_PUBLISHED_PREFIX)
     status_label = (
         "manual_confirmed" if manual else
         "reported_removed" if reported_removed else
@@ -1081,11 +1085,14 @@ def _resolve_last_publish_result(job: dict | None, activity: dict | None) -> dic
         "error": (
             "Execução sem confirmação. Confira na rede antes de agir."
             if state == "unknown" and not reported_removed else
+            MANUAL_NOT_PUBLISHED_MESSAGE if manual_not_published else
             sanitize_log_data(str(job.get("last_error")))[:200] if state == "failed" and job.get("last_error")
             else None
         ),
-        **({"proof_url": job.get("external_id")} if manual else {}),
-        **({"job_id": job["id"]} if state == "unknown" and not reported_removed else {}),
+        **({"proof_url": job.get("external_id")} if manual and job.get("external_id") else {}),
+        **({"manual_not_published": True} if manual_not_published else {}),
+        # job_id permite decidir (unknown) ou reenviar (failed) exatamente esta ocorrência.
+        **({"job_id": job["id"]} if state in ("unknown", "failed") and not reported_removed else {}),
     }
 
 
@@ -1157,6 +1164,7 @@ def reconcile_post(
             raise HTTPException(status_code=503, detail="Não foi possível registrar o relato")
         if not response.data:
             raise HTTPException(status_code=409, detail="A execução mudou de estado. Atualize a lista.")
+        _record_manual_decision(user_id, profile_id, post_id, job["id"], "threads", "reported_removed")
         log_action(
             "post_user_reported_published_removed",
             f"post_id={post_id} job_id={job['id']} original_status=unknown evidence=unavailable",
@@ -1194,6 +1202,7 @@ def reconcile_post(
     if not response.data:
         raise HTTPException(status_code=409, detail="A publicação mudou de estado. Atualize a lista.")
 
+    _record_manual_decision(user_id, profile_id, post_id, job["id"], "threads", "published")
     log_action(
         "post_manual_reconciliation",
         f"post_id={post_id} job_id={job['id']} original_status=unknown evidence_url={url}",
@@ -1260,6 +1269,7 @@ def retry_unknown_post(
     if not result.data:
         raise HTTPException(status_code=409, detail="O estado da publicação mudou. Atualize a lista.")
 
+    _record_manual_decision(user_id, profile_id, post_id, body.source_job_id, "threads", "retry_requested")
     log_action(
         "post_manual_retry_requested",
         f"post_id={post_id} previous_job={body.source_job_id} retry_job={result.data} network=threads",
@@ -1267,6 +1277,199 @@ def retry_unknown_post(
     )
     return {"status": "queued", "msg": "Reenvio colocado na fila. O resultado aparecerá no post em instantes."}
 
+
+
+# --- Decisão humana sobre publicações sem confirmação (todas as redes) ------
+#
+# "unknown" nunca é reenviado automaticamente: só o dono, depois de conferir a
+# rede, decide. "Foi publicado" fecha a ocorrência como succeeded (sem reenviar);
+# "Não foi publicado" fecha como failed e libera o reenvio MANUAL. Nenhuma das
+# duas mexe na cota: a execução original já consumiu a reserva e o livro
+# (quota_ledger) só compensa criação que falhou antes de existir execução.
+
+_MANUAL_RESOLUTION_ACTIVITY = 10  # activity_types: SCHEDULER_INFO (fora de 1/2, não altera o status exibido)
+
+_NETWORK_PERMALINK_HOSTS = {
+    "facebook": ("facebook.com", "fb.com", "fb.watch"),
+    "instagram": ("instagram.com",),
+    "tiktok": ("tiktok.com",),
+    "x": ("x.com", "twitter.com"),
+}
+
+
+def _valid_network_permalink(network: str, value: str) -> str | None:
+    """Link opcional de evidência: HTTPS no domínio da própria rede, sem credenciais."""
+    if network == "threads":
+        return _valid_threads_permalink(value)
+    try:
+        parsed = urlparse(value.strip())
+    except ValueError:
+        return None
+    host = (parsed.hostname or "").lower()
+    allowed = _NETWORK_PERMALINK_HOSTS.get(network, ())
+    if (parsed.scheme != "https" or parsed.username or parsed.password or parsed.port
+            or not any(host == domain or host.endswith("." + domain) for domain in allowed)
+            or "token" in parsed.query.lower() or len(value) > 500):
+        return None
+    # Facebook usa query no permalink (story_fbid); nas demais redes ela é rastreio.
+    query = f"?{parsed.query}" if network == "facebook" and parsed.query else ""
+    return f"https://{host}{parsed.path or '/'}{query}"
+
+
+def _record_manual_decision(user_id, profile_id, post_id: int, job_id, network: str, decision: str) -> None:
+    """Quem decidiu, quando e o quê, visível em Atividades. Falha aqui não desfaz a decisão."""
+    try:
+        supabase.table("activities").insert({
+            "activity_id": _MANUAL_RESOLUTION_ACTIVITY,
+            "user_id": user_id,
+            "profile_id": profile_id,
+            "metadata": {
+                "event": "manual_publication_decision",
+                "decision": decision,
+                "post_id": post_id,
+                "job_id": str(job_id),
+                "network": network,
+                "decided_by": str(user_id),
+                "decided_at": datetime.now(timezone.utc).isoformat(),
+            },
+        }).execute()
+    except Exception:
+        logger.warning("Falha ao registrar decisão manual do post %s em atividades", post_id, exc_info=True)
+
+
+class ResolveUnknownPostBody(BaseModel):
+    source_job_id: uuid.UUID
+    outcome: Literal["published", "not_published"]
+    confirmed: bool = False
+    permalink: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/{post_id}/resolve-unknown", status_code=200)
+def resolve_unknown_post(
+    post_id: int,
+    body: ResolveUnknownPostBody,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """O dono decide uma execução sem confirmação, em qualquer rede. Nunca publica."""
+    post = _get_post(user_id, post_id, profile_id)  # 404 para post de outra conta/perfil
+    _require_legacy_post_origin(post)
+    if body.confirmed is not True:
+        raise HTTPException(status_code=422, detail="Confirme a informação de forma explícita")
+    network = post.get("network") or "threads"
+    proof = None
+    if body.outcome == "published" and (body.permalink or "").strip():
+        proof = _valid_network_permalink(network, body.permalink)
+        if not proof:
+            raise HTTPException(status_code=422, detail="Link inválido: use o endereço HTTPS da publicação na própria rede")
+    if body.outcome == "published" and network == "threads" and not proof:
+        # Mantém a regra antiga do Threads: confirmação sempre com o link do post.
+        raise HTTPException(status_code=422, detail="Forneça o link direto HTTPS da publicação no Threads")
+
+    job = _latest_publish_job(user_id, post_id, profile_id)
+    if (not job or job.get("status") != "unknown" or str(job["id"]) != str(body.source_job_id)
+            or (job.get("last_error") or "").startswith((USER_REPORTED_REMOVED_PREFIX, MANUAL_RETRY_PREFIX))):
+        raise HTTPException(status_code=409, detail="Esta execução já foi tratada ou mudou de estado. Atualize a lista.")
+
+    old_error = sanitize_log_data(str(job.get("last_error") or ""))[:180]
+    published = body.outcome == "published"
+    prefix = MANUAL_CONFIRMATION_PREFIX if published else MANUAL_NOT_PUBLISHED_PREFIX
+    changes = {
+        "status": "succeeded" if published else "failed",
+        "last_error": f"{prefix}user={user_id}; original={old_error}",
+        "finished_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if proof:
+        changes["external_id"] = proof
+    try:
+        response = (
+            scope_owner(supabase.table("publish_jobs").update(changes), user_id, profile_id)
+            .eq("id", job["id"]).eq("post_id", post_id).eq("status", "unknown")
+            .eq("last_error", job.get("last_error"))
+            .execute()
+        )
+    except Exception:
+        logger.exception("Falha ao registrar decisão manual do post %s", post_id)
+        raise HTTPException(status_code=503, detail="Não foi possível registrar a decisão")
+    if not response.data:
+        raise HTTPException(status_code=409, detail="A execução mudou de estado. Atualize a lista.")
+
+    _record_manual_decision(user_id, profile_id, post_id, job["id"], network, body.outcome)
+    evidence = "link" if proof else "none"
+    log_action(
+        "post_manual_resolution",
+        f"post_id={post_id} job_id={job['id']} network={network} outcome={body.outcome} "
+        f"original_status=unknown evidence={evidence}",
+        user_id=user_id, profile_id=profile_id,
+    )
+    if published:
+        return {"status": "manual_confirmed", **({"proof_url": proof} if proof else {}),
+                "msg": "Registrado como publicado por você. Nada foi reenviado."}
+    return {"status": "failed", "msg": "Registrado como não publicado. Você pode reenviar quando quiser."}
+
+
+class RetryFailedPostBody(BaseModel):
+    source_job_id: uuid.UUID
+    confirmed: bool = False
+
+
+@router.post("/{post_id}/retry-failed", status_code=202)
+def retry_failed_post(
+    post_id: int,
+    body: RetryFailedPostBody,
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Reenvio manual de uma ocorrência que terminou em failed (nada publicado).
+
+    Cria UMA nova ocorrência pending com chave própria (manual_retry:<origem>);
+    a chave única impede dois reenvios da mesma falha. Não publica nesta
+    request: o scheduler retoma a fila. Sem nova reserva de cota, igual ao
+    reenvio manual do Threads (062).
+    """
+    profile_id = _require_profile_id(profile_id)
+    post = _get_post(user_id, post_id, profile_id)
+    _require_legacy_post_origin(post)
+    if body.confirmed is not True:
+        raise HTTPException(status_code=422, detail="Confirme o reenvio de forma explícita")
+    network = post.get("network") or "threads"
+    _check_network_rules(
+        network, [row.get("text") or "" for row in _get_thread_chain(post_id, user_id)],
+        _get_post_medias(post_id), len(_get_post_products(post_id)),
+        check_required_media=True,
+    )
+    latest = _latest_publish_job(user_id, post_id, profile_id)
+    if not latest or latest.get("status") != "failed" or str(latest["id"]) != str(body.source_job_id):
+        raise HTTPException(status_code=409, detail="O estado da publicação mudou. Atualize a lista.")
+    if not latest.get("scheduler_id"):
+        raise HTTPException(status_code=409, detail="Post sem agendamento: crie a publicação novamente.")
+    retry_key = f"manual_retry:{latest['id']}"
+    already = (scope_owner(supabase.table("publish_jobs").select("id"), user_id, profile_id)
+               .eq("idempotency_key", retry_key).limit(1).execute())
+    if already.data:
+        raise HTTPException(status_code=409, detail="Este reenvio já foi pedido.")
+    try:
+        # A chave UNIQUE do banco segura dois cliques simultâneos.
+        result = supabase.table("publish_jobs").insert({
+            "scheduler_id": latest["scheduler_id"], "post_id": post_id,
+            "user_id": user_id, "profile_id": profile_id, "network": network,
+            "idempotency_key": retry_key,
+        }).execute()
+    except Exception as exc:
+        if "duplicate" in str(exc).lower() or "23505" in str(exc):
+            raise HTTPException(status_code=409, detail="Este reenvio já foi pedido.") from None
+        logger.exception("Falha ao registrar reenvio manual do post %s", post_id)
+        raise HTTPException(status_code=503, detail="Não foi possível colocar o reenvio na fila.") from None
+    if not result.data:
+        raise HTTPException(status_code=409, detail="O estado da publicação mudou. Atualize a lista.")
+    retry_id = result.data[0].get("id")
+    _record_manual_decision(user_id, profile_id, post_id, latest["id"], network, "retry_requested")
+    log_action(
+        "post_manual_retry_requested",
+        f"post_id={post_id} previous_job={latest['id']} retry_job={retry_id} network={network}",
+        user_id=user_id, profile_id=profile_id,
+    )
+    return {"status": "queued", "msg": "Reenvio colocado na fila. O resultado aparecerá no post em instantes."}
 
 
 def _get_thread_chain(head_id: int, user_id: int) -> list[dict]:
@@ -1654,34 +1857,85 @@ def _enrich_listed_post(item: dict, user_id: int, profile_id: str | None, is_adm
     }
 
 
-@router.get("")
-async def list_posts(
-    user_id: int = Depends(get_current_user_id),
-    profile_id: str | None = Depends(get_current_profile_id),
-    cursor: str | None = Query(None, description="Cursor de paginação (created_at)"),
-    limit: int = Query(20, ge=1, le=100),
-):
-    """Lista posts únicos (post_id IS NULL — sem thread) com paginação por cursor."""
-    started = time.monotonic()
+PostStatusFilter = Literal["published", "manual", "failed", "unknown", "running", "pending", "attention"]
+
+# Status da última execução (last_result) -> grupo do filtro da página Posts.
+_STATUS_GROUP = {
+    "published": "published",
+    "manual_confirmed": "manual", "reported_removed": "manual",
+    "failed": "failed",
+    "unknown": "unknown",
+    "running": "running", "retry_pending": "running",
+    None: "pending",
+}
+_STATUS_SCAN_BATCH = 100
+_STATUS_SCAN_MAX_ROWS = 500
+
+
+def _matches_status_filter(post: dict, wanted: str) -> bool:
+    group = _STATUS_GROUP.get((post.get("last_result") or {}).get("status"), "pending")
+    return group == wanted or (wanted == "attention" and group in ("failed", "unknown"))
+
+
+def _list_query(user_id, profile_id, cursor, limit):
     query = (
         scope_owner(supabase.table("posts").select("*"), user_id, profile_id)
         .is_("post_id", "null")
         .order("created_at", desc=True)
         .limit(limit)
     )
-    if cursor:
-        query = query.lt("created_at", cursor)
+    return query.lt("created_at", cursor) if cursor else query
 
-    # O cliente do Supabase é síncrono: fora do event loop, para não parar a API inteira.
-    result = await run_in_threadpool(query.execute)
-    rows = result.data or []
 
-    is_admin = await run_in_threadpool(_post_admin_access, user_id) if rows else False
-    posts = await run_in_threadpool(_enrich_listed_posts, rows, user_id, profile_id, is_admin)
+@router.get("")
+async def list_posts(
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+    cursor: str | None = Query(None, description="Cursor de paginação (created_at)"),
+    limit: int = Query(20, ge=1, le=100),
+    status_filter: PostStatusFilter | None = Query(None, alias="status"),
+):
+    """Lista posts únicos (post_id IS NULL — sem thread) com paginação por cursor.
 
-    next_cursor = None
-    if rows and len(rows) == limit:
-        next_cursor = rows[-1]["created_at"]
+    `status` filtra pelo resultado da última execução NO SERVIDOR: o status é
+    derivado da fila/atividades (não é coluna), então a API percorre lotes em
+    ordem até juntar `limit` posts ou ler `_STATUS_SCAN_MAX_ROWS` linhas; o
+    cursor devolvido continua de onde a varredura parou.
+    """
+    started = time.monotonic()
+    is_admin: bool | None = None
+    if status_filter is None:
+        # O cliente do Supabase é síncrono: fora do event loop, para não parar a API inteira.
+        result = await run_in_threadpool(_list_query(user_id, profile_id, cursor, limit).execute)
+        rows = result.data or []
+        is_admin = await run_in_threadpool(_post_admin_access, user_id) if rows else False
+        posts = await run_in_threadpool(_enrich_listed_posts, rows, user_id, profile_id, is_admin)
+        next_cursor = rows[-1]["created_at"] if rows and len(rows) == limit else None
+    else:
+        # ponytail: varredura limitada por request (500 linhas); se a conta crescer
+        # muito, materializar o status da última execução numa coluna indexada.
+        posts, scan_cursor, scanned, exhausted = [], cursor, 0, False
+        while len(posts) < limit and scanned < _STATUS_SCAN_MAX_ROWS:
+            result = await run_in_threadpool(
+                _list_query(user_id, profile_id, scan_cursor, _STATUS_SCAN_BATCH).execute)
+            rows = result.data or []
+            if not rows:
+                exhausted = True
+                break
+            if is_admin is None:
+                is_admin = await run_in_threadpool(_post_admin_access, user_id)
+            enriched = await run_in_threadpool(_enrich_listed_posts, rows, user_id, profile_id, is_admin)
+            for row, post in zip(rows, enriched):
+                scanned += 1
+                scan_cursor = row["created_at"]
+                if _matches_status_filter(post, status_filter):
+                    posts.append(post)
+                if len(posts) == limit:
+                    break
+            if len(rows) < _STATUS_SCAN_BATCH and len(posts) < limit:
+                exhausted = True
+                break
+        next_cursor = None if exhausted else scan_cursor
 
     elapsed = time.monotonic() - started
     if elapsed > 5:

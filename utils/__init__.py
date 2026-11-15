@@ -39,6 +39,25 @@ class ConnectionTestError(Exception):
         self.refreshed = refreshed
 
 
+def mark_not_published(err):
+    """Marca uma exceção ocorrida ANTES do pedido que publica na rede.
+
+    Criar ou aguardar contêiner não publica nada: só a chamada final
+    (threads_publish, media_publish...) torna o post público. O publicador
+    usa a marca para classificar o resultado como `failed` em vez de
+    `unknown`. Erro durante a chamada final continua sem marca.
+    """
+    try:
+        err.not_published = True
+    except AttributeError:
+        pass
+    return err
+
+
+def was_not_published(err):
+    return getattr(err, "not_published", False) is True
+
+
 def retry_with_backoff(
     func,
     *args,
