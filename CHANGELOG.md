@@ -5,6 +5,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Fixed — diagnóstico dos insights do Facebook (14/11/2026)
+
+- Erro da Graph API agora é logado (warning) só com caminho genérico, status, `code`, `error_subcode` e `type`, sem mensagem, token ou IDs; o `extra` de `post_metrics` grava `graph_code`, `graph_subcode` e `step` (`resolve`, `insights` ou `post_fields`) para o próximo "Atualizar" mostrar qual chamada falha.
+- Facebook: se os insights do post vierem e só a leitura de comentários/compartilhamentos falhar, visualizações, alcance e reações são gravados; comentários e compartilhamentos ficam como traço e o erro vai para `extra.post_fields`. O retorno antecipado ficou só para token expirado, limite da API e post removido.
+- 403 sem código reconhecido e code 10 sem mensagem de permissão viram o estado novo `access_denied` ("A Meta recusou os insights deste post..."), que não pede reconexão; `permission_required` ficou para code 10 com mensagem de permissão e code 200-299.
+
 ## [3.23.1] - 2026-11-14
 
 Correções (PATCH): espera do contêiner no Threads, Instagram exige mídia e logs sem mascarar códigos numéricos. Sem migração.

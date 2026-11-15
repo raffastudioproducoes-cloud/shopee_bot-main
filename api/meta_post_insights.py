@@ -16,6 +16,7 @@ Métricas conferidas na doc oficial em 14/11/2026 (página mostrava v27.0; o app
   Permissões: read_insights + pages_read_engagement, token de Página (tarefa ANALYZE),
   Página com 100+ curtidas. Atualização ~24 h.
 """
+import logging
 import re
 
 import httpx
@@ -33,27 +34,62 @@ _FB_POST_ID = re.compile(r"^[0-9]{1,40}_[0-9]{1,40}$")
 RECONNECT_STATES = frozenset({"permission_required", "token_expired"})
 STOP_STATES = RECONNECT_STATES | {"rate_limited"}
 RATE_LIMIT_CODES = frozenset({4, 17, 32, 613})
+# Só a presença destes termos na mensagem decide; a mensagem em si nunca é guardada nem logada.
+_PERMISSION_MESSAGE = re.compile(r"permiss|read_insights|pages_read_engagement", re.IGNORECASE)
+_ERROR_TYPE = re.compile(r"^[A-Za-z]{1,40}$")
+_PATH_IDS = re.compile(r"[0-9]+(?:_[0-9]+)?")
+
+logger = logging.getLogger(__name__)
+
+
+def _graph_error(response):
+    try:
+        error = response.json().get("error")
+    except (ValueError, AttributeError):
+        error = None
+    return error if isinstance(error, dict) else {}
+
+
+def _int(value):
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def graph_error_info(response):
+    """Só números/enum do erro (code, subcode, type): seguro para log e para `extra`."""
+    error = _graph_error(response)
+    kind = error.get("type")
+    return {"graph_code": _int(error.get("code")), "graph_subcode": _int(error.get("error_subcode")),
+            "graph_type": kind if isinstance(kind, str) and _ERROR_TYPE.fullmatch(kind) else None}
 
 
 def graph_error_state(response):
-    """Classifica o erro da Graph API sem guardar mensagem bruta (pode citar o token)."""
-    try:
-        error = response.json().get("error") or {}
-    except (ValueError, AttributeError):
-        error = {}
-    code = error.get("code") if isinstance(error, dict) else None
-    subcode = error.get("error_subcode") if isinstance(error, dict) else None
+    """Classifica o erro da Graph API sem guardar mensagem bruta (pode citar o token).
+
+    `permission_required` (reconecte) só quando a Meta aponta permissão: code 200-299 ou
+    code 10 com mensagem de permissão. 403 sem code reconhecido e code 10 sem essa
+    mensagem viram `access_denied` (ex.: Página com menos de 100 curtidas), que não pede
+    reconexão.
+    """
+    error = _graph_error(response)
+    code = _int(error.get("code"))
+    subcode = _int(error.get("error_subcode"))
     if code == 190 or response.status_code == 401:
         return "token_expired"
-    if code in RATE_LIMIT_CODES or (isinstance(code, int) and 80000 <= code <= 80014) \
-            or response.status_code == 429:
+    if code in RATE_LIMIT_CODES or (code is not None and 80000 <= code <= 80014)             or response.status_code == 429:
         return "rate_limited"
-    if code == 10 or (isinstance(code, int) and 200 <= code <= 299) or response.status_code == 403:
+    if code is not None and 200 <= code <= 299:
         return "permission_required"
+    if code == 10:
+        message = error.get("message")
+        if isinstance(message, str) and _PERMISSION_MESSAGE.search(message):
+            return "permission_required"
+        return "access_denied"
     if code == 100 and subcode == 33:
         return "not_found"  # Post removido na rede ou ID inexistente.
     if code == 100:
         return "invalid_metric"
+    if response.status_code == 403:
+        return "access_denied"
     return "api_error"
 
 
@@ -121,14 +157,22 @@ def parse_facebook_post(insights, post):
 
 
 async def _get(client, path, params, token):
-    """GET na Graph API com token no header (nunca na URL, que pode ir para log)."""
+    """GET na Graph API com token no header (nunca na URL, que pode ir para log).
+
+    Em erro, o segundo valor traz só graph_code/graph_subcode (números) para o `extra`.
+    """
     try:
         response = await client.get(f"{GRAPH_BASE}/{path}", params=params,
                                     headers={"Authorization": f"Bearer {token}"})
     except httpx.RequestError:
         return "network_error", None
     if response.status_code != 200:
-        return graph_error_state(response), None
+        info = graph_error_info(response)
+        logger.warning("Graph API GET %s falhou: status=%s code=%s subcode=%s type=%s",
+                       _PATH_IDS.sub("{id}", path), response.status_code, info["graph_code"],
+                       info["graph_subcode"], info["graph_type"])
+        return graph_error_state(response), {"graph_code": info["graph_code"],
+                                             "graph_subcode": info["graph_subcode"]}
     try:
         body = response.json()
     except ValueError:
@@ -143,7 +187,7 @@ async def _insights(client, object_id, token, attempts):
         if state == "invalid_metric":
             continue
         if state != "ok":
-            return state, None
+            return state, body  # body = código do erro (ou None)
         if not isinstance(body.get("data"), list):
             return "invalid_response", None
         return "ok", body["data"]
@@ -176,23 +220,30 @@ async def resolve_facebook_post_id(client, external_id, token):
     if state == "invalid_metric":
         return "unsupported_type", None  # Campo inexistente: não é foto (vídeo).
     if state != "ok":
-        return state, None
+        return state, body  # body = código do erro (ou None)
     story = body.get("page_story_id")
     return ("ok", story) if isinstance(story, str) and _FB_POST_ID.fullmatch(story) else ("sem_id", None)
+
+
+def _failure(step, info):
+    """Qual chamada falhou e com qual código; nunca mensagem, token ou ID."""
+    return {"step": step, **(info or {})}
 
 
 async def read_facebook_post(client, external_id, token):
     state, post_id = await resolve_facebook_post_id(client, external_id, token)
     if state != "ok":
-        return state, None, {}
+        return state, None, _failure("resolve", post_id if isinstance(post_id, dict) else None)
     extra = {} if post_id == external_id else {"resolved_from": "photo"}
     state, data = await _insights(client, post_id, token, (FB_METRICS, FB_FALLBACK))
     if state != "ok":
-        return state, None, extra
+        return state, None, {**extra, **_failure("insights", data)}
     post_state, post = await _get(client, post_id, {"fields": FB_POST_FIELDS}, token)
-    if post_state in STOP_STATES or post_state == "not_found":
-        return post_state, None, extra
+    if post_state in ("token_expired", "rate_limited", "not_found"):
+        return post_state, None, {**extra, **_failure("post_fields", post)}
     if post_state != "ok":
-        extra["post_fields"] = post_state  # Comentários/compartilhamentos ficam None.
+        # Insights já obtidos ficam; comentários/compartilhamentos viram None (traço).
+        extra["post_fields"] = {"state": post_state, **_failure("post_fields", post)}
+        post = None
     metrics, detail = parse_facebook_post(data, post)
     return ("ok" if metrics else "no_data"), metrics, {**extra, **detail, "measured_id": post_id}

@@ -175,6 +175,7 @@ const providerDescriptions: Record<string, string> = {
   api_error: 'API não retornou insights do post',
   permission_required: 'Reconecte a conta para liberar insights',
   token_expired: 'Reconecte a conta para liberar insights',
+  access_denied: 'A Meta recusou os insights dos posts (a Página pode ter menos de 100 curtidas ou faltar permissão). Veja o código no log.',
   rate_limited: 'Limite da API atingido; nova tentativa na próxima coleta',
   not_found: 'Post removido ou indisponível na rede',
   unsupported_type: 'Tipo de post sem métricas coletadas',
