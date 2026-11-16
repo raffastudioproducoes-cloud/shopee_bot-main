@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.24.0] - 2026-11-16
+
+Funcionalidade nova (MINOR): conferência manual de posts em todas as redes, filtros de status em Posts e diagnóstico dos insights do Facebook. Sem migração.
+
 ### Fixed — diagnóstico dos insights do Facebook (14/11/2026)
 
 - Erro da Graph API agora é logado (warning) só com caminho genérico, status, `code`, `error_subcode` e `type`, sem mensagem, token ou IDs; o `extra` de `post_metrics` grava `graph_code`, `graph_subcode` e `step` (`resolve`, `insights` ou `post_fields`) para o próximo "Atualizar" mostrar qual chamada falha.
