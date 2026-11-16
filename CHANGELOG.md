@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.24.1] - 2026-11-16
+
+Correção/ajuste de manutenção (PATCH): arquivo de verificação de prefixo de URL do TikTok for Developers servido na raiz do domínio. Sem migração.
+
 ### Added
 
 - Arquivo de verificação de prefixo de URL do TikTok for Developers (`/tiktokgvu3jaO84OHurYxfMufzRRPGtoyFiJvf.txt`), servido como `text/plain` pela raiz do domínio via `frontend/public`, sem mudança de rota.
