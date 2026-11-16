@@ -177,3 +177,17 @@ def test_self_hosted_font_is_served_as_a_file_not_as_html(spa_app, tmp_path):
     assert response.data == b"wOF2-test"
     assert "text/html" not in response.headers["Content-Type"]
     assert response.headers["Cache-Control"] == "public, max-age=86400"
+
+
+def test_tiktok_url_prefix_verification_is_served_as_text_plain(spa_app):
+    # TikTok for Developers valida o prefixo de URL lendo este arquivo na raiz do domínio.
+    name = "tiktokgvu3jaO84OHurYxfMufzRRPGtoyFiJvf.txt"
+    expected = b"tiktok-developers-site-verification=gvu3jaO84OHurYxfMufzRRPGtoyFiJvf"
+    real = Path(__file__).resolve().parents[2] / "frontend" / "public" / name
+    assert real.read_bytes().rstrip(b"\n") == expected
+    module = sys.modules["_test_spa_module"]
+    (module._DIST_DIR / name).write_bytes(real.read_bytes())
+    response = spa_app.test_client().get("/" + name)
+    assert response.status_code == 200
+    assert response.mimetype == "text/plain"
+    assert response.data.rstrip(b"\n") == expected
