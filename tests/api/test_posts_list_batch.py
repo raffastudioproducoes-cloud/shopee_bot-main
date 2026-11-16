@@ -37,6 +37,10 @@ class _Q:
         self.f.append(("in", col, {str(v) for v in vals}))
         return self
 
+    def lt(self, col, val):
+        self.f.append(("lt", col, str(val)))
+        return self
+
     def is_(self, col, _v):
         self.f.append(("null", col, None))
         return self
@@ -75,6 +79,8 @@ class _Q:
             if kind == "in" and str(cur) not in val:
                 return False
             if kind == "null" and cur is not None:
+                return False
+            if kind == "lt" and not str(cur) < val:
                 return False
         return True
 
@@ -191,3 +197,59 @@ def test_list_endpoint_returns_batched_posts(monkeypatch):
     assert res.status_code == 200
     body = res.json()
     assert len(body["data"]) == 10 and body["data"][0]["texts"]
+
+
+def _list(monkeypatch, db, query):
+    monkeypatch.setattr(posts_module, "supabase", db)
+    monkeypatch.setattr(posts_module, "_post_admin_access", lambda _u: False)
+    app.dependency_overrides.clear()
+    app.dependency_overrides[get_current_user_id] = lambda: USER
+    app.dependency_overrides[get_current_profile_id] = lambda: PROFILE
+    try:
+        return TestClient(app, raise_server_exceptions=False).get(f"/posts?{query}")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def _unique_times(tables):
+    """created_at distintos (cursor estrito) em ordem decrescente de id."""
+    for row in tables["posts"]:
+        row["created_at"] = f"2026-11-01T10:{row['id'] % 60:02d}:{row['id'] // 60:02d}"
+    return tables
+
+
+def _all_pages(monkeypatch, db, status, limit):
+    seen, cursor = [], None
+    for _ in range(50):
+        query = f"status={status}&limit={limit}" + (f"&cursor={cursor}" if cursor else "")
+        res = _list(monkeypatch, db, query)
+        assert res.status_code == 200, res.text
+        seen += [p["id"] for p in res.json()["data"]]
+        cursor = res.json()["next_cursor"]
+        if not cursor:
+            return seen
+    raise AssertionError("cursor não terminou")
+
+
+@pytest.mark.parametrize("status,expected", [
+    ("failed", {"failed"}),
+    ("unknown", {"unknown"}),
+    ("attention", {"failed", "unknown"}),
+    ("published", {"published"}),
+    ("running", {"running", "retry_pending"}),
+    ("pending", {None}),
+])
+def test_filtro_de_status_no_servidor_percorre_todas_as_paginas(monkeypatch, status, expected):
+    db = _DB(_unique_times(_seed(40)))
+    heads = [r for r in db.tables["posts"] if r["post_id"] is None]
+    monkeypatch.setattr(posts_module, "supabase", db)
+    everything = posts_module._enrich_listed_posts(copy.deepcopy(heads), USER, PROFILE, False)
+    want = sorted(p["id"] for p in everything if (p["last_result"] or {}).get("status") in expected)
+    assert want, "seed precisa cobrir o status"
+    got = _all_pages(monkeypatch, db, status, limit=3)
+    assert sorted(got) == want
+    assert len(got) == len(set(got))  # sem repetir post entre páginas
+
+
+def test_filtro_de_status_invalido_e_recusado(monkeypatch):
+    assert _list(monkeypatch, _DB(_seed(2)), "status=qualquer").status_code == 422

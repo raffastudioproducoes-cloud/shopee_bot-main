@@ -9,7 +9,7 @@ from api.utils.log_sanitizer import sanitize_log_data
 for _logger_name in ("httpx", "httpcore", "urllib3"):
     logging.getLogger(_logger_name).setLevel(logging.WARNING)
 
-from shopee_bot.utils import retry_with_backoff
+from shopee_bot.utils import retry_with_backoff, mark_not_published
 
 
 API_URL = "https://graph.threads.net"
@@ -263,43 +263,48 @@ def make_carousel_post(
     medias,
     reply_to_id=None
 ):
-    # Cria todos os itens antes de esperar: os 30 s de cada um correm em
-    # paralelo em vez de somar 30 s por item.
-    items = list()
-    for media in medias:
-        media_type = media["type"]
-        media_url = media["url"]
+    try:
+        # Cria todos os itens antes de esperar: os 30 s de cada um correm em
+        # paralelo em vez de somar 30 s por item.
+        items = list()
+        for media in medias:
+            media_type = media["type"]
+            media_url = media["url"]
 
-        if media_type == MediaType.IMAGE:
-            item_id = _create_carousel_item(
-                user_id,
-                user_access_token,
-                MediaType.IMAGE,
-                image_url=media_url,
-            )
-        else:
-            item_id = _create_carousel_item(
-                user_id,
-                user_access_token,
-                MediaType.VIDEO,
-                video_url=media_url,
-            )
-        items.append((item_id, _monotonic()))
+            if media_type == MediaType.IMAGE:
+                item_id = _create_carousel_item(
+                    user_id,
+                    user_access_token,
+                    MediaType.IMAGE,
+                    image_url=media_url,
+                )
+            else:
+                item_id = _create_carousel_item(
+                    user_id,
+                    user_access_token,
+                    MediaType.VIDEO,
+                    video_url=media_url,
+                )
+            items.append((item_id, _monotonic()))
 
-    for item_id, created_at in items:
-        _wait_container_ok(user_access_token, item_id, created_at)
-    children = [item_id for item_id, _ in items]
+        for item_id, created_at in items:
+            _wait_container_ok(user_access_token, item_id, created_at)
+        children = [item_id for item_id, _ in items]
 
-    carousel_container_id = _create_carousel_container(
-        user_id,
-        user_access_token,
-        children,
-        text,
-        reply_to_id
-    )
-    created_at = _monotonic()
+        carousel_container_id = _create_carousel_container(
+            user_id,
+            user_access_token,
+            children,
+            text,
+            reply_to_id
+        )
+        created_at = _monotonic()
 
-    _wait_container_ok(user_access_token, carousel_container_id, created_at)
+        _wait_container_ok(user_access_token, carousel_container_id, created_at)
+    except Exception as err:
+        # Nada chegou ao threads_publish: nenhum post ficou público.
+        mark_not_published(err)
+        raise
 
     threads_id = _publish_media_container(
         user_id,
@@ -318,18 +323,23 @@ def make_post(
     video_url=None,
     reply_to_id=None
 ):
-    media_container_id = _create_media_container(
-        user_id,
-        user_access_token,
-        text,
-        media_type,
-        image_url,
-        video_url,
-        reply_to_id
-    )
-    created_at = _monotonic()
+    try:
+        media_container_id = _create_media_container(
+            user_id,
+            user_access_token,
+            text,
+            media_type,
+            image_url,
+            video_url,
+            reply_to_id
+        )
+        created_at = _monotonic()
 
-    _wait_container_ok(user_access_token, media_container_id, created_at)
+        _wait_container_ok(user_access_token, media_container_id, created_at)
+    except Exception as err:
+        # Nada chegou ao threads_publish: nenhum post ficou público.
+        mark_not_published(err)
+        raise
 
     threads_id = _publish_media_container(
         user_id,

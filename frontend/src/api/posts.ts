@@ -64,6 +64,8 @@ export interface Post {
   network?: PostNetwork
   /** Mesmo UUID nos posts de um envio multi-rede (null em posts antigos). */
   group_id?: string | null
+  /** 'campaign' = controlado pela campanha; ações manuais ficam nela. */
+  publication_origin?: 'legacy' | 'campaign'
   /** Resultado real da última execução (o /publish só dispara o job). */
   last_result?: PostPublishResult | null
 }
@@ -75,8 +77,10 @@ export interface PostPublishResult {
   at: string | null
   error: string | null
   proof_url?: string | null
-  /** Identificador exato da ocorrência incerta para evitar reenvio com lista desatualizada. */
+  /** Identificador exato da ocorrência (unknown ou failed) para decidir/reenviar sem lista desatualizada. */
   job_id?: string | null
+  /** O próprio usuário conferiu e marcou como não publicado. */
+  manual_not_published?: boolean
 }
 
 export interface PostSchedule {
@@ -213,10 +217,12 @@ export const postsApi = {
     return api.get<SchedulerStatus>('/posts/scheduler-status')
   },
 
-  async list(params?: { cursor?: string; limit?: number }): Promise<PostsResponse> {
+  async list(params?: { cursor?: string; limit?: number; status?: string }): Promise<PostsResponse> {
     const searchParams = new URLSearchParams()
     if (params?.cursor) searchParams.append('cursor', params.cursor)
     if (params?.limit) searchParams.append('limit', String(params.limit))
+    // Filtro de status aplicado no servidor (varre todas as páginas, não só a carregada).
+    if (params?.status && params.status !== 'all') searchParams.append('status', params.status)
 
     const query = searchParams.toString()
     return api.get<PostsResponse>(`/posts${query ? `?${query}` : ''}`)
@@ -297,12 +303,19 @@ export const postsApi = {
     return api.post(`/posts/${id}/reconcile`, { ...payload, confirmed: true })
   },
 
-  async retryUnknown(id: number, sourceJobId: string): Promise<{ status: string; msg: string }> {
-    return api.post(`/posts/${id}/retry-unknown`, {
-      source_job_id: sourceJobId,
-      confirmed_not_published: true,
-      accepts_duplicate_risk: true,
+  /** Decisão do dono sobre uma execução sem confirmação, em qualquer rede. Nunca reenvia. */
+  async resolveUnknown(id: number, payload: { sourceJobId: string; outcome: 'published' | 'not_published'; permalink?: string }): Promise<{ status: string; proof_url?: string; msg: string }> {
+    return api.post(`/posts/${id}/resolve-unknown`, {
+      source_job_id: payload.sourceJobId,
+      outcome: payload.outcome,
+      confirmed: true,
+      ...(payload.permalink ? { permalink: payload.permalink } : {}),
     })
+  },
+
+  /** Reenvio manual de uma execução que falhou (nada publicado). */
+  async retryFailed(id: number, sourceJobId: string): Promise<{ status: string; msg: string }> {
+    return api.post(`/posts/${id}/retry-failed`, { source_job_id: sourceJobId, confirmed: true })
   },
 
   async uploadMedia(postId: number, file: File): Promise<PostMedia> {

@@ -63,7 +63,7 @@ test('PostsPage usa a busca contextual existente antes de paginar, com navegaç�
   assert.match(page, /aria-label="Paginação do histórico de posts"/)
   assert.match(page, /aria-label="Página anterior"/)
   assert.match(page, /aria-label="Próxima página"/)
-  assert.match(page, /setHistoryPage\(1\), \[searchQuery, activeProfileId, networkFilter\]/)
+  assert.match(page, /setHistoryPage\(1\), \[searchQuery, activeProfileId, networkFilter, statusFilter\]/)
   assert.match(page, /fetchNextPage\(\)\.then\(/)
   assert.doesNotMatch(page, /Carregar mais posts/)
 })

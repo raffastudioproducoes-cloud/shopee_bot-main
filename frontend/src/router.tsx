@@ -180,6 +180,11 @@ const listsRoute = createRoute({
 const postsRoute = createRoute({
   getParentRoute: () => panelRoute,
   path: "/posts",
+  // Filtros da página Posts persistidos na URL (?status=&rede=); valores inválidos viram "todos" na página.
+  validateSearch: (search: Record<string, unknown>): { status?: string; rede?: string } => ({
+    ...(typeof search.status === "string" ? { status: search.status } : {}),
+    ...(typeof search.rede === "string" ? { rede: search.rede } : {}),
+  }),
   component: PostsPage,
 })
 

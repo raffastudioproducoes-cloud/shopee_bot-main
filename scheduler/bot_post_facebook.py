@@ -8,7 +8,21 @@ from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
 from shopee_bot.scheduler.publication_context import mark_external_delivery
 from shopee_bot.scheduler.media_delivery import delivery_url
-from shopee_bot.scheduler.publication_result import external_id, succeeded, unknown
+from shopee_bot.scheduler.publication_result import external_id, failed, succeeded, unknown
+from shopee_bot.utils import mark_not_published, was_not_published
+
+
+def _local_url(media):
+    """URL de entrega gerada localmente; falha aqui não envia nada à rede."""
+    try:
+        return delivery_url(media)
+    except Exception as err:
+        raise mark_not_published(err)
+
+
+def _not_sent(message):
+    """Validação local antes de qualquer chamada ao Facebook."""
+    return mark_not_published(RuntimeError(message))
 
 
 def _first_image(post):
@@ -16,7 +30,7 @@ def _first_image(post):
 
 
 def _publish_image(page_access_token, page_id, media, caption):
-    url, cleanup = delivery_url(media)
+    url, cleanup = _local_url(media)
     try:
         mark_external_delivery()
         return FacebookAPI.post_photo_as_page(page_access_token, page_id, url, caption)
@@ -31,7 +45,7 @@ def _publish_album(page_access_token, page_id, medias, caption):
     urls, cleanups = [], []
     try:
         for media in medias:
-            url, cleanup = delivery_url(media)
+            url, cleanup = _local_url(media)
             urls.append(url)
             cleanups.append(cleanup)
         mark_external_delivery()
@@ -42,7 +56,7 @@ def _publish_album(page_access_token, page_id, medias, caption):
 
 
 def _publish_video(page_access_token, page_id, media, caption):
-    url, cleanup = delivery_url(media)
+    url, cleanup = _local_url(media)
     try:
         mark_external_delivery()
         return FacebookAPI.post_video_as_page(page_access_token, page_id, url, caption)
@@ -101,17 +115,17 @@ def bot_post_facebook(job_id):
     try:
         if len(medias) > 1:
             if not page_access_token:
-                raise RuntimeError("Facebook: álbum exige conexão OAuth com token de Página.")
+                raise _not_sent("Facebook: álbum exige conexão OAuth com token de Página.")
             if not all(_is_album_image(media) for media in medias):
-                raise RuntimeError("Facebook: álbum só aceita imagens JPG/PNG; vídeo e GIF não entram no álbum.")
+                raise _not_sent("Facebook: álbum só aceita imagens JPG/PNG; vídeo e GIF não entram no álbum.")
             external = _publish_album(page_access_token, page_id, medias, root_post["text"])
         elif medias and medias[0].get("type") == "VIDEO":
             if not page_access_token:
-                raise RuntimeError("Facebook: vídeo exige conexão OAuth com token de Página.")
+                raise _not_sent("Facebook: vídeo exige conexão OAuth com token de Página.")
             external = _publish_video(page_access_token, page_id, medias[0], root_post["text"])
         elif image:
             if not page_access_token:
-                raise RuntimeError("Facebook: imagem exige conexão OAuth com token de Página.")
+                raise _not_sent("Facebook: imagem exige conexão OAuth com token de Página.")
             external = _publish_image(page_access_token, page_id, image, root_post["text"])
         elif page_access_token:
             # Conectado via OAuth (Login do Facebook, api/facebook_oauth.py)
@@ -151,7 +165,8 @@ def bot_post_facebook(job_id):
             }),
             profile_id=profile_id
         )
-        return unknown(err)
+        # Validação local ou mídia indisponível: nada foi enviado ao Facebook.
+        return failed(err) if was_not_published(err) else unknown(err)
 
     insert_activities(
         user_id,

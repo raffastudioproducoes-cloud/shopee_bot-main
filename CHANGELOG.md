@@ -5,6 +5,29 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.24.0] - 2026-11-16
+
+Funcionalidade nova (MINOR): conferência manual de posts em todas as redes, filtros de status em Posts e diagnóstico dos insights do Facebook. Sem migração.
+
+### Fixed — diagnóstico dos insights do Facebook (14/11/2026)
+
+- Erro da Graph API agora é logado (warning) só com caminho genérico, status, `code`, `error_subcode` e `type`, sem mensagem, token ou IDs; o `extra` de `post_metrics` grava `graph_code`, `graph_subcode` e `step` (`resolve`, `insights` ou `post_fields`) para o próximo "Atualizar" mostrar qual chamada falha.
+- Facebook: se os insights do post vierem e só a leitura de comentários/compartilhamentos falhar, visualizações, alcance e reações são gravados; comentários e compartilhamentos ficam como traço e o erro vai para `extra.post_fields`. O retorno antecipado ficou só para token expirado, limite da API e post removido.
+- 403 sem código reconhecido e code 10 sem mensagem de permissão viram o estado novo `access_denied` ("A Meta recusou os insights deste post..."), que não pede reconexão; `permission_required` ficou para code 10 com mensagem de permissão e code 200-299.
+
+### Added — conferência manual em todas as redes e filtros de status em Posts (14/11/2026)
+
+- **Botão "Conferir post" de volta para qualquer post "Sem confirmação"** (Threads, Facebook, Instagram, TikTok e X). Ele existia desde o commit `1a14c951`, mas só para Threads (`post.network === "threads"` na tela e "Conciliação manual disponível apenas para Threads" na API); com as outras redes publicando e com a espera de contêiner do Instagram, esses posts ficavam sem nenhuma ação. A janela pede a conferência na rede e oferece "Confirmo que foi publicado" (link opcional, obrigatório só no Threads como antes) ou "Não foi publicado". Nada é reenviado automaticamente.
+- `POST /posts/{id}/resolve-unknown`: o dono decide a execução exata exibida (`source_job_id`). Publicado → `succeeded` com marca `MANUAL_CONFIRMED`; não publicado → `failed` com marca `MANUAL_NOT_PUBLISHED`. Decisão única por execução (409 depois), 404 para post de outra conta/perfil, 409 para post de campanha, erro original preservado, sem mexer em cota (nem consome, nem devolve).
+- `POST /posts/{id}/retry-failed` + botão **Reenviar** em post "Falhou": cria uma única nova tentativa (`manual_retry:<execução>`, chave única), sem publicar na própria request e sem nova reserva de cota.
+- Toda decisão manual (publicado, removido, não publicado, reenvio) fica em Atividades com quem e quando decidiu.
+- **Filtros de status em Posts**, combináveis com rede e busca: Todos, Precisam de atenção (erro + sem confirmação), Sem confirmação, Falhou, Em execução, Agendado/pendente, Publicado e Confirmado por você, com contadores e mensagem própria quando vazio. O filtro roda no servidor (`GET /posts?status=`) e percorre o histórico inteiro, não só a página carregada. Filtros de status e de rede ficam na URL (`?status=&rede=`). Posts com erro ou sem confirmação ganham destaque lateral.
+
+### Fixed — falha antes de publicar não fica mais "Sem confirmação" (14/11/2026)
+
+- **Threads:** falha na criação do contêiner, na consulta de status ou na espera (timeout de 5 min, `ERROR`, `EXPIRED`) e mídia local indisponível agora terminam como `failed`, porque nada chegou ao `threads_publish`. `unknown` fica só quando o `threads_publish` foi chamado e a resposta se perdeu, ou quando partes anteriores da thread já tinham saído.
+- **Instagram:** mesma regra para criação/espera do contêiner antes do `media_publish`. **TikTok:** recusa da conta, duração ou privacidade antes do init vira `failed`. **Facebook:** validações locais (token de Página ausente, álbum com vídeo/GIF) e mídia local indisponível viram `failed`. Erros da própria chamada que publica continuam `unknown` em todas as redes. X sem mudança (já era `failed` sem nenhuma parte enviada).
+
 ## [3.23.1] - 2026-11-14
 
 Correções (PATCH): espera do contêiner no Threads, Instagram exige mídia e logs sem mascarar códigos numéricos. Sem migração.
