@@ -33,6 +33,11 @@ _FB_POST_ID = re.compile(r"^[0-9]{1,40}_[0-9]{1,40}$")
 # Estados que dependem de o usuário reconectar a conta: não adianta seguir chamando a API.
 RECONNECT_STATES = frozenset({"permission_required", "token_expired"})
 STOP_STATES = RECONNECT_STATES | {"rate_limited"}
+# A Meta só entrega insights de Páginas com 100 curtidas ou mais; abaixo disso /insights
+# responde 200 sem métricas. Estado informativo: não pede reconexão nem interrompe a coleta.
+MIN_PAGE_FANS = 100
+AUDIENCE_BELOW_MINIMUM = "audience_below_minimum"
+PAGE_AUDIENCE_FIELDS = "fan_count,followers_count"
 RATE_LIMIT_CODES = frozenset({4, 17, 32, 613})
 # Só a presença destes termos na mensagem decide; a mensagem em si nunca é guardada nem logada.
 _PERMISSION_MESSAGE = re.compile(r"permiss|read_insights|pages_read_engagement", re.IGNORECASE)
@@ -247,3 +252,26 @@ async def read_facebook_post(client, external_id, token):
         post = None
     metrics, detail = parse_facebook_post(data, post)
     return ("ok" if metrics else "no_data"), metrics, {**extra, **detail, "measured_id": post_id}
+
+
+async def read_page_audience(client, page_id, token):
+    """Curtidas e seguidores da Página (token de Página). Qualquer falha devolve None."""
+    page_id = str(page_id or "")
+    if not _MEDIA_ID.fullmatch(page_id):
+        return None
+    try:
+        state, body = await _get(client, page_id, {"fields": PAGE_AUDIENCE_FIELDS}, token)
+    except Exception as err:  # Nunca derruba a coleta dos posts.
+        logger.warning("Leitura de curtidas da Página falhou: %s", type(err).__name__)
+        return None
+    fans = _count(body.get("fan_count")) if state == "ok" else None
+    if fans is None:
+        return None
+    return {"fan_count": fans, "followers_count": _count(body.get("followers_count"))}
+
+
+def classify_page_audience(state, audience):
+    """`no_data` numa Página com menos de 100 curtidas vira `audience_below_minimum`."""
+    if state == "no_data" and audience and audience["fan_count"] < MIN_PAGE_FANS:
+        return AUDIENCE_BELOW_MINIMUM
+    return state
