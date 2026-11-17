@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.25.0] - 2026-11-17
+
+Funcionalidade nova (MINOR): site público bilíngue com páginas legais e exclusão de dados, e tela "Publicar no TikTok" conforme as Content Sharing Guidelines (privacidade, divulgação comercial, modo rascunho, consentimento em agendamento e campanhas). Inclui a migração 104 (`posts.tiktok_options`, aditiva e idempotente, aplicada no boot).
+
 ### Added — site público para a revisão de apps (TikTok/Meta)
 
 - Página inicial `/` ganha a seção "Sobre o Auto Orbital / About Auto Orbital" em português e inglês (seletor PT/EN, `?lang=en`, escolha salva no navegador): o que é o app, para quem, funcionalidades, como funciona a conexão OAuth das contas, permissões pedidas por rede (Meta, Threads, TikTok, X) e o aviso de que o app é aberto ao público, não de uso interno.
@@ -19,8 +23,6 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Política de Privacidade: removido o marcador "completar: razão social/CNPJ" visível ao público; inclui pagamentos pelo Asaas, dados lidos de cada rede e permissões, direitos GDPR, prazos de retenção e os passos de exclusão corretos (o código de confirmação existe só nos pedidos automáticos da Meta).
 - Termos: seção de planos pagos (Asaas), aviso de serviço aberto ao público e link para a página de exclusão de dados.
 - A landing deixa de marcar `noindex` no navegador; o staging continua fora dos buscadores pelo `X-Robots-Tag` do servidor.
-
-Funcionalidade nova (MINOR candidata): tela "Publicar no TikTok" conforme as Content Sharing Guidelines do TikTok (App Review/auditoria), nos dois modos do produto (Direct Post com `video.publish` e rascunho com `video.upload`). Migração aditiva **104** (aplicada pelo app no boot).
 
 ### Added — TikTok: escolhas explícitas do usuário (17/11/2026)
 
