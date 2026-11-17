@@ -59,5 +59,5 @@ html:has(.ao-pres) { scroll-behavior: smooth; }
 
 .ao-footer { border-top: 1px solid var(--color-ao-border); padding: 32px 24px; }
 .ao-footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; max-width: 80rem; margin: 0 auto; }
-.ao-footer-inner nav { display: flex; gap: 20px; }
+.ao-footer-inner nav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
 .ao-footer a:hover { color: var(--color-ao-primary); }

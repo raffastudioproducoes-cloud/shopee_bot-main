@@ -372,7 +372,8 @@ def test_preview_batch_filters_threads_per_network_on_server(api):
             {"network": "threads", "texts": texts},
             {"network": "facebook", "texts": texts},
             {"network": "instagram", "texts": texts},
-            {"network": "tiktok", "texts": texts},
+            {"network": "tiktok", "texts": texts,
+             "tiktok": {"mode": "direct", "privacy_level": "SELF_ONLY", "consent": True}},
         ],
         "schedule": SCHEDULE,
     })

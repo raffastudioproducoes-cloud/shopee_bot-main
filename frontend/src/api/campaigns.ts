@@ -1,3 +1,4 @@
+import type { TikTokOptionsPayload } from '../lib/tiktokSharing'
 import { api } from '../lib/api'
 
 /** Previsão inerte; somente o endpoint activate materializa a campanha. */
@@ -44,6 +45,8 @@ export interface CampaignDraftItemPayload {
   network_copies: Partial<Record<'threads' | 'x' | 'facebook' | 'instagram' | 'tiktok', string>>
   use_shopee_image: boolean
   product_media_ids: string[]
+  /** Obrigatório quando a campanha inclui TikTok. */
+  tiktok?: TikTokOptionsPayload
 }
 
 export interface CampaignDraftSaveRequest {

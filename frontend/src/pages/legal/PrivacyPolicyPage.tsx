@@ -1,4 +1,5 @@
 import { LegalLayout } from './LegalLayout'
+import { PrivacyPolicyEn } from './PrivacyPolicyEn'
 
 /**
  * Política de Privacidade pública (/privacidade) — LGPD (Lei 13.709/2018).
@@ -11,17 +12,14 @@ import { LegalLayout } from './LegalLayout'
  * api/middleware.py (request_logs, desligado por padrão).
  */
 
-export function PrivacyPolicyPage() {
+function PrivacyPolicyPt() {
   return (
-    <LegalLayout title="Política de Privacidade" updatedAt="10 de novembro de 2026">
+    <>
       <h2>1. Quem somos</h2>
       <p>
         O Auto Orbital é um painel de automação que ajuda o usuário a publicar conteúdo em
         suas próprias redes sociais. O serviço é operado por{' '}
-        <strong>Raffa Studio Produções</strong>{' '}
-        (<span className="legal-placeholder">completar: razão social completa e CNPJ</span>,
-        endereço <span className="legal-placeholder">completar: endereço do controlador</span>),
-        que atua como controladora dos dados pessoais tratados nesta plataforma, nos termos da
+        <strong>Raffa Studio Produções</strong> (contato: contato.raffasp@gmail.com), que atua como controladora dos dados pessoais tratados nesta plataforma, nos termos da
         Lei nº 13.709/2018 (Lei Geral de Proteção de Dados Pessoais — LGPD).
       </p>
 
@@ -75,9 +73,9 @@ export function PrivacyPolicyPage() {
           hospedagem antigo até a migração final de mídia.
         </li>
         <li>
-          <strong>Dados recebidos de Shopee, Threads, Instagram, Facebook e TikTok:</strong>
+          <strong>Dados recebidos de Shopee, Threads, Instagram, Facebook, TikTok e X:</strong>
           dados de produtos, perfis, mídias e publicações conforme o escopo de permissão
-          autorizado na conexão de cada rede.
+          autorizado na conexão de cada rede (detalhe na seção 2.3).
         </li>
         <li>
           <strong>Logs de requisição (request_logs):</strong> rota acessada, método HTTP,
@@ -93,9 +91,12 @@ export function PrivacyPolicyPage() {
         </li>
       </ul>
       <p>
-        Não coletamos dados de cartão nem processamos cobranças nesta versão. O cadastro
-        de identificação prepara o vínculo futuro entre titular, plano e período contratado;
-        nenhum pagamento é gerado pelo preenchimento dos dados.
+        <strong>Pagamentos:</strong> a contratação de planos pagos é processada pelo Asaas
+        (instituição de pagamento). Para criar a cobrança, enviamos ao Asaas nome, CPF, e-mail
+        e celular do titular. Os dados do cartão são digitados na página de pagamento do Asaas
+        e não passam nem ficam guardados no Auto Orbital; guardamos apenas o identificador do
+        cliente no Asaas, o plano, o valor, a forma de pagamento escolhida (cartão ou Pix) e o
+        status da cobrança. Preencher o cadastro não gera nenhuma cobrança.
       </p>
 
       <h2>2.1 Dados técnicos do dispositivo e GPS opcional</h2>
@@ -105,6 +106,17 @@ export function PrivacyPolicyPage() {
       <h2>2.2 Métricas das publicações e contagem de cliques</h2>
       <p>Para mostrar o desempenho de cada post, guardamos o histórico das métricas que cada rede fornece para as publicações feitas pelo Auto Orbital (visualizações, curtidas, comentários, compartilhamentos). Não coletamos quem curtiu, comentou ou visualizou.</p>
       <p>Nos posts de produto, o link Shopee pode ser trocado por um endereço curto do próprio site (<code>/r/…</code>), que redireciona para o mesmo link de afiliado. Esse redirecionamento registra apenas a <strong>contagem agregada de cliques por link e por dia</strong>; não guardamos endereço IP, navegador, dispositivo ou qualquer dado pessoal de quem clicou. O limite de acessos por endereço é aplicado somente em memória, de forma transitória.</p>
+      <h2>2.3 Dados lidos de cada rede social conectada</h2>
+      <p>Só lemos dados das contas que o próprio usuário conecta, e só para publicar e mostrar o desempenho dos posts dele. Não lemos mensagens privadas, listas de seguidores nem dados de outras pessoas.</p>
+      <ul>
+        <li><strong>Instagram (Meta):</strong> identificador da conta profissional e da Página do Facebook vinculada, nome de usuário, mídias publicadas pelo app e métricas desses posts. Permissões: instagram_basic, instagram_content_publish, instagram_manage_insights, pages_show_list, pages_read_engagement.</li>
+        <li><strong>Facebook (Meta):</strong> identificador do usuário, lista de Páginas que ele administra (id, nome, token da Página), posts publicados pelo app e métricas desses posts. Permissões: pages_show_list, pages_read_engagement, pages_manage_posts, read_insights.</li>
+        <li><strong>Threads (Meta):</strong> identificador do perfil, posts publicados pelo app e métricas desses posts. Permissões: threads_basic, threads_content_publish, threads_manage_insights.</li>
+        <li><strong>TikTok:</strong> identificador (open_id) e nome de exibição da conta, opções de publicação da conta (creator_info) e status do vídeo enviado. Hoje não coletamos métricas de posts do TikTok nem do X. Permissões: user.info.basic, video.publish, video.upload.</li>
+        <li><strong>X:</strong> identificador e nome de usuário da conta e identificador dos posts e mídias enviados pelo app. Permissões: tweet.read, tweet.write, users.read, media.write, offline.access.</li>
+      </ul>
+      <p>Os tokens dessas contas ficam cifrados no banco de dados. Os dados recebidos das plataformas da Meta, do TikTok e do X são usados apenas para as finalidades acima, não são vendidos, não são usados para publicidade e não são compartilhados com terceiros fora dos operadores listados na seção 4.</p>
+
       <h2>3. Base legal (LGPD)</h2>
       <p>O tratamento desses dados se apoia nas seguintes bases legais do art. 7º da LGPD:</p>
       <ul>
@@ -154,6 +166,10 @@ export function PrivacyPolicyPage() {
           respectivas políticas de privacidade.
         </li>
         <li>
+          <strong>Asaas</strong> — processamento de pagamentos dos planos pagos, com os dados
+          descritos na seção 2.
+        </li>
+        <li>
           <strong>Mídias legadas</strong> (caso ainda ativo no código): hospedagem temporária
           por ambiente Cloudinary, após a qual o Supabase Storage é a única fonte de mídia.
         </li>
@@ -179,6 +195,15 @@ export function PrivacyPolicyPage() {
         Não definimos um prazo fixo de retenção para todos os dados. Quando um prazo específico
         não estiver ainda definido pelo sistema, o controlador definirá e comunicará o prazo de
         retenção antes de armazenar os dados, sempre de acordo com a legislação aplicável.
+      </p>
+
+      <p>
+        Outros prazos: rascunhos de mídia expiram em 24 horas e links assinados de mídia em 1
+        hora; o histórico de métricas dos posts é mantido enquanto a conta existir; após a
+        exclusão da conta, os dados da conta são apagados, salvo registros que a lei obriga a
+        guardar (por exemplo, pagamentos e dados fiscais) e os eventos de auditoria imutáveis.
+        Alguns operadores listados na seção 4 podem tratar dados fora do Brasil (por exemplo,
+        nos Estados Unidos), com as salvaguardas próprias de transferência internacional.
       </p>
 
       <h2>6. Segurança</h2>
@@ -220,7 +245,7 @@ export function PrivacyPolicyPage() {
         <li>Portabilidade dos dados a outro fornecedor, mediante requisição expressa;</li>
         <li>Informação sobre com quem seus dados são compartilhados.</li>
       </ul>
-      <p>Essas solicitações podem ser feitas pelo canal de contato indicado abaixo.</p>
+      <p>Essas solicitações podem ser feitas pelo canal de contato indicado abaixo. Pessoas no Espaço Econômico Europeu ou no Reino Unido têm também os direitos do GDPR/UK GDPR (acesso, retificação, apagamento, restrição, portabilidade, oposição e reclamação à autoridade de proteção de dados do seu país). Respondemos em até 15 dias.</p>
 
       <h2>7.1 Consentimentos e transparência</h2>
       <p>Registramos a versão e a data de aceitação dos Termos no cadastro, separadamente da decisão de localização. A permissão do navegador pode ser negada ou retirada nos ajustes do dispositivo. O ponto de GPS, a região declarada e a origem de cadastro podem ser apagados em Configurações. A revogação não prejudica a licitude de tratamentos anteriores.</p>
@@ -235,6 +260,7 @@ export function PrivacyPolicyPage() {
       </p>
 
       <h2>9. Como excluir ou desconectar seus dados</h2>
+      <p>O passo a passo completo também está na página pública <a href="/exclusao-de-dados">Exclusão de dados</a>.</p>
       <p id="exclusao-de-dados">
         <strong>Exclusão de dados</strong> — saiba como remover suas informações do Auto Orbital:
       </p>
@@ -252,19 +278,23 @@ export function PrivacyPolicyPage() {
           antes de a exclusão definitiva.
         </li>
         <li>
-          <strong>Solicitar exclusão da conta.</strong> Entre em contato pelo e-mail
-          informado abaixo e solicite a exclusão da sua conta e de todos os dados associados.
-          Após a solicitação, um código de confirmação será gerado para acompanhar o status da
-          sua solicitação.
+          <strong>Excluir a conta.</strong> Em Configurações → "Backup e dados" → "Excluir minha
+          conta e dados" (pede sua senha; se o painel avisar que a exclusão ainda não está disponível,
+          use o e-mail), ou envie um e-mail do endereço da sua conta para
+          contato.raffasp@gmail.com pedindo a exclusão. Respondemos em até 15 dias.
+        </li>
+        <li>
+          <strong>Remover o app na própria rede:</strong> nas configurações de apps do Facebook,
+          Instagram ou Threads, em "Gerenciar permissões de apps" no TikTok ou em "Apps conectados"
+          no X.
         </li>
         <li>
           <strong>Aviso automático da Meta (Facebook/Instagram/Threads):</strong> ao remover
           o aplicativo do Facebook, Instagram ou Threads, a Meta envia automaticamente um aviso
-          ao Auto Orbital, e as credenciais e os dados vinculados àquela conta são apagados.
-        </li>
-        <li>
-          <strong>Acompanhar o status</strong> pela aba de exclusão ou pela confirmação enviada
-          para o e-mail de contato, usando o código de confirmação recebido.
+          ao Auto Orbital (endereços <code>/api/meta/deauthorize</code>,{' '}
+          <code>/api/meta/data-deletion</code>, <code>/api/threads/uninstall</code> e{' '}
+          <code>/api/threads/delete</code>), e as credenciais e os dados vinculados àquela conta
+          são apagados. A Meta recebe um código de confirmação e um link de status.
         </li>
       </ol>
 
@@ -288,6 +318,17 @@ export function PrivacyPolicyPage() {
         aplicável. A data no topo desta página indica a versão vigente. Alterações relevantes
         serão comunicadas por e-mail ou aviso no painel.
       </p>
+    </>
+  )
+}
+
+export function PrivacyPolicyPage() {
+  return (
+    <LegalLayout
+      title={{ pt: 'Política de Privacidade', en: 'Privacy Policy' }}
+      updatedAt={{ pt: '17 de novembro de 2026', en: 'November 17, 2026' }}
+    >
+      {(lang) => (lang === 'en' ? <PrivacyPolicyEn /> : <PrivacyPolicyPt />)}
     </LegalLayout>
   )
 }

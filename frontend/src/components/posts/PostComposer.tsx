@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { usePlanUsage } from "../../hooks/usePlanUsage"
 import { Eye } from "lucide-react"
 import { useAuthStore } from "../../stores/authStore"
@@ -42,6 +42,14 @@ import { IconButton } from "../ui/IconButton"
 import { Textarea } from "../ui/Textarea"
 import { AiCopyControls } from "./AiCopyControls"
 import { SegmentedToggle } from "../ui/SegmentedToggle"
+import { TikTokDeclaration, TikTokPublishPanel } from "./TikTokPublishPanel"
+import {
+  emptyTikTokChoice,
+  tiktokBlockReason,
+  toTikTokPayload,
+  type TikTokChoice,
+  type TikTokOptionsPayload,
+} from "../../lib/tiktokSharing"
 import "./postComposerPage.css"
 
 // Ver buildSchedule: run_date de segurança do "Agora" (disparado de fato
@@ -96,6 +104,7 @@ export interface PostComposerProps {
     productImageIds: number[],
     publishNow: boolean,
     productMediaIds: { productId: number; assetId: string }[],
+    tiktok?: TikTokOptionsPayload,
   ) => void
   loading: boolean
   error?: string
@@ -140,6 +149,8 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
   const inheritedCopyRef = useRef<string | null>(null)
   const prefetchedProductRef = useRef<number | null>(null)
   const [pickMessage, setPickMessage] = useState<string | null>(null)
+  // Escolhas do TikTok: nunca restauradas do rascunho (sem valor padrão; consentimento a cada envio).
+  const [tiktokChoice, setTiktokChoice] = useState<TikTokChoice>(emptyTikTokChoice)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Redes que já deram certo no último envio saem da seleção: reenviar só
   // repete as que falharam, sem duplicar post.
@@ -397,6 +408,11 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     return variantTexts[p[i].key] ?? (selected ? texts[0] : "")
   }
   const textsFor = (n: PostNetwork) => [headFor(n), ...texts.slice(1)].map((t) => t.trim()).filter(Boolean)
+  const setHeadFor = (n: PostNetwork, value: string) => {
+    const index = plans.findIndex((v) => v.networks.includes(n))
+    if (hasTabs && index >= 0) setVariantValue(index, value)
+    else setPartText(0, value)
+  }
 
   // If the user opens more parts after using AI, batch all new empty parts
   // into one continuation request. Debounce prevents ten rapid clicks from
@@ -488,6 +504,35 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     }),
   ) as Record<PostNetwork, NetworkState>
   const deliverableNetworks = activeNetworks.filter((n) => compositionPlans[n].mode !== "blocked")
+
+  // Painel TikTok (Content Sharing Guidelines): creator_info atualizado ao abrir a tela.
+  const tiktokSelected = !post && activeNetworks.includes("tiktok")
+  const tiktokDeliverable = !post && deliverableNetworks.includes("tiktok")
+  const creatorQuery = useQuery({
+    queryKey: ["tiktok", "creator-info", activeProfileId],
+    queryFn: () => credentialsApi.tiktokCreatorInfo(),
+    enabled: tiktokSelected && states.tiktok.connected === true,
+    staleTime: 0,
+    refetchOnMount: "always",
+    retry: false,
+  })
+  const tiktokVideoFile = pendingFiles.find((p) => p.info.kind === "video")
+  const tiktokProductVideo = chosenProductMedia.find((m) => m.media_type === "VIDEO")
+  const tiktokVideoUrl = useMemo(
+    () => (tiktokSelected && tiktokVideoFile ? URL.createObjectURL(tiktokVideoFile.file) : null),
+    [tiktokSelected, tiktokVideoFile],
+  )
+  useEffect(() => () => { if (tiktokVideoUrl) URL.revokeObjectURL(tiktokVideoUrl) }, [tiktokVideoUrl])
+  const tiktokVideo = tiktokVideoUrl
+    ? { src: tiktokVideoUrl, isPoster: false }
+    : tiktokProductVideo?.thumbnail_url ? { src: tiktokProductVideo.thumbnail_url, isPoster: true } : null
+  const tiktokBlock = tiktokDeliverable
+    ? tiktokBlockReason(tiktokChoice, creatorQuery.data, {
+      loading: creatorQuery.isPending,
+      error: creatorQuery.isError ? creatorQuery.error.message : null,
+      videoDurationSec: tiktokVideoFile?.info.durationSec ?? null,
+    })
+    : null
   const trayItems = pendingFiles.flatMap((p, index) => (p.info.kind === "video" ? [] : [{ file: p.file, index }]))
   const showTray = !post && (trayItems.length >= 2 || trayOpen)
   const trayNotes = trayItems.length < 2 ? [] : activeNetworks.flatMap((n) => {
@@ -522,6 +567,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
       deliverableNetworks.length > 0 &&
       deliverableNetworks.every((n) => textsFor(n).length > 0) &&
       deliverableNetworks.every((n) => states[n].connected === true) &&
+      !tiktokBlock &&
       !dateError && !quotaSelectionError
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -536,6 +582,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
       importablePhotos.map((p) => p.id),
       when === "now",
       chosenProductMedia.map((m) => ({ productId: m.product_id, assetId: m.id })),
+      tiktokDeliverable ? toTikTokPayload(tiktokChoice) : undefined,
     )
   }
 
@@ -815,6 +862,21 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
 
         {!post && <MediaSummary networks={activeNetworks} plans={compositionPlans} />}
 
+        {tiktokSelected && (
+          <TikTokPublishPanel
+            choice={tiktokChoice}
+            onChange={setTiktokChoice}
+            creator={creatorQuery.data}
+            isLoading={states.tiktok.connected === true && creatorQuery.isPending}
+            errorMessage={states.tiktok.connected !== true
+              ? "Conecte o TikTok em Credenciais para ver a conta que vai receber o vídeo."
+              : creatorQuery.isError ? creatorQuery.error.message : null}
+            onRetry={() => { void creatorQuery.refetch() }}
+            title={{ value: headFor("tiktok"), onChange: (value) => setHeadFor("tiktok", value) }}
+            video={tiktokVideo}
+          />
+        )}
+
         {!post && (
           <Button type="button" variant="ghost" icon="x" onClick={clearComposer} style={{ alignSelf: "flex-start" }}>
             Limpar post
@@ -924,11 +986,16 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
           <p style={{ ...metaTextStyle, margin: 0 }}>Escolha ao menos uma rede para publicar.</p>
         )}
 
+        {tiktokDeliverable && <TikTokDeclaration choice={tiktokChoice} />}
+        {tiktokBlock && (
+          <p role="status" style={{ ...metaTextStyle, color: "var(--amber-300)", margin: 0 }}>TikTok: {tiktokBlock}</p>
+        )}
+
         <div className="csp-s-0349">
           <Button type="button" variant="ghost" onClick={onClose}>
             {post ? "Cancelar" : "Voltar aos posts"}
           </Button>
-          <Button type="submit" variant="primary" disabled={!canSubmit}>
+          <Button type="submit" variant="primary" disabled={!canSubmit} title={tiktokBlock ?? undefined}>
             {loading ? "Salvando..." : post ? "Salvar" : activeNetworks.length > 1 ? `Criar em ${activeNetworks.length} redes` : "Criar"}
           </Button>
         </div>

@@ -1,79 +1,61 @@
 import './LegalLayout.css'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { useNavigate } from '@tanstack/react-router'
-import { authApi } from '../../api/auth'
-import { useAuthStore } from '../../stores/authStore'
+import { useSiteLang, type SiteLang } from '../../lib/siteLang'
+import { legalLinks } from '../presentation/AppInfoSection'
 
 // Mesmo breakpoint usado em LoginPage.tsx (768px) — não existe um padrão
 // central de breakpoints no projeto, então cada componente com CSS próprio
 // declara o seu.
 
 interface LegalLayoutProps {
-  title: string
-  updatedAt: string
-  children: ReactNode
+  title: Record<SiteLang, string>
+  updatedAt: Record<SiteLang, string>
+  children: (lang: SiteLang) => ReactNode
 }
 
-/** Layout compartilhado pelas páginas legais públicas.
- * O retorno consulta a sessão real, pois o estado persistido no navegador pode estar desatualizado. */
+/** Layout das páginas legais públicas, em português e inglês.
+ * "Voltar" leva à página inicial: ela mesma confere a sessão no backend e manda quem está logado para /app. */
 export function LegalLayout({ title, updatedAt, children }: LegalLayoutProps) {
-  const navigate = useNavigate()
-  const [returning, setReturning] = useState(false)
+  const [lang, setLang] = useSiteLang()
 
-  const handleReturn = async () => {
-    if (returning) return
-    setReturning(true)
-    try {
-      const user = await authApi.me()
-      const auth = useAuthStore.getState()
-      if (!auth.isAuthenticated) auth.login(user)
-      else auth.setUser(user)
-      await navigate({ to: '/' })
-    } catch {
-      // Não confiar apenas no estado local caso o cookie tenha expirado.
-      useAuthStore.getState().logout()
-      await navigate({ to: '/login' })
-    } finally {
-      setReturning(false)
-    }
-  }
   useEffect(() => {
     const previous = document.title
-    document.title = `${title} · Auto Orbital`
+    document.title = `${title[lang]} · Auto Orbital`
     return () => {
       document.title = previous
     }
-  }, [title])
+  }, [title, lang])
 
   return (
     <div className="legal-page">
-      
       <header className="legal-page__header">
-        <button
-          type="button"
-          onClick={() => { void handleReturn() }}
-          disabled={returning}
-          className="legal-page__back"
-        >
-          {returning ? 'Voltando...' : '← Voltar'}
-        </button>
+        <a href="/" className="legal-page__back">
+          {lang === 'en' ? '← Home' : '← Início'}
+        </a>
         <span className="legal-page__separator">·</span>
-        <span className="legal-page__brand">
-          Auto Orbital
-        </span>
+        <span className="legal-page__brand">Auto Orbital</span>
+        <div role="group" aria-label="Idioma / Language" className="legal-page__lang">
+          <button type="button" onClick={() => setLang('pt')} aria-pressed={lang === 'pt'}>PT</button>
+          <button type="button" onClick={() => setLang('en')} aria-pressed={lang === 'en'}>EN</button>
+        </div>
       </header>
 
-      <main className="legal-page__body">
-        <h1 className="legal-page__title">
-          {title}
-        </h1>
+      <main className="legal-page__body" lang={lang === 'en' ? 'en' : 'pt-BR'}>
+        <h1 className="legal-page__title">{title[lang]}</h1>
         <p className="legal-page__updated">
-          Última atualização: {updatedAt}
+          {lang === 'en' ? 'Last updated' : 'Última atualização'}: {updatedAt[lang]}
         </p>
 
-        {children}
+        {children(lang)}
       </main>
+
+      <footer className="legal-page__footer">
+        <nav aria-label={lang === 'en' ? 'Legal documents' : 'Documentos legais'}>
+          {legalLinks(lang).map((l) => <a key={l.href} href={l.href}>{l.label}</a>)}
+        </nav>
+        <p>© 2026 Raffa Studio Produções · Auto Orbital</p>
+      </footer>
     </div>
   )
 }

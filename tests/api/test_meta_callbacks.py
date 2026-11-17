@@ -568,3 +568,21 @@ def test_confirmation_code_is_opaque(client, db):
     code = res.json()["confirmation_code"]
     assert len(code) >= 32
     assert "fb-user-a" not in code and "fb-user-a" not in res.json()["url"]
+
+
+def test_status_link_opened_in_browser_is_human_readable_and_escaped(client, db):
+    # A Meta exige que o link de status seja legivel por uma pessoa.
+    db.tables["data_deletion_requests"] = [
+        {"id": 1, "confirmation_code": "code-1", "provider": "<meta>", "status": "completed",
+         "created_at": "2026-10-13T00:00:00+00:00", "completed_at": None}
+    ]
+
+    res = client.get("/meta/data-deletion/status", params={"code": "code-1"}, headers={"Accept": "text/html"})
+
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("text/html")
+    assert "Concluido" in res.text and "Completed" in res.text and "code-1" in res.text
+    assert "&lt;meta&gt;" in res.text and "<meta>" not in res.text
+    assert res.headers["referrer-policy"] == "no-referrer"
+    assert "no-store" in res.headers["cache-control"]
+    assert client.get("/meta/data-deletion/status", params={"code": "code-1"}).json()["status"] == "completed"

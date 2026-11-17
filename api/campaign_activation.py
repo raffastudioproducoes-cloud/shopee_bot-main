@@ -28,6 +28,8 @@ from .routers.posts import (
     _normalize_shopee_photo_as_jpeg, MAX_PRODUCT_IMAGE_BYTES,
 )
 from .routers.credentials import _autotest_outcome
+from .tiktok_options import RECONFIRM_MESSAGE, parse_stored, require_campaign_choices
+from .tiktok_creator import require_allowed_choice
 from shopee_bot.database.scheduler_environment import current_environment
 
 logger = logging.getLogger(__name__)
@@ -219,6 +221,22 @@ async def _copy_locked_asset(reservation, source, networks):
         raise HTTPException(502, detail="Não foi possível reter uma mídia da campanha. Tente novamente.") from None
 
 
+async def _check_tiktok_choices(items, user_id, profile_id):
+    """Escolhas do snapshot congelado conferidas com o creator_info atual."""
+    seen = set()
+    for item in items:
+        if "tiktok" not in item.get("networks", []):
+            continue
+        try:
+            options = parse_stored(item.get("tiktok"))
+        except ValueError:
+            raise HTTPException(422, detail=RECONFIRM_MESSAGE) from None
+        key = options.model_dump_json(exclude={"confirmed_at"})
+        if key not in seen:
+            seen.add(key)
+            await require_allowed_choice(options, user_id, profile_id)
+
+
 async def activate(draft_id, expected_revision, user_id, profile_id):
     from .routers.campaigns import (
         _get_owned_campaign, CampaignPreviewRequest, CampaignDraftItem,
@@ -233,6 +251,11 @@ async def activate(draft_id, expected_revision, user_id, profile_id):
         raise HTTPException(422, detail="Configure o período da campanha.")
     schedule = CampaignPreviewRequest.model_validate(draft["schedule"])
     items = [CampaignDraftItem.model_validate(item) for item in draft["items"]]
+    try:
+        # Consentimento explícito do TikTok gravado no rascunho; sem ele, nada é ativado.
+        require_campaign_choices(draft["items"])
+    except ValueError:
+        raise HTTPException(422, detail=RECONFIRM_MESSAGE) from None
     # Snapshot congelado deve estar associado ao ID atual da conta. Não
     # reescrever jobs já agendados, nem autorizar publicação com link antigo.
     from .routers.platform_shopee import get_affiliate_id
@@ -306,6 +329,8 @@ async def activate(draft_id, expected_revision, user_id, profile_id):
             raise HTTPException(409, detail=f"Não foi possível validar a permissão OAuth de {network}.") from None
         if state != "ok":
             raise HTTPException(409, detail=f"Conexão ou permissão OAuth de {network} não está pronta.")
+        if network == "tiktok":
+            await _check_tiktok_choices(row["draft_snapshot"]["items"], user_id, profile_id)
         supabase.table("campaign_oauth_checks_f4e").upsert({
             "reservation_id": str(reservation_id), "network": network,
             "verified_at": datetime.now(timezone.utc).isoformat(),

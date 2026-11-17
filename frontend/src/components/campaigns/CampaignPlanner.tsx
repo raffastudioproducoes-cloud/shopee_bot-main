@@ -23,6 +23,8 @@ import { ConfettiBurst } from "../ui/ConfettiBurst"
 import { ActivationProgress, type ActivationPhase } from "./ActivationProgress"
 import { AiCopyControls } from "../posts/AiCopyControls"
 import { CampaignProductMediaSelector } from "./CampaignProductMediaSelector"
+import { TikTokDeclaration, TikTokPublishPanel } from "../posts/TikTokPublishPanel"
+import { emptyTikTokChoice, tiktokBlockReason, toTikTokPayload, type TikTokChoice } from "../../lib/tiktokSharing"
 import "./campaignPlanner.css"
 
 const weekdays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
@@ -117,6 +119,8 @@ export function CampaignPlanner({ credentials }: {
   const [previewPage, setPreviewPage] = useState(1)
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null)
   const currentSaveSignatureRef = useRef("")
+  // Consentimento TikTok explícito a cada salvamento/ativação: nunca restaurado nem com valor padrão.
+  const [tiktokChoice, setTiktokChoice] = useState<TikTokChoice>(emptyTikTokChoice)
   const draftKey = formDraftKey(userId, "campaign-preview", profileId)
 
   useAutosavedDraft<CampaignDraft>(draftKey, draft, (saved) => {
@@ -275,8 +279,25 @@ export function CampaignPlanner({ credentials }: {
   }, [draft, canEditCampaign, caps.posts, scheduleUsage])
 
 
+  const tiktokSelected = draft.networks.includes("tiktok")
+  const tiktokConnected = credentials?.tiktok?.state === "ok"
+  const creatorQuery = useQuery({
+    queryKey: ["tiktok", "creator-info", profileId],
+    queryFn: () => credentialsApi.tiktokCreatorInfo(),
+    enabled: tiktokSelected && tiktokConnected,
+    staleTime: 0,
+    refetchOnMount: "always",
+    retry: false,
+  })
+  const tiktokBlock = tiktokSelected
+    ? tiktokBlockReason(tiktokChoice, creatorQuery.data, {
+      loading: creatorQuery.isPending,
+      error: !tiktokConnected ? "Conecte o TikTok em Credenciais." : creatorQuery.isError ? creatorQuery.error.message : null,
+    })
+    : null
+
   const saveInput = useMemo<CampaignDraftSaveRequest | null>(() => {
-    if (!canEditCampaign || !draft.networks.length || ((draft.startDate || draft.endDate) && !payload) ||
+    if (!canEditCampaign || !draft.networks.length || tiktokBlock || ((draft.startDate || draft.endDate) && !payload) ||
         !selectedList || !draft.name.trim() || draft.name.trim().length > 120 || !draft.listId || !draft.itemIds.length ||
         draft.itemIds.length !== products.length ||
         new Set(draft.itemIds).size !== products.length ||
@@ -293,10 +314,12 @@ export function CampaignPlanner({ credentials }: {
         network_copies: snapshots[id].networkCopies,
         use_shopee_image: snapshots[id].useShopeeImage,
         product_media_ids: snapshots[id].selectedProductMediaIds,
+        ...(draft.networks.includes("tiktok") ? { tiktok: toTikTokPayload(tiktokChoice) } : {}),
       })),
       schedule: payload,
     }
-  }, [selectedList, products, draft.name, draft.listId, draft.itemIds, draft.networks, snapshots, payload, canEditCampaign])
+  }, [selectedList, products, draft.name, draft.listId, draft.itemIds, draft.networks, snapshots, payload, canEditCampaign,
+    tiktokBlock, tiktokChoice])
 
   const campaignAccessBlockReason = planQuery.isLoading
     ? "Consultando os limites e permissões do plano."
@@ -333,6 +356,7 @@ export function CampaignPlanner({ credentials }: {
       : !draft.listId || !selectedList ? "Selecione uma lista válida."
       : !draft.itemIds.length ? "Selecione os produtos da campanha."
       : !draft.networks.length ? "Selecione ao menos uma rede social."
+      : tiktokBlock ? `TikTok: ${tiktokBlock}`
       : draft.itemIds.length !== products.length
         || new Set(draft.itemIds).size !== products.length
         || !draft.itemIds.every((id) => products.some((product) => product.id === id))
@@ -569,6 +593,18 @@ export function CampaignPlanner({ credentials }: {
                   return next
                 })
               }} />
+            {tiktokSelected && (
+              <TikTokPublishPanel
+                choice={tiktokChoice}
+                onChange={setTiktokChoice}
+                creator={creatorQuery.data}
+                isLoading={tiktokConnected && creatorQuery.isPending}
+                errorMessage={!tiktokConnected
+                  ? "Conecte o TikTok em Credenciais para ver a conta que vai receber os vídeos."
+                  : creatorQuery.isError ? creatorQuery.error.message : null}
+                onRetry={() => { void creatorQuery.refetch() }}
+              />
+            )}
             {legacyNetworkNotice && (
               <p className="campaign-warning" role="status">
                 Este rascunho antigo tinha redes diferentes por produto. Para evitar ativar redes que antes não estavam habilitadas em todos os itens, foram selecionadas somente as redes comuns. Revise a seleção antes de salvar.
@@ -990,6 +1026,7 @@ export function CampaignPlanner({ credentials }: {
           )
         })()}
         <div className="campaign-actions">
+          {tiktokSelected && <TikTokDeclaration choice={tiktokChoice} />}
           <span className={`campaign-activate-wrap${confettiKey > 0 && activationPhase === "success" ? " is-celebrating" : ""}`}>
           <SlideToConfirm
             label="Ativar campanha"

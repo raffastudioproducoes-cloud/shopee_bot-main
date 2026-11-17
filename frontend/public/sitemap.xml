@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Somente paginas publicas. Rotas do painel exigem login e ficam fora. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://shopee-bot-fj0w.onrender.com/</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://shopee-bot-fj0w.onrender.com/termos</loc><changefreq>monthly</changefreq></url>
+  <url><loc>https://shopee-bot-fj0w.onrender.com/privacidade</loc><changefreq>monthly</changefreq></url>
+  <url><loc>https://shopee-bot-fj0w.onrender.com/exclusao-de-dados</loc><changefreq>monthly</changefreq></url>
+  <url><loc>https://shopee-bot-fj0w.onrender.com/dados-coletados</loc><changefreq>monthly</changefreq></url>
+</urlset>

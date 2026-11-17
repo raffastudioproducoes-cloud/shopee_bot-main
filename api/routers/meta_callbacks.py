@@ -7,6 +7,7 @@ app secret global e desconectam as credenciais locais sem exigir JWT.
 import base64
 import hashlib
 import hmac
+import html
 import json
 import logging
 import secrets
@@ -15,6 +16,7 @@ from datetime import datetime, timezone
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse
 
 from .. import instagram_oauth, threads_oauth
 from ..audit_log import log_action
@@ -387,13 +389,56 @@ async def data_deletion_status(request: Request, response: Response, code: str):
     if not row or not row.data:
         raise HTTPException(status_code=404, detail="Solicitacao nao encontrada")
     data = row.data
-    return {
+    body = {
         "confirmation_code": data.get("confirmation_code"),
         "provider": data.get("provider"),
         "status": data.get("status"),
         "created_at": data.get("created_at"),
         "completed_at": data.get("completed_at"),
     }
+    # A Meta exige que o link de status seja legivel por uma pessoa: navegador
+    # (Accept com text/html) recebe uma pagina simples; clientes de API seguem com JSON.
+    if "text/html" in request.headers.get("accept", ""):
+        return HTMLResponse(
+            _status_html(body), headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"}
+        )
+    return body
+
+
+_STATUS_TEXT = {
+    "received": ("Pedido recebido e em processamento.", "Request received and being processed."),
+    "completed": (
+        "Concluido: as credenciais e os dados vinculados a esta conta foram apagados.",
+        "Completed: the credentials and data linked to this account were deleted.",
+    ),
+    "not_found": (
+        "Concluido: nao havia dados desta conta no Auto Orbital.",
+        "Completed: Auto Orbital had no data for this account.",
+    ),
+}
+
+
+def _status_html(body: dict) -> str:
+    """Pagina de status sem script nem estilo inline (CSP); todo valor e escapado."""
+    pt, en = _STATUS_TEXT.get(body.get("status"), ("Status desconhecido.", "Unknown status."))
+    esc = {k: html.escape(str(v or "-")) for k, v in body.items()}
+    return (
+        '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<meta name="robots" content="noindex"><title>Exclusao de dados / Data deletion - Auto Orbital</title></head>'
+        "<body><main><h1>Auto Orbital - Exclusao de dados / Data deletion</h1>"
+        f"<p><strong>{html.escape(pt)}</strong></p><p lang=\"en\"><strong>{html.escape(en)}</strong></p>"
+        "<dl>"
+        f"<dt>Codigo de confirmacao / Confirmation code</dt><dd><code>{esc['confirmation_code']}</code></dd>"
+        f"<dt>Origem / Source</dt><dd>{esc['provider']}</dd>"
+        f"<dt>Status</dt><dd>{esc['status']}</dd>"
+        f"<dt>Recebido em / Received at</dt><dd>{esc['created_at']}</dd>"
+        f"<dt>Concluido em / Completed at</dt><dd>{esc['completed_at']}</dd>"
+        "</dl>"
+        '<p>Duvidas / Questions: <a href="mailto:contato.raffasp@gmail.com">contato.raffasp@gmail.com</a> · '
+        '<a href="/exclusao-de-dados">Exclusao de dados / Data deletion</a> · <a href="/privacidade">Privacidade / Privacy</a></p>'
+        "</main></body></html>"
+    )
 
 
 @router.post("/threads/uninstall")
