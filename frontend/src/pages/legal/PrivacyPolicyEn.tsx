@@ -1,3 +1,4 @@
+import { CompanyIdentification } from './CompanyIdentification'
 /** English version of the Privacy Policy (/privacidade?lang=en). Mirrors the Portuguese text, which prevails. */
 export function PrivacyPolicyEn() {
   return (
@@ -9,6 +10,8 @@ export function PrivacyPolicyEn() {
         as the controller of the personal data processed on this platform under Brazil's General Data Protection Law
         (Law No. 13,709/2018, "LGPD") and, where applicable, the EU/UK General Data Protection Regulation ("GDPR").
       </p>
+
+      <CompanyIdentification lang="en" doc="privacy" />
 
       <h2>2. Data we collect and how we use it</h2>
       <p>We collect and process the following data strictly to operate the service:</p>

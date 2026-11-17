@@ -1,3 +1,4 @@
+import { CompanyIdentification } from './CompanyIdentification'
 import { LegalLayout } from './LegalLayout'
 import { PrivacyPolicyEn } from './PrivacyPolicyEn'
 
@@ -22,6 +23,8 @@ function PrivacyPolicyPt() {
         <strong>Raffa Studio Produções</strong> (contato: contato.raffasp@gmail.com), que atua como controladora dos dados pessoais tratados nesta plataforma, nos termos da
         Lei nº 13.709/2018 (Lei Geral de Proteção de Dados Pessoais — LGPD).
       </p>
+
+      <CompanyIdentification lang="pt" doc="privacy" />
 
       <h2>2. Dados que coletamos e como usamos</h2>
       <p>

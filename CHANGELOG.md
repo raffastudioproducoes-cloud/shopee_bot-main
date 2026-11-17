@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — identificação do controlador nas páginas legais
+
+- Termos de Serviço e Política de Privacidade, em português e inglês, ganham a seção "1.1 Identificação do controlador / Controller identification" com nome empresarial, nome fantasia, CNPJ, endereço comercial e e-mail de contato, citando a empresa como controladora no sentido do art. 5º, VI, da LGPD (sem encarregado/DPO; o e-mail existente é o canal do titular). Rodapé da landing mostra a linha "Raffa Studio Produções · CNPJ 63.621.332/0001-03 · Rio de Janeiro/RJ". Dados em `frontend/src/lib/company.ts`; o CPF não é publicado e um teste garante isso.
+
 ## [3.25.0] - 2026-11-17
 
 Funcionalidade nova (MINOR): site público bilíngue com páginas legais e exclusão de dados, e tela "Publicar no TikTok" conforme as Content Sharing Guidelines (privacidade, divulgação comercial, modo rascunho, consentimento em agendamento e campanhas). Inclui a migração 104 (`posts.tiktok_options`, aditiva e idempotente, aplicada no boot).
