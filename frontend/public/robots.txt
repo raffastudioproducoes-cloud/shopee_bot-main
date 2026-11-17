@@ -8,5 +8,15 @@ Disallow: /admin/
 Disallow: /credentials
 Disallow: /posts
 Disallow: /profiles
+Disallow: /products
+Disallow: /lists
+Disallow: /analytics
+Disallow: /automacao-posts
+Disallow: /planos
+Disallow: /settings
+Disallow: /ajuda
 Disallow: /api/
 Disallow: /internal/
+Disallow: /r/
+
+Sitemap: https://shopee-bot-fj0w.onrender.com/sitemap.xml
