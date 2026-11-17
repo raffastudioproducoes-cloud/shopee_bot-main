@@ -28,6 +28,7 @@ const CredentialsPage = lazy(() => import("./pages/CredentialsPage").then((m) =>
 const CreatePostPage = lazy(() => import("./pages/CreatePostPage").then((m) => ({ default: m.CreatePostPage })))
 const TermsPage = lazy(() => import("./pages/legal/TermsPage").then((m) => ({ default: m.TermsPage })))
 const PrivacyPolicyPage = lazy(() => import("./pages/legal/PrivacyPolicyPage").then((m) => ({ default: m.PrivacyPolicyPage })))
+const DataDeletionPage = lazy(() => import("./pages/legal/DataDeletionPage").then((m) => ({ default: m.DataDeletionPage })))
 const DataCollectedPage = lazy(() => import("./pages/legal/DataCollectedPage").then((m) => ({ default: m.DataCollectedPage })))
 const AdminOverviewPage = lazy(() => import("./pages/AdminOverviewPage"))
 const UsersPage = lazy(() => import("./pages/UsersPage"))
@@ -141,6 +142,12 @@ const dataCollectedRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dados-coletados',
   component: lazyRoute(DataCollectedPage, "detail"),
+})
+
+const dataDeletionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/exclusao-de-dados",
+  component: lazyRoute(DataDeletionPage, "detail"),
 })
 
 const privacyRoute = createRoute({
@@ -285,6 +292,7 @@ const routeTree = rootRoute.addChildren([
   termsRoute,
   privacyRoute,
   dataCollectedRoute,
+  dataDeletionRoute,
   adminRoute.addChildren([adminIndexRoute, adminOverviewRoute, usersRoute, logsRoute, adminCredentialsRoute, adminBillingRoute]),
   panelRoute.addChildren([
     dashboardRoute,

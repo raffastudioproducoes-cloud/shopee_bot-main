@@ -1,13 +1,14 @@
 import { LegalLayout } from './LegalLayout'
+import { TermsEn } from './TermsEn'
 
 /**
  * Termos de Serviço/Uso públicos (/termos).
  * Revisão jurídica necessária antes de publicação oficial.
  */
 
-export function TermsPage() {
+function TermsPt() {
   return (
-    <LegalLayout title="Termos de Serviço" updatedAt="31 de outubro de 2026">
+    <>
       <h2>1. Aceitação dos termos</h2>
       <p>
         Ao criar uma conta ou usar o Auto Orbital ("nós", "plataforma", "serviço"), você
@@ -28,6 +29,8 @@ export function TermsPage() {
         conteúdo nessas redes em nome do usuário, incluindo texto gerado com apoio de
         inteligência artificial quando o usuário optar por essa funcionalidade.
       </p>
+
+      <p>O serviço é aberto ao público. Não é uma ferramenta interna nem de uso pessoal.</p>
 
       <h2>3. Elegibilidade e cadastro</h2>
       <ul>
@@ -79,6 +82,13 @@ export function TermsPage() {
         hora específicas ou recorrência de 1 a 7 dias.
       </p>
 
+      <h2>6.1 Planos pagos</h2>
+      <p>
+        Os planos pagos, quando oferecidos, são cobrados pela instituição de pagamento Asaas,
+        por cartão de crédito ou Pix, pelo valor e ciclo exibidos antes do pagamento. Os dados do
+        cartão são digitados na página de pagamento do Asaas e não ficam guardados no Auto Orbital.
+      </p>
+
       <h2>7. Limitação de responsabilidade</h2>
       <p>
         O Auto Orbital é fornecido "como está". Não garantimos resultado de vendas, engajamento
@@ -100,7 +110,7 @@ export function TermsPage() {
         Podemos suspender ou encerrar o acesso de uma conta que viole estes termos, que seja usada
         para atividade fraudulenta, abusiva ou ilegal, ou mediante solicitação do próprio usuário.
         Você pode solicitar o encerramento da sua conta e a exclusão dos seus dados a qualquer
-        momento pelo contato indicado na Política de Privacidade.
+        momento, como descrito na página <a href="/exclusao-de-dados">Exclusão de dados</a>.
       </p>
 
       <h2>10. Alterações nestes termos</h2>
@@ -115,13 +125,25 @@ export function TermsPage() {
       <p>
         Estes termos são regidos pelas leis da República Federativa do Brasil. Fica eleito o foro
         do domicílio do controlador para dirimir eventuais controvérsias decorrentes destes
-        termos, ressalvado foro de eleição do consumidor quando aplicável por lei.
+        termos, ressalvado foro de eleição do consumidor quando aplicável por lei. Se as versões
+        em português e em inglês divergirem, prevalece a versão em português.
       </p>
 
       <h2>12. Contato</h2>
       <p>
         Dúvidas sobre estes termos podem ser enviadas para: <strong>contato.raffasp@gmail.com</strong>.
       </p>
+    </>
+  )
+}
+
+export function TermsPage() {
+  return (
+    <LegalLayout
+      title={{ pt: 'Termos de Serviço', en: 'Terms of Service' }}
+      updatedAt={{ pt: '17 de novembro de 2026', en: 'November 17, 2026' }}
+    >
+      {(lang) => (lang === 'en' ? <TermsEn /> : <TermsPt />)}
     </LegalLayout>
   )
 }

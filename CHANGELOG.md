@@ -5,6 +5,21 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Added — site público para a revisão de apps (TikTok/Meta)
+
+- Página inicial `/` ganha a seção "Sobre o Auto Orbital / About Auto Orbital" em português e inglês (seletor PT/EN, `?lang=en`, escolha salva no navegador): o que é o app, para quem, funcionalidades, como funciona a conexão OAuth das contas, permissões pedidas por rede (Meta, Threads, TikTok, X) e o aviso de que o app é aberto ao público, não de uso interno.
+- Links para Termos, Privacidade, Exclusão de dados, Dados coletados e Contato visíveis no cabeçalho (sem abrir menu), no corpo e no rodapé da landing e das páginas legais.
+- Página pública `/exclusao-de-dados` (PT/EN) com o passo a passo para desconectar redes, remover o app em cada rede, excluir a conta e os endpoints automáticos da Meta.
+- Versões completas em inglês dos Termos, da Política de Privacidade e de Dados coletados (`?lang=en` ou idioma do navegador).
+- `sitemap.xml` com as páginas públicas e `Sitemap:` no `robots.txt`, que passa a bloquear as demais rotas do painel; `<noscript>` bilíngue com os links legais no HTML inicial.
+- Link de status da exclusão de dados da Meta (`/api/meta/data-deletion/status`) mostra uma página legível quando aberto no navegador; clientes de API continuam recebendo JSON.
+
+### Changed
+
+- Política de Privacidade: removido o marcador "completar: razão social/CNPJ" visível ao público; inclui pagamentos pelo Asaas, dados lidos de cada rede e permissões, direitos GDPR, prazos de retenção e os passos de exclusão corretos (o código de confirmação existe só nos pedidos automáticos da Meta).
+- Termos: seção de planos pagos (Asaas), aviso de serviço aberto ao público e link para a página de exclusão de dados.
+- A landing deixa de marcar `noindex` no navegador; o staging continua fora dos buscadores pelo `X-Robots-Tag` do servidor.
+
 ## [3.24.1] - 2026-11-16
 
 Correção/ajuste de manutenção (PATCH): arquivo de verificação de prefixo de URL do TikTok for Developers servido na raiz do domínio. Sem migração.

@@ -35,7 +35,7 @@ export function Hero() {
   let wordIndex = 0
 
   return (
-    <section ref={ref} className="relative min-h-screen overflow-hidden pt-28" aria-labelledby="ao-hero-title">
+    <section ref={ref} className="relative min-h-screen overflow-hidden pt-8 md:pt-28" aria-labelledby="ao-hero-title">
       <div className="pointer-events-none absolute inset-0 ao-hero-glow" />
       <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-6 lg:grid-cols-2">
         <motion.div style={{ y: textY, opacity: textOpacity }}>
