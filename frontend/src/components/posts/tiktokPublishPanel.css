@@ -1,0 +1,74 @@
+.tiktok-panel {
+  display: grid;
+  gap: var(--sp-5);
+  margin: 0;
+  padding: var(--sp-6);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  background: var(--surface-inset);
+  min-width: 0;
+}
+
+.tiktok-panel > legend {
+  padding: 0 var(--sp-3);
+  font: var(--text-role-label);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.tiktok-panel__account,
+.tiktok-panel__modes,
+.tiktok-panel__group,
+.tiktok-panel__field {
+  display: grid;
+  gap: var(--sp-3);
+  font: var(--text-role-body);
+}
+
+.tiktok-panel__modes { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+.tiktok-panel__group {
+  margin: 0;
+  padding: var(--sp-5);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-md);
+}
+
+.tiktok-panel__group > legend { font: var(--text-role-caption); color: var(--text-muted); }
+
+.tiktok-panel label { min-height: var(--hit-min); display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.tiktok-panel .tiktok-panel__field { display: grid; align-items: stretch; }
+.tiktok-panel select,
+.tiktok-panel textarea {
+  width: 100%;
+  min-height: var(--hit-min);
+  padding: var(--sp-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--r-sm);
+  background: var(--surface-raised, transparent);
+  color: var(--text-body);
+  font: var(--text-role-body);
+}
+
+.tiktok-panel small,
+.tiktok-panel__note,
+.tiktok-declaration { font: var(--text-role-caption); color: var(--text-muted); }
+
+.tiktok-panel .is-disabled { opacity: 0.55; cursor: not-allowed; }
+.tiktok-panel__error { color: var(--negative); }
+.tiktok-panel__error button { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; }
+
+.tiktok-panel__preview video,
+.tiktok-panel__preview img {
+  display: block;
+  width: min(220px, 100%);
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  background: #000;
+}
+
+.tiktok-declaration { display: grid; gap: var(--sp-2); }
+.tiktok-declaration p { margin: 0; }
+.tiktok-declaration a { color: var(--accent); }

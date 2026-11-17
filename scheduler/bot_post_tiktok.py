@@ -4,11 +4,18 @@ Publicação no TikTok via scheduler — mesma estrutura de bot_post.py
 vídeo (ver apis/tiktok.py). TikTok também não suporta thread
 multi-parte como o Threads (reply chain) — só a head do post (parte 0)
 é publicada; partes seguintes, se existirem, são ignoradas.
+
+Consentimento (Content Sharing Guidelines): envia somente as escolhas que o
+usuário gravou ao criar/agendar (posts.tiktok_options, ou o item do snapshot
+da campanha). Sem elas, falha com "Reconfirme as opções do TikTok" antes de
+qualquer chamada ao TikTok. Modo "draft" manda o vídeo para os rascunhos do
+app TikTok (escopo video.upload); "direct" publica (video.publish).
 """
 
 import os
 
 from shopee_bot.apis import tiktok as TikTokAPI
+from shopee_bot.api.tiktok_options import parse_stored
 from shopee_bot.clogging import logger
 from shopee_bot.database import schedulers, tiktok_credentials, posts
 from shopee_bot.database.activities import (
@@ -63,12 +70,19 @@ def _refresh_tokens(user_id, profile_id, user_data):
     return tokens["access_token"]
 
 
-def _post_with_refresh(user_id, profile_id, user_data, video_path, text):
-    try:
-        return TikTokAPI.post_video(
-            user_data["tiktok_user_access_token"], video_path, text,
-            before_publish=mark_external_delivery,
+def _send(token, video_path, text, options):
+    if options.mode == "draft":
+        return TikTokAPI.upload_video_draft(
+            token, video_path, before_publish=mark_external_delivery,
         )
+    return TikTokAPI.post_video(
+        token, video_path, text, options, before_publish=mark_external_delivery,
+    )
+
+
+def _post_with_refresh(user_id, profile_id, user_data, video_path, text, options):
+    try:
+        return _send(user_data["tiktok_user_access_token"], video_path, text, options)
     except Exception as err:
         if not _is_token_expired(err):
             raise
@@ -84,9 +98,7 @@ def _post_with_refresh(user_id, profile_id, user_data, video_path, text):
             logger.warning(f"TikTok: não marcou reconexão: {type(err).__name__}")
         reconnect = TikTokAPI.TikTokAPIError(RECONNECT_MESSAGE)
         raise mark_not_published(reconnect) if expired_before_publish else reconnect
-    return TikTokAPI.post_video(
-        new_token, video_path, text, before_publish=mark_external_delivery
-    )
+    return _send(new_token, video_path, text, options)
 
 
 def _fail(job_id, username, user_id, post_id, profile_id, stage, err, result):
@@ -123,6 +135,13 @@ def bot_post_tiktok(job_id):
     head_post = post_data[0]
     media = _video_media(head_post)
 
+    try:
+        options = parse_stored(posts.get_tiktok_options(user_id, post_id, profile_id))
+    except ValueError as err:
+        # Post/campanha antigo sem consentimento registrado: nunca inventa valores.
+        logger.warning(f"TikTok job #{job_id} para {username}: sem escolhas do TikTok")
+        return _fail(job_id, username, user_id, post_id, profile_id, "preflight", err, failed)
+
     # TikTok não aceita post de texto puro — exige vídeo. Se a head da
     # thread não tem vídeo anexado, falha com atividade clara em vez de
     # tentar publicar (não deixa a exceção da API estourar/confundir
@@ -152,7 +171,7 @@ def bot_post_tiktok(job_id):
         # Falha aqui acontece antes de qualquer chamada ao TikTok -> failed.
         with local_file(media, TikTokAPI.MAX_VIDEO_BYTES) as video_path:
             publish_id = _post_with_refresh(
-                user_id, profile_id, user_data, video_path, head_post["text"]
+                user_id, profile_id, user_data, video_path, head_post["text"], options,
             )
     except MediaDownloadError as err:
         return _fail(job_id, username, user_id, post_id, profile_id, "media", err, failed)
@@ -168,7 +187,7 @@ def bot_post_tiktok(job_id):
             "network": "tiktok",
             "job_id": str(job_id),
             "post_id": post_id,
-            "stage": "publish",
+            "stage": "draft" if options.mode == "draft" else "publish",
             "publish_id": publish_id,
         }),
         profile_id=profile_id

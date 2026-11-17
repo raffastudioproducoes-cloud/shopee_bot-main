@@ -60,6 +60,8 @@ from ..shopee_images import (
 )
 from .. import x_oauth
 from ..network_text import unwrap_network_text
+from ..tiktok_options import TikTokPostOptions, stored_options
+from ..tiktok_creator import require_allowed_choice
 from ..text_variants import generate_variants, generate_thread_replies, generate_short_product_description, MAX_THREAD_PARTS
 from ..internal_client import (
     create_scheduler_job,
@@ -295,12 +297,15 @@ class PostCreate(BaseModel):
     media_ids: list[int] = []
     # Mesmo UUID em todos os posts de um envio multi-rede (selo "Grupo").
     group_id: uuid.UUID | None = None
+    # Escolhas explícitas do usuário para o TikTok (obrigatórias só nessa rede).
+    tiktok: TikTokPostOptions | None = None
 
     @model_validator(mode="after")
     def _only_recurring_for_legacy_create(self):
         if self.schedule.trigger != "cron":
             raise ValueError("Agendamento avulso indisponível. Use Recorrente ou Agora.")
         self.texts = [unwrap_network_text(text, self.network) for text in self.texts]
+        _require_tiktok_choice(self.network, self.tiktok)
         return self
 
     @field_validator("texts")
@@ -313,14 +318,30 @@ class PostCreate(BaseModel):
         return v
 
 
+TIKTOK_CHOICE_REQUIRED = (
+    "Para publicar ou agendar no TikTok, escolha a privacidade, as interações, "
+    "a divulgação comercial e confirme a declaração do TikTok."
+)
+
+
+def _require_tiktok_choice(network: str, tiktok: TikTokPostOptions | None) -> None:
+    """Sem consentimento explícito nada vai ao TikTok; nas outras redes não se aplica."""
+    if network == "tiktok" and tiktok is None:
+        raise ValueError(TIKTOK_CHOICE_REQUIRED)
+    if network != "tiktok" and tiktok is not None:
+        raise ValueError("Opções do TikTok só valem para a rede TikTok.")
+
+
 class PostComposition(BaseModel):
     network: NetworkLiteral
     texts: list[str]
+    tiktok: TikTokPostOptions | None = None
 
     @model_validator(mode="after")
     def _plain_network_text(self):
         # Nunca grava o mapa {"rede": "texto"} da IA como texto do post.
         self.texts = [unwrap_network_text(text, self.network) for text in self.texts]
+        _require_tiktok_choice(self.network, self.tiktok)
         return self
 
     @field_validator("texts")
@@ -368,6 +389,8 @@ class PostBatchCreate(BaseModel):
 class PostUpdate(BaseModel):
     texts: list[str]
     product_ids: list[int] = []
+    # Reconfirmação das escolhas do TikTok (posts antigos sem elas não publicam).
+    tiktok: TikTokPostOptions | None = None
 
     @field_validator("texts")
     @classmethod
@@ -1512,6 +1535,7 @@ def _create_thread(
     user_id: int, texts: list[str], network: str, profile_id: str,
     group_id: str | None = None,
     publish_immediately: bool = False,
+    tiktok: TikTokPostOptions | None = None,
 ) -> dict:
     """Insere a thread inteira, encadeando post_id. Retorna a head.
 
@@ -1533,6 +1557,8 @@ def _create_thread(
             row_data["publish_immediately"] = publish_immediately
             if group_id:  # só quando veio: sem a coluna (migração 044) nada muda
                 row_data["group_id"] = group_id
+            if tiktok is not None:  # migração 104: escolhas confirmadas pelo usuário
+                row_data["tiktok_options"] = stored_options(tiktok)
         result = (
             supabase.table("posts")
             .insert(row_data)
@@ -1957,10 +1983,13 @@ async def create_post(
     _validate_product_ids(user_id, body.product_ids)
     medias = _get_owned_medias(user_id, body.media_ids, profile_id)
     _check_network_rules(body.network, body.texts, medias, len(body.product_ids))
+    if body.tiktok is not None:
+        await require_allowed_choice(body.tiktok, user_id, profile_id)
     await _ensure_scheduler_available()
     head = _create_thread(
         user_id, body.texts, body.network, profile_id,
         str(body.group_id) if body.group_id else None,
+        tiktok=body.tiktok,
     )
     _set_post_products(head["id"], body.product_ids)
     if medias:
@@ -2094,6 +2123,14 @@ async def create_posts_batch(
     drafts = _get_owned_ready_drafts(user_id, body.draft_media_ids, profile_id)
     drafts_by_id = {str(draft["id"]): draft for draft in drafts}
     plans = _preview_batch(body, drafts, _x_media_for(body, user_id, profile_id))
+    tiktok_choice = next((c.tiktok for c in body.compositions if c.network == "tiktok"), None)
+    for plan in plans:
+        if plan["network"] != "tiktok" or plan["mode"] == "blocked" or tiktok_choice is None:
+            continue
+        try:  # privacidade/interações conferidas com o creator_info atual
+            await require_allowed_choice(tiktok_choice, user_id, profile_id)
+        except HTTPException as exc:
+            plan.update(mode="blocked", media_draft_ids=[], blocked_reason=str(exc.detail))
     deliverable = [plan for plan in plans if plan["mode"] != "blocked"]
     if not deliverable:
         return {"group_id": None, "created": [], "blocked": plans}
@@ -2103,7 +2140,10 @@ async def create_posts_batch(
     created: list[dict] = []
     blocked = [plan for plan in plans if plan["mode"] == "blocked"]
     for plan in deliverable:
-        head = _create_thread(user_id, plan["texts"], plan["network"], profile_id, group_id, body.publish_immediately)
+        head = _create_thread(
+            user_id, plan["texts"], plan["network"], profile_id, group_id, body.publish_immediately,
+            tiktok=tiktok_choice if plan["network"] == "tiktok" else None,
+        )
         fresh: dict[str, dict | None] = {}  # rascunhos consumidos só por este plano
         try:
             reserve_post_plan_quota(
@@ -2591,6 +2631,12 @@ async def update_post(
         post.get("network") or "threads", body.texts,
         _get_post_medias(post_id), len(body.product_ids),
     )
+    head_update = {"text": body.texts[0]}
+    if body.tiktok is not None:
+        if post.get("network") != "tiktok":
+            raise HTTPException(status_code=422, detail="Opções do TikTok só valem para a rede TikTok.")
+        await require_allowed_choice(body.tiktok, user_id, profile_id)
+        head_update["tiktok_options"] = stored_options(body.tiktok)
 
     chain = _get_thread_chain(post_id, user_id)
     for row in reversed(chain[1:]):
@@ -2598,7 +2644,7 @@ async def update_post(
 
     result = (
         scope_owner(
-            supabase.table("posts").update({"text": body.texts[0]}).eq("id", post_id),
+            supabase.table("posts").update(head_update).eq("id", post_id),
             user_id, profile_id,
         )
         .execute()

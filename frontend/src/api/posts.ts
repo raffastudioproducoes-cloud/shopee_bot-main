@@ -1,3 +1,4 @@
+import type { TikTokOptionsPayload } from '../lib/tiktokSharing'
 import { api } from '../lib/api'
 
 export interface PostProduct {
@@ -118,6 +119,8 @@ export interface MediaDraft {
 export interface PostComposition {
   network: PostNetwork
   texts: string[]
+  /** Obrigatório na rede TikTok: escolhas explícitas do usuário. */
+  tiktok?: TikTokOptionsPayload
 }
 
 export interface PostBatchCreate {

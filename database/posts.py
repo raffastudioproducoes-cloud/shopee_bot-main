@@ -12,6 +12,31 @@ def count(user_id):
     return query_db(query, (user_id, ), True)["count"]
 
 
+def get_tiktok_options(user_id, post_id, profile_id):
+    """Escolhas do TikTok confirmadas pelo usuário para a head do post.
+
+    Post de campanha: o item do snapshot congelado da reserva (mesmo produto do
+    slot), já que a materialização não copia o JSON para a linha do post.
+    None = não há consentimento registrado (o publicador recusa)."""
+    query = """
+        SELECT COALESCE(p.tiktok_options, (
+            SELECT i->'tiktok'
+            FROM public.campaign_network_slots_f4e s
+            JOIN public.campaign_reservations_f4e r ON r.id = s.reservation_id
+            CROSS JOIN LATERAL jsonb_array_elements(r.draft_snapshot->'items') i
+            WHERE s.post_id = p.id AND s.network = 'tiktok'
+              AND (i->>'product_id')::integer = s.product_id
+              AND jsonb_typeof(i->'tiktok') = 'object'
+            LIMIT 1
+        )) AS options
+        FROM public.posts p
+        WHERE p.id = %s AND p.user_id = %s AND p.profile_id = %s::uuid
+          AND p.post_id IS NULL
+    """
+    row = query_db(query, (post_id, user_id, profile_id), True)
+    return row["options"] if row else None
+
+
 def get(user_id, post_id, profile_id):
     query = """
         WITH RECURSIVE post_hierarchy AS (

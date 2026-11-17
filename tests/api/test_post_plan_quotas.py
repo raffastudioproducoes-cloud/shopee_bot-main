@@ -97,7 +97,7 @@ async def test_batch_reserves_per_network_and_blocks_excess_without_creating_job
          "media_draft_ids": [], "warnings": []},
     ])
     next_id = iter((71, 72))
-    monkeypatch.setattr(posts, "_create_thread", lambda *a: {"id": next(next_id)})
+    monkeypatch.setattr(posts, "_create_thread", lambda *a, **k: {"id": next(next_id)})
     monkeypatch.setattr(posts, "_set_post_products", lambda *a: None)
     monkeypatch.setattr(posts, "_attach_medias", lambda *a: [])
     create_jobs = AsyncMock()
@@ -151,7 +151,7 @@ async def test_recurring_create_failure_compensates_before_deleting_post(monkeyp
     monkeypatch.setattr(posts, "_get_owned_medias", lambda *a: [])
     monkeypatch.setattr(posts, "_check_network_rules", lambda *a, **k: None)
     monkeypatch.setattr(posts, "_ensure_scheduler_available", AsyncMock())
-    monkeypatch.setattr(posts, "_create_thread", lambda *a: {"id": 81})
+    monkeypatch.setattr(posts, "_create_thread", lambda *a, **k: {"id": 81})
     monkeypatch.setattr(posts, "_set_post_products", lambda *a: None)
     monkeypatch.setattr(posts, "reserve_post_plan_quota", lambda *a, **k: calls.append("reserve"))
     monkeypatch.setattr(posts, "_create_schedule_jobs",
@@ -181,7 +181,7 @@ async def test_batch_failure_compensates_recurring_before_rollback(monkeypatch):
     monkeypatch.setattr(posts, "_preview_batch", lambda *a: [
         {"network": "threads", "texts": ["Primeiro"], "mode": "text", "media_draft_ids": [], "warnings": []},
     ])
-    monkeypatch.setattr(posts, "_create_thread", lambda *a: {"id": 91})
+    monkeypatch.setattr(posts, "_create_thread", lambda *a, **k: {"id": 91})
     monkeypatch.setattr(posts, "_set_post_products", lambda *a: None)
     monkeypatch.setattr(posts, "_attach_medias", lambda *a: [])
     monkeypatch.setattr(posts, "reserve_post_plan_quota", lambda *a, **k: None)

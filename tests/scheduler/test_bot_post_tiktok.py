@@ -30,6 +30,20 @@ REAL_LOCAL_FILE_TESTS = {
 }
 
 
+DIRECT_OPTIONS = {
+    "mode": "direct", "privacy_level": "SELF_ONLY", "allow_comment": False,
+    "allow_duet": False, "allow_stitch": False, "commercial_content": False,
+    "brand_organic": False, "brand_content": False, "is_aigc": False, "consent": True,
+    "confirmed_at": "2026-11-17T12:00:00+00:00",
+}
+
+
+@pytest.fixture(autouse=True)
+def _stored_tiktok_options(monkeypatch):
+    """Por padrão o post tem escolhas válidas gravadas (modo direto)."""
+    monkeypatch.setattr(module.posts, "get_tiktok_options", lambda *a: dict(DIRECT_OPTIONS))
+
+
 @pytest.fixture(autouse=True)
 def _local_file_passthrough(request, monkeypatch):
     """Testes legados usam caminhos locais fictícios; os de storage:// abaixo
@@ -134,7 +148,7 @@ def test_bot_post_tiktok_with_video_calls_post_video_and_logs_success(monkeypatc
 
     calls = {}
 
-    def fake_post_video(user_access_token, video_path, text, before_publish=None):
+    def fake_post_video(user_access_token, video_path, text, options=None, before_publish=None):
         calls["args"] = (user_access_token, video_path, text)
         return "publish-1"
 
@@ -223,7 +237,7 @@ def _expired():
 def test_expired_token_refreshes_saves_and_retries_once(monkeypatch):
     tokens_used = []
 
-    def post_video(token, path, text, before_publish=None):
+    def post_video(token, path, text, options=None, before_publish=None):
         tokens_used.append(token)
         if token == "user-token-1":
             raise _expired()
@@ -245,7 +259,7 @@ def test_refresh_failure_marks_reconnect_and_fails_without_secrets(monkeypatch):
     def refresh(ck, cs, rt):
         raise module.TikTokAPI.TikTokAPIError("boom refresh-1 secret-1")
 
-    def post_video(token, path, text, before_publish=None):
+    def post_video(token, path, text, options=None, before_publish=None):
         raise _expired()
 
     saved, marked, acts = _setup_refresh(monkeypatch, post_video, refresh)
@@ -261,7 +275,7 @@ def test_refresh_failure_marks_reconnect_and_fails_without_secrets(monkeypatch):
 
 
 def test_new_tokens_saved_even_if_retry_fails(monkeypatch):
-    def post_video(token, path, text, before_publish=None):
+    def post_video(token, path, text, options=None, before_publish=None):
         raise _expired() if token == "user-token-1" else RuntimeError("falha 2")
 
     saved, marked, acts = _setup_refresh(
@@ -278,7 +292,7 @@ def test_non_auth_error_does_not_refresh(monkeypatch):
     def refresh(*a):
         raise AssertionError("não deveria renovar")
 
-    def post_video(token, path, text, before_publish=None):
+    def post_video(token, path, text, options=None, before_publish=None):
         raise RuntimeError("rede caiu")
 
     _setup_refresh(monkeypatch, post_video, refresh)
@@ -294,7 +308,7 @@ def test_refresh_is_scoped_by_profile(monkeypatch):
     )
     monkeypatch.setattr(
         module.TikTokAPI, "post_video",
-        lambda t, p, x, before_publish=None: "ok" if t == "n" else (_ for _ in ()).throw(_expired()),
+        lambda t, p, x, o=None, before_publish=None: "ok" if t == "n" else (_ for _ in ()).throw(_expired()),
     )
     monkeypatch.setattr(
         module.TikTokAPI, "refresh_user_token",
@@ -341,7 +355,7 @@ def test_storage_uri_is_resolved_to_existing_local_file_and_cleaned(monkeypatch,
 
     acts = _setup_storage(monkeypatch, fake_local_file)
 
-    def post_video(token, path, text, before_publish=None):
+    def post_video(token, path, text, options=None, before_publish=None):
         seen["path"], seen["existed"] = path, os.path.isfile(path)
         return "pub-1"
 
@@ -396,7 +410,75 @@ def test_validacao_da_conta_antes_do_init_e_failed(monkeypatch, tmp_path):
         {"type": "VIDEO", "file_path": str(video), "file_name": "v.mp4"}]}])
     monkeypatch.setattr(module, "insert_activities", lambda *a, **k: None)
     monkeypatch.setattr(module.TikTokAPI, "_upload_chunk_plan", lambda size: None)
-    monkeypatch.setattr(module.TikTokAPI, "get_creator_info", lambda token: {"creator_can_post": False})
+    def cannot_post(token):
+        raise module.TikTokAPI.TikTokAPIError("Esta conta TikTok atingiu o limite diário de publicações.")
+
+    monkeypatch.setattr(module.TikTokAPI, "get_creator_info", cannot_post)
     monkeypatch.setattr(module.TikTokAPI, "_init_video_post",
                         lambda *a, **k: pytest.fail("não deve iniciar a publicação"))
     assert module.bot_post_tiktok("j").status == "failed"
+
+
+# --- escolhas do usuário (Content Sharing Guidelines) -------------------
+
+def _setup_choice(monkeypatch, stored):
+    video = {"type": "VIDEO", "file_path": "/tmp/v.mp4"}
+    _patch_common(monkeypatch, _user_data(), [{"text": "legenda", "medias": [video]}])
+    monkeypatch.setattr(module.posts, "get_tiktok_options", lambda *a: stored)
+    acts = []
+    monkeypatch.setattr(
+        module, "insert_activities",
+        lambda uid, typ, meta, profile_id=None: acts.append((typ, meta)),
+    )
+    return acts
+
+
+@pytest.mark.parametrize("stored", [
+    None,
+    {},
+    {**DIRECT_OPTIONS, "privacy_level": None},
+    {**DIRECT_OPTIONS, "consent": False},
+    {**DIRECT_OPTIONS, "brand_content": True, "commercial_content": True},  # SELF_ONLY + marca
+])
+def test_post_sem_escolhas_validas_falha_sem_chamar_tiktok(monkeypatch, stored):
+    acts = _setup_choice(monkeypatch, stored)
+    monkeypatch.setattr(module.TikTokAPI, "post_video", lambda *a, **k: pytest.fail("não deve publicar"))
+    monkeypatch.setattr(module.TikTokAPI, "upload_video_draft", lambda *a, **k: pytest.fail("não deve enviar"))
+    result = module.bot_post_tiktok("j")
+    assert result.status == "failed"
+    assert "Reconfirme as opções do TikTok" in result.error
+    assert acts[0][0] == ActivityType.BOT_POST_FAILURE
+
+
+def test_scheduler_envia_as_escolhas_gravadas(monkeypatch):
+    stored = {**DIRECT_OPTIONS, "privacy_level": "MUTUAL_FOLLOW_FRIENDS", "allow_comment": True,
+              "commercial_content": True, "brand_content": True}
+    _setup_choice(monkeypatch, stored)
+    seen = {}
+
+    def post_video(token, path, text, options, before_publish=None):
+        seen.update(options=options, text=text)
+        return "pub-9"
+
+    monkeypatch.setattr(module.TikTokAPI, "post_video", post_video)
+    assert module.bot_post_tiktok("j").status == "succeeded"
+    assert seen["text"] == "legenda"
+    assert seen["options"].privacy_level == "MUTUAL_FOLLOW_FRIENDS"
+    assert seen["options"].allow_comment is True and seen["options"].brand_content is True
+
+
+def test_modo_rascunho_usa_inbox_e_nao_direct_post(monkeypatch):
+    acts = _setup_choice(monkeypatch, {"mode": "draft", "consent": True})
+    calls = []
+    monkeypatch.setattr(module.TikTokAPI, "post_video", lambda *a, **k: pytest.fail("rascunho não usa Direct Post"))
+
+    def draft(token, path, before_publish=None):
+        calls.append((token, path, before_publish))
+        return "pub-draft"
+
+    monkeypatch.setattr(module.TikTokAPI, "upload_video_draft", draft)
+    result = module.bot_post_tiktok("j")
+    assert result.status == "succeeded" and result.external_id == "pub-draft"
+    assert calls[0][:2] == ("user-token-1", "/tmp/v.mp4")
+    assert calls[0][2] is module.mark_external_delivery
+    assert acts[0][1]["metadata"]["stage"] == "draft"

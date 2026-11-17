@@ -84,3 +84,49 @@ async def get_user_auth_id_token(code: str) -> tuple[str, str | None, str]:
         raise TikTokOAuthError(f"TikTok OAuth Error: {data}")
 
     return data["access_token"], data.get("refresh_token"), data["open_id"]
+
+
+CREATOR_INFO_URL = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/"
+
+
+async def refresh_access_token(refresh_token: str) -> dict:
+    """Renova o access_token (~24h). Erro nunca cita o token."""
+    async with httpx.AsyncClient(timeout=15) as client:
+        res = await client.post(
+            TOKEN_URL,
+            data={
+                "client_key": CLIENT_KEY,
+                "client_secret": CLIENT_SECRET,
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+    data = res.json() if res.status_code == 200 else {}
+    if not data.get("access_token"):
+        raise TikTokOAuthError(f"Falha ao renovar o token do TikTok (status {res.status_code})")
+    return data
+
+
+async def query_creator_info(access_token: str) -> tuple[str, dict]:
+    """POST creator_info/query (escopo video.publish).
+
+    Retorna (error.code, data). Os códigos de spam/cota voltam com HTTP 200,
+    então a decisão é sempre pelo `error.code`, nunca só pelo status.
+    https://developers.tiktok.com/doc/content-posting-api-reference-query-creator-info
+    """
+    async with httpx.AsyncClient(timeout=15) as client:
+        res = await client.post(
+            CREATOR_INFO_URL,
+            json={},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json; charset=UTF-8",
+            },
+        )
+    try:
+        body = res.json() or {}
+    except ValueError:
+        body = {}
+    code = (body.get("error") or {}).get("code") or ("ok" if res.status_code == 200 else f"http_{res.status_code}")
+    return code, body.get("data") or {}

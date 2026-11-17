@@ -35,6 +35,7 @@ from .. import threads_oauth
 from .. import instagram_oauth
 from .. import facebook_oauth
 from .. import tiktok_oauth
+from .. import tiktok_creator
 from .. import x_oauth
 from ..config import settings
 from ..database import supabase
@@ -941,6 +942,32 @@ async def delete_tiktok_credential(user_id: int = Depends(get_current_user_id), 
     if not result.data:
         raise HTTPException(status_code=404, detail="Credencial não encontrada")
     return {"connected": False}
+
+
+# creator_info alimenta a tela "Publicar no TikTok" (Content Sharing Guidelines:
+# consultar ao abrir a tela). Limite próprio: a API do TikTok aceita 20/min por token.
+_CREATOR_INFO_RATE_LIMIT_ATTEMPTS = 15
+_CREATOR_INFO_RATE_LIMIT_WINDOW_SECONDS = 60
+_creator_info_attempts: dict = {}
+
+
+@router.get("/tiktok/creator-info")
+async def get_tiktok_creator_info(
+    user_id: int = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Conta TikTok do perfil ativo: apelido, opções de privacidade e
+    interações permitidas. Só do dono (escopo user/perfil); nunca expõe token."""
+    check_window(
+        "tiktok-creator-info", user_id,
+        attempts=_CREATOR_INFO_RATE_LIMIT_ATTEMPTS,
+        window_seconds=_CREATOR_INFO_RATE_LIMIT_WINDOW_SECONDS,
+        state=_creator_info_attempts,
+        detail="Muitas consultas à conta TikTok. Aguarde um minuto.",
+    )
+    if not profile_id:
+        raise HTTPException(status_code=400, detail="Perfil ativo obrigatório.")
+    return await tiktok_creator.load_creator_info(user_id, profile_id)
 
 
 @router.get("/x/authorize")

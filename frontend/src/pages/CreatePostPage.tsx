@@ -4,6 +4,7 @@ import { useAuthStore } from "../stores/authStore"
 import { useProfileStore } from "../stores/profileStore"
 import { router } from "../router"
 import { postsApi, type PostBatchResult, type PostSchedule, type PostNetwork } from "../api/posts"
+import type { TikTokOptionsPayload } from "../lib/tiktokSharing"
 import { credentialsApi } from "../api/credentials"
 import { ApiError } from "../lib/api"
 import { formDraftKey, clearFormDraft } from "../lib/formDraftStorage"
@@ -62,6 +63,7 @@ export function CreatePostPage() {
       productImageIds: number[]
       publishNow: boolean
       productMediaIds: { productId: number; assetId: string }[]
+      tiktok?: TikTokOptionsPayload
     }): Promise<NetworkResult[]> => {
       const draftMedia = []
       try {
@@ -73,7 +75,12 @@ export function CreatePostPage() {
         for (const item of data.productMediaIds) draftMedia.push(await postsApi.importProductMediaDraft(item.productId, item.assetId))
         for (const productId of data.productImageIds) draftMedia.push(await postsApi.importProductImageDraft(productId))
         const payload = {
-          compositions: data.networks.map((network) => ({ network, texts: data.textsByNetwork[network] ?? [] })),
+          compositions: data.networks.map((network) => ({
+            network,
+            texts: data.textsByNetwork[network] ?? [],
+            // Só no clique explícito do usuário; sem escolhas, o backend recusa (422).
+            ...(network === "tiktok" && data.tiktok ? { tiktok: data.tiktok } : {}),
+          })),
           product_ids: data.product_ids,
           draft_media_ids: draftMedia.map((draft) => draft.id),
           schedule: data.schedule,
@@ -145,8 +152,9 @@ export function CreatePostPage() {
       productImageIds: number[],
       publishNow: boolean,
       productMediaIds: { productId: number; assetId: string }[],
+      tiktok?: TikTokOptionsPayload,
     ) => {
-      createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, productImageIds, publishNow, productMediaIds })
+      createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, productImageIds, publishNow, productMediaIds, tiktok })
     },
     [createMutation],
   )
