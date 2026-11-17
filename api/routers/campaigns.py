@@ -23,6 +23,7 @@ from .posts import _read_media_content, _sanitize_upload, MEDIA_DRAFT_BUCKET
 from ..profiles import scope_owner, scope_account
 from ..shopee_affiliate_links import canonical_product_url, build_affiliate_link
 from .platform_shopee import get_affiliate_id
+from ..tiktok_options import TikTokPostOptions, require_campaign_choices, stored_options, RECONFIRM_MESSAGE
 from urllib.parse import urlsplit
 from typing import Literal
 from uuid import UUID
@@ -137,6 +138,9 @@ class CampaignDraftItem(BaseModel):
     network_copies: dict[Network, str] = Field(default_factory=dict)
     use_shopee_image: bool = True
     product_media_ids: list[UUID] = Field(default_factory=list, max_length=7)
+    # Escolhas TikTok confirmadas ao salvar/ativar (obrigatórias se TikTok marcado;
+    # opcional no modelo para rascunhos antigos falharem com mensagem clara).
+    tiktok: TikTokPostOptions | None = None
 
     @field_validator("product_media_ids")
     @classmethod
@@ -201,6 +205,17 @@ class CampaignDraftUpdate(BaseModel):
     schedule: CampaignPreviewRequest | None = None
 
 
+def _require_tiktok_choices(items: list[CampaignDraftItem]) -> None:
+    """Agendar TikTok em campanha exige as mesmas escolhas do Criar Post."""
+    try:
+        require_campaign_choices(items)
+    except ValueError:
+        raise ValueError(
+            "Para incluir o TikTok na campanha, escolha a privacidade, as interações, "
+            "a divulgação comercial e confirme a declaração do TikTok."
+        ) from None
+
+
 def validate_campaign_draft_items(items: list, owned_ids: list[int]) -> None:
     ids = [int(item["product_id"] if isinstance(item, dict) else item.product_id) for item in items]
     validate_campaign_list_items(ids, owned_ids)
@@ -260,6 +275,7 @@ async def create_campaign_draft(
         validate_product_media_choices(body.items, user_id)
         validate_campaign_draft_schedule(body.schedule, body.list_id, [p.product_id for p in body.items])
         validate_campaign_network_volume(policy, body.schedule, body.items)
+        _require_tiktok_choices(body.items)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     by_id = {int(p["id"]): p for p in products}
@@ -268,6 +284,7 @@ async def create_campaign_draft(
     items = []
     for item in body.items:
         saved = item.model_dump(mode="json", by_alias=True)
+        saved["tiktok"] = stored_options(item.tiktok) if item.tiktok and "tiktok" in item.networks else None
         saved["source_image"] = by_id[item.product_id].get("image")
         saved["use_shopee_image"] = bool(saved["source_image"]) and item.use_shopee_image
         product = by_id[item.product_id]
@@ -376,6 +393,10 @@ async def preflight_campaign_draft(
         )
         validate_campaign_plan_schedule(policy, schedule)
         validate_campaign_network_volume(policy, schedule, items)
+        try:
+            require_campaign_choices(items)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=RECONFIRM_MESSAGE) from None
         slots = plan_campaign_slots(
             start_date=schedule.start_date, end_date=schedule.end_date,
             weekdays=schedule.weekdays, start_time=schedule.start_time,
@@ -415,6 +436,7 @@ async def update_campaign_draft(
         validate_product_media_choices(body.items, user_id)
         validate_campaign_draft_schedule(body.schedule, old.get("source_list_id"), [p.product_id for p in body.items])
         validate_campaign_network_volume(policy, body.schedule, body.items)
+        _require_tiktok_choices(body.items)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     affiliate_id = get_affiliate_id(user_id) if any(
@@ -422,6 +444,7 @@ async def update_campaign_draft(
     items = []
     for item in body.items:
         saved = item.model_dump(mode="json", by_alias=True)
+        saved["tiktok"] = stored_options(item.tiktok) if item.tiktok and "tiktok" in item.networks else None
         previous = old_items[item.product_id]
         saved["source_image"] = previous.get("source_image")
         saved["use_shopee_image"] = bool(saved["source_image"]) and item.use_shopee_image

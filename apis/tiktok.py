@@ -8,10 +8,12 @@ implementar):
   que não sejam testers cadastrados no app. Sem essa aprovação, a Content
   Posting API só publica em modo rascunho/inbox e só pro dono do app /
   testers de sandbox — mais rígido que o processo de review da Meta.
-  O código abaixo chama o endpoint de "Direct Post" (/v2/post/publish/
-  video/init/) e usa privacy_level=SELF_ONLY por padrão, que é o nível
-  aceito mesmo sem aprovação (publica como privado/rascunho pro próprio
-  dono da conta autorizada). Ver:
+  O Direct Post (/v2/post/publish/video/init/) envia exatamente a
+  privacidade, interações e divulgação escolhidas pelo usuário na tela
+  "Publicar no TikTok" (api/tiktok_options.py), sem valor padrão; app não
+  auditado só recebe SELF_ONLY em privacy_level_options. O modo rascunho
+  (/v2/post/publish/inbox/video/init/, escopo video.upload) manda o vídeo
+  para a caixa de entrada do app TikTok. Ver:
   https://developers.tiktok.com/doc/content-posting-api-get-started
   https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
 
@@ -60,11 +62,13 @@ from urllib.parse import quote
 import requests
 
 from shopee_bot.utils import ConnectionTestError, retry_with_backoff, mark_not_published
+from shopee_bot.api.tiktok_options import check_against_creator, direct_post_info
 
 AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
 TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 USER_INFO_URL = "https://open.tiktokapis.com/v2/user/info/"
 POST_INIT_URL = "https://open.tiktokapis.com/v2/post/publish/video/init/"
+INBOX_INIT_URL = "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"
 POST_STATUS_URL = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
 CREATOR_INFO_URL = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/"
 MIN_CHUNK_BYTES = 5 * 1024 * 1024
@@ -279,8 +283,26 @@ def _upload_chunk_plan(video_size):
     return chunk_size, total_chunks
 
 
+_CANNOT_POST = {
+    "spam_risk_too_many_posts": "Esta conta TikTok atingiu o limite diário de publicações. Tente novamente mais tarde.",
+    "spam_risk_user_banned_from_posting": "Esta conta TikTok está impedida de publicar no momento.",
+    "reached_active_user_cap": "O app atingiu a cota diária de contas publicando no TikTok. Tente novamente mais tarde.",
+}
+
+
+def _error_code(res):
+    try:
+        return ((res.json() or {}).get("error") or {}).get("code") or ""
+    except ValueError:
+        return ""
+
+
 def get_creator_info(user_access_token):
-    """Consulta os limites e opções atuais do criador antes de publicar."""
+    """Consulta os limites e opções atuais do criador antes de publicar.
+
+    Os códigos de spam/cota voltam com HTTP 200: decide pelo error.code.
+    https://developers.tiktok.com/doc/content-posting-api-reference-query-creator-info
+    """
     res = retry_with_backoff(
         requests.post,
         CREATOR_INFO_URL,
@@ -290,7 +312,10 @@ def get_creator_info(user_access_token):
             "Content-Type": "application/json; charset=UTF-8",
         },
     )
-    if res.status_code != 200:
+    code = _error_code(res)
+    if code in _CANNOT_POST:
+        raise TikTokAPIError(_CANNOT_POST[code])
+    if res.status_code != 200 or code not in ("", "ok"):
         _raise_exception("Failed to Query TikTok Creator Info", res, CREATOR_INFO_URL)
     data = (res.json() or {}).get("data") or {}
     if not data.get("max_video_post_duration_sec") or not data.get("privacy_level_options"):
@@ -318,38 +343,43 @@ def _video_duration_seconds(video_path):
         ) from exc
 
 
-def _init_video_post(user_access_token, video_size, text, privacy_level, creator_info=None):
+def _source_info(video_size):
     chunk_size, total_chunks = _upload_chunk_plan(video_size)
-    creator_info = creator_info or {}
-    payload = {
-        "post_info": {
-            "title": text or "",
-            "privacy_level": privacy_level,
-            "disable_duet": bool(creator_info.get("duet_disabled")),
-            "disable_comment": bool(creator_info.get("comment_disabled")),
-            "disable_stitch": bool(creator_info.get("stitch_disabled")),
-        },
-        "source_info": {
-            "source": "FILE_UPLOAD",
-            "video_size": video_size,
-            "chunk_size": chunk_size,
-            "total_chunk_count": total_chunks,
-        },
+    return {
+        "source": "FILE_UPLOAD",
+        "video_size": video_size,
+        "chunk_size": chunk_size,
+        "total_chunk_count": total_chunks,
     }
+
+
+def _init_upload(user_access_token, url, payload, err_text):
     res = retry_with_backoff(
         requests.post,
-        POST_INIT_URL,
+        url,
         json=payload,
         headers={
             "Authorization": f"Bearer {user_access_token}",
             "Content-Type": "application/json; charset=UTF-8",
         },
     )
-    if res.status_code != 200:
-        _raise_exception("Failed to Init Video Post", res, POST_INIT_URL)
-
+    if res.status_code != 200 or _error_code(res) not in ("", "ok"):
+        _raise_exception(err_text, res, url)
     data = res.json()["data"]
     return data["publish_id"], data["upload_url"]
+
+
+def _init_video_post(user_access_token, video_size, post_info):
+    """Direct Post: post_info montado por tiktok_options.direct_post_info."""
+    payload = {"post_info": post_info, "source_info": _source_info(video_size)}
+    return _init_upload(user_access_token, POST_INIT_URL, payload, "Failed to Init Video Post")
+
+
+def _init_inbox_upload(user_access_token, video_size):
+    """Upload para rascunhos (escopo video.upload): só source_info, sem post_info.
+    https://developers.tiktok.com/doc/content-posting-api-reference-upload-video"""
+    payload = {"source_info": _source_info(video_size)}
+    return _init_upload(user_access_token, INBOX_INIT_URL, payload, "Failed to Init Draft Upload")
 
 
 def _upload_video_file(upload_url, video_path, chunk_size=None):
@@ -386,7 +416,8 @@ def _upload_video_file(upload_url, video_path, chunk_size=None):
             raise TikTokAPIError("Arquivo de vídeo mudou de tamanho durante o upload.")
 
 
-def _wait_publish_complete(user_access_token, publish_id, timeout_s=120):
+def _wait_publish_complete(user_access_token, publish_id, timeout_s=120,
+                           done_statuses=("PUBLISH_COMPLETE",)):
     # https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
     deadline = time.time() + timeout_s
     while time.time() < deadline:
@@ -405,7 +436,7 @@ def _wait_publish_complete(user_access_token, publish_id, timeout_s=120):
         data = res.json()["data"]
         status = data.get("status")
 
-        if status == "PUBLISH_COMPLETE":
+        if status in done_statuses:
             return data
         if status == "FAILED":
             raise TikTokAPIError(
@@ -418,16 +449,13 @@ def _wait_publish_complete(user_access_token, publish_id, timeout_s=120):
     )
 
 
-def post_video(user_access_token, video_path, text, privacy_level="SELF_ONLY", before_publish=None):
-    """Valida Creator Info e publica um vídeo com upload em chunks."""
+def post_video(user_access_token, video_path, text, options, before_publish=None):
+    """Direct Post com as escolhas do usuário (api/tiktok_options.py): valida o
+    creator_info atual e a duração ANTES de qualquer envio, depois publica."""
     try:
         video_size = os.path.getsize(video_path)
         _upload_chunk_plan(video_size)
         creator = get_creator_info(user_access_token)
-        if creator.get("creator_can_post") is False:
-            raise TikTokAPIError(
-                "Esta conta TikTok não pode publicar no momento. Tente novamente mais tarde."
-            )
         max_duration = int(creator["max_video_post_duration_sec"])
         duration = _video_duration_seconds(video_path)
         if duration > max_duration:
@@ -435,20 +463,39 @@ def post_video(user_access_token, video_path, text, privacy_level="SELF_ONLY", b
                 f"Este vídeo tem {duration:.1f}s, mas a conta TikTok permite no máximo "
                 f"{max_duration}s. Substitua o arquivo por um vídeo mais curto."
             )
-        privacy_options = creator["privacy_level_options"]
-        if privacy_level not in privacy_options:
-            raise TikTokAPIError(
-                "A opção de privacidade solicitada não está disponível para esta conta TikTok."
-            )
+        try:
+            check_against_creator(options, creator)
+        except ValueError as exc:
+            raise TikTokAPIError(str(exc)) from None
+        post_info = direct_post_info(options, text, creator)
     except Exception as err:
         raise mark_not_published(err)  # validação prévia: nenhum envio ao TikTok
     if before_publish:
         before_publish()
-    publish_id, upload_url = _init_video_post(
-        user_access_token, video_size, text, privacy_level, creator
-    )
+    publish_id, upload_url = _init_video_post(user_access_token, video_size, post_info)
     _upload_video_file(upload_url, video_path)
     _wait_publish_complete(user_access_token, publish_id)
+    return publish_id
+
+
+def upload_video_draft(user_access_token, video_path, before_publish=None):
+    """Envia o vídeo para os rascunhos (caixa de entrada) do app TikTok.
+
+    O usuário finaliza legenda, privacidade e divulgação no próprio app; o
+    sucesso aqui é SEND_TO_USER_INBOX (ou PUBLISH_COMPLETE se já postou)."""
+    try:
+        video_size = os.path.getsize(video_path)
+        _upload_chunk_plan(video_size)
+    except Exception as err:
+        raise mark_not_published(err)
+    if before_publish:
+        before_publish()
+    publish_id, upload_url = _init_inbox_upload(user_access_token, video_size)
+    _upload_video_file(upload_url, video_path)
+    _wait_publish_complete(
+        user_access_token, publish_id,
+        done_statuses=("SEND_TO_USER_INBOX", "PUBLISH_COMPLETE"),
+    )
     return publish_id
 
 

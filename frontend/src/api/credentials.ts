@@ -1,3 +1,4 @@
+import type { TikTokCreatorInfo } from '../lib/tiktokSharing'
 import { api } from '../lib/api'
 
 export type SimpleNetwork = 'shopee' | 'x' | 'facebook' | 'instagram' | 'tiktok' | 'kwai'
@@ -70,6 +71,11 @@ export const credentialsApi = {
 
   async authorizeTiktok(): Promise<{ url: string }> {
     return api.get<{ url: string }>('/credentials/tiktok/authorize')
+  },
+
+  /** Conta TikTok do perfil ativo (creator_info): apelido, privacidade e interações. */
+  async tiktokCreatorInfo(): Promise<TikTokCreatorInfo> {
+    return api.get<TikTokCreatorInfo>('/credentials/tiktok/creator-info')
   },
 
   async authorizeInstagram(): Promise<{ url: string }> {

@@ -20,6 +20,22 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 - Termos: seção de planos pagos (Asaas), aviso de serviço aberto ao público e link para a página de exclusão de dados.
 - A landing deixa de marcar `noindex` no navegador; o staging continua fora dos buscadores pelo `X-Robots-Tag` do servidor.
 
+Funcionalidade nova (MINOR candidata): tela "Publicar no TikTok" conforme as Content Sharing Guidelines do TikTok (App Review/auditoria), nos dois modos do produto (Direct Post com `video.publish` e rascunho com `video.upload`). Migração aditiva **104** (aplicada pelo app no boot).
+
+### Added — TikTok: escolhas explícitas do usuário (17/11/2026)
+
+- `GET /credentials/tiktok/creator-info` (dono do perfil, limite de 15/min): consulta `creator_info/query` e devolve só apelido, `@usuário`, avatar, `privacy_level_options`, `comment_disabled`/`duet_disabled`/`stitch_disabled`, `max_video_post_duration_sec` e se a conta pode postar (códigos `spam_risk_*`/`reached_active_user_cap` vêm com HTTP 200 e viram aviso). Renova o token uma vez se expirou, grava cifrado e nunca expõe token.
+- Painel **TikTok** no Criar Post (publicar agora e recorrente) e na Campanha por lista: conta que vai receber, prévia do vídeo, título/legenda editável (2.200), escolha **Publicar direto** ou **Enviar para rascunhos do TikTok**, privacidade montada de `privacy_level_options` **sem valor padrão**, Permitir comentários/Duet/Stitch desmarcados por padrão e desabilitados quando a conta desligou, toggle **Divulgar conteúdo comercial** desligado por padrão com **Sua marca** ("Conteúdo promocional") e **Conteúdo de marca** ("Parceria paga"), botão bloqueado se ligado sem opção, "Somente eu" indisponível com Conteúdo de marca (e vice-versa), rótulo de IA opcional, declaração com links oficiais (Confirmação de Uso de Música / Política de Conteúdo de Marca) logo antes do botão e aviso de que o post pode levar alguns minutos para aparecer.
+- Modo rascunho: `POST /v2/post/publish/inbox/video/init/` + upload em blocos + `status/fetch` até `SEND_TO_USER_INBOX`; o usuário finaliza legenda, privacidade e divulgação no app TikTok.
+- Migração **104** `posts.tiktok_options` (jsonb anulável): grava a escolha exata e `confirmed_at` na head do post. Campanhas guardam a mesma escolha em cada item de `campaign_drafts.items`, congelada no snapshot da reserva.
+
+### Changed — TikTok
+
+- `video/init` envia exatamente `privacy_level`, `disable_comment`/`disable_duet`/`disable_stitch` (desmarcado = desativado), `brand_content_toggle`, `brand_organic_toggle` e `is_aigc` escolhidos; acabou o `SELF_ONLY` fixo e as interações copiadas do creator_info.
+- `POST /posts`, `/posts/batch`, `/posts/preview`, rascunhos e ativação de campanha recusam TikTok sem as escolhas (422, mensagem em português); Conteúdo de marca privado é 422. A escolha é conferida com o creator_info atual antes de gravar (TikTok bloqueado no lote; as outras redes seguem). `PUT /posts/{id}` aceita `tiktok` para reconfirmar.
+- Scheduler: post ou campanha antigo sem escolhas registradas falha antes de qualquer chamada ao TikTok com "Reconfirme as opções do TikTok"; nunca publica com valores inventados.
+- `creator_info` no scheduler passou a decidir pelo `error.code` (spam/cota com HTTP 200) e a duração/privacidade/interações são conferidas antes do init.
+
 ## [3.24.1] - 2026-11-16
 
 Correção/ajuste de manutenção (PATCH): arquivo de verificação de prefixo de URL do TikTok for Developers servido na raiz do domínio. Sem migração.
