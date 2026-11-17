@@ -9,6 +9,7 @@ import { PlansScene } from "./Plans"
 import { BacklogScene, ChallengeScene, ProductScene, TurnScene } from "./Scenes"
 import { BenefitsSection, FinalSection, FutureSection, TrustSection } from "./Sections"
 import { LoginLink } from "./shared"
+import { COMPANY } from "../../lib/company"
 import "./presentation.css"
 
 const META = {
@@ -91,6 +92,7 @@ export default function PresentationBody() {
           <div className="ao-footer-inner">
             <a href="#topo" className="inline-flex items-center gap-2 font-ao-display font-bold text-ao-fg"><img src="/brand/logo-mark-static.svg" alt="" className="h-8 w-8" /><img src="/brand/logo-wordmark.svg" alt="Auto Orbital" className="h-6 w-auto" /></a>
             <span>{lang === "en" ? "© 2026 Raffa Studio Produções. A web app for affiliates and creators." : "© 2026 Raffa Studio Produções. Uma plataforma para afiliados e criadores."}</span>
+            <span>{COMPANY.footerLine}</span>
             <nav aria-label="Rodapé">
               <a href="/termos">{lang === "en" ? "Terms" : "Termos"}</a>
               <a href="/privacidade">{lang === "en" ? "Privacy" : "Privacidade"}</a>

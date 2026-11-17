@@ -1,3 +1,4 @@
+import { CompanyIdentification } from './CompanyIdentification'
 /** English version of the Terms of Service (/termos?lang=en). Mirrors the Portuguese text. */
 export function TermsEn() {
   return (
@@ -8,6 +9,8 @@ export function TermsEn() {
         Terms of Service and to our <a href="/privacidade?lang=en">Privacy Policy</a>. If you do not agree
         with any part of them, do not use the service.
       </p>
+
+      <CompanyIdentification lang="en" doc="terms" />
 
       <h2>2. Description of the service</h2>
       <p>
