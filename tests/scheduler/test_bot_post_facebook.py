@@ -26,6 +26,8 @@ def _patch_common(monkeypatch, root_post):
     monkeypatch.setattr(
         module.posts, "get", lambda user_id, post_id, profile_id: [root_post],
     )
+    # Sem escolha gravada = vídeo comum (posts antigos).
+    monkeypatch.setattr(module.posts, "get_facebook_reels", lambda *a: False)
 
 
 def test_bot_post_facebook_with_image_uses_page_token(monkeypatch):
