@@ -6,7 +6,8 @@ from shopee_bot.database.activities import (
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
-from shopee_bot.scheduler.publication_context import active_publish_job_id, mark_external_delivery
+from shopee_bot.scheduler.publication_context import mark_external_delivery
+from shopee_bot.scheduler.publication_context import active_publish_job_id
 from shopee_bot.scheduler.media_delivery import delivery_url
 from shopee_bot.scheduler.video_probe import probe_mp4
 from shopee_bot.scheduler.publication_result import external_id, failed, succeeded, unknown
