@@ -43,6 +43,8 @@ import { Textarea } from "../ui/Textarea"
 import { AiCopyControls } from "./AiCopyControls"
 import { SegmentedToggle } from "../ui/SegmentedToggle"
 import { TikTokDeclaration, TikTokPublishPanel } from "./TikTokPublishPanel"
+import { ReelsPublishPanel } from "./ReelsPublishPanel"
+import { facebookReelsEligibility, facebookReelsValue } from "../../lib/reelsOptions"
 import {
   emptyTikTokChoice,
   tiktokBlockReason,
@@ -105,6 +107,7 @@ export interface PostComposerProps {
     publishNow: boolean,
     productMediaIds: { productId: number; assetId: string }[],
     tiktok?: TikTokOptionsPayload,
+    reels?: Partial<Record<PostNetwork, boolean>>,
   ) => void
   loading: boolean
   error?: string
@@ -151,6 +154,8 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
   const [pickMessage, setPickMessage] = useState<string | null>(null)
   // Escolhas do TikTok: nunca restauradas do rascunho (sem valor padrão; consentimento a cada envio).
   const [tiktokChoice, setTiktokChoice] = useState<TikTokChoice>(emptyTikTokChoice)
+  // Reels no Facebook: null = sem toque do usuário (vale o padrão pelo vídeo).
+  const [facebookReelsTouched, setFacebookReelsTouched] = useState<boolean | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // Redes que já deram certo no último envio saem da seleção: reenviar só
   // repete as que falharam, sem duplicar post.
@@ -533,6 +538,12 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
       videoDurationSec: tiktokVideoFile?.info.durationSec ?? null,
     })
     : null
+  // Painel "Publicar como Reels": só quando a rede recebe um vídeo único.
+  const reelsVideoFile = pendingFiles.find((p) => p.info.kind === "video")
+  const instagramReels = !post && deliverableNetworks.includes("instagram") && compositionPlans.instagram.mode === "video"
+  const facebookReelsShown = !post && deliverableNetworks.includes("facebook") && compositionPlans.facebook.mode === "video"
+  const facebookReelsEligibilityInfo = facebookReelsEligibility(reelsVideoFile?.info ?? null)
+  const facebookReels = facebookReelsValue(facebookReelsTouched, facebookReelsEligibilityInfo)
   const trayItems = pendingFiles.flatMap((p, index) => (p.info.kind === "video" ? [] : [{ file: p.file, index }]))
   const showTray = !post && (trayItems.length >= 2 || trayOpen)
   const trayNotes = trayItems.length < 2 ? [] : activeNetworks.flatMap((n) => {
@@ -583,6 +594,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
       when === "now",
       chosenProductMedia.map((m) => ({ productId: m.product_id, assetId: m.id })),
       tiktokDeliverable ? toTikTokPayload(tiktokChoice) : undefined,
+      facebookReelsShown ? { facebook: facebookReels } : undefined,
     )
   }
 
@@ -874,6 +886,17 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
             onRetry={() => { void creatorQuery.refetch() }}
             title={{ value: headFor("tiktok"), onChange: (value) => setHeadFor("tiktok", value) }}
             video={tiktokVideo}
+          />
+        )}
+
+        {(instagramReels || facebookReelsShown) && (
+          <ReelsPublishPanel
+            instagram={instagramReels}
+            facebook={facebookReelsShown ? {
+              eligibility: facebookReelsEligibilityInfo,
+              checked: facebookReels,
+              onChange: setFacebookReelsTouched,
+            } : null}
           />
         )}
 

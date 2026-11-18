@@ -281,3 +281,19 @@ def test_lost_finish_response_becomes_unknown(monkeypatch):
         raise Exception("Facebook Reels: a resposta da publicação se perdeu")
     _scheduler(monkeypatch, info=GOOD, reel=lost)
     assert module.bot_post_facebook("job-lost").status == "unknown"
+
+
+def test_reels_flag_sql_reads_head_choice_then_campaign_item_and_defaults_off():
+    from shopee_bot.database import posts as posts_db
+    sql = posts_db.FACEBOOK_REELS_SQL
+    assert "p.tiktok_options->'reels'" in sql and "p.network = 'facebook'" in sql
+    assert "i->'facebook_reels'" in sql and "s.network = 'facebook'" in sql
+    assert sql.rstrip().endswith("false)")  # sem escolha = vídeo comum
+    seen = {}
+    original = posts_db.query_db
+    try:
+        posts_db.query_db = lambda q, args, one=False: seen.update(q=q, args=args) or {"total": 4}
+        assert posts_db.count_facebook_reels_last_24h("page-1") == 4
+    finally:
+        posts_db.query_db = original
+    assert seen["args"] == ("page-1",) and "interval '24 hours'" in seen["q"]
