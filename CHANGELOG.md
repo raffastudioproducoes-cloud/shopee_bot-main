@@ -5,6 +5,24 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+Candidata MINOR (funcionalidade compatível). Sem migração e sem variável de ambiente nova.
+
+### Added — Reels e insights (18/11/2026)
+
+- Facebook: publicação de Reels de Página pelo fluxo oficial `video_reels` (start → upload por `file_url` no `rupload.facebook.com` → `finish` com `video_state=PUBLISHED` → acompanhamento de `status` por até ~5 min). Antes de chamar a Meta o servidor lê o MP4 por Range (sem baixar o vídeo) e confere MP4, 3 a 90 s, vertical e mínimo 540×960 (fora de 9:16 só avisa), além do limite local de 30 Reels por Página em 24 h. Falha até o upload = `failed`; resposta perdida ou confirmação ausente depois do `finish` = `unknown`.
+- Composer: painel "Publicar como Reels". Instagram com vídeo único segue Reels travado; Facebook vem ligado quando o vídeo é vertical (largura/altura ≤ 0,8) e tem de 3 a 90 s, senão desligado com o motivo. A escolha é gravada no ato de agendar (post recorrente e item de campanha); posts antigos sem escolha seguem como vídeo comum.
+- Insights do Instagram: `reposts` (somados em "Compart./reposts") e tempo médio assistido de Reels (`ig_reels_avg_watch_time`, em `post_metrics.extra`), com queda para listas menores quando a Graph recusa a métrica (code 100).
+- Insights de vídeo/Reels do Facebook via `/{video-id}/video_insights` (visualizações, alcance, reações, comentários, compartilhamentos e tempo médio). Sem `pages_manage_engagement` vira `access_denied` sem interromper a coleta.
+- Métricas por post: coluna "Tempo médio assistido", exibida só quando algum post tem o valor ("—" nos demais).
+
+### Changed
+
+- Instagram: container REELS envia `share_to_feed=true` explícito; vídeo fora de 9:16 gera aviso (não bloqueia).
+
+### Fixed
+
+- Facebook: post só de produto agora passa o link de afiliado pelo redirecionador de cliques (`/r/{token}`). `CLICK_REDIRECT_BASE_URL` inválida continua desligando o redirecionador, agora com um único aviso no log.
+
 ## [3.26.0] - 2026-11-18
 
 Funcionalidade nova (MINOR): identificação do controlador (CNPJ e endereço) nos Termos, Privacidade e rodapé da landing. Correções: post com vídeo deixa de estourar 504 em `/posts/media-drafts`, painel Asaas explica o webhook desabilitado e a contratação só abre com chave, token e ambiente coerentes, e Facebook explica Página com menos de 100 curtidas. Sem migração.
