@@ -31,3 +31,20 @@ test("o pacote do cliente não importa o arquivo de API do ADMIN", () => {
   }
   assert.match(read("components/plans/BillingAdminPanel.tsx"), /api\/billingAdmin/)
 })
+
+test("sem chave o painel diz Não configurado, não Sandbox", () => {
+  const panel = read("components/plans/BillingAdminPanel.tsx")
+  assert.match(panel, /s\.environment \? ENV_NAMES\[s\.environment\] : "Não configurado"/)
+  assert.match(panel, /s\.environment === "sandbox" && <><dt>Contas de teste/)
+  assert.match(read("api/billingAdmin.ts"), /environment: "sandbox" \| "production" \| null/)
+})
+
+test("botão do webhook explica o que falta e para onde a URL aponta", () => {
+  const panel = read("components/plans/BillingAdminPanel.tsx")
+  assert.match(panel, /Defina ASAAS_API_KEY e ASAAS_WEBHOOK_TOKEN no Render para habilitar o webhook\. Falta: \{missing\.join\(" e "\)\}/)
+  assert.match(panel, /"ASAAS_API_KEY"/)
+  assert.match(panel, /"ASAAS_WEBHOOK_TOKEN"/)
+  assert.match(panel, /disabled=\{missing\.length > 0/)
+  assert.match(panel, /ASAAS_API_URL aponta para \{ENV_NAMES\[s\.api_url_environment\]\}/)
+  assert.match(panel, /environment_mismatch/)
+})

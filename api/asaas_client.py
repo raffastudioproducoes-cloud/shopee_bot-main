@@ -35,6 +35,27 @@ def enabled() -> bool:
     return bool(settings.asaas_api_key)
 
 
+def key_environment() -> str | None:
+    """Ambiente indicado pelo prefixo da chave ($aact_prod_ / $aact_hmlg_); None se o formato não diz."""
+    key = settings.asaas_api_key or ""
+    if key.startswith("$aact_prod_"):
+        return "production"
+    if key.startswith("$aact_hmlg_"):
+        return "sandbox"
+    return None
+
+
+def environment_mismatch() -> bool:
+    """Chave de um ambiente com ASAAS_API_URL do outro: toda chamada ao Asaas falharia."""
+    found = key_environment()
+    return found is not None and found != environment()
+
+
+def checkout_ready() -> bool:
+    """Só abre contratação quando o pagamento pode ativar o plano: chave, token do webhook e ambiente coerente."""
+    return enabled() and bool(settings.asaas_webhook_token) and not environment_mismatch()
+
+
 def may_bill(user_id: str | None) -> bool:
     """Produção cobra qualquer conta; sandbox só as contas de teste listadas."""
     if environment() == "production":

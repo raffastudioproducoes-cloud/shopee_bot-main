@@ -14,7 +14,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from shopee_bot.utils.timezones import DEFAULT_TIMEZONE, normalize_timezone
 
 from ..database import supabase
-from ..post_insights import HISTORY_TABLE, combined_shares, distinct_published_jobs, indexed_insights
+from ..meta_post_insights import AUDIENCE_BELOW_MINIMUM
+from ..post_insights import (HISTORY_TABLE, combined_shares, distinct_published_jobs, facebook_fan_counts,
+                             indexed_insights)
 from ..profiles import scope_account
 from .auth import get_current_user_id
 from .profiles import get_current_profile_id
@@ -109,7 +111,7 @@ def _previews(user_id, post_ids):
     return previews
 
 
-def post_row(job, item, tokens, preview):
+def post_row(job, item, tokens, preview, fan_counts=None):
     """Linha de um envio: última coleta do cache publication_insights + cliques próprios."""
     usable = bool(item) and item.get("network") == job["network"] and (
         item.get("external_id") == job.get("external_id")) and item.get("state") in USABLE_STATES
@@ -124,6 +126,8 @@ def post_row(job, item, tokens, preview):
         status = item["state"]
     else:
         status = "not_collected" if job.get("external_id") else "missing_external_id"
+    if status == AUDIENCE_BELOW_MINIMUM:
+        row["fan_count"] = (fan_counts or {}).get(job.get("profile_id"))
     return {
         "job_id": job["id"], "post_id": job.get("post_id"), "network": job["network"],
         "profile_id": job.get("profile_id"), "finished_at": job.get("finished_at"),
@@ -138,7 +142,9 @@ def _rows(user_id, profile_id, network, begin, finish):
     index = indexed_insights(user_id, jobs) if jobs else {}
     tokens = _click_tokens(user_id, ids) if ids else {}
     previews = _previews(user_id, list({job["post_id"] for job in jobs if job.get("post_id") is not None}))
-    return [post_row(job, index.get(job["id"]), tokens.get(job["id"]), previews.get(job.get("post_id")))
+    fan_counts = (facebook_fan_counts(user_id, profile_id)
+                  if any(item.get("state") == AUDIENCE_BELOW_MINIMUM for item in index.values()) else {})
+    return [post_row(job, index.get(job["id"]), tokens.get(job["id"]), previews.get(job.get("post_id")), fan_counts)
             for job in jobs], truncated
 
 

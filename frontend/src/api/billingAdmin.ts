@@ -2,7 +2,13 @@
 import { api } from "../lib/api"
 
 export interface BillingAdminStatus {
-  environment: "sandbox" | "production"
+  /** null quando não há chave de API: sem chave não existe ambiente de cobrança. */
+  environment: "sandbox" | "production" | null
+  /** Para onde ASAAS_API_URL aponta (o padrão, sem a variável, é o sandbox). */
+  api_url_environment: "sandbox" | "production"
+  /** Ambiente indicado pelo prefixo da chave; null se o formato não diz. */
+  key_environment: "sandbox" | "production" | null
+  environment_mismatch: boolean
   api_key_configured: boolean
   webhook_token_configured: boolean
   sandbox_testers: number

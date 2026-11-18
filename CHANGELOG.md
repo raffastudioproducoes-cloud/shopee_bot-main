@@ -5,6 +5,32 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.26.0] - 2026-11-18
+
+Funcionalidade nova (MINOR): identificação do controlador (CNPJ e endereço) nos Termos, Privacidade e rodapé da landing. Correções: post com vídeo deixa de estourar 504 em `/posts/media-drafts`, painel Asaas explica o webhook desabilitado e a contratação só abre com chave, token e ambiente coerentes, e Facebook explica Página com menos de 100 curtidas. Sem migração.
+
+### Fixed — post com vídeo travava em 504 ao clicar Criar
+
+- Em `/posts/criar`, anexar um MP4 (ex.: vertical 720x1280, 12 s, 545 KB) e clicar Criar fazia `POST /api/posts/media-drafts` responder 504 "API interna não respondeu a tempo" após 30 s; nenhum post com vídeo (TikTok, Reels, vídeo no Facebook) chegava a ser criado. Causa: a rota passa pela reconstrução do vídeo no FFmpeg (até 90 s), mas o proxy só dava prazo longo para `products/{id}/media`; as demais rotas de upload ficavam nos 30 s gerais. Além disso, o libx264 abria uma thread por núcleo do host (o `-threads 1` só limitava o decodificador), gastando ~2x mais CPU e ~3x mais memória dentro da cota de 0,15 CPU do Render Free.
+- Proxy: `POST /posts/media-drafts`, `POST /posts/{id}/media` e `POST /campaigns/drafts/{id}/items/{produto}/media` passam a ter o mesmo prazo de upload de mídia de Produtos (5 s de conexão, 180 s de resposta), com mensagem em português que orienta conferir as mídias antes de reenviar. As demais rotas continuam com 30 s.
+- FFmpeg: codificador H.264 limitado a 1 thread (no teste local, CPU de 6,8 s para 3,4 s e memória de 334 MB para 119 MB no vídeo do incidente), sem mudar qualidade nem formato da saída.
+- `POST /posts/media-drafts`: chamadas síncronas ao Supabase (limpeza de vencidos e envio ao Storage) saem do event loop; falha na limpeza não impede o upload; Storage que estoura o prazo próprio (20 s) responde 504 com mensagem clara e não deixa registro; log por fase (leitura, sanitização, Storage, total) para medir o tempo real em produção.
+
+### Added — identificação do controlador nas páginas legais
+
+- Termos de Serviço e Política de Privacidade, em português e inglês, ganham a seção "1.1 Identificação do controlador / Controller identification" com nome empresarial, nome fantasia, CNPJ, endereço comercial e e-mail de contato, citando a empresa como controladora no sentido do art. 5º, VI, da LGPD (sem encarregado/DPO; o e-mail existente é o canal do titular). Rodapé da landing mostra a linha "Raffa Studio Produções · CNPJ 63.621.332/0001-03 · Rio de Janeiro/RJ". Dados em `frontend/src/lib/company.ts`; o CPF não é publicado e um teste garante isso.
+
+### Fixed — Asaas: painel ADMIN e travas antes de cobrar em produção
+
+- Painel de cobrança: sem `ASAAS_API_KEY` o ambiente aparece como "Não configurado" (antes caía em "Sandbox (testes)" pelo `ASAAS_API_URL` padrão); "Contas de teste" só aparece no sandbox. Abaixo do botão do webhook desabilitado aparece "Defina ASAAS_API_KEY e ASAAS_WEBHOOK_TOKEN no Render para habilitar o webhook", com quais faltam e para onde `ASAAS_API_URL` aponta.
+- `GET /admin/billing/status` devolve `environment: null` sem chave, `api_url_environment`, `key_environment` (pelo prefixo `$aact_prod_`/`$aact_hmlg_`, sem expor a chave) e `environment_mismatch`; o painel avisa quando a chave é de um ambiente e a URL de outro.
+- Contratação (`/billing/plans` → `checkout_enabled` e `POST /billing/checkout`) só abre com chave, token do webhook e ambiente coerente: sem o token o Asaas cobraria e o plano nunca seria ativado (o webhook responde 503).
+
+### Fixed — Facebook: Página com menos de 100 curtidas
+
+- A coleta do Facebook lê `fan_count` e `followers_count` da Página (token de Página, uma vez por rodada e conta) e grava o número em `post_metrics.extra.page_fan_count` e em `analytics_daily_refreshes.provider_states.facebook_fan_count` (sem migração). Falha nessa leitura não interrompe a coleta.
+- Post com `/insights` vazio numa Página com menos de 100 curtidas passa a ter o estado `audience_below_minimum` (não pede reconexão nem para a coleta). A tela de Análises mostra "A Meta só libera insights de Páginas com 100 curtidas ou mais. Esta Página tem N." no card Situação das redes e em cada post. Com 100 curtidas ou mais o comportamento não muda.
+
 ## [3.25.0] - 2026-11-17
 
 Funcionalidade nova (MINOR): site público bilíngue com páginas legais e exclusão de dados, e tela "Publicar no TikTok" conforme as Content Sharing Guidelines (privacidade, divulgação comercial, modo rascunho, consentimento em agendamento e campanhas). Inclui a migração 104 (`posts.tiktok_options`, aditiva e idempotente, aplicada no boot).

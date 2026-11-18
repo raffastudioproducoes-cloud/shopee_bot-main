@@ -1,4 +1,5 @@
 import { LegalLayout } from './LegalLayout'
+import { CompanyIdentification } from './CompanyIdentification'
 import { TermsEn } from './TermsEn'
 
 /**
@@ -18,6 +19,8 @@ function TermsPt() {
         </a>
         . Se você não concorda com algum ponto, não utilize o serviço.
       </p>
+
+      <CompanyIdentification lang="pt" doc="terms" />
 
       <h2>2. Descrição do serviço</h2>
       <p>

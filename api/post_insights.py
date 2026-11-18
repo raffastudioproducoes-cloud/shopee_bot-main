@@ -37,6 +37,7 @@ _RESOLVE_PAGES = 5  # ponytail: 500 posts recentes; ampliar se houver confirmaç
 _WINDOWS = ((timedelta(hours=1), "1h"), (timedelta(hours=24), "24h"), (timedelta(days=7), "7d"),
             (timedelta(days=30), "30d"), (timedelta(days=90), "90d"))
 SEQUENCE_LIMITATION = "sequencia: o publicador guarda apenas o ID da ultima parte"
+FAN_COUNT_KEY = "facebook_fan_count"
 
 
 def _count(value):
@@ -303,24 +304,29 @@ def _meta_account(network, user_id, profile_id):
     data = response.data if response else None
     if not data or data.get("status") is not True or not data.get(identifier) or not data.get(token_field):
         return None
-    return data[token_field]
+    return str(data[identifier]), data[token_field]
 
 
-async def _collect_meta(client, network, user_id, profile_id, jobs):
+async def _collect_meta(client, network, user_id, profile_id, jobs, audience_out=None):
     """Instagram/Facebook: falha por post é registrada e o restante segue.
 
     Escopo ausente, token expirado ou rate limit valem para a conta inteira: o primeiro
     post que recebe um deles para as chamadas seguintes (sem retry; a próxima rodada
     tenta de novo). Posts não consultados por rate limit mantêm o último valor.
     """
-    token_cipher = await asyncio.to_thread(_meta_account, network, user_id, profile_id)
-    if not token_cipher:
+    account = await asyncio.to_thread(_meta_account, network, user_id, profile_id)
+    if not account:
         return "not_connected"
+    account_id, token_cipher = account
     try:
         token = decrypt(token_cipher)
     except Exception:
         return "unavailable"
     reader = meta.read_instagram_media if network == "instagram" else meta.read_facebook_post
+    # Uma leitura de curtidas por conta e rodada; falha = None e a coleta segue igual.
+    audience = await meta.read_page_audience(client, account_id, token) if network == "facebook" else None
+    if audience and audience_out is not None:
+        audience_out.update(audience)
     semaphore = asyncio.Semaphore(_PARALLEL)
     stopped = []
 
@@ -330,8 +336,11 @@ async def _collect_meta(client, network, user_id, profile_id, jobs):
                 state, metrics, extra = stopped[0], None, {"skipped": True}
             else:
                 state, metrics, extra = await reader(client, job["external_id"], token)
+                state = meta.classify_page_audience(state, audience)
                 if state in meta.STOP_STATES and not stopped:
                     stopped.append(state)
+            if audience:
+                extra["page_fan_count"] = audience["fan_count"]
             measured_id = extra.pop("measured_id", None)
             if state != "rate_limited":
                 await asyncio.to_thread(_persist, job, user_id, state, metrics)
@@ -358,14 +367,44 @@ async def collect_profile_posts(user_id, profile_id):
               "tiktok": "unsupported", "x": "unsupported"}
     by_network = {network: [job for job in jobs if job.get("network") == network]
                   for network in COLLECTED_NETWORKS}
+    audience = {}
     async with httpx.AsyncClient(timeout=15) as client:
         for network, subset in by_network.items():
             if not subset:
                 continue
             work = (_collect_threads(client, user_id, profile_id, subset) if network == "threads"
-                    else _collect_meta(client, network, user_id, profile_id, subset))
+                    else _collect_meta(client, network, user_id, profile_id, subset, audience))
             states[network] = await _guarded(network, work)
+    if "fan_count" in audience:
+        # Vai para analytics_daily_refreshes.provider_states (JSON existente, sem migração).
+        states[FAN_COUNT_KEY] = audience["fan_count"]
     return states
+
+
+def facebook_fan_counts(user_id, profile_id=None):
+    """profile_id -> curtidas da Página na última coleta. Falha de leitura = {} (só some o N do texto)."""
+    try:
+        query = scope_account(
+            supabase.table("analytics_daily_refreshes").select("profile_id,provider_states"), user_id)
+        if profile_id:
+            query = query.eq("profile_id", profile_id)
+        rows = query.execute().data or []
+    except Exception:
+        logger.warning("Curtidas da Página indisponíveis para a tela de análises")
+        return {}
+    counts = {}
+    for row in rows:
+        states = row.get("provider_states")
+        value = _count(states.get(FAN_COUNT_KEY)) if isinstance(states, dict) else None
+        if value is not None:
+            counts[row.get("profile_id")] = value
+    return counts
+
+
+def shared_fan_count(counts, profile_ids):
+    """N só quando todas as Páginas consultadas têm o mesmo número; senão None (texto sem N)."""
+    values = {counts[p] for p in profile_ids if p in counts}
+    return values.pop() if len(values) == 1 else None
 
 
 def current_network_connections(user_id, profile_id=None):

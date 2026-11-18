@@ -4,6 +4,7 @@ import { useId } from 'react'
 import { Activity, BarChart3, Eye, Gauge, Layers, MessageCircle, TrendingUp } from 'lucide-react'
 import { Panel } from './ui/Panel'
 import { buildAdminDiagnosticSections } from '../lib/credentialPlatforms'
+import { audienceNote } from '../lib/postMetrics'
 import '../styles/analytics-panels.css'
 
 export type AnalyticsNetwork = 'threads' | 'facebook' | 'instagram' | 'tiktok' | 'x'
@@ -20,6 +21,8 @@ export type AnalyticsSummaryRow = {
   posts_with_insights?: number
   posts_with_external_id?: number
   insights_status: string
+  /** Curtidas da Página do Facebook, só quando insights_status = audience_below_minimum. */
+  fan_count?: number | null
 }
 export type AnalyticsTimeline = {
   days: number
@@ -36,6 +39,7 @@ export type AnalyticsPostMetric = {
   preview: string
   finished_at: string
   state: string
+  fan_count?: number | null
   views: number | null
   likes: number | null
   comments: number | null
@@ -269,6 +273,7 @@ function SocialAvailability({ rows }: { rows: AnalyticsSummaryRow[] }) {
           <i className="analytics-insights-indicator" />
           {planned ? 'Em breve · sem integração' : !row && channel.key === 'kwai' ? 'Insights por post indisponíveis'
             : !row ? 'Fora do filtro atual'
+            : row.insights_status === 'audience_below_minimum' ? audienceNote(row.fan_count)
             : providerDescriptions[row.insights_status] ?? 'Sem coleta oficial'}
         </span>
         {row && [row.views, row.likes, row.comments, row.reposts, row.clicks].some(value => value !== null) &&
@@ -294,7 +299,8 @@ function TopPosts({ posts, loading, error }: { posts?: AnalyticsPostMetric[]; lo
     return b.views - a.views || b.finished_at.localeCompare(a.finished_at)
   }).slice(0, 5)
   if (!ranked.length) return <p className="analytics-chart-note">Nenhuma publicação confirmada neste período.</p>
-  const collectionLabel = (state: string) => state === 'ok' ? 'Coletado'
+  const collectionLabel = (state: string, fanCount?: number | null) => state === 'ok' ? 'Coletado'
+    : state === 'audience_below_minimum' ? audienceNote(fanCount)
     : state === 'multipart_unmapped' ? 'Sequência sem IDs completos'
       : state === 'not_collected' ? 'Aguardando coleta'
         : state === 'missing_external_id' ? 'Sem ID da publicação'
@@ -305,7 +311,7 @@ function TopPosts({ posts, loading, error }: { posts?: AnalyticsPostMetric[]; lo
       {ranked.map(post => <li key={post.job_id}>
         <div className="analytics-post-content">
           <strong>{post.preview || 'Publicação sem texto'}</strong>
-          <small className="analytics-post-source">{networkNames[post.network]} · {new Date(post.finished_at).toLocaleDateString('pt-BR', { timeZone: getUserTimeZone() })} · {collectionLabel(post.state)}</small>
+          <small className="analytics-post-source">{networkNames[post.network]} · {new Date(post.finished_at).toLocaleDateString('pt-BR', { timeZone: getUserTimeZone() })} · {collectionLabel(post.state, post.fan_count)}</small>
           <div className="analytics-post-metrics" aria-label="Interações oficiais da publicação">
             {([
               ['Curtidas', post.likes], ['Comentários', post.comments],
