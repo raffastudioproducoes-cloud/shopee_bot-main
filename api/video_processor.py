@@ -91,6 +91,10 @@ def _process_in_temporary_directory(content: bytes | bytearray, max_bytes: int, 
             "-i", str(source), "-map", "0:v:0", "-map", "0:a:0?", "-sn", "-dn",
             "-map_metadata", "-1", "-map_metadata:s", "-1", "-map_chapters", "-1", "-c:v", "libx264",
             "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p",
+            # `-threads 1` antes de `-i` só limita o decodificador; sem este,
+            # o libx264 abre uma thread por núcleo do HOST (não da cota de
+            # 0,15 CPU do Render): ~2x mais CPU total e ~3x mais memória.
+            "-threads", "1",
             "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
             "-fs", str(max_bytes + 1), "-y", str(output),
         ]

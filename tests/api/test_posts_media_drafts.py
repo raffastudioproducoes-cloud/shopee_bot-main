@@ -799,3 +799,74 @@ def test_import_shopee_png_is_normalized_to_jpeg(fake_db, monkeypatch):
     assert key.endswith(".jpg")
     assert payload.startswith(b"\xff\xd8\xff")
     assert options["content-type"] == "image/jpeg"
+
+
+def test_upload_draft_vertical_video_with_audio_happy_path(fake_db, monkeypatch, tmp_path):
+    """Mesmo formato do bug de produção (vertical, H.264 + AAC), em tamanho de teste."""
+    ffmpeg = shutil.which("ffmpeg")
+    assert ffmpeg and shutil.which("ffprobe"), "ffmpeg e ffprobe sao necessarios para testar video"
+    source = tmp_path / "vertical.mp4"
+    subprocess.run(
+        [ffmpeg, "-hide_banner", "-loglevel", "error",
+         "-f", "lavfi", "-i", "gradients=s=72x128:d=1:r=30", "-f", "lavfi", "-i", "sine=duration=1",
+         "-t", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(source)],
+        check=True, timeout=30,
+    )
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+
+    response = client.post(
+        "/posts/media-drafts", files={"file": ("reels.mp4", source.read_bytes(), "video/mp4")},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["media_type"] == "VIDEO"
+    assert db.tables["temporary_media_uploads"][0]["status"] == "ready"
+    key, stored, options = db.storage.uploads[0]
+    assert key.endswith(".mp4") and options["content-type"] == "video/mp4"
+    assert stored[4:8] == b"ftyp"
+
+
+class _SlowStorage(_RecordingStorage):
+    def upload(self, key, content, options):
+        import httpx
+        raise httpx.WriteTimeout("storage lento")
+
+
+def test_upload_draft_slow_storage_returns_clear_error_and_leaves_nothing(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _SlowStorage()
+
+    response = client.post("/posts/media-drafts", files={"file": ("oferta.jpg", _jpeg(), "image/jpeg")})
+
+    assert response.status_code == 504
+    assert "armazenamento demorou" in response.json()["detail"]
+    assert "storage lento" not in response.text
+    assert db.tables["temporary_media_uploads"] == []
+
+
+def test_upload_draft_cleanup_failure_does_not_block_upload(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+
+    def broken_cleanup():
+        raise RuntimeError("banco fora na limpeza")
+
+    monkeypatch.setattr(posts_module, "cleanup_expired_media_drafts", broken_cleanup)
+    response = client.post("/posts/media-drafts", files={"file": ("oferta.jpg", _jpeg(), "image/jpeg")})
+
+    assert response.status_code == 201, response.text
+    assert len(db.storage.uploads) == 1
+
+
+def test_upload_draft_rejects_corrupted_video_before_storage(fake_db, monkeypatch):
+    client, db = _client(fake_db, monkeypatch)
+    db.storage = _RecordingStorage()
+    corrupted = _mp4()[:-8] + (16).to_bytes(4, "big") + b"mdat" + b"\x00" * 8
+
+    response = client.post("/posts/media-drafts", files={"file": ("video.mp4", corrupted, "video/mp4")})
+
+    assert response.status_code in (400, 415)
+    assert response.json()["detail"].startswith("Arquivo inválido ou não suportado:")
+    assert db.storage.uploads == []
+    assert db.tables["temporary_media_uploads"] == []

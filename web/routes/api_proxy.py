@@ -21,8 +21,17 @@ from shopee_bot.web.helpers import cors_origins
 API_INTERNAL_URL = os.environ.get("API_INTERNAL_URL", "http://127.0.0.1:8001")
 _TIMEOUT = 30
 # A transcodificação segura pode levar até 90 s, além de ffprobe e Storage.
-# Este prazo maior vale SOMENTE para upload da galeria de Produtos.
-_PRODUCT_MEDIA_TIMEOUT = (5, 180)  # conexão, leitura/resposta do FastAPI
+# Este prazo maior vale SOMENTE para os POSTs que recebem arquivo e passam
+# pelo FFmpeg (galeria de Produtos, rascunho de mídia do post, mídia de post
+# existente e mídia de campanha). No Render Free (0,15 CPU) um MP4 curto já
+# passa de 30 s; com 30 s o usuário recebia 504 e nenhum post era criado.
+_MEDIA_UPLOAD_TIMEOUT = (5, 180)  # conexão, leitura/resposta do FastAPI
+_MEDIA_UPLOAD_PATH = re.compile(
+    r"products/\d+/media"
+    r"|posts/media-drafts"
+    r"|posts/\d+/media"
+    r"|campaigns/drafts/[0-9A-Za-z-]+/items/\d+/media"
+)
 # A ativação de campanha valida cotas, baixa/copia mídias e testa OAuth por
 # rede; com muitas ocorrências passa de 30 s. Prazo maior SOMENTE para ela,
 # abaixo do limite de borda do Render. A operação é idempotente por rascunho.
@@ -62,14 +71,14 @@ def proxy(subpath):
     }
     if request.remote_addr:
         headers["X-Forwarded-For"] = request.remote_addr
-    is_product_media_upload = request.method == "POST" and bool(
-        re.fullmatch(r"products/\d+/media", subpath)
+    is_media_upload = request.method == "POST" and bool(
+        _MEDIA_UPLOAD_PATH.fullmatch(subpath)
     )
     is_campaign_activation = request.method == "POST" and bool(
         _CAMPAIGN_ACTIVATE_PATH.fullmatch(subpath)
     )
-    if is_product_media_upload:
-        upstream_timeout = _PRODUCT_MEDIA_TIMEOUT
+    if is_media_upload:
+        upstream_timeout = _MEDIA_UPLOAD_TIMEOUT
     elif is_campaign_activation:
         upstream_timeout = _CAMPAIGN_ACTIVATE_TIMEOUT
     else:
@@ -91,7 +100,7 @@ def proxy(subpath):
     except requests.Timeout:
         current_app.logger.warning(
             "Timeout no proxy interno: escopo=%s",
-            "product-media-upload" if is_product_media_upload
+            "media-upload" if is_media_upload
             else "campaign-activation" if is_campaign_activation else "api-general",
         )
         if is_campaign_activation:
@@ -101,18 +110,19 @@ def proxy(subpath):
                     "terminado no servidor: confira a seção 06 antes de tentar de novo."
                 )
             }, 504
-        if is_product_media_upload:
+        if is_media_upload:
             return {
                 "error": (
                     "O processamento da mídia demorou além do limite de resposta. "
-                    "Confira a galeria do produto antes de reenviar o arquivo."
+                    "Confira a galeria ou as mídias anexadas antes de reenviar o "
+                    "arquivo; vídeos menores ou mais curtos processam mais rápido."
                 )
             }, 504
         return {"error": "API interna não respondeu a tempo"}, 504
     except requests.RequestException:
         current_app.logger.warning(
             "Falha de conexão no proxy interno: escopo=%s",
-            "product-media-upload" if is_product_media_upload else "api-general",
+            "media-upload" if is_media_upload else "api-general",
         )
         return {"error": "API interna indisponível"}, 502
 
