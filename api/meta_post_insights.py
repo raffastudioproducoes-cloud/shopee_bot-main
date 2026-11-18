@@ -17,6 +17,16 @@ Métricas conferidas na doc oficial em 14/11/2026 (página mostrava v27.0; o app
   Comentários e compartilhamentos vêm do próprio objeto Post (comments.summary, shares).
   Permissões: read_insights + pages_read_engagement, token de Página (tarefa ANALYZE),
   Página com 100+ curtidas. Atualização ~24 h.
+- Facebook vídeo/Reels /{video-id}/video_insights (doc do nó Video Insights, conferida
+  em 18/11/2026, exemplo em v27.0, period lifetime):
+  Reels: blue_reels_play_count, post_impressions_unique, post_video_avg_time_watched (ms),
+  post_video_likes_by_reaction_type, post_video_social_actions (comentários e
+  compartilhamentos). Vídeo comum: total_video_views, total_video_impressions_unique,
+  total_video_avg_time_watched (ms), total_video_reactions_by_type_total,
+  total_video_stories_by_action_type. Reels primeiro; code 100 cai na lista de vídeo
+  comum e depois na reduzida. Permissões da doc: read_insights + pages_manage_engagement
+  (tarefa ANALYZE). Sem pages_manage_engagement a Meta responde 10/200: vira
+  `access_denied` (não pede reconexão nem para a coleta dos outros posts).
 """
 import logging
 import re
@@ -33,6 +43,13 @@ IG_ATTEMPTS = (IG_METRICS, IG_FEED_METRICS, IG_BASE_METRICS, IG_FALLBACK)
 FB_METRICS = ("post_media_view", "post_total_media_view_unique", "post_reactions_by_type_total")
 FB_FALLBACK = ("post_reactions_by_type_total",)
 FB_POST_FIELDS = "shares,comments.limit(0).summary(true)"
+FB_REELS_METRICS = ("blue_reels_play_count", "post_impressions_unique", "post_video_avg_time_watched",
+                    "post_video_likes_by_reaction_type", "post_video_social_actions")
+FB_VIDEO_METRICS = ("total_video_views", "total_video_impressions_unique", "total_video_avg_time_watched",
+                    "total_video_reactions_by_type_total", "total_video_stories_by_action_type")
+FB_VIDEO_FALLBACK = ("total_video_views",)
+FB_VIDEO_ATTEMPTS = (FB_REELS_METRICS, FB_VIDEO_METRICS, FB_VIDEO_FALLBACK)
+VIDEO_PERMISSION_REASON = "video_insights_permission"
 _MEDIA_ID = re.compile(r"^[0-9]{1,40}$")
 _FB_POST_ID = re.compile(r"^[0-9]{1,40}_[0-9]{1,40}$")
 # Estados que dependem de o usuário reconectar a conta: não adianta seguir chamando a API.
@@ -197,10 +214,10 @@ async def _get(client, path, params, token):
     return ("ok", body) if isinstance(body, dict) else ("invalid_response", None)
 
 
-async def _insights(client, object_id, token, attempts):
+async def _insights(client, object_id, token, attempts, edge="insights"):
     """Tenta a lista completa e, se alguma métrica não existir para o tipo de mídia, a reduzida."""
     for metrics in attempts:
-        state, body = await _get(client, f"{object_id}/insights", {"metric": ",".join(metrics)}, token)
+        state, body = await _get(client, f"{object_id}/{edge}", {"metric": ",".join(metrics)}, token)
         if state == "invalid_metric":
             continue
         if state != "ok":
@@ -226,7 +243,8 @@ async def resolve_facebook_post_id(client, external_id, token):
     """O publicador guardava o ID da foto (/photos devolve `id` da foto e `post_id`).
 
     Foto -> `page_story_id` (doc do nó Photo). Vídeo (/videos) não tem o ID do post
-    documentado no nó Video: fica `unsupported_type` em vez de inventar um ID.
+    documentado no nó Video: devolve `unsupported_type` e read_facebook_post mede o
+    próprio vídeo em /video_insights (sem inventar um ID de post).
     """
     if not isinstance(external_id, str):
         return "invalid_id", None
@@ -243,6 +261,40 @@ async def resolve_facebook_post_id(client, external_id, token):
     return ("ok", story) if isinstance(story, str) and _FB_POST_ID.fullmatch(story) else ("sem_id", None)
 
 
+def _action_counts(value):
+    """{"comment": n, "share": n, ...} de social_actions/stories_by_action_type (chaves sem caixa)."""
+    if not isinstance(value, dict):
+        return None, None
+    counts = {str(key).lower(): _count(amount) for key, amount in value.items()}
+    return counts.get("comment"), counts.get("share")
+
+
+def parse_facebook_video(data):
+    """Reels ou vídeo comum (o que vier); reações viram `likes`, tempo médio vai para `extra`."""
+    values = insight_values(data) or {}
+    reels = any(name in values for name in FB_REELS_METRICS)
+    names = FB_REELS_METRICS if reels else FB_VIDEO_METRICS
+    likes, by_type = _reactions(values.get(names[3]))
+    comments, shares = _action_counts(values.get(names[4]))
+    metrics = {"views": _count(values.get(names[0])), "reach": _count(values.get(names[1])),
+               "likes": likes, "comments": comments, "shares": shares, "saves": None}
+    extra = {"measured_as": "reels" if reels else "video", **watch_time_extra(values, names[2])}
+    if by_type:
+        extra["reactions_by_type"] = by_type
+    return (metrics if any(value is not None for value in metrics.values()) else None), extra
+
+
+async def read_facebook_video(client, video_id, token):
+    """Vídeo/Reels publicado pelo app (ID do vídeo). Falta de permissão = access_denied."""
+    state, data = await _insights(client, video_id, token, FB_VIDEO_ATTEMPTS, edge="video_insights")
+    if state == "permission_required":
+        return "access_denied", None, {"reason": VIDEO_PERMISSION_REASON, **_failure("video_insights", data)}
+    if state != "ok":
+        return state, None, _failure("video_insights", data)
+    metrics, extra = parse_facebook_video(data)
+    return ("ok" if metrics else "no_data"), metrics, {**extra, "measured_id": video_id}
+
+
 def _failure(step, info):
     """Qual chamada falhou e com qual código; nunca mensagem, token ou ID."""
     return {"step": step, **(info or {})}
@@ -250,6 +302,8 @@ def _failure(step, info):
 
 async def read_facebook_post(client, external_id, token):
     state, post_id = await resolve_facebook_post_id(client, external_id, token)
+    if state == "unsupported_type":
+        return await read_facebook_video(client, external_id, token)  # vídeo/Reels: ID do vídeo
     if state != "ok":
         return state, None, _failure("resolve", post_id if isinstance(post_id, dict) else None)
     extra = {} if post_id == external_id else {"resolved_from": "photo"}
