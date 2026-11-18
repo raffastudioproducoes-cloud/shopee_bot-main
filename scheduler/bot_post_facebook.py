@@ -1,12 +1,12 @@
 from shopee_bot.apis import facebook as FacebookAPI
 from shopee_bot.clogging import logger
-from shopee_bot.database import schedulers, facebook_credentials, posts, products
+from shopee_bot.database import schedulers, facebook_credentials, posts, products, post_link_redirects
 from shopee_bot.database.activities import (
     insert_activities, activity_metadata_wrapper
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
-from shopee_bot.scheduler.publication_context import mark_external_delivery
+from shopee_bot.scheduler.publication_context import active_publish_job_id, mark_external_delivery
 from shopee_bot.scheduler.media_delivery import delivery_url
 from shopee_bot.scheduler.publication_result import external_id, failed, succeeded, unknown
 from shopee_bot.utils import mark_not_published, was_not_published
@@ -23,6 +23,14 @@ def _local_url(media):
 def _not_sent(message):
     """Validação local antes de qualquer chamada ao Facebook."""
     return mark_not_published(RuntimeError(message))
+
+
+def _tracked_product(product):
+    """Post só de produto não passa por posts.get: o link de afiliado vai pelo
+    mesmo redirecionador de cliques (/r/{token}) que o texto das outras redes."""
+    link = product.get("commission_link") or product.get("original_link") or ""
+    tracked = post_link_redirects.rewrite_link(link, active_publish_job_id())
+    return product if tracked == link else {**product, "commission_link": tracked}
 
 
 def _first_image(post):
@@ -134,7 +142,7 @@ def bot_post_facebook(job_id):
             # histórico do problema que isso resolve (App Token só
             # enxergava Páginas do PRÓPRIO app).
             if root_post["product_ids"]:
-                product = products.get(user_id, root_post["product_ids"][0], profile_id)
+                product = _tracked_product(products.get(user_id, root_post["product_ids"][0], profile_id))
                 mark_external_delivery()
                 external = FacebookAPI.post_product_as_page(page_access_token, page_id, product)
             else:
@@ -145,7 +153,7 @@ def bot_post_facebook(job_id):
             # migração pro app único — só funciona pra Páginas que o app
             # do Rafa administra.
             if root_post["product_ids"]:
-                product = products.get(user_id, root_post["product_ids"][0], profile_id)
+                product = _tracked_product(products.get(user_id, root_post["product_ids"][0], profile_id))
                 mark_external_delivery()
                 external = FacebookAPI.post_product(app_id, secret, page_id, product)
             else:

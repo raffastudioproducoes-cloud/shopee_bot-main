@@ -253,3 +253,41 @@ def test_photo_publication_stores_post_id_for_metrics(monkeypatch):
     assert module.bot_post_facebook("job-photo").external_id == "111_222"
     monkeypatch.setattr(module, "_publish_image", lambda *a: {"id": "111_333"})
     assert module.bot_post_facebook("job-photo").external_id == "111_333"
+
+
+def test_product_only_post_link_goes_through_click_redirect(monkeypatch):
+    _patch_common(monkeypatch, {"text": "", "product_ids": [11], "medias": []})
+    product = {"name": "Fone", "commission_link": "https://s.shopee.com.br/AbC1"}
+    monkeypatch.setattr(module.products, "get", lambda user_id, product_id, profile_id: dict(product))
+    monkeypatch.setattr(module, "active_publish_job_id", lambda: "job-77")
+    seen = {}
+
+    def rewrite_link(url, job_id):
+        seen["args"] = (url, job_id)
+        return "https://autoorbital.example/r/token-1234567890123456"
+    monkeypatch.setattr(module.post_link_redirects, "rewrite_link", rewrite_link)
+    sent = {}
+    monkeypatch.setattr(module.FacebookAPI, "post_product_as_page",
+                        lambda token, page_id, prod: sent.update(product=prod) or {"id": "1_2"})
+    monkeypatch.setattr(module, "insert_activities", lambda *a, **k: None)
+
+    result = module.bot_post_facebook("job-product")
+
+    assert result.status == "succeeded"
+    assert seen["args"] == ("https://s.shopee.com.br/AbC1", "job-77")
+    assert sent["product"]["commission_link"] == "https://autoorbital.example/r/token-1234567890123456"
+    assert product["commission_link"] == "https://s.shopee.com.br/AbC1"  # dict original intacto
+
+
+def test_product_link_stays_direct_when_redirect_is_disabled(monkeypatch):
+    _patch_common(monkeypatch, {"text": "", "product_ids": [11], "medias": []})
+    monkeypatch.setattr(module.products, "get",
+                        lambda *a: {"name": "Fone", "commission_link": "https://s.shopee.com.br/AbC1"})
+    monkeypatch.delenv("CLICK_REDIRECT_BASE_URL", raising=False)
+    sent = {}
+    monkeypatch.setattr(module.FacebookAPI, "post_product_as_page",
+                        lambda token, page_id, prod: sent.update(product=prod) or {"id": "1_2"})
+    monkeypatch.setattr(module, "insert_activities", lambda *a, **k: None)
+
+    assert module.bot_post_facebook("job-product").status == "succeeded"
+    assert sent["product"]["commission_link"] == "https://s.shopee.com.br/AbC1"

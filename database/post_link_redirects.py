@@ -17,13 +17,23 @@ from api.shopee_affiliate_links import is_safe_shopee_link
 
 _LINK = re.compile(r"https://[^\s<>\"']+")
 _TRAILING = ".,;:!?)]}"
+_invalid_base_warned = []  # avisa uma vez por processo, não a cada publicação
 
 
 def redirect_base() -> str | None:
-    """Origem pública HTTPS do site (ex.: https://autoorbital.com.br); sem ela, desligado."""
+    """Origem pública HTTPS do site (ex.: https://autoorbital.com.br); sem ela, desligado.
+
+    Ausente = desligado sem log (configuração opcional). Preenchida mas inválida =
+    desligado também, com um único logger.warning (o valor não é logado)."""
     value = (os.environ.get("CLICK_REDIRECT_BASE_URL") or "").strip().rstrip("/")
     parsed = urlsplit(value)
     if parsed.scheme != "https" or not parsed.hostname or parsed.path or parsed.query:
+        if value and not _invalid_base_warned:
+            _invalid_base_warned.append(True)
+            logger.warning(
+                "CLICK_REDIRECT_BASE_URL inválida (use só a origem https, sem caminho); "
+                "redirecionador de cliques desligado, links diretos"
+            )
         return None
     return value
 
@@ -53,6 +63,13 @@ def rewrite_text(text, job, base, tokens):
             tokens[url] = _token_for(job, url)
         return f"{base}/r/{tokens[url]}" + raw[len(url):]
     return _LINK.sub(swap, text)
+
+
+def rewrite_link(url, publish_job_id):
+    """Link solto (post só de produto no Facebook) pelo mesmo redirecionador; falha = direto."""
+    if not url:
+        return url
+    return rewrite_parts([{"text": url}], publish_job_id)[0]["text"]
 
 
 def rewrite_parts(parts, publish_job_id):
