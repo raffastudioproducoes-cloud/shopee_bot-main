@@ -43,7 +43,7 @@ class CheckoutRequest(BaseModel):
 @router.get("/plans")
 async def list_plan_prices():
     """Preços calculados no servidor para Pro e Premium em cada período."""
-    return {"currency": "BRL", "checkout_enabled": asaas_client.enabled(),
+    return {"currency": "BRL", "checkout_enabled": asaas_client.checkout_ready(),
             "sandbox": asaas_client.environment() == "sandbox",
             "prices": billing_pricing.price_table(supabase)}
 
@@ -141,7 +141,8 @@ def create_checkout(body: CheckoutRequest, user_id: str = Depends(get_current_us
 
     Não altera o plano: a ativação só acontece pelo webhook de pagamento.
     """
-    if not asaas_client.enabled():
+    # Sem token do webhook o pagamento seria cobrado e o plano nunca ativaria.
+    if not asaas_client.checkout_ready():
         raise HTTPException(503, "Contratação indisponível no momento.")
     env = asaas_client.environment()
     if not asaas_client.may_bill(user_id):
@@ -332,9 +333,17 @@ def _registered_webhook() -> dict | None:
 
 @admin_router.get("/status")
 def billing_admin_status(_admin: str = Depends(_require_admin_dep)):
-    """Mostra o que está configurado, sem revelar nenhum segredo."""
+    """Mostra o que está configurado, sem revelar nenhum segredo.
+
+    Sem chave, `environment` é None: a URL padrão é o sandbox e o painel não deve dizer "Sandbox"
+    numa produção apenas sem chave. `api_url_environment` diz para onde a URL aponta.
+    """
     status = {
-        "environment": asaas_client.environment(), "api_key_configured": asaas_client.enabled(),
+        "environment": asaas_client.environment() if asaas_client.enabled() else None,
+        "api_url_environment": asaas_client.environment(),
+        "key_environment": asaas_client.key_environment(),
+        "environment_mismatch": asaas_client.environment_mismatch(),
+        "api_key_configured": asaas_client.enabled(),
         "webhook_token_configured": bool(settings.asaas_webhook_token),
         "sandbox_testers": len([t for t in (settings.asaas_sandbox_testers or "").split(",") if t.strip()]),
         "webhook_url": _webhook_url(), "webhook": None,

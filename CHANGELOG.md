@@ -9,6 +9,12 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 - Termos de Serviço e Política de Privacidade, em português e inglês, ganham a seção "1.1 Identificação do controlador / Controller identification" com nome empresarial, nome fantasia, CNPJ, endereço comercial e e-mail de contato, citando a empresa como controladora no sentido do art. 5º, VI, da LGPD (sem encarregado/DPO; o e-mail existente é o canal do titular). Rodapé da landing mostra a linha "Raffa Studio Produções · CNPJ 63.621.332/0001-03 · Rio de Janeiro/RJ". Dados em `frontend/src/lib/company.ts`; o CPF não é publicado e um teste garante isso.
 
+### Fixed — Asaas: painel ADMIN e travas antes de cobrar em produção
+
+- Painel de cobrança: sem `ASAAS_API_KEY` o ambiente aparece como "Não configurado" (antes caía em "Sandbox (testes)" pelo `ASAAS_API_URL` padrão); "Contas de teste" só aparece no sandbox. Abaixo do botão do webhook desabilitado aparece "Defina ASAAS_API_KEY e ASAAS_WEBHOOK_TOKEN no Render para habilitar o webhook", com quais faltam e para onde `ASAAS_API_URL` aponta.
+- `GET /admin/billing/status` devolve `environment: null` sem chave, `api_url_environment`, `key_environment` (pelo prefixo `$aact_prod_`/`$aact_hmlg_`, sem expor a chave) e `environment_mismatch`; o painel avisa quando a chave é de um ambiente e a URL de outro.
+- Contratação (`/billing/plans` → `checkout_enabled` e `POST /billing/checkout`) só abre com chave, token do webhook e ambiente coerente: sem o token o Asaas cobraria e o plano nunca seria ativado (o webhook responde 503).
+
 ### Fixed — Facebook: Página com menos de 100 curtidas
 
 - A coleta do Facebook lê `fan_count` e `followers_count` da Página (token de Página, uma vez por rodada e conta) e grava o número em `post_metrics.extra.page_fan_count` e em `analytics_daily_refreshes.provider_states.facebook_fan_count` (sem migração). Falha nessa leitura não interrompe a coleta.
