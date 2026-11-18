@@ -16,7 +16,7 @@ from shopee_bot.utils.timezones import DEFAULT_TIMEZONE, normalize_timezone
 from ..database import supabase
 from ..meta_post_insights import AUDIENCE_BELOW_MINIMUM
 from ..post_insights import (HISTORY_TABLE, combined_shares, distinct_published_jobs, facebook_fan_counts,
-                             indexed_insights)
+                             indexed_insights, latest_watch_times)
 from ..profiles import scope_account
 from .auth import get_current_user_id
 from .profiles import get_current_profile_id
@@ -111,8 +111,10 @@ def _previews(user_id, post_ids):
     return previews
 
 
-def post_row(job, item, tokens, preview, fan_counts=None):
-    """Linha de um envio: última coleta do cache publication_insights + cliques próprios."""
+def post_row(job, item, tokens, preview, fan_counts=None, watch_ms=None):
+    """Linha de um envio: última coleta do cache publication_insights + cliques próprios.
+
+    `avg_watch_time_ms` (Reels/vídeo Meta) vem do histórico post_metrics.extra; null = "—"."""
     usable = bool(item) and item.get("network") == job["network"] and (
         item.get("external_id") == job.get("external_id")) and item.get("state") in USABLE_STATES
     row = {field: None for field in METRIC_FIELDS}
@@ -120,6 +122,7 @@ def post_row(job, item, tokens, preview, fan_counts=None):
         row.update(views=item.get("views"), reach=item.get("reach"), likes=item.get("likes"),
                    comments=item.get("comments"), shares=combined_shares(item), saves=item.get("saves"))
     row["clicks"] = sum(tokens.values()) if tokens else None
+    row["avg_watch_time_ms"] = watch_ms if usable else None
     if usable:
         status = USABLE_STATES[item["state"]]
     elif item and item.get("state"):
@@ -144,7 +147,9 @@ def _rows(user_id, profile_id, network, begin, finish):
     previews = _previews(user_id, list({job["post_id"] for job in jobs if job.get("post_id") is not None}))
     fan_counts = (facebook_fan_counts(user_id, profile_id)
                   if any(item.get("state") == AUDIENCE_BELOW_MINIMUM for item in index.values()) else {})
-    return [post_row(job, index.get(job["id"]), tokens.get(job["id"]), previews.get(job.get("post_id")), fan_counts)
+    watch = latest_watch_times(user_id, jobs) if jobs else {}
+    return [post_row(job, index.get(job["id"]), tokens.get(job["id"]), previews.get(job.get("post_id")), fan_counts,
+                     watch.get(job["id"]))
             for job in jobs], truncated
 
 

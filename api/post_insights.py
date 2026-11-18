@@ -463,6 +463,32 @@ def indexed_insights(user_id, jobs):
     return index
 
 
+WATCH_TIME_NETWORKS = ("instagram", "facebook")
+_WATCH_ROWS_PER_JOB = 50  # ponytail: últimas coletas por envio; RPC SQL se o histórico crescer muito.
+
+
+def latest_watch_times(user_id, jobs):
+    """{publish_job_id: ms} do tempo médio assistido mais recente (post_metrics.extra).
+
+    Só Instagram/Facebook fornecem; sem valor o job fica de fora (a UI mostra "—")."""
+    ids = [job["id"] for job in jobs if job.get("network") in WATCH_TIME_NETWORKS]
+    latest = {}
+    for offset in range(0, len(ids), _PAGE):
+        chunk = ids[offset:offset + _PAGE]
+        rows = (scope_account(
+            supabase.table(HISTORY_TABLE).select("publish_job_id,extra,collected_at"), user_id
+        ).in_("publish_job_id", chunk).eq("status", "ok").order("collected_at", desc=True)
+            .limit(len(chunk) * _WATCH_ROWS_PER_JOB).execute()).data or []
+        for row in rows:
+            value = _count((row.get("extra") or {}).get("avg_watch_time_ms"))
+            if value is None:
+                continue
+            job_id, when = row["publish_job_id"], str(row.get("collected_at") or "")
+            if job_id not in latest or when > latest[job_id][0]:
+                latest[job_id] = (when, value)
+    return {job_id: value for job_id, (_, value) in latest.items()}
+
+
 def distinct_published_jobs(jobs):
     """Um mesmo ID externo publicado/reconciliado duas vezes não duplica insights."""
     seen = set()

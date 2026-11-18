@@ -47,18 +47,43 @@ def test_instagram_success_maps_metrics_and_keeps_missing_as_none():
     (state, metrics, _), requests = _read(meta.read_instagram_media, "17890000000000001",
                                           lambda r: httpx.Response(200, json=IG_OK))
     assert state == "ok"
-    assert metrics == {"views": 120, "reach": 90, "likes": 0, "comments": 4, "shares": None, "saves": 2}
+    assert metrics == {"views": 120, "reach": 90, "likes": 0, "comments": 4, "shares": None, "saves": 2,
+                       "reposts": None}
     url = str(requests[0].url)
     assert requests[0].url.path == "/v26.0/17890000000000001/insights"
     assert "impressions" not in url and "plays" not in url and TOKEN not in url
     assert requests[0].headers["Authorization"] == f"Bearer {TOKEN}"
 
 
-def test_instagram_unknown_metric_falls_back_once():
+def test_instagram_feed_refuses_reels_metric_and_falls_back_without_it():
     answers = iter([_error(100), httpx.Response(200, json=IG_OK)])
-    (state, metrics, _), requests = _read(meta.read_instagram_media, "1789", lambda r: next(answers))
-    assert state == "ok" and len(requests) == 2
-    assert requests[1].url.params["metric"] == ",".join(meta.IG_FALLBACK)
+    (state, metrics, extra), requests = _read(meta.read_instagram_media, "1789", lambda r: next(answers))
+    assert state == "ok" and len(requests) == 2 and extra == {}
+    assert "ig_reels_avg_watch_time" in requests[0].url.params["metric"]
+    assert requests[1].url.params["metric"] == ",".join(meta.IG_FEED_METRICS)
+
+
+def test_instagram_unknown_metrics_reach_the_reduced_list():
+    answers = iter([_error(100), _error(100), _error(100), httpx.Response(200, json=IG_OK)])
+    (state, _, _), requests = _read(meta.read_instagram_media, "1789", lambda r: next(answers))
+    assert state == "ok" and len(requests) == 4
+    assert requests[3].url.params["metric"] == ",".join(meta.IG_FALLBACK)
+
+
+def test_instagram_reels_reposts_and_avg_watch_time():
+    body = {"data": IG_OK["data"] + [
+        {"name": "reposts", "period": "lifetime", "values": [{"value": 3}]},
+        {"name": "ig_reels_avg_watch_time", "period": "lifetime", "values": [{"value": 4250}]},
+    ]}
+    (state, metrics, extra), requests = _read(meta.read_instagram_media, "1789",
+                                              lambda r: httpx.Response(200, json=body))
+    assert state == "ok" and len(requests) == 1
+    assert metrics["reposts"] == 3 and extra == {"avg_watch_time_ms": 4250}
+    assert requests[0].url.params["metric"] == ",".join(meta.IG_METRICS)
+    row = post_insights.history_row({"id": "j", "network": "instagram", "external_id": "1789"},
+                                    7, state, metrics, extra=extra)
+    assert row["shares"] == 3 and row["extra"]["reposts"] == 3
+    assert row["extra"]["avg_watch_time_ms"] == 4250
 
 
 @pytest.mark.parametrize("response,expected", [

@@ -342,3 +342,23 @@ def test_post_row_carries_page_fan_count_only_for_low_audience():
     assert row["status"] == "audience_below_minimum" and row["fan_count"] == 37 and row["views"] is None
     row = post_metrics.post_row(job, {**item, "state": "no_data"}, None, "texto", {"p1": 37})
     assert "fan_count" not in row
+
+
+def test_avg_watch_time_comes_from_latest_history_and_is_null_when_absent(db):
+    profile = "00000000-0000-0000-0000-0000000000a1"
+    db.tables["publish_jobs"] += [_job("job-reel", "user-a", profile, network="instagram", external="1790", post_id=5)]
+    db.tables["publication_insights"] += [
+        _insight("job-reel", "user-a", network="instagram", external="1790", views=10, reposts=2, shares=1)]
+    db.tables["post_metrics"] += [
+        {"publish_job_id": "job-reel", "user_id": "user-a", "status": "ok", "collected_at": "2026-11-16T10:00:00+00:00",
+         "extra": {"avg_watch_time_ms": 3000}},
+        {"publish_job_id": "job-reel", "user_id": "user-a", "status": "ok", "collected_at": "2026-11-17T10:00:00+00:00",
+         "extra": {"avg_watch_time_ms": 4500}},
+        {"publish_job_id": "job-reel", "user_id": "user-b", "status": "ok", "collected_at": "2026-11-18T10:00:00+00:00",
+         "extra": {"avg_watch_time_ms": 1}},
+    ]
+    rows = {row["job_id"]: row for row in
+            TestClient(app).get("/analytics/post-metrics?days=30").json()["posts"]}
+    assert rows["job-reel"]["avg_watch_time_ms"] == 4500
+    assert rows["job-reel"]["shares"] == 3  # compartilhamentos + reposts
+    assert rows["job-a1"]["avg_watch_time_ms"] is None

@@ -6,7 +6,9 @@ Métrica ausente na resposta = None (a UI mostra "—"), nunca 0.
 
 Métricas conferidas na doc oficial em 14/11/2026 (página mostrava v27.0; o app usa v26.0):
 - Instagram /{ig-media-id}/insights (FEED e REELS): views, reach, likes, comments,
-  shares, saved. `impressions` foi depreciado para mídia criada após 02/07/2024 e
+  shares, saved, reposts (FEED/REELS/STORY) e ig_reels_avg_watch_time (só REELS, ms;
+  conferidos em 18/11/2026). FEED recusa ig_reels_avg_watch_time com code 100: cai na
+  lista sem ele e, se ainda recusar, na reduzida. `impressions` foi depreciado para mídia criada após 02/07/2024 e
   `plays`/`video_views` não constam mais; não são pedidos. Filhos de carrossel não têm
   insights (o publicador guarda o ID do álbum). Atraso de até 48 h.
   Permissões (Facebook Login): instagram_basic, instagram_manage_insights, pages_read_engagement.
@@ -23,8 +25,11 @@ import httpx
 
 from apis.meta_version import GRAPH_BASE
 
-IG_METRICS = ("views", "reach", "likes", "comments", "shares", "saved")
+IG_BASE_METRICS = ("views", "reach", "likes", "comments", "shares", "saved")
+IG_FEED_METRICS = IG_BASE_METRICS + ("reposts",)
+IG_METRICS = IG_FEED_METRICS + ("ig_reels_avg_watch_time",)
 IG_FALLBACK = ("reach", "likes", "comments")
+IG_ATTEMPTS = (IG_METRICS, IG_FEED_METRICS, IG_BASE_METRICS, IG_FALLBACK)
 FB_METRICS = ("post_media_view", "post_total_media_view_unique", "post_reactions_by_type_total")
 FB_FALLBACK = ("post_reactions_by_type_total",)
 FB_POST_FIELDS = "shares,comments.limit(0).summary(true)"
@@ -128,8 +133,15 @@ def parse_instagram_media_insights(data):
         return None
     metrics = {"views": _count(values.get("views")), "reach": _count(values.get("reach")),
                "likes": _count(values.get("likes")), "comments": _count(values.get("comments")),
-               "shares": _count(values.get("shares")), "saves": _count(values.get("saved"))}
+               "shares": _count(values.get("shares")), "saves": _count(values.get("saved")),
+               "reposts": _count(values.get("reposts"))}
     return metrics if any(value is not None for value in metrics.values()) else None
+
+
+def watch_time_extra(values, name):
+    """Tempo médio assistido (ms) vai para `extra`: não há coluna própria."""
+    value = _count((values or {}).get(name))
+    return {"avg_watch_time_ms": value} if value is not None else {}
 
 
 def _reactions(value):
@@ -202,11 +214,12 @@ async def _insights(client, object_id, token, attempts):
 async def read_instagram_media(client, external_id, token):
     if not isinstance(external_id, str) or not _MEDIA_ID.fullmatch(external_id):
         return "invalid_id", None, {}
-    state, data = await _insights(client, external_id, token, (IG_METRICS, IG_FALLBACK))
+    state, data = await _insights(client, external_id, token, IG_ATTEMPTS)
     if state != "ok":
         return state, None, {}
     metrics = parse_instagram_media_insights(data)
-    return ("ok" if metrics else "no_data"), metrics, {}
+    extra = watch_time_extra(insight_values(data), "ig_reels_avg_watch_time") if metrics else {}
+    return ("ok" if metrics else "no_data"), metrics, extra
 
 
 async def resolve_facebook_post_id(client, external_id, token):
