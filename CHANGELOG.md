@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.26.0] - 2026-11-18
+
+Funcionalidade nova (MINOR): identificação do controlador (CNPJ e endereço) nos Termos, Privacidade e rodapé da landing. Correções: post com vídeo deixa de estourar 504 em `/posts/media-drafts`, painel Asaas explica o webhook desabilitado e a contratação só abre com chave, token e ambiente coerentes, e Facebook explica Página com menos de 100 curtidas. Sem migração.
+
 ### Fixed — post com vídeo travava em 504 ao clicar Criar
 
 - Em `/posts/criar`, anexar um MP4 (ex.: vertical 720x1280, 12 s, 545 KB) e clicar Criar fazia `POST /api/posts/media-drafts` responder 504 "API interna não respondeu a tempo" após 30 s; nenhum post com vídeo (TikTok, Reels, vídeo no Facebook) chegava a ser criado. Causa: a rota passa pela reconstrução do vídeo no FFmpeg (até 90 s), mas o proxy só dava prazo longo para `products/{id}/media`; as demais rotas de upload ficavam nos 30 s gerais. Além disso, o libx264 abria uma thread por núcleo do host (o `-threads 1` só limitava o decodificador), gastando ~2x mais CPU e ~3x mais memória dentro da cota de 0,15 CPU do Render Free.
