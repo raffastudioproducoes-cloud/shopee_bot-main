@@ -61,6 +61,8 @@ export interface NetworkRule {
   videoMaxSide?: number
   imageAspect?: [number, number]
   videoAspect?: [number, number]
+  /** Vídeo sai como Reels: proporção diferente de 9:16 vira só aviso (nunca bloqueio). */
+  reelsAspectWarn?: boolean
   unverified: string[]
 }
 
@@ -146,6 +148,7 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     videoMaxSec: 900,
     videoMaxSide: 1920,
     videoAspect: [0.01, 10],
+    reelsAspectWarn: true,
     unverified: [],
   },
   tiktok: {
@@ -292,9 +295,21 @@ export function validateForNetwork(network: PostNetwork, draft: PostDraft): Issu
           `proporção de ${m.name} fora de ${range[0]}:1 a ${range[1]}:1 (atual ${aspect.toFixed(2)}:1)`,
         )
       }
+      if (m.kind === "video" && rule.reelsAspectWarn && !isNineBySixteen(m.width, m.height)) {
+        issues.push({
+          key: "reelsAspect",
+          level: "warn",
+          message: `${rule.label}: ${m.name} não é vertical 9:16 (${dims}); o Reels sai com bordas ou cortado`,
+        })
+      }
     }
   }
   return issues
+}
+
+/** 9:16 com folga de 1% (1080×1920, 720×1280, 540×960...). Espelho de reelsOptions.ts. */
+export function isNineBySixteen(width: number, height: number): boolean {
+  return height > 0 && Math.abs(width / height - 9 / 16) <= 0.01
 }
 
 /** Lê duração/dimensões no navegador (sem upload). Falhou = sem metadados. */

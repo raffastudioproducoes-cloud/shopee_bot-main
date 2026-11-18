@@ -281,12 +281,18 @@ def post_image(app_id, secret, user_access_token, image_url, caption, ig_user_id
 
 
 def _create_video_media_container(ig_user_id, user_access_token, video_url, caption):
-    """Cria um container REELS (vídeo no feed do Instagram é publicado como Reels)."""
+    """Cria um container REELS (vídeo no feed do Instagram é publicado como Reels).
+
+    `share_to_feed=true` explícito: a referência de IG User Media (conferida em
+    18/11/2026) descreve o parâmetro para Reels mas não diz o padrão; sem ele o
+    Reel poderia aparecer só na aba Reels. Duração (3 s a 15 min), 300 MB e MP4
+    são validados antes (frontend/src/lib/networkLimits.ts + api/network_limits.py);
+    proporção fora de 9:16 só gera aviso no Composer."""
     res = retry_with_backoff(
         requests.post, f"{API_BASE}/{ig_user_id}/media",
         params={
             "access_token": user_access_token, "media_type": "REELS",
-            "video_url": video_url, "caption": caption,
+            "video_url": video_url, "caption": caption, "share_to_feed": "true",
         },
         exceptions=(requests.exceptions.RequestException,), timeout=30,
     )

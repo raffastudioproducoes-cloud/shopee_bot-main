@@ -77,6 +77,7 @@ def test_video_is_published_as_reels_after_container_finishes(monkeypatch):
     assert media_id == "m-v"
     create = next(c for c in graph.calls if c["url"] == f"{BASE}/{IG}/media")["params"]
     assert create["media_type"] == "REELS"
+    assert create["share_to_feed"] == "true"
     assert create["video_url"] == "https://u/v.mp4"
     assert create["caption"] == "legenda"
     assert "image_url" not in create
