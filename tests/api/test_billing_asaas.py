@@ -235,6 +235,7 @@ IDENTITY = {"full_name": "Maria Teste", "cpf_ciphertext": encrypt("52998224725")
 @pytest.fixture
 def checkout(monkeypatch):
     monkeypatch.setattr(settings, "asaas_api_key", "$aact_test")
+    monkeypatch.setattr(settings, "asaas_webhook_token", TOKEN)
     monkeypatch.setattr(settings, "asaas_api_url", "https://api-sandbox.asaas.com/v3")
     monkeypatch.setattr(settings, "asaas_sandbox_testers", "u1")
     db = _DB(users=[{"id": "u1", "email": "m@example.com"}], account_billing_identity=[IDENTITY])
@@ -575,6 +576,10 @@ def test_plans_endpoint_reports_checkout_flag(monkeypatch):
     monkeypatch.setattr(settings, "asaas_api_key", "")
     assert TestClient(app).get("/billing/plans").json()["checkout_enabled"] is False
     monkeypatch.setattr(settings, "asaas_api_key", "$aact_x")
+    monkeypatch.setattr(settings, "asaas_webhook_token", "")
+    # Sem token o webhook responde 503 e o plano nunca ativaria: não oferece contratação.
+    assert TestClient(app).get("/billing/plans").json()["checkout_enabled"] is False
+    monkeypatch.setattr(settings, "asaas_webhook_token", TOKEN)
     assert TestClient(app).get("/billing/plans").json()["checkout_enabled"] is True
 
 
@@ -655,3 +660,42 @@ def _swap(result, order_id):
     if result.data:
         result.data[0]["id"] = order_id
     return result
+
+
+# ---------- produção: rótulo do painel e travas antes de cobrar ----------
+def test_admin_status_without_key_is_not_labeled_sandbox(admin, monkeypatch):
+    client, _db, calls, _ex = admin
+    monkeypatch.setattr(settings, "asaas_api_key", "")
+    monkeypatch.setattr(settings, "asaas_api_url", "https://api-sandbox.asaas.com/v3")
+    body = client.get("/admin/billing/status").json()
+    assert body["environment"] is None and body["api_url_environment"] == "sandbox"
+    assert body["api_key_configured"] is False and body["webhook"] is None and not calls
+    assert client.post("/admin/billing/webhook", json={}).status_code == 503
+
+
+def test_admin_status_reports_production_with_key(admin, monkeypatch):
+    client, _db, _calls, _ex = admin
+    monkeypatch.setattr(settings, "asaas_api_url", "https://api.asaas.com/v3")
+    body = client.get("/admin/billing/status").json()
+    assert body["environment"] == "production" and body["environment_mismatch"] is False
+
+
+def test_key_from_other_environment_is_flagged_and_closes_checkout(admin, monkeypatch):
+    client, _db, _calls, _ex = admin
+    monkeypatch.setattr(settings, "asaas_api_key", "$aact_prod_000secret")
+    monkeypatch.setattr(settings, "asaas_api_url", "https://api-sandbox.asaas.com/v3")
+    body = client.get("/admin/billing/status").json()
+    assert body["key_environment"] == "production" and body["environment_mismatch"] is True
+    assert "000secret" not in str(body) and "aact" not in str(body)
+    assert asaas_client.checkout_ready() is False
+    monkeypatch.setattr(settings, "asaas_api_url", "https://api.asaas.com/v3")
+    assert asaas_client.environment_mismatch() is False and asaas_client.checkout_ready() is True
+    monkeypatch.setattr(settings, "asaas_api_key", "$aact_hmlg_000")
+    assert asaas_client.environment_mismatch() is True
+
+
+def test_checkout_closed_without_webhook_token(checkout, monkeypatch):
+    client, db, sent = checkout
+    monkeypatch.setattr(settings, "asaas_webhook_token", "")
+    assert client.post("/billing/checkout", json=BODY).status_code == 503
+    assert not sent and not [c for c in db.calls if c[1] == "insert"]

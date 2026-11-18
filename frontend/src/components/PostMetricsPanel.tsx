@@ -23,6 +23,8 @@ export type PostMetricRow = {
   finished_at: string | null
   preview: string
   status: string
+  /** Curtidas da Página, só quando status = audience_below_minimum. */
+  fan_count?: number | null
 } & Record<TableMetric, number | null>
 type ListResult = { posts: PostMetricRow[]; total: number; truncated: boolean }
 type NetworkRank = { network: string; posts: number; posts_measured: number; total: number | null; average: number | null }
@@ -158,7 +160,7 @@ export function PostMetricsPanel({ query, scopeKey }: PostMetricsPanelProps) {
                 </tr></thead>
                 <tbody>{rows.map((post) => <tr key={post.job_id}>
                   <td><strong>{NETWORK_NAMES[post.network] ?? post.network}</strong> · {post.preview}
-                    {collectionNote(post.status) && <div className="post-metrics-muted">{collectionNote(post.status)}</div>}</td>
+                    {collectionNote(post.status, post.fan_count) && <div className="post-metrics-muted">{collectionNote(post.status, post.fan_count)}</div>}</td>
                   <td>{publishedAt(post.finished_at)}</td>
                   {TABLE_METRICS.map((key) => <td key={key}><Metric value={post[key]} note={metricNote(post.network, key)} /></td>)}
                 </tr>)}</tbody>

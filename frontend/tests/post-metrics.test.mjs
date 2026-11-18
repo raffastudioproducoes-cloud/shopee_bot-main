@@ -83,5 +83,20 @@ test('Fase 2: rótulos por rede, alcance/salvamentos e aviso de reconexão', () 
   assert.equal(pm.formatMetric(null), '—')
   const panel = readFileSync(new URL('../src/components/PostMetricsPanel.tsx', import.meta.url), 'utf8')
   assert.match(panel, /TABLE_METRICS\.map\(\(key\) => <td key=\{key\}><Metric value=\{post\[key\]\} note=\{metricNote\(post\.network, key\)\}/)
-  assert.match(panel, /collectionNote\(post\.status\)/)
+  assert.match(panel, /collectionNote\(post\.status(, post\.fan_count)?\)/)
+})
+
+test('Página abaixo de 100 curtidas explica o limite da Meta com o número real', () => {
+  assert.equal(pm.collectionNote('audience_below_minimum', 37),
+    'A Meta só libera insights de Páginas com 100 curtidas ou mais. Esta Página tem 37.')
+  assert.equal(pm.audienceNote(null), 'A Meta só libera insights de Páginas com 100 curtidas ou mais.')
+  assert.doesNotMatch(pm.collectionNote('audience_below_minimum'), /Reconecte/)
+  assert.equal(pm.collectionNote('no_data', 37), pm.collectionNote('no_data'))
+})
+
+test('card Situação das redes usa o mesmo texto de curtidas da Página', () => {
+  const visuals = readFileSync(new URL('../src/components/AnalyticsVisuals.tsx', import.meta.url), 'utf8')
+  assert.match(visuals, /insights_status === 'audience_below_minimum' \? audienceNote\(row\.fan_count\)/)
+  const panel = readFileSync(new URL('../src/components/PostMetricsPanel.tsx', import.meta.url), 'utf8')
+  assert.match(panel, /collectionNote\(post\.status, post\.fan_count\)/)
 })

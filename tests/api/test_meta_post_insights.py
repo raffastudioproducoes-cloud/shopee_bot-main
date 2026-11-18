@@ -202,7 +202,8 @@ def _collect(monkeypatch, jobs, handler, accounts=None):
     persisted, history = [], []
     accounts = accounts if accounts is not None else {"instagram": "cipher", "facebook": "cipher"}
     monkeypatch.setattr(post_insights, "_profile_jobs", lambda *a: jobs)
-    monkeypatch.setattr(post_insights, "_meta_account", lambda network, *a: accounts.get(network))
+    monkeypatch.setattr(post_insights, "_meta_account",
+                        lambda network, *a: accounts.get(network) and ("111", accounts[network]))
     monkeypatch.setattr(post_insights, "_threads_account", lambda *a: None)
     monkeypatch.setattr(post_insights, "decrypt", lambda value: TOKEN)
     monkeypatch.setattr(post_insights, "_persist",
@@ -271,7 +272,7 @@ def test_crash_in_one_network_is_contained(monkeypatch):
         raise RuntimeError("db down")
     jobs = [_job("ig1", "instagram", "1789"), _job("fb1", "facebook", "111_222", post_id=2)]
     monkeypatch.setattr(post_insights, "_meta_account",
-                        lambda network, *a: boom() if network == "instagram" else "cipher")
+                        lambda network, *a: boom() if network == "instagram" else ("111", "cipher"))
     monkeypatch.setattr(post_insights, "_profile_jobs", lambda *a: jobs)
     monkeypatch.setattr(post_insights, "decrypt", lambda value: TOKEN)
     monkeypatch.setattr(post_insights, "_persist", lambda *a: None)
@@ -289,3 +290,74 @@ def test_not_connected_network_makes_no_calls(monkeypatch):
         monkeypatch, [_job("fb1", "facebook", "111_222")],
         lambda r: calls.append(r) or httpx.Response(200, json={}), accounts={})
     assert states["facebook"] == "not_connected" and not calls and not history and not persisted
+
+
+# ---------------- Página com menos de 100 curtidas ----------------
+
+def _low_audience_handler(fans=37, fan_response=None, calls=None):
+    """Caso real: /insights 200 sem métricas e campos do post com code 10."""
+    def handler(request):
+        if calls is not None:
+            calls.append(request)
+        if request.url.path.endswith("/v26.0/111"):
+            return fan_response or httpx.Response(200, json={"id": "111", "fan_count": fans, "followers_count": 40})
+        if request.url.path.endswith("/insights"):
+            return httpx.Response(200, json={"data": []})
+        return _error(10, status=403, message="(#10) Not enough viewers")
+    return handler
+
+
+def test_page_below_100_likes_becomes_audience_state_with_real_count(monkeypatch):
+    calls = []
+    jobs = [_job(f"fb{i}", "facebook", f"1{i}_2", post_id=i) for i in range(4)]
+    states, persisted, history = _collect(monkeypatch, jobs, _low_audience_handler(calls=calls))
+    assert states["facebook"] == meta.AUDIENCE_BELOW_MINIMUM
+    assert states["facebook_fan_count"] == 37
+    assert {state for _, state, _ in persisted} == {meta.AUDIENCE_BELOW_MINIMUM}
+    assert all(row["extra"]["page_fan_count"] == 37 for row in history)
+    assert all(row["status"] == meta.AUDIENCE_BELOW_MINIMUM for row in history)
+    assert meta.AUDIENCE_BELOW_MINIMUM not in meta.STOP_STATES | meta.RECONNECT_STATES
+    fan_calls = [r for r in calls if r.url.path.endswith("/v26.0/111")]
+    assert len(fan_calls) == 1  # uma vez por rodada e conta, não por post
+    assert fan_calls[0].url.params["fields"] == "fan_count,followers_count"
+    assert all(TOKEN not in str(r.url) for r in calls) and TOKEN not in str(history)
+
+
+def test_page_with_100_likes_keeps_no_data(monkeypatch):
+    states, persisted, history = _collect(
+        monkeypatch, [_job("fb1", "facebook", "11_2")], _low_audience_handler(fans=100))
+    assert states["facebook"] == "no_data" and states["facebook_fan_count"] == 100
+    assert persisted[0][1] == "no_data" and history[0]["extra"]["page_fan_count"] == 100
+
+
+@pytest.mark.parametrize("failure", [_error(10, status=403), httpx.Response(500, json={}),
+                                     httpx.Response(200, json={"id": "111"})])
+def test_fan_count_failure_never_breaks_collection(monkeypatch, failure):
+    states, persisted, history = _collect(
+        monkeypatch, [_job("fb1", "facebook", "11_2")], _low_audience_handler(fan_response=failure))
+    assert states["facebook"] == "no_data" and "facebook_fan_count" not in states
+    assert len(persisted) == 1 and "page_fan_count" not in history[0]["extra"]
+
+
+def test_fan_count_exception_is_contained():
+    async def run():
+        def boom(request):
+            raise RuntimeError("quebrou")
+        async with httpx.AsyncClient(transport=httpx.MockTransport(boom)) as client:
+            return await meta.read_page_audience(client, "111", TOKEN)
+    assert asyncio.run(run()) is None
+
+
+def test_audience_classification_only_touches_no_data():
+    low = {"fan_count": 99, "followers_count": None}
+    assert meta.classify_page_audience("no_data", low) == meta.AUDIENCE_BELOW_MINIMUM
+    assert meta.classify_page_audience("no_data", {"fan_count": 100}) == "no_data"
+    assert meta.classify_page_audience("ok", low) == "ok"
+    assert meta.classify_page_audience("access_denied", low) == "access_denied"
+    assert meta.classify_page_audience("no_data", None) == "no_data"
+
+
+def test_shared_fan_count_only_when_pages_agree():
+    assert post_insights.shared_fan_count({"p1": 37}, {"p1"}) == 37
+    assert post_insights.shared_fan_count({"p1": 37, "p2": 12}, {"p1", "p2"}) is None
+    assert post_insights.shared_fan_count({}, {"p1"}) is None

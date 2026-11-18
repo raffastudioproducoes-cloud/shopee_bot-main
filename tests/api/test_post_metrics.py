@@ -332,3 +332,13 @@ def test_instagram_row_exposes_reach_and_saves_and_reconnect_state(db):
     assert rows["job-ig"]["reach"] == 8 and rows["job-ig"]["saves"] == 3 and rows["job-ig"]["status"] == "ok"
     assert body["posts"][0]["job_id"] == "job-ig"  # único com salvamentos; nulos no fim
     assert rows["job-fb"]["status"] == "permission_required" and rows["job-fb"]["views"] is None
+
+
+def test_post_row_carries_page_fan_count_only_for_low_audience():
+    job = {"id": "j1", "post_id": 1, "network": "facebook", "profile_id": "p1",
+           "external_id": "1_2", "finished_at": "2026-11-13T10:00:00+00:00"}
+    item = {"network": "facebook", "external_id": "1_2", "state": "audience_below_minimum"}
+    row = post_metrics.post_row(job, item, None, "texto", {"p1": 37})
+    assert row["status"] == "audience_below_minimum" and row["fan_count"] == 37 and row["views"] is None
+    row = post_metrics.post_row(job, {**item, "state": "no_data"}, None, "texto", {"p1": 37})
+    assert "fan_count" not in row

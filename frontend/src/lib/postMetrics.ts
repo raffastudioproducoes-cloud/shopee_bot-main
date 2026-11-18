@@ -47,7 +47,16 @@ const STATUS_NOTES: Record<string, string> = {
   no_data: 'A rede ainda não devolveu dados (Instagram pode atrasar até 48 h)',
 }
 
-export function collectionNote(status: string): string | null {
+/** Página com menos de 100 curtidas: a Meta não libera insights. N vem da última coleta (null = desconhecido). */
+export const MIN_PAGE_FANS = 100
+export function audienceNote(fanCount?: number | null): string {
+  const base = `A Meta só libera insights de Páginas com ${MIN_PAGE_FANS} curtidas ou mais.`
+  return typeof fanCount === 'number' && Number.isFinite(fanCount)
+    ? `${base} Esta Página tem ${fanCount.toLocaleString('pt-BR')}.` : base
+}
+
+export function collectionNote(status: string, fanCount?: number | null): string | null {
+  if (status === 'audience_below_minimum') return audienceNote(fanCount)
   return STATUS_NOTES[status] ?? null
 }
 

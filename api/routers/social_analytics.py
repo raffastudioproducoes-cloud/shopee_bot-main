@@ -10,7 +10,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from ..analytics_refresh import (TABLE as REFRESH_TABLE, claim_manual_refresh,
                                  manual_quota_status, refresh_account)
 from ..database import supabase
+from ..meta_post_insights import AUDIENCE_BELOW_MINIMUM
 from ..post_insights import (COLLECTED_NETWORKS, current_network_connections, distinct_published_jobs,
+                             facebook_fan_counts, shared_fan_count,
                              indexed_insights, published_jobs, summarize_post_metrics)
 from ..profiles import scope_account, scope_owner
 from .auth import get_current_user_id
@@ -229,14 +231,18 @@ def summary(
         if name not in COLLECTED_NETWORKS:
             # Não existe coletor individual homologado nessas redes ainda (TikTok, X).
             metrics = {field: None for field in metrics}
-        rows.append({
+        row = {
             "network": name,
             **counts,
             **metrics,
             "insights_status": status,
             "posts_with_insights": collected,
             "posts_with_external_id": eligible,
-        })
+        }
+        if status == AUDIENCE_BELOW_MINIMUM:
+            row["fan_count"] = shared_fan_count(facebook_fan_counts(user_id, profile_id),
+                                                {job.get("profile_id") for job in subset})
+        rows.append(row)
     return {
         "days": days, "networks": rows,
         "last_attempt_at": refresh.get("last_attempt_at") if refresh else None,
@@ -279,6 +285,8 @@ def post_performance(
     except Exception:
         raise HTTPException(status_code=503, detail="Desempenho por publicação temporariamente indisponível")
     posts = []
+    fan_counts = (facebook_fan_counts(user_id, profile_id)
+                  if any(item.get("state") == AUDIENCE_BELOW_MINIMUM for item in index.values()) else {})
     for job in jobs:
         metrics, collected, _, states = summarize_post_metrics([job], index)
         state = next(iter(states)) if len(states) == 1 else "not_collected"
@@ -298,6 +306,7 @@ def post_performance(
             ),
             **metrics,
             "last_completed_at": item.get("last_completed_at") if collected and item else None,
+            **({"fan_count": fan_counts.get(job.get("profile_id"))} if state == AUDIENCE_BELOW_MINIMUM else {}),
         })
     posts.sort(key=lambda item: (item["views"] is None, -(item["views"] or 0),
                                  item["finished_at"] or ""))
