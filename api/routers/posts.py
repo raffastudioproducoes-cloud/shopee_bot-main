@@ -27,6 +27,8 @@ fluxo do usuário. Kwai fica de fora do mapa, sem API pública confirmada.
 
 import logging
 import time
+
+import httpx
 import uuid
 from PIL import Image
 from io import BytesIO
@@ -2192,11 +2194,33 @@ async def upload_media_draft(
     em 24 horas. A Task 3 será a única responsável por consumi-la em posts.
     """
     profile_id = _require_profile_id(profile_id)
-    cleanup_expired_media_drafts()
+    started = time.monotonic()
+    # Supabase é cliente síncrono: fora do event loop, senão um Storage lento
+    # congela todas as outras requisições da API enquanto o vídeo sobe.
+    await run_in_threadpool(_cleanup_media_drafts_best_effort)
     content = await _read_media_content(file)
+    read_at = time.monotonic()
 
     media = await _sanitize_upload(file, content)
-    return _store_sanitized_draft(media, user_id, profile_id)
+    sanitized_at = time.monotonic()
+    draft = await run_in_threadpool(_store_sanitized_draft, media, user_id, profile_id)
+    # Tempo por fase: se o proxy voltar a estourar, este log mostra onde.
+    logger.info(
+        "Rascunho de mídia salvo: tipo=%s entrada=%d saida=%d leitura=%.1fs "
+        "sanitizacao=%.1fs storage=%.1fs total=%.1fs",
+        media.media_type, len(content), len(media.content),
+        read_at - started, sanitized_at - read_at,
+        time.monotonic() - sanitized_at, time.monotonic() - started,
+    )
+    return draft
+
+
+def _cleanup_media_drafts_best_effort() -> None:
+    """Limpeza de vencidos não pode impedir um upload novo."""
+    try:
+        cleanup_expired_media_drafts()
+    except Exception:
+        logger.warning("Falha ao limpar rascunhos vencidos antes do upload", exc_info=True)
 
 
 def _store_sanitized_draft(media, user_id: int, profile_id: str) -> dict:
@@ -2240,6 +2264,14 @@ def _store_sanitized_draft(media, user_id: int, profile_id: str) -> dict:
                 supabase.storage.from_(MEDIA_DRAFT_BUCKET).upload(
                     storage_key, content, {"content-type": mime, "upsert": "false"}
                 )
+            except httpx.TimeoutException:
+                # O cliente de Storage tem prazo próprio (20 s), bem abaixo do
+                # proxy: o usuário recebe esta mensagem em vez de um 504 genérico.
+                logger.warning("Storage demorou a responder ao guardar rascunho de mídia")
+                raise HTTPException(
+                    status_code=504,
+                    detail="O armazenamento demorou a responder. Nada foi salvo; tente enviar a mídia de novo.",
+                ) from None
             except Exception:
                 logger.warning("Falha ao guardar rascunho de mídia", exc_info=True)
                 raise HTTPException(status_code=502, detail="Não foi possível enviar a mídia agora. Tente novamente.")

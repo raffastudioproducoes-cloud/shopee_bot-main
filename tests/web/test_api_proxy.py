@@ -85,13 +85,40 @@ def test_product_media_post_waits_for_ffmpeg_and_storage_without_widening_other_
     with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
         mock_req.return_value = _FakeUpstreamResponse()
         media = client.post("/api/products/42/media", data=b"mp4")
-        regular = client.post("/api/posts/42/media", data=b"mp4")
         other = client.get("/api/products/42/media")
+        draft_list = client.delete("/api/posts/media-drafts/7")
 
-    assert media.status_code == regular.status_code == other.status_code == 200
+    assert media.status_code == other.status_code == draft_list.status_code == 200
     assert mock_req.call_args_list[0].kwargs["timeout"] == (5, 180)
     assert mock_req.call_args_list[1].kwargs["timeout"] == 30
     assert mock_req.call_args_list[2].kwargs["timeout"] == 30
+
+
+def test_every_ffmpeg_upload_route_gets_media_deadline(client):
+    """Bug de produção 18/11: /posts/media-drafts ficava no prazo geral de
+    30 s, o FFmpeg no Render Free passava disso e o post com vídeo nunca era criado."""
+    draft = "3f2b8c1e-0a4d-4c55-9b7e-1d2c3b4a5f60"
+    paths = [
+        "/api/posts/media-drafts",
+        "/api/posts/42/media",
+        f"/api/campaigns/drafts/{draft}/items/7/media",
+    ]
+    with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
+        mock_req.return_value = _FakeUpstreamResponse()
+        for path in paths:
+            assert client.post(path, data=b"mp4").status_code == 200
+
+    assert [c.kwargs["timeout"] for c in mock_req.call_args_list] == [(5, 180)] * len(paths)
+
+
+def test_media_draft_timeout_returns_actionable_504(client):
+    with patch("shopee_bot.web.routes.api_proxy.requests.request") as mock_req:
+        mock_req.side_effect = requests.ReadTimeout("internal host and credentials")
+        res = client.post("/api/posts/media-drafts", data=b"mp4")
+
+    assert res.status_code == 504
+    assert "processamento da mídia" in res.get_json()["error"]
+    assert "credentials" not in res.get_data(as_text=True)
 
 
 def test_product_media_timeout_returns_actionable_504(client):

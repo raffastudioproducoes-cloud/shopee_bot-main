@@ -86,3 +86,24 @@ def test_probe_limits_dimensions_and_duration(monkeypatch, short_video):
     monkeypatch.setattr(video_processor, "_probe_video", lambda *_args, **_kwargs: {"streams": [{"width": 32, "height": 32}], "format": {"duration": "601"}})
     with pytest.raises(MediaSanitizerError, match="duração"):
         process_video_upload(short_video, max_bytes=50 * 1024 * 1024)
+
+
+def test_encoder_runs_single_threaded_to_fit_render_cpu_quota(short_video, monkeypatch):
+    """`-threads 1` antes de `-i` só vale para o decodificador. Sem o mesmo
+    limite depois do `-i`, o libx264 abre uma thread por núcleo do host e no
+    Render Free (0,15 CPU) o upload de um MP4 curto passava de 30 s."""
+    from api import video_processor
+
+    commands = []
+    real_run = video_processor.subprocess.run
+
+    def recording_run(command, *args, **kwargs):
+        commands.append(command)
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(video_processor.subprocess, "run", recording_run)
+    process_video_upload(short_video, max_bytes=50 * 1024 * 1024)
+
+    transcode = next(c for c in commands if "-c:v" in c)
+    after_input = transcode[transcode.index("-i") + 2:]
+    assert after_input[after_input.index("-threads") + 1] == "1"
