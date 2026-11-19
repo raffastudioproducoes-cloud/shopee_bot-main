@@ -67,8 +67,13 @@ def test_shopee_video_routes_are_limited_to_oauth_status_and_preview():
     seja exatamente a esperada, para que publicar não seja ligado em silêncio.
     Ao liberar a publicação, atualize esta lista junto com o publicador.
     """
-    paths = {route.path for route in app.routes if hasattr(route, "path")}
-    shopee_video_paths = {p for p in paths if "shopee-video" in p}
+    # Lê o roteador direto: o `app` global pode ser substituído por outros
+    # testes da suíte (no CI ele aparecia sem as rotas), o roteador não.
+    from api.routers.shopee_video import router
+
+    shopee_video_paths = {
+        route.path for route in router.routes if hasattr(route, "path")
+    }
     assert shopee_video_paths == {
         "/admin/shopee-video",
         "/shopee-video/status",
