@@ -5,6 +5,18 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.27.1] - 2026-11-19
+
+Correção (PATCH): documentação sincronizada com o estado real e teste de contrato do Shopee Vídeo corrigido. Sem migração e sem variável de ambiente nova.
+
+### Changed
+
+- Documentação: `docs/ESTADO-ATUAL-20261119.md`, AGENTS, README, TASK, MEMORY, ROADMAP e HANDOFF atualizados (releases 3.17 a 3.27, Meta App Review enviado, Go Live do Shopee Vídeo enviado, regra de fluxo staging/main).
+
+### Fixed
+
+- Teste `test_security_release_contract_20261031`: o contrato antigo exigia que nenhuma rota `/shopee-video` existisse, mas o roteador existe desde o OAuth de afiliado. O novo teste exige que as rotas sejam só OAuth, status, refresh, desconexão, prévia e a de admin, sem upload nem postagem.
+
 ## [3.27.0] - 2026-11-19
 
 Funcionalidade nova (MINOR): Reels no Facebook e no Instagram, com painel "Publicar como Reels" no Criar Post; métricas de vídeo e Reels do Facebook; reposts e tempo médio assistido no Instagram; cliques do Facebook em posts só de produto. Validado na staging com um Reel real. Sem migração.
