@@ -1,5 +1,7 @@
 # Shopee Vídeo para afiliados — contrato de mídia, produtos e análises
 
+> **Nota de revisão 2026-11-19:** a decisão que bloqueia a integração automática, descrita abaixo, é histórica de 07/11/2026. Desde então foram criados o OAuth de afiliado (`auth_type=user`), o cliente de upload e postagem e as rotas `/shopee-video/*`, e o app 249826 foi enviado para Go Live em 18/11/2026 (em análise). A publicação continua desligada. Ver [ESTADO-ATUAL-20261119.md](ESTADO-ATUAL-20261119.md).
+
 **Apuração:** 07/11/2026. **Base:** `staging` SHA `5c238f3d3920f408ae0236fae7829d57bd267a39`. **Situação:** descoberta/documentação; gate SV.0 **não concluído**. Nenhum OAuth, endpoint, post ou leitura autenticada Shopee foi acionado.
 
 ## 1. Decisão que bloqueia a integração automática
