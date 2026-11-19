@@ -16,7 +16,7 @@ type PreviewNetwork = PostNetwork | "kwai"
 const PREVIEW_NETWORKS: PreviewNetwork[] = [...PICKER_NETWORKS, "kwai"]
 const NAMES: Record<PreviewNetwork, string> = {
   threads: "Threads", x: "X", facebook: "Facebook", instagram: "Instagram",
-  tiktok: "TikTok", kwai: "Kwai",
+  tiktok: "TikTok", shopee_video: "Shopee Vídeo", kwai: "Kwai",
 }
 const DEMO_HANDLE = "@seu_perfil"
 
@@ -106,8 +106,9 @@ export function PostLivePreview({
   const followups = network === "threads" || network === "x" ? platformParts.slice(1) : []
   const text = caption.trim() || "Seu texto aparecerá aqui conforme você preencher o editor."
   const isVideo = chosen?.kind === "video"
-  const isVertical = network === "tiktok" || network === "kwai" || (network === "instagram" && isVideo)
-  const showProductName = products.length > 0
+  const isVertical = network === "tiktok" || network === "shopee_video" || network === "kwai" || (network === "instagram" && isVideo)
+  // Lista única de produtos: cada rede recebe os primeiros N que aceita.
+  const networkProducts = plan ? products.slice(0, plan.productCount) : products
 
   return <aside className="post-live-preview" aria-label="Pré-visualização da publicação">
     <div className="post-preview-toolbar">
@@ -180,8 +181,10 @@ export function PostLivePreview({
       {existingMedia.length > 0 && media.length === 0 && <p className="post-preview-note">
         Mídia já salva neste post: {existingMedia.map((m) => m.file_name).join(", ")}. A miniatura não está disponível nesta edição.
       </p>}
-      {showProductName && <p className="post-preview-note">
-        Produto vinculado: {products.map((p) => p.name).join(", ")}. O nome só aparece na postagem se estiver no texto.
+      {networkProducts.length > 0 && <p className="post-preview-note">
+        {networkProducts.length === 1 ? "Produto vinculado" : `${networkProducts.length} produtos vinculados`} em {NAMES[network]}
+        {networkProducts.length < products.length ? ` (de ${products.length} selecionados)` : ""}:{" "}
+        {networkProducts.map((p) => p.name).join(", ")}. O nome só aparece na postagem se estiver no texto.
       </p>}
       <p className="post-preview-disclaimer">
         Prévia aproximada. Interfaces e recortes variam por dispositivo e podem mudar nas redes.

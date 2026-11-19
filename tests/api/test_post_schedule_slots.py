@@ -8,7 +8,7 @@ from api.routers import posts as module
 
 def test_one_product_only_rejects_before_database():
     with pytest.raises(HTTPException) as error:
-        module._validate_product_ids(7, [1, 2])
+        module._validate_product_ids(7, [1, 2], ["threads"])
     assert error.value.status_code == 422
 
 

@@ -23,6 +23,12 @@ export function summaryLine(p: MediaCompositionPlan): string {
   return `recebe: ${describeKept(p.media)}${adapted}`
 }
 
+/** Quantos produtos da lista única a rede recebe (vazio sem produto). */
+export function productNote(p: MediaCompositionPlan): string {
+  if (p.mode === "blocked" || p.productCount === 0) return ""
+  return p.productCount === 1 ? " · 1 produto" : ` · ${p.productCount} produtos`
+}
+
 export function MediaSummary({ networks, plans }: Props) {
   const rows = networks.map((n) => plans[n])
   if (rows.length === 0 || rows.every((p) => p.mode === "none")) return null
@@ -39,7 +45,7 @@ export function MediaSummary({ networks, plans }: Props) {
           >
             <NetworkLogo network={p.network} size={14} />
             <strong className="csp-s-0021">{NETWORK_RULES[p.network].label}</strong>
-            <span>— {summaryLine(p)}</span>
+            <span>— {summaryLine(p)}{productNote(p)}</span>
           </li>
         ))}
       </ul>

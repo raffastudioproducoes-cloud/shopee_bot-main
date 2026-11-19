@@ -52,7 +52,10 @@ from shopee_bot.database.scheduler_environment import current_environment
 from shopee_bot.utils.timezones import normalize_timezone, timezone_or_default
 from ..storage_capacity import storage_upload_reservation
 from ..utils.log_sanitizer import sanitize_log_data
-from ..network_limits import validate_post, errors_detail, is_network_disabled
+from ..network_limits import (
+    DEFAULT_MAX_PRODUCTS, NETWORK_RULES, errors_detail, is_network_disabled, max_products,
+    products_for_network, validate_post,
+)
 from ..media_composition import plan_network_composition
 from ..media_sanitizer import MediaSanitizerError, sanitize_media_upload, detect_media_type
 from ..media_upload_pipeline import prepare_media_upload
@@ -88,6 +91,7 @@ NETWORK_FUNC_MAP = {
     "facebook": "bot_post_facebook",
     "instagram": "bot_post_instagram",
     "tiktok": "bot_post_tiktok",
+    "shopee_video": "bot_post_shopee_video",
 }
 NetworkLiteral = Literal[tuple(NETWORK_FUNC_MAP.keys())]
 
@@ -517,12 +521,17 @@ def _get_post_medias(post_id: int) -> list[dict]:
     return medias
 
 
-def _validate_product_ids(user_id: int, product_ids: list[int]) -> None:
-    """400 se algum produto não pertence à conta do usuário;
-    evita associar produto alheio ao post (IDOR). Chamar ANTES de qualquer escrita."""
+def _validate_product_ids(user_id: int, product_ids: list[int], networks: list[str]) -> None:
+    """422 acima do limite da rede mais permissiva do lote (Shopee Vídeo 6, demais 1);
+    400 se algum produto não pertence à conta do usuário (evita IDOR).
+    Chamar ANTES de qualquer escrita; cada rede grava só a sua parte (_set_post_products)."""
     wanted = set(product_ids)
-    if len(product_ids) > 1:
-        raise HTTPException(status_code=422, detail="Selecione no máximo um produto por post")
+    limit = max((max_products(n) for n in networks), default=DEFAULT_MAX_PRODUCTS)
+    if len(product_ids) > limit:
+        noun = "produto" if limit == 1 else "produtos"
+        raise HTTPException(status_code=422, detail=f"Selecione no máximo {limit} {noun} por post")
+    if len(wanted) != len(product_ids):
+        raise HTTPException(status_code=422, detail="Produto repetido na seleção")
     if not wanted:
         return
     owned = (
@@ -1344,6 +1353,7 @@ _NETWORK_PERMALINK_HOSTS = {
     "instagram": ("instagram.com",),
     "tiktok": ("tiktok.com",),
     "x": ("x.com", "twitter.com"),
+    "shopee_video": ("shopee.com.br", "shopee.com"),
 }
 
 
@@ -2011,7 +2021,7 @@ async def create_post(
     melhor não criar do que criar um post que nunca vai publicar."""
     profile_id = _require_profile_id(profile_id)
     _check_network_enabled(body.network)
-    _validate_product_ids(user_id, body.product_ids)
+    _validate_product_ids(user_id, body.product_ids, [body.network])
     medias = _get_owned_medias(user_id, body.media_ids, profile_id)
     _check_network_rules(body.network, body.texts, medias, len(body.product_ids))
     if body.tiktok is not None:
@@ -2092,20 +2102,29 @@ def _preview_batch(
                 "warnings": [],
                 "blocked_reason": disabled_reason,
                 "dropped": [],
+                "product_ids": [],
             })
             continue
+        # Lista única de produtos no lote; cada rede leva só o que aceita, na ordem.
+        product_ids = products_for_network(composition.network, body.product_ids)
         plan = plan_network_composition(
             composition.network,
             composition.texts,
             media,
-            len(body.product_ids),
+            len(product_ids),
         )
+        warnings = list(plan.warnings)
+        if len(product_ids) < len(body.product_ids):
+            label = NETWORK_RULES[composition.network]["label"]
+            warnings.insert(0, f"{label}: {len(product_ids)} de {len(body.product_ids)} produtos "
+                               f"(aceita até {max_products(composition.network)})")
         entry = {
             "network": composition.network,
             "texts": plan.text_variant,
             "mode": plan.mode,
             "media_draft_ids": [str(media_id) for media_id in plan.media_ids],
-            "warnings": plan.warnings,
+            "warnings": warnings,
+            "product_ids": product_ids,
             "blocked_reason": plan.blocked_reason,
             "dropped": plan.dropped,
         }
@@ -2136,7 +2155,7 @@ async def preview_post_batch(
 ):
     """Calcula resultados por rede sem criar post, job ou vínculo de mídia."""
     profile_id = _require_profile_id(profile_id)
-    _validate_product_ids(user_id, body.product_ids)
+    _validate_product_ids(user_id, body.product_ids, [c.network for c in body.compositions])
     drafts = _get_owned_ready_drafts(user_id, body.draft_media_ids, profile_id)
     return {"plans": _preview_batch(body, drafts, _x_media_for(body, user_id, profile_id))}
 
@@ -2149,7 +2168,7 @@ async def create_posts_batch(
 ):
     """Cria somente as redes entregáveis; falhas de uma não cancelam as outras."""
     profile_id = _require_profile_id(profile_id)
-    _validate_product_ids(user_id, body.product_ids)
+    _validate_product_ids(user_id, body.product_ids, [c.network for c in body.compositions])
     await _ensure_scheduler_available()
     drafts = _get_owned_ready_drafts(user_id, body.draft_media_ids, profile_id)
     drafts_by_id = {str(draft["id"]): draft for draft in drafts}
@@ -2183,7 +2202,8 @@ async def create_posts_batch(
                 user_id, profile_id, head["id"], immediate=body.publish_immediately,
                 days=body.schedule.days_of_week, times=body.schedule.times,
             )
-            _set_post_products(head["id"], body.product_ids)
+            network_products = products_for_network(plan["network"], body.product_ids)
+            _set_post_products(head["id"], network_products)
             medias = _attach_medias(
                 head["id"], plan["media_draft_ids"], drafts_by_id, materialized, fresh,
                 user_id, profile_id,
@@ -2689,7 +2709,7 @@ async def update_post(
     profile_id = _require_profile_id(profile_id)
     post = _get_post(user_id, post_id, profile_id)  # ownership check
     _ensure_post_editable(user_id, post_id, profile_id, post)
-    _validate_product_ids(user_id, body.product_ids)
+    _validate_product_ids(user_id, body.product_ids, [post.get("network") or "threads"])
     _check_network_rules(
         post.get("network") or "threads", body.texts,
         _get_post_medias(post_id), len(body.product_ids),

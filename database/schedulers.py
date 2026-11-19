@@ -32,6 +32,7 @@ NETWORK_FUNC_MAP = {
     "facebook": "bot_post_facebook",
     "instagram": "bot_post_instagram",
     "tiktok": "bot_post_tiktok",
+    "shopee_video": "bot_post_shopee_video",
 }
 
 
@@ -264,6 +265,7 @@ def expire_missed_central_dates(grace_seconds=3600):
                 WHEN 'bot_post_facebook' THEN 'facebook'
                 WHEN 'bot_post_instagram' THEN 'instagram'
                 WHEN 'bot_post_tiktok' THEN 'tiktok'
+                WHEN 'bot_post_shopee_video' THEN 'shopee_video'
             END,
             s.id::text, 'failed',
             'Horário de publicação expirado sem executor; envio não realizado',

@@ -33,7 +33,7 @@ from .tiktok_creator import require_allowed_choice
 from shopee_bot.database.scheduler_environment import current_environment
 
 logger = logging.getLogger(__name__)
-ALLOWED_NETWORKS = {"threads", "x", "facebook", "instagram", "tiktok"}
+ALLOWED_NETWORKS = {"threads", "x", "facebook", "instagram", "tiktok", "shopee_video"}
 MAX_OCCURRENCES = 450
 
 

@@ -5,7 +5,7 @@ import { Modal } from "../ui/Modal"
 import { Button } from "../ui/Button"
 import { TextInput } from "../ui/TextInput"
 
-const NETWORK_NAMES: Record<PostNetwork, string> = { threads: "Threads", x: "X", facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok" }
+const NETWORK_NAMES: Record<PostNetwork, string> = { threads: "Threads", x: "X", facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", shopee_video: "Shopee Vídeo" }
 
 type Choice = "published" | "removed" | "not_published"
 

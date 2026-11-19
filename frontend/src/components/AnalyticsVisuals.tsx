@@ -271,7 +271,8 @@ function SocialAvailability({ rows }: { rows: AnalyticsSummaryRow[] }) {
         <strong>{channel.title}</strong>
         <span className={'analytics-insights-status' + (row?.insights_status === 'ok' ? ' is-available' : '')}>
           <i className="analytics-insights-indicator" />
-          {planned ? 'Em breve · sem integração' : !row && channel.key === 'kwai' ? 'Insights por post indisponíveis'
+          {planned ? 'Em breve · sem integração' : !row && channel.key === 'shopee-video' ? 'Sem dados · métricas ainda não coletadas'
+            : !row && channel.key === 'kwai' ? 'Insights por post indisponíveis'
             : !row ? 'Fora do filtro atual'
             : row.insights_status === 'audience_below_minimum' ? audienceNote(row.fan_count)
             : providerDescriptions[row.insights_status] ?? 'Sem coleta oficial'}

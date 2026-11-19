@@ -629,6 +629,8 @@ function ShopeeVideoCredentialCard({ status, onAuthError, setBanner }: {
     },
     onError: onAuthError,
   })
+  const needsReconnect = Boolean(status?.connected && (status.needs_reconnect || !status.token_valid))
+  const state = shopeeVideoCardState(status)
   return (
     <CredPanel id="Shopee Vídeo">
       <CredHeader
@@ -636,38 +638,56 @@ function ShopeeVideoCredentialCard({ status, onAuthError, setBanner }: {
         brand="shopee-video"
         trailing={
           <div className="csp-s-0201">
-            <ConnectionLight state={status?.connected ? "green" : "yellow"}
-              title={status?.connected ? "OAuth autorizado" : "Autorização ainda não concluída"} />
-            <StatusBadge tone={status?.connected ? "positive" : "warning"}>
-              {status?.connected ? "Autorizado" : status?.configured ? "Pronto para conectar" : "Configuração pendente"}
-            </StatusBadge>
+            <ConnectionLight state={state.light} title={state.label} />
+            <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
           </div>
         }
       />
       <div className="csp-s-0202">
-        <CredentialHelp><p className="csp-s-0203">
-            Conecte sua conta de criador afiliado pelo OAuth oficial da Shopee.
-            A autorização vale somente para este perfil. A publicação de vídeos
-            reais permanece indisponível até a homologação do fluxo completo.
-        </p></CredentialHelp>
+        <p className="csp-s-0203">
+          Disponível assim que você conectar sua conta de afiliado. Vídeos de 3 a 60 s, até 6 produtos vinculados.
+        </p>
+        <CredentialHelp title="Como conectar">
+          <ol className="csp-s-0203">
+            <li>Clique em Conectar Shopee Vídeo.</li>
+            <li>Entre com a sua conta de afiliado Shopee.</li>
+            <li>Autorize o Auto Orbital a gerenciar seus vídeos.</li>
+            <li>Você volta para este site com a conta conectada a este perfil.</li>
+          </ol>
+          {!status?.configured && <p className="csp-s-0203">
+            A conexão é liberada quando o aplicativo do Auto Orbital estiver aprovado pela Shopee.
+          </p>}
+        </CredentialHelp>
         {status?.connected && <p role="status">
-          Autorização recebida{status.token_valid ? ", token vigente" : ", token expirado"}.
+          {needsReconnect ? "A autorização expirou: reconecte para voltar a publicar." : "Autorização vigente."}
           {status.sandbox ? " Ambiente de testes." : " Ambiente oficial."}
         </p>}
-        {status?.connected && !status.token_valid && <Button type="button" variant="secondary"
+        {status?.connected && !status.token_valid && !status.needs_reconnect && <Button type="button" variant="secondary"
           loading={refresh.isPending} disabled={refresh.isPending}
           onClick={() => refresh.mutate()}>Renovar acesso</Button>}
         {status?.connected && <Button type="button" variant="ghost" disabled={disconnect.isPending}
           onClick={() => disconnect.mutate()}>Desconectar deste perfil</Button>}
         <Button type="button" variant="primary" disabled={!status?.configured || authorize.isPending}
           onClick={() => setConsentOpen(true)}>
-          {status?.connected ? "Reconectar Shopee Vídeo" : "Conectar Shopee Vídeo"}
+          {status?.connected ? "Reconectar" : "Conectar Shopee Vídeo"}
         </Button>
         <OAuthConsentModal network="shopee-video" open={consentOpen} busy={authorize.isPending}
           onClose={() => setConsentOpen(false)} onContinue={() => authorize.mutate()} />
       </div>
     </CredPanel>
   )
+}
+
+type ShopeeVideoCardState = { label: string; tone: "positive" | "warning" | "negative"; light: "green" | "yellow" | "red" }
+
+/** Estados do card: configuração pendente, pronto para conectar, autorizado e reconexão necessária. */
+function shopeeVideoCardState(status?: ShopeeVideoStatus): ShopeeVideoCardState {
+  if (status?.connected && (status.needs_reconnect || !status.token_valid)) {
+    return { label: "Reconexão necessária", tone: "negative", light: "red" }
+  }
+  if (status?.connected) return { label: "Autorizado", tone: "positive", light: "green" }
+  if (status?.configured) return { label: "Pronto para conectar", tone: "warning", light: "yellow" }
+  return { label: "Configuração pendente", tone: "warning", light: "yellow" }
 }
 
 function FutureCredentialCard({ platform }: { platform: (typeof FUTURE_CREDENTIAL_PLATFORMS)[number] }) {

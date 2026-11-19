@@ -20,8 +20,8 @@ from .profiles import get_current_profile_id
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
-Network = Literal["threads", "facebook", "instagram", "tiktok", "x"]
-NETWORKS: tuple[Network, ...] = ("threads", "facebook", "instagram", "tiktok", "x")
+Network = Literal["threads", "facebook", "instagram", "tiktok", "x", "shopee_video"]
+NETWORKS: tuple[Network, ...] = ("threads", "facebook", "instagram", "tiktok", "x", "shopee_video")
 STATUSES = ("succeeded", "failed", "unknown")
 _TIMELINE_PAGE_SIZE = 500
 
@@ -212,7 +212,7 @@ def summary(
         counts = {status: _count_jobs(user_id, profile_id, name, status, since) for status in STATUSES}
         subset = [job for job in jobs if job["network"] == name]
         metrics, collected, eligible, states = summarize_post_metrics(subset, index)
-        if name in ("x", "tiktok"):
+        if name in ("x", "tiktok", "shopee_video"):  # sem coleta de métricas ainda
             status = "unsupported"
         elif not connections.get(name, False):
             status = "not_connected"

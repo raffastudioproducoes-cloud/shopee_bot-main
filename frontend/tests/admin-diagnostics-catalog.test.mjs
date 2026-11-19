@@ -16,15 +16,16 @@ test('diagnóstico contempla as doze lojas planejadas, sem marcá-las como funci
   assert.ok(stores.every(platform => platform.availability === 'planned' && platform.category === 'stores'))
 })
 
-test('diagnóstico contempla seis redes existentes e três informativas em ordem alfabética', () => {
+test('diagnóstico contempla sete redes existentes (com Shopee Vídeo) e duas informativas em ordem alfabética', () => {
   const { social } = buildAdminDiagnosticSections()
   assert.deepEqual(social.map(platform => platform.key), [
     'facebook', 'instagram', 'kwai', 'shopee-video', 'telegram',
     'threads', 'tiktok', 'whatsapp', 'x',
   ])
   assert.deepEqual(social.filter(platform => platform.availability === 'planned').map(platform => platform.key), [
-    'shopee-video', 'telegram', 'whatsapp',
+    'telegram', 'whatsapp',
   ])
+  assert.equal(social.find(platform => platform.key === 'shopee-video')?.availability, 'active')
   assert.equal(new Set([...social.map(platform => platform.key), ...buildAdminDiagnosticSections().stores.map(platform => platform.key)]).size, 21)
 })
 
