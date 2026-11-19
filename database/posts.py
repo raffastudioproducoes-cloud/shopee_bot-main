@@ -4,6 +4,7 @@ import pytz
 from datetime import datetime
 from shopee_bot.database import query_db, execute_db
 from shopee_bot.database import post_content_snapshot, post_link_redirects
+from api.brand_filter import strip_brand
 from api.network_text import unwrap_network_text
 
 
@@ -173,9 +174,10 @@ def get(user_id, post_id, profile_id):
     parts = post_content_snapshot.apply_to_parts(
         query_db(query, args), post_content_snapshot.get()
     )
-    # Nunca publica o mapa {"rede": "texto"} da IA: só o texto da rede.
+    # Nunca publica o mapa {"rede": "texto"} da IA: só o texto da rede. Depois,
+    # a marca "Shopee" é removida (regra do programa de Afiliados); só encurta.
     parts = [
-        {**part, "text": unwrap_network_text(part.get("text"), part.get("network"))}
+        {**part, "text": strip_brand(unwrap_network_text(part.get("text"), part.get("network")))}
         for part in parts or []
     ]
     return post_link_redirects.rewrite_parts(parts, _active_publish_job_id())
