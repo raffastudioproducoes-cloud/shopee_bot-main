@@ -14,8 +14,12 @@ interface PostProductPickerProps {
   lists: ProductList[]
   listId: number | null
   onListChange: (id: number | null) => void
+  /** Ordem de seleção: as redes de 1 produto recebem o 1º. */
   selectedIds: number[]
   onToggle: (id: number) => void
+  /** Maior limite entre as redes marcadas (Shopee Vídeo: 6; demais: 1). */
+  limit: number
+  onClear?: () => void
   productsLoading: boolean
   productsError: boolean
   listsLoading: boolean
@@ -32,7 +36,7 @@ interface PostProductPickerProps {
  * Nunca troca IDs selecionados ao alternar abas ou abrir uma lista. */
 export function PostProductPicker({
   tab, onTabChange, products, lists, listId, onListChange,
-  selectedIds, onToggle,
+  selectedIds, onToggle, limit, onClear,
   productsLoading, productsError, listsLoading, listsError,
   hasMoreProducts, hasMoreLists, loadingMoreProducts, loadingMoreLists,
   onLoadProducts, onLoadLists,
@@ -40,7 +44,9 @@ export function PostProductPicker({
   const [search, setSearch] = useState("")
   const activeList = lists.find((list) => list.id === listId)
   const shown = tab === "products" ? products : (activeList?.products ?? [])
-  const selected = new Set(selectedIds)
+  // Acima do limite (ex.: desmarcou Shopee Vídeo) continua em checkbox para não apagar a seleção.
+  const multiple = limit > 1 || selectedIds.length > 1
+  const full = selectedIds.length >= limit
   const filtered = shown.filter((product) =>
     product.name.toLocaleLowerCase("pt-BR").includes(search.trim().toLocaleLowerCase("pt-BR")),
   )
@@ -67,11 +73,23 @@ export function PostProductPicker({
       <div className="post-product-picker-heading">
         <span className="post-product-picker-title">Produtos</span>
         <span className="post-product-picker-count" aria-live="polite">
-          {selectedIds.length ? "1 produto selecionado" : "Nenhum produto selecionado"}
+          {limit > 1 ? `${selectedIds.length} de ${limit} produtos`
+            : selectedIds.length > 1 ? `${selectedIds.length} produtos selecionados`
+            : selectedIds.length ? "1 produto selecionado" : "Nenhum produto selecionado"}
         </span>
       </div>
-      <p className="post-product-picker-hint">Selecione somente um produto por publicação.</p>
-      {selectedIds.length > 0 && <button type="button" className="post-product-picker-clear" onClick={() => onToggle(selectedIds[0])}>Remover produto selecionado</button>}
+      <p className="post-product-picker-hint">
+        {limit > 1
+          ? `Selecione até ${limit} produtos. A ordem vale: as redes que aceitam 1 produto recebem o 1º.`
+          : "Selecione somente um produto por publicação."}
+      </p>
+      {selectedIds.length > limit && <p className="post-product-picker-hint" role="status">
+        {limit === 1 ? "As redes selecionadas usarão só o 1º produto." : `As redes selecionadas usarão só os ${limit} primeiros produtos.`}
+      </p>}
+      {selectedIds.length > 0 && <button type="button" className="post-product-picker-clear"
+        onClick={() => (multiple && onClear ? onClear() : onToggle(selectedIds[0]))}>
+        {multiple ? "Remover produtos selecionados" : "Remover produto selecionado"}
+      </button>}
       <div className="post-product-picker-tabs" role="group" aria-label="Origem dos produtos">
         <button type="button" aria-pressed={tab === "products"}
           className={tab === "products" ? "is-active" : ""}
@@ -109,13 +127,21 @@ export function PostProductPicker({
           </p>
         ) : filtered.length === 0 ? (
           <p className="post-product-picker-feedback">{emptyText}</p>
-        ) : filtered.map((product) => (
-          <label className="post-product-picker-item" key={product.id}>
-            <input type="radio" name="post-product-single" checked={selected.has(product.id)}
-              onChange={() => onToggle(product.id)} />
-            <span>{product.name}</span>
-          </label>
-        ))}
+        ) : filtered.map((product) => {
+          const order = selectedIds.indexOf(product.id) + 1
+          return (
+            <label className="post-product-picker-item" key={product.id}>
+              {multiple
+                ? <input type="checkbox" checked={order > 0} disabled={order === 0 && full}
+                  onChange={() => onToggle(product.id)} />
+                : <input type="radio" name="post-product-single" checked={order > 0}
+                  onChange={() => onToggle(product.id)} />}
+              <span>{product.name}</span>
+              {multiple && order > 0 && <span className="post-product-picker-order"
+                aria-label={`${order}º da seleção`}>{order}º</span>}
+            </label>
+          )
+        })}
       </div>
       {hasMore && (
         <button type="button" className="post-product-picker-more"

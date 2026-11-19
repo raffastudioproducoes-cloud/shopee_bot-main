@@ -7,7 +7,7 @@ import { campaignsApi, type CampaignPreviewRequest, type CampaignDraftSaveReques
 import { credentialsApi, platformAiApi } from "../../api/credentials"
 import { postsApi, type PostNetwork } from "../../api/posts"
 import { NETWORK_RULES, textLength } from "../../lib/networkLimits"
-import { NetworkPicker, PICKER_NETWORKS, type NetworkState } from "../posts/NetworkPicker"
+import { CAMPAIGN_NETWORKS, NetworkPicker, PICKER_NETWORKS, type CampaignNetwork, type NetworkState } from "../posts/NetworkPicker"
 import { reconcileCampaignSnapshots, patchCampaignSnapshot, type CampaignItemSnapshot } from "../../lib/campaignSnapshots"
 import { formDraftKey } from "../../lib/formDraftStorage"
 import { useAutosavedDraft } from "../../hooks/useAutosavedDraft"
@@ -314,7 +314,7 @@ export function CampaignPlanner({ credentials }: {
         title: snapshots[id].title,
         copy: snapshots[id].copy,
         affiliate_link: snapshots[id].affiliateLink,
-        networks: draft.networks,
+        networks: draft.networks.filter((network): network is CampaignNetwork => network !== "shopee_video"),
         network_copies: snapshots[id].networkCopies,
         use_shopee_image: snapshots[id].useShopeeImage,
         product_media_ids: snapshots[id].selectedProductMediaIds,
@@ -461,7 +461,7 @@ export function CampaignPlanner({ credentials }: {
       const legacyNetworkSets = saved.items.map((item) => [...new Set(item.networks)].sort().join("|"))
       const legacyNetworkNotice = new Set(legacyNetworkSets).size > 1
       const globalNetworks = saved.items.length
-        ? PICKER_NETWORKS.filter((network) => saved.items.every((item) => item.networks.includes(network)))
+        ? CAMPAIGN_NETWORKS.filter((network) => saved.items.every((item) => item.networks.includes(network)))
         : []
       setLegacyNetworkNotice(legacyNetworkNotice)
       setFacebookReels(saved.items.some((item) => item.facebook_reels === true))
@@ -585,7 +585,7 @@ export function CampaignPlanner({ credentials }: {
               value={draft.name} onChange={(event) => update("name", event.target.value)}
               placeholder="Ex.: Ofertas da semana de novembro" />
             <span className="campaign-field-label">Redes sociais da campanha <small>(marque uma ou mais)</small></span>
-            <NetworkPicker selected={draft.networks} states={networkStates}
+            <NetworkPicker selected={draft.networks} states={networkStates} only={CAMPAIGN_NETWORKS}
               onToggle={(network) => {
                 const networks = draft.networks.includes(network)
                   ? draft.networks.filter((entry) => entry !== network)

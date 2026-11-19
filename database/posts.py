@@ -91,6 +91,21 @@ def count_facebook_reels_last_24h(page_id):
     return int(row["total"]) if row else 0
 
 
+def get_shopee_item_ids(user_id, post_id, profile_id):
+    """products.product_id (itemId externo da Shopee) dos produtos do post, na
+    ordem escolhida pelo usuário (display_order). Só a head; escopo de dono/perfil."""
+    query = """
+        SELECT pr.product_id
+        FROM public.posts p
+        JOIN public.posts_products pp ON pp.post_id = p.id
+        JOIN public.products pr ON pr.id = pp.product_id AND pr.user_id = p.user_id
+        WHERE p.id = %s AND p.user_id = %s AND p.profile_id = %s::uuid
+          AND p.post_id IS NULL
+        ORDER BY pp.display_order, pp.product_id
+    """
+    return [row["product_id"] for row in query_db(query, (post_id, user_id, profile_id))]
+
+
 def get(user_id, post_id, profile_id):
     query = """
         WITH RECURSIVE post_hierarchy AS (

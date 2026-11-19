@@ -18,7 +18,7 @@ export interface PostMedia {
   type: 'IMAGE' | 'VIDEO'
 }
 
-export type PostNetwork = 'threads' | 'x' | 'facebook' | 'instagram' | 'tiktok'
+export type PostNetwork = 'threads' | 'x' | 'facebook' | 'instagram' | 'tiktok' | 'shopee_video'
 
 export interface PostScheduleEntry {
   id: string

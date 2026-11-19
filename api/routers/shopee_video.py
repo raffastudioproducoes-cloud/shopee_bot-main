@@ -1,13 +1,15 @@
 """Conexão Shopee Vídeo de criadores afiliados, isolada da Affiliate GraphQL.
 
 API oficial: https://open.shopee.com/developer-guide/706
-Este módulo oferece configuração ADMIN, OAuth por perfil e validação de prévia.
-Não publica nem cria jobs; a liberação de postagem exige fila durável própria.
+Este módulo oferece configuração ADMIN, OAuth por perfil, status e prévia.
+A publicação acontece pela fila durável de posts (rede "shopee_video",
+scheduler/bot_post_shopee_video.py); tokens em api/shopee_video_tokens.py.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+import asyncio
+from datetime import datetime, timezone
 import logging
 import os
 
@@ -17,9 +19,10 @@ from pydantic import BaseModel, Field
 
 from database.scheduler_environment import current_environment
 from .. import shopee_video_oauth as oauth
+from .. import shopee_video_tokens as tokens
 from ..audit_log import log_action
 from ..config import settings
-from ..crypto import encrypt, decrypt
+from ..crypto import encrypt
 from ..database import supabase
 from ..profiles import scope_owner
 from .auth import get_current_user_id
@@ -28,8 +31,8 @@ from .credentials import _require_admin, _sign_oauth_state, _verify_oauth_state
 
 router = APIRouter(tags=["shopee-video"])
 logger = logging.getLogger("uvicorn.error")
-APP_TABLE = "platform_shopee_video_apps"
-USER_TABLE = "shopee_video_authorizations"
+APP_TABLE = tokens.APP_TABLE
+USER_TABLE = tokens.USER_TABLE
 OAUTH_COOKIE = "shopee_video_oauth_state"
 MAX_DRAFT_BYTES = 50 * 1024 * 1024  # guarda conservadora do pipeline atual
 
@@ -48,23 +51,11 @@ class VideoPreview(BaseModel):
     aigc_label: bool
 
 
-def _config_row() -> dict | None:
-    result = supabase.table(APP_TABLE).select(
-        "partner_id,partner_key,sandbox,enabled"
-    ).eq("environment", current_environment()).maybe_single().execute()
-    return result.data if result else None
-
-
 def _config() -> dict:
-    row = _config_row()
-    if not row or not row.get("enabled") or not row.get("partner_id") or not row.get("partner_key"):
-        raise HTTPException(status_code=503, detail="Shopee Vídeo ainda não está configurada pelo administrador.")
     try:
-        return {"partner_id": int(row["partner_id"]), "partner_key": decrypt(row["partner_key"]),
-                "sandbox": bool(row["sandbox"])}
-    except Exception:
-        logger.error("Erro ao decifrar chave global Shopee Vídeo")
-        raise HTTPException(status_code=503, detail="Configuração de Shopee Vídeo indisponível.") from None
+        return tokens.app_config()
+    except tokens.ShopeeVideoNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from None
 
 
 def _callback_url() -> str:
@@ -81,43 +72,11 @@ def _profile(profile_id: str | None) -> str:
     return profile_id
 
 
-def _own_auth(user_id: str, profile_id: str) -> dict | None:
-    result = scope_owner(
-        supabase.table(USER_TABLE).select(
-            "partner_id,shopee_user_id,access_token,refresh_token,expires_at,refresh_expires_at"
-        ), user_id, profile_id,
-    ).eq("environment", current_environment()).maybe_single().execute()
-    return result.data if result else None
-
-
-def _expiry(token_data: dict) -> datetime:
-    """Algumas respostas usam duração, outras timestamp absoluto de segundos."""
-    now = datetime.now(timezone.utc)
-    raw = token_data.get("expire_in", 14400)
-    try:
-        value = int(raw)
-    except (ValueError, TypeError):
-        value = 14400
-    if value > 1_000_000_000:
-        return datetime.fromtimestamp(value, tz=timezone.utc)
-    return now + timedelta(seconds=max(60, min(value, 14400)))
-
-
-def _parse_datetime(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
-    except (ValueError, AttributeError):
-        return None
-
-
 @router.get("/admin/shopee-video")
 async def admin_video_status(_admin: str = Depends(_require_admin)):
-    row = _config_row()
+    row = tokens.app_row()
     return {
-        "configured": bool(row and row.get("enabled") and row.get("partner_key")),
+        "configured": tokens.is_configured(row),
         "partner_id": row.get("partner_id") if row else None,
         "sandbox": bool(row.get("sandbox")) if row else True,
         "callback_configured": bool((os.getenv("SHOPEE_VIDEO_CALLBACK_URL") or "").strip()),
@@ -143,21 +102,8 @@ async def video_status(
     user_id: str = Depends(get_current_user_id),
     profile_id: str | None = Depends(get_current_profile_id),
 ):
-    config = _config_row()
-    ready = bool(config and config.get("enabled") and config.get("partner_key"))
-    row = _own_auth(user_id, profile_id) if profile_id else None
-    match = bool(row and ready and row.get("partner_id") == config.get("partner_id"))
-    expiry = _parse_datetime(row.get("expires_at")) if match else None
-    refresh_expiry = _parse_datetime(row.get("refresh_expires_at")) if match else None
-    valid = bool(match and row.get("access_token") and expiry and expiry > datetime.now(timezone.utc))
-    return {
-        "configured": ready,
-        "connected": bool(match and row.get("refresh_token") and refresh_expiry
-                          and refresh_expiry > datetime.now(timezone.utc)),
-        "token_valid": valid,
-        "sandbox": bool(config.get("sandbox")) if ready else None,
-        "publishing_enabled": False,  # nenhum publicador ativo nesta fase
-    }
+    """{configured, connected, token_valid, needs_reconnect, sandbox, publishing_enabled}."""
+    return tokens.connection_state(user_id, profile_id)
 
 
 @router.get("/shopee-video/authorize")
@@ -203,14 +149,11 @@ async def video_callback(
         result = await oauth.exchange_code(config["partner_id"], config["partner_key"],
                                            code, sandbox=config["sandbox"])
         now = datetime.now(timezone.utc)
+        # Reconectar zera needs_reconnect/reconnect_reason (token_columns).
         saved = supabase.table(USER_TABLE).upsert({
             "environment": current_environment(), "user_id": user_id, "profile_id": profile_id,
             "partner_id": config["partner_id"], "shopee_user_id": result["user_id_list"][0],
-            "access_token": encrypt(result["access_token"]),
-            "refresh_token": encrypt(result["refresh_token"]),
-            "expires_at": _expiry(result).isoformat(),
-            "refresh_expires_at": (now + timedelta(days=30)).isoformat(),
-            "updated_at": now.isoformat(),
+            **tokens.token_columns(result, now),
         }, on_conflict="environment,user_id,profile_id").execute()
         if not saved.data:
             raise RuntimeError("Persistência indisponível")
@@ -229,29 +172,18 @@ async def refresh_video_authorization(
     """Renova apenas a autorização do perfil ativo, sem expor tokens."""
     profile = _profile(profile_id)
     config = _config()
-    row = _own_auth(user_id, profile)
-    valid_until = _parse_datetime(row.get("refresh_expires_at")) if row else None
-    if (not row or row.get("partner_id") != config["partner_id"]
+    row = await asyncio.to_thread(tokens.auth_row, user_id, profile)
+    valid_until = tokens.parse_datetime(row.get("refresh_expires_at")) if row else None
+    if (not row or row.get("partner_id") != config["partner_id"] or row.get("needs_reconnect")
             or not valid_until or valid_until <= datetime.now(timezone.utc)):
         raise HTTPException(status_code=409, detail="Reconecte a conta Shopee Vídeo para continuar.")
     try:
-        result = await oauth.refresh_token(
-            config["partner_id"], config["partner_key"], int(row["shopee_user_id"]),
-            decrypt(row["refresh_token"]), sandbox=config["sandbox"],
+        await asyncio.to_thread(
+            tokens.refresh_authorization, user_id, profile, config, row, datetime.now(timezone.utc),
         )
-        now = datetime.now(timezone.utc)
-        renewed = scope_owner(supabase.table(USER_TABLE).update({
-            "access_token": encrypt(result["access_token"]),
-            "refresh_token": encrypt(result["refresh_token"]),
-            "expires_at": _expiry(result).isoformat(),
-            "refresh_expires_at": (now + timedelta(days=30)).isoformat(),
-            "updated_at": now.isoformat(),
-        }), user_id, profile).eq("environment", current_environment()).eq(
-            "partner_id", config["partner_id"],
-        ).eq("shopee_user_id", row["shopee_user_id"]).execute()
-        if not renewed.data:
-            raise RuntimeError("Autorização não encontrada para renovação")
-    except (oauth.ShopeeVideoOAuthError, RuntimeError, ValueError, KeyError):
+    except tokens.ShopeeVideoReconnectRequired:
+        raise HTTPException(status_code=409, detail=tokens.RECONNECT_MESSAGE) from None
+    except (oauth.ShopeeVideoOAuthError, ValueError, KeyError):
         logger.warning("Não foi possível renovar OAuth Shopee Vídeo para o perfil atual")
         raise HTTPException(status_code=503, detail="Falha ao renovar o acesso à Shopee Vídeo.") from None
     log_action("shopee_video_oauth_refreshed", user_id=user_id, profile_id=profile)

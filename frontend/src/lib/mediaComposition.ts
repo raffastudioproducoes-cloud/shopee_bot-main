@@ -3,7 +3,7 @@
 // quando nada serve e nem texto puro é permitido.
 import type { PostNetwork } from "../api/posts"
 import { adaptMedia, dropReasons, type Dropped } from "./mediaAdapt"
-import { NETWORK_RULES, type MediaInfo, type PostDraft, validateForNetwork } from "./networkLimits"
+import { NETWORK_RULES, maxProductsFor, type MediaInfo, type PostDraft, validateForNetwork } from "./networkLimits"
 
 export type MediaCompositionMode = "none" | "single_image" | "carousel" | "video" | "text_only" | "blocked"
 
@@ -15,6 +15,8 @@ export interface MediaCompositionPlan {
   warnings: string[]
   blockedReason?: string
   dropped: Dropped<MediaInfo>[]
+  /** Produtos que a rede recebe (os primeiros N da lista única do lote). */
+  productCount: number
 }
 
 const TEXT_ERROR_KEYS = new Set(["maxChars", "maxLinks", "maxHashtags", "maxMentions"])
@@ -41,7 +43,7 @@ export function planMediaComposition(network: PostNetwork, draft: PostDraft): Me
     warnings.unshift(`${rule.label}: ${kept.length} de ${draft.media.length} mídias — ${dropReasons(dropped)}`)
   }
 
-  const base = { network, textVariant: publishableTexts, dropped }
+  const base = { network, textVariant: publishableTexts, dropped, productCount: Math.min(draft.productCount, maxProductsFor(network)) }
   const textOrBlock = (reason: string, notes: string[]): MediaCompositionPlan =>
     rule.supportsTextOnly
       ? { ...base, mode: "text_only", media: [], warnings: [...notes, ...warnings] }

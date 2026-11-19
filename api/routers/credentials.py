@@ -36,6 +36,7 @@ from .. import instagram_oauth
 from .. import facebook_oauth
 from .. import tiktok_oauth
 from .. import tiktok_creator
+from .. import shopee_video_tokens
 from .. import x_oauth
 from ..config import settings
 from ..database import supabase
@@ -441,7 +442,37 @@ async def list_credentials(user_id: int = Depends(get_current_user_id), profile_
             token_field=token_field, network=network,
         )
 
+    result["shopee_video"] = _shopee_video_status(user_id, profile_id, checks_by_network.get("shopee_video"))
     return result
+
+
+def _shopee_video_status(user_id, profile_id: str | None, check: dict | None) -> dict:
+    """Mesmo formato das redes OAuth + needs_reconnect/configured/publishing_enabled.
+
+    Credencial em api/routers/shopee_video.py (rota "shopee-video"); aqui o id é o
+    da rede nos posts, "shopee_video". Falha de leitura não derruba a lista."""
+    try:
+        state = shopee_video_tokens.connection_state(user_id, profile_id, client=supabase)
+    except Exception as err:
+        logger.warning("status Shopee Vídeo indisponível: %s", type(err).__name__)
+        state = {"configured": False, "connected": False, "needs_reconnect": False,
+                 "publishing_enabled": False}
+    light, status_state, text = _connection_state(state["connected"], None, state["needs_reconnect"])
+    if state["connected"] and not state["needs_reconnect"]:
+        # Autorização válida/renovável já é a prova da conexão; teste com erro rebaixa.
+        failed = check and check.get("state") == "error"
+        light, status_state, text = (
+            ("yellow", "error", f"Erro: {_short_reason(check.get('message'))}") if failed
+            else ("green", "ok", "Funcionando")
+        )
+    if not state["configured"]:
+        text = "Aguardando liberação da Shopee"
+    return {
+        "connected": state["connected"], "light": light, "state": status_state,
+        "status_text": text, "checked_at": check.get("checked_at") if check else None,
+        "needs_reconnect": state["needs_reconnect"], "configured": state["configured"],
+        "publishing_enabled": state["publishing_enabled"],
+    }
 
 
 def _require_admin(user_id: int = Depends(get_current_user_id)) -> int:
@@ -1376,6 +1407,8 @@ def _call_with_timeout(fn, *args):
 def _autotest_outcome(network: str, user_id, profile_id: str | None) -> tuple[str, str]:
     if network.startswith("ai_"):
         return "error", "Teste legado de IA desativado; use o painel ADMIN."
+    if network == "shopee_video":
+        return _shopee_video_outcome(user_id, profile_id)
     payload = _test_payload(network, user_id, profile_id)
     if payload is None:
         return "error", "Credencial incompleta — nada para testar"
@@ -1384,6 +1417,20 @@ def _autotest_outcome(network: str, user_id, profile_id: str | None) -> tuple[st
     )
     _persist_refreshed_tokens(network, user_id, profile_id, result.get("refreshed_tokens"))
     return result.get("state") or "error", result.get("message") or ""
+
+
+def _shopee_video_outcome(user_id, profile_id: str | None) -> tuple[str, str]:
+    """Sem publicar: confirma token válido (renovando e gravando o par se preciso)."""
+    try:
+        shopee_video_tokens.get_valid_authorization(user_id, profile_id)
+    except shopee_video_tokens.ShopeeVideoReconnectRequired:
+        return "error", shopee_video_tokens.RECONNECT_MESSAGE
+    except shopee_video_tokens.ShopeeVideoNotConfigured as exc:
+        return "error", str(exc)
+    except Exception as err:
+        logger.warning("teste Shopee Vídeo falhou: %s", type(err).__name__)
+        return "error", "Não foi possível validar a Shopee Vídeo agora"
+    return "ok", "Autorização válida"
 
 
 def _run_autotest(network: str, user_id, profile_id: str | None, started_at: str) -> None:

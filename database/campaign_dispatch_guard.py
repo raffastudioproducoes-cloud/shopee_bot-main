@@ -15,8 +15,9 @@ class CampaignDispatchBlocked(RuntimeError):
     """Envio de campanha indisponivel nesta etapa."""
 
 
-# X permanece indisponivel no produto; Kwai e Shopee Video nao publicam.
-_CAMPAIGN_NETWORKS = frozenset({"threads", "facebook", "instagram", "tiktok"})
+# Formato de identidade apenas; Kwai nao publica. A guarda abaixo continua
+# fechada para todas as redes, inclusive shopee_video.
+_CAMPAIGN_NETWORKS = frozenset({"threads", "facebook", "instagram", "tiktok", "shopee_video"})
 
 
 @dataclass(frozen=True)

@@ -28,7 +28,7 @@ test("os oito cards das redes integram o agrupamento, sem chave IA na página co
   assert.match(source, /credentials-card-grid csp-named-card-grid/)
 })
 
-test("Shopee Vídeo oferece OAuth de criador com consentimento e publicação inativa", () => {
+test("Shopee Vídeo oferece OAuth de afiliado com consentimento e publicação ativa após conectar", () => {
   const start = source.indexOf("function ShopeeVideoCredentialCard(")
   const end = source.indexOf("// ── Card do Threads", start)
   assert.ok(start > 0 && end > start)
@@ -39,6 +39,13 @@ test("Shopee Vídeo oferece OAuth de criador com consentimento e publicação in
   assert.match(card, /shopeeVideoApi\.refresh/)
   assert.match(card, /shopeeVideoApi\.disconnect/)
   assert.match(card, /<OAuthConsentModal network="shopee-video"/)
-  assert.match(card, /publicação de vídeos[^]*?indisponível/)
+  assert.match(card, /Disponível assim que você conectar sua conta de afiliado\. Vídeos de 3 a 60 s, até 6 produtos vinculados\./)
+  assert.doesNotMatch(card, /indisponível/)
+  for (const label of ["Configuração pendente", "Pronto para conectar", "Autorizado", "Reconexão necessária"]) {
+    assert.match(card, new RegExp(`label: "${label}"`))
+  }
+  assert.match(card, /status\.needs_reconnect \|\| !status\.token_valid/)
+  assert.match(card, /"Reconectar"/)
+  assert.match(card, /<CredentialHelp title="Como conectar">/)
   assert.doesNotMatch(card, /partner_key|appId|secret/i)
 })

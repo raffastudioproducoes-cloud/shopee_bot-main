@@ -53,8 +53,8 @@ const metaTextStyle = {
 
 
 type NetworkFilter = "all" | PostNetwork
-const NETWORK_NAMES: Record<PostNetwork, string> = { threads: "Threads", x: "X", facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok" }
-const NETWORK_FILTERS: NetworkFilter[] = ["all", "threads", "x", "facebook", "instagram", "tiktok"]
+const NETWORK_NAMES: Record<PostNetwork, string> = { threads: "Threads", x: "X", facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", shopee_video: "Shopee Vídeo" }
+const NETWORK_FILTERS: NetworkFilter[] = ["all", "threads", "x", "facebook", "instagram", "tiktok", "shopee_video"]
 const parseNetworkFilter = (value: unknown): NetworkFilter =>
   NETWORK_FILTERS.includes(value as NetworkFilter) ? (value as NetworkFilter) : "all"
 
@@ -73,7 +73,7 @@ const ATTENTION_ACCENT: Partial<Record<string, string>> = {
 }
 
 function countPostsByNetwork(posts: Post[]): Record<PostNetwork, number> {
-  const counts: Record<PostNetwork, number> = { threads: 0, x: 0, facebook: 0, instagram: 0, tiktok: 0 }
+  const counts: Record<PostNetwork, number> = { threads: 0, x: 0, facebook: 0, instagram: 0, tiktok: 0, shopee_video: 0 }
   for (const post of posts) counts[post.network ?? "threads"] += 1
   return counts
 }

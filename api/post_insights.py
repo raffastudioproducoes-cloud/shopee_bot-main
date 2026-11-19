@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 TABLE = "publication_insights"
 HISTORY_TABLE = "post_metrics"
-NETWORKS = ("threads", "facebook", "instagram", "tiktok", "x")
-# Redes com coletor por post; TikTok e X ficam "unsupported" (fases seguintes).
+NETWORKS = ("threads", "facebook", "instagram", "tiktok", "x", "shopee_video")
+# Redes com coletor por post; TikTok, X e Shopee Vídeo ficam "unsupported" (fases seguintes).
 COLLECTED_NETWORKS = ("threads", "instagram", "facebook")
 SOURCES = {"threads": "threads_media_insights", "instagram": "ig_media_insights",
            "facebook": "fb_post_insights"}
@@ -364,7 +364,7 @@ async def collect_profile_posts(user_id, profile_id):
     """Usa a claim já existente do refresh; não adiciona agendador ou cron."""
     jobs = await asyncio.to_thread(_profile_jobs, user_id, profile_id)
     states = {"threads": "no_posts", "facebook": "no_posts", "instagram": "no_posts",
-              "tiktok": "unsupported", "x": "unsupported"}
+              "tiktok": "unsupported", "x": "unsupported", "shopee_video": "unsupported"}
     by_network = {network: [job for job in jobs if job.get("network") == network]
                   for network in COLLECTED_NETWORKS}
     audience = {}

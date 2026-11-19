@@ -25,7 +25,6 @@ function StatusCard({ platform, status, result }: {
   const checkedAt = planned ? null : result?.checked_at || status?.checked_at
   const tone = state === 'ok' ? 'mint' : 'neutral'
   const images = CREDENTIAL_BRAND_LOGOS[platform.key] ?? []
-  const plannedLabel = platform.key === 'shopee-video' ? 'OAuth em homologação' : 'Em breve'
   return (
     <div className="admin-credential-status-card" data-state={state || 'disconnected'}>
       <span className={`credential-brand credential-brand--${platform.key}`} aria-hidden="true">
@@ -35,7 +34,7 @@ function StatusCard({ platform, status, result }: {
         <strong>{platform.title}</strong>
         {checkedAt && <small>Último teste: {formatInstant(checkedAt)}</small>}
       </div>
-      <Badge tone={tone}>{planned ? plannedLabel : state === 'ok' ? 'Funcionando' : result?.state === 'error' ? result.status_text : status?.status_text || 'Desconectado'}</Badge>
+      <Badge tone={tone}>{planned ? 'Em breve' : state === 'ok' ? 'Funcionando' : result?.state === 'error' ? result.status_text : status?.status_text || 'Desconectado'}</Badge>
     </div>
   )
 }

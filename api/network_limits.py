@@ -76,7 +76,35 @@ NETWORK_RULES = {
         "max_bytes": {"video": 4 * GB},
         "unverified": set(),
     },
+    # Id "shopee_video" em posts; credenciais/Admin usam "shopee-video" (hífen).
+    # Guia oficial (open.shopee.com/developer-guide/706): legenda até 150, até
+    # 6 produtos vinculados, MP4 de 3 a 60 s (ajuda Shopee Brasil), até 1 GB.
+    # Duração só é conferida no navegador e no publicador (ffprobe).
+    "shopee_video": {
+        "label": "Shopee Vídeo", "max_chars": 150, "count": "codepoints", "thread_parts": False,
+        "supports_text_only": False,
+        "delivered_modes": {"video"},
+        "max_image": 0, "max_gif": 0, "max_video": 1, "allow_mix": False,
+        "requires_media": "video",
+        "exts": {"mp4"},
+        "max_bytes": {"video": 1 * GB},
+        "max_products": 6,
+        "min_video_seconds": 3, "max_video_seconds": 60,
+        "unverified": set(),
+    },
 }
+
+DEFAULT_MAX_PRODUCTS = 1
+
+
+def max_products(network: str) -> int:
+    """Produtos que a rede vincula a um post (padrão 1; Shopee Vídeo, 6)."""
+    return NETWORK_RULES[network].get("max_products", DEFAULT_MAX_PRODUCTS)
+
+
+def products_for_network(network: str, product_ids: list[int]) -> list[int]:
+    """Os primeiros `max_products` da rede, na ordem escolhida pelo usuário."""
+    return list(product_ids[:max_products(network)])
 
 _URL_RE = re.compile(r"https?://\S+|www\.\S+", re.IGNORECASE)
 _HASHTAG_RE = re.compile(r"#\w+")
@@ -149,6 +177,8 @@ def validate_post(
             n = len(regex.findall(text))
             if key in rule and n > rule[key]:
                 add(key, f"máx. {rule[key]} {label}{where} (você tem {n})")
+    if product_count > max_products(network):
+        add("max_products", f"máx. {max_products(network)} produto(s) por post (você tem {product_count})")
     kinds = [media_kind(m.get("file_name") or "") for m in medias]
     if check_required_media:
         if rule.get("requires_media") == "video" and "video" not in kinds:
