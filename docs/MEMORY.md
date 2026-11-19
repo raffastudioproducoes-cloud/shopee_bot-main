@@ -1,5 +1,9 @@
 # MEMORY — Shopee Auto Vendas
 
+## Atualização 2026-11-19 — release 3.27.0, Meta, TikTok, Shopee Vídeo
+
+Staging e produção estão em `3.27.0` com árvore idêntica (staging `25c0c8c6`, main `0c58a350`); fluxo: PR para staging com merge commit, release PR com bump de `VERSION` e `CHANGELOG`, PR staging para main com merge commit (nunca squash). Meta App Review enviado em 18/11/2026 com 11 permissões (em análise; não alterar permissões, casos de uso nem conexões de Facebook, Instagram e Threads durante a análise). Shopee Vídeo: OAuth e cliente existem, publicação desligada, app 249826 enviado para Go Live em 18/11/2026. TikTok em análise. Asaas em produção e X reativado conforme informado por Rafa (a confirmar). Detalhes, pendências e donos em [ESTADO-ATUAL-20261119.md](ESTADO-ATUAL-20261119.md). As seções abaixo são históricas: a tabela "Redes sociais conectadas" é de setembro/outubro e está desatualizada (Facebook, Instagram, Threads, TikTok e X estão operando).
+
 ## Atualizacao 2026-10-21 — publicacao e video 2.7.0
 
 `staging` contem `c8667dd` (publicacao imediata, agendamento e cinco horarios recorrentes) e `ffbd470` (reencodificacao de MP4). O Supabase compartilhado ja possui `posts.publish_immediately`. Suite da API: 852 testes verdes com PyJWT 2.15.0, python-multipart 0.0.31 e Pillow 13.0.0 em ambiente de teste isolado. O deploy de `ffbd470` em staging ficou live, mas nao houve upload autenticado real. Video segue acessivel; a reencodificacao nao substitui antivirus nem isolamento do decodificador. Ver `docs/POST-MEDIA-SECURITY.md`.

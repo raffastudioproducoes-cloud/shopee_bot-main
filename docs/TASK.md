@@ -1,3 +1,20 @@
+## 19/11/2026 — Atualização de sincronização (release 3.27.0)
+
+Resumo e donos das pendências: [ESTADO-ATUAL-20261119](ESTADO-ATUAL-20261119.md).
+
+- [x] Release `3.27.0` (Reels no Facebook e no Instagram, painel de publicação como Reels, insights de vídeo e Reels, reposts e tempo médio no Instagram, cliques de produto no Facebook). Sem migração. Staging e produção na mesma versão e na mesma árvore (staging `25c0c8c6`, main `0c58a350`).
+- [x] Migrations 103 (`publication_insights.reach/saves`, CHANGELOG 3.23.0) e 104 (`posts.tiktok_options`, CHANGELOG 3.25.0; a partir da 3.27.0 também guarda a escolha de Reels do Facebook, no formato reels=true). Conferir se constam em `public.migrations` do banco compartilhado: a confirmar.
+- [x] Estado das redes: X reativado (3.22.0; OAuth reconectado informado por Rafa, a confirmar com registro); coleta de insights de Instagram, Facebook e Threads funcionando; estados de métrica `ok`, `permission_required`, `access_denied`, `no_data` e `audience_below_minimum`. O item de 14/11/2026 sobre métricas de vídeo do Facebook pendentes foi entregue na 3.27.0.
+- [x] TikTok em análise, apenas estado registrado (escopos `user.info.basic`, `video.publish`, `video.upload` via `TIKTOK_PERMISSIONS`; arquivo de verificação do prefixo de URL; painel de compartilhamento de conteúdo; modo rascunho). Credenciais de produção já devolvidas (informado por Rafa).
+- [ ] Asaas em produção (`ASAAS_API_URL=https://api.asaas.com/v3`, webhook, `ACCOUNT_ERASURE_ENABLED=true`), informado por Rafa; confirmar no Render e no Asaas e registrar. O item de 12/11/2026 sobre contratação desligada em produção está superado se isso se confirmar.
+- [x] 504 no upload de vídeo corrigido (3.26.0: prazo de 180 s no proxy e `ffmpeg` com 1 thread). Identificação da empresa (Raffa Studio Produções) no site e páginas legais bilíngues (3.25.0 e 3.26.0).
+- [ ] **Meta App Review:** Business Verification da Raffa Studio Produções verificada; análise do app **enviada em 18/11/2026** com 11 permissões (`threads_basic`, `threads_content_publish`, `threads_manage_insights`, `instagram_basic`, `instagram_content_publish`, `instagram_manage_insights`, `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `read_insights`, `public_profile`); status "Análise em andamento", prazo de até 20 dias. Vídeos de demonstração de Threads e Instagram enviados; instruções de teste apontam para `https://shopee-bot-fj0w.onrender.com`; conta de teste usada (login e senha não documentados). **Regra: durante a análise não alterar casos de uso, permissões nem conexões de Facebook, Instagram e Threads.** Os itens de 12/11 e 14/11 sobre enviar `threads_manage_insights` e pedir App Review de `instagram_manage_insights` e `read_insights` estão cobertos por este envio.
+- [ ] Rafa: trocar a senha da conta de teste da Meta depois da revisão.
+- [ ] **Shopee Vídeo:** app 249826 (Shopee Video Management) enviado para Go Live em 18/11/2026 às 22:56, em análise (resultado por e-mail em até 24 h). Publicação continua desligada. Pendências técnicas: alinhar hosts (`apis/shopee_video.py` usa `partner.shopeemobile.com`; `api/shopee_video_oauth.py` usa `openplatform.shopee.com.br`); lista de caminhos permitidos sem `get_video_list`, `get_video_detail`, `delete_video` e desempenho; sem polling nem refresh automático; `shopee_video` fora de `NETWORK_RULES`; regra de 1 produto vale para todas as redes. Detalhes em [ESTADO-ATUAL-20261119](ESTADO-ATUAL-20261119.md).
+- [ ] **Plano (decisão de produto de Rafa, ainda não implementado):** o lote de post terá uma lista de produtos e cada rede receberá só o que aceita: Shopee Vídeo até 6 produtos vinculados, as demais redes 1 (limite por rede).
+- [ ] Verificar o teste `test_shopee_video_not_registered_as_live_api_endpoint` (`tests/api/test_security_release_contract_20261031.py`): exige que nenhuma rota comece com `/shopee-video`, mas o roteador existe em `api/main.py`. A verificar.
+- [x] Fluxo staging/produção: PR para staging com merge commit; release PR com bump de `VERSION` e `CHANGELOG`; PR staging para main com merge commit, nunca squash; árvores idênticas após cada release (a main ganha commits de merge extras). A cópia local antiga estava 1322 commits atrás e foi alinhada; backup das edições locais antigas de documentação em `local-private\backup-docs-locais-20261119\docs-locais-nao-commitados.patch` (fora do repositório).
+
 ## 14/11/2026 — Insights por post, Fase 2 (Instagram e Facebook)
 
 - [x] Coletores por post de Instagram e Facebook no mesmo pipeline do Threads (`api/meta_post_insights.py`, `api/post_insights.py`), histórico em `post_metrics`, cache em `publication_insights` + migração 103 (`reach`, `saves`). UI de Análises com Alcance, Salvamentos e aviso "Reconecte a conta para liberar insights".
@@ -208,6 +225,8 @@
 - [ ] Confirmar build/testes, CI, deploy LIVE de staging e QA visual; `main` apenas após aprovação de Rafa. Candidata `3.5.0`, sem bump de `VERSION` agora.
 
 ## 07/11/2026 — Shopee Vídeo afiliados — execução em staging
+
+> **Nota de revisão 2026-11-19:** as menções "bloqueado" e "inviável" ao Shopee Vídeo nas seções de 07/11/2026 e nos documentos de 15/10/2026 vinham da API de Afiliados. A Shopee Open Platform (`open.shopee.com`, `v2.media.*` e `v2.video.*`, guia oficial `https://open.shopee.com/developer-guide/706`) tem API de vídeo para o papel afiliado, e OAuth, cliente, rotas e migration 091 já existem; a publicação segue desligada e o app 249826 foi enviado para Go Live em 18/11/2026. Ver a atualização de 19/11/2026 no topo deste arquivo.
 
 - [x] Confirmada a categoria Shopee Video Management para criador afiliado e `auth_type=user` no guia oficial.
 - [x] PR [#331](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/pull/331) com [CI #1089 SUCCESS](https://github.com/raffastudioproducoes-cloud/shopee_bot-main/actions/runs/42398886627); merge **staging** `974f56b`, `VERSION=3.4.0` preservada; 3.5.0 candidata MINOR para release aprovada.
@@ -898,6 +917,9 @@ Detalhamento em `docs/POSTS-AJUSTES-RECORRENCIA-20261102.md`.
    staging. Medir buscas e cache antes de escalar no Render/Supabase.
 3. Somente depois do pentest e relatório, retomar Shopee Video, ainda condicionado
    à confirmação oficial de permissões e endpoint de publicação da Shopee.
+   *(Nota de revisão 2026-11-19: o app 249826 já foi enviado para Go Live em
+   18/11/2026 e o cliente existe com a publicação desligada; esta ordem de
+   16/10 ficou parcialmente superada. Ver o topo deste arquivo.)*
 
 > Fases e tarefas derivadas do PRD e do histórico real (`git log`, `docs/ROADMAP_MIGRACAO.md`,
 > `docs/CHECKLIST_MIGRACAO.md`, vault Obsidian `00-INDICE-Estado-Atual.md`). Uma tarefa só é
@@ -1279,10 +1301,33 @@ existente — diretriz, não tarefa isolada).
   Render `dep-db9as82vcj2c7395m750` live e `/health` 200. Pendente:
   reconciliação por provedor antes de retry de `unknown` e teste real de
   publicação com credenciais do usuário.
-- [ ] **Banco e consultas.** Medir com `EXPLAIN (ANALYZE, BUFFERS)` em staging representativo;
-  criar índices somente com evidência.
-- [ ] **Hospedagem e réplicas.** Separar API/worker, carga em staging, borda Cloudflare e ativação
-  gradual somente após os gates anteriores.
+- [ ] **Banco e buscas.** Medir consultas em cópia isolada e representativa do
+  Supabase (também com `EXPLAIN (ANALYZE, BUFFERS)`); comparar índices existentes e criar
+  apenas os que reduzirem latência real sem prejudicar escrita. *(Redação revista em 2026-10-16.)*
+- [ ] **Cache.** Medir leituras repetidas; testar TTL, invalidação e isolamento por
+  conta/perfil antes de ativar. Nunca cachear segredos ou autorização. *(Item acrescentado em 2026-10-16.)*
+- [ ] **Render e réplicas.** Separar API/worker no Render, testar recuperação e carga
+  isolada; ativação gradual somente após os gates anteriores. *(Substitui borda Cloudflare; decisão de 2026-10-16.)*
+
+**Infraestrutura (decisão de 2026-10-16, Rafa):** manter frontend/API no Render e
+PostgreSQL e Storage no Supabase. Cancelado o plano de migração de pilha inspirado
+no vídeo; índices, cache e escala horizontal seguem nessa infraestrutura. O
+Shopee Video ficaria depois do pentest e do relatório para a Shopee, e dependeria
+de confirmar endpoint/permissão oficial de publicação e de teste autorizado
+(parcialmente superado em 2026-11-19: ver o topo deste arquivo). O inventário de
+54 alertas do pentest continua pendente de revisão por ID e reteste.
+
+> **Histórico e itens superados (registro do patch local de 2026-10-16):**
+> a nota de que o login atual usava JWT próprio na API, e não Supabase Auth, está
+> **superada**: o Supabase Auth foi publicado em produção em 01/11/2026 (ver o
+> Guia Mestre). Os dois lotes de dependências DEP-E/DEP-D de `fix/pentest-54`
+> integrados **localmente** em `staging` (`ca858c9`, seis dependências, 810 testes
+> da API) foram depois implantados em `staging` (827 testes; ver as prioridades
+> acima). Em 2026-10-16, 62 testes de catálogo/escopo/segurança e 79 de
+> mídia/publicação passaram, `npm audit` do frontend zerou, `pip-audit` não
+> estava instalado e Dependabot Alerts respondeu 403 (alerts are disabled).
+> Nada disso fecha os 54 itens nem valida publicação real; o teste Flask extra
+> precisa das fixtures do `conftest.py` raiz.
 
 ## FUTURO - Rebranding Auto Orbital
 

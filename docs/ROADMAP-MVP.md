@@ -1,5 +1,9 @@
 # Roadmap do MVP — Auto Orbital
 
+> **Revisão 2026-10-16:** este documento é um snapshot de planejamento de 15/10; estados de branches, deploy e fila abaixo podem estar desatualizados. `publication_claims` e `publish_jobs` já chegaram a `main` com CI/Render verdes. Rafa decidiu manter Render e Supabase; não haverá migração de pilha inspirada no vídeo. Shopee Video seria retomado somente após o pentest e o relatório para a Shopee, além da confirmação oficial de permissão/endpoint do app; a pesquisa pública não prova inexistência global da API. Para execução atual, consultar `docs/TASK.md` e o TASK do Vault.
+>
+> **Revisão 2026-11-19:** o Pilar B abaixo (Shopee Vídeo "Bloqueado / Inviável") está **desatualizado**. A Shopee Open Platform (`open.shopee.com`, `v2.media.*` e `v2.video.*`, guia oficial `https://open.shopee.com/developer-guide/706`) tem API de vídeo para o papel afiliado; OAuth, cliente (`apis/shopee_video.py`), rotas e migration 091 já existem, a publicação segue desligada e o app 249826 foi enviado para Go Live em 18/11/2026. Meta App Review foi enviado em 18/11/2026; Reels, Asaas em produção e X reativado também mudaram o quadro. Ver [ESTADO-ATUAL-20261119.md](ESTADO-ATUAL-20261119.md).
+
 > **Plano Estratégico e Técnico de Lançamento**  
 > **Data:** 15 de outubro de 2026  
 > **Branch de Documentação:** `docs/handoff-2026-10-15` (worktree `_tmp/wt-docs`)  
@@ -59,7 +63,7 @@ O objetivo do MVP é alcançar estabilidade operacional, conformidade rigorosa c
 
 - **Objetivo:** Explorar novos canais de monetização de afiliados, em especial postagens de vídeo na Shopee e programas concorrentes (Amazon Associados, Mercado Livre Afiliados).
 - **Status Atual:**
-  - **Shopee Vídeo:** **Bloqueado / Inviável** (conforme relatório oficial em `_tmp/reports/shopee-video-viabilidade.md`).
+  - **Shopee Vídeo:** **Bloqueado / Inviável** (conforme relatório oficial em `_tmp/reports/shopee-video-viabilidade.md`). *(Histórico de 15/10/2026; revisado em 2026-11-19: ver a nota no topo e `docs/ESTADO-ATUAL-20261119.md`. A conclusão valia para a API de Afiliados, não para a Open Platform.)*
   - **Outras Afiliações:** **Planejamento Conceitual**.
 - **Dependências:**
   - **Shopee Vídeo:** Disponibilização pública de endpoints de postagem de vídeo no feed social por parte da Shopee Brasil.
