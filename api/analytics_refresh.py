@@ -50,7 +50,8 @@ async def refresh_account(user_id, profile_id, *, manual=False, claim_token=None
     except Exception:
         logger.exception("Falha sanitizada na coleta por publicação")
         states = {"threads": "unavailable", "facebook": "unavailable",
-                  "instagram": "unavailable", "tiktok": "unsupported", "x": "unsupported"}
+                  "instagram": "unavailable", "tiktok": "unsupported", "x": "unsupported",
+                  "shopee_video": "unsupported"}
     now = datetime.now(timezone.utc).isoformat()
     payload = {
         "last_completed_at": now,

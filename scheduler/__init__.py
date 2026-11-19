@@ -27,6 +27,7 @@ from shopee_bot.scheduler.bot_post import bot_post
 from shopee_bot.scheduler.bot_post_facebook import bot_post_facebook
 from shopee_bot.scheduler.bot_post_instagram import bot_post_instagram
 from shopee_bot.scheduler.bot_post_tiktok import bot_post_tiktok
+from shopee_bot.scheduler.bot_post_shopee_video import bot_post_shopee_video
 from shopee_bot.scheduler.bot_post_x import bot_post_x
 from shopee_bot.scheduler.update_products import update_products
 from shopee_bot.scheduler.publication_result import PublicationResult, unknown
@@ -82,6 +83,7 @@ PUBLISH_JOB_LEASE_SECONDS = 600
 MISSED_JOB_MESSAGE = "Horário de publicação perdido (servidor ocupado ou reiniciando). Publique de novo."
 PROFILE_SCOPED_FUNCS = frozenset({
     "bot_post", "bot_post_x", "bot_post_facebook", "bot_post_instagram", "bot_post_tiktok",
+    "bot_post_shopee_video",
 })
 NETWORK_BY_FUNC = {
     "bot_post": "threads",
@@ -89,6 +91,7 @@ NETWORK_BY_FUNC = {
     "bot_post_facebook": "facebook",
     "bot_post_instagram": "instagram",
     "bot_post_tiktok": "tiktok",
+    "bot_post_shopee_video": "shopee_video",
 }
 
 
@@ -471,6 +474,24 @@ def _run_billing_jobs():
     run_billing_jobs()
 
 
+SHOPEE_VIDEO_REFRESH_HOURS = 2
+
+
+def _run_shopee_video_token_refresh():
+    """Renova tokens Shopee Vídeo perto do vencimento (access < 1 h, refresh < 5 dias).
+
+    Por ambiente (linhas com environment próprio); sem app configurado não faz nada.
+    TikTok/X não têm rotina equivalente: renovam na publicação/teste."""
+    try:
+        from api.shopee_video_tokens import refresh_expiring
+        counts = refresh_expiring()
+    except Exception as err:
+        logger.warning("Renovação Shopee Vídeo falhou: %s", type(err).__name__)
+        return
+    if any(counts.values()):
+        logger.info("Renovação Shopee Vídeo: %s", counts)
+
+
 def init():
     global _scheduler, _shutting_down
     _shutting_down = False
@@ -571,6 +592,19 @@ def init():
         id="billing_asaas",
         jobstore="on_demand",
         next_run_time=datetime.now(pytz.utc) + timedelta(minutes=3),
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Shopee Vídeo: refresh_token de uso único (30 dias) e access de 4 h.
+    _scheduler.add_job(
+        _run_shopee_video_token_refresh,
+        trigger="interval",
+        hours=SHOPEE_VIDEO_REFRESH_HOURS,
+        id="shopee_video_token_refresh",
+        jobstore="on_demand",
+        next_run_time=datetime.now(pytz.utc) + timedelta(minutes=4),
         replace_existing=True,
         max_instances=1,
         coalesce=True,

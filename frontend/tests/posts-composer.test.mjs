@@ -11,6 +11,8 @@ test('compositor só oferece agora e recorrente, com produto individual', async 
   assert.match(page, /value: "cron", label: "Recorrente"/)
   assert.doesNotMatch(page, /value: "date", label: "Agendar"/)
   assert.match(picker, /type="radio"/)
+  assert.match(picker, /type="checkbox"/)
+  assert.match(picker, /const multiple = limit > 1 \|\| selectedIds\.length > 1/)
   assert.doesNotMatch(picker, /onToggleList/)
 })
 

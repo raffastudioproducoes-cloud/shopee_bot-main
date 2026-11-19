@@ -204,3 +204,52 @@ def test_adapt_media_escolhe_grupo_entre_os_modos_entregues(network, files, expe
 
     kept, _ = adapt_media(network, [_m(f) for f in files])
     assert _names(kept) == expected
+
+
+class TestShopeeVideo:
+    def test_rule_shape(self):
+        rule = NETWORK_RULES["shopee_video"]
+        assert rule["requires_media"] == "video" and rule["exts"] == {"mp4"}
+        assert rule["max_video"] == 1 and rule["max_image"] == 0
+        assert rule["max_chars"] == 150 and rule["delivered_modes"] == {"video"}
+        assert rule["supports_text_only"] is False and rule["max_products"] == 6
+        assert (rule["min_video_seconds"], rule["max_video_seconds"]) == (3, 60)
+
+    def test_other_networks_default_to_one_product(self):
+        from api.network_limits import max_products
+        assert max_products("shopee_video") == 6
+        for name in ("threads", "x", "facebook", "instagram", "tiktok"):
+            assert max_products(name) == 1
+
+    def test_caption_and_video_required(self):
+        video = [{"file_name": "v.mp4", "size": 10 * MB}]
+        assert _errors("shopee_video", ["a" * 150], video) == []
+        assert _errors("shopee_video", ["a" * 151], video) == [
+            "Shopee Vídeo: texto máx. 150 caracteres (você tem 151)"
+        ]
+        assert _errors("shopee_video", ["oi"], []) == ["Shopee Vídeo: exige 1 vídeo (.mp4)"]
+        assert "Shopee Vídeo: não aceita imagem" in _errors(
+            "shopee_video", ["oi"], video + [{"file_name": "a.jpg", "size": 1}])
+
+    def test_product_count_over_network_limit_is_clear_error(self):
+        video = [{"file_name": "v.mp4", "size": 1}]
+        assert _errors("shopee_video", ["oi"], video, product_count=6) == []
+        assert _errors("shopee_video", ["oi"], video, product_count=7) == [
+            "Shopee Vídeo: máx. 6 produto(s) por post (você tem 7)"
+        ]
+        assert _errors("threads", ["oi"], [], product_count=2) == [
+            "Threads: máx. 1 produto(s) por post (você tem 2)"
+        ]
+
+    def test_products_for_network_keeps_user_order(self):
+        from api.network_limits import products_for_network
+        ids = [30, 10, 20, 40, 50, 60, 70]
+        assert products_for_network("shopee_video", ids) == [30, 10, 20, 40, 50, 60]
+        assert products_for_network("threads", ids) == [30]
+        assert products_for_network("tiktok", []) == []
+
+    def test_adapt_media_keeps_single_mp4(self):
+        from api.network_limits import adapt_media
+        medias = [{"id": 1, "file_name": "a.jpg", "size": 1}, {"id": 2, "file_name": "v.mp4", "size": 1}]
+        kept, dropped = adapt_media("shopee_video", medias)
+        assert [m["id"] for m in kept] == [2] and dropped[0]["id"] == 1

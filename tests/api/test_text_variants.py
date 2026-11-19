@@ -41,7 +41,7 @@ def test_threads_and_x_are_separate():
 def test_all_networks_individual_versions():
     assert _plan(list(NETWORK_RULES)) == [
         (2200, ["facebook"]), (2200, ["instagram"]), (2200, ["tiktok"]),
-        (500, ["threads"]), (280, ["x"]),
+        (500, ["threads"]), (280, ["x"]), (150, ["shopee_video"]),
     ]
 
 

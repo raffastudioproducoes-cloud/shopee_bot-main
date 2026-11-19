@@ -49,6 +49,7 @@ export type AdminDiagnosticPlatform = {
 const ACTIVE_SOCIAL_DIAGNOSTICS: readonly { key: string; title: string }[] = [
   { key: "facebook", title: "Facebook" },
   { key: "instagram", title: "Instagram" },
+  { key: "shopee-video", title: "Shopee Vídeo" },
   { key: "kwai", title: "Kwai" },
   { key: "threads", title: "Threads" },
   { key: "tiktok", title: "TikTok" },
@@ -60,7 +61,6 @@ export function buildAdminDiagnosticSections(): Record<CredentialTab, AdminDiagn
     ...ACTIVE_SOCIAL_DIAGNOSTICS.map(({ key, title }) => ({
       key, title, category: "social" as const, availability: "active" as const,
     })),
-    { key: "shopee-video", title: "Shopee Vídeo", category: "social", availability: "planned" },
     ...FUTURE_CREDENTIAL_PLATFORMS.map(({ key, title, category }) => ({
       key, title, category, availability: "planned" as const,
     })),

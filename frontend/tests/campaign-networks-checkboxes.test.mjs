@@ -19,9 +19,12 @@ test("Publicação única e campanha compartilham a lista compacta das nove rede
   assert.match(picker, /type="checkbox"/)
   assert.match(picker, /disabled=\{disabled\}/)
   assert.match(picker, /state\?\.connected === true/)
-  assert.match(picker, /isNetworkDisabled\(key\)/)
+  assert.match(picker, /isNetworkDisabled\(network\)/)
   assert.match(picker, /!event\.currentTarget\.checked/)
   assert.match(planner, /<NetworkPicker selected=\{draft\.networks\}/)
+  // Shopee Vídeo só na publicação única: campanha restringe as redes aceitas.
+  assert.match(planner, /only=\{CAMPAIGN_NETWORKS\}/)
+  assert.match(picker, /Só na publicação única/)
   assert.equal((planner.match(/<NetworkPicker selected=/g) ?? []).length, 1)
   assert.doesNotMatch(planner, /<NetworkPicker selected=\{snapshot\.networks\}/)
   assert.match(planner, /networks: draft\.networks/)

@@ -115,6 +115,25 @@ export const NETWORK_HELP: Record<PostNetwork, NetworkHelp> = {
       { label: "TikTok — Primeiros passos", url: "https://developers.tiktok.com/doc/content-posting-api-get-started" },
     ],
   },
+  shopee_video: {
+    facts: [
+      { label: "Conta", value: "conta de afiliado Shopee autorizada pelo OAuth oficial (Shopee Video Management)" },
+      { label: "Produtos", value: "até 6 produtos vinculados ao vídeo; as demais redes recebem só o 1º" },
+      { label: "Comissão", value: "a Central informa 3% para vendas diretas atribuídas ao produto vinculado (carrinho em até 24 h após o clique, compra em até 7 dias)" },
+      { label: "Peso do arquivo", value: "não verificado nas fontes oficiais", unconfirmed: true },
+      { label: "Resolução e proporção", value: "não verificadas nas fontes oficiais; vertical 9:16 é o formato usual", unconfirmed: true },
+    ],
+    tips: [
+      "A publicação só fica disponível depois que você conecta sua conta de afiliado em Credenciais.",
+      "O produto precisa estar vinculado ao vídeo; link na legenda não substitui o vínculo.",
+      "A Shopee recomenda vídeos de até 30 segundos.",
+    ],
+    sources: [
+      { label: "Shopee Open Platform — Shopee Video", url: "https://open.shopee.com/developer-guide/706" },
+      { label: "Principais dúvidas sobre Shopee Vídeo", url: "https://help.shopee.com.br/portal/10/article/171162-Principais-dúvidas-sobre-Shopee-Video" },
+      { label: "Como adicionar produtos na Shopee Vídeo", url: "https://help.shopee.com.br/portal/10/article/165032" },
+    ],
+  },
 }
 
 const MB = 1024 * 1024
@@ -166,6 +185,11 @@ export function videoSummary(r: NetworkRule): string {
   return p.length ? p.join("; ") : NONE
 }
 
+export function productsSummary(r: NetworkRule): string {
+  const max = r.maxProducts ?? 1
+  return max === 1 ? "1 produto (o 1º da seleção)" : `até ${max} produtos`
+}
+
 export interface RuleRow {
   label: string
   value: string
@@ -183,5 +207,6 @@ export function ruleRows(net: PostNetwork): RuleRow[] {
     { label: "Formatos aceitos pelo app", value: r.exts.map((e) => "." + e).join(" "), unconfirmed: u("exts") },
     { label: "Imagem", value: imageSummary(r) },
     { label: "Vídeo", value: videoSummary(r), unconfirmed: u("videoMinSec", "videoMaxSec") },
+    { label: "Produtos vinculados", value: productsSummary(r) },
   ]
 }

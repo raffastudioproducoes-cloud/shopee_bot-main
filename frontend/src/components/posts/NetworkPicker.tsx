@@ -26,6 +26,14 @@ const LOGOS: Record<PostNetwork | "kwai", ReactNode> = {
     </>
   ),
   tiktok: <path d="M13.5 3v11.5a3.5 3.5 0 1 1-3.5-3.5M13.5 3c.3 2.6 2 4.4 5 4.6" />,
+  // Sacola Shopee com botão de play.
+  shopee_video: (
+    <>
+      <path d="M4.5 8h15l-1.2 12H5.7z" />
+      <path d="M9 8V6.5a3 3 0 0 1 6 0V8" />
+      <path d="M10.5 11.5v5l4-2.5z" />
+    </>
+  ),
   kwai: (
     <>
       <rect x="3" y="6" width="13" height="12" rx="3" />
@@ -52,7 +60,13 @@ export function NetworkLogo({ network, size = 22 }: { network: PostNetwork | "kw
   )
 }
 
-export const PICKER_NETWORKS: PostNetwork[] = ["threads", "x", "facebook", "instagram", "tiktok"]
+export const PICKER_NETWORKS: PostNetwork[] = ["threads", "x", "facebook", "instagram", "tiktok", "shopee_video"]
+
+/** Campanhas ainda não publicam em Shopee Vídeo (só a Publicação única). */
+export type CampaignNetwork = Exclude<PostNetwork, "shopee_video">
+export const CAMPAIGN_NETWORKS: CampaignNetwork[] = PICKER_NETWORKS.filter(
+  (network): network is CampaignNetwork => network !== "shopee_video",
+)
 
 export interface NetworkState {
   /** undefined = verificação ainda carregando; true = último teste real foi ok. */
@@ -64,8 +78,10 @@ export interface NetworkState {
 
 const SOCIAL_CHANNELS = buildAdminDiagnosticSections().social
 
-function isPublishingNetwork(key: string): key is PostNetwork {
-  return PICKER_NETWORKS.includes(key as PostNetwork)
+// Credenciais/Admin usam "shopee-video"; posts e limites usam "shopee_video".
+const pickerNetwork = (key: string): PostNetwork | undefined => {
+  const network = key === "shopee-video" ? "shopee_video" : key
+  return PICKER_NETWORKS.includes(network as PostNetwork) ? network as PostNetwork : undefined
 }
 
 interface NetworkPickerProps {
@@ -74,18 +90,23 @@ interface NetworkPickerProps {
   onToggle: (network: PostNetwork) => void
   /** Edição: a rede do post é fixa. */
   readOnly?: boolean
+  /** Redes que este fluxo publica; as demais aparecem como "Em breve". */
+  only?: readonly PostNetwork[]
 }
 
-export function NetworkPicker({ selected, states, onToggle, readOnly }: NetworkPickerProps) {
+export function NetworkPicker({ selected, states, onToggle, readOnly, only = PICKER_NETWORKS }: NetworkPickerProps) {
   return (
     <div className="compact-network-picker" role="group" aria-label="Redes sociais">
-      {SOCIAL_CHANNELS.map(({ key, title, availability }) => {
-        const supported = isPublishingNetwork(key)
-        const state = supported ? states[key] : undefined
-        const unavailable = supported ? isNetworkDisabled(key) : undefined
+      {SOCIAL_CHANNELS.map(({ key: catalogKey, title, availability }) => {
+        const network = pickerNetwork(catalogKey)
+        const key = network ?? catalogKey
+        const supported = network !== undefined && only.includes(network)
+        const state = supported ? states[network] : undefined
+        const unavailable = supported ? isNetworkDisabled(network) : undefined
         const ready = availability === "active" && supported && !unavailable && state?.connected === true
-        const checked = supported && selected.includes(key)
-        const reason = availability === "planned" || !supported ? "Em breve"
+        const checked = supported && selected.includes(network)
+        const reason = availability === "planned" || !network ? "Em breve"
+          : !supported ? "Só na publicação única"
           : unavailable ? "Indisponível"
           : state?.connected === undefined ? "Verificando conexão"
           : !state.connected ? "Não conectada" : "Conectada"
@@ -98,7 +119,7 @@ export function NetworkPicker({ selected, states, onToggle, readOnly }: NetworkP
             <input type="checkbox" checked={checked} disabled={disabled} value={key}
               aria-label={ready ? title : `${title} — ${reason}`}
               onChange={(event) => {
-                if (supported && !readOnly && (ready || !event.currentTarget.checked)) onToggle(key)
+                if (supported && !readOnly && (ready || !event.currentTarget.checked)) onToggle(network)
               }} />
             <span>{title}</span>
           </label>

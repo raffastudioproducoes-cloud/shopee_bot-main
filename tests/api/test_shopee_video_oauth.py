@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from api.crypto import decrypt, encrypt
 from api.main import app
 from api import shopee_video_oauth as oauth
+from api import shopee_video_tokens as tokens
 from api.routers import shopee_video
 from api.routers.auth import get_current_user_id
 from api.routers.profiles import get_current_profile_id
@@ -71,7 +72,7 @@ def test_exchange_code_only_accepts_single_affiliate_user(monkeypatch):
     result = asyncio.run(oauth.exchange_code(123, "test-partner-key", "authorization-code", sandbox=True))
     assert result["user_id_list"] == [98765]
     url, params, body = sent[0]
-    assert url.endswith(oauth.TOKEN_PATH) and "sandbox" in url
+    assert url == oauth.api_host(sandbox=True) + oauth.TOKEN_PATH
     assert body == {"code": "authorization-code", "partner_id": 123}
     assert params["sign"] == oauth.signature(123, "test-partner-key", oauth.TOKEN_PATH, 1700000000)
     assert "test-partner-key" not in str(sent)
@@ -92,6 +93,7 @@ def video_db(fake_db, monkeypatch):
             "access_token": encrypt("private-access"), "refresh_token": encrypt("private-refresh"),
             "expires_at": (now + timedelta(hours=1)).isoformat(),
             "refresh_expires_at": (now + timedelta(days=20)).isoformat(),
+            "needs_reconnect": False,
         }],
         "products": [
             {"user_id": "owner", "profile_id": "profile-a", "product_id": 11},
@@ -100,6 +102,8 @@ def video_db(fake_db, monkeypatch):
         ],
     })
     monkeypatch.setattr(shopee_video, "supabase", db)
+    monkeypatch.setattr(tokens, "supabase", db)
+    monkeypatch.setattr(tokens, "current_environment", lambda: "staging")
     monkeypatch.setattr(credentials, "supabase", db)
     monkeypatch.setattr(shopee_video, "current_environment", lambda: "staging")
     monkeypatch.setattr(shopee_video, "log_action", lambda *_, **__: None)
@@ -122,7 +126,8 @@ def test_user_status_never_exposes_global_or_personal_keys(video_db):
         response = client.get("/shopee-video/status")
         assert response.status_code == 200
         assert response.json() == {"configured": True, "connected": True, "token_valid": True,
-                                   "sandbox": True, "publishing_enabled": False}
+                                   "needs_reconnect": False, "sandbox": True,
+                                   "publishing_enabled": True}
         for secret in ("private-access", "private-refresh", "test-partner-key"):
             assert secret not in response.text
     with as_profile(profile_id="profile-b") as client:
@@ -167,11 +172,11 @@ def test_oauth_callback_binds_csrf_and_profile(video_db, monkeypatch):
 def test_refresh_is_restricted_to_own_profile(video_db, monkeypatch):
     received = []
 
-    async def refresh(*args, **kwargs):
+    def refresh(*args, **kwargs):
         received.append((args, kwargs))
         return {"access_token": "renewed-access", "refresh_token": "renewed-refresh", "expire_in": 14400}
 
-    monkeypatch.setattr(oauth, "refresh_token", refresh)
+    monkeypatch.setattr(oauth, "refresh_token_sync", refresh)
     with as_profile(profile_id="profile-b") as client:
         assert client.post("/shopee-video/refresh").status_code == 409
     with as_profile() as client:
@@ -194,3 +199,42 @@ def test_preview_verifies_owner_products_without_publishing(video_db):
         assert client.post("/shopee-video/preview", json={**body, "caption": "x" * 151}).status_code == 422
     assert decrypt(video_db.tables["shopee_video_authorizations"][0]["access_token"]) == "private-access"
 
+
+
+def test_status_without_app_or_with_reconnect_flag_disables_publishing(video_db):
+    video_db.tables["shopee_video_authorizations"][0]["needs_reconnect"] = True
+    with as_profile() as client:
+        state = client.get("/shopee-video/status").json()
+        assert state["needs_reconnect"] is True and state["publishing_enabled"] is False
+        assert client.post("/shopee-video/refresh").status_code == 409
+    video_db.tables["platform_shopee_video_apps"].clear()
+    with as_profile() as client:
+        state = client.get("/shopee-video/status").json()
+        assert state == {"configured": False, "connected": False, "token_valid": False,
+                         "needs_reconnect": False, "sandbox": None, "publishing_enabled": False}
+
+
+def test_credentials_list_includes_shopee_video_without_tokens(video_db):
+    with as_profile() as client:
+        response = client.get("/credentials")
+        assert response.status_code == 200, response.text
+        entry = response.json()["shopee_video"]
+        assert entry["connected"] is True and entry["needs_reconnect"] is False
+        assert entry["light"] == "green" and entry["publishing_enabled"] is True
+        for secret in ("private-access", "private-refresh", "test-partner-key"):
+            assert secret not in response.text
+    video_db.tables["shopee_video_authorizations"][0]["needs_reconnect"] = True
+    with as_profile() as client:
+        entry = client.get("/credentials").json()["shopee_video"]
+        assert entry["state"] == "expired" and entry["needs_reconnect"] is True
+        assert entry["publishing_enabled"] is False
+    with as_profile(profile_id="profile-b") as client:
+        entry = client.get("/credentials").json()["shopee_video"]
+        assert entry["connected"] is False and entry["light"] == "red"
+
+
+def test_campaign_credential_check_uses_valid_authorization(video_db, monkeypatch):
+    assert credentials._autotest_outcome("shopee_video", "owner", "profile-a") == ("ok", "Autorização válida")
+    video_db.tables["shopee_video_authorizations"][0]["needs_reconnect"] = True
+    state, message = credentials._autotest_outcome("shopee_video", "owner", "profile-a")
+    assert state == "error" and "reconecte" in message

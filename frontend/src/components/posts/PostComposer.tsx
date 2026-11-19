@@ -5,12 +5,14 @@ import { Eye } from "lucide-react"
 import { useAuthStore } from "../../stores/authStore"
 import { postsApi, type Post, type PostSchedule, type PostNetwork } from "../../api/posts"
 import { getUserTimeZone } from "../../lib/userTimeZone"
-import { credentialsApi, platformAiApi } from "../../api/credentials"
+import { credentialsApi, platformAiApi, type CredentialStatusWithLight } from "../../api/credentials"
+import { shopeeVideoApi, type ShopeeVideoStatus } from "../../api/shopeeVideo"
 import {
   NETWORK_RULES,
   isNetworkDisabled,
   mediaKind,
   planVariants,
+  productLimit,
   readMediaInfo,
   validateForNetwork,
   type Issue,
@@ -119,6 +121,17 @@ export interface PostComposerProps {
 
 type WhenOption = "now" | "cron"
 
+type ConnectionStatus = Pick<CredentialStatusWithLight, "state" | "status_text" | "missing_scopes">
+
+/** Fallback quando GET /credentials ainda não traz "shopee_video": usa /shopee-video/status. */
+function shopeeVideoConnection(status: ShopeeVideoStatus | undefined, failed: boolean): ConnectionStatus {
+  if (failed) return { state: "error", status_text: "não foi possível verificar o Shopee Vídeo" }
+  if (!status?.connected) return { state: "disconnected" }
+  if (status.needs_reconnect || !status.token_valid) return { state: "expired", status_text: "reconecte o Shopee Vídeo em Credenciais" }
+  if (!status.publishing_enabled) return { state: "error", status_text: "publicação ainda não liberada pela Shopee" }
+  return { state: "ok" }
+}
+
 export function PostComposer({ post, onClose, onSave, loading, error, results, credentials, onClear }: PostComposerProps) {
   const queryClient = useQueryClient()
   const [texts, setTexts] = useState<string[]>(
@@ -130,7 +143,7 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
   const [persona, setPersona] = useState("casual")
   const [networks, setNetworks] = useState<PostNetwork[]>(post ? [post.network ?? "threads"] : [])
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>(
-    post?.products.slice(0, 1).map((p) => p.id) ?? [],
+    post?.products.slice(0, productLimit([post.network ?? "threads"])).map((p) => p.id) ?? [],
   )
   const [productTab, setProductTab] = useState<"products" | "lists">("products")
   const [productListId, setProductListId] = useState<number | null>(null)
@@ -175,11 +188,13 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
       ? Object.fromEntries(Object.entries(draft.variantTexts).filter((entry) => typeof entry[1] === "string"))
       : {})
     setPersona(typeof draft?.persona === "string" ? draft.persona : "casual")
-    setNetworks(Array.isArray(draft?.networks)
+    const restoredNetworks = Array.isArray(draft?.networks)
       ? draft.networks.filter((net): net is PostNetwork => typeof net === "string" && net in NETWORK_RULES)
-      : [])
+      : []
+    setNetworks(restoredNetworks)
     setSelectedProductIds(Array.isArray(draft?.selectedProductIds)
-      ? draft.selectedProductIds.filter((id): id is number => typeof id === "number" && Number.isInteger(id)).slice(0, 1)
+      ? draft.selectedProductIds.filter((id): id is number => typeof id === "number" && Number.isInteger(id))
+        .slice(0, productLimit(restoredNetworks))
       : [])
     setProductTab(draft?.productTab === "lists" ? "lists" : "products")
     setProductListId(typeof draft?.productListId === "number" ? draft.productListId : null)
@@ -337,8 +352,15 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
   })
 
+  // Limite = maior maxProducts entre as redes marcadas. Acima dele (rede desmarcada) a
+  // seleção é mantida e enviada inteira: o backend corta o excedente por rede.
+  const maxSelectableProducts = productLimit(networks.filter((n) => !isNetworkDisabled(n)))
   const toggleProduct = (id: number) => {
-    setSelectedProductIds((prev) => prev.includes(id) ? [] : [id])
+    setSelectedProductIds((prev) => {
+      if (prev.includes(id)) return prev.filter((current) => current !== id)
+      if (maxSelectableProducts === 1 && prev.length <= 1) return [id]
+      return prev.length >= maxSelectableProducts ? prev : [...prev, id]
+    })
   }
 
   const setPartText = (index: number, value: string) => {
@@ -480,10 +502,21 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
       validateForNetwork(n, post ? draftFor(n) : { ...draftFor(n), media: compositionPlans[n].media }),
     ]),
   ) as Record<PostNetwork, Issue[]>
+  const shopeeVideoFallback = !post && credentials !== undefined && !credentials.shopee_video
+  const shopeeVideoStatusQuery = useQuery({
+    queryKey: ["shopee-video", "status", activeProfileId],
+    queryFn: shopeeVideoApi.status,
+    enabled: shopeeVideoFallback,
+    staleTime: 30_000,
+    retry: false,
+  })
   const states = Object.fromEntries(
     PICKER_NETWORKS.map((n) => {
-      const status = credentials?.[n]
-      const loaded = credentials !== undefined
+      const useFallback = n === "shopee_video" && shopeeVideoFallback
+      const status: ConnectionStatus | undefined = useFallback
+        ? (shopeeVideoStatusQuery.isPending ? undefined : shopeeVideoConnection(shopeeVideoStatusQuery.data, shopeeVideoStatusQuery.isError))
+        : credentials?.[n]
+      const loaded = credentials !== undefined && (!useFallback || !shopeeVideoStatusQuery.isPending)
       const functional = status?.state === "ok"
       const connectionReason = !loaded
         ? "verificando conexão"
@@ -641,6 +674,8 @@ export function PostComposer({ post, onClose, onSave, loading, error, results, c
           products={products} lists={lists} listId={productListId}
           onListChange={setProductListId}
           selectedIds={selectedProductIds}
+          limit={maxSelectableProducts}
+          onClear={post?.scheduled ? undefined : () => setSelectedProductIds([])}
           onToggle={post?.scheduled
             ? () => setPickMessage("Nesta revisão futura, o produto original será preservado; altere apenas o texto.")
             : toggleProduct}

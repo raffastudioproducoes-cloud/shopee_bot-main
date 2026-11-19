@@ -9,7 +9,7 @@ test('X reativado (14/11/2026): nao consta mais como rede desabilitada, mecanism
   const picker = source('../src/components/posts/NetworkPicker.tsx')
   assert.equal(DISABLED_NETWORKS.x, undefined)
   assert.doesNotMatch(picker, /plano pago/)
-  assert.match(picker, /isNetworkDisabled\(key\)/)
+  assert.match(picker, /isNetworkDisabled\(network\)/)
   assert.match(picker, /const ready = availability === "active" && supported && !unavailable/)
   assert.match(picker, /disabled=\{disabled\}/)
 })

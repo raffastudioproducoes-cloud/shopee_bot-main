@@ -25,7 +25,10 @@ export interface CredentialStatusWithLight extends CredentialStatus {
 
 export type CredentialState = 'disconnected' | 'untested' | 'expired' | 'error' | 'stale' | 'ok' | 'testing'
 
-export type CredentialsStatusMap = Record<SimpleNetwork | 'threads', CredentialStatusWithLight>
+// shopee_video: opcional enquanto o backend não devolver a chave (ausente = desconectado).
+export type CredentialsStatusMap = Record<SimpleNetwork | 'threads', CredentialStatusWithLight> & {
+  shopee_video?: CredentialStatusWithLight
+}
 
 export interface TestConnectionResult {
   light: ConnectionLight

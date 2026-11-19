@@ -14,6 +14,8 @@
 //  instagram: https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media
 //  tiktok:    https://developers.tiktok.com/doc/content-posting-api-reference-direct-post (título 2200)
 //             https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide (vídeo)
+//  shopee_video: https://open.shopee.com/developer-guide/706 (Shopee Video Management)
+//             https://help.shopee.com.br/portal/10/article/171162 (3–60 s, até 6 produtos)
 //
 // `unverified` lista as chaves que NÃO estão na doc oficial (ou cuja doc
 // cobre outro formato): violá-las vira aviso suave, não bloqueio.
@@ -63,6 +65,8 @@ export interface NetworkRule {
   videoAspect?: [number, number]
   /** Vídeo sai como Reels: proporção diferente de 9:16 vira só aviso (nunca bloqueio). */
   reelsAspectWarn?: boolean
+  /** Produtos vinculados por publicação; ausente = 1 (o backend corta o excedente por rede). */
+  maxProducts?: number
   unverified: string[]
 }
 
@@ -172,7 +176,33 @@ export const NETWORK_RULES: Record<PostNetwork, NetworkRule> = {
     videoMaxSide: 4096,
     unverified: [],
   },
+  shopee_video: {
+    label: "Shopee Vídeo",
+    maxChars: 150,
+    supportsTextOnly: false,
+    deliveredModes: ["video"],
+    charCount: "codepoints",
+    threadParts: false,
+    maxImages: 0,
+    maxGifs: 0,
+    maxVideos: 1,
+    allowMix: false,
+    requiresMedia: "video",
+    exts: ["mp4"],
+    maxBytes: {},
+    videoMinSec: 3,
+    videoMaxSec: 60,
+    maxProducts: 6,
+    // Peso, resolução e proporção do arquivo não aparecem nas fontes oficiais consultadas.
+    unverified: ["maxBytes", "videoMaxSide", "videoAspect"],
+  },
 }
+
+/** Produtos que a rede recebe por publicação (padrão 1). */
+export const maxProductsFor = (network: PostNetwork): number => NETWORK_RULES[network].maxProducts ?? 1
+
+/** Produtos selecionáveis no compositor: o maior limite entre as redes marcadas (mínimo 1). */
+export const productLimit = (networks: readonly PostNetwork[]): number => Math.max(1, ...networks.map(maxProductsFor))
 
 const URL_RE = /https?:\/\/\S+|www\.\S+/gi
 const HASHTAG_RE = /#[\p{L}\p{N}_]+/gu
@@ -264,6 +294,13 @@ export function validateForNetwork(network: PostNetwork, draft: PostDraft): Issu
   }
   if (rule.allowMix === false && new Set(media.map((m) => m.kind)).size > 1) {
     add("allowMix", "não mistura imagem, GIF e vídeo no mesmo post")
+  }
+  // Lista única de produtos no lote: rede de 1 produto recebe só o 1º (corte automático, não bloqueia).
+  const maxProducts = rule.maxProducts ?? 1
+  if (draft.productCount > maxProducts) {
+    issues.push(maxProducts > 1
+      ? { key: "maxProducts", level: "error", message: `${rule.label} aceita até ${maxProducts} produtos por vídeo.` }
+      : { key: "maxProducts", level: "warn", message: `${rule.label}: esta rede publicará apenas o 1º produto` })
   }
 
   for (const m of media) {
