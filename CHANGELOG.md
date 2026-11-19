@@ -5,6 +5,10 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.27.0] - 2026-11-19
+
+Funcionalidade nova (MINOR): Reels no Facebook e no Instagram, com painel "Publicar como Reels" no Criar Post; métricas de vídeo e Reels do Facebook; reposts e tempo médio assistido no Instagram; cliques do Facebook em posts só de produto. Validado na staging com um Reel real. Sem migração.
+
 Candidata MINOR (funcionalidade compatível). Sem migração e sem variável de ambiente nova.
 
 ### Added — Reels e insights (18/11/2026)
