@@ -59,7 +59,22 @@ def test_shopee_video_requires_explicit_authorization_and_feature_gate():
         ShopeeVideoClient(auth, enabled=False)
 
 
-def test_shopee_video_not_registered_as_live_api_endpoint():
-    """Preparatory client must not silently enable public publishing routes."""
+def test_shopee_video_routes_are_limited_to_oauth_status_and_preview():
+    """Shopee Vídeo expõe só OAuth, status e prévia; nada de upload ou postagem.
+
+    A rota /shopee-video existe desde o OAuth de afiliado (migration 091). Este
+    contrato antigo exigia que nenhuma rota existisse; agora exige que a lista
+    seja exatamente a esperada, para que publicar não seja ligado em silêncio.
+    Ao liberar a publicação, atualize esta lista junto com o publicador.
+    """
     paths = {route.path for route in app.routes if hasattr(route, "path")}
-    assert not any(path.startswith("/shopee-video") for path in paths)
+    shopee_video_paths = {p for p in paths if "shopee-video" in p}
+    assert shopee_video_paths == {
+        "/admin/shopee-video",
+        "/shopee-video/status",
+        "/shopee-video/authorize",
+        "/shopee-video/callback",
+        "/shopee-video/refresh",
+        "/shopee-video/authorization",
+        "/shopee-video/preview",
+    }

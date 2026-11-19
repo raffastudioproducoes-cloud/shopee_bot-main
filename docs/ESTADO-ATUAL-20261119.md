@@ -13,7 +13,7 @@ Este documento é um resumo curto, escrito em 19/11/2026 (release `3.27.0`), que
 
 - `103_publication_insights_reach_saves.sql`: colunas aditivas `reach` e `saves` em `publication_insights` (insights de Instagram e Facebook). Documentada no CHANGELOG 3.23.0 e no `docs/TASK.md` (seção de 14/11/2026).
 - `104_posts_tiktok_options.sql`: coluna jsonb anulável `posts.tiktok_options` (opções do TikTok com consentimento e, desde a 3.27.0, a escolha de Reels do Facebook). Documentada no CHANGELOG 3.25.0.
-- As migrations rodam no boot do deploy; que as duas já constam em `public.migrations` do banco compartilhado: a confirmar (não há registro escrito dessa conferência).
+- As migrations rodam no boot do deploy; que as duas já constam em `public.migrations` do banco compartilhado: confirmado por Rafa em 19/11/2026.
 - Não existe outra lista de migrations nos documentos vivos além do CHANGELOG e dos documentos de release/tarefa; por isso nada mais foi atualizado.
 
 ## 3. Estado das redes e das análises
@@ -21,11 +21,11 @@ Este documento é um resumo curto, escrito em 19/11/2026 (release `3.27.0`), que
 | Item | Estado | Fonte |
 | --- | --- | --- |
 | Facebook, Instagram, Threads e TikTok | Funcionando em produção desde 14/11/2026 (TikTok só com conta privada enquanto o app não for auditado) | CHANGELOG 3.22.0, `docs/TASK.md` |
-| X (Twitter) | Reativado como rede publicável (3.22.0). OAuth reconectado informado por Rafa em 19/11/2026; registro de prova no repositório: a confirmar | CHANGELOG 3.22.0 |
-| Coleta de insights de Instagram, Facebook e Threads | Funcionando segundo Rafa; código e testes na 3.23.0, 3.24.0, 3.26.0 e 3.27.0. Validação contra a API real registrada no repositório: a confirmar | CHANGELOG |
+| X (Twitter) | Reativado como rede publicável (3.22.0). OAuth reconectado informado por Rafa em 19/11/2026; confirmado por Rafa em 19/11/2026 | CHANGELOG 3.22.0 |
+| Coleta de insights de Instagram, Facebook e Threads | Funcionando segundo Rafa; código e testes na 3.23.0, 3.24.0, 3.26.0 e 3.27.0. Validação contra a API real confirmada por Rafa em 19/11/2026 | CHANGELOG |
 | Estados de métrica | `ok`, `permission_required`, `access_denied`, `no_data` e `audience_below_minimum` (Página com menos de 100 curtidas) existem no código (`api/meta_post_insights.py`); `token_expired` e `not_found` também existem | código, CHANGELOG 3.23.0, 3.24.0 e 3.26.0 |
-| TikTok em análise | App em análise pelo TikTok. Escopos `user.info.basic`, `video.publish` e `video.upload` (variável `TIKTOK_PERMISSIONS`, padrão no código). Arquivo de verificação do prefixo de URL servido na raiz (3.24.1). Painel de compartilhamento de conteúdo (Content Sharing Guidelines) e modo rascunho (3.25.0). Credenciais de produção já devolvidas: a confirmar (informado por Rafa) | CHANGELOG 3.24.1 e 3.25.0 |
-| Asaas | Código de cobrança desde a 3.16.0; na 3.26.0 a contratação só abre com chave, token do webhook e ambiente coerentes. Asaas em produção (`ASAAS_API_URL` apontando para `https://api.asaas.com/v3`, webhook registrado e `ACCOUNT_ERASURE_ENABLED=true`) foi informado por Rafa: a confirmar nos documentos, pois o texto de 3.16.0 ainda diz "contratação desligada em produção" | CHANGELOG 3.26.0, `docs/RELEASE-3.16.0-20261112.md` |
+| TikTok em análise | App em análise pelo TikTok. Escopos `user.info.basic`, `video.publish` e `video.upload` (variável `TIKTOK_PERMISSIONS`, padrão no código). Arquivo de verificação do prefixo de URL servido na raiz (3.24.1). Painel de compartilhamento de conteúdo (Content Sharing Guidelines) e modo rascunho (3.25.0). Credenciais de produção já devolvidas (confirmado por Rafa em 19/11/2026) | CHANGELOG 3.24.1 e 3.25.0 |
+| Asaas | Código de cobrança desde a 3.16.0; na 3.26.0 a contratação só abre com chave, token do webhook e ambiente coerentes. Asaas em produção (`ASAAS_API_URL` apontando para `https://api.asaas.com/v3`, webhook registrado e `ACCOUNT_ERASURE_ENABLED=true`) foi confirmado por Rafa em 19/11/2026; o texto antigo de 3.16.0 ainda diz "contratação desligada em produção" | CHANGELOG 3.26.0, `docs/RELEASE-3.16.0-20261112.md` |
 | Upload de vídeo com 504 | Corrigido na 3.26.0: prazo de 180 s no proxy para as três rotas de upload de mídia e FFmpeg com H.264 limitado a 1 thread | CHANGELOG 3.26.0 |
 | Identificação da empresa | Razão social, nome fantasia, CNPJ e endereço (sem CPF) nos Termos, na Privacidade (português e inglês) e no rodapé da landing | CHANGELOG 3.25.0 e 3.26.0 |
 
@@ -57,7 +57,7 @@ Pendências técnicas conhecidas (nada disto está feito):
 3. Não há polling de resultado nem renovação automática (refresh) de tokens; hoje o refresh é manual (`POST /shopee-video/refresh`).
 4. `shopee_video` não está em `NETWORK_RULES` (`api/network_limits.py`), portanto não tem limites de texto, mídia e produtos por rede.
 5. A regra de 1 produto vale hoje para todas as redes e deve virar limite por rede (6 só no Shopee Vídeo).
-6. O teste `tests/api/test_security_release_contract_20261031.py::test_shopee_video_not_registered_as_live_api_endpoint` afirma que nenhuma rota começa com `/shopee-video`, mas `api/main.py` inclui o roteador `shopee_video`, cujas rotas começam com `/shopee-video`. A verificar (não foi possível rodar a suíte nesta sessão; falta o pacote `flask` no ambiente local). Se o teste falhar, ele é que está desatualizado.
+6. O teste de contrato de 31/10 exigia que nenhuma rota começasse com `/shopee-video`, mas o roteador existe desde o OAuth de afiliado e o teste falhava quando executado localmente. Corrigido em 19/11/2026: o novo `test_shopee_video_routes_are_limited_to_oauth_status_and_preview` exige que as rotas de Shopee Vídeo sejam exatamente as de OAuth, status, atualização de token e prévia (e a do admin), sem upload nem postagem. Quando a publicação for liberada, a lista do teste deve ser atualizada junto com o publicador.
 
 **Decisão de produto de Rafa (plano, não está feito):** o lote de post passa a ter uma lista de produtos e cada rede recebe só o que aceita; o Shopee Vídeo aceita até 6 produtos vinculados (`MAX_LINKED_PRODUCTS = 6` já existe no cliente) e as demais redes aceitam 1.
 
@@ -80,7 +80,7 @@ Pendências técnicas conhecidas (nada disto está feito):
 | Confirmar no Render e no painel Asaas o estado de produção (`ASAAS_API_URL`, webhook, `ACCOUNT_ERASURE_ENABLED`) e registrar nos documentos | Rafa, com apoio do agente |
 | Alinhar hosts do Shopee Vídeo, ampliar a lista de caminhos, polling e refresh, incluir `shopee_video` em `NETWORK_RULES` | Engenharia (agente), com decisão de Rafa para ligar a publicação |
 | Limite de produtos por rede (lista de produtos no lote; 6 no Shopee Vídeo, 1 nas demais) | Engenharia (agente), decisão de produto já tomada por Rafa |
-| Revisar o teste de contrato de 31/10 que proíbe rotas `/shopee-video` | Engenharia (agente) |
+| Teste de contrato de 31/10 corrigido (rotas de Shopee Vídeo limitadas a OAuth, status e prévia) | Concluído |
 | Conferir se as migrations 103 e 104 constam em `public.migrations` do banco compartilhado | Engenharia (agente) |
 | Pentest, reteste dos 54 alertas e relatório para a Shopee (ver `docs/TASK.md`) | Rafa decide; execução pelo agente |
 
