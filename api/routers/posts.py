@@ -67,6 +67,7 @@ from .. import x_oauth
 from ..network_text import unwrap_network_text
 from ..tiktok_options import TikTokPostOptions, stored_options
 from ..tiktok_creator import require_allowed_choice
+from ..brand_filter import strip_brand
 from ..text_variants import generate_variants, generate_thread_replies, generate_short_product_description, MAX_THREAD_PARTS
 from ..internal_client import (
     create_scheduler_job,
@@ -1688,7 +1689,8 @@ async def generate_copy(
     provider, api_key, model = resolve_platform_ai_key()
 
     def complete(prompt: str, max_tokens: int) -> str:
-        return llm.complete(provider, api_key, model, prompt, max_tokens)
+        # Regra da Shopee: a marca nunca sai na descrição, mesmo se a IA desobedecer.
+        return strip_brand(llm.complete(provider, api_key, model, prompt, max_tokens))
 
     def generate():
         if body.description_only:
