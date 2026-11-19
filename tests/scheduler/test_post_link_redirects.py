@@ -69,3 +69,23 @@ def test_posts_get_rewrites_only_inside_active_publication(fake_db, monkeypatch)
         assert "/r/" in posts.get("u", 7, "p")[0]["text"]
     finally:
         publication_context.reset(tokens)
+
+
+def test_rewrite_link_uses_same_redirect_for_loose_product_link(fake_db):
+    tokens, _ = fake_db
+    tracked = redirects.rewrite_link("https://s.shopee.com.br/AbC1", "job-1")
+    assert tracked == f"https://autoorbital.example/r/{tokens[('job-1', 'https://s.shopee.com.br/AbC1')]}"
+    assert redirects.rewrite_link("", "job-1") == ""
+    assert redirects.rewrite_link("https://outro.site/x", "job-1") == "https://outro.site/x"
+
+
+def test_invalid_base_url_disables_silently_but_warns_once(monkeypatch, caplog):
+    monkeypatch.setattr(redirects, "_invalid_base_warned", [])
+    warnings = []
+    monkeypatch.setattr(redirects.logger, "warning", lambda msg, *a, **k: warnings.append(msg))
+    monkeypatch.setenv("CLICK_REDIRECT_BASE_URL", "http://inseguro.example/caminho")
+    assert redirects.redirect_base() is None
+    assert redirects.redirect_base() is None
+    assert len(warnings) == 1 and "inseguro" not in warnings[0]
+    monkeypatch.delenv("CLICK_REDIRECT_BASE_URL")
+    assert redirects.redirect_base() is None and len(warnings) == 1  # ausente: sem log

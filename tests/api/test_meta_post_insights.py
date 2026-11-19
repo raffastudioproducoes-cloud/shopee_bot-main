@@ -47,18 +47,43 @@ def test_instagram_success_maps_metrics_and_keeps_missing_as_none():
     (state, metrics, _), requests = _read(meta.read_instagram_media, "17890000000000001",
                                           lambda r: httpx.Response(200, json=IG_OK))
     assert state == "ok"
-    assert metrics == {"views": 120, "reach": 90, "likes": 0, "comments": 4, "shares": None, "saves": 2}
+    assert metrics == {"views": 120, "reach": 90, "likes": 0, "comments": 4, "shares": None, "saves": 2,
+                       "reposts": None}
     url = str(requests[0].url)
     assert requests[0].url.path == "/v26.0/17890000000000001/insights"
     assert "impressions" not in url and "plays" not in url and TOKEN not in url
     assert requests[0].headers["Authorization"] == f"Bearer {TOKEN}"
 
 
-def test_instagram_unknown_metric_falls_back_once():
+def test_instagram_feed_refuses_reels_metric_and_falls_back_without_it():
     answers = iter([_error(100), httpx.Response(200, json=IG_OK)])
-    (state, metrics, _), requests = _read(meta.read_instagram_media, "1789", lambda r: next(answers))
-    assert state == "ok" and len(requests) == 2
-    assert requests[1].url.params["metric"] == ",".join(meta.IG_FALLBACK)
+    (state, metrics, extra), requests = _read(meta.read_instagram_media, "1789", lambda r: next(answers))
+    assert state == "ok" and len(requests) == 2 and extra == {}
+    assert "ig_reels_avg_watch_time" in requests[0].url.params["metric"]
+    assert requests[1].url.params["metric"] == ",".join(meta.IG_FEED_METRICS)
+
+
+def test_instagram_unknown_metrics_reach_the_reduced_list():
+    answers = iter([_error(100), _error(100), _error(100), httpx.Response(200, json=IG_OK)])
+    (state, _, _), requests = _read(meta.read_instagram_media, "1789", lambda r: next(answers))
+    assert state == "ok" and len(requests) == 4
+    assert requests[3].url.params["metric"] == ",".join(meta.IG_FALLBACK)
+
+
+def test_instagram_reels_reposts_and_avg_watch_time():
+    body = {"data": IG_OK["data"] + [
+        {"name": "reposts", "period": "lifetime", "values": [{"value": 3}]},
+        {"name": "ig_reels_avg_watch_time", "period": "lifetime", "values": [{"value": 4250}]},
+    ]}
+    (state, metrics, extra), requests = _read(meta.read_instagram_media, "1789",
+                                              lambda r: httpx.Response(200, json=body))
+    assert state == "ok" and len(requests) == 1
+    assert metrics["reposts"] == 3 and extra == {"avg_watch_time_ms": 4250}
+    assert requests[0].url.params["metric"] == ",".join(meta.IG_METRICS)
+    row = post_insights.history_row({"id": "j", "network": "instagram", "external_id": "1789"},
+                                    7, state, metrics, extra=extra)
+    assert row["shares"] == 3 and row["extra"]["reposts"] == 3
+    assert row["extra"]["avg_watch_time_ms"] == 4250
 
 
 @pytest.mark.parametrize("response,expected", [
@@ -125,8 +150,68 @@ def test_facebook_photo_id_resolves_to_page_story_and_missing_shares_is_none():
 def test_facebook_photo_without_story_and_video_are_not_invented():
     (state, metrics, _), _ = _read(meta.read_facebook_post, "333", _facebook_handler(story=None))
     assert state == "sem_id" and metrics is None
+    # Vídeo: sem ID de post inventado; vai para /video_insights do próprio vídeo.
     (state, metrics, _), requests = _read(meta.read_facebook_post, "444", _facebook_handler())
-    assert state == "unsupported_type" and metrics is None and len(requests) == 1
+    assert metrics is None and requests[1].url.path.endswith("/444/video_insights")
+
+
+def _video_handler(answers):
+    queue = iter(answers)
+
+    def handler(request):
+        if request.url.params.get("fields") == "page_story_id":
+            return _error(100)  # nó Video não tem page_story_id
+        return next(queue)
+    return handler
+
+
+REELS_OK = {"data": [
+    {"name": "blue_reels_play_count", "period": "lifetime", "values": [{"value": 900}]},
+    {"name": "post_impressions_unique", "period": "lifetime", "values": [{"value": 700}]},
+    {"name": "post_video_avg_time_watched", "period": "lifetime", "values": [{"value": 6400}]},
+    {"name": "post_video_likes_by_reaction_type", "period": "lifetime", "values": [{"value": {"REACTION_LIKE": 8, "REACTION_LOVE": 2}}]},
+    {"name": "post_video_social_actions", "period": "lifetime", "values": [{"value": {"COMMENT": 4, "SHARE": 3}}]},
+]}
+VIDEO_OK = {"data": [
+    {"name": "total_video_views", "period": "lifetime", "values": [{"value": 120}]},
+    {"name": "total_video_impressions_unique", "period": "lifetime", "values": [{"value": 80}]},
+    {"name": "total_video_avg_time_watched", "period": "lifetime", "values": [{"value": 15000}]},
+    {"name": "total_video_reactions_by_type_total", "period": "lifetime", "values": [{"value": {"like": 5}}]},
+    {"name": "total_video_stories_by_action_type", "period": "lifetime", "values": [{"value": {"share": 1, "comment": 2, "like": 5}}]},
+]}
+
+
+def test_facebook_reel_metrics_map_to_existing_columns_and_extra():
+    (state, metrics, extra), requests = _read(meta.read_facebook_post, "555",
+                                              _video_handler([httpx.Response(200, json=REELS_OK)]))
+    assert state == "ok"
+    assert metrics == {"views": 900, "reach": 700, "likes": 10, "comments": 4, "shares": 3, "saves": None}
+    assert extra["avg_watch_time_ms"] == 6400 and extra["measured_as"] == "reels"
+    assert extra["measured_id"] == "555"
+    assert requests[1].url.params["metric"] == ",".join(meta.FB_REELS_METRICS)
+    assert all(TOKEN not in str(r.url) for r in requests)
+
+
+def test_facebook_regular_video_falls_back_from_reels_metrics():
+    (state, metrics, extra), requests = _read(meta.read_facebook_post, "556", _video_handler([
+        _error(100), httpx.Response(200, json=VIDEO_OK)]))
+    assert state == "ok" and extra["measured_as"] == "video" and extra["avg_watch_time_ms"] == 15000
+    assert metrics == {"views": 120, "reach": 80, "likes": 5, "comments": 2, "shares": 1, "saves": None}
+    assert requests[2].url.params["metric"] == ",".join(meta.FB_VIDEO_METRICS)
+
+
+@pytest.mark.parametrize("response", [_error(10, status=403), _error(200)])
+def test_facebook_video_without_permission_is_access_denied_not_reconnect(response):
+    (state, metrics, extra), requests = _read(meta.read_facebook_post, "557", _video_handler([response]))
+    assert state == "access_denied" and metrics is None
+    assert extra["reason"] == meta.VIDEO_PERMISSION_REASON
+    assert state not in meta.STOP_STATES  # a coleta dos outros posts segue
+    assert TOKEN not in str(extra)
+
+
+def test_facebook_video_token_expired_still_stops():
+    (state, _, _), _ = _read(meta.read_facebook_post, "558", _video_handler([_error(190, status=401)]))
+    assert state == "token_expired"
 
 
 def test_facebook_removed_post_and_missing_scope():

@@ -25,6 +25,7 @@ import { AiCopyControls } from "../posts/AiCopyControls"
 import { CampaignProductMediaSelector } from "./CampaignProductMediaSelector"
 import { TikTokDeclaration, TikTokPublishPanel } from "../posts/TikTokPublishPanel"
 import { emptyTikTokChoice, tiktokBlockReason, toTikTokPayload, type TikTokChoice } from "../../lib/tiktokSharing"
+import { FACEBOOK_REELS_REASON } from "../../lib/reelsOptions"
 import "./campaignPlanner.css"
 
 const weekdays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
@@ -121,6 +122,9 @@ export function CampaignPlanner({ credentials }: {
   const currentSaveSignatureRef = useRef("")
   // Consentimento TikTok explícito a cada salvamento/ativação: nunca restaurado nem com valor padrão.
   const [tiktokChoice, setTiktokChoice] = useState<TikTokChoice>(emptyTikTokChoice)
+  // "Publicar vídeos como Reels" no Facebook: desligado por padrão (o vídeo do produto
+  // não tem dimensões conhecidas aqui); o envio confere 9:16 e 3 a 90 s antes de publicar.
+  const [facebookReels, setFacebookReels] = useState(false)
   const draftKey = formDraftKey(userId, "campaign-preview", profileId)
 
   useAutosavedDraft<CampaignDraft>(draftKey, draft, (saved) => {
@@ -315,11 +319,12 @@ export function CampaignPlanner({ credentials }: {
         use_shopee_image: snapshots[id].useShopeeImage,
         product_media_ids: snapshots[id].selectedProductMediaIds,
         ...(draft.networks.includes("tiktok") ? { tiktok: toTikTokPayload(tiktokChoice) } : {}),
+        ...(draft.networks.includes("facebook") ? { facebook_reels: facebookReels } : {}),
       })),
       schedule: payload,
     }
   }, [selectedList, products, draft.name, draft.listId, draft.itemIds, draft.networks, snapshots, payload, canEditCampaign,
-    tiktokBlock, tiktokChoice])
+    tiktokBlock, tiktokChoice, facebookReels])
 
   const campaignAccessBlockReason = planQuery.isLoading
     ? "Consultando os limites e permissões do plano."
@@ -459,6 +464,7 @@ export function CampaignPlanner({ credentials }: {
         ? PICKER_NETWORKS.filter((network) => saved.items.every((item) => item.networks.includes(network)))
         : []
       setLegacyNetworkNotice(legacyNetworkNotice)
+      setFacebookReels(saved.items.some((item) => item.facebook_reels === true))
       setProductPage(1)
       setListOverride(source)
       setDraft({
@@ -604,6 +610,16 @@ export function CampaignPlanner({ credentials }: {
                   : creatorQuery.isError ? creatorQuery.error.message : null}
                 onRetry={() => { void creatorQuery.refetch() }}
               />
+            )}
+            {draft.networks.includes("facebook") && (
+              <fieldset className="tiktok-panel" aria-label="Publicar como Reels">
+                <legend>Publicar como Reels</legend>
+                <div className="tiktok-panel__field">
+                  <label><input type="checkbox" checked={facebookReels} disabled={!canEditCampaign}
+                    onChange={(event) => setFacebookReels(event.target.checked)} /> Facebook: publicar vídeos como Reels</label>
+                  <small>{FACEBOOK_REELS_REASON}; vídeo que não atender falha antes de ser enviado. Imagens seguem como post comum.</small>
+                </div>
+              </fieldset>
             )}
             {legacyNetworkNotice && (
               <p className="campaign-warning" role="status">

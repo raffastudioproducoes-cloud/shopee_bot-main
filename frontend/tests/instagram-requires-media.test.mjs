@@ -26,3 +26,15 @@ test('Instagram com imagem (inclusive foto Shopee importada) passa', () => {
   const media = [{ name: 'shopee-1.jpg', size: 1, kind: 'image' }]
   assert.equal(errors({ texts: ['oi'], media, productCount: 1 }).length, 0)
 })
+
+test('Instagram: vídeo fora de 9:16 só avisa (Reels), 9:16 não avisa', () => {
+  const aspect = (width, height) => validateForNetwork('instagram', {
+    texts: ['oi'], media: [{ name: 'v.mp4', size: 1000, kind: 'video', width, height, durationSec: 10 }], productCount: 0,
+  }).filter((i) => i.key === 'reelsAspect')
+  assert.equal(aspect(1080, 1920).length, 0)
+  assert.equal(aspect(720, 1280).length, 0)
+  const wide = aspect(1920, 1080)
+  assert.equal(wide.length, 1)
+  assert.equal(wide[0].level, 'warn')
+  assert.match(wide[0].message, /9:16/)
+})
