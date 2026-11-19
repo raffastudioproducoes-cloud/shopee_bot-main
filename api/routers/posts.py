@@ -301,6 +301,8 @@ class PostCreate(BaseModel):
     group_id: uuid.UUID | None = None
     # Escolhas explícitas do usuário para o TikTok (obrigatórias só nessa rede).
     tiktok: TikTokPostOptions | None = None
+    # "Publicar como Reels" (Facebook/Instagram); None = comportamento antigo.
+    reels: bool | None = None
 
     @model_validator(mode="after")
     def _only_recurring_for_legacy_create(self):
@@ -308,6 +310,7 @@ class PostCreate(BaseModel):
             raise ValueError("Agendamento avulso indisponível. Use Recorrente ou Agora.")
         self.texts = [unwrap_network_text(text, self.network) for text in self.texts]
         _require_tiktok_choice(self.network, self.tiktok)
+        _check_reels_choice(self.network, self.reels)
         return self
 
     @field_validator("texts")
@@ -334,16 +337,37 @@ def _require_tiktok_choice(network: str, tiktok: TikTokPostOptions | None) -> No
         raise ValueError("Opções do TikTok só valem para a rede TikTok.")
 
 
+def _check_reels_choice(network: str, reels: bool | None) -> None:
+    """Reels só no Facebook (opcional) e no Instagram (vídeo único é sempre Reels)."""
+    if reels is None:
+        return
+    if network not in ("facebook", "instagram"):
+        raise ValueError("Publicar como Reels só vale para Facebook e Instagram.")
+    if network == "instagram" and reels is False:
+        raise ValueError("No Instagram, vídeo único é sempre publicado como Reels.")
+
+
+def _stored_reels(network: str, reels: bool | None) -> dict | None:
+    """Escolha do Facebook gravada na head (posts.tiktok_options, jsonb da migração 104,
+    sem coluna nova; ver database/posts.py FACEBOOK_REELS_SQL). Instagram não grava:
+    o publicador já sai sempre como Reels."""
+    if network != "facebook" or reels is None:
+        return None
+    return {"reels": reels, "confirmed_at": datetime.now(timezone.utc).isoformat()}
+
+
 class PostComposition(BaseModel):
     network: NetworkLiteral
     texts: list[str]
     tiktok: TikTokPostOptions | None = None
+    reels: bool | None = None
 
     @model_validator(mode="after")
     def _plain_network_text(self):
         # Nunca grava o mapa {"rede": "texto"} da IA como texto do post.
         self.texts = [unwrap_network_text(text, self.network) for text in self.texts]
         _require_tiktok_choice(self.network, self.tiktok)
+        _check_reels_choice(self.network, self.reels)
         return self
 
     @field_validator("texts")
@@ -1538,6 +1562,7 @@ def _create_thread(
     group_id: str | None = None,
     publish_immediately: bool = False,
     tiktok: TikTokPostOptions | None = None,
+    reels: bool | None = None,
 ) -> dict:
     """Insere a thread inteira, encadeando post_id. Retorna a head.
 
@@ -1561,6 +1586,8 @@ def _create_thread(
                 row_data["group_id"] = group_id
             if tiktok is not None:  # migração 104: escolhas confirmadas pelo usuário
                 row_data["tiktok_options"] = stored_options(tiktok)
+            elif _stored_reels(network, reels) is not None:
+                row_data["tiktok_options"] = _stored_reels(network, reels)
         result = (
             supabase.table("posts")
             .insert(row_data)
@@ -1991,7 +2018,7 @@ async def create_post(
     head = _create_thread(
         user_id, body.texts, body.network, profile_id,
         str(body.group_id) if body.group_id else None,
-        tiktok=body.tiktok,
+        tiktok=body.tiktok, reels=body.reels,
     )
     _set_post_products(head["id"], body.product_ids)
     if medias:
@@ -2126,6 +2153,7 @@ async def create_posts_batch(
     drafts_by_id = {str(draft["id"]): draft for draft in drafts}
     plans = _preview_batch(body, drafts, _x_media_for(body, user_id, profile_id))
     tiktok_choice = next((c.tiktok for c in body.compositions if c.network == "tiktok"), None)
+    reels_choice = {c.network: c.reels for c in body.compositions}
     for plan in plans:
         if plan["network"] != "tiktok" or plan["mode"] == "blocked" or tiktok_choice is None:
             continue
@@ -2145,6 +2173,7 @@ async def create_posts_batch(
         head = _create_thread(
             user_id, plan["texts"], plan["network"], profile_id, group_id, body.publish_immediately,
             tiktok=tiktok_choice if plan["network"] == "tiktok" else None,
+            reels=reels_choice.get(plan["network"]),
         )
         fresh: dict[str, dict | None] = {}  # rascunhos consumidos só por este plano
         try:

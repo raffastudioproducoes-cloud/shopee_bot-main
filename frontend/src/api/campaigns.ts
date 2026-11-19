@@ -47,6 +47,8 @@ export interface CampaignDraftItemPayload {
   product_media_ids: string[]
   /** Obrigatório quando a campanha inclui TikTok. */
   tiktok?: TikTokOptionsPayload
+  /** Facebook: publicar vídeos como Reels (ausente = vídeo comum). */
+  facebook_reels?: boolean | null
 }
 
 export interface CampaignDraftSaveRequest {

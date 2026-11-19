@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { formatInstant } from '../lib/userTimeZone'
 import {
-  METRIC_LABELS, RANK_METRICS, TABLE_LABELS, TABLE_METRICS, UNAVAILABLE_TOOLTIP, collectionNote,
-  formatMetric, metricNote, seriesTotals, type RankMetric, type SeriesPoint, type TableMetric,
+  METRIC_LABELS, RANK_METRICS, TABLE_LABELS, TABLE_METRICS, UNAVAILABLE_TOOLTIP, WATCH_TIME_LABEL, WATCH_TIME_NOTE,
+  collectionNote, formatMetric, formatWatchTime, hasWatchTime, metricNote, seriesTotals, type RankMetric,
+  type SeriesPoint, type TableMetric,
 } from '../lib/postMetrics'
 import { Panel } from './ui/Panel'
 import { Select } from './ui/Select'
@@ -25,6 +26,8 @@ export type PostMetricRow = {
   status: string
   /** Curtidas da Página, só quando status = audience_below_minimum. */
   fan_count?: number | null
+  /** Tempo médio assistido em ms (Reels/vídeo Instagram e Facebook); null = "—". */
+  avg_watch_time_ms?: number | null
 } & Record<TableMetric, number | null>
 type ListResult = { posts: PostMetricRow[]; total: number; truncated: boolean }
 type NetworkRank = { network: string; posts: number; posts_measured: number; total: number | null; average: number | null }
@@ -96,6 +99,7 @@ export function PostMetricsPanel({ query, scopeKey }: PostMetricsPanelProps) {
     ? seriesTotals((series.data?.clicks ?? []).map((item) => ({ day: item.day, network: item.network, clicks: item.clicks })), 'clicks')
     : seriesTotals(series.data?.points ?? [], seriesMetric)
   const rows = list.data?.posts ?? []
+  const showWatchTime = hasWatchTime(rows)
   const total = list.data?.total ?? 0
   const metricOptions = RANK_METRICS.map((key) => ({ value: key, label: METRIC_LABELS[key] }))
 
@@ -157,12 +161,15 @@ export function PostMetricsPanel({ query, scopeKey }: PostMetricsPanelProps) {
                     <button type="button" aria-pressed={sort === key} onClick={() => toggleSort(key)}>
                       {TABLE_LABELS[key]}{sort === key ? (order === 'desc' ? ' ↓' : ' ↑') : ''}
                     </button></th>)}
+                  {showWatchTime && <th scope="col">{WATCH_TIME_LABEL}</th>}
                 </tr></thead>
                 <tbody>{rows.map((post) => <tr key={post.job_id}>
                   <td><strong>{NETWORK_NAMES[post.network] ?? post.network}</strong> · {post.preview}
                     {collectionNote(post.status, post.fan_count) && <div className="post-metrics-muted">{collectionNote(post.status, post.fan_count)}</div>}</td>
                   <td>{publishedAt(post.finished_at)}</td>
                   {TABLE_METRICS.map((key) => <td key={key}><Metric value={post[key]} note={metricNote(post.network, key)} /></td>)}
+                  {showWatchTime && <td><span title={typeof post.avg_watch_time_ms === 'number' ? WATCH_TIME_NOTE : UNAVAILABLE_TOOLTIP}>
+                    {formatWatchTime(post.avg_watch_time_ms)}</span></td>}
                 </tr>)}</tbody>
               </table></div>
               <div className="post-metrics-pager">

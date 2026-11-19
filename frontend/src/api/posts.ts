@@ -121,6 +121,8 @@ export interface PostComposition {
   texts: string[]
   /** Obrigatório na rede TikTok: escolhas explícitas do usuário. */
   tiktok?: TikTokOptionsPayload
+  /** "Publicar como Reels" (Facebook/Instagram); ausente = comportamento antigo. */
+  reels?: boolean
 }
 
 export interface PostBatchCreate {

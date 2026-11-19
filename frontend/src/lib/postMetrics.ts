@@ -19,10 +19,27 @@ export const TABLE_LABELS: Record<TableMetric, string> = {
   ...METRIC_LABELS, reach: 'Alcance', saves: 'Salvamentos',
 }
 
+/** Coluna extra, só exibida quando alguma linha tem o valor (Reels/vídeo Meta). */
+export const WATCH_TIME_LABEL = 'Tempo médio assistido'
+export const WATCH_TIME_NOTE = 'Tempo médio de reprodução por visualização (Reels/vídeo)'
+
+/** Milissegundos em segundos legíveis ("4,5 s", "1 min 05 s"); ausente = "—". */
+export function formatWatchTime(ms: unknown): string {
+  if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return '—'
+  const seconds = ms / 1000
+  if (seconds < 60) return `${seconds.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} s`
+  const whole = Math.round(seconds)
+  return `${Math.floor(whole / 60)} min ${String(whole % 60).padStart(2, '0')} s`
+}
+
+export function hasWatchTime(rows: { avg_watch_time_ms?: number | null }[]): boolean {
+  return rows.some((row) => typeof row.avg_watch_time_ms === 'number')
+}
+
 /** O que cada coluna significa em cada rede (tooltip da célula). Ausente = rótulo genérico. */
 const NETWORK_METRIC_NOTES: Record<string, Partial<Record<TableMetric, string>>> = {
   threads: { shares: 'Compartilhamentos + reposts' },
-  instagram: { views: 'Visualizações da mídia', reach: 'Contas alcançadas', saves: 'Salvamentos', shares: 'Compartilhamentos' },
+  instagram: { views: 'Visualizações da mídia', reach: 'Contas alcançadas', saves: 'Salvamentos', shares: 'Compartilhamentos + reposts' },
   facebook: { views: 'Visualizações de mídia do post', reach: 'Pessoas que viram a mídia', likes: 'Reações (todos os tipos)' },
 }
 

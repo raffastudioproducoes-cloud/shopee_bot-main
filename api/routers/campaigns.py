@@ -141,6 +141,8 @@ class CampaignDraftItem(BaseModel):
     # Escolhas TikTok confirmadas ao salvar/ativar (obrigatórias se TikTok marcado;
     # opcional no modelo para rascunhos antigos falharem com mensagem clara).
     tiktok: TikTokPostOptions | None = None
+    # "Publicar vídeos como Reels" no Facebook, gravado ao salvar; ausente = vídeo comum.
+    facebook_reels: bool | None = None
 
     @field_validator("product_media_ids")
     @classmethod
@@ -285,6 +287,7 @@ async def create_campaign_draft(
     for item in body.items:
         saved = item.model_dump(mode="json", by_alias=True)
         saved["tiktok"] = stored_options(item.tiktok) if item.tiktok and "tiktok" in item.networks else None
+        saved["facebook_reels"] = bool(item.facebook_reels) if "facebook" in item.networks else None
         saved["source_image"] = by_id[item.product_id].get("image")
         saved["use_shopee_image"] = bool(saved["source_image"]) and item.use_shopee_image
         product = by_id[item.product_id]
@@ -445,6 +448,7 @@ async def update_campaign_draft(
     for item in body.items:
         saved = item.model_dump(mode="json", by_alias=True)
         saved["tiktok"] = stored_options(item.tiktok) if item.tiktok and "tiktok" in item.networks else None
+        saved["facebook_reels"] = bool(item.facebook_reels) if "facebook" in item.networks else None
         previous = old_items[item.product_id]
         saved["source_image"] = previous.get("source_image")
         saved["use_shopee_image"] = bool(saved["source_image"]) and item.use_shopee_image

@@ -37,6 +37,60 @@ def get_tiktok_options(user_id, post_id, profile_id):
     return row["options"] if row else None
 
 
+# Escolha "Publicar como Reels" do Facebook, sem coluna nova: na head do post fica em
+# posts.tiktok_options (jsonb anulável da migração 104, que só a head do TikTok usava)
+# como {"reels": bool}; em campanha, no item do snapshot (`facebook_reels`). Ausente =
+# comportamento antigo (vídeo comum).
+FACEBOOK_REELS_SQL = """COALESCE(
+    CASE WHEN p.network = 'facebook' AND jsonb_typeof(p.tiktok_options->'reels') = 'boolean'
+         THEN (p.tiktok_options->>'reels')::boolean END,
+    (
+        SELECT (i->>'facebook_reels')::boolean
+        FROM public.campaign_network_slots_f4e s
+        JOIN public.campaign_reservations_f4e r ON r.id = s.reservation_id
+        CROSS JOIN LATERAL jsonb_array_elements(r.draft_snapshot->'items') i
+        WHERE s.post_id = p.id AND s.network = 'facebook'
+          AND (i->>'product_id')::integer = s.product_id
+          AND jsonb_typeof(i->'facebook_reels') = 'boolean'
+        LIMIT 1
+    ),
+    false)"""
+
+
+def get_facebook_reels(user_id, post_id, profile_id):
+    """True quando o usuário escolheu publicar o vídeo do Facebook como Reels."""
+    query = f"""
+        SELECT {FACEBOOK_REELS_SQL} AS reels
+        FROM public.posts p
+        WHERE p.id = %s AND p.user_id = %s AND p.profile_id = %s::uuid
+          AND p.post_id IS NULL
+    """
+    row = query_db(query, (post_id, user_id, profile_id), True)
+    return bool(row and row["reels"])
+
+
+def count_facebook_reels_last_24h(page_id):
+    """Envios de Reels já iniciados para a Página nas últimas 24 h (limite da Meta: 30).
+
+    Conta envios de posts marcados como Reels, sucesso ou em dúvida, de qualquer
+    perfil ligado à mesma Página. ponytail: conta o post marcado mesmo se a mídia
+    acabou sendo imagem (conservador); trocar por marca no envio se ficar apertado."""
+    query = f"""
+        SELECT COUNT(*) AS total
+        FROM public.publish_jobs job
+        JOIN public.posts p ON p.id = job.post_id
+        JOIN public.facebook_credentials fc ON fc.user_id = job.user_id
+          AND fc.profile_id IS NOT DISTINCT FROM job.profile_id
+        WHERE job.network = 'facebook'
+          AND fc.page_id = %s
+          AND job.status IN ('running', 'succeeded', 'unknown')
+          AND job.external_started_at >= now() - interval '24 hours'
+          AND {FACEBOOK_REELS_SQL}
+    """
+    row = query_db(query, (str(page_id),), True)
+    return int(row["total"]) if row else 0
+
+
 def get(user_id, post_id, profile_id):
     query = """
         WITH RECURSIVE post_hierarchy AS (

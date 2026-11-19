@@ -1,13 +1,15 @@
 from shopee_bot.apis import facebook as FacebookAPI
 from shopee_bot.clogging import logger
-from shopee_bot.database import schedulers, facebook_credentials, posts, products
+from shopee_bot.database import schedulers, facebook_credentials, posts, products, post_link_redirects
 from shopee_bot.database.activities import (
     insert_activities, activity_metadata_wrapper
 )
 from shopee_bot.database.activity_types import ActivityType
 from shopee_bot.scheduler.profile_scope import require_profile_id
 from shopee_bot.scheduler.publication_context import mark_external_delivery
+from shopee_bot.scheduler.publication_context import active_publish_job_id
 from shopee_bot.scheduler.media_delivery import delivery_url
+from shopee_bot.scheduler.video_probe import probe_mp4
 from shopee_bot.scheduler.publication_result import external_id, failed, succeeded, unknown
 from shopee_bot.utils import mark_not_published, was_not_published
 
@@ -23,6 +25,14 @@ def _local_url(media):
 def _not_sent(message):
     """Validação local antes de qualquer chamada ao Facebook."""
     return mark_not_published(RuntimeError(message))
+
+
+def _tracked_product(product):
+    """Post só de produto não passa por posts.get: o link de afiliado vai pelo
+    mesmo redirecionador de cliques (/r/{token}) que o texto das outras redes."""
+    link = product.get("commission_link") or product.get("original_link") or ""
+    tracked = post_link_redirects.rewrite_link(link, active_publish_job_id())
+    return product if tracked == link else {**product, "commission_link": tracked}
 
 
 def _first_image(post):
@@ -60,6 +70,30 @@ def _publish_video(page_access_token, page_id, media, caption):
     try:
         mark_external_delivery()
         return FacebookAPI.post_video_as_page(page_access_token, page_id, url, caption)
+    finally:
+        cleanup()
+
+
+def _publish_reel(job_id, page_access_token, page_id, media, caption):
+    """Reel com validação local antes de qualquer chamada à Meta (requisitos + 30/24 h)."""
+    url, cleanup = _local_url(media)
+    try:
+        info = probe_mp4(url)
+        problem = FacebookAPI.reel_requirements_error(media.get("file_name") or media.get("file_path"), info)
+        if problem:
+            raise _not_sent(problem)
+        warning = FacebookAPI.reel_aspect_warning(info)
+        if warning:
+            logger.warning(f"job #{job_id}: {warning}")
+        if info is None:
+            logger.warning(f"job #{job_id}: metadados do MP4 ilegíveis; a Meta valida o Reel no processamento")
+        if posts.count_facebook_reels_last_24h(page_id) >= FacebookAPI.REELS_PER_PAGE_24H:
+            raise _not_sent(
+                f"Facebook Reels: limite de {FacebookAPI.REELS_PER_PAGE_24H} Reels por Página em 24 h atingido. "
+                "Nada foi enviado; agende para mais tarde ou publique como vídeo comum."
+            )
+        mark_external_delivery()
+        return FacebookAPI.post_reel_as_page(page_access_token, page_id, url, caption)
     finally:
         cleanup()
 
@@ -122,7 +156,11 @@ def bot_post_facebook(job_id):
         elif medias and medias[0].get("type") == "VIDEO":
             if not page_access_token:
                 raise _not_sent("Facebook: vídeo exige conexão OAuth com token de Página.")
-            external = _publish_video(page_access_token, page_id, medias[0], root_post["text"])
+            # Escolha gravada ao agendar; post antigo sem escolha = vídeo comum.
+            if posts.get_facebook_reels(user_id, post_id, profile_id):
+                external = _publish_reel(job_id, page_access_token, page_id, medias[0], root_post["text"])
+            else:
+                external = _publish_video(page_access_token, page_id, medias[0], root_post["text"])
         elif image:
             if not page_access_token:
                 raise _not_sent("Facebook: imagem exige conexão OAuth com token de Página.")
@@ -134,7 +172,7 @@ def bot_post_facebook(job_id):
             # histórico do problema que isso resolve (App Token só
             # enxergava Páginas do PRÓPRIO app).
             if root_post["product_ids"]:
-                product = products.get(user_id, root_post["product_ids"][0], profile_id)
+                product = _tracked_product(products.get(user_id, root_post["product_ids"][0], profile_id))
                 mark_external_delivery()
                 external = FacebookAPI.post_product_as_page(page_access_token, page_id, product)
             else:
@@ -145,7 +183,7 @@ def bot_post_facebook(job_id):
             # migração pro app único — só funciona pra Páginas que o app
             # do Rafa administra.
             if root_post["product_ids"]:
-                product = products.get(user_id, root_post["product_ids"][0], profile_id)
+                product = _tracked_product(products.get(user_id, root_post["product_ids"][0], profile_id))
                 mark_external_delivery()
                 external = FacebookAPI.post_product(app_id, secret, page_id, product)
             else:

@@ -100,3 +100,16 @@ test('card Situação das redes usa o mesmo texto de curtidas da Página', () =>
   const panel = readFileSync(new URL('../src/components/PostMetricsPanel.tsx', import.meta.url), 'utf8')
   assert.match(panel, /collectionNote\(post\.status, post\.fan_count\)/)
 })
+
+test('Tempo médio assistido: formatação, traço e coluna só quando algum post traz o valor', () => {
+  assert.equal(pm.formatWatchTime(null), '—')
+  assert.equal(pm.formatWatchTime(undefined), '—')
+  assert.equal(pm.formatWatchTime(4500), `${(4.5).toLocaleString('pt-BR')} s`)
+  assert.equal(pm.formatWatchTime(65000), '1 min 05 s')
+  assert.equal(pm.hasWatchTime([{ avg_watch_time_ms: null }, {}]), false)
+  assert.equal(pm.hasWatchTime([{ avg_watch_time_ms: null }, { avg_watch_time_ms: 0 }]), true)
+  assert.equal(pm.METRIC_LABELS.shares, 'Compart./reposts')
+  const panel = readFileSync(new URL('../src/components/PostMetricsPanel.tsx', import.meta.url), 'utf8')
+  assert.match(panel, /showWatchTime && <th scope="col">\{WATCH_TIME_LABEL\}<\/th>/)
+  assert.match(panel, /formatWatchTime\(post\.avg_watch_time_ms\)/)
+})

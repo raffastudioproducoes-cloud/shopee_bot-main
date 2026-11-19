@@ -64,6 +64,7 @@ export function CreatePostPage() {
       publishNow: boolean
       productMediaIds: { productId: number; assetId: string }[]
       tiktok?: TikTokOptionsPayload
+      reels?: Partial<Record<PostNetwork, boolean>>
     }): Promise<NetworkResult[]> => {
       const draftMedia = []
       try {
@@ -80,6 +81,8 @@ export function CreatePostPage() {
             texts: data.textsByNetwork[network] ?? [],
             // Só no clique explícito do usuário; sem escolhas, o backend recusa (422).
             ...(network === "tiktok" && data.tiktok ? { tiktok: data.tiktok } : {}),
+            // "Publicar como Reels" gravado no ato de agendar; ausente = comportamento antigo.
+            ...(data.reels?.[network] !== undefined ? { reels: data.reels[network] } : {}),
           })),
           product_ids: data.product_ids,
           draft_media_ids: draftMedia.map((draft) => draft.id),
@@ -153,8 +156,9 @@ export function CreatePostPage() {
       publishNow: boolean,
       productMediaIds: { productId: number; assetId: string }[],
       tiktok?: TikTokOptionsPayload,
+      reels?: Partial<Record<PostNetwork, boolean>>,
     ) => {
-      createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, productImageIds, publishNow, productMediaIds, tiktok })
+      createMutation.mutate({ textsByNetwork, product_ids: productIds, schedule, networks, files, productImageIds, publishNow, productMediaIds, tiktok, reels })
     },
     [createMutation],
   )
