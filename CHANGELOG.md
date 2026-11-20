@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.28.1] - 2026-11-20
+
+Correção (PATCH): o endereço de autorização do sandbox do Shopee Vídeo apontava para um host que não existe. Sem migração e sem variável de ambiente nova.
+
+### Fixed
+
+- Shopee Vídeo: a página de autorização do ambiente de testes passa a usar `https://open.test-stable.shopee.com/auth` (o host `.com.br` do sandbox não resolve por DNS). Observação: esse endereço de testes recusa `auth_type=user` (aceita só `seller` ou `supplier`), então o fluxo de afiliado só pode ser validado de ponta a ponta no ambiente live, após a aprovação do Go Live.
+
 ## [3.28.0] - 2026-11-19
 
 Funcionalidade nova (MINOR): Shopee Vídeo completo no Criar Post (publicação única) e texto publicado sem a palavra "Shopee". Migration 105 aditiva e reentrante. A publicação só ocorre quando o app estiver configurado em `/admin/credentials` e o perfil conectado por OAuth; sem isso a rede aparece como pendente.
