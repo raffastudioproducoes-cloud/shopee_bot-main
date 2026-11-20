@@ -288,15 +288,26 @@ class ShopeeVideoClient:
         return {"video_upload_id": upload_id, "confirmation": success}
 
     # ── Consulta e gestão (formato dos campos a confirmar no primeiro teste real) ──
-    def get_video_list(self, *, page_no: int = 1, page_size: int = 20) -> dict:
+    # A Shopee exige list_type (1 ou 2): resposta real "list_type must be 1,2". O significado de
+    # cada valor (publicados x rascunhos) é a confirmar; por isso a conciliação olha os dois.
+    LIST_TYPES = (1, 2)
+
+    def get_video_list(self, *, page_no: int = 1, page_size: int = 20, list_type: int = 1) -> dict:
+        if list_type not in self.LIST_TYPES:
+            raise ShopeeVideoError("list_type inválido")
         return self._response("/api/v2/video/get_video_list", method="GET",
-                              payload={"page_no": page_no, "page_size": page_size})
+                              payload={"page_no": page_no, "page_size": page_size,
+                                       "list_type": list_type})
 
     def find_posted_video(self, upload_id: str) -> dict | None:
         """Procura na primeira página o vídeo publicado a partir deste upload."""
-        videos = self.get_video_list().get("video_list") or []
-        return next((v for v in videos if isinstance(v, dict)
-                     and v.get("video_upload_id") == upload_id), None)
+        for list_type in self.LIST_TYPES:
+            videos = self.get_video_list(list_type=list_type).get("video_list") or []
+            found = next((v for v in videos if isinstance(v, dict)
+                          and v.get("video_upload_id") == upload_id), None)
+            if found:
+                return found
+        return None
 
     def get_video_detail(self, video_id: str) -> dict:
         return self._response("/api/v2/video/get_video_detail", method="GET",

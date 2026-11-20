@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.29.2] - 2026-11-20
+
+Correção (PATCH): a consulta de vídeos do Shopee Vídeo não enviava o parâmetro obrigatório `list_type`. Sem migração e sem variável de ambiente nova.
+
+### Fixed
+
+- `v2.video.get_video_list` agora envia `list_type` (a Shopee respondeu "list_type must be 1,2" no primeiro teste real de conexão, o que também confirmou que host, assinatura e token estão aceitos). A conciliação de um post incerto (`find_posted_video`) olha as duas listas (1 e 2), porque o significado de cada valor ainda é a confirmar.
+
 ## [3.29.1] - 2026-11-20
 
 Correção (PATCH): o botão "Testar conexão" do Shopee Vídeo respondia erro 500. Sem migração e sem variável de ambiente nova.
