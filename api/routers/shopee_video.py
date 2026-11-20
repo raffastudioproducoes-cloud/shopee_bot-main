@@ -12,7 +12,11 @@ import asyncio
 from datetime import datetime, timezone
 import logging
 import os
+from urllib.parse import urlsplit
 
+from apis.shopee_video import (
+    ShopeeVideoAuthorization, ShopeeVideoClient, ShopeeVideoError, ShopeeVideoRejected,
+)
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
@@ -34,6 +38,7 @@ logger = logging.getLogger("uvicorn.error")
 APP_TABLE = tokens.APP_TABLE
 USER_TABLE = tokens.USER_TABLE
 OAUTH_COOKIE = "shopee_video_oauth_state"
+PING_TIMEOUT_SECONDS = 20
 MAX_DRAFT_BYTES = 50 * 1024 * 1024  # guarda conservadora do pipeline atual
 
 
@@ -188,6 +193,51 @@ async def refresh_video_authorization(
         raise HTTPException(status_code=503, detail="Falha ao renovar o acesso à Shopee Vídeo.") from None
     log_action("shopee_video_oauth_refreshed", user_id=user_id, profile_id=profile)
     return {"connected": True, "token_valid": True}
+
+
+def _ping_video_list(auth: tokens.ValidAuthorization) -> dict:
+    """get_video_list(1, 1): somente leitura. Síncrono; rode em thread."""
+    client = ShopeeVideoClient(
+        ShopeeVideoAuthorization(auth.partner_id, auth.partner_key, auth.shopee_user_id,
+                                 auth.access_token, permission_granted=True),
+        sandbox=auth.sandbox, enabled=True,
+    )
+    data = client.get_video_list(page_no=1, page_size=1)
+    videos = data.get("video_list")
+    return {
+        "ok": True, "http_reachable": True,
+        "videos_returned": len(videos) if isinstance(videos, list) else 0,
+        "response_keys": sorted(str(key) for key in data),
+        "sandbox": auth.sandbox,
+        "host": urlsplit(client.host).hostname or "",
+    }
+
+
+@router.post("/shopee-video/test-connection")
+async def test_video_connection(
+    user_id: str = Depends(get_current_user_id),
+    profile_id: str | None = Depends(get_current_profile_id),
+):
+    """Ping somente leitura (v2.video.get_video_list). Não publica nem devolve segredos."""
+    profile = _profile(profile_id)
+    try:
+        auth = await asyncio.to_thread(tokens.get_valid_authorization, user_id, profile)
+    except tokens.ShopeeVideoReconnectRequired:
+        raise HTTPException(status_code=409, detail=tokens.RECONNECT_MESSAGE) from None
+    except tokens.ShopeeVideoNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from None
+    except (oauth.ShopeeVideoOAuthError, ValueError, KeyError):
+        logger.warning("Autorização Shopee Vídeo indisponível no teste de conexão")
+        raise HTTPException(status_code=503, detail="Falha ao renovar o acesso à Shopee Vídeo.") from None
+    try:
+        result = await asyncio.wait_for(asyncio.to_thread(_ping_video_list, auth), PING_TIMEOUT_SECONDS)
+    except ShopeeVideoRejected as exc:
+        result = {"ok": False, "http_reachable": True, "shopee_error": exc.code,
+                  "shopee_message": exc.detail[:200], "request_id": exc.request_id}
+    except (ShopeeVideoError, asyncio.TimeoutError):
+        result = {"ok": False, "http_reachable": False, "error": "Falha de comunicação com a Shopee"}
+    log_action("shopee_video_test_connection", user_id=user_id, profile_id=profile, ok=result["ok"])
+    return result
 
 
 @router.delete("/shopee-video/authorization")
