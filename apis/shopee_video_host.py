@@ -11,7 +11,7 @@ credencial na URL, para a variável nunca virar SSRF.
 import os
 from urllib.parse import urlsplit
 
-LIVE_DEFAULT = "https://partner.shopeemobile.com"
+LIVE_DEFAULT = "https://openplatform.shopee.com.br"  # Brasil (o código vem de open.shopee.com.br)
 SANDBOX_DEFAULT = "https://partner.test-stable.shopeemobile.com"
 ALLOWED_DOMAINS = ("shopeemobile.com", "shopee.com.br", "shopee.com", "shopee.sg")
 
