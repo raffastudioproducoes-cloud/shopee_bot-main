@@ -8,7 +8,7 @@ from apis import shopee_video_host as host
 def test_defaults_are_partner_hosts(monkeypatch):
     monkeypatch.delenv("SHOPEE_VIDEO_API_BASE_URL", raising=False)
     monkeypatch.delenv("SHOPEE_VIDEO_SANDBOX_API_BASE_URL", raising=False)
-    assert host.api_base_url(sandbox=False) == "https://partner.shopeemobile.com"
+    assert host.api_base_url(sandbox=False) == "https://openplatform.shopee.com.br"
     assert host.api_base_url(sandbox=True) == "https://partner.test-stable.shopeemobile.com"
 
 

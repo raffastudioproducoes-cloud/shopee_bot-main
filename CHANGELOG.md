@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.28.3] - 2026-11-20
+
+Correção (PATCH): host de produção da API do Shopee Vídeo para o Brasil. Sem migração e sem variável de ambiente nova.
+
+### Fixed
+
+- Shopee Vídeo: a troca do código de autorização e as chamadas de vídeo passam a usar `https://openplatform.shopee.com.br` (Brasil). Antes usavam `partner.shopeemobile.com` e a Shopee respondia `invalid_code` ("o código expirou, foi usado ou é inválido") mesmo com a autorização concluída, porque o código é emitido no ambiente brasileiro (`open.shopee.com.br`). Continua sobrescrevível por `SHOPEE_VIDEO_API_BASE_URL`.
+
 ## [3.28.2] - 2026-11-20
 
 Correção (PATCH): conexão OAuth do afiliado no Shopee Vídeo. Sem migração e sem variável de ambiente nova.
