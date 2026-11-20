@@ -186,6 +186,27 @@ def test_find_posted_video_by_upload_id():
     assert client.find_posted_video("video-1")["video_id"] == "v1"
 
 
+def test_get_video_list_sends_required_list_type():
+    client, fake = _client([{"response": {"video_list": []}}])
+    client.get_video_list()
+    assert fake.calls[0][2]["params"]["list_type"] == 1
+
+
+def test_get_video_list_rejects_unknown_list_type():
+    client, _ = _client([])
+    with pytest.raises(sv.ShopeeVideoError):
+        client.get_video_list(list_type=3)
+
+
+def test_find_posted_video_looks_in_both_lists():
+    client, fake = _client([
+        {"response": {"video_list": []}},
+        {"response": {"video_list": [{"video_upload_id": "video-1", "video_id": "v1"}]}},
+    ])
+    assert client.find_posted_video("video-1")["video_id"] == "v1"
+    assert [call[2]["params"]["list_type"] for call in fake.calls] == [1, 2]
+
+
 def test_shopee_errors_dont_include_credentials_in_exception():
     client, _ = _client([{"error": "error_api_permission", "message": "token:test-token-never-live"}])
     with pytest.raises(sv.ShopeeVideoError) as exc:
