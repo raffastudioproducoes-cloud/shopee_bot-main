@@ -236,7 +236,7 @@ async def test_video_connection(
                   "shopee_message": exc.detail[:200], "request_id": exc.request_id}
     except (ShopeeVideoError, asyncio.TimeoutError):
         result = {"ok": False, "http_reachable": False, "error": "Falha de comunicação com a Shopee"}
-    log_action("shopee_video_test_connection", user_id=user_id, profile_id=profile, ok=result["ok"])
+    log_action("shopee_video_test_connection", f"ok={result['ok']}", user_id=user_id, profile_id=profile)
     return result
 
 

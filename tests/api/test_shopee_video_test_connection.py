@@ -38,7 +38,11 @@ def ping(monkeypatch):
     FakeClient.outcome = {"response": {"video_list": [{"video_id": "v1"}], "total": 1}}
     monkeypatch.setattr(tokens, "get_valid_authorization", lambda *_a, **_k: auth)
     monkeypatch.setattr(shopee_video, "ShopeeVideoClient", FakeClient)
-    monkeypatch.setattr(shopee_video, "log_action", lambda *a, **k: logged.append((a, k)))
+    def _strict_log_action(action, message=None, *, user_id=None, username=None, profile_id=None, force=False):
+        # Mesma assinatura de api.audit_log.log_action: argumento extra (ex.: ok=) vira TypeError.
+        logged.append((action, message))
+
+    monkeypatch.setattr(shopee_video, "log_action", _strict_log_action)
     app.dependency_overrides[get_current_user_id] = lambda: "owner"
     app.dependency_overrides[get_current_profile_id] = lambda: "profile-a"
     yield TestClient(app, base_url="https://testserver"), logged
@@ -60,7 +64,7 @@ def test_success_returns_only_counts_and_keys(ping):
         "host": "partner.test-stable.shopeemobile.com",
     }
     assert FakeClient.paths == [(1, 1)]
-    assert logged[0][0][0] == "shopee_video_test_connection" and logged[0][1]["ok"] is True
+    assert logged[0] == ("shopee_video_test_connection", "ok=True")
     _assert_no_secrets(response)
 
 
@@ -74,7 +78,7 @@ def test_shopee_rejection_is_reported_truncated(ping):
     assert response.status_code == 200
     assert body == {"ok": False, "http_reachable": True, "shopee_error": "error_auth",
                     "shopee_message": "m" * 200, "request_id": "req-1"}
-    assert logged[0][1]["ok"] is False
+    assert logged[0] == ("shopee_video_test_connection", "ok=False")
     _assert_no_secrets(response)
 
 
