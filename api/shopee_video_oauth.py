@@ -21,7 +21,7 @@ from apis.shopee_video_host import api_base_url
 
 
 LIVE_AUTH = "https://open.shopee.com.br/auth"
-SANDBOX_AUTH = "https://open.test-stable.shopee.com.br/auth"
+SANDBOX_AUTH = "https://open.test-stable.shopee.com/auth"  # o host .com.br do sandbox não existe (DNS)
 TOKEN_PATH = "/api/v2/auth/token/get"
 REFRESH_PATH = "/api/v2/auth/access_token/get"
 
