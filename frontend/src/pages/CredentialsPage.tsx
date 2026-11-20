@@ -19,7 +19,7 @@ import { Icon } from "../components/ui/Icon"
 import { Modal } from "../components/ui/Modal"
 import { isNetworkDisabled } from "../lib/networkLimits"
 import { groupCredentialCards } from "../lib/credentialSections"
-import { shopeeVideoApi, type ShopeeVideoStatus } from "../api/shopeeVideo"
+import { shopeeVideoApi, type ShopeeVideoStatus, type ShopeeVideoTestResult } from "../api/shopeeVideo"
 import { CREDENTIAL_BRAND_LOGOS, FUTURE_CREDENTIAL_PLATFORMS, type CredentialTab } from "../lib/credentialPlatforms"
 
 // Nenhum card USER recebe App ID/Secret. Shopee é ID de afiliado; redes
@@ -629,6 +629,13 @@ function ShopeeVideoCredentialCard({ status, onAuthError, setBanner }: {
     },
     onError: onAuthError,
   })
+  const [pingText, setPingText] = useState("")
+  const ping = useMutation({
+    mutationFn: shopeeVideoApi.testConnection,
+    onMutate: () => setPingText(""),
+    onSuccess: (result) => setPingText(shopeeVideoPingText(result)),
+    onError: () => setPingText("Sem resposta da Shopee"),
+  })
   const needsReconnect = Boolean(status?.connected && (status.needs_reconnect || !status.token_valid))
   const state = shopeeVideoCardState(status)
   return (
@@ -665,6 +672,10 @@ function ShopeeVideoCredentialCard({ status, onAuthError, setBanner }: {
         {status?.connected && !status.token_valid && !status.needs_reconnect && <Button type="button" variant="secondary"
           loading={refresh.isPending} disabled={refresh.isPending}
           onClick={() => refresh.mutate()}>Renovar acesso</Button>}
+        {state.label === "Autorizado" && <Button type="button" variant="secondary"
+          loading={ping.isPending} disabled={ping.isPending}
+          onClick={() => ping.mutate()}>Testar conexão</Button>}
+        {pingText && <p role="status">{pingText}</p>}
         {status?.connected && <Button type="button" variant="ghost" disabled={disconnect.isPending}
           onClick={() => disconnect.mutate()}>Desconectar deste perfil</Button>}
         <Button type="button" variant="primary" disabled={!status?.configured || authorize.isPending}
@@ -676,6 +687,12 @@ function ShopeeVideoCredentialCard({ status, onAuthError, setBanner }: {
       </div>
     </CredPanel>
   )
+}
+
+function shopeeVideoPingText(result: ShopeeVideoTestResult): string {
+  if (result.ok) return `Shopee respondeu (${result.videos_returned} vídeos)`
+  if (result.http_reachable) return `A Shopee recusou: ${result.shopee_message || result.shopee_error}`
+  return "Sem resposta da Shopee"
 }
 
 type ShopeeVideoCardState = { label: string; tone: "positive" | "warning" | "negative"; light: "green" | "yellow" | "red" }

@@ -5,6 +5,18 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.29.0] - 2026-11-20
+
+Funcionalidade nova (MINOR): teste de conexão somente leitura do Shopee Vídeo. Sem migração e sem variável de ambiente nova.
+
+### Added
+
+- `POST /shopee-video/test-connection` e botão "Testar conexão" no card do Shopee Vídeo (quando Autorizado): consulta `v2.video.get_video_list` (1 item, somente leitura) com a autorização do perfil e informa se a Shopee respondeu, quantos vídeos voltaram, ou o código e a mensagem da recusa. Não posta, não edita nem apaga nada, e nunca devolve tokens, ID de criador nem a resposta bruta.
+
+### Changed
+
+- Cliente do Shopee Vídeo: a recusa da Shopee passa a carregar o código, a mensagem (até 200 caracteres) e o request_id, sem mudar a mensagem de texto existente.
+
 ## [3.28.3] - 2026-11-20
 
 Correção (PATCH): host de produção da API do Shopee Vídeo para o Brasil. Sem migração e sem variável de ambiente nova.

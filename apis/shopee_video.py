@@ -59,6 +59,11 @@ class ShopeeVideoTransportError(ShopeeVideoError):
 class ShopeeVideoRejected(ShopeeVideoError):
     """A Shopee respondeu com erro explícito: a operação não foi aceita."""
 
+    def __init__(self, message: str, *, code: str = "", detail: str = "", request_id: str = "") -> None:
+        super().__init__(message)
+        # Só texto curto de diagnóstico; nunca o corpo bruto da resposta.
+        self.code, self.detail, self.request_id = code, detail, request_id
+
 
 class ShopeeVideoTimeout(ShopeeVideoError):
     """O processamento não terminou no prazo: resultado "unknown", não falha."""
@@ -132,7 +137,11 @@ class ShopeeVideoClient:
             raise ShopeeVideoError("Resposta da Shopee fora do formato esperado.")
         if body.get("error"):
             # Não devolver o corpo, URLs assinadas nem tokens ao cliente.
-            raise ShopeeVideoRejected("Shopee recusou a operação: " + str(body["error"])[:75])
+            raise ShopeeVideoRejected(
+                "Shopee recusou a operação: " + str(body["error"])[:75],
+                code=str(body["error"])[:75], detail=str(body.get("message") or "")[:200],
+                request_id=str(body.get("request_id") or "")[:100],
+            )
         return body
 
     def _response(self, path: str, **kwargs) -> dict:

@@ -82,4 +82,5 @@ def test_shopee_video_routes_are_limited_to_oauth_status_and_preview():
         "/shopee-video/refresh",
         "/shopee-video/authorization",
         "/shopee-video/preview",
+        "/shopee-video/test-connection",
     }
