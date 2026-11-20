@@ -5,6 +5,32 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.28.0] - 2026-11-19
+
+Funcionalidade nova (MINOR): Shopee Vídeo completo no Criar Post (publicação única) e texto publicado sem a palavra "Shopee". Migration 105 aditiva e reentrante. A publicação só ocorre quando o app estiver configurado em `/admin/credentials` e o perfil conectado por OAuth; sem isso a rede aparece como pendente.
+
+### Added — Shopee Vídeo
+
+- Rede `shopee_video` no Criar Post: vídeo MP4 de 3 a 60 s, legenda de até 150 caracteres e até 6 produtos vinculados por vídeo; as demais redes continuam com 1 produto. O lote leva uma lista única de produtos e cada rede grava só os primeiros N que aceita (`max_products`).
+- Publicador `scheduler/bot_post_shopee_video.py`: upload em partes com polling, capa, `edit_video_info` com `item_id` dos produtos e `post_video`; falha após `post_video` vira `unknown` e consulta `get_video_list` antes de qualquer nova tentativa; autorização inválida marca `needs_reconnect`.
+- Cliente completo (`apis/shopee_video.py`): todas as chamadas `v2.media.*` e `v2.video.*` assinadas como User-type, `get_video_list`, `get_video_detail`, `delete_video`, desempenho por vídeo.
+- Host único e seguro da API (`apis/shopee_video_host.py`), sobrescrevível por `SHOPEE_VIDEO_API_BASE_URL` e `SHOPEE_VIDEO_SANDBOX_API_BASE_URL` (somente https e domínios Shopee).
+- Tokens (`api/shopee_video_tokens.py`): renovação automática com gravação atômica do par novo e rotina periódica a cada 2 horas; refresh recusado marca reconexão necessária.
+- Card de Credenciais com os estados Configuração pendente, Pronto para conectar, Autorizado e Reconexão necessária; seletor de produtos múltiplo (até 6) quando o Shopee Vídeo está marcado.
+
+### Added — Texto sem a palavra Shopee
+
+- Os prompts da IA proíbem a palavra e o logo; o filtro `api/brand_filter.py` remove a palavra do texto gerado pela IA e do texto montado para publicação em todas as redes, sem alterar links de afiliado. Motivo: regra do programa de Afiliados Shopee Brasil sobre uso do logo e da palavra em nomes de redes sociais e sites.
+
+### Database
+
+- Migration `105_shopee_video_reconnect.sql`: colunas `needs_reconnect` e `reconnect_reason` em `shopee_video_authorizations` (aditiva, `IF NOT EXISTS`). Reversão: `ALTER TABLE public.shopee_video_authorizations DROP COLUMN needs_reconnect, DROP COLUMN reconnect_reason`.
+
+### Limites conhecidos
+
+- Campanhas por lista não aceitam Shopee Vídeo (as restrições do banco aceitam só 5 redes); a rede publica na publicação única.
+- Os campos `business` e `scene` do início do upload, o host regional do Brasil e o aceite de termos do afiliado serão confirmados no primeiro teste real, após a aprovação do Go Live da Shopee.
+
 ## [3.27.1] - 2026-11-19
 
 Correção (PATCH): documentação sincronizada com o estado real e teste de contrato do Shopee Vídeo corrigido. Sem migração e sem variável de ambiente nova.
