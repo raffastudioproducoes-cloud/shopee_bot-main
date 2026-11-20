@@ -238,3 +238,32 @@ def test_campaign_credential_check_uses_valid_authorization(video_db, monkeypatc
     video_db.tables["shopee_video_authorizations"][0]["needs_reconnect"] = True
     state, message = credentials._autotest_outcome("shopee_video", "owner", "profile-a")
     assert state == "error" and "reconecte" in message
+
+
+def test_exchange_code_accepts_single_user_id_field(monkeypatch):
+    """Afiliado: a Shopee pode devolver só `user_id` (sem `user_id_list`)."""
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"access_token": "access-123", "refresh_token": "refresh-123", "expire_in": 14400,
+                    "user_id": 98765}
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def post(self, url, *, params, json):
+            return Response()
+
+    monkeypatch.setattr(oauth.httpx, "AsyncClient", Client)
+    result = asyncio.run(oauth.exchange_code(123, "test-partner-key", "authorization-code", sandbox=False))
+    assert result["user_id_list"] == [98765]
