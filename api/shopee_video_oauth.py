@@ -12,12 +12,15 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import time
 from urllib.parse import urlencode
 
 import httpx
 
 from apis.shopee_video_host import api_base_url
+
+logger = logging.getLogger(__name__)
 
 
 LIVE_AUTH = "https://open.shopee.com.br/auth"
@@ -82,10 +85,21 @@ def _payload(response) -> object:
     return payload
 
 
+def _log_shopee_error(payload: object, path: str) -> None:
+    """Registra só o código, a mensagem e o request_id da Shopee (nunca tokens), para diagnóstico."""
+    if not isinstance(payload, dict):
+        logger.warning("Shopee Vídeo OAuth: resposta inesperada em %s", path)
+        return
+    logger.warning("Shopee Vídeo OAuth recusado em %s: error=%s message=%s request_id=%s", path,
+                   str(payload.get("error"))[:60], str(payload.get("message"))[:200],
+                   str(payload.get("request_id"))[:64])
+
+
 def _checked(payload: object, path: str) -> dict:
     if isinstance(payload, dict) and str(payload.get("error")) in TRANSIENT_ERRORS:
         raise ShopeeVideoOAuthError("Shopee indisponível no momento; tente de novo")
     if not isinstance(payload, dict) or payload.get("error"):
+        _log_shopee_error(payload, path)
         if path == REFRESH_PATH:
             raise ShopeeVideoRefreshRejected("A Shopee recusou a renovação do acesso de vídeo")
         raise ShopeeVideoOAuthError("A Shopee recusou a autorização de vídeo")
@@ -121,11 +135,13 @@ async def exchange_code(partner_id: int, partner_key: str, code: str, *, sandbox
     result = await _token_request(partner_id, partner_key, TOKEN_PATH, {
         "code": code, "partner_id": partner_id,
     }, sandbox=sandbox)
-    # Formato de user_id_list para afiliado: a confirmar no primeiro teste real.
-    ids = result.get("user_id_list") or []
+    # Afiliado (auth_type=user): a doc diz que a troca devolve só o user_id; aceitamos tanto
+    # `user_id` quanto `user_id_list` com um único item e normalizamos para `user_id_list`.
+    ids = result.get("user_id_list") or ([result["user_id"]] if result.get("user_id") else [])
     if not isinstance(ids, list) or len(ids) != 1 or not isinstance(ids[0], int) or ids[0] <= 0:
+        logger.warning("Shopee Vídeo OAuth: resposta sem um user_id único (campos: %s)", sorted(result.keys()))
         raise ShopeeVideoOAuthError("Autorização não identificou um criador Shopee único")
-    return result
+    return {**result, "user_id_list": ids}
 
 
 def refresh_token_sync(partner_id: int, partner_key: str, user_id: int, refresh: str, *, sandbox: bool) -> dict:

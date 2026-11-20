@@ -5,6 +5,18 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.28.2] - 2026-11-20
+
+Correção (PATCH): conexão OAuth do afiliado no Shopee Vídeo. Sem migração e sem variável de ambiente nova.
+
+### Fixed
+
+- Shopee Vídeo: a troca do código de autorização aceita o campo `user_id` (a doc diz que o afiliado recebe só o `user_id`, sem `user_id_list`); antes a conexão falhava com "Não foi possível autorizar Shopee Vídeo" mesmo após o login na Shopee.
+
+### Changed
+
+- Shopee Vídeo: quando a Shopee recusa a autorização, o log registra o código, a mensagem e o request_id da resposta (nunca tokens), para diagnosticar a causa.
+
 ## [3.28.1] - 2026-11-20
 
 Correção (PATCH): o endereço de autorização do sandbox do Shopee Vídeo apontava para um host que não existe. Sem migração e sem variável de ambiente nova.
