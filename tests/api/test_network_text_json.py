@@ -10,7 +10,8 @@ import sys
 import types
 from pathlib import Path
 
-import pytest
+import pytest
+from api.brand_filter import strip_brand
 from fastapi.testclient import TestClient
 
 from api.main import app
@@ -156,8 +157,9 @@ def db_posts(monkeypatch):
 
 
 @pytest.mark.parametrize("network, stored, expected", [
-    ("facebook", RAW_ONE_KEY, BODY.strip()),
-    ("threads", RAW_ONE_KEY, BODY.strip()),
+    # O texto publicado passa pelo filtro da marca (a palavra vira "loja").
+    ("facebook", RAW_ONE_KEY, strip_brand(BODY.strip())),
+    ("threads", RAW_ONE_KEY, strip_brand(BODY.strip())),
     ("facebook", json.dumps({"facebook": "FB", "threads": "TH"}), "FB"),
     ("threads", "Texto normal", "Texto normal"),
 ])

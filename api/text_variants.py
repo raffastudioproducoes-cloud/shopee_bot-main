@@ -13,6 +13,7 @@ from .network_limits import _URL_RE, _HASHTAG_RE, _MENTION_RE
 
 from .network_limits import NETWORK_RULES, validate_post
 from .network_text import unwrap_network_text
+from .brand_filter import BRAND_RULE, strip_brand
 
 # Teto recomendável de uma copy de vendas (mesmo do Instagram/TikTok).
 PRACTICAL_MAX_CHARS = 2200
@@ -102,7 +103,7 @@ def build_prompt(product: dict, persona: str, variants: list[dict]) -> str:
     link = product.get("commission_link") or product.get("original_link") or ""
     shape = ", ".join(f'"{v["key"]}": "texto"' for v in variants)
     return (
-        "Você escreve descrições comerciais para afiliados Shopee, em português do Brasil. "
+        "Você escreve descrições comerciais para afiliados de uma loja online, em português do Brasil. "
         f"Tom: {tone}.\n"
         f"Crie {len(variants)} versão(ões) diferentes para o MESMO produto, "
         "uma por rede social selecionada. Preserve informações verdadeiras do produto "
@@ -124,6 +125,7 @@ def build_prompt(product: dict, persona: str, variants: list[dict]) -> str:
         "- Instagram: legenda visual. Facebook: explicação e CTA naturais.\n"
         "- TikTok: legenda orientada a vídeo e ao contexto da plataforma.\n"
         "- Respeite também os limites individuais de hashtags, links e menções.\n"
+        f"- {BRAND_RULE}\n"
         "- Não explique o que fez. Responda SOMENTE com objeto JSON válido, "
         f"sem markdown, no formato: {{{shape}}}"
     )
@@ -137,7 +139,8 @@ def _shorten_prompt(variants: list[dict], texts: dict[str, str], issues: dict[st
     shape = ", ".join(f'"{v["key"]}": "texto"' for v in variants)
     return (
         "Os textos de post abaixo passaram do limite. Reescreva cada um MAIS CURTO, "
-        "mantendo o produto, o tom e o link de afiliado intactos:\n\n"
+        "mantendo o produto, o tom e o link de afiliado intactos. "
+        + BRAND_RULE + "\n\n"
         + "\n\n".join(parts)
         + f"\n\nResponda SOMENTE com um objeto JSON válido, sem markdown, no formato: {{{shape}}}"
     )
@@ -243,7 +246,7 @@ def _repair_variant(variant: dict, text: str, product: dict) -> str:
         return candidate
 
     # Não inventa características; nome e link vêm do catálogo do dono.
-    name = str(product.get("name") or "Produto Shopee").strip()
+    name = strip_brand(str(product.get("name") or "Produto")).strip() or "Produto"
     for size in range(len(name), -1, -1):
         short = compose(f"Confira {name[:size].rstrip()}")
         if not variant_issues(variant, short):
@@ -324,12 +327,12 @@ def generate_short_product_description(product: dict, persona: str, complete) ->
         f"Tom: {tone}\n"
         "Máximo de 220 caracteres de texto (incluindo emojis), idealmente até 160.\n"
         "Descreva o produto de forma natural e verdadeira, sem inventar funções, "
-        "preço, desconto, avaliações, urgência ou garantias. "
+        "preço, desconto, avaliações, urgência ou garantias. " + BRAND_RULE + " "
         "NÃO inclua links, URLs, @menções, hashtags, links de afiliados nem "
         "chamada para clicar. Entregue SOMENTE a descrição, sem aspas ou markdown."
     )
     raw = complete(prompt, 350)
-    text = _PRODUCT_DESCRIPTION_URL_RE.sub("", raw.strip())
+    text = strip_brand(_PRODUCT_DESCRIPTION_URL_RE.sub("", raw.strip()))
     text = re.sub(r"(?i)^\s*(?:descrição|legenda)\s*:\s*", "", text)
     text = re.sub(r"\s+", " ", text).strip().strip(chr(34) + chr(39) + chr(96)).strip()
     if not text:
@@ -423,7 +426,7 @@ def generate_thread_replies(
     link = product.get("commission_link") or product.get("original_link") or ""
     prompt = (
         "Você escreve uma sequência de respostas para uma publicação comercial "
-        "de afiliados Shopee, em português do Brasil.\n"
+        "de afiliados de uma loja online, em português do Brasil. " + BRAND_RULE + "\n"
         + UNTRUSTED_DATA_RULE
         + data_block(
             produto=str(product.get("name", ""))[:300],

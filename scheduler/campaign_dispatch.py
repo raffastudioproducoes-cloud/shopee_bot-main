@@ -21,6 +21,7 @@ PUBLISHERS = {
     "facebook": "bot_post_facebook",
     "instagram": "bot_post_instagram",
     "tiktok": "bot_post_tiktok",
+    "shopee_video": "bot_post_shopee_video",
 }
 
 
@@ -119,10 +120,12 @@ def drain():
 
     from shopee_bot.scheduler import (
         bot_post, bot_post_x, bot_post_facebook, bot_post_instagram, bot_post_tiktok,
+        bot_post_shopee_video,
     )
     publishers = {
         "threads": bot_post, "x": bot_post_x, "facebook": bot_post_facebook,
         "instagram": bot_post_instagram, "tiktok": bot_post_tiktok,
+        "shopee_video": bot_post_shopee_video,
     }
     for _ in range(10):
         if is_shutting_down():

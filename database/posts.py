@@ -4,6 +4,7 @@ import pytz
 from datetime import datetime
 from shopee_bot.database import query_db, execute_db
 from shopee_bot.database import post_content_snapshot, post_link_redirects
+from api.brand_filter import strip_brand
 from api.network_text import unwrap_network_text
 
 
@@ -91,6 +92,21 @@ def count_facebook_reels_last_24h(page_id):
     return int(row["total"]) if row else 0
 
 
+def get_shopee_item_ids(user_id, post_id, profile_id):
+    """products.product_id (itemId externo da Shopee) dos produtos do post, na
+    ordem escolhida pelo usuário (display_order). Só a head; escopo de dono/perfil."""
+    query = """
+        SELECT pr.product_id
+        FROM public.posts p
+        JOIN public.posts_products pp ON pp.post_id = p.id
+        JOIN public.products pr ON pr.id = pp.product_id AND pr.user_id = p.user_id
+        WHERE p.id = %s AND p.user_id = %s AND p.profile_id = %s::uuid
+          AND p.post_id IS NULL
+        ORDER BY pp.display_order, pp.product_id
+    """
+    return [row["product_id"] for row in query_db(query, (post_id, user_id, profile_id))]
+
+
 def get(user_id, post_id, profile_id):
     query = """
         WITH RECURSIVE post_hierarchy AS (
@@ -173,9 +189,10 @@ def get(user_id, post_id, profile_id):
     parts = post_content_snapshot.apply_to_parts(
         query_db(query, args), post_content_snapshot.get()
     )
-    # Nunca publica o mapa {"rede": "texto"} da IA: só o texto da rede.
+    # Nunca publica o mapa {"rede": "texto"} da IA: só o texto da rede. Depois,
+    # a marca "Shopee" é removida (regra do programa de Afiliados); só encurta.
     parts = [
-        {**part, "text": unwrap_network_text(part.get("text"), part.get("network"))}
+        {**part, "text": strip_brand(unwrap_network_text(part.get("text"), part.get("network")))}
         for part in parts or []
     ]
     return post_link_redirects.rewrite_parts(parts, _active_publish_job_id())

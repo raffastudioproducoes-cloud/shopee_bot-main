@@ -20,6 +20,8 @@ import re
 
 import httpx
 
+from api.brand_filter import BRAND_RULE, strip_brand
+
 PROVIDERS = ("gemini", "openai", "anthropic")
 
 DEFAULT_MODELS = {
@@ -69,7 +71,7 @@ def _build_prompt(product, persona):
     tone = PERSONA_TONES.get(persona, PERSONA_TONES["casual"])
 
     return (
-        "Você é um copywriter de afiliados da Shopee. Escreva um post persuasivo "
+        "Você é um copywriter de afiliados de uma loja online. Escreva um post persuasivo "
         f"para divulgar o produto abaixo, em português do Brasil, com {tone}.\n\n"
         f"Produto: {name}\n"
         f"Comissão: {commission}%\n"
@@ -81,6 +83,7 @@ def _build_prompt(product, persona):
         "de linha naturais.\n"
         "- Não use aspas no início/fim, não explique o que fez e não repita "
         "estas instruções.\n"
+        f"- {BRAND_RULE}\n"
         "- Retorne apenas o texto do post."
     )
 
@@ -172,8 +175,8 @@ def complete(provider: str, api_key: str, model: str | None, prompt: str,
 
 
 def generate_product_copy(product, persona, provider, api_key, model=None):
-    """Texto de afiliado Shopee a partir de um produto; chave só no servidor."""
-    return complete(provider, api_key, model, _build_prompt(product, persona))
+    """Texto de afiliado a partir de um produto; chave só no servidor."""
+    return strip_brand(complete(provider, api_key, model, _build_prompt(product, persona)))
 
 
 def check_key(provider, api_key, model=None):

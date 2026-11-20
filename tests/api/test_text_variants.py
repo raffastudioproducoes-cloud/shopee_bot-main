@@ -41,7 +41,7 @@ def test_threads_and_x_are_separate():
 def test_all_networks_individual_versions():
     assert _plan(list(NETWORK_RULES)) == [
         (2200, ["facebook"]), (2200, ["instagram"]), (2200, ["tiktok"]),
-        (500, ["threads"]), (280, ["x"]),
+        (500, ["threads"]), (280, ["x"]), (150, ["shopee_video"]),
     ]
 
 
@@ -404,3 +404,14 @@ def test_batch_persists_replies_only_for_supported_network(api):
     first_reply = next(row for row in rows if row.get("post_id") == thread_head["id"])
     assert first_reply["text"] == "Passo dois"
     assert any(row.get("post_id") == first_reply["id"] and row["text"] == "Passo três" for row in rows)
+
+
+def test_generate_copy_never_returns_shopee_word(api):
+    from api.brand_filter import mentions_brand
+    c, _db, mp = api
+    _fake_llm(mp, json.dumps({"facebook": "Corre na Shopee! #shopee " + LINK}))
+    res = c.post("/posts/generate-copy", json={"product_id": 1, "networks": ["facebook"]})
+
+    assert res.status_code == 200, res.text
+    assert res.json()["text"] == "Corre na loja! " + LINK
+    assert not mentions_brand(res.text.replace(LINK, ""))

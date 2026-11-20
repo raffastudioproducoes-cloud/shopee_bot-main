@@ -30,3 +30,5 @@
 
 .post-product-picker-clear{justify-self:start;border:0;background:transparent;color:var(--accent);padding:4px 2px;font:var(--text-role-caption);cursor:pointer}
 .post-product-picker-clear:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.post-product-picker-order{margin-left:auto;flex:0 0 auto;min-width:26px;padding:1px 6px;border-radius:var(--r-pill);background:var(--accent);color:var(--surface-inset);font:var(--fw-semibold) var(--fs-caption)/1.4 var(--font-sans);text-align:center;font-variant-numeric:tabular-nums}
+.post-product-picker-item input:disabled{cursor:not-allowed;opacity:.5}

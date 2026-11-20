@@ -4,6 +4,8 @@ export type ShopeeVideoStatus = {
   configured: boolean
   connected: boolean
   token_valid: boolean
+  /** Token expirado sem renovação possível: o usuário precisa autorizar de novo. */
+  needs_reconnect?: boolean
   sandbox: boolean | null
   publishing_enabled: boolean
 }
