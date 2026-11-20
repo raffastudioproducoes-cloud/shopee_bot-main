@@ -5,6 +5,14 @@ versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [3.29.1] - 2026-11-20
+
+Correção (PATCH): o botão "Testar conexão" do Shopee Vídeo respondia erro 500. Sem migração e sem variável de ambiente nova.
+
+### Fixed
+
+- `POST /shopee-video/test-connection` chamava `log_action` com um argumento que a função não aceita (`ok=`), então a rota quebrava logo depois de consultar a Shopee e o botão mostrava "Sem resposta da Shopee". Agora o resultado vai na mensagem do registro. O teste passou a usar um `log_action` com a assinatura real, que teria pego o defeito.
+
 ## [3.29.0] - 2026-11-20
 
 Funcionalidade nova (MINOR): teste de conexão somente leitura do Shopee Vídeo. Sem migração e sem variável de ambiente nova.
